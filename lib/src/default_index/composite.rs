@@ -367,7 +367,7 @@ impl CompositeCommitIndex {
         self.heads_pos(result)
     }
 
-    pub(super) fn all_heads(&self) -> impl Iterator<Item = CommitId> + use<'_> {
+    pub(super) fn all_heads(&self) -> impl Iterator<Item = CommitId> {
         self.all_heads_pos()
             .map(move |pos| self.entry_by_pos(pos).commit_id())
     }

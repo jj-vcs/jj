@@ -1116,10 +1116,10 @@ impl JjBuilder {
 /// multiple times, the parsing will pick any of the available ones, while the
 /// actual execution of the command would fail.
 mod parse {
-    pub(super) fn parse_flag<'a, I: Iterator<Item = String>>(
-        candidates: &'a [&str],
-        mut args: I,
-    ) -> impl Iterator<Item = String> + use<'a, I> {
+    pub(super) fn parse_flag(
+        candidates: &[&str],
+        mut args: impl Iterator<Item = String>,
+    ) -> impl Iterator<Item = String> {
         std::iter::from_fn(move || {
             for arg in args.by_ref() {
                 // -r REV syntax

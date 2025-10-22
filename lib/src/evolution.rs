@@ -58,7 +58,7 @@ impl CommitEvolutionEntry {
     }
 
     /// Predecessor commit objects of this commit.
-    pub fn predecessors(&self) -> impl ExactSizeIterator<Item = BackendResult<Commit>> + use<'_> {
+    pub fn predecessors(&self) -> impl ExactSizeIterator<Item = BackendResult<Commit>> {
         let store = self.commit.store();
         self.predecessor_ids().iter().map(|id| store.get_commit(id))
     }

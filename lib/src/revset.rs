@@ -2517,7 +2517,7 @@ fn to_resolved_ref(
 fn all_formatted_bookmark_symbols(
     repo: &dyn Repo,
     include_synced_remotes: bool,
-) -> impl Iterator<Item = String> + use<'_> {
+) -> impl Iterator<Item = String> {
     let view = repo.view();
     view.bookmarks().flat_map(move |(name, bookmark_target)| {
         let local_target = bookmark_target.local_target;

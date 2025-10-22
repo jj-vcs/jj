@@ -687,10 +687,10 @@ pub struct MaterializedTreeDiffEntry {
     pub values: BackendResult<(MaterializedTreeValue, MaterializedTreeValue)>,
 }
 
-pub fn materialized_diff_stream<'a>(
-    store: &'a Store,
-    tree_diff: BoxStream<'a, CopiesTreeDiffEntry>,
-) -> impl Stream<Item = MaterializedTreeDiffEntry> + use<'a> {
+pub fn materialized_diff_stream(
+    store: &Store,
+    tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
+) -> impl Stream<Item = MaterializedTreeDiffEntry> {
     tree_diff
         .map(async |CopiesTreeDiffEntry { path, values }| match values {
             Err(err) => MaterializedTreeDiffEntry {

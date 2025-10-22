@@ -457,7 +457,7 @@ impl ReadonlyCommitIndexSegment {
     fn overflow_changes_from(
         &self,
         overflow_pos: u32,
-    ) -> impl Iterator<Item = LocalCommitPosition> + use<'_> {
+    ) -> impl Iterator<Item = LocalCommitPosition> {
         let table = &self.data[self.change_overflow_base..];
         let offset = (overflow_pos as usize) * 4;
         let (chunks, _remainder) = table[offset..].as_chunks();

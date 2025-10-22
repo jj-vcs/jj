@@ -325,10 +325,10 @@ impl StringPattern {
 
     /// Iterates entries of the given `map` whose string keys match this
     /// pattern.
-    pub fn filter_btree_map<'a, 'b, K: Borrow<str> + Ord, V>(
-        &'b self,
+    pub fn filter_btree_map<'a, K: Borrow<str> + Ord, V>(
+        &self,
         map: &'a BTreeMap<K, V>,
-    ) -> impl Iterator<Item = (&'a K, &'a V)> + use<'a, 'b, K, V> {
+    ) -> impl Iterator<Item = (&'a K, &'a V)> {
         self.filter_btree_map_with(map, |key| key, |key| key)
     }
 
@@ -337,10 +337,10 @@ impl StringPattern {
     ///
     /// The borrowed key type is constrained by the `Deref::Target`. It must be
     /// convertible to/from `str`.
-    pub fn filter_btree_map_as_deref<'a, 'b, K, V>(
-        &'b self,
+    pub fn filter_btree_map_as_deref<'a, K, V>(
+        &self,
         map: &'a BTreeMap<K, V>,
-    ) -> impl Iterator<Item = (&'a K, &'a V)> + use<'a, 'b, K, V>
+    ) -> impl Iterator<Item = (&'a K, &'a V)>
     where
         K: Borrow<K::Target> + Deref + Ord,
         K::Target: AsRef<str> + Ord,
@@ -349,20 +349,15 @@ impl StringPattern {
         self.filter_btree_map_with(map, AsRef::as_ref, AsRef::as_ref)
     }
 
-    fn filter_btree_map_with<'a, 'b, K, Q, V, FromKey, ToKey>(
-        &'b self,
+    fn filter_btree_map_with<'a, K, Q, V>(
+        &self,
         map: &'a BTreeMap<K, V>,
-        from_key: FromKey,
-        to_key: ToKey,
-        // TODO: Q, FromKey, and ToKey don't have to be captured, but
-        // "currently, all type parameters are required to be mentioned in the
-        // precise captures list" as of rustc 1.85.0.
-    ) -> impl Iterator<Item = (&'a K, &'a V)> + use<'a, 'b, K, Q, V, FromKey, ToKey>
+        from_key: impl Fn(&Q) -> &str,
+        to_key: impl Fn(&str) -> &Q,
+    ) -> impl Iterator<Item = (&'a K, &'a V)>
     where
         K: Borrow<Q> + Ord,
         Q: Ord + ?Sized,
-        FromKey: Fn(&Q) -> &str,
-        ToKey: Fn(&str) -> &Q,
     {
         if let Some(key) = self.as_exact() {
             Either::Left(map.get_key_value(to_key(key)).into_iter())

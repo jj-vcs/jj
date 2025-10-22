@@ -464,11 +464,11 @@ fn collect_resolved<'input>(hunks: impl IntoIterator<Item = MergeHunk<'input>>) 
 }
 
 /// Iterator that attempts to resolve trivial merge conflict for each hunk.
-fn resolve_diff_hunks<'a, 'input>(
-    diff: &'a ContentDiff<'input>,
+fn resolve_diff_hunks<'input>(
+    diff: &ContentDiff<'input>,
     num_diffs: usize,
     same_change: SameChange,
-) -> impl Iterator<Item = Merge<&'input BStr>> + use<'a, 'input> {
+) -> impl Iterator<Item = Merge<&'input BStr>> {
     diff.hunks().map(move |diff_hunk| match diff_hunk.kind {
         DiffHunkKind::Matching => {
             debug_assert!(diff_hunk.contents.iter().all_equal());

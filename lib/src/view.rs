@@ -146,20 +146,20 @@ impl View {
 
     /// Iterates local bookmarks `(name, target)` in lexicographical order where
     /// the target adds `commit_id`.
-    pub fn local_bookmarks_for_commit<'a, 'b>(
-        &'a self,
-        commit_id: &'b CommitId,
-    ) -> impl Iterator<Item = (&'a RefName, &'a RefTarget)> + use<'a, 'b> {
+    pub fn local_bookmarks_for_commit(
+        &self,
+        commit_id: &CommitId,
+    ) -> impl Iterator<Item = (&RefName, &RefTarget)> {
         self.local_bookmarks()
             .filter(|(_, target)| target.added_ids().contains(commit_id))
     }
 
     /// Iterates local bookmark `(name, target)`s matching the given pattern.
     /// Entries are sorted by `name`.
-    pub fn local_bookmarks_matching<'a, 'b>(
-        &'a self,
-        pattern: &'b StringPattern,
-    ) -> impl Iterator<Item = (&'a RefName, &'a RefTarget)> + use<'a, 'b> {
+    pub fn local_bookmarks_matching(
+        &self,
+        pattern: &StringPattern,
+    ) -> impl Iterator<Item = (&RefName, &RefTarget)> {
         pattern
             .filter_btree_map_as_deref(&self.data.local_bookmarks)
             .map(|(name, target)| (name.as_ref(), target))
@@ -215,11 +215,11 @@ impl View {
     /// specified remote that match the given pattern.
     ///
     /// Entries are sorted by `symbol`, which is `(name, remote)`.
-    pub fn remote_bookmarks_matching<'a, 'b>(
-        &'a self,
-        bookmark_pattern: &'b StringPattern,
-        remote_pattern: &'b StringPattern,
-    ) -> impl Iterator<Item = (RemoteRefSymbol<'a>, &'a RemoteRef)> + use<'a, 'b> {
+    pub fn remote_bookmarks_matching(
+        &self,
+        bookmark_pattern: &StringPattern,
+        remote_pattern: &StringPattern,
+    ) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {
         // Use kmerge instead of flat_map for consistency with all_remote_bookmarks().
         remote_pattern
             .filter_btree_map_as_deref(&self.data.remote_views)
@@ -362,10 +362,10 @@ impl View {
 
     /// Iterates local tag `(name, target)`s matching the given pattern. Entries
     /// are sorted by `name`.
-    pub fn local_tags_matching<'a, 'b>(
-        &'a self,
-        pattern: &'b StringPattern,
-    ) -> impl Iterator<Item = (&'a RefName, &'a RefTarget)> + use<'a, 'b> {
+    pub fn local_tags_matching(
+        &self,
+        pattern: &StringPattern,
+    ) -> impl Iterator<Item = (&RefName, &RefTarget)> {
         pattern
             .filter_btree_map_as_deref(&self.data.local_tags)
             .map(|(name, target)| (name.as_ref(), target))
@@ -416,11 +416,11 @@ impl View {
     /// specified remote that match the given pattern.
     ///
     /// Entries are sorted by `symbol`, which is `(name, remote)`.
-    pub fn remote_tags_matching<'a, 'b>(
-        &'a self,
-        tag_pattern: &'b StringPattern,
-        remote_pattern: &'b StringPattern,
-    ) -> impl Iterator<Item = (RemoteRefSymbol<'a>, &'a RemoteRef)> + use<'a, 'b> {
+    pub fn remote_tags_matching(
+        &self,
+        tag_pattern: &StringPattern,
+        remote_pattern: &StringPattern,
+    ) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {
         // Use kmerge instead of flat_map for consistency with all_remote_tags().
         remote_pattern
             .filter_btree_map_as_deref(&self.data.remote_views)

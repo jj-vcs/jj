@@ -121,8 +121,7 @@ impl<I: AsCompositeIndex + Clone> RevsetImpl<I> {
 
     fn positions(
         &self,
-    ) -> impl Iterator<Item = Result<GlobalCommitPosition, RevsetEvaluationError>> + use<'_, I>
-    {
+    ) -> impl Iterator<Item = Result<GlobalCommitPosition, RevsetEvaluationError>> {
         self.inner.positions().attach(self.index.as_composite())
     }
 
@@ -1420,10 +1419,7 @@ fn diff_match_lines(
     }
 }
 
-fn match_lines<'a, 'b>(
-    text: &'a [u8],
-    pattern: &'b StringPattern,
-) -> impl Iterator<Item = &'a [u8]> + use<'a, 'b> {
+fn match_lines<'a>(text: &'a [u8], pattern: &StringPattern) -> impl Iterator<Item = &'a [u8]> {
     // The pattern is matched line by line so that it can be anchored to line
     // start/end. For example, exact:"" will match blank lines.
     text.split_inclusive(|b| *b == b'\n').filter(|line| {

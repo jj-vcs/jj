@@ -604,10 +604,7 @@ struct AliasFunctionOverloads<'a, V> {
 }
 
 impl<'a, V> AliasFunctionOverloads<'a, V> {
-    // TODO: Perhaps, V doesn't have to be captured, but "currently, all type
-    // parameters are required to be mentioned in the precise captures list" as
-    // of rustc 1.85.0.
-    fn arities(&self) -> impl DoubleEndedIterator<Item = usize> + ExactSizeIterator + use<'a, V> {
+    fn arities(&self) -> impl DoubleEndedIterator<Item = usize> + ExactSizeIterator {
         self.overloads.iter().map(|(params, _)| params.len())
     }
 
