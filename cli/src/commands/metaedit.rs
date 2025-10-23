@@ -86,6 +86,10 @@ pub(crate) struct MetaeditArgs {
     ///
     /// This changes author name and email while retaining author
     /// timestamp for non-discardable commits.
+    ///
+    /// ```shell
+    /// $ jj metaedit --author "Foo Bar <foo@bar.com>"
+    /// ```
     #[arg(
         long,
         conflicts_with = "update_author",
