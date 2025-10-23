@@ -1936,7 +1936,7 @@ fn builtin_change_id_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, C
 
 impl ShortestIdPrefixLen for CommitId {
     fn shortest_prefix_len(&self, repo: &dyn Repo, index: &IdPrefixIndex) -> IndexResult<usize> {
-        Ok(index.shortest_commit_prefix_len(repo, self))
+        index.shortest_commit_prefix_len(repo, self)
     }
 }
 

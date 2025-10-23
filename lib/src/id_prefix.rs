@@ -160,7 +160,7 @@ impl IdPrefixIndex<'_> {
         &self,
         repo: &dyn Repo,
         prefix: &HexPrefix,
-    ) -> PrefixResolution<CommitId> {
+    ) -> IndexResult<PrefixResolution<CommitId>> {
         if let Some(indexes) = self.indexes {
             let resolution = indexes
                 .commit_index
@@ -173,13 +173,13 @@ impl IdPrefixIndex<'_> {
                     // The disambiguation set may be loaded from a different repo,
                     // and contain a commit that doesn't exist in the current repo.
                     if repo.index().has_id(&id) {
-                        return PrefixResolution::SingleMatch(id);
+                        return Ok(PrefixResolution::SingleMatch(id));
                     } else {
-                        return PrefixResolution::NoMatch;
+                        return Ok(PrefixResolution::NoMatch);
                     }
                 }
                 PrefixResolution::AmbiguousMatch => {
-                    return PrefixResolution::AmbiguousMatch;
+                    return Ok(PrefixResolution::AmbiguousMatch);
                 }
             }
         }
@@ -188,18 +188,30 @@ impl IdPrefixIndex<'_> {
 
     /// Returns the shortest length of a prefix of `commit_id` that can still be
     /// resolved by `resolve_commit_prefix()` and [`SymbolResolver`].
-    pub fn shortest_commit_prefix_len(&self, repo: &dyn Repo, commit_id: &CommitId) -> usize {
-        let len = self.shortest_commit_prefix_len_exact(repo, commit_id);
-        disambiguate_prefix_with_refs(repo.view(), &commit_id.to_string(), len)
+    pub fn shortest_commit_prefix_len(
+        &self,
+        repo: &dyn Repo,
+        commit_id: &CommitId,
+    ) -> IndexResult<usize> {
+        let len = self.shortest_commit_prefix_len_exact(repo, commit_id)?;
+        Ok(disambiguate_prefix_with_refs(
+            repo.view(),
+            &commit_id.to_string(),
+            len,
+        ))
     }
 
-    pub fn shortest_commit_prefix_len_exact(&self, repo: &dyn Repo, commit_id: &CommitId) -> usize {
+    pub fn shortest_commit_prefix_len_exact(
+        &self,
+        repo: &dyn Repo,
+        commit_id: &CommitId,
+    ) -> IndexResult<usize> {
         if let Some(indexes) = self.indexes
             && let Some(lookup) = indexes
                 .commit_index
                 .lookup_exact(&*indexes.commit_change_ids, commit_id)
         {
-            return lookup.shortest_unique_prefix_len();
+            return Ok(lookup.shortest_unique_prefix_len());
         }
         repo.index().shortest_unique_commit_id_prefix_len(commit_id)
     }
