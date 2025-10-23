@@ -20,6 +20,7 @@ use jj_lib::file_util::IoResultExt as _;
 use jj_lib::git;
 use jj_lib::op_store::RefTarget;
 use jj_lib::repo::Repo as _;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -274,7 +275,7 @@ fn set_git_head_to_wc_parent(
     wc_commit: &Commit,
 ) -> Result<(), CommandError> {
     let mut tx = workspace_command.start_transaction();
-    git::reset_head(tx.repo_mut(), wc_commit)?;
+    git::reset_head(tx.repo_mut(), wc_commit).block_on()?;
     if tx.repo().has_changes() {
         tx.finish(ui, "set git head to working copy parent")?;
     }
@@ -306,8 +307,9 @@ fn reload_workspace_helper(
     )?;
     let op = workspace
         .repo_loader()
-        .load_operation(workspace_command.repo().op_id())?;
-    let repo = workspace.repo_loader().load_at(&op)?;
+        .load_operation(workspace_command.repo().op_id())
+        .block_on()?;
+    let repo = workspace.repo_loader().load_at(&op).block_on()?;
     let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
     Ok(workspace_command)
 }

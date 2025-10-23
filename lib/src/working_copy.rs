@@ -23,7 +23,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -357,7 +356,7 @@ impl WorkingCopyFreshness {
     /// Determine the freshness of the provided working copy relative to the
     /// target commit.
     #[instrument(skip_all)]
-    pub fn check_stale(
+    pub async fn check_stale(
         locked_wc: &dyn LockedWorkingCopy,
         wc_commit: &Commit,
         repo: &ReadonlyRepo,
@@ -368,7 +367,10 @@ impl WorkingCopyFreshness {
             // The working copy isn't stale, and no need to reload the repo.
             Ok(Self::Fresh)
         } else {
-            let wc_operation = repo.loader().load_operation(locked_wc.old_operation_id())?;
+            let wc_operation = repo
+                .loader()
+                .load_operation(locked_wc.old_operation_id())
+                .await?;
             let repo_operation = repo.operation();
             let ancestor_op = dag_walk::closest_common_node_ok(
                 [Ok(wc_operation.clone())],
@@ -413,7 +415,7 @@ pub enum RecoverWorkspaceError {
 }
 
 /// Recover this workspace to its last known checkout.
-pub fn create_and_check_out_recovery_commit(
+pub async fn create_and_check_out_recovery_commit(
     locked_wc: &mut dyn LockedWorkingCopy,
     repo: &Arc<ReadonlyRepo>,
     workspace_name: WorkspaceNameBuf,
@@ -432,11 +434,12 @@ pub fn create_and_check_out_recovery_commit(
     let new_commit = repo_mut
         .new_commit(vec![commit_id.clone()], commit.tree_id().clone())
         .set_description(description)
-        .write()?;
+        .write()
+        .await?;
     repo_mut.set_wc_commit(workspace_name, new_commit.id().clone())?;
 
-    let repo = tx.commit("recovery commit")?;
-    locked_wc.recover(&new_commit).block_on()?;
+    let repo = tx.commit("recovery commit").await?;
+    locked_wc.recover(&new_commit).await?;
 
     Ok((repo, new_commit))
 }

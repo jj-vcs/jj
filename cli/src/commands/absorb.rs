@@ -86,7 +86,7 @@ pub(crate) fn cmd_absorb(
         .to_matcher();
 
     let repo = workspace_command.repo().as_ref();
-    let source = AbsorbSource::from_commit(repo, source_commit)?;
+    let source = AbsorbSource::from_commit(repo, source_commit).block_on()?;
     let selected_trees = split_hunks_to_trees(repo, &source, &destinations, &matcher).block_on()?;
 
     let path_converter = workspace_command.path_converter();
@@ -98,7 +98,7 @@ pub(crate) fn cmd_absorb(
     workspace_command.check_rewritable(selected_trees.target_commits.keys())?;
 
     let mut tx = workspace_command.start_transaction();
-    let stats = absorb_hunks(tx.repo_mut(), &source, selected_trees.target_commits)?;
+    let stats = absorb_hunks(tx.repo_mut(), &source, selected_trees.target_commits).block_on()?;
 
     if let Some(mut formatter) = ui.status_formatter() {
         if !stats.rewritten_destinations.is_empty() {

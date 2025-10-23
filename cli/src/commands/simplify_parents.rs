@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -94,7 +95,7 @@ pub(crate) fn cmd_simplify_parents(
             let num_new_heads = rewriter.new_parents().len();
 
             if rewriter.parents_changed() {
-                rewriter.reparent().write()?;
+                rewriter.reparent().write().await?;
 
                 if num_new_heads < num_old_heads {
                     simplified_commits += 1;
@@ -104,7 +105,8 @@ pub(crate) fn cmd_simplify_parents(
                 }
             }
             Ok(())
-        })?;
+        })
+        .block_on()?;
 
     if let Some(mut formatter) = ui.status_formatter()
         && simplified_commits > 0

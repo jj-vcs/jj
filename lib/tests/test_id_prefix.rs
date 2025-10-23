@@ -32,6 +32,7 @@ use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
+use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 
@@ -67,13 +68,14 @@ fn test_id_prefix() {
             .set_author(signature.clone())
             .set_committer(signature)
             .write()
+            .block_on()
             .unwrap()
     };
     let mut commits = vec![create_commit(root_commit_id)];
     for _ in 0..25 {
         commits.push(create_commit(commits.last().unwrap().id()));
     }
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Print the commit IDs and change IDs for reference
     let commit_prefixes = commits
@@ -270,6 +272,7 @@ fn test_id_prefix_divergent() {
                 .set_committer(signature)
                 .set_change_id(change_id)
                 .write()
+                .block_on()
                 .unwrap()
         };
 
@@ -286,7 +289,7 @@ fn test_id_prefix_divergent() {
         second_commit.clone(),
         third_commit_divergent_with_second.clone(),
     ];
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Print the commit IDs and change IDs for reference
     let change_prefixes = commits
@@ -411,6 +414,7 @@ fn test_id_prefix_hidden() {
             .set_author(signature.clone())
             .set_committer(signature)
             .write()
+            .block_on()
             .unwrap();
         commits.push(commit);
     }
@@ -455,8 +459,8 @@ fn test_id_prefix_hidden() {
 
     let hidden_commit = &commits[8];
     tx.repo_mut().record_abandoned_commit(hidden_commit);
-    tx.repo_mut().rebase_descendants().unwrap();
-    let repo = tx.commit("test").unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let prefix = |x: &str| HexPrefix::try_from_hex(x).unwrap();
     let shortest_commit_prefix_len = |index: &IdPrefixIndex, commit_id| {
@@ -545,6 +549,7 @@ fn test_id_prefix_shadowed_by_ref() {
             repo.store().empty_merged_tree_id(),
         )
         .write()
+        .block_on()
         .unwrap();
 
     let commit_id_sym = commit.id().to_string();

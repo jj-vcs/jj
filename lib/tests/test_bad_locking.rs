@@ -113,7 +113,7 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
 
     let mut tx = repo.start_transaction();
     let initial = write_random_commit(tx.repo_mut());
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 
     // Simulate a write of a commit that happens on one machine
     let machine1_root = test_workspace.root_dir().join("machine1");
@@ -125,10 +125,14 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
         &default_working_copy_factories(),
     )
     .unwrap();
-    let machine1_repo = machine1_workspace.repo_loader().load_at_head().unwrap();
+    let machine1_repo = machine1_workspace
+        .repo_loader()
+        .load_at_head()
+        .block_on()
+        .unwrap();
     let mut machine1_tx = machine1_repo.start_transaction();
     let child1 = write_random_commit_with_parents(machine1_tx.repo_mut(), &[&initial]);
-    machine1_tx.commit("test").unwrap();
+    machine1_tx.commit("test").block_on().unwrap();
 
     // Simulate a write of a commit that happens on another machine
     let machine2_root = test_workspace.root_dir().join("machine2");
@@ -140,10 +144,14 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
         &default_working_copy_factories(),
     )
     .unwrap();
-    let machine2_repo = machine2_workspace.repo_loader().load_at_head().unwrap();
+    let machine2_repo = machine2_workspace
+        .repo_loader()
+        .load_at_head()
+        .block_on()
+        .unwrap();
     let mut machine2_tx = machine2_repo.start_transaction();
     let child2 = write_random_commit_with_parents(machine2_tx.repo_mut(), &[&initial]);
-    machine2_tx.commit("test").unwrap();
+    machine2_tx.commit("test").block_on().unwrap();
 
     // Simulate that the distributed file system now has received the changes from
     // both machines
@@ -156,7 +164,11 @@ fn test_bad_locking_children(backend: TestRepoBackend) {
         &default_working_copy_factories(),
     )
     .unwrap();
-    let merged_repo = merged_workspace.repo_loader().load_at_head().unwrap();
+    let merged_repo = merged_workspace
+        .repo_loader()
+        .load_at_head()
+        .block_on()
+        .unwrap();
     assert!(merged_repo.view().heads().contains(child1.id()));
     assert!(merged_repo.view().heads().contains(child2.id()));
     let op_id = merged_repo.op_id().clone();
@@ -181,7 +193,7 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) {
 
     let mut tx = repo.start_transaction();
     let initial = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Simulate a crash that resulted in the old op-head left in place. We simulate
     // it somewhat hackily by copying the .jj/op_heads/ directory before the
@@ -192,7 +204,13 @@ fn test_bad_locking_interrupted(backend: TestRepoBackend) {
     copy_directory(&op_heads_dir, &backup_path);
     let mut tx = repo.start_transaction();
     write_random_commit_with_parents(tx.repo_mut(), &[&initial]);
-    let op_id = tx.commit("test").unwrap().operation().id().clone();
+    let op_id = tx
+        .commit("test")
+        .block_on()
+        .unwrap()
+        .operation()
+        .id()
+        .clone();
 
     copy_directory(&backup_path, &op_heads_dir);
     // Reload the repo and check that only the new head is present.

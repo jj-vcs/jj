@@ -51,7 +51,9 @@ fn test_concurrent_checkout() {
     // Check out tree1
     let ws1 = &mut test_workspace1.workspace;
     // The operation ID is not correct, but that doesn't matter for this test
-    ws1.check_out(repo.op_id().clone(), None, &commit1).unwrap();
+    ws1.check_out(repo.op_id().clone(), None, &commit1)
+        .block_on()
+        .unwrap();
 
     // Check out tree2 from another process (simulated by another workspace
     // instance)
@@ -64,15 +66,21 @@ fn test_concurrent_checkout() {
         )
         .unwrap();
         // Reload commit from the store associated with the workspace
-        let repo = ws2.repo_loader().load_at(repo.operation()).unwrap();
+        let repo = ws2
+            .repo_loader()
+            .load_at(repo.operation())
+            .block_on()
+            .unwrap();
         let commit2 = repo.store().get_commit(commit2.id()).unwrap();
         ws2.check_out(repo.op_id().clone(), Some(&tree_id1), &commit2)
+            .block_on()
             .unwrap();
     }
 
     // Checking out another tree (via the first workspace instance) should now fail.
     assert_matches!(
-        ws1.check_out(repo.op_id().clone(), Some(&tree_id1), &commit3,),
+        ws1.check_out(repo.op_id().clone(), Some(&tree_id1), &commit3,)
+            .block_on(),
         Err(CheckoutError::ConcurrentCheckout)
     );
 
@@ -111,6 +119,7 @@ fn test_checkout_parallel() {
     test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()
         .unwrap();
 
     thread::scope(|s| {
@@ -130,10 +139,17 @@ fn test_checkout_parallel() {
                 )
                 .unwrap();
                 // Reload commit from the store associated with the workspace
-                let repo = workspace.repo_loader().load_at(repo.operation()).unwrap();
+                let repo = workspace
+                    .repo_loader()
+                    .load_at(repo.operation())
+                    .block_on()
+                    .unwrap();
                 let commit = repo.store().get_commit(commit.id()).unwrap();
                 // The operation ID is not correct, but that doesn't matter for this test
-                let stats = workspace.check_out(op_id, None, &commit).unwrap();
+                let stats = workspace
+                    .check_out(op_id, None, &commit)
+                    .block_on()
+                    .unwrap();
                 assert_eq!(stats.updated_files, 0);
                 assert_eq!(stats.added_files, 1);
                 assert_eq!(stats.removed_files, 1);
@@ -167,7 +183,9 @@ fn test_racy_checkout() {
     let mut num_matches = 0;
     for _ in 0..100 {
         let ws = &mut test_workspace.workspace;
-        ws.check_out(op_id.clone(), None, &commit).unwrap();
+        ws.check_out(op_id.clone(), None, &commit)
+            .block_on()
+            .unwrap();
         assert_eq!(
             std::fs::read(path.to_fs_path_unchecked(&workspace_root)).unwrap(),
             b"1".to_vec()

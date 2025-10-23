@@ -371,7 +371,7 @@ pub fn run_mergetool_external(
             }
         }
     }
-    let new_tree = tree_builder.write_tree(tree.store())?;
+    let new_tree = tree_builder.write_tree(tree.store()).block_on()?;
     Ok((new_tree, partial_resolution_error))
 }
 

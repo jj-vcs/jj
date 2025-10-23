@@ -34,6 +34,7 @@ use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use maplit::hashmap;
 use maplit::hashset;
+use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::commit_with_tree;
@@ -88,6 +89,7 @@ fn make_commit(
     tx.repo_mut()
         .new_commit(parents, tree.id())
         .write()
+        .block_on()
         .unwrap()
 }
 
@@ -128,8 +130,9 @@ fn test_gc() {
         .set_parents(vec![commit_f.id().clone()])
         .set_predecessors(vec![commit_d.id().clone()])
         .write()
+        .block_on()
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     assert_eq!(
         *repo.view().heads(),
         hashset! {

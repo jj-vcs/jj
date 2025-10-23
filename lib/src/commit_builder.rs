@@ -16,8 +16,6 @@
 
 use std::sync::Arc;
 
-use pollster::FutureExt as _;
-
 use crate::backend;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
@@ -153,8 +151,8 @@ impl CommitBuilder<'_> {
         self
     }
 
-    pub fn write(self) -> BackendResult<Commit> {
-        self.inner.write(self.mut_repo)
+    pub async fn write(self) -> BackendResult<Commit> {
+        self.inner.write(self.mut_repo).await
     }
 
     /// Records the old commit as abandoned instead of writing new commit. This
@@ -364,9 +362,9 @@ impl DetachedCommitBuilder {
     }
 
     /// Writes new commit and makes it visible in the `mut_repo`.
-    pub fn write(self, mut_repo: &mut MutableRepo) -> BackendResult<Commit> {
+    pub async fn write(self, mut_repo: &mut MutableRepo) -> BackendResult<Commit> {
         let predecessors = self.commit.predecessors.clone();
-        let commit = write_to_store(&self.store, self.commit, &self.sign_settings)?;
+        let commit = write_to_store(&self.store, self.commit, &self.sign_settings).await?;
         // FIXME: Google's index.has_id() always returns true.
         if mut_repo.is_backed_by_default_index()
             && mut_repo
@@ -394,8 +392,8 @@ impl DetachedCommitBuilder {
     ///
     /// This does not consume the builder, so you can reuse the current
     /// configuration to create another commit later.
-    pub fn write_hidden(&self) -> BackendResult<Commit> {
-        write_to_store(&self.store, self.commit.clone(), &self.sign_settings)
+    pub async fn write_hidden(&self) -> BackendResult<Commit> {
+        write_to_store(&self.store, self.commit.clone(), &self.sign_settings).await
     }
 
     /// Records the old commit as abandoned in the `mut_repo`.
@@ -411,7 +409,7 @@ impl DetachedCommitBuilder {
     }
 }
 
-fn write_to_store(
+async fn write_to_store(
     store: &Arc<Store>,
     mut commit: backend::Commit,
     sign_settings: &SignSettings,
@@ -426,5 +424,5 @@ fn write_to_store(
 
     store
         .write_commit(commit, should_sign.then_some(&mut &sign_fn))
-        .block_on()
+        .await
 }

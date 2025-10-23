@@ -20,6 +20,7 @@ use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::signing::SignBehavior;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -72,25 +73,27 @@ pub fn cmd_unsign(
     let mut unsigned_commits = vec![];
     let mut num_reparented = 0;
 
-    tx.repo_mut().transform_descendants(
-        to_unsign.iter().ids().cloned().collect_vec(),
-        async |rewriter| {
-            let old_commit = rewriter.old_commit().clone();
-            let commit_builder = rewriter.reparent();
+    tx.repo_mut()
+        .transform_descendants(
+            to_unsign.iter().ids().cloned().collect_vec(),
+            async |rewriter| {
+                let old_commit = rewriter.old_commit().clone();
+                let commit_builder = rewriter.reparent();
 
-            if to_unsign.contains(&old_commit) {
-                let new_commit = commit_builder
-                    .set_sign_behavior(SignBehavior::Drop)
-                    .write()?;
+                if to_unsign.contains(&old_commit) {
+                    let new_commit = commit_builder
+                        .set_sign_behavior(SignBehavior::Drop)
+                        .write().await?;
 
-                unsigned_commits.push(new_commit);
-            } else {
-                commit_builder.write()?;
-                num_reparented += 1;
-            }
-            Ok(())
-        },
-    )?;
+                    unsigned_commits.push(new_commit);
+                } else {
+                    commit_builder.write().await?;
+                    num_reparented += 1;
+                }
+                Ok(())
+            },
+        )
+        .block_on()?;
 
     if let Some(mut formatter) = ui.status_formatter()
         && !unsigned_commits.is_empty()
