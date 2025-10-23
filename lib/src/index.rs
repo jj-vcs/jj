@@ -173,7 +173,7 @@ impl dyn ReadonlyIndex {
 }
 
 #[expect(missing_docs)]
-pub trait MutableIndex: Any {
+pub trait MutableIndex: Any + Send + Sync {
     fn as_index(&self) -> &dyn Index;
 
     fn change_id_index(

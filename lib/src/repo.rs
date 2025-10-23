@@ -112,7 +112,7 @@ use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
 
-pub trait Repo {
+pub trait Repo: Send + Sync {
     /// Base repository that contains all committed data. Returns `self` if this
     /// is a `ReadonlyRepo`,
     fn base_repo(&self) -> &ReadonlyRepo;
@@ -2074,32 +2074,32 @@ pub enum CheckOutCommitError {
 }
 
 mod dirty_cell {
-    use std::cell::OnceCell;
-    use std::cell::RefCell;
+    use std::sync::Mutex;
+    use std::sync::OnceLock;
 
     /// Cell that lazily updates the value after `mark_dirty()`.
     ///
     /// A clean value can be immutably borrowed within the `self` lifetime.
-    #[derive(Clone, Debug)]
+    #[derive(Debug)]
     pub struct DirtyCell<T> {
         // Either clean or dirty value is set. The value is boxed to reduce stack space
         // and memcopy overhead.
-        clean: OnceCell<Box<T>>,
-        dirty: RefCell<Option<Box<T>>>,
+        clean: OnceLock<Box<T>>,
+        dirty: Mutex<Option<Box<T>>>,
     }
 
     impl<T> DirtyCell<T> {
         pub fn with_clean(value: T) -> Self {
             Self {
-                clean: OnceCell::from(Box::new(value)),
-                dirty: RefCell::new(None),
+                clean: OnceLock::from(Box::new(value)),
+                dirty: Mutex::new(None),
             }
         }
 
         pub fn get_or_ensure_clean(&self, f: impl FnOnce(&mut T)) -> &T {
             self.clean.get_or_init(|| {
-                // Panics if ensure_clean() is invoked from with_ref() callback for example.
-                let mut value = self.dirty.borrow_mut().take().unwrap();
+                let mut guard = self.dirty.lock().unwrap();
+                let mut value = guard.take().unwrap();
                 f(&mut value);
                 value
             })
@@ -2113,7 +2113,7 @@ mod dirty_cell {
             *self
                 .clean
                 .into_inner()
-                .or_else(|| self.dirty.into_inner())
+                .or_else(|| self.dirty.into_inner().unwrap())
                 .unwrap()
         }
 
@@ -2121,20 +2121,21 @@ mod dirty_cell {
             if let Some(value) = self.clean.get() {
                 f(value)
             } else {
-                f(self.dirty.borrow().as_ref().unwrap())
+                let guard = self.dirty.lock().unwrap();
+                f(guard.as_ref().unwrap())
             }
         }
 
         pub fn get_mut(&mut self) -> &mut T {
             self.clean
                 .get_mut()
-                .or_else(|| self.dirty.get_mut().as_mut())
+                .or_else(|| self.dirty.get_mut().unwrap().as_mut())
                 .unwrap()
         }
 
         pub fn mark_dirty(&mut self) {
             if let Some(value) = self.clean.take() {
-                *self.dirty.get_mut() = Some(value);
+                *self.dirty.get_mut().unwrap() = Some(value);
             }
         }
     }
