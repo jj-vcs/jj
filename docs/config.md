@@ -711,27 +711,23 @@ show-cryptographic-signatures = true
 
 ## Pager
 
-The default pager is can be set via `ui.pager` or the `PAGER` environment
-variable. The priority is as follows (environment variables are marked with
-a `$`):
+By default, jj will paginate output that would scroll off the screen. It does
+this by passing output through `less -FRX` on most platforms (on Windows it uses
+[the pager](#builtin-pager) that is built-in to jj).
 
-`ui.pager` > `$PAGER`
+Which pager to use can be customized by setting `ui.pager`. When choosing a
+pager, ensure that it either supports color codes or that you disable color (see
+[Colorizing output](#colorizing-output)).
 
-`less -FRX` is the default pager in the absence of any other setting, except
-on Windows where it is `:builtin`.
-
-The special value `:builtin` enables usage of the [integrated
-pager](#builtin-pager).
-
-If you are using a standard Linux distro, your system likely already has
-`$PAGER` set and that will be preferred over the built-in. To use the built-in:
+Examples:
 
 ```shell
-jj config set --user ui.pager :builtin
-```
+# Pipe output through `less -FRX` (default on non-Windows platforms)
+$ jj config set --user ui.pager "less -FRX"
 
-It is possible the default will change to `:builtin` for all platforms in the
-future.
+# Use the built-in pager (default on Windows)
+$ jj config set --user ui.pager :builtin
+```
 
 Additionally, paging behavior can be toggled via `ui.paginate` like so:
 

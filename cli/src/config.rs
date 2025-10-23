@@ -673,14 +673,13 @@ fn env_base_layer() -> ConfigLayer {
         // should override $NO_COLOR." https://no-color.org/
         layer.set_value("ui.color", "never").unwrap();
     }
-    if let Ok(value) = env::var("PAGER") {
-        layer.set_value("ui.pager", value).unwrap();
-    }
     if let Ok(value) = env::var("VISUAL") {
         layer.set_value("ui.editor", value).unwrap();
     } else if let Ok(value) = env::var("EDITOR") {
         layer.set_value("ui.editor", value).unwrap();
     }
+    // Intentionally NOT respecting $PAGER here as it often creates a bad
+    // out-of-the-box experience for users, see http://github.com/jj-vcs/jj/issues/3502.
     layer
 }
 
