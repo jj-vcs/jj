@@ -19,6 +19,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `core.watchman.register_snapshot_trigger`
   - `diff.format`
 
+* `jj` now ignores `$PAGER` set in the environment and uses `less -FRX` on most
+  platforms (`:builtin` on Windows). To restore the previous behavior and make
+  `jj` respect `$PAGER`, run `jj config set --user ui.pager :envpager`. See [the
+  docs](docs/config.md#pager) for more information.
+
 ### Deprecations
 
  * `jj bisect run --command <cmd>` is deprecated in favor of
@@ -87,6 +92,9 @@ edits the change twice in some cases.
 
 * Fixed parsing of `files(expr)` revset expression including parentheses.
   [#7747](https://github.com/jj-vcs/jj/issues/7747)
+
+* Fixed `PAGER` being set in the environment causing ANSI escape sequences to be
+  displayed to the terminal. [#3502](https://github.com/jj-vcs/jj/issues/3502)
 
 ## [0.34.0] - 2025-10-01
 

@@ -46,6 +46,7 @@ use crate::formatter::LabeledScope;
 use crate::formatter::PlainTextFormatter;
 
 const BUILTIN_PAGER_NAME: &str = ":builtin";
+const ENV_PAGER_NAME: &str = ":envpager";
 
 enum UiOutput {
     Terminal {
@@ -329,10 +330,10 @@ impl PagerConfig {
             return Ok(Self::Disabled);
         };
         let args: CommandNameAndArgs = config.get("ui.pager")?;
-        if args.as_str() == Some(BUILTIN_PAGER_NAME) {
-            Ok(Self::Builtin(config.get("ui.streampager")?))
-        } else {
-            Ok(Self::External(args))
+        match (args.as_str(), env::var("PAGER")) {
+            (Some(BUILTIN_PAGER_NAME), _) => Ok(Self::Builtin(config.get("ui.streampager")?)),
+            (Some(ENV_PAGER_NAME), Ok(pager_env)) => Ok(Self::External((&pager_env).into())),
+            (_, _) => Ok(Self::External(args))
         }
     }
 }
