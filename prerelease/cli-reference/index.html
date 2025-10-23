@@ -1739,9 +1739,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#jj-git-colocation-status" class="md-nav__link">
+  <a href="#jj-git-colocation-disable" class="md-nav__link">
     <span class="md-ellipsis">
-      jj git colocation status
+      jj git colocation disable
     </span>
   </a>
   
@@ -1757,9 +1757,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#jj-git-colocation-disable" class="md-nav__link">
+  <a href="#jj-git-colocation-status" class="md-nav__link">
     <span class="md-ellipsis">
-      jj git colocation disable
+      jj git colocation status
     </span>
   </a>
   
@@ -5754,9 +5754,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#jj-git-colocation-status" class="md-nav__link">
+  <a href="#jj-git-colocation-disable" class="md-nav__link">
     <span class="md-ellipsis">
-      jj git colocation status
+      jj git colocation disable
     </span>
   </a>
   
@@ -5772,9 +5772,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#jj-git-colocation-disable" class="md-nav__link">
+  <a href="#jj-git-colocation-status" class="md-nav__link">
     <span class="md-ellipsis">
-      jj git colocation disable
+      jj git colocation status
     </span>
   </a>
   
@@ -7418,9 +7418,9 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><a href="#jj-git"><code>jj git</code>↴</a></li>
 <li><a href="#jj-git-clone"><code>jj git clone</code>↴</a></li>
 <li><a href="#jj-git-colocation"><code>jj git colocation</code>↴</a></li>
-<li><a href="#jj-git-colocation-status"><code>jj git colocation status</code>↴</a></li>
-<li><a href="#jj-git-colocation-enable"><code>jj git colocation enable</code>↴</a></li>
 <li><a href="#jj-git-colocation-disable"><code>jj git colocation disable</code>↴</a></li>
+<li><a href="#jj-git-colocation-enable"><code>jj git colocation enable</code>↴</a></li>
+<li><a href="#jj-git-colocation-status"><code>jj git colocation status</code>↴</a></li>
 <li><a href="#jj-git-export"><code>jj git export</code>↴</a></li>
 <li><a href="#jj-git-fetch"><code>jj git fetch</code>↴</a></li>
 <li><a href="#jj-git-import"><code>jj git import</code>↴</a></li>
@@ -8458,21 +8458,21 @@ output of the first tool.</p>
 <p><strong>Usage:</strong> <code>jj git colocation &lt;COMMAND&gt;</code></p>
 <h6 id="subcommands_7"><strong>Subcommands:</strong><a class="headerlink" href="#subcommands_7" title="Permanent link">&para;</a></h6>
 <ul>
-<li><code>status</code> — Show the current colocation status</li>
-<li><code>enable</code> — Convert into a colocated Jujutsu/Git repository</li>
 <li><code>disable</code> — Convert into a non-colocated Jujutsu/Git repository</li>
+<li><code>enable</code> — Convert into a colocated Jujutsu/Git repository</li>
+<li><code>status</code> — Show the current colocation status</li>
 </ul>
-<h2 id="jj-git-colocation-status"><code>jj git colocation status</code><a class="headerlink" href="#jj-git-colocation-status" title="Permanent link">&para;</a></h2>
-<p>Show the current colocation status</p>
-<p><strong>Usage:</strong> <code>jj git colocation status</code></p>
-<h2 id="jj-git-colocation-enable"><code>jj git colocation enable</code><a class="headerlink" href="#jj-git-colocation-enable" title="Permanent link">&para;</a></h2>
-<p>Convert into a colocated Jujutsu/Git repository</p>
-<p>This moves the underlying Git repository that is found inside the .jj directory to the root of the Jujutsu workspace. This allows you to use Git commands directly in the Jujutsu workspace.</p>
-<p><strong>Usage:</strong> <code>jj git colocation enable</code></p>
 <h2 id="jj-git-colocation-disable"><code>jj git colocation disable</code><a class="headerlink" href="#jj-git-colocation-disable" title="Permanent link">&para;</a></h2>
 <p>Convert into a non-colocated Jujutsu/Git repository</p>
 <p>This moves the Git repository that is at the root of the Jujutsu workspace into the .jj directory. Once this is done you will no longer be able to use Git commands directly in the Jujutsu workspace.</p>
 <p><strong>Usage:</strong> <code>jj git colocation disable</code></p>
+<h2 id="jj-git-colocation-enable"><code>jj git colocation enable</code><a class="headerlink" href="#jj-git-colocation-enable" title="Permanent link">&para;</a></h2>
+<p>Convert into a colocated Jujutsu/Git repository</p>
+<p>This moves the underlying Git repository that is found inside the .jj directory to the root of the Jujutsu workspace. This allows you to use Git commands directly in the Jujutsu workspace.</p>
+<p><strong>Usage:</strong> <code>jj git colocation enable</code></p>
+<h2 id="jj-git-colocation-status"><code>jj git colocation status</code><a class="headerlink" href="#jj-git-colocation-status" title="Permanent link">&para;</a></h2>
+<p>Show the current colocation status</p>
+<p><strong>Usage:</strong> <code>jj git colocation status</code></p>
 <h2 id="jj-git-export"><code>jj git export</code><a class="headerlink" href="#jj-git-export" title="Permanent link">&para;</a></h2>
 <p>Update the underlying Git repo with changes made in the repo</p>
 <p><strong>Usage:</strong> <code>jj git export</code></p>
