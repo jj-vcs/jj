@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use assert_matches::assert_matches;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::commit::Commit;
@@ -772,7 +773,6 @@ fn test_rebase_descendants_multiple_swap() {
 }
 
 #[test]
-#[should_panic(expected = "cycle")]
 fn test_rebase_descendants_multiple_no_descendants() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
@@ -791,7 +791,8 @@ fn test_rebase_descendants_multiple_no_descendants() {
         .set_rewritten_commit(commit_b.id().clone(), commit_c.id().clone());
     tx.repo_mut()
         .set_rewritten_commit(commit_c.id().clone(), commit_b.id().clone());
-    let _ = tx.repo_mut().rebase_descendants(); // Panics because of the cycle
+    let result = tx.repo_mut().rebase_descendants();
+    assert_matches!(result, Err(err) if err.to_string().contains("Cycle"));
 }
 
 #[test]

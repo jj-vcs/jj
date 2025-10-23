@@ -1083,11 +1083,11 @@ impl MutableRepo {
 
     /// Fully resolves transitive replacements in `parent_mapping`.
     ///
-    /// If `parent_mapping` contains cycles, this function will panic.
+    /// Returns an error if `parent_mapping` contains cycles
     fn resolve_rewrite_mapping_with(
         &self,
         mut predicate: impl FnMut(&Rewrite) -> bool,
-    ) -> HashMap<CommitId, Vec<CommitId>> {
+    ) -> BackendResult<HashMap<CommitId, Vec<CommitId>>> {
         let sorted_ids = dag_walk::topo_order_forward(
             self.parent_mapping.keys(),
             |&id| id,
@@ -1095,9 +1095,12 @@ impl MutableRepo {
                 None => &[],
                 Some(rewrite) => rewrite.new_parent_ids(),
             },
-            |_| panic!("graph has cycle"),
-        )
-        .unwrap();
+            |id| {
+                BackendError::Other(
+                    format!("Cycle between rewritten commits involving commit {id}").into(),
+                )
+            },
+        )?;
         let mut new_mapping: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
         for old_id in sorted_ids {
             let Some(rewrite) = self.parent_mapping.get(old_id).filter(|&v| predicate(v)) else {
@@ -1114,7 +1117,7 @@ impl MutableRepo {
             );
             new_mapping.insert(old_id.clone(), new_ids);
         }
-        new_mapping
+        Ok(new_mapping)
     }
 
     /// Updates bookmarks, working copies, and anonymous heads after rewriting
@@ -1130,7 +1133,7 @@ impl MutableRepo {
     }
 
     fn update_all_references(&mut self, options: &RewriteRefsOptions) -> BackendResult<()> {
-        let rewrite_mapping = self.resolve_rewrite_mapping_with(|_| true);
+        let rewrite_mapping = self.resolve_rewrite_mapping_with(|_| true)?;
         self.update_local_bookmarks(&rewrite_mapping, options);
         self.update_wc_commits(&rewrite_mapping)?;
         Ok(())
