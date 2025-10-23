@@ -48,7 +48,7 @@ pub enum OpHeadResolutionError {
     NoHeads,
 }
 
-pub trait OpHeadsStoreLock {}
+pub trait OpHeadsStoreLock: Send {}
 
 /// Manages the set of current heads of the operation log.
 #[async_trait]
