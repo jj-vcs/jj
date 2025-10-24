@@ -194,6 +194,16 @@ impl StringPattern {
         }
     }
 
+    /// Returns true if this pattern trivially matches any input strings.
+    fn is_all(&self) -> bool {
+        match self {
+            Self::Exact(_) | Self::ExactI(_) => false,
+            Self::Substring(needle) | Self::SubstringI(needle) => needle.is_empty(),
+            Self::Glob(pattern) | Self::GlobI(pattern) => pattern.as_str() == "*",
+            Self::Regex(pattern) | Self::RegexI(pattern) => pattern.as_str().is_empty(),
+        }
+    }
+
     /// Returns true if this pattern matches input strings exactly.
     pub fn is_exact(&self) -> bool {
         self.as_exact().is_some()
@@ -294,6 +304,20 @@ impl StringPattern {
         }
     }
 
+    /// Creates matcher object from this pattern.
+    pub fn to_matcher(&self) -> StringMatcher {
+        if self.is_all() {
+            StringMatcher::All
+        } else if let Some(literal) = self.as_exact() {
+            StringMatcher::Exact(literal.to_owned())
+        } else {
+            // TODO: fully migrate is_match*() to StringMatcher, and add
+            // pattern.to_match_fn()?
+            let pattern = self.clone();
+            StringMatcher::Fn(Box::new(move |haystack| pattern.is_match_bytes(haystack)))
+        }
+    }
+
     /// Converts the pattern into a bytes regex.
     pub fn to_regex(&self) -> regex::bytes::Regex {
         match self {
@@ -377,9 +401,106 @@ impl fmt::Display for StringPattern {
     }
 }
 
+type DynMatchFn = dyn Fn(&[u8]) -> bool;
+
+/// Matcher for strings and bytes.
+pub enum StringMatcher {
+    /// Matches any strings.
+    All,
+    /// Matches strings exactly.
+    Exact(String),
+    /// Tests matches by arbitrary function.
+    Fn(Box<DynMatchFn>),
+}
+
+impl StringMatcher {
+    /// Matcher that matches any strings.
+    pub const fn all() -> Self {
+        Self::All
+    }
+
+    /// Matcher that matches `src` exactly.
+    pub fn exact(src: impl Into<String>) -> Self {
+        Self::Exact(src.into())
+    }
+
+    /// Returns true if this matches the `haystack` string.
+    pub fn is_match(&self, haystack: &str) -> bool {
+        self.is_match_bytes(haystack.as_bytes())
+    }
+
+    /// Returns true if this matches the `haystack` bytes.
+    pub fn is_match_bytes(&self, haystack: &[u8]) -> bool {
+        match self {
+            Self::All => true,
+            Self::Exact(needle) => haystack == needle.as_bytes(),
+            Self::Fn(predicate) => predicate(haystack),
+        }
+    }
+
+    /// Iterates entries of the given `map` whose string keys match this.
+    pub fn filter_btree_map<'a, K: Borrow<str> + Ord, V>(
+        &self,
+        map: &'a BTreeMap<K, V>,
+    ) -> impl Iterator<Item = (&'a K, &'a V)> {
+        self.filter_btree_map_with(map, |key| key, |key| key)
+    }
+
+    /// Iterates entries of the given `map` whose string-like keys match this.
+    ///
+    /// The borrowed key type is constrained by the `Deref::Target`. It must be
+    /// convertible to/from `str`.
+    pub fn filter_btree_map_as_deref<'a, K, V>(
+        &self,
+        map: &'a BTreeMap<K, V>,
+    ) -> impl Iterator<Item = (&'a K, &'a V)>
+    where
+        K: Borrow<K::Target> + Deref + Ord,
+        K::Target: AsRef<str> + Ord,
+        str: AsRef<K::Target>,
+    {
+        self.filter_btree_map_with(map, AsRef::as_ref, AsRef::as_ref)
+    }
+
+    fn filter_btree_map_with<'a, K, Q, V>(
+        &self,
+        map: &'a BTreeMap<K, V>,
+        from_key: impl Fn(&Q) -> &str,
+        to_key: impl Fn(&str) -> &Q,
+    ) -> impl Iterator<Item = (&'a K, &'a V)>
+    where
+        K: Borrow<Q> + Ord,
+        Q: Ord + ?Sized,
+    {
+        match self {
+            Self::All => Either::Left(map.iter()),
+            Self::Exact(key) => {
+                Either::Right(Either::Left(map.get_key_value(to_key(key)).into_iter()))
+            }
+            Self::Fn(predicate) => {
+                Either::Right(Either::Right(map.iter().filter(move |&(key, _)| {
+                    predicate(from_key(key.borrow()).as_bytes())
+                })))
+            }
+        }
+    }
+}
+
+impl Debug for StringMatcher {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::All => write!(f, "All"),
+            Self::Exact(needle) => f.debug_tuple("Exact").field(needle).finish(),
+            Self::Fn(_) => f.debug_tuple("Fn").finish_non_exhaustive(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
+    use itertools::Itertools as _;
+    use maplit::btreemap;
 
     use super::*;
 
@@ -536,5 +657,149 @@ mod tests {
         assert!(check(StringPattern::regex("^a{1,3}").unwrap(), "abcde"));
         assert!(!check(StringPattern::regex("^a{1,3}").unwrap(), "Abcde"));
         assert!(check(StringPattern::regex_i("^a{1,3}").unwrap(), "Abcde"));
+    }
+
+    #[test]
+    fn test_exact_pattern_to_matcher() {
+        assert_matches!(
+            StringPattern::exact("").to_matcher(),
+            StringMatcher::Exact(needle) if needle.is_empty()
+        );
+        assert_matches!(
+            StringPattern::exact("x").to_matcher(),
+            StringMatcher::Exact(needle) if needle == "x"
+        );
+
+        assert_matches!(
+            StringPattern::exact_i("").to_matcher(),
+            StringMatcher::Fn(_) // or Exact
+        );
+        assert_matches!(
+            StringPattern::exact_i("x").to_matcher(),
+            StringMatcher::Fn(_)
+        );
+    }
+
+    #[test]
+    fn test_substring_pattern_to_matcher() {
+        assert_matches!(
+            StringPattern::substring("").to_matcher(),
+            StringMatcher::All
+        );
+        assert_matches!(
+            StringPattern::substring("x").to_matcher(),
+            StringMatcher::Fn(_)
+        );
+
+        assert_matches!(
+            StringPattern::substring_i("").to_matcher(),
+            StringMatcher::All
+        );
+        assert_matches!(
+            StringPattern::substring_i("x").to_matcher(),
+            StringMatcher::Fn(_)
+        );
+    }
+
+    #[test]
+    fn test_glob_pattern_to_matcher() {
+        assert_matches!(
+            StringPattern::glob("").unwrap().to_matcher(),
+            StringMatcher::Fn(_) // or Exact
+        );
+        assert_matches!(
+            StringPattern::glob("x").unwrap().to_matcher(),
+            StringMatcher::Fn(_) // or Exact
+        );
+        assert_matches!(
+            StringPattern::glob("x?").unwrap().to_matcher(),
+            StringMatcher::Fn(_)
+        );
+        assert_matches!(
+            StringPattern::glob("*").unwrap().to_matcher(),
+            StringMatcher::All
+        );
+
+        assert_matches!(
+            StringPattern::glob_i("").unwrap().to_matcher(),
+            StringMatcher::Fn(_) // or Exact
+        );
+        assert_matches!(
+            StringPattern::glob_i("x").unwrap().to_matcher(),
+            StringMatcher::Fn(_)
+        );
+        assert_matches!(
+            StringPattern::glob_i("x?").unwrap().to_matcher(),
+            StringMatcher::Fn(_)
+        );
+        assert_matches!(
+            StringPattern::glob_i("*").unwrap().to_matcher(),
+            StringMatcher::All
+        );
+    }
+
+    #[test]
+    fn test_regex_pattern_to_matcher() {
+        assert_matches!(
+            StringPattern::regex("").unwrap().to_matcher(),
+            StringMatcher::All
+        );
+        assert_matches!(
+            StringPattern::regex("x").unwrap().to_matcher(),
+            StringMatcher::Fn(_)
+        );
+        assert_matches!(
+            StringPattern::regex(".").unwrap().to_matcher(),
+            StringMatcher::Fn(_)
+        );
+
+        assert_matches!(
+            StringPattern::regex_i("").unwrap().to_matcher(),
+            StringMatcher::All
+        );
+        assert_matches!(
+            StringPattern::regex_i("x").unwrap().to_matcher(),
+            StringMatcher::Fn(_)
+        );
+        assert_matches!(
+            StringPattern::regex_i(".").unwrap().to_matcher(),
+            StringMatcher::Fn(_)
+        );
+    }
+
+    #[test]
+    fn test_matcher_is_match() {
+        assert!(StringMatcher::all().is_match(""));
+        assert!(StringMatcher::all().is_match("foo"));
+        assert!(!StringMatcher::exact("o").is_match(""));
+        assert!(!StringMatcher::exact("o").is_match("foo"));
+        assert!(StringMatcher::exact("foo").is_match("foo"));
+        assert!(StringPattern::substring("o").to_matcher().is_match("foo"));
+    }
+
+    #[test]
+    fn test_matcher_filter_btree_map() {
+        let data = btreemap! {
+            "bar" => (),
+            "baz" => (),
+            "foo" => (),
+        };
+        let filter = |matcher: &StringMatcher| {
+            matcher
+                .filter_btree_map(&data)
+                .map(|(&key, ())| key)
+                .collect_vec()
+        };
+        assert_eq!(filter(&StringMatcher::all()), vec!["bar", "baz", "foo"]);
+        assert_eq!(filter(&StringMatcher::exact("o")), vec![""; 0]);
+        assert_eq!(filter(&StringMatcher::exact("foo")), vec!["foo"]);
+        assert_eq!(
+            filter(&StringPattern::substring("o").to_matcher()),
+            vec!["foo"]
+        );
+        assert_eq!(
+            filter(&StringPattern::substring("a").to_matcher()),
+            vec!["bar", "baz"]
+        );
     }
 }
