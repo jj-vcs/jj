@@ -88,6 +88,8 @@ edits the change twice in some cases.
 * Fixed parsing of `files(expr)` revset expression including parentheses.
   [#7747](https://github.com/jj-vcs/jj/issues/7747)
 
+* Fixed `jj describe --stdin` to append a final newline character.
+
 ## [0.34.0] - 2025-10-01
 
 ### Release highlights

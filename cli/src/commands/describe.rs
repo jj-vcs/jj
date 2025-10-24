@@ -37,6 +37,7 @@ use crate::description_util::edit_description;
 use crate::description_util::edit_multiple_descriptions;
 use crate::description_util::join_message_paragraphs;
 use crate::description_util::parse_trailers_template;
+use crate::text_util::complete_newline;
 use crate::text_util::parse_author;
 use crate::ui::Ui;
 
@@ -174,7 +175,7 @@ pub(crate) fn cmd_describe(
     let shared_description = if args.stdin {
         let mut buffer = String::new();
         io::stdin().read_to_string(&mut buffer)?;
-        Some(buffer)
+        Some(complete_newline(buffer))
     } else if !args.message_paragraphs.is_empty() {
         Some(join_message_paragraphs(&args.message_paragraphs))
     } else {

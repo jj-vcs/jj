@@ -19,6 +19,7 @@ use indoc::indoc;
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::force_interactive;
 
 #[test]
 fn test_describe() {
@@ -619,6 +620,30 @@ fn test_multiple_message_args() {
 
 
     Second Paragraph from CLI
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_describe_stdin_description() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["describe", "--stdin"])
+            .write_stdin("first stdin\nsecond stdin")
+    });
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Working copy  (@) now at: qpvuntsm b9990801 (empty) first stdin
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    "#);
+    let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
+    insta::assert_snapshot!(output, @r"
+    first stdin
+    second stdin
     [EOF]
     ");
 }
