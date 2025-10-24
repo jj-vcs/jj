@@ -64,6 +64,14 @@ pub(crate) struct AbandonArgs {
     /// Do not modify the content of the children of the abandoned commits
     #[arg(long)]
     restore_descendants: bool,
+    /// The revision(s) to preserve the content of (not the diff)
+    #[arg(
+        long,
+        value_name = "REVSETS",
+        conflicts_with = "restore_descendants",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    restore_snapshots: Option<Vec<RevisionArg>>,
 }
 
 #[instrument(skip_all)]
@@ -106,10 +114,20 @@ pub(crate) fn cmd_abandon(
         return Ok(());
     }
 
+    let to_restore = if let Some(restore_snapshots) = args.restore_snapshots.as_deref() {
+        workspace_command
+            .parse_union_revsets(ui, restore_snapshots)?
+            .evaluate_to_commit_ids()?
+            .try_collect()?
+    } else {
+        std::collections::HashSet::new()
+    };
+
     let mut tx = workspace_command.start_transaction();
     let options = RewriteRefsOptions {
         delete_abandoned_bookmarks: !args.retain_bookmarks,
     };
+    let mut num_reparented = 0;
     let mut num_rebased = 0;
     tx.repo_mut().transform_descendants_with_options(
         to_abandon.iter().cloned().collect(),
@@ -118,9 +136,9 @@ pub(crate) fn cmd_abandon(
         async |rewriter| {
             if to_abandon.contains(rewriter.old_commit().id()) {
                 rewriter.abandon();
-            } else if args.restore_descendants {
+            } else if args.restore_descendants || to_restore.contains(rewriter.old_commit().id()) {
                 rewriter.reparent().write()?;
-                num_rebased += 1;
+                num_reparented += 1;
             } else {
                 rewriter.rebase().await?.write()?;
                 num_rebased += 1;
@@ -155,19 +173,18 @@ pub(crate) fn cmd_abandon(
                 deleted_bookmarks.iter().map(|n| n.as_symbol()).join(", ")
             )?;
         }
+        if num_reparented > 0 {
+            writeln!(
+                formatter,
+                "Rebased {num_reparented} descendant commits (while preserving their content) \
+                 onto parents of abandoned commits",
+            )?;
+        }
         if num_rebased > 0 {
-            if args.restore_descendants {
-                writeln!(
-                    formatter,
-                    "Rebased {num_rebased} descendant commits (while preserving their content) \
-                     onto parents of abandoned commits",
-                )?;
-            } else {
-                writeln!(
-                    formatter,
-                    "Rebased {num_rebased} descendant commits onto parents of abandoned commits",
-                )?;
-            }
+            writeln!(
+                formatter,
+                "Rebased {num_rebased} descendant commits onto parents of abandoned commits",
+            )?;
         }
     }
 
@@ -180,7 +197,7 @@ pub(crate) fn cmd_abandon(
             to_abandon.len() - 1
         )
     };
-    tx.finish(ui, transaction_description)?;
+    tx.finish_with_to_restore(ui, transaction_description, &to_restore)?;
 
     #[cfg(feature = "git")]
     if jj_lib::git::get_git_backend(workspace_command.repo().store()).is_ok() {
