@@ -1400,6 +1400,58 @@ fn test_files() {
     [EOF]
     ");
 
+    let output = work_dir.complete_fish(["file", "show", "./f_"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    ./f_added
+    ./f_added_2
+    ./f_another_renamed_2
+    ./f_copied
+    ./f_dir/
+    ./f_modified
+    ./f_not_yet_copied
+    ./f_renamed
+    ./f_unchanged
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["file", "show", "f_dir"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    f_dir/
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["file", "show", "f_dir/"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    f_dir/dir_file_1
+    f_dir/dir_file_2
+    f_dir/dir_file_3
+    f_dir/f_renamed_3
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["file", "show", "f_dir/../"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    f_dir/../f_added
+    f_dir/../f_added_2
+    f_dir/../f_another_renamed_2
+    f_dir/../f_copied
+    f_dir/../f_dir/
+    f_dir/../f_modified
+    f_dir/../f_not_yet_copied
+    f_dir/../f_renamed
+    f_dir/../f_unchanged
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["file", "show", "f_dir/../f_dir/"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    f_dir/../f_dir/dir_file_1
+    f_dir/../f_dir/dir_file_2
+    f_dir/../f_dir/dir_file_3
+    f_dir/../f_dir/f_renamed_3
+    [EOF]
+    ");
+
     let output = work_dir.complete_fish(["file", "annotate", "-r@-", "f_"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     f_added
@@ -1426,6 +1478,22 @@ fn test_files() {
     f_not_yet_renamed_2	Renamed
     f_not_yet_renamed_3	Renamed
     f_renamed	Renamed
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["diff", "-r", "@-", "f_dir/../"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    f_dir/../f_added	Added
+    f_dir/../f_another_renamed_2	Renamed
+    f_dir/../f_copied	Copied
+    f_dir/../f_deleted	Deleted
+    f_dir/../f_dir/
+    f_dir/../f_modified	Modified
+    f_dir/../f_not_yet_copied	Modified
+    f_dir/../f_not_yet_renamed	Renamed
+    f_dir/../f_not_yet_renamed_2	Renamed
+    f_dir/../f_not_yet_renamed_3	Renamed
+    f_dir/../f_renamed	Renamed
     [EOF]
     ");
 

@@ -88,6 +88,10 @@ edits the change twice in some cases.
 * Fixed parsing of `files(expr)` revset expression including parentheses.
   [#7747](https://github.com/jj-vcs/jj/issues/7747)
 
+* Shell completion now works with non‑normalized paths, fixing the previous
+  panic and allowing prefixes containing `.` or `..` to be completed correctly.
+  [#6861](https://github.com/jj-vcs/jj/issues/6861)
+
 ## [0.34.0] - 2025-10-01
 
 ### Release highlights
