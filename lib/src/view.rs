@@ -36,7 +36,7 @@ use crate::ref_name::WorkspaceName;
 use crate::ref_name::WorkspaceNameBuf;
 use crate::refs;
 use crate::refs::LocalAndRemoteRef;
-use crate::str_util::StringPattern;
+use crate::str_util::StringMatcher;
 
 /// A wrapper around [`op_store::View`] that defines additional methods.
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -158,9 +158,9 @@ impl View {
     /// Entries are sorted by `name`.
     pub fn local_bookmarks_matching(
         &self,
-        pattern: &StringPattern,
+        matcher: &StringMatcher,
     ) -> impl Iterator<Item = (&RefName, &RefTarget)> {
-        pattern
+        matcher
             .filter_btree_map_as_deref(&self.data.local_bookmarks)
             .map(|(name, target)| (name.as_ref(), target))
     }
@@ -217,14 +217,14 @@ impl View {
     /// Entries are sorted by `symbol`, which is `(name, remote)`.
     pub fn remote_bookmarks_matching(
         &self,
-        bookmark_pattern: &StringPattern,
-        remote_pattern: &StringPattern,
+        bookmark_matcher: &StringMatcher,
+        remote_matcher: &StringMatcher,
     ) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {
         // Use kmerge instead of flat_map for consistency with all_remote_bookmarks().
-        remote_pattern
+        remote_matcher
             .filter_btree_map_as_deref(&self.data.remote_views)
             .map(|(remote, remote_view)| {
-                bookmark_pattern
+                bookmark_matcher
                     .filter_btree_map_as_deref(&remote_view.bookmarks)
                     .map(|(name, remote_ref)| (name.to_remote_symbol(remote), remote_ref))
             })
@@ -294,17 +294,17 @@ impl View {
     /// RefTarget::absent_ref() or RemoteRef::absent_ref().
     pub fn local_remote_bookmarks_matching<'a, 'b>(
         &'a self,
-        bookmark_pattern: &'b StringPattern,
+        bookmark_matcher: &'b StringMatcher,
         remote_name: &RemoteName,
     ) -> impl Iterator<Item = (&'a RefName, LocalAndRemoteRef<'a>)> + use<'a, 'b> {
-        // Change remote_name to StringPattern if needed, but merge-join adapter won't
+        // Change remote_name to StringMatcher if needed, but merge-join adapter won't
         // be usable.
         let maybe_remote_view = self.data.remote_views.get(remote_name);
         refs::iter_named_local_remote_refs(
-            bookmark_pattern.filter_btree_map_as_deref(&self.data.local_bookmarks),
+            bookmark_matcher.filter_btree_map_as_deref(&self.data.local_bookmarks),
             maybe_remote_view
                 .map(|remote_view| {
-                    bookmark_pattern.filter_btree_map_as_deref(&remote_view.bookmarks)
+                    bookmark_matcher.filter_btree_map_as_deref(&remote_view.bookmarks)
                 })
                 .into_iter()
                 .flatten(),
@@ -321,9 +321,9 @@ impl View {
     /// Iterates remote `(name, view)`s in lexicographical order.
     pub fn remote_views_matching(
         &self,
-        pattern: &StringPattern,
+        matcher: &StringMatcher,
     ) -> impl Iterator<Item = (&RemoteName, &RemoteView)> {
-        pattern
+        matcher
             .filter_btree_map_as_deref(&self.data.remote_views)
             .map(|(name, view)| (name.as_ref(), view))
     }
@@ -364,9 +364,9 @@ impl View {
     /// are sorted by `name`.
     pub fn local_tags_matching(
         &self,
-        pattern: &StringPattern,
+        matcher: &StringMatcher,
     ) -> impl Iterator<Item = (&RefName, &RefTarget)> {
-        pattern
+        matcher
             .filter_btree_map_as_deref(&self.data.local_tags)
             .map(|(name, target)| (name.as_ref(), target))
     }
@@ -418,14 +418,14 @@ impl View {
     /// Entries are sorted by `symbol`, which is `(name, remote)`.
     pub fn remote_tags_matching(
         &self,
-        tag_pattern: &StringPattern,
-        remote_pattern: &StringPattern,
+        tag_matcher: &StringMatcher,
+        remote_matcher: &StringMatcher,
     ) -> impl Iterator<Item = (RemoteRefSymbol<'_>, &RemoteRef)> {
         // Use kmerge instead of flat_map for consistency with all_remote_tags().
-        remote_pattern
+        remote_matcher
             .filter_btree_map_as_deref(&self.data.remote_views)
             .map(|(remote, remote_view)| {
-                tag_pattern
+                tag_matcher
                     .filter_btree_map_as_deref(&remote_view.tags)
                     .map(|(name, remote_ref)| (name.to_remote_symbol(remote), remote_ref))
             })

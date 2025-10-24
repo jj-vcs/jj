@@ -26,6 +26,7 @@ use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::git::get_git_backend;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
+use jj_lib::str_util::StringMatcher;
 use jj_lib::str_util::StringPattern;
 
 use crate::cli_util::CommandHelper;
@@ -221,17 +222,18 @@ fn warn_if_branches_not_found(
 ) -> Result<(), CommandError> {
     let mut missing_branches = vec![];
     for branch in branches {
+        let branch_matcher = branch.to_matcher();
         let matches = remotes.iter().any(|&remote| {
-            let remote = StringPattern::exact(remote);
+            let remote_matcher = StringMatcher::exact(remote);
             tx.repo()
                 .view()
-                .remote_bookmarks_matching(branch, &remote)
+                .remote_bookmarks_matching(&branch_matcher, &remote_matcher)
                 .next()
                 .is_some()
                 || tx
                     .base_repo()
                     .view()
-                    .remote_bookmarks_matching(branch, &remote)
+                    .remote_bookmarks_matching(&branch_matcher, &remote_matcher)
                     .next()
                     .is_some()
         });

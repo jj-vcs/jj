@@ -107,9 +107,9 @@ pub fn cmd_bookmark_move(
             Box::new(|_| Ok(true))
         };
         let mut bookmarks = if !args.names.is_empty() {
-            find_bookmarks_with(&args.names, |pattern| {
+            find_bookmarks_with(&args.names, |matcher| {
                 repo.view()
-                    .local_bookmarks_matching(pattern)
+                    .local_bookmarks_matching(matcher)
                     .filter_map(|(name, target)| {
                         is_source_ref(target)
                             .map(|matched| matched.then_some((name, target)))

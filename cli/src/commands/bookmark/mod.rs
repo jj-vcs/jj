@@ -30,6 +30,7 @@ use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo;
+use jj_lib::str_util::StringMatcher;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
@@ -109,19 +110,19 @@ fn find_local_bookmarks<'a>(
     view: &'a View,
     name_patterns: &[StringPattern],
 ) -> Result<Vec<(&'a RefName, &'a RefTarget)>, CommandError> {
-    find_bookmarks_with(name_patterns, |pattern| {
-        Ok(view.local_bookmarks_matching(pattern).collect())
+    find_bookmarks_with(name_patterns, |matcher| {
+        Ok(view.local_bookmarks_matching(matcher).collect())
     })
 }
 
 fn find_bookmarks_with<'a, V>(
     name_patterns: &[StringPattern],
-    mut find_matches: impl FnMut(&StringPattern) -> Result<Vec<(&'a RefName, V)>, CommandError>,
+    mut find_matches: impl FnMut(&StringMatcher) -> Result<Vec<(&'a RefName, V)>, CommandError>,
 ) -> Result<Vec<(&'a RefName, V)>, CommandError> {
     let mut matching_bookmarks: Vec<(&'a RefName, V)> = vec![];
     let mut unmatched_patterns = vec![];
     for pattern in name_patterns {
-        let matches = find_matches(pattern)?;
+        let matches = find_matches(&pattern.to_matcher())?;
         if matches.is_empty() {
             unmatched_patterns.push(pattern);
         }
@@ -148,12 +149,14 @@ fn find_trackable_remote_bookmarks<'a>(
     let mut matching_bookmarks = vec![];
     let mut unmatched_patterns = vec![];
     for pattern in name_patterns {
+        let bookmark_matcher = pattern.bookmark.to_matcher();
+        let remote_matcher = pattern.remote.to_matcher();
         let present_or_tracked_matches =
-            view.remote_bookmarks_matching(&pattern.bookmark, &pattern.remote);
+            view.remote_bookmarks_matching(&bookmark_matcher, &remote_matcher);
         let absent_matches =
-            view.remote_views_matching(&pattern.remote)
+            view.remote_views_matching(&remote_matcher)
                 .flat_map(|(remote, remote_view)| {
-                    view.local_bookmarks_matching(&pattern.bookmark)
+                    view.local_bookmarks_matching(&bookmark_matcher)
                         .filter(|&(name, _)| !remote_view.bookmarks.contains_key(name))
                         .map(|(name, _)| (name.to_remote_symbol(remote), RemoteRef::absent_ref()))
                 });

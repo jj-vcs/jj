@@ -939,8 +939,9 @@ fn find_bookmarks_to_push<'a>(
     let mut matching_bookmarks = vec![];
     let mut unmatched_patterns = vec![];
     for pattern in bookmark_patterns {
+        let matcher = pattern.to_matcher();
         let mut matches = view
-            .local_remote_bookmarks_matching(pattern, remote)
+            .local_remote_bookmarks_matching(&matcher, remote)
             .filter(|(_, targets)| {
                 // If the remote exists but is not tracked, the absent local shouldn't
                 // be considered a deleted bookmark.

@@ -346,52 +346,6 @@ impl StringPattern {
             Self::RegexI(regex) => regex.clone(),
         }
     }
-
-    /// Iterates entries of the given `map` whose string keys match this
-    /// pattern.
-    pub fn filter_btree_map<'a, K: Borrow<str> + Ord, V>(
-        &self,
-        map: &'a BTreeMap<K, V>,
-    ) -> impl Iterator<Item = (&'a K, &'a V)> {
-        self.filter_btree_map_with(map, |key| key, |key| key)
-    }
-
-    /// Iterates entries of the given `map` whose string-like keys match this
-    /// pattern.
-    ///
-    /// The borrowed key type is constrained by the `Deref::Target`. It must be
-    /// convertible to/from `str`.
-    pub fn filter_btree_map_as_deref<'a, K, V>(
-        &self,
-        map: &'a BTreeMap<K, V>,
-    ) -> impl Iterator<Item = (&'a K, &'a V)>
-    where
-        K: Borrow<K::Target> + Deref + Ord,
-        K::Target: AsRef<str> + Ord,
-        str: AsRef<K::Target>,
-    {
-        self.filter_btree_map_with(map, AsRef::as_ref, AsRef::as_ref)
-    }
-
-    fn filter_btree_map_with<'a, K, Q, V>(
-        &self,
-        map: &'a BTreeMap<K, V>,
-        from_key: impl Fn(&Q) -> &str,
-        to_key: impl Fn(&str) -> &Q,
-    ) -> impl Iterator<Item = (&'a K, &'a V)>
-    where
-        K: Borrow<Q> + Ord,
-        Q: Ord + ?Sized,
-    {
-        if let Some(key) = self.as_exact() {
-            Either::Left(map.get_key_value(to_key(key)).into_iter())
-        } else {
-            Either::Right(
-                map.iter()
-                    .filter(move |&(key, _)| self.is_match(from_key(key.borrow()))),
-            )
-        }
-    }
 }
 
 impl fmt::Display for StringPattern {

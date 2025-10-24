@@ -2818,7 +2818,7 @@ fn resolve_commit_ref(
         RevsetCommitRef::Bookmarks(pattern) => {
             let commit_ids = repo
                 .view()
-                .local_bookmarks_matching(pattern)
+                .local_bookmarks_matching(&pattern.to_matcher())
                 .flat_map(|(_, target)| target.added_ids())
                 .cloned()
                 .collect();
@@ -2830,9 +2830,11 @@ fn resolve_commit_ref(
             remote_ref_state,
         } => {
             // TODO: should we allow to select @git bookmarks explicitly?
+            let bookmark_matcher = bookmark_pattern.to_matcher();
+            let remote_matcher = remote_pattern.to_matcher();
             let commit_ids = repo
                 .view()
-                .remote_bookmarks_matching(bookmark_pattern, remote_pattern)
+                .remote_bookmarks_matching(&bookmark_matcher, &remote_matcher)
                 .filter(|(_, remote_ref)| {
                     remote_ref_state.is_none_or(|state| remote_ref.state == state)
                 })
@@ -2845,7 +2847,7 @@ fn resolve_commit_ref(
         RevsetCommitRef::Tags(pattern) => {
             let commit_ids = repo
                 .view()
-                .local_tags_matching(pattern)
+                .local_tags_matching(&pattern.to_matcher())
                 .flat_map(|(_, target)| target.added_ids())
                 .cloned()
                 .collect();

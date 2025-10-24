@@ -115,6 +115,7 @@ use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::restore_tree;
 use jj_lib::settings::HumanByteSize;
 use jj_lib::settings::UserSettings;
+use jj_lib::str_util::StringMatcher;
 use jj_lib::str_util::StringPattern;
 use jj_lib::transaction::Transaction;
 use jj_lib::view::View;
@@ -2869,7 +2870,7 @@ pub fn update_working_copy(
 /// Whether or not the `bookmark` has any tracked remotes (i.e. is a tracking
 /// local bookmark.)
 pub fn has_tracked_remote_bookmarks(view: &View, bookmark: &RefName) -> bool {
-    view.remote_bookmarks_matching(&StringPattern::exact(bookmark), &StringPattern::all())
+    view.remote_bookmarks_matching(&StringMatcher::exact(bookmark), &StringMatcher::all())
         .filter(|&(symbol, _)| !jj_lib::git::is_special_git_remote(symbol.remote))
         .any(|(_, remote_ref)| remote_ref.is_tracked())
 }

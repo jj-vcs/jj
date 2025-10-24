@@ -108,10 +108,10 @@ fn find_forgettable_bookmarks<'a>(
     view: &'a View,
     name_patterns: &[StringPattern],
 ) -> Result<Vec<(&'a RefName, LocalRemoteRefTarget<'a>)>, CommandError> {
-    find_bookmarks_with(name_patterns, |pattern| {
+    find_bookmarks_with(name_patterns, |matcher| {
         let bookmarks = view
             .bookmarks()
-            .filter(|(name, _)| pattern.is_match(name.as_str()))
+            .filter(|(name, _)| matcher.is_match(name.as_str()))
             .collect();
         Ok(bookmarks)
     })
