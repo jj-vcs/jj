@@ -443,6 +443,13 @@ To prevent rewriting commits authored by other users:
 "immutable_heads()" = "builtin_immutable_heads() | (trunk().. & ~mine())"
 ```
 
+To prevent rewriting any commits that have been pushed and seen by other users:
+
+```toml
+[revset-aliases]
+"immutable_heads()" = "builtin_immutable_heads() | remote_bookmarks()"
+```
+
 Ancestors of the configured set are also immutable. The root commit is always
 immutable even if the set is empty.
 
