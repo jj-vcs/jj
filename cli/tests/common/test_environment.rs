@@ -135,9 +135,6 @@ impl TestEnvironment {
         if let Some(cov_var) = std::env::var_os("LLVM_PROFILE_FILE") {
             cmd.env("LLVM_PROFILE_FILE", cov_var);
         }
-        for (key, value) in &self.env_vars {
-            cmd.env(key, value);
-        }
 
         let mut command_number = self.command_number.borrow_mut();
         *command_number += 1;
@@ -146,6 +143,9 @@ impl TestEnvironment {
         let timestamp = timestamp + chrono::Duration::try_seconds(*command_number).unwrap();
         cmd.env("JJ_TIMESTAMP", timestamp.to_rfc3339());
         cmd.env("JJ_OP_TIMESTAMP", timestamp.to_rfc3339());
+        for (key, value) in &self.env_vars {
+            cmd.env(key, value);
+        }
 
         if cfg!(windows) {
             // Windows uses `TEMP` to create temporary directories, which we need for some
