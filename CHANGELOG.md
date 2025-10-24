@@ -24,6 +24,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
  * `jj bisect run --command <cmd>` is deprecated in favor of
    `jj bisect run -- <cmd>`.
 
+ * `jj metaedit --update-committer-timestamp` was renamed to
+   `jj metaedit --force-rewrite` since the old name (and help text)
+   incorrectly suggested that the committer name and email would _not_
+   be updated.
+
 ### New features
 
 * Templates now support a `.split(separator, [limit])` method on strings to

@@ -32,6 +32,11 @@ use crate::text_util::parse_author;
 use crate::ui::Ui;
 
 /// Modify the metadata of a revision without changing its content
+///
+/// Whenever any metadata is updated, the committer name, email, and timestamp
+/// are also updated for all rebased commits. The name and email may come from
+/// the `JJ_USER` and `JJ_EMAIL` environment variables, as well as by passing
+/// `--config user.name` and `--config user.email`.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct MetaeditArgs {
     /// The revision(s) to modify (default: @)
@@ -65,7 +70,8 @@ pub(crate) struct MetaeditArgs {
 
     /// Update the author timestamp
     ///
-    /// This updates the author date to now, without modifying the author.
+    /// This updates the author date to the current time, without modifying the
+    /// author.
     #[arg(long)]
     update_author_timestamp: bool,
 
@@ -103,16 +109,31 @@ pub(crate) struct MetaeditArgs {
     )]
     author_timestamp: Option<Timestamp>,
 
-    /// Update the committer timestamp
+    /// Rewrite the commit, even if no other metadata changed
     ///
-    /// This updates the committer date to now, without modifying the committer.
+    /// This updates the committer timestamp to the current time, as well as the
+    /// committer name and email.
     ///
-    /// Even if this option is not passed, the committer timestamp will be
-    /// updated if other metadata is updated. This option effectively just
-    /// forces every commit to be rewritten whether or not there are other
+    /// Even if this option is not passed, the committer name, email, and
+    /// timestamp will be updated if other metadata is updated. This option
+    /// just forces every commit to be rewritten whether or not there are other
     /// changes.
+    ///
+    /// You can use it in combination with the `JJ_USER` and `JJ_EMAIL`
+    /// environment variables to set a different committer:
+    ///
+    /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj metaedit --force-rewrite
     #[arg(long)]
-    update_committer_timestamp: bool,
+    force_rewrite: bool,
+
+    // TODO: remove in jj 0.41.0+
+    /// Deprecated. Use `--force-rewrite` instead.
+    #[arg(
+        long = "update-committer-timestamp",
+        hide = true,
+        conflicts_with = "force_rewrite"
+    )]
+    legacy_update_committer_timestamp: bool,
 }
 
 #[instrument(skip_all)]
@@ -122,6 +143,14 @@ pub(crate) fn cmd_metaedit(
     args: &MetaeditArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
+
+    if args.legacy_update_committer_timestamp {
+        writeln!(
+            ui.warning_default(),
+            "`--update-committer-timestamp` is deprecated; use `--force-rewrite` instead"
+        )?;
+    }
+
     let target_expr = if !args.revisions_pos.is_empty() || !args.revisions_opt.is_empty() {
         workspace_command
             .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
@@ -170,7 +199,10 @@ pub(crate) fn cmd_metaedit(
     tx.repo_mut()
         .transform_descendants(commit_ids, async |rewriter| {
             if commit_ids_set.contains(rewriter.old_commit().id()) {
-                let mut has_changes = args.update_committer_timestamp || rewriter.parents_changed();
+                let mut rewrite = args.force_rewrite
+                    || args.legacy_update_committer_timestamp
+                    || rewriter.parents_changed();
+
                 let old_author = rewriter.old_commit().author().clone();
                 let mut commit_builder = rewriter.reparent();
                 let mut new_author = commit_builder.author().clone();
@@ -197,22 +229,22 @@ pub(crate) fn cmd_metaedit(
                         && new_author.timestamp != old_author.timestamp)
                 {
                     commit_builder = commit_builder.set_author(new_author);
-                    has_changes = true;
+                    rewrite = true;
                 }
 
                 if let Some(description) = &new_description
                     && description != commit_builder.description()
                 {
                     commit_builder = commit_builder.set_description(description);
-                    has_changes = true;
+                    rewrite = true;
                 }
 
                 if args.update_change_id {
                     commit_builder = commit_builder.generate_new_change_id();
-                    has_changes = true;
+                    rewrite = true;
                 }
 
-                if has_changes {
+                if rewrite {
                     let new_commit = commit_builder.write()?;
                     modified.push(new_commit);
                 }

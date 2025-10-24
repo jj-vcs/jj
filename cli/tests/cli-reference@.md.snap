@@ -1754,6 +1754,8 @@ The working-copy commit is indicated by a `@` symbol in the graph. [Immutable re
 
 Modify the metadata of a revision without changing its content
 
+Whenever any metadata is updated, the committer name, email, and timestamp are also updated for all rebased commits. The name and email may come from the `JJ_USER` and `JJ_EMAIL` environment variables, as well as by passing `--config user.name` and `--config user.email`.
+
 **Usage:** `jj metaedit [OPTIONS] [REVSETS]...`
 
 ###### **Arguments:**
@@ -1772,7 +1774,7 @@ Modify the metadata of a revision without changing its content
    Use `jj describe` if you want to use an editor.
 * `--update-author-timestamp` — Update the author timestamp
 
-   This updates the author date to now, without modifying the author.
+   This updates the author date to the current time, without modifying the author.
 * `--update-author` — Update the author to the configured user
 
    This updates the author name and email. The author timestamp is not modified – use --update-author-timestamp to update the author timestamp.
@@ -1784,11 +1786,15 @@ Modify the metadata of a revision without changing its content
 
    This changes author name and email while retaining author timestamp for non-discardable commits.
 * `--author-timestamp <AUTHOR_TIMESTAMP>` — Set the author date to the given date either human readable, eg Sun, 23 Jan 2000 01:23:45 JST) or as a time stamp, eg 2000-01-23T01:23:45+09:00)
-* `--update-committer-timestamp` — Update the committer timestamp
+* `--force-rewrite` — Rewrite the commit, even if no other metadata changed
 
-   This updates the committer date to now, without modifying the committer.
+   This updates the committer timestamp to the current time, as well as the committer name and email.
 
-   Even if this option is not passed, the committer timestamp will be updated if other metadata is updated. This option effectively just forces every commit to be rewritten whether or not there are other changes.
+   Even if this option is not passed, the committer name, email, and timestamp will be updated if other metadata is updated. This option just forces every commit to be rewritten whether or not there are other changes.
+
+   You can use it in combination with the `JJ_USER` and `JJ_EMAIL` environment variables to set a different committer:
+
+   $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj metaedit --force-rewrite
 
 
 
