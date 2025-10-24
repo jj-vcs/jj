@@ -52,3 +52,6 @@ name = ""
 
 [working-copy]
 eol-conversion = "none"
+
+[experimental]
+record-predecessors-in-commit = true

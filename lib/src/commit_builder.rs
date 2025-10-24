@@ -170,8 +170,10 @@ pub struct DetachedCommitBuilder {
     store: Arc<Store>,
     rng: Arc<JJRng>,
     commit: backend::Commit,
+    predecessors: Vec<CommitId>,
     rewrite_source: Option<Commit>,
     sign_settings: SignSettings,
+    record_predecessors_in_commit: bool,
 }
 
 impl DetachedCommitBuilder {
@@ -197,12 +199,17 @@ impl DetachedCommitBuilder {
             committer: signature,
             secure_sig: None,
         };
+        let record_predecessors_in_commit = settings
+            .get_bool("experimental.record-predecessors-in-commit")
+            .unwrap();
         Self {
             store,
             rng,
             commit,
             rewrite_source: None,
+            predecessors: vec![],
             sign_settings: settings.sign_settings(),
+            record_predecessors_in_commit,
         }
     }
 
@@ -215,7 +222,7 @@ impl DetachedCommitBuilder {
     ) -> Self {
         let store = repo.store().clone();
         let mut commit = backend::Commit::clone(predecessor.store_commit());
-        commit.predecessors = vec![predecessor.id().clone()];
+        commit.predecessors = vec![];
         commit.committer = settings.signature();
         // If the user had not configured a name and email before but now they have,
         // update the author fields with the new information.
@@ -240,12 +247,17 @@ impl DetachedCommitBuilder {
             commit.author.timestamp = commit.committer.timestamp;
         }
 
+        let record_predecessors_in_commit = settings
+            .get_bool("experimental.record-predecessors-in-commit")
+            .unwrap();
         Self {
             store,
             commit,
             rng: settings.get_rng(),
             rewrite_source: Some(predecessor.clone()),
+            predecessors: vec![predecessor.id().clone()],
             sign_settings: settings.sign_settings(),
+            record_predecessors_in_commit,
         }
     }
 
@@ -276,11 +288,11 @@ impl DetachedCommitBuilder {
     }
 
     pub fn predecessors(&self) -> &[CommitId] {
-        &self.commit.predecessors
+        &self.predecessors
     }
 
     pub fn set_predecessors(&mut self, predecessors: Vec<CommitId>) -> &mut Self {
-        self.commit.predecessors = predecessors;
+        self.predecessors = predecessors;
         self
     }
 
@@ -364,8 +376,10 @@ impl DetachedCommitBuilder {
     }
 
     /// Writes new commit and makes it visible in the `mut_repo`.
-    pub fn write(self, mut_repo: &mut MutableRepo) -> BackendResult<Commit> {
-        let predecessors = self.commit.predecessors.clone();
+    pub fn write(mut self, mut_repo: &mut MutableRepo) -> BackendResult<Commit> {
+        if self.record_predecessors_in_commit {
+            self.commit.predecessors = self.predecessors.clone();
+        }
         let commit = write_to_store(&self.store, self.commit, &self.sign_settings)?;
         // FIXME: Google's index.has_id() always returns true.
         if mut_repo.is_backed_by_default_index() && mut_repo.index().has_id(commit.id()) {
@@ -377,7 +391,7 @@ impl DetachedCommitBuilder {
             ));
         }
         mut_repo.add_head(&commit)?;
-        mut_repo.set_predecessors(commit.id().clone(), predecessors);
+        mut_repo.set_predecessors(commit.id().clone(), self.predecessors);
         if let Some(rewrite_source) = self.rewrite_source {
             mut_repo.set_rewritten_commit(rewrite_source.id().clone(), commit.id().clone());
         }
@@ -389,7 +403,11 @@ impl DetachedCommitBuilder {
     /// This does not consume the builder, so you can reuse the current
     /// configuration to create another commit later.
     pub fn write_hidden(&self) -> BackendResult<Commit> {
-        write_to_store(&self.store, self.commit.clone(), &self.sign_settings)
+        let mut commit = self.commit.clone();
+        if self.record_predecessors_in_commit {
+            commit.predecessors = self.predecessors.clone();
+        }
+        write_to_store(&self.store, commit, &self.sign_settings)
     }
 
     /// Records the old commit as abandoned in the `mut_repo`.
