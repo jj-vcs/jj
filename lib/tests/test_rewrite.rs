@@ -772,7 +772,6 @@ fn test_rebase_descendants_multiple_swap() {
 }
 
 #[test]
-#[should_panic(expected = "cycle")]
 fn test_rebase_descendants_multiple_no_descendants() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
@@ -791,7 +790,9 @@ fn test_rebase_descendants_multiple_no_descendants() {
         .set_rewritten_commit(commit_b.id().clone(), commit_c.id().clone());
     tx.repo_mut()
         .set_rewritten_commit(commit_c.id().clone(), commit_b.id().clone());
-    let _ = tx.repo_mut().rebase_descendants(); // Panics because of the cycle
+    let result = tx.repo_mut().rebase_descendants();
+    assert!(result.is_err());
+    assert!(result.err().unwrap().to_string().contains("Cycle"));
 }
 
 #[test]
