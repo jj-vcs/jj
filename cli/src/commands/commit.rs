@@ -86,6 +86,10 @@ pub(crate) struct CommitArgs {
     ///
     /// This changes author name and email while retaining author
     /// timestamp for non-discardable commits.
+    ///
+    /// ```shell
+    /// $ jj commit --author "Foo Bar <foo@bar.com>"
+    /// ```
     #[arg(
         long,
         hide = true,
