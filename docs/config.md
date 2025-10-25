@@ -1085,6 +1085,49 @@ experience, you can follow [instructions from the Wiki] to configure the
 [DirDiff Vim plugin]: https://github.com/will133/vim-dirdiff
 [vimtabdiff Python script]: https://github.com/balki/vimtabdiff
 
+## Split command
+
+The `jj split` command has additional configuration options that control how commit
+descriptions are edited.
+
+### Split editor mode
+
+The `split.editor-mode` setting controls how the editor is invoked when editing
+commit descriptions during a split operation:
+
+```toml
+[split]
+editor-mode = "sequential"  # default
+```
+
+Available modes:
+
+- `"sequential"` (default): Opens two editor sessions one after another. First,
+  you edit the description for the selected changes, then you edit the
+  description for the remaining changes.
+
+- `"vsplit"`: Opens both descriptions side-by-side in a single editor session
+  using the `--vsplit` flag. This requires an editor that supports the
+  `--vsplit` argument (e.g., Helix, Vim, Neovim).
+
+Example configuration for Helix users:
+
+```toml
+[ui]
+editor = "hx"
+
+[split]
+editor-mode = "vsplit"
+```
+
+With this configuration, when you run `jj split`, Helix will open both commit
+descriptions side-by-side, allowing you to edit them simultaneously. The left
+pane contains the description for the selected changes, and the right pane
+contains the description for the remaining changes.
+
+**Note:** The `vsplit` mode is only recommended if your editor supports the
+`--vsplit` flag. Using it with incompatible editors will result in an error.
+
 ## 3-way merge tools for conflict resolution
 
 The `ui.merge-editor` key specifies the tool used for three-way merge tools
