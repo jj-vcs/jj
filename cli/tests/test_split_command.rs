@@ -1563,3 +1563,49 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
         }
     }
 }
+
+#[test]
+fn test_split_with_vsplit_editor_mode() {
+    // NOTE: This test has significant limitations.
+    // The vsplit implementation calls: `editor --vsplit left_path right_path`
+    // But fake-editor cannot handle this because:
+    // 1. It uses clap which rejects unknown flags like --vsplit
+    // 2. It only supports editing a single file, not two files simultaneously
+    //
+    // Therefore, this test only verifies that the config option is read correctly
+    // and doesn't break the non-interactive code path (using -m flag).
+    // It does NOT test the actual vsplit editor invocation or multi-file editing.
+    //
+    // Manual testing with real editors (hx, vim, nvim) is REQUIRED to verify:
+    // - Editor is invoked with: editor --vsplit file1 file2
+    // - Both files can be edited side-by-side
+    // - Both descriptions are captured correctly
+
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    test_env.add_config(r#"split.editor-mode = "vsplit""#);
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir.run_jj(["describe", "-m", "test"]).success();
+
+    // Use -m to bypass the editor entirely, just verify the config doesn't break things
+    let output = work_dir.run_jj(["split", "file1", "-m", "part 1"]);
+
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Selected changes : qpvuntsm c7f7b14b part 1
+    Remaining changes: kkmpptxz 14a1485a test
+    Working copy  (@) now at: kkmpptxz 14a1485a test
+    Parent commit (@-)      : qpvuntsm c7f7b14b part 1
+    [EOF]
+    "#);
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
+    @  kkmpptxzrspx false test
+    ○  qpvuntsmwlqt false part 1
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    "#);
+}
