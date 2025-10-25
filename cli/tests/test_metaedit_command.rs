@@ -18,7 +18,7 @@ use crate::common::TestWorkDir;
 
 #[test]
 fn test_metaedit() {
-    let test_env = TestEnvironment::default();
+    let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
@@ -286,7 +286,7 @@ fn test_metaedit() {
     // Update committer timestamp
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir
-        .run_jj(["metaedit", "--update-committer-timestamp", "kkmpptxzrspx"])
+        .run_jj(["metaedit", "--force-rewrite", "kkmpptxzrspx"])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @r"
     @  Commit ID: 6c0aa6574ef6450eaf7eae1391cc6c769c53a50c
@@ -323,6 +323,34 @@ fn test_metaedit() {
     [EOF]
     ");
 
+    // change test author config for changing committer
+    test_env.add_env_var("JJ_USER", "Test Committer");
+    test_env.add_env_var("JJ_EMAIL", "test.committer@example.com");
+    let work_dir = test_env.work_dir("repo");
+
+    // update existing commit with restored test author config
+    insta::assert_snapshot!(work_dir.run_jj(["metaedit", "--force-rewrite"]), @r"
+    ------- stderr -------
+    Modified 1 commits:
+      mzvwutvl 75259df4 c | (no description set)
+    Working copy  (@) now at: mzvwutvl 75259df4 c | (no description set)
+    Parent commit (@-)      : kkmpptxz 0a570dfb b | (no description set)
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["show"]), @r"
+    Commit ID: 75259df433eebc10b3ad78a9814d6647b764ce28
+    Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
+    Bookmarks: c
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:13)
+    Committer: Test Committer <test.committer@example.com> (2001-02-03 08:05:33)
+
+        (no description set)
+
+    Modified regular file file1:
+       1    1: bc
+    [EOF]
+    ");
+
     // When resetting the description has no effect, the commits are not rewritten.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["metaedit", "--message", "", "kkmpptxzrspx"]);
@@ -337,11 +365,11 @@ fn test_metaedit() {
         .run_jj(["metaedit", "--message", "d\ne\nf"])
         .success();
     insta::assert_snapshot!(get_log(&work_dir), @r"
-    @  Commit ID: 321791b8eb7598848816067aa2bcfb8cb8f479f3
+    @  Commit ID: 502004368461738c866bc690ce08f7c219a4de10
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:35.000 +07:00)
+    │  Committer: Test Committer <test.committer@example.com> (2001-02-03 04:05:37.000 +07:00)
     │
     │      d
     │      e
@@ -376,11 +404,11 @@ fn test_metaedit() {
     // Set empty description
     work_dir.run_jj(["metaedit", "--message", ""]).success();
     insta::assert_snapshot!(get_log(&work_dir), @r"
-    @  Commit ID: d7f2b96b29eaaf402f9b82aefdfe2f9ad5a037e2
+    @  Commit ID: a44f230f9af7eed606af7713774feba5e39f36f7
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:13.000 +07:00)
-    │  Committer: Test User <test.user@example.com> (2001-02-03 04:05:37.000 +07:00)
+    │  Committer: Test Committer <test.committer@example.com> (2001-02-03 04:05:39.000 +07:00)
     │
     │      (no description set)
     │
@@ -651,6 +679,21 @@ fn test_metaedit_option_mutual_exclusion() {
     error: the argument '--author <AUTHOR>' cannot be used with '--update-author'
 
     Usage: jj metaedit --author <AUTHOR> [REVSETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj([
+        "metaedit",
+        "--update-committer-timestamp",
+        "--force-rewrite",
+    ]), @r"
+    ------- stderr -------
+    error: the argument '--update-committer-timestamp' cannot be used with '--force-rewrite'
+
+    Usage: jj metaedit [OPTIONS] [REVSETS]...
 
     For more information, try '--help'.
     [EOF]
