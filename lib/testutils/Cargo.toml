@@ -35,7 +35,7 @@ tokio = { workspace = true }
 toml_edit = { workspace = true }
 
 [features]
-# default = ["git"]
+default = ["git"]
 git = ["dep:gix", "jj-lib/git"]
 
 [lints]
