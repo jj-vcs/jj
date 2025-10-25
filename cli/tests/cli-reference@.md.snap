@@ -347,7 +347,7 @@ See [`jj help -k bookmarks`] for more information.
 * `delete` — Delete an existing bookmark and propagate the deletion to remotes on the next push
 * `forget` — Forget a bookmark without marking it as a deletion to be pushed
 * `list` — List bookmarks and their targets
-* `move` — Move existing bookmarks to target revision
+* `move` — Move an existing bookmark to a target revision
 * `rename` — Rename `old` bookmark name to `new` bookmark name
 * `set` — Create or update a bookmark to point to a certain commit
 * `track` — Start tracking given remote bookmarks
@@ -480,27 +480,28 @@ See [`jj help -k bookmarks`] for more information.
 
 ## `jj bookmark move`
 
-Move existing bookmarks to target revision
+Move an existing bookmark to a target revision
 
-If bookmark names are given, the specified bookmarks will be updated to point to the target revision.
+If a bookmark name is given, the specified bookmark will be updated to point to the target revision.
 
-If `--from` options are given, bookmarks currently pointing to the specified revisions will be updated. The bookmarks can also be filtered by names.
+If `--from` options are given, bookmarks currently pointing to the specified revisions will be updated. The bookmarks can also be filtered by name.
 
 Example: pull up the nearest bookmarks to the working-copy parent
 
 $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 
-**Usage:** `jj bookmark move [OPTIONS] <NAMES|--from <REVSETS>>`
+**Usage:** `jj bookmark move [OPTIONS] <NAME|--from <REVSETS>>`
 
 **Command Alias:** `m`
 
 ###### **Arguments:**
 
-* `<NAMES>` — Move bookmarks matching the given name patterns
+* `<NAME>` — Move bookmark matching the given name pattern
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+   By default, the specified name matches exactly. Use the `glob:` or `regex:` prefix to select multiple bookmarks by [string pattern].
 
-   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+   [string pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+* `<ADDITIONAL_NAMES>`
 
 ###### **Options:**
 
