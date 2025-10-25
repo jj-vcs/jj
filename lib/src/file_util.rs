@@ -34,6 +34,8 @@ use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
 use tokio::io::ReadBuf;
 
+#[cfg(unix)]
+pub use self::platform::check_executable_bit_support;
 pub use self::platform::check_symlink_support;
 pub use self::platform::try_symlink;
 
@@ -294,6 +296,7 @@ mod platform {
     use std::ffi::OsStr;
     use std::io;
     use std::os::unix::ffi::OsStrExt as _;
+    use std::os::unix::fs::PermissionsExt;
     use std::os::unix::fs::symlink;
     use std::path::Path;
 
@@ -307,7 +310,27 @@ mod platform {
         Ok(data.as_bytes())
     }
 
-    /// Symlinks are always available on UNIX
+    /// Whether changing executable bits is permitted on the filesystem of this
+    /// directory, and whether attempting to flip one has an observable effect.
+    pub fn check_executable_bit_support(path: impl AsRef<Path>) -> io::Result<bool> {
+        // Get current permissions and try to flip just the user's executable bit.
+        let temp_file = tempfile::tempfile_in(path)?;
+        let old_mode = temp_file.metadata()?.permissions().mode();
+        let new_mode = old_mode ^ 0o100;
+        let result = temp_file.set_permissions(PermissionsExt::from_mode(new_mode));
+        match result {
+            // If permission was denied, we do not have executable bit support.
+            Err(err) if err.kind() == io::ErrorKind::PermissionDenied => Ok(false),
+            Err(err) => Err(err),
+            Ok(()) => {
+                // Verify that the permission change was not silently ignored.
+                let mode = temp_file.metadata()?.permissions().mode();
+                Ok(mode == new_mode)
+            }
+        }
+    }
+
+    /// Symlinks are always available on Unix.
     pub fn check_symlink_support() -> io::Result<bool> {
         Ok(true)
     }
@@ -382,6 +405,17 @@ mod tests {
 
     use super::*;
     use crate::tests::new_temp_dir;
+
+    #[test]
+    #[cfg(unix)]
+    fn exec_bit_support_in_temp_dir() {
+        // Temporary directories on Unix should always have executable support.
+        // Note that it would be problematic to test in a non-temp directory, as
+        // a developer's filesystem may or may not have executable bit support.
+        let dir = new_temp_dir();
+        let supported = check_executable_bit_support(dir.path()).unwrap();
+        assert!(supported);
+    }
 
     #[test]
     fn test_path_bytes_roundtrip() {

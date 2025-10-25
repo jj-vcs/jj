@@ -74,6 +74,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   colocation state (`status`) and to convert a non-colocated git repo into
   a colocated repo (`enable`) and vice-versa `disable`.
 
+* Updated the executable bit representation in the local working copy to allow
+  ignoring executable bit changes on Unix. By default we try to detect the
+  filesystem's behavior, but this can be overridden manually by setting
+  `working-copy.exec-bit-change = "respect" | "ignore"`.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
