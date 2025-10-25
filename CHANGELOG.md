@@ -74,6 +74,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   colocation state (`status`) and to convert a non-colocated git repo into
   a colocated repo (`enable`) and vice-versa `disable`.
 
+* `jj split` now supports a `split.editor-mode` config option to edit both
+  commit descriptions side-by-side in a single editor session. Set
+  `split.editor-mode = "vsplit"` to use this mode with editors that support
+  the `--vsplit` flag (e.g., Helix, Vim, Neovim). The default `"sequential"`
+  mode preserves the original behavior of editing descriptions one at a time.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
