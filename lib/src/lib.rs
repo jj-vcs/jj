@@ -98,7 +98,7 @@ pub mod repo_path;
 pub mod revset;
 mod revset_parser;
 pub mod rewrite;
-#[cfg(feature = "testing")]
+#[cfg(all(feature = "testing", feature = "git"))]
 pub mod secret_backend;
 pub mod settings;
 pub mod signing;

@@ -89,7 +89,11 @@ proptest = { workspace = true }
 rustversion = { workspace = true }
 sapling-renderdag = { workspace = true }
 test-case = { workspace = true }
-testutils = { workspace = true }
+# `features = ["git"]` below has little effect currently
+# Even with it, `cargo test --no-default-features jj-lib` fails to compile. It seems non-trivial to make jj-lib tests
+# not depend on `git`.
+# `cargo build --no-default-features` does compile with or without `features = ["git"]` below.
+testutils = { workspace = true,  features = ["git"] }
 tokio = { workspace = true, features = ["full"] }
 
 [target.'cfg(unix)'.dev-dependencies]
@@ -99,7 +103,7 @@ nix = { workspace = true, features = [ "fs" ] }
 default = ["git"]
 git = ["dep:gix"]
 watchman = ["dep:watchman_client"]
-testing = ["git"]
+testing = []
 
 [lints]
 workspace = true

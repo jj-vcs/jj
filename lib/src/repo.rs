@@ -436,6 +436,7 @@ impl Default for StoreFactories {
             }),
         );
         #[cfg(feature = "testing")]
+        #[cfg(feature = "git")]
         factories.add_backend(
             crate::secret_backend::SecretBackend::name(),
             Box::new(|settings, store_path| {

@@ -43,6 +43,7 @@ use jj_lib::commit_builder::CommitBuilder;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
+#[cfg(feature = "git")]
 use jj_lib::git_backend::GitBackend;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::EverythingMatcher;
@@ -58,6 +59,7 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathComponent;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RebasedCommit;
+#[cfg(feature = "git")]
 use jj_lib::secret_backend::SecretBackend;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
@@ -74,10 +76,13 @@ use pollster::FutureExt as _;
 use tempfile::TempDir;
 use tokio::io::AsyncReadExt as _;
 
+#[cfg(feature = "git")]
 use crate::test_backend::TestBackendFactory;
 
+#[cfg(feature = "git")]
 pub mod git;
 pub mod proptest;
+#[cfg(feature = "git")]
 pub mod test_backend;
 
 // TODO: Consider figuring out a way to make `GitBackend` and `git(1)` calls in
@@ -159,6 +164,7 @@ pub fn is_external_tool_installed(program_name: impl AsRef<OsStr>) -> bool {
 #[derive(Debug)]
 pub struct TestEnvironment {
     temp_dir: TempDir,
+    #[cfg(feature = "git")]
     test_backend_factory: TestBackendFactory,
 }
 
@@ -166,6 +172,7 @@ impl TestEnvironment {
     pub fn init() -> Self {
         Self {
             temp_dir: new_temp_dir(),
+            #[cfg(feature = "git")]
             test_backend_factory: TestBackendFactory::default(),
         }
     }
@@ -174,6 +181,7 @@ impl TestEnvironment {
         self.temp_dir.path()
     }
 
+    #[cfg(feature = "git")]
     pub fn default_store_factories(&self) -> StoreFactories {
         let mut factories = StoreFactories::default();
         factories.add_backend("test", {
@@ -187,6 +195,11 @@ impl TestEnvironment {
             }),
         );
         factories
+    }
+
+    #[cfg(not(feature = "git"))]
+    pub fn default_store_factories(&self) -> StoreFactories {
+        StoreFactories::default()
     }
 
     pub fn load_repo_at_head(
@@ -209,12 +222,15 @@ pub struct TestRepo {
 
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum TestRepoBackend {
+    #[cfg(feature = "git")]
     Git,
     Simple,
+    #[cfg(feature = "git")]
     Test,
 }
 
 impl TestRepoBackend {
+    #[cfg(feature = "git")]
     fn init_backend(
         &self,
         env: &TestEnvironment,
@@ -227,9 +243,22 @@ impl TestRepoBackend {
             Self::Test => Ok(Box::new(env.test_backend_factory.init(store_path))),
         }
     }
+
+    #[cfg(not(feature = "git"))]
+    fn init_backend(
+        &self,
+        _env: &TestEnvironment,
+        _settings: &UserSettings,
+        store_path: &Path,
+    ) -> Result<Box<dyn Backend>, BackendInitError> {
+        match self {
+            Self::Simple => Ok(Box::new(SimpleBackend::init(store_path))),
+        }
+    }
 }
 
 impl TestRepo {
+    #[cfg(feature = "git")]
     pub fn init() -> Self {
         Self::init_with_backend(TestRepoBackend::Test)
     }
@@ -238,6 +267,7 @@ impl TestRepo {
         Self::init_with_backend_and_settings(backend, &user_settings())
     }
 
+    #[cfg(feature = "git")]
     pub fn init_with_settings(settings: &UserSettings) -> Self {
         Self::init_with_backend_and_settings(TestRepoBackend::Test, settings)
     }
@@ -282,6 +312,7 @@ pub struct TestWorkspace {
 }
 
 impl TestWorkspace {
+    #[cfg(feature = "git")]
     pub fn init() -> Self {
         Self::init_with_backend(TestRepoBackend::Test)
     }
@@ -290,6 +321,7 @@ impl TestWorkspace {
         Self::init_with_backend_and_settings(backend, &user_settings())
     }
 
+    #[cfg(feature = "git")]
     pub fn init_with_settings(settings: &UserSettings) -> Self {
         Self::init_with_backend_and_settings(TestRepoBackend::Test, settings)
     }
