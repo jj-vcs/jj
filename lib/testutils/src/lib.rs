@@ -45,6 +45,7 @@ use jj_lib::config::StackedConfig;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::EverythingMatcher;
+use jj_lib::matchers::NothingMatcher;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::MutableRepo;
@@ -132,6 +133,7 @@ pub fn empty_snapshot_options() -> SnapshotOptions<'static> {
         base_ignores: GitIgnoreFile::empty(),
         progress: None,
         start_tracking_matcher: &EverythingMatcher,
+        force_tracking_matcher: &NothingMatcher,
         max_new_file_size: u64::MAX,
     }
 }

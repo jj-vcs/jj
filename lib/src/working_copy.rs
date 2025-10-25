@@ -221,6 +221,9 @@ pub struct SnapshotOptions<'a> {
     /// For new files that are not already tracked, start tracking them if they
     /// match this.
     pub start_tracking_matcher: &'a dyn Matcher,
+    /// For files that match the ignore patterns or are too large, start
+    /// tracking them anyway if they match this.
+    pub force_tracking_matcher: &'a dyn Matcher,
     /// The size of the largest file that should be allowed to become tracked
     /// (already tracked files are always snapshotted). If there are larger
     /// files in the working copy, then `LockedWorkingCopy::snapshot()` may

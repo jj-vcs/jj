@@ -127,6 +127,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Revsets now support logical operators in string patterns.
 
+* `jj file track` now accepts an `--include-ignored` flag to track files that
+  are ignored by `.gitignore` or exceed the `snapshot.max-new-file-size` limit.
+  [#2837](https://github.com/jj-vcs/jj/issues/2837)
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

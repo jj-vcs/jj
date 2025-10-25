@@ -1082,6 +1082,7 @@ impl TreeState {
             ref base_ignores,
             progress,
             start_tracking_matcher,
+            force_tracking_matcher,
             max_new_file_size,
         } = options;
 
@@ -1116,6 +1117,7 @@ impl TreeState {
                 current_tree: &self.tree,
                 matcher: &matcher,
                 start_tracking_matcher,
+                force_tracking_matcher,
                 // Move tx sides so they'll be dropped at the end of the scope.
                 tree_entries_tx,
                 file_states_tx,
@@ -1264,6 +1266,7 @@ struct FileSnapshotter<'a> {
     current_tree: &'a MergedTree,
     matcher: &'a dyn Matcher,
     start_tracking_matcher: &'a dyn Matcher,
+    force_tracking_matcher: &'a dyn Matcher,
     tree_entries_tx: Sender<(RepoPathBuf, MergedTreeValue)>,
     file_states_tx: Sender<(RepoPathBuf, FileState)>,
     untracked_paths_tx: Sender<(RepoPathBuf, UntrackedReason)>,
@@ -1368,7 +1371,9 @@ impl FileSnapshotter<'_> {
 
         if file_type.is_dir() {
             let file_states = file_states.prefixed_at(dir, name);
-            if git_ignore.matches(&path.to_internal_dir_string()) {
+            if git_ignore.matches(&path.to_internal_dir_string())
+                && self.force_tracking_matcher.visit(&path).is_nothing()
+            {
                 // If the whole directory is ignored by .gitignore, visit only
                 // paths we're already tracking. This is because .gitignore in
                 // ignored directory must be ignored. It's also more efficient.
@@ -1394,7 +1399,8 @@ impl FileSnapshotter<'_> {
                 progress(&path);
             }
             if maybe_current_file_state.is_none()
-                && git_ignore.matches(path.as_internal_file_string())
+                && (git_ignore.matches(path.as_internal_file_string())
+                    && !self.force_tracking_matcher.matches(&path))
             {
                 // If it wasn't already tracked and it matches
                 // the ignored paths, then ignore it.
@@ -1412,7 +1418,10 @@ impl FileSnapshotter<'_> {
                     message: format!("Failed to stat file {}", entry.path().display()),
                     err: err.into(),
                 })?;
-                if maybe_current_file_state.is_none() && metadata.len() > self.max_new_file_size {
+                if maybe_current_file_state.is_none()
+                    && (metadata.len() > self.max_new_file_size
+                        && !self.force_tracking_matcher.matches(&path))
+                {
                     // Leave the large file untracked
                     let reason = UntrackedReason::FileTooLarge {
                         size: metadata.len(),

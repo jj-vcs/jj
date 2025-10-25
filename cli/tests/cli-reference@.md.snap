@@ -1141,11 +1141,17 @@ Without arguments, all paths that are not ignored will be tracked.
 
 By default, new files in the working copy are automatically tracked, so this command has no effect. You can configure which paths to automatically track by setting `snapshot.auto-track` (e.g. to `"none()"` or `"glob:**/*.rs"`). Files that don't match the pattern can be manually tracked using this command. The default pattern is `all()`.
 
-**Usage:** `jj file track <FILESETS>...`
+**Usage:** `jj file track [OPTIONS] <FILESETS>...`
 
 ###### **Arguments:**
 
 * `<FILESETS>` — Paths to track
+
+###### **Options:**
+
+* `--include-ignored` — Track paths even if they're ignored or too large
+
+   By default, `jj file track` will not track files that are ignored by .gitignore or exceed the maximum file size. This flag overrides those restrictions, explicitly tracking the specified paths.
 
 
 

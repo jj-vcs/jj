@@ -84,6 +84,8 @@ fn test_snapshot_large_file() {
         This will increase the maximum file size allowed for new files, in this repository only.
       - Run `jj --config snapshot.max-new-file-size=11264 file track large large2`
         This will increase the maximum file size allowed for new files, for this command only.
+      - Run `jj file track --include-ignored large large2`
+        This will track the files even though they exceed the size limit.
     [EOF]
     ");
 

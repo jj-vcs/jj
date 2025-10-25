@@ -70,6 +70,7 @@ use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::matchers::Matcher;
+use jj_lib::matchers::NothingMatcher;
 use jj_lib::merge::Diff;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
@@ -1387,6 +1388,7 @@ to the current parents may contain changes from multiple commits.
             base_ignores,
             progress: None,
             start_tracking_matcher,
+            force_tracking_matcher: &NothingMatcher,
             max_new_file_size,
         })
     }

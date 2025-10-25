@@ -216,14 +216,123 @@ fn test_track_ignored() {
     file1
     [EOF]
     ");
-    // Track an ignored path
+    // Track an ignored path without --include-ignored (should not work)
     let output = work_dir.run_jj(["file", "track", "file1.bak"]);
     insta::assert_snapshot!(output, @"");
-    // TODO: We should teach `jj file track` to track ignored paths (possibly
-    // requiring a flag)
     let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     file1
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_track_ignored_with_flag() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file(".gitignore", "*.ignored\n");
+    work_dir.write_file("file1.txt", "content");
+    work_dir.write_file("file2.ignored", "ignored content");
+
+    // Test the setup
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @r"
+    .gitignore
+    file1.txt
+    [EOF]
+    ");
+
+    // Track ignored file with --include-ignored
+    let output = work_dir.run_jj(["file", "track", "--include-ignored", "file2.ignored"]);
+    insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @r"
+    .gitignore
+    file1.txt
+    file2.ignored
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_track_large_file_with_flag() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(r#"snapshot.max-new-file-size = "10""#);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("small.txt", "small");
+    work_dir.write_file("large.txt", "a".repeat(20).as_str());
+
+    // Test the setup
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @r"
+    small.txt
+    [EOF]
+    ------- stderr -------
+    Warning: Refused to snapshot some files:
+      large.txt: 20.0B (20 bytes); the maximum size allowed is 10.0B (10 bytes)
+    Hint: This is to prevent large files from being added by accident. You can fix this by:
+      - Adding the file to `.gitignore`
+      - Run `jj config set --repo snapshot.max-new-file-size 20`
+        This will increase the maximum file size allowed for new files, in this repository only.
+      - Run `jj --config snapshot.max-new-file-size=20 st`
+        This will increase the maximum file size allowed for new files, for this command only.
+    [EOF]
+    ");
+
+    // Track large file with --include-ignored
+    let output = work_dir.run_jj(["file", "track", "--include-ignored", "large.txt"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Refused to snapshot some files:
+      large.txt: 20.0B (20 bytes); the maximum size allowed is 10.0B (10 bytes)
+    Hint: This is to prevent large files from being added by accident. You can fix this by:
+      - Adding the file to `.gitignore`
+      - Run `jj config set --repo snapshot.max-new-file-size 20`
+        This will increase the maximum file size allowed for new files, in this repository only.
+      - Run `jj --config snapshot.max-new-file-size=20 file track large.txt`
+        This will increase the maximum file size allowed for new files, for this command only.
+      - Run `jj file track --include-ignored large.txt`
+        This will track the files even though they exceed the size limit.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @r"
+    large.txt
+    small.txt
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_track_ignored_directory() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file(".gitignore", "ignored_dir/\n");
+    let ignored_dir = work_dir.create_dir("ignored_dir");
+    ignored_dir.write_file("file1.txt", "content1");
+    ignored_dir.write_file("file2.txt", "content2");
+
+    // Test the setup
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @r"
+    .gitignore
+    [EOF]
+    ");
+
+    // Track ignored directory with --include-ignored
+    let output = work_dir.run_jj(["file", "track", "--include-ignored", "ignored_dir"]);
+    insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    .gitignore
+    ignored_dir/file1.txt
+    ignored_dir/file2.txt
     [EOF]
     ");
 }
