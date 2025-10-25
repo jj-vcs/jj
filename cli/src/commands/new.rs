@@ -120,7 +120,7 @@ pub(crate) struct NewArgs {
     /// Example: `jj new --after A --before D`:
     ///
     /// ```text
-    ///
+    /// 
     ///     D            D
     ///     |           / \
     ///     C          |   C

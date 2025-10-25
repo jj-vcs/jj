@@ -121,8 +121,8 @@ impl TextEditor {
         Ok(edited)
     }
 
-    /// Writes the given content to two temporary files and opens them in editor with --vsplit.
-    /// Returns a tuple of the edited contents (left, right).
+    /// Writes the given content to two temporary files and opens them in editor
+    /// with --vsplit. Returns a tuple of the edited contents (left, right).
     pub fn edit_two_str(
         &self,
         left_content: impl AsRef<[u8]>,

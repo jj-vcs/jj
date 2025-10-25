@@ -1590,7 +1590,8 @@ fn test_split_with_vsplit_editor_mode() {
     work_dir.write_file("file2", "bar\n");
     work_dir.run_jj(["describe", "-m", "test"]).success();
 
-    // Use -m to bypass the editor entirely, just verify the config doesn't break things
+    // Use -m to bypass the editor entirely, just verify the config doesn't break
+    // things
     let output = work_dir.run_jj(["split", "file1", "-m", "part 1"]);
 
     insta::assert_snapshot!(output, @r#"
