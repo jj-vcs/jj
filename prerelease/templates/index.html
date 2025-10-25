@@ -2694,8 +2694,9 @@ type</a> are available as keywords. For example,
   append the <code>ellipsis</code> to the result.</li>
 <li><code>hash(content: Stringify) -&gt; String</code>:
   Hash the input and return a hexadecimal string representation of the digest.</li>
-<li><code>label(label: Stringify, content: Template) -&gt; Template</code>: Apply label to
-  the content. The <code>label</code> is evaluated as a space-separated string.</li>
+<li><code>label(label: Stringify, content: Template) -&gt; Template</code>: Apply a custom
+  <a href="#color-labels">color label</a> to the content. The <code>label</code> is evaluated as a
+  space-separated string.</li>
 <li><code>raw_escape_sequence(content: Template) -&gt; Template</code>: Preserves any escape
   sequences in <code>content</code> (i.e., bypasses sanitization) and strips labels.
   Note: This function is intended for escape sequences and as such, its output
@@ -3156,15 +3157,28 @@ only occur directly in the call site they are used in.</p>
 <li><code>.target() -&gt; Commit</code>: Returns the working-copy commit of this workspace.</li>
 </ul>
 <h2 id="color-labels">Color labels<a class="headerlink" href="#color-labels" title="Permanent link">&para;</a></h2>
-<p>Template fragments are usually labeled with the command name, the context (or
-the top-level object), and the method names. You can <a href="../config/#custom-colors-and-styles">customize the output
-colors</a> by using these labels.</p>
-<p>For example, the following template is labeled as <code>op_log operation id short</code>:</p>
+<p>You can <a href="../config/#custom-colors-and-styles">customize the output colors</a> by using color labels. <code>jj</code>
+adds some labels automatically; they can also be added manually.</p>
+<p>Template fragments are usually <strong>automatically</strong> labeled with the command name,
+the context (or the top-level object), and the method names. For example, the
+following template is labeled as <code>op_log operation id short</code> automatically:</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;self.id().short()&#39;</span>
 </code></pre></div>
-<p>In addition to that, you can insert arbitrary labels by <code>label(label, content)</code>
-function.</p>
-<p>To inspect how output fragments are labeled, use <code>--color=debug</code> option.</p>
+<p>The exact names of such labels are often straightforward, but are not currently
+documented. You can discover the actual label names used with the
+<code>--color=debug</code> option, e.g.</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;self.id().short()&#39;</span><span class="w"> </span>--color<span class="o">=</span>debug
+</code></pre></div>
+<p>Additionally, you can <strong>manually</strong> insert arbitrary labels using the
+<code>label(label, content)</code> function. For example,</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;&quot;ID: &quot; ++ self.id().short().substr(0, 1) ++ label(&quot;id short&quot;,  &quot;&lt;redacted&gt;&quot;)&#39;</span>
+</code></pre></div>
+<p>will print "ID:" in the default style, and the string <code>&lt;redacted&gt;</code> in the same
+style as the first character of the id. It would also be fine to use an
+arbitrary template instead of the string <code>"&lt;redacted&gt;"</code>, possibly including
+nested invocations of <code>label()</code>.</p>
+<p>You are free to use custom label names as well. This will only have a visible
+effect if you also <a href="../config/#custom-colors-and-styles">customize their colors</a> explicitly.</p>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 <p>The default templates and aliases() are defined in the <code>[templates]</code> and
 <code>[template-aliases]</code> sections of the config respectively. The exact definitions
