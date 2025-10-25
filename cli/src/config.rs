@@ -831,6 +831,12 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             "template-aliases.\"format_short_revision_id(id)\"",
             "template-aliases.\"format_short_revision_id(id)\"",
         ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.empty_commit_marker",
+            "template-aliases.empty_revision_marker",
+            "template-aliases.empty_revision_marker",
+        ),
     ]
 }
 

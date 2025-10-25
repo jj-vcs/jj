@@ -1152,7 +1152,7 @@ fn test_template_alias() {
     default_revision_description
     description_placeholder
     email_placeholder
-    empty_commit_marker
+    empty_revision_marker
     git_format_patch_email_headers
     name_placeholder
     revision_summary_separator

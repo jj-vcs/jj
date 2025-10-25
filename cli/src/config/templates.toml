@@ -163,7 +163,7 @@ if(revision.root(),
         if(revision.conflict(), label("conflict", "conflict")),
         if(config("ui.show-cryptographic-signatures").as_boolean(),
           format_short_cryptographic_signature(revision.signature())),
-        if(revision.empty(), empty_commit_marker),
+        if(revision.empty(), empty_revision_marker),
         if(revision.description(),
           revision.description().first_line(),
           label(if(revision.empty(), "empty"), description_placeholder),
@@ -187,7 +187,7 @@ if(revision.root(),
     concat(
       format_short_revision_header(revision) ++ "\n",
       separate(" ",
-        if(revision.empty(), empty_commit_marker),
+        if(revision.empty(), empty_revision_marker),
         if(revision.description(),
           revision.description().first_line(),
           label(if(revision.empty(), "empty"), description_placeholder),
@@ -211,7 +211,7 @@ if(revision.root(),
     concat(
       format_short_revision_header_redacted(revision) ++ "\n",
       separate(" ",
-        if(revision.empty(), empty_commit_marker),
+        if(revision.empty(), empty_revision_marker),
         label("description", "(redacted)"),
       ) ++ "\n",
     ),
@@ -232,7 +232,7 @@ if(revision.root(),
     concat(
       format_short_revision_header(revision) ++ "\n",
       separate(" ",
-        if(revision.empty(), empty_commit_marker),
+        if(revision.empty(), empty_revision_marker),
         if(revision.description(),
           revision.description().trim_end() ++ "\n",
           label(if(revision.empty(), "empty"), description_placeholder),
@@ -298,7 +298,7 @@ label(if(op.current_operation(), "current_operation"),
 '''
 
 default_revision_description = '""'
-empty_commit_marker = 'label("empty", "(empty)")'
+empty_revision_marker = 'label("empty", "(empty)")'
 description_placeholder = 'label("description placeholder", "(no description set)")'
 email_placeholder = 'label("email placeholder", "(no email set)")'
 name_placeholder = 'label("name placeholder", "(no name set)")'
@@ -337,7 +337,7 @@ label(if(revision.current_working_copy(), "working_copy"),
       refs,
       separate(" ",
         if(revision.conflict(), label("conflict", "(conflict)")),
-        if(revision.empty(), empty_commit_marker),
+        if(revision.empty(), empty_revision_marker),
         if(revision.description(),
           revision.description().first_line(),
           label(if(revision.empty(), "empty"), description_placeholder),

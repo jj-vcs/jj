@@ -942,6 +942,7 @@ fn test_default_config() {
     template-aliases."format_short_commit_header_redacted(commit)"
     template-aliases."format_short_commit_header(commit)"
     template-aliases."format_short_commit_id(id)"
+    template-aliases.empty_commit_marker
     [EOF]
     "#);
 
