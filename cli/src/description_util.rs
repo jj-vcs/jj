@@ -121,6 +121,69 @@ impl TextEditor {
         Ok(edited)
     }
 
+    /// Writes the given content to two temporary files and opens them in editor with --vsplit.
+    /// Returns a tuple of the edited contents (left, right).
+    pub fn edit_two_str(
+        &self,
+        left_content: impl AsRef<[u8]>,
+        right_content: impl AsRef<[u8]>,
+        suffix: Option<&str>,
+    ) -> Result<(String, String), TempTextEditError> {
+        let left_path = self
+            .write_temp_file(left_content.as_ref(), suffix)
+            .map_err(|err| TempTextEditError::new(err.into(), None))?;
+        let right_path = self
+            .write_temp_file(right_content.as_ref(), suffix)
+            .map_err(|err| {
+                fs::remove_file(&left_path).ok();
+                TempTextEditError::new(err.into(), None)
+            })?;
+
+        let mut cmd = self.editor.to_command();
+        cmd.arg("--vsplit").arg(&left_path).arg(&right_path);
+        tracing::info!(?cmd, "running editor with vsplit");
+
+        let status = cmd.status().map_err(|source| {
+            fs::remove_file(&left_path).ok();
+            fs::remove_file(&right_path).ok();
+            TempTextEditError::new(
+                TextEditError::FailedToRun {
+                    name: self.editor.split_name().into_owned(),
+                    source,
+                }
+                .into(),
+                None,
+            )
+        })?;
+
+        if !status.success() {
+            fs::remove_file(&left_path).ok();
+            fs::remove_file(&right_path).ok();
+            let command = self.editor.to_string();
+            return Err(TempTextEditError::new(
+                TextEditError::ExitStatus { command, status }.into(),
+                None,
+            ));
+        }
+
+        let left_edited = fs::read_to_string(&left_path)
+            .context(&left_path)
+            .map_err(|err| {
+                fs::remove_file(&right_path).ok();
+                TempTextEditError::new(err.into(), Some(left_path.clone()))
+            })?;
+
+        let right_edited = fs::read_to_string(&right_path)
+            .context(&right_path)
+            .map_err(|err| TempTextEditError::new(err.into(), Some(right_path.clone())))?;
+
+        // Delete the files only if everything went well.
+        fs::remove_file(left_path).ok();
+        fs::remove_file(right_path).ok();
+
+        Ok((left_edited, right_edited))
+    }
+
     fn write_temp_file(&self, content: &[u8], suffix: Option<&str>) -> Result<PathBuf, PathError> {
         let dir = self.dir.clone().unwrap_or_else(tempfile::env::temp_dir);
         let mut file = tempfile::Builder::new()
@@ -181,6 +244,31 @@ pub fn edit_description(editor: &TextEditor, description: &str) -> Result<String
         .map_err(|err| err.with_name("description"))?;
 
     Ok(cleanup_description_lines(description.lines()))
+}
+
+/// Edits two descriptions side-by-side in a single editor session with vsplit.
+/// Returns a tuple of (left_description, right_description).
+pub fn edit_two_descriptions(
+    editor: &TextEditor,
+    left_description: &str,
+    right_description: &str,
+) -> Result<(String, String), CommandError> {
+    let mut left = left_description.to_owned();
+    append_blank_line(&mut left);
+    left.push_str("JJ: Lines starting with \"JJ:\" (like this one) will be removed.\n");
+
+    let mut right = right_description.to_owned();
+    append_blank_line(&mut right);
+    right.push_str("JJ: Lines starting with \"JJ:\" (like this one) will be removed.\n");
+
+    let (left_edited, right_edited) = editor
+        .edit_two_str(left, right, Some(".jjdescription"))
+        .map_err(|err| err.with_name("descriptions"))?;
+
+    Ok((
+        cleanup_description_lines(left_edited.lines()),
+        cleanup_description_lines(right_edited.lines()),
+    ))
 }
 
 /// Edits the descriptions of the given commits in a single editor session.
