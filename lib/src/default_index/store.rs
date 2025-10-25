@@ -50,7 +50,6 @@ use crate::file_util;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::file_util::persist_temp_file;
-use crate::index::Index as _;
 use crate::index::IndexStore;
 use crate::index::IndexStoreError;
 use crate::index::IndexStoreResult;
@@ -319,7 +318,7 @@ impl DefaultIndexStore {
         let parent_index_has_id = |id: &CommitId| {
             maybe_parent_index
                 .as_ref()
-                .is_some_and(|index| index.has_id(id))
+                .is_some_and(|index| index.has_id_impl(id))
         };
         let get_commit_with_op = |commit_id: &CommitId, op_id: &OperationId| {
             let op_id = op_id.clone();

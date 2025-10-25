@@ -112,7 +112,7 @@ pub trait Index: Send + Sync {
     ) -> IndexResult<PrefixResolution<CommitId>>;
 
     /// Returns true if `commit_id` is present in the index.
-    fn has_id(&self, commit_id: &CommitId) -> bool;
+    fn has_id(&self, commit_id: &CommitId) -> IndexResult<bool>;
 
     /// Returns true if `ancestor_id` commit is an ancestor of the
     /// `descendant_id` commit, or if `ancestor_id` equals `descendant_id`.

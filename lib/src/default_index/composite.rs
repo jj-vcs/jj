@@ -551,6 +551,10 @@ impl CompositeIndex {
         }
     }
 
+    pub(super) fn has_id_impl(&self, commit_id: &CommitId) -> bool {
+        self.commits().has_id(commit_id)
+    }
+
     pub(super) fn changed_paths(&self) -> &CompositeChangedPathIndex {
         &self.changed_paths
     }
@@ -581,8 +585,8 @@ impl Index for CompositeIndex {
         Ok(self.commits().resolve_commit_id_prefix(prefix))
     }
 
-    fn has_id(&self, commit_id: &CommitId) -> bool {
-        self.commits().has_id(commit_id)
+    fn has_id(&self, commit_id: &CommitId) -> IndexResult<bool> {
+        Ok(self.has_id_impl(commit_id))
     }
 
     fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {

@@ -23,6 +23,7 @@ use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
 use jj_lib::evolution::walk_predecessors;
+use jj_lib::index::Index;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_walk;
@@ -54,6 +55,10 @@ fn list_dir(dir: &Path) -> Vec<String> {
         .map(|entry| entry.unwrap().file_name().to_str().unwrap().to_owned())
         .sorted()
         .collect()
+}
+
+fn index_has_id(index: &dyn Index, commit_id: &CommitId) -> bool {
+    index.has_id(commit_id).unwrap()
 }
 
 #[test]
@@ -567,8 +572,8 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
     assert_eq!(stats.unreachable_count, 1);
     let repo = repo_at(&stats.new_head_ids[0]);
     // A0 - B0 are still reachable
-    assert!(repo.index().has_id(commit_a0.id()));
-    assert!(repo.index().has_id(commit_b0.id()));
+    assert!(index_has_id(repo.index(), commit_a0.id()));
+    assert!(index_has_id(repo.index(), commit_b0.id()));
     assert_eq!(
         get_predecessors(&repo, commit_a1.id()),
         [commit_a0.id().clone()]
@@ -593,17 +598,17 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
     assert_eq!(stats.unreachable_count, 2);
     let repo = repo_at(&stats.new_head_ids[0]);
     // A0 is still reachable
-    assert!(repo.index().has_id(commit_a0.id()));
+    assert!(index_has_id(repo.index(), commit_a0.id()));
     if op_stores_commit_predecessors {
         // B0 is no longer reachable
-        assert!(!repo.index().has_id(commit_b0.id()));
+        assert!(!index_has_id(repo.index(), commit_b0.id()));
         // the predecessor record `A1: A0` no longer exists
         assert_eq!(get_predecessors(&repo, commit_a1.id()), []);
         // Unreachable predecessors should be excluded
         assert_eq!(get_predecessors(&repo, commit_b1.id()), []);
     } else {
         // B0 is retained because it is immediate predecessor of B1
-        assert!(repo.index().has_id(commit_b0.id()));
+        assert!(index_has_id(repo.index(), commit_b0.id()));
         assert_eq!(
             get_predecessors(&repo, commit_a1.id()),
             [commit_a0.id().clone()]
@@ -627,9 +632,9 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
     assert_eq!(stats.unreachable_count, 3);
     let repo = repo_at(&stats.new_head_ids[0]);
     // A0 is no longer reachable
-    assert!(!repo.index().has_id(commit_a0.id()));
+    assert!(!index_has_id(repo.index(), commit_a0.id()));
     // A1 is still reachable through A2
-    assert!(repo.index().has_id(commit_a1.id()));
+    assert!(index_has_id(repo.index(), commit_a1.id()));
     assert_eq!(
         get_predecessors(&repo, commit_a2.id()),
         [commit_a1.id().clone()]

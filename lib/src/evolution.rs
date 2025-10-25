@@ -17,6 +17,7 @@
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::collections::hash_map::Entry;
 use std::slice;
 
 use itertools::Itertools as _;
@@ -27,6 +28,7 @@ use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::dag_walk;
+use crate::index::IndexError;
 use crate::op_store::OpStoreError;
 use crate::op_store::OpStoreResult;
 use crate::op_walk;
@@ -69,6 +71,8 @@ impl CommitEvolutionEntry {
 pub enum WalkPredecessorsError {
     #[error(transparent)]
     Backend(#[from] BackendError),
+    #[error(transparent)]
+    Index(#[from] IndexError),
     #[error(transparent)]
     OpStore(#[from] OpStoreError),
     #[error("Predecessors cycle detected around commit {0}")]
@@ -168,27 +172,42 @@ where
     }
 
     /// Traverses predecessors from remainder commits.
-    fn scan_commits(&mut self) -> BackendResult<()> {
+    fn scan_commits(&mut self) -> Result<(), WalkPredecessorsError> {
         let store = self.repo.store();
         let index = self.repo.index();
         let mut commit_predecessors: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
         let commits = dag_walk::topo_order_reverse_ok(
-            self.to_visit.drain(..).map(|id| store.get_commit(&id)),
+            self.to_visit.drain(..).map(|id| {
+                store
+                    .get_commit(&id)
+                    .map_err(WalkPredecessorsError::Backend)
+            }),
             |commit: &Commit| commit.id().clone(),
             |commit: &Commit| {
-                let ids = commit_predecessors
-                    .entry(commit.id().clone())
-                    .or_insert_with(|| {
-                        commit
-                            .store_commit()
-                            .predecessors
-                            .iter()
-                            // exclude unreachable predecessors
-                            .filter(|id| index.has_id(id))
-                            .cloned()
-                            .collect()
-                    });
-                ids.iter().map(|id| store.get_commit(id)).collect_vec()
+                let ids = match commit_predecessors.entry(commit.id().clone()) {
+                    Entry::Occupied(entry) => entry.into_mut(),
+                    Entry::Vacant(entry) => {
+                        let mut filtered = vec![];
+                        for id in &commit.store_commit().predecessors {
+                            match index.has_id(id) {
+                                Ok(true) => {
+                                    filtered.push(id.clone());
+                                }
+                                Ok(false) => {
+                                    // Ignore unreachable predecessors
+                                }
+                                Err(err) => {
+                                    return vec![Err(WalkPredecessorsError::Index(err))];
+                                }
+                            }
+                        }
+                        entry.insert(filtered)
+                    }
+                };
+
+                ids.iter()
+                    .map(|id| store.get_commit(id).map_err(WalkPredecessorsError::Backend))
+                    .collect_vec()
             },
             |_| panic!("graph has cycle"),
         )?;
