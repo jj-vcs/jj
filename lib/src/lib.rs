@@ -36,6 +36,7 @@ pub mod commit;
 pub mod commit_builder;
 pub mod config;
 mod config_resolver;
+pub mod conflict_labels;
 pub mod conflicts;
 pub mod copies;
 pub mod dag_walk;

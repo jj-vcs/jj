@@ -337,13 +337,13 @@ Once the conflicts are resolved, you can inspect the result with `jj diff`.
 Then run `jj squash` to move the resolution into the conflicted commit.
 
 $ cat file1
-<<<<<<< Conflict 1 of 1
-%%%%%%% Changes from base to side #1
+<<<<<<< conflict 1 of 1
+%%%%%%% rebase destination (nuvyytnq 5dda2f09) compared with ovknlmro 7d7c6e6b
 -b1
 +a
-+++++++ Contents of side #2
++++++++ rebased commit (puqltutt daa6ffd5)
 b2
->>>>>>> Conflict 1 of 1 ends
+>>>>>>> conflict 1 of 1 ends
 
 $ echo resolved > file1
 

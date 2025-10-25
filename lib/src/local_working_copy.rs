@@ -68,6 +68,7 @@ use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
 use crate::config::ConfigGetError;
+use crate::conflict_labels::ConflictLabels;
 use crate::conflicts;
 use crate::conflicts::ConflictMarkerStyle;
 use crate::conflicts::ConflictMaterializeOptions;
@@ -977,7 +978,10 @@ impl TreeState {
                 .iter()
                 .map(|id| TreeId::new(id.clone()))
                 .collect();
-            self.tree_id = MergedTreeId::new(tree_ids_builder.build());
+            self.tree_id = MergedTreeId::new(
+                tree_ids_builder.build(),
+                ConflictLabels::from_vec(proto.conflict_labels),
+            );
         }
         self.file_states =
             FileStatesMap::from_proto(proto.file_states, proto.is_file_states_sorted);
@@ -995,6 +999,7 @@ impl TreeState {
             .iter()
             .map(|id| id.to_bytes())
             .collect();
+        proto.conflict_labels = self.tree_id.labels().as_slice().to_owned();
         proto.file_states = self.file_states.data.clone();
         // `FileStatesMap` is guaranteed to be sorted.
         proto.is_file_states_sorted = true;
@@ -1938,11 +1943,16 @@ impl TreeState {
         };
         let mut changed_file_states = Vec::new();
         let mut deleted_files = HashSet::new();
+        // If a conflicted file didn't change between the two trees, but the conflict
+        // labels did, we still need to re-materialize it in the working copy.
+        let include_unchanged_conflicts = old_tree.labels() != new_tree.labels();
         let mut diff_stream = old_tree
-            .diff_stream_for_file_system(new_tree, matcher)
+            .diff_stream_for_file_system(new_tree, matcher, include_unchanged_conflicts)
             .map(async |TreeDiffEntry { path, values }| match values {
                 Ok(diff) => {
-                    let result = materialize_tree_value(&self.store, &path, diff.after).await;
+                    let result =
+                        materialize_tree_value(&self.store, &path, diff.after, new_tree.labels())
+                            .await;
                     (path, result.map(|value| (diff.before, value)))
                 }
                 Err(err) => (path, Err(err)),
@@ -2030,7 +2040,8 @@ impl TreeState {
                         marker_len: Some(conflict_marker_len),
                         merge: self.store.merge_options().clone(),
                     };
-                    let contents = materialize_merge_result_to_bytes(&file.contents, &options);
+                    let contents =
+                        materialize_merge_result_to_bytes(&file.contents, &file.labels, &options);
                     let mut file_state = self
                         .write_conflict(&disk_path, &contents, file.executable.unwrap_or(false))
                         .await?;
@@ -2066,7 +2077,8 @@ impl TreeState {
         let matcher = self.sparse_matcher();
         let mut changed_file_states = Vec::new();
         let mut deleted_files = HashSet::new();
-        let mut diff_stream = old_tree.diff_stream_for_file_system(new_tree, matcher.as_ref());
+        let mut diff_stream =
+            old_tree.diff_stream_for_file_system(new_tree, matcher.as_ref(), false);
         while let Some(TreeDiffEntry { path, values }) = diff_stream.next().await {
             let after = values?.after;
             if after.is_absent() {
