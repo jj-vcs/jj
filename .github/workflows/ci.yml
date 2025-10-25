@@ -110,6 +110,8 @@ jobs:
         toolchain: 1.88
     - name: Build
       run: cargo build -p jj-cli --no-default-features --verbose
+    - name: Testutils
+      run: cargo build -p testutils --no-default-features --verbose
 
   build-nix:
     name: nix flake

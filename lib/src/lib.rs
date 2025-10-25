@@ -98,6 +98,7 @@ pub mod revset;
 mod revset_parser;
 pub mod rewrite;
 #[cfg(feature = "testing")]
+#[cfg(feature = "git")]
 pub mod secret_backend;
 pub mod settings;
 pub mod signing;
