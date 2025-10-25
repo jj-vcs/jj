@@ -8780,6 +8780,7 @@ output of the first tool.</p>
 </ul>
 <h2 id="jj-metaedit"><code>jj metaedit</code><a class="headerlink" href="#jj-metaedit" title="Permanent link">&para;</a></h2>
 <p>Modify the metadata of a revision without changing its content</p>
+<p>Whenever any metadata is updated, the committer name, email, and timestamp are also updated for all rebased commits. The name and email may come from the <code>JJ_USER</code> and <code>JJ_EMAIL</code> environment variables, as well as by passing <code>--config user.name</code> and <code>--config user.email</code>.</p>
 <p><strong>Usage:</strong> <code>jj metaedit [OPTIONS] [REVSETS]...</code></p>
 <h6 id="arguments_38"><strong>Arguments:</strong><a class="headerlink" href="#arguments_38" title="Permanent link">&para;</a></h6>
 <ul>
@@ -8798,7 +8799,7 @@ output of the first tool.</p>
 </li>
 <li>
 <p><code>--update-author-timestamp</code> — Update the author timestamp</p>
-<p>This updates the author date to now, without modifying the author.</p>
+<p>This updates the author date to the current time, without modifying the author.</p>
 </li>
 <li>
 <p><code>--update-author</code> — Update the author to the configured user</p>
@@ -8814,9 +8815,11 @@ output of the first tool.</p>
 <p><code>--author-timestamp &lt;AUTHOR_TIMESTAMP&gt;</code> — Set the author date to the given date either human readable, eg Sun, 23 Jan 2000 01:23:45 JST) or as a time stamp, eg 2000-01-23T01:23:45+09:00)</p>
 </li>
 <li>
-<p><code>--update-committer-timestamp</code> — Update the committer timestamp</p>
-<p>This updates the committer date to now, without modifying the committer.</p>
-<p>Even if this option is not passed, the committer timestamp will be updated if other metadata is updated. This option effectively just forces every commit to be rewritten whether or not there are other changes.</p>
+<p><code>--force-rewrite</code> — Rewrite the commit, even if no other metadata changed</p>
+<p>This updates the committer timestamp to the current time, as well as the committer name and email.</p>
+<p>Even if this option is not passed, the committer name, email, and timestamp will be updated if other metadata is updated. This option just forces every commit to be rewritten whether or not there are other changes.</p>
+<p>You can use it in combination with the <code>JJ_USER</code> and <code>JJ_EMAIL</code> environment variables to set a different committer:</p>
+<p>$ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj metaedit --force-rewrite</p>
 </li>
 </ul>
 <h2 id="jj-new"><code>jj new</code><a class="headerlink" href="#jj-new" title="Permanent link">&para;</a></h2>
