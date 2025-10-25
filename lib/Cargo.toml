@@ -99,7 +99,7 @@ nix = { workspace = true, features = [ "fs" ] }
 default = ["git"]
 git = ["dep:gix"]
 watchman = ["dep:watchman_client"]
-testing = ["git"]
+testing = []
 
 [lints]
 workspace = true
