@@ -28,7 +28,7 @@ mod duplicate;
 mod edit;
 mod evolog;
 mod file;
-mod fix;
+pub(crate) mod fix;
 #[cfg(feature = "git")]
 mod gerrit;
 #[cfg(feature = "git")]

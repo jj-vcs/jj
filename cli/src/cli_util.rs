@@ -1652,6 +1652,14 @@ to the current parents may contain changes from multiple commits.
         )
     }
 
+    pub fn commits(&self, commits: Vec<CommitId>) -> BackendResult<Vec<Commit>> {
+        let store = self.repo().store();
+        commits
+            .into_iter()
+            .map(|id| store.get_commit(&id))
+            .try_collect()
+    }
+
     pub fn id_prefix_context(&self) -> &IdPrefixContext {
         self.user_repo
             .id_prefix_context

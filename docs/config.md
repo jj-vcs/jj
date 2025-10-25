@@ -1747,6 +1747,27 @@ eol-conversion = "input-output"
       [`gitoxide`][gitoxide-is-binary] or [`git`][git-is-binary]. Jujutsu
       doesn't plan to align the binary detection logic with git.
 
+## Hook settings
+
+### Pre-upload hooks
+Pre-upload hooks are triggered when you upload your code for code review. This
+hook is only run during `jj gerrit upload`.
+
+Hooks are configured via the `hooks.pre-upload.<name>` table, similar to fix
+tools. Relevant options are:
+* `enabled`: Defaults to `true`. If disabled, the hook will not run.
+* `order`: Defaults to `0`. Hooks will run in ascending order. Hooks with equal
+  order will run in order of name.
+
+#### Predefined pre-upload hooks
+These hooks support the `enabled` and `order` flags. They are disabled by
+default.
+
+* `hooks.pre-upload.fix`: Runs `jj fix` before uploading.
+
+#### Generic pre-upload hooks
+These are not yet supported.
+
 ## Ways to specify `jj` config: details
 
 ### User config files

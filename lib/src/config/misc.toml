@@ -52,3 +52,8 @@ name = ""
 
 [working-copy]
 eol-conversion = "none"
+
+[hooks.pre-upload]
+# Run before other hooks by default.
+fix.order = -100
+fix.enabled = false
