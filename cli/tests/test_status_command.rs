@@ -110,6 +110,81 @@ fn test_status_filtered() {
     ");
 }
 
+#[test]
+fn test_status_conflicted_bookmarks() {
+    // create conflicted local bookmark
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj(["bookmark", "create", "local_bookmark"])
+        .success();
+    work_dir.run_jj(["describe", "-m=a"]).success();
+    work_dir
+        .run_jj(["describe", "-m=b", "--at-op=@-"])
+        .success();
+
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @r"
+    The working copy has no changes.
+    Working copy  (@) : qpvuntsm?? 99025a24 local_bookmark?? | (empty) a
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    Warning: These bookmarks have conflicts:
+      local_bookmark
+    Hint: Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to resolve.
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    [EOF]
+    ");
+
+    // create remote
+    test_env
+        .run_jj_in(".", ["git", "init", "origin", "--colocate"])
+        .success();
+    let origin_dir = test_env.work_dir("origin");
+    let origin_git_repo_path = origin_dir.root().join(".git");
+    origin_dir
+        .run_jj(["bookmark", "create", "remote_bookmark"])
+        .success();
+    origin_dir.run_jj(["git", "export"]).success();
+
+    // fetch remote bookmark with empty changes
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "origin",
+            origin_git_repo_path.to_str().unwrap(),
+        ])
+        .success();
+    work_dir.run_jj(["git", "fetch"]).success();
+
+    // update remote
+    origin_dir.write_file("file.txt", "");
+    origin_dir.run_jj(["git", "export"]).success();
+
+    // create conflicted remote bookmark
+    work_dir.run_jj(["git", "fetch", "--at-op", "@-"]).success();
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @r"
+    The working copy has no changes.
+    Working copy  (@) : qpvuntsm?? 99025a24 local_bookmark?? | (empty) a
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    Warning: These bookmarks have conflicts:
+      local_bookmark
+    Hint: Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to resolve.
+    Warning: These remote bookmarks have conflicts:
+      remote_bookmark@origin
+    Hint: Use `jj bookmark list` to see details. Use `jj git fetch` to resolve.
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    [EOF]
+    ");
+}
+
 // See <https://github.com/jj-vcs/jj/issues/3108>
 // See <https://github.com/jj-vcs/jj/issues/4147>
 #[test]
