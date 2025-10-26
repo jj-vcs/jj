@@ -187,6 +187,23 @@ You can use parentheses to control evaluation order, such as `(x & y) | z` or
     * `D..B` ⇒ `{}` (empty set)
     * `(C|B)..(C|B)` ⇒ `{}` (empty set)
 
+### Comparison of the operators `::` and `..`
+
+The `x::y` operator behaves like an "inclusive range" operator.
+
+The `x..y` operator behaves like a set-difference operator, removing `::x` from
+`::y`. Another way to think of it is that `x..` includes not only the direct
+descendants of `x`, but also the "siblings" and "cousins" of `x` and their
+descendants.
+
+`::` is useful when you want to select a specific range of commits. For example,
+if you want to push a specific sub-tree starting at `x`, you could use `jj git
+push -c x::`.
+
+`..` is useful when you want to query for commits that aren't merged yet. `x..`
+is "all commits that haven't been merged into `x`" and `x..y` is "all commits
+that have been merged into `y` but not `x`".
+
 ## Functions
 
 You can also specify revisions by using functions. Some functions take other
