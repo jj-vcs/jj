@@ -166,7 +166,7 @@ fn test_jump_over_old_redo_stack() {
     }
     assert_eq!(work_dir.read_file("state"), "D");
 
-    work_dir.run_jj(["undo"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["undo", "--quiet"]), @"");
     assert_eq!(work_dir.read_file("state"), "C");
     work_dir.run_jj(["undo"]).success();
     assert_eq!(work_dir.read_file("state"), "B");
@@ -174,7 +174,7 @@ fn test_jump_over_old_redo_stack() {
     assert_eq!(work_dir.read_file("state"), "A");
 
     // create two adjacent redo-stacks
-    work_dir.run_jj(["redo"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["redo", "--quiet"]), @"");
     assert_eq!(work_dir.read_file("state"), "B");
     work_dir.run_jj(["redo"]).success();
     assert_eq!(work_dir.read_file("state"), "C");

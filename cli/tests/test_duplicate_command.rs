@@ -2333,12 +2333,9 @@ fn test_undo_after_duplicate() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["duplicate", "a"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Duplicated 7d980be7a1d4 as mzvwutvl 346a7abe a
-    [EOF]
-    ");
+    // exercise --quiet while here
+    let output = work_dir.run_jj(["duplicate", "a", "--quiet"]);
+    insta::assert_snapshot!(output, @"");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  7d980be7a1d4   a
     │ ○  346a7abed73c   a
