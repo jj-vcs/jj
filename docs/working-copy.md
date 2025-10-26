@@ -14,7 +14,7 @@ will replace the previous working-copy revision.
 
 Also unlike most other VCSs, added files are implicitly tracked by default. That
 means that if you add a new file to the working copy, it will be automatically
-committed once you run e.g. `jj st`. Similarly, if you remove a file from the
+committed once you run e.g. `jj status`. Similarly, if you remove a file from the
 working copy, it will implicitly be untracked.
 
 The `snapshot.auto-track` config option controls which paths get automatically
