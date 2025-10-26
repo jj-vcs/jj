@@ -35,9 +35,12 @@ use crate::ui::Ui;
 
 /// Abandon a revision
 ///
-/// Abandon a revision, rebasing descendants onto its parent(s). The behavior is
-/// similar to `jj restore --changes-in`; the difference is that `jj abandon`
-/// gives you a new change, while `jj restore` updates the existing change.
+/// Abandon a revision, rebasing descendants onto its parent(s).
+///
+/// `jj abandon` and `jj restore --changes-in` are similar; the difference is
+/// that `jj abandon` removes the change (and gives you a new one if it was the
+/// working copy), whereas `jj restore` updates the existing change and makes it
+/// empty.
 ///
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
