@@ -26,7 +26,7 @@ Producing the list of contributors is a bit annoying. The current suggestion is
 to run something like this:
 
 ```shell
-root=$(jj log --no-graph -r 'heads(tags(glob:"v*.*.*") & ::trunk())' -T commit_id)
+root=$(jj log --no-graph --color=never -r 'heads(tags(glob:"v*.*.*") & ::trunk())' -T commit_id)
 filter='
    map(.commits[] | select(.author.login | endswith("[bot]") | not))
    | unique_by(.author.login)
@@ -81,6 +81,13 @@ Publish each crate:
 (cd cli && cargo publish)
 ```
 
+For a dry run, you can try:
+
+```shell
+cargo +nightly publish --dry-run -p jj-cli -p jj-lib -p jj-lib-proc-macros -Z package-workspace
+```
+
+This is considered to be unstable, so it's best to actually publish crates one at a time.
 
 [^1]: We recommend publishing from a new clone because `cargo publish` will
       archive ignored files if they match the patterns in `[include]`
