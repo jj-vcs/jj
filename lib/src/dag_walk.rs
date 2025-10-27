@@ -38,7 +38,7 @@ where
     NI: IntoIterator<Item = T>,
 {
     let neighbors_fn = move |node: &T| to_infallibe_iter(neighbors_fn(node));
-    dfs_ok(to_infallibe_iter(start), id_fn, neighbors_fn).map(Result::unwrap)
+    dfs_ok(to_infallibe_iter(start), id_fn, neighbors_fn).map(|Ok(node)| node)
 }
 
 /// Traverses nodes from `start` in depth-first order.
@@ -572,7 +572,8 @@ where
     NI: IntoIterator<Item = T>,
 {
     let neighbors_fn = move |node: &T| to_infallibe_iter(neighbors_fn(node));
-    heads_ok(to_infallibe_iter(start), id_fn, neighbors_fn).unwrap()
+    let Ok(node) = heads_ok(to_infallibe_iter(start), id_fn, neighbors_fn);
+    node
 }
 
 /// Finds `Ok` nodes in the start set that are not reachable from other nodes in
@@ -631,13 +632,13 @@ where
     NI: IntoIterator<Item = T>,
 {
     let neighbors_fn = move |node: &T| to_infallibe_iter(neighbors_fn(node));
-    closest_common_node_ok(
+    let Ok(node) = closest_common_node_ok(
         to_infallibe_iter(set1),
         to_infallibe_iter(set2),
         id_fn,
         neighbors_fn,
-    )
-    .unwrap()
+    );
+    node
 }
 
 /// Finds the closest common `Ok` neighbor among the `set1` and `set2`.
