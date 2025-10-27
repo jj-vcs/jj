@@ -132,6 +132,10 @@ edits the change twice in some cases.
 
 ### New features
 
+* Add support for push options in `jj git push` with the `--option` flag.
+  This allows users to pass options to the remote server when pushing commits.
+  The short alias `-o` is also supported.
+
 * The new command `jj bisect run` uses binary search to find a commit that
   introduced a bug.
 
