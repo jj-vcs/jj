@@ -355,6 +355,110 @@ impl fmt::Display for StringPattern {
     }
 }
 
+/// AST-level representation of the string matcher expression.
+#[derive(Clone, Debug)]
+pub enum StringExpression {
+    // None and All can be represented by using Pattern. Add them if needed.
+    /// Matches pattern.
+    Pattern(Box<StringPattern>),
+    /// Matches anything other than the expression.
+    NotIn(Box<Self>),
+    /// Matches one of the expressions.
+    Union(Box<Self>, Box<Self>),
+    /// Matches both expressions.
+    Intersection(Box<Self>, Box<Self>),
+}
+
+impl StringExpression {
+    /// Expression that matches nothing.
+    pub fn none() -> Self {
+        Self::all().negated()
+    }
+
+    /// Expression that matches everything.
+    pub fn all() -> Self {
+        Self::pattern(StringPattern::all())
+    }
+
+    /// Expression that matches the given pattern.
+    pub fn pattern(pattern: StringPattern) -> Self {
+        Self::Pattern(Box::new(pattern))
+    }
+
+    /// Expression that matches strings exactly.
+    pub fn exact(src: impl Into<String>) -> Self {
+        Self::pattern(StringPattern::exact(src))
+    }
+
+    /// Expression that matches substrings.
+    pub fn substring(src: impl Into<String>) -> Self {
+        Self::pattern(StringPattern::substring(src))
+    }
+
+    /// Expression that matches anything other than this expression.
+    pub fn negated(self) -> Self {
+        Self::NotIn(Box::new(self))
+    }
+
+    /// Expression that matches `self` or `other` (or both).
+    pub fn union(self, other: Self) -> Self {
+        Self::Union(Box::new(self), Box::new(other))
+    }
+
+    /// Expression that matches any of the given `expressions`.
+    pub fn union_all(expressions: Vec<Self>) -> Self {
+        to_binary_expression(expressions, &Self::none, &Self::union)
+    }
+
+    /// Expression that matches both `self` and `other`.
+    pub fn intersection(self, other: Self) -> Self {
+        Self::Intersection(Box::new(self), Box::new(other))
+    }
+
+    /// Transforms the expression tree to matcher object.
+    pub fn to_matcher(&self) -> StringMatcher {
+        match self {
+            Self::Pattern(pattern) => pattern.to_matcher(),
+            Self::NotIn(expr) => {
+                let p = expr.to_matcher().into_match_fn();
+                StringMatcher::Fn(Box::new(move |haystack| !p(haystack)))
+            }
+            Self::Union(expr1, expr2) => {
+                let p1 = expr1.to_matcher().into_match_fn();
+                let p2 = expr2.to_matcher().into_match_fn();
+                StringMatcher::Fn(Box::new(move |haystack| p1(haystack) || p2(haystack)))
+            }
+            Self::Intersection(expr1, expr2) => {
+                let p1 = expr1.to_matcher().into_match_fn();
+                let p2 = expr2.to_matcher().into_match_fn();
+                StringMatcher::Fn(Box::new(move |haystack| p1(haystack) && p2(haystack)))
+            }
+        }
+    }
+}
+
+/// Constructs binary tree from `expressions` list, `unit` node, and associative
+/// `binary` operation.
+fn to_binary_expression<T>(
+    expressions: Vec<T>,
+    unit: &impl Fn() -> T,
+    binary: &impl Fn(T, T) -> T,
+) -> T {
+    match expressions.len() {
+        0 => unit(),
+        1 => expressions.into_iter().next().unwrap(),
+        _ => {
+            // Build balanced tree to minimize the recursion depth.
+            let mut left = expressions;
+            let right = left.split_off(left.len() / 2);
+            binary(
+                to_binary_expression(left, unit, binary),
+                to_binary_expression(right, unit, binary),
+            )
+        }
+    }
+}
+
 type DynMatchFn = dyn Fn(&[u8]) -> bool;
 
 /// Matcher for strings and bytes.
@@ -389,6 +493,14 @@ impl StringMatcher {
             Self::All => true,
             Self::Exact(needle) => haystack == needle.as_bytes(),
             Self::Fn(predicate) => predicate(haystack),
+        }
+    }
+
+    fn into_match_fn(self) -> Box<DynMatchFn> {
+        match self {
+            Self::All => Box::new(|_haystack| true),
+            Self::Exact(needle) => Box::new(move |haystack| haystack == needle.as_bytes()),
+            Self::Fn(predicate) => predicate,
         }
     }
 
@@ -457,6 +569,22 @@ mod tests {
     use maplit::btreemap;
 
     use super::*;
+
+    fn insta_settings() -> insta::Settings {
+        let mut settings = insta::Settings::clone_current();
+        // Collapse short "Thing(_,)" repeatedly to save vertical space and make
+        // the output more readable.
+        for _ in 0..4 {
+            settings.add_filter(
+                r"(?x)
+                \b([A-Z]\w*)\(\n
+                    \s*(.{1,60}),\n
+                \s*\)",
+                "$1($2)",
+            );
+        }
+        settings
+    }
 
     #[test]
     fn test_string_pattern_to_glob() {
@@ -719,6 +847,98 @@ mod tests {
             StringPattern::regex_i(".").unwrap().to_matcher(),
             StringMatcher::Fn(_)
         );
+    }
+
+    #[test]
+    fn test_union_all_expressions() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        insta::assert_debug_snapshot!(
+            StringExpression::union_all(vec![]),
+            @r#"NotIn(Pattern(Substring("")))"#);
+        insta::assert_debug_snapshot!(
+            StringExpression::union_all(vec![StringExpression::exact("a")]),
+            @r#"Pattern(Exact("a"))"#);
+        insta::assert_debug_snapshot!(
+            StringExpression::union_all(vec![
+                StringExpression::exact("a"),
+                StringExpression::exact("b"),
+            ]),
+            @r#"
+        Union(
+            Pattern(Exact("a")),
+            Pattern(Exact("b")),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            StringExpression::union_all(vec![
+                StringExpression::exact("a"),
+                StringExpression::exact("b"),
+                StringExpression::exact("c"),
+            ]),
+            @r#"
+        Union(
+            Pattern(Exact("a")),
+            Union(
+                Pattern(Exact("b")),
+                Pattern(Exact("c")),
+            ),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            StringExpression::union_all(vec![
+                StringExpression::exact("a"),
+                StringExpression::exact("b"),
+                StringExpression::exact("c"),
+                StringExpression::exact("d"),
+            ]),
+            @r#"
+        Union(
+            Union(
+                Pattern(Exact("a")),
+                Pattern(Exact("b")),
+            ),
+            Union(
+                Pattern(Exact("c")),
+                Pattern(Exact("d")),
+            ),
+        )
+        "#);
+    }
+
+    #[test]
+    fn test_trivial_expression_to_matcher() {
+        assert_matches!(StringExpression::all().to_matcher(), StringMatcher::All);
+        assert_matches!(
+            StringExpression::exact("x").to_matcher(),
+            StringMatcher::Exact(needle) if needle == "x"
+        );
+    }
+
+    #[test]
+    fn test_compound_expression_to_matcher() {
+        let matcher = StringExpression::exact("foo").negated().to_matcher();
+        assert!(!matcher.is_match("foo"));
+        assert!(matcher.is_match("bar"));
+
+        let matcher = StringExpression::union(
+            StringExpression::exact("foo"),
+            StringExpression::exact("bar"),
+        )
+        .to_matcher();
+        assert!(matcher.is_match("foo"));
+        assert!(matcher.is_match("bar"));
+        assert!(!matcher.is_match("baz"));
+
+        let matcher = StringExpression::intersection(
+            StringExpression::substring("a"),
+            StringExpression::substring("r"),
+        )
+        .to_matcher();
+        assert!(!matcher.is_match("foo"));
+        assert!(matcher.is_match("bar"));
+        assert!(!matcher.is_match("baz"));
     }
 
     #[test]
