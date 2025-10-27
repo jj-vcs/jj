@@ -63,7 +63,7 @@ use crate::revset::RevsetEvaluationError;
 use crate::revset::RevsetFilterPredicate;
 use crate::rewrite;
 use crate::store::Store;
-use crate::str_util::StringPattern;
+use crate::str_util::StringMatcher;
 use crate::tree_merge::MergeOptions;
 use crate::tree_merge::resolve_file_values;
 use crate::union_find;
@@ -1204,35 +1204,35 @@ fn build_predicate_fn(
             })
         }
         RevsetFilterPredicate::Description(pattern) => {
-            let pattern = pattern.clone();
+            let matcher = Rc::new(pattern.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
-                Ok(pattern.is_match(commit.description()))
+                Ok(matcher.is_match(commit.description()))
             })
         }
         RevsetFilterPredicate::Subject(pattern) => {
-            let pattern = pattern.clone();
+            let matcher = Rc::new(pattern.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
-                Ok(pattern.is_match(commit.description().lines().next().unwrap_or_default()))
+                Ok(matcher.is_match(commit.description().lines().next().unwrap_or_default()))
             })
         }
         RevsetFilterPredicate::AuthorName(pattern) => {
-            let pattern = pattern.clone();
+            let matcher = Rc::new(pattern.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
-                Ok(pattern.is_match(&commit.author().name))
+                Ok(matcher.is_match(&commit.author().name))
             })
         }
         RevsetFilterPredicate::AuthorEmail(pattern) => {
-            let pattern = pattern.clone();
+            let matcher = Rc::new(pattern.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
-                Ok(pattern.is_match(&commit.author().email))
+                Ok(matcher.is_match(&commit.author().email))
             })
         }
         RevsetFilterPredicate::AuthorDate(expression) => {
@@ -1245,19 +1245,19 @@ fn build_predicate_fn(
             })
         }
         RevsetFilterPredicate::CommitterName(pattern) => {
-            let pattern = pattern.clone();
+            let matcher = Rc::new(pattern.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
-                Ok(pattern.is_match(&commit.committer().name))
+                Ok(matcher.is_match(&commit.committer().name))
             })
         }
         RevsetFilterPredicate::CommitterEmail(pattern) => {
-            let pattern = pattern.clone();
+            let matcher = Rc::new(pattern.to_matcher());
             box_pure_predicate_fn(move |index, pos| {
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
-                Ok(pattern.is_match(&commit.committer().email))
+                Ok(matcher.is_match(&commit.committer().email))
             })
         }
         RevsetFilterPredicate::CommitterDate(expression) => {
@@ -1281,7 +1281,7 @@ fn build_predicate_fn(
             })
         }
         RevsetFilterPredicate::DiffContains { text, files } => {
-            let text_pattern = text.clone();
+            let text_matcher = Rc::new(text.to_matcher());
             let files_matcher: Rc<dyn Matcher> = files.to_matcher().into();
             box_pure_predicate_fn(move |index, pos| {
                 let narrowed_files_matcher;
@@ -1300,7 +1300,7 @@ fn build_predicate_fn(
                 let entry = index.commits().entry_by_pos(pos);
                 let commit = store.get_commit(&entry.commit_id())?;
                 Ok(
-                    matches_diff_from_parent(&store, index, &commit, &text_pattern, files_matcher)
+                    matches_diff_from_parent(&store, index, &commit, &text_matcher, files_matcher)
                         .block_on()?,
                 )
             })
@@ -1365,7 +1365,7 @@ async fn matches_diff_from_parent(
     store: &Arc<Store>,
     index: &CompositeIndex,
     commit: &Commit,
-    text_pattern: &StringPattern,
+    text_matcher: &StringMatcher,
     files_matcher: &dyn Matcher,
 ) -> BackendResult<bool> {
     let parents: Vec<_> = commit.parents_async().await?;
@@ -1388,7 +1388,7 @@ async fn matches_diff_from_parent(
         let left_contents = to_file_content(&entry.path, left_value).await?;
         let right_contents = to_file_content(&entry.path, right_value).await?;
         let merge_options = store.merge_options();
-        if diff_match_lines(&left_contents, &right_contents, text_pattern, merge_options)? {
+        if diff_match_lines(&left_contents, &right_contents, text_matcher, merge_options)? {
             return Ok(true);
         }
     }
@@ -1398,18 +1398,18 @@ async fn matches_diff_from_parent(
 fn diff_match_lines(
     lefts: &Merge<BString>,
     rights: &Merge<BString>,
-    pattern: &StringPattern,
+    matcher: &StringMatcher,
     merge_options: &MergeOptions,
 ) -> BackendResult<bool> {
     // Filter lines prior to comparison. This might produce inferior hunks due
     // to lack of contexts, but is way faster than full diff.
     if let (Some(left), Some(right)) = (lefts.as_resolved(), rights.as_resolved()) {
-        let left_lines = match_lines(left, pattern);
-        let right_lines = match_lines(right, pattern);
+        let left_lines = match_lines(left, matcher);
+        let right_lines = match_lines(right, matcher);
         Ok(left_lines.ne(right_lines))
     } else {
-        let lefts: Merge<BString> = lefts.map(|text| match_lines(text, pattern).collect());
-        let rights: Merge<BString> = rights.map(|text| match_lines(text, pattern).collect());
+        let lefts: Merge<BString> = lefts.map(|text| match_lines(text, matcher).collect());
+        let rights: Merge<BString> = rights.map(|text| match_lines(text, matcher).collect());
         let lefts = files::merge(&lefts, merge_options);
         let rights = files::merge(&rights, merge_options);
         let diff = ContentDiff::by_line(lefts.iter().chain(rights.iter()));
@@ -1419,12 +1419,12 @@ fn diff_match_lines(
     }
 }
 
-fn match_lines<'a>(text: &'a [u8], pattern: &StringPattern) -> impl Iterator<Item = &'a [u8]> {
+fn match_lines<'a>(text: &'a [u8], matcher: &StringMatcher) -> impl Iterator<Item = &'a [u8]> {
     // The pattern is matched line by line so that it can be anchored to line
     // start/end. For example, exact:"" will match blank lines.
     text.split_inclusive(|b| *b == b'\n').filter(|line| {
         let line = line.strip_suffix(b"\n").unwrap_or(line);
-        pattern.is_match_bytes(line)
+        matcher.is_match_bytes(line)
     })
 }
 
@@ -1462,6 +1462,7 @@ mod tests {
     use crate::default_index::readonly::FieldLengths;
     use crate::files::FileMergeHunkLevel;
     use crate::merge::SameChange;
+    use crate::str_util::StringPattern;
 
     const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
         commit_id: 3,
@@ -1848,12 +1849,12 @@ mod tests {
         let left1 = Merge::resolved(conflict1.first().clone());
         let left2 = Merge::resolved(conflict2.first().clone());
         let diff = |needle: &str| {
-            let pattern = StringPattern::substring(needle);
+            let matcher = StringPattern::substring(needle).to_matcher();
             let options = MergeOptions {
                 hunk_level: FileMergeHunkLevel::Line,
                 same_change: SameChange::Accept,
             };
-            diff_match_lines(&left1, &left2, &pattern, &options).unwrap()
+            diff_match_lines(&left1, &left2, &matcher, &options).unwrap()
         };
 
         assert!(diff(""));
@@ -1873,12 +1874,12 @@ mod tests {
     fn test_diff_match_lines_between_conflicts() {
         let (conflict1, conflict2) = diff_match_lines_samples();
         let diff = |needle: &str| {
-            let pattern = StringPattern::substring(needle);
+            let matcher = StringPattern::substring(needle).to_matcher();
             let options = MergeOptions {
                 hunk_level: FileMergeHunkLevel::Line,
                 same_change: SameChange::Accept,
             };
-            diff_match_lines(&conflict1, &conflict2, &pattern, &options).unwrap()
+            diff_match_lines(&conflict1, &conflict2, &matcher, &options).unwrap()
         };
 
         assert!(diff(""));
@@ -1902,12 +1903,12 @@ mod tests {
         let (_conflict1, conflict2) = diff_match_lines_samples();
         let base = Merge::resolved(conflict2.get_remove(0).unwrap().clone());
         let diff = |needle: &str| {
-            let pattern = StringPattern::substring(needle);
+            let matcher = StringPattern::substring(needle).to_matcher();
             let options = MergeOptions {
                 hunk_level: FileMergeHunkLevel::Line,
                 same_change: SameChange::Accept,
             };
-            diff_match_lines(&base, &conflict2, &pattern, &options).unwrap()
+            diff_match_lines(&base, &conflict2, &matcher, &options).unwrap()
         };
 
         assert!(diff(""));
