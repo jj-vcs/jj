@@ -767,7 +767,6 @@ fn test_materialize_conflict_two_forward_diffs() {
     // ----
     // E
     // >>>>
-    // TODO: Maybe we should never have negative snapshots
     let path = repo_path("file");
     let a_id = testutils::write_file(store, path, "A\n");
     let b_id = testutils::write_file(store, path, "B\n");
@@ -784,6 +783,8 @@ fn test_materialize_conflict_two_forward_diffs() {
             Some(c_id.clone()),
         ],
     );
+    // The materialized conflict should still have exactly one snapshot despite our
+    // attempted temptation.
     insta::assert_snapshot!(
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff),
         @r"
@@ -792,12 +793,12 @@ fn test_materialize_conflict_two_forward_diffs() {
     A
     %%%%%%% Changes from base #1 to side #2
      B
-    +++++++ Contents of side #3
-    D
-    %%%%%%% Changes from base #2 to side #4
-     C
-    ------- Contents of base #3
-    E
+    %%%%%%% Changes from base #2 to side #3
+    -C
+    +D
+    %%%%%%% Changes from base #3 to side #4
+    -E
+    +C
     >>>>>>> Conflict 1 of 1 ends
     "
     );

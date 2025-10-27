@@ -591,8 +591,14 @@ fn materialize_jj_style_conflict(
         conflict_marker_len,
         conflict_info,
     )?;
-    let mut add_index = 0;
+    let mut snapshot_written = false;
     for (base_index, left) in hunk.removes().enumerate() {
+        let add_index = if snapshot_written {
+            base_index + 1
+        } else {
+            base_index
+        };
+
         // The vast majority of conflicts one actually tries to resolve manually have 1
         // base.
         let base_str = if hunk.removes().len() == 1 {
@@ -601,44 +607,39 @@ fn materialize_jj_style_conflict(
             format!("base #{}", base_index + 1)
         };
 
-        let Some(right1) = hunk.get_add(add_index) else {
-            // If we have no more positive terms, emit the remaining negative terms as
-            // snapshots.
-            write_base(&base_str, left, output)?;
-            continue;
-        };
+        let right1 = hunk.get_add(add_index).unwrap();
 
         // For any style other than "diff", always emit sides and bases separately
         if conflict_marker_style != ConflictMarkerStyle::Diff {
             write_side(add_index, right1, output)?;
             write_base(&base_str, left, output)?;
-            add_index += 1;
             continue;
         }
 
         let diff1 = ContentDiff::by_line([&left, &right1]).hunks().collect_vec();
-        // Check if the diff against the next positive term is better. Since we want to
-        // preserve the order of the terms, we don't match against any later positive
-        // terms.
-        if let Some(right2) = hunk.get_add(add_index + 1) {
+        // If we haven't written a snapshot yet, then we need to decide whether to
+        // format the current side as a snapshot or a diff. We write the current side as
+        // a diff unless the next side has a smaller diff compared to the current base.
+        if !snapshot_written {
+            let right2 = hunk.get_add(add_index + 1).unwrap();
             let diff2 = ContentDiff::by_line([&left, &right2]).hunks().collect_vec();
             if diff_size(&diff2) < diff_size(&diff1) {
                 // If the next positive term is a better match, emit the current positive term
                 // as a snapshot and the next positive term as a diff.
                 write_side(add_index, right1, output)?;
                 write_diff(&base_str, add_index + 1, &diff2, output)?;
-                add_index += 2;
+                snapshot_written = true;
                 continue;
             }
         }
 
         write_diff(&base_str, add_index, &diff1, output)?;
-        add_index += 1;
     }
 
-    // Emit the remaining positive terms as snapshots.
-    for (add_index, slice) in hunk.adds().enumerate().skip(add_index) {
-        write_side(add_index, slice, output)?;
+    // If we still didn't emit a snapshot, the last side is the snapshot.
+    if !snapshot_written {
+        let add_index = hunk.num_sides() - 1;
+        write_side(add_index, hunk.get_add(add_index).unwrap(), output)?;
     }
     write_conflict_marker(
         output,
