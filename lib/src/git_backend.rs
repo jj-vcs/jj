@@ -1076,45 +1076,41 @@ impl Backend for GitBackend {
             .iter()
             .map(|entry| -> BackendResult<_> {
                 let entry = entry.map_err(|err| to_read_object_err(err, id))?;
-                let name =
-                    str::from_utf8(entry.filename()).map_err(|err| to_invalid_utf8_err(err, id))?;
-                let (name, value) = match entry.mode().kind() {
+                let name = RepoPathComponentBuf::new(
+                    str::from_utf8(entry.filename()).map_err(|err| to_invalid_utf8_err(err, id))?,
+                )
+                .unwrap();
+                let value = match entry.mode().kind() {
                     gix::object::tree::EntryKind::Tree => {
                         let id = TreeId::from_bytes(entry.oid().as_bytes());
-                        (name, TreeValue::Tree(id))
+                        TreeValue::Tree(id)
                     }
                     gix::object::tree::EntryKind::Blob => {
                         let id = FileId::from_bytes(entry.oid().as_bytes());
-                        (
-                            name,
-                            TreeValue::File {
-                                id,
-                                executable: false,
-                                copy_id: CopyId::placeholder(),
-                            },
-                        )
+                        TreeValue::File {
+                            id,
+                            executable: false,
+                            copy_id: CopyId::placeholder(),
+                        }
                     }
                     gix::object::tree::EntryKind::BlobExecutable => {
                         let id = FileId::from_bytes(entry.oid().as_bytes());
-                        (
-                            name,
-                            TreeValue::File {
-                                id,
-                                executable: true,
-                                copy_id: CopyId::placeholder(),
-                            },
-                        )
+                        TreeValue::File {
+                            id,
+                            executable: true,
+                            copy_id: CopyId::placeholder(),
+                        }
                     }
                     gix::object::tree::EntryKind::Link => {
                         let id = SymlinkId::from_bytes(entry.oid().as_bytes());
-                        (name, TreeValue::Symlink(id))
+                        TreeValue::Symlink(id)
                     }
                     gix::object::tree::EntryKind::Commit => {
                         let id = CommitId::from_bytes(entry.oid().as_bytes());
-                        (name, TreeValue::GitSubmodule(id))
+                        TreeValue::GitSubmodule(id)
                     }
                 };
-                Ok((RepoPathComponentBuf::new(name).unwrap(), value))
+                Ok((name, value))
             })
             .try_collect()?;
         // While Git tree entries are sorted, the rule is slightly different.
@@ -1131,7 +1127,7 @@ impl Backend for GitBackend {
         let entries = contents
             .entries()
             .map(|entry| {
-                let name = entry.name().as_internal_str();
+                let filename = BString::from(entry.name().as_internal_str());
                 match entry.value() {
                     TreeValue::File {
                         id,
@@ -1139,7 +1135,7 @@ impl Backend for GitBackend {
                         copy_id: _, // TODO: Use the value
                     } => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::Blob.into(),
-                        filename: name.into(),
+                        filename,
                         oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
                     },
                     TreeValue::File {
@@ -1148,22 +1144,22 @@ impl Backend for GitBackend {
                         copy_id: _, // TODO: Use the value
                     } => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::BlobExecutable.into(),
-                        filename: name.into(),
+                        filename,
                         oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
                     },
                     TreeValue::Symlink(id) => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::Link.into(),
-                        filename: name.into(),
+                        filename,
                         oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
                     },
                     TreeValue::Tree(id) => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::Tree.into(),
-                        filename: name.into(),
+                        filename,
                         oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
                     },
                     TreeValue::GitSubmodule(id) => gix::objs::tree::Entry {
                         mode: gix::object::tree::EntryKind::Commit.into(),
-                        filename: name.into(),
+                        filename,
                         oid: gix::ObjectId::from_bytes_or_panic(id.as_bytes()),
                     },
                 }
