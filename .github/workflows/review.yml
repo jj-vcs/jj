@@ -14,7 +14,7 @@ jobs:
       issues: write
     steps:
       - name: Check if PR author is a contributor
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { pull_request, review } = context.payload;
