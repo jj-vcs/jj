@@ -115,6 +115,7 @@ pub fn cmd_bookmark_move(
                             .map(|matched| matched.then_some((name, target)))
                             .transpose()
                     })
+                    .collect()
             })?
         } else {
             repo.view()

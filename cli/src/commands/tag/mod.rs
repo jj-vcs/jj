@@ -61,25 +61,22 @@ fn find_local_tags<'a>(
     name_patterns: &[StringPattern],
 ) -> Result<Vec<(&'a RefName, &'a RefTarget)>, CommandError> {
     find_tags_with(name_patterns, |pattern| {
-        view.local_tags_matching(pattern).map(Ok)
+        Ok(view.local_tags_matching(pattern).collect())
     })
 }
 
-fn find_tags_with<'a, 'b, V, I>(
-    name_patterns: &'b [StringPattern],
-    mut find_matches: impl FnMut(&'b StringPattern) -> I,
-) -> Result<Vec<(&'a RefName, V)>, CommandError>
-where
-    I: Iterator<Item = Result<(&'a RefName, V), CommandError>>,
-{
+fn find_tags_with<'a, V>(
+    name_patterns: &[StringPattern],
+    mut find_matches: impl FnMut(&StringPattern) -> Result<Vec<(&'a RefName, V)>, CommandError>,
+) -> Result<Vec<(&'a RefName, V)>, CommandError> {
     let mut matching_tags: Vec<(&'a RefName, V)> = vec![];
     let mut unmatched_patterns = vec![];
     for pattern in name_patterns {
-        let mut matches = find_matches(pattern).peekable();
-        if matches.peek().is_none() {
+        let matches = find_matches(pattern)?;
+        if matches.is_empty() {
             unmatched_patterns.push(pattern);
         }
-        matches.process_results(|iter| matching_tags.extend(iter))?;
+        matching_tags.extend(matches);
     }
     match &unmatched_patterns[..] {
         [] => {
