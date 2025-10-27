@@ -11,6 +11,7 @@ contribute or not.
 * ConnerPetzold
 * davidbarsky
 * ilyagr
+* steveklabnik
 * thoughtpolice
 
 ## Google
