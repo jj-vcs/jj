@@ -23,6 +23,15 @@ jobs:
             const author = pull_request.user.login;
             const reviewer = review.user.login;
 
+            const blacklistedAuthors = [
+              "dependabot[bot]",
+            ];
+
+            if (blacklistedAuthors.includes(author)) {
+              core.info("Author is blacklisted from nudge, skipping.");
+              return;
+            }
+
             if (reviewer === author) {
               core.info("Author reviewed their own pull request, skipping.");
               return;
