@@ -600,7 +600,7 @@ fn test_alias() {
     1 | my_author(none())
       |           ^----^
       |
-      = Expected string pattern
+      = Invalid string expression
     [EOF]
     [exit status: 1]
     ");

@@ -2475,6 +2475,10 @@ fn test_evaluate_expression_bookmarks() {
         vec![commit1.id().clone()]
     );
     assert_eq!(
+        resolve_commit_ids(mut_repo, "bookmarks(bookmark & ~exact:bookmark1)"),
+        vec![commit2.id().clone()]
+    );
+    assert_eq!(
         resolve_commit_ids(mut_repo, r#"bookmarks(glob:"Bookmark?")"#),
         vec![]
     );
@@ -3267,6 +3271,16 @@ fn test_evaluate_expression_description() {
     assert_eq!(
         resolve_commit_ids(mut_repo, "description(exact:'')"),
         vec![mut_repo.store().root_commit_id().clone()]
+    );
+
+    // Negative predicate
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "description(~exact:'')"),
+        vec![
+            commit3.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone(),
+        ]
     );
 
     // Match subject line

@@ -66,6 +66,7 @@ pub use crate::revset_parser::expect_literal;
 pub use crate::revset_parser::parse_program;
 pub use crate::revset_parser::parse_symbol;
 use crate::store::Store;
+use crate::str_util::StringExpression;
 use crate::str_util::StringPattern;
 use crate::time_util::DatePattern;
 use crate::time_util::DatePatternContext;
@@ -149,13 +150,13 @@ pub enum RevsetCommitRef {
     RemoteSymbol(RemoteRefSymbolBuf),
     ChangeId(HexPrefix),
     CommitId(HexPrefix),
-    Bookmarks(StringPattern),
+    Bookmarks(StringExpression),
     RemoteBookmarks {
-        bookmark_pattern: StringPattern,
-        remote_pattern: StringPattern,
+        bookmark: StringExpression,
+        remote: StringExpression,
         remote_ref_state: Option<RemoteRefState>,
     },
-    Tags(StringPattern),
+    Tags(StringExpression),
     GitRefs,
     GitHead,
 }
@@ -178,26 +179,26 @@ pub enum RevsetFilterPredicate {
     /// Commits with number of parents in the range.
     ParentCount(Range<u32>),
     /// Commits with description matching the pattern.
-    Description(StringPattern),
+    Description(StringExpression),
     /// Commits with first line of the description matching the pattern.
-    Subject(StringPattern),
+    Subject(StringExpression),
     /// Commits with author name matching the pattern.
-    AuthorName(StringPattern),
+    AuthorName(StringExpression),
     /// Commits with author email matching the pattern.
-    AuthorEmail(StringPattern),
+    AuthorEmail(StringExpression),
     /// Commits with author dates matching the given date pattern.
     AuthorDate(DatePattern),
     /// Commits with committer name matching the pattern.
-    CommitterName(StringPattern),
+    CommitterName(StringExpression),
     /// Commits with committer email matching the pattern.
-    CommitterEmail(StringPattern),
+    CommitterEmail(StringExpression),
     /// Commits with committer dates matching the given date pattern.
     CommitterDate(DatePattern),
     /// Commits modifying the paths specified by the fileset.
     File(FilesetExpression),
     /// Commits containing diffs matching the `text` pattern within the `files`.
     DiffContains {
-        text: StringPattern,
+        text: StringExpression,
         files: FilesetExpression,
     },
     /// Commits with conflicts
@@ -405,24 +406,24 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
         Arc::new(Self::CommitRef(commit_ref))
     }
 
-    pub fn bookmarks(pattern: StringPattern) -> Arc<Self> {
-        Arc::new(Self::CommitRef(RevsetCommitRef::Bookmarks(pattern)))
+    pub fn bookmarks(expression: StringExpression) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::Bookmarks(expression)))
     }
 
     pub fn remote_bookmarks(
-        bookmark_pattern: StringPattern,
-        remote_pattern: StringPattern,
+        bookmark: StringExpression,
+        remote: StringExpression,
         remote_ref_state: Option<RemoteRefState>,
     ) -> Arc<Self> {
         Arc::new(Self::CommitRef(RevsetCommitRef::RemoteBookmarks {
-            bookmark_pattern,
-            remote_pattern,
+            bookmark,
+            remote,
             remote_ref_state,
         }))
     }
 
-    pub fn tags(pattern: StringPattern) -> Arc<Self> {
-        Arc::new(Self::CommitRef(RevsetCommitRef::Tags(pattern)))
+    pub fn tags(expression: StringExpression) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::Tags(expression)))
     }
 
     pub fn git_refs() -> Arc<Self> {
@@ -888,12 +889,12 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
     });
     map.insert("bookmarks", |diagnostics, function, _context| {
         let ([], [opt_arg]) = function.expect_arguments()?;
-        let pattern = if let Some(arg) = opt_arg {
-            expect_string_pattern(diagnostics, arg)?
+        let expr = if let Some(arg) = opt_arg {
+            expect_string_expression(diagnostics, arg)?
         } else {
-            StringPattern::all()
+            StringExpression::all()
         };
-        Ok(RevsetExpression::bookmarks(pattern))
+        Ok(RevsetExpression::bookmarks(expr))
     });
     map.insert("remote_bookmarks", |diagnostics, function, _context| {
         parse_remote_bookmarks_arguments(diagnostics, function, None)
@@ -912,12 +913,12 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
     );
     map.insert("tags", |diagnostics, function, _context| {
         let ([], [opt_arg]) = function.expect_arguments()?;
-        let pattern = if let Some(arg) = opt_arg {
-            expect_string_pattern(diagnostics, arg)?
+        let expr = if let Some(arg) = opt_arg {
+            expect_string_expression(diagnostics, arg)?
         } else {
-            StringPattern::all()
+            StringExpression::all()
         };
-        Ok(RevsetExpression::tags(pattern))
+        Ok(RevsetExpression::tags(expr))
     });
     map.insert("git_refs", |_diagnostics, function, _context| {
         function.expect_no_arguments()?;
@@ -961,35 +962,34 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
     });
     map.insert("description", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        Ok(RevsetExpression::filter(
-            RevsetFilterPredicate::Description(pattern),
-        ))
+        let expr = expect_string_expression(diagnostics, arg)?;
+        let predicate = RevsetFilterPredicate::Description(expr);
+        Ok(RevsetExpression::filter(predicate))
     });
     map.insert("subject", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let predicate = RevsetFilterPredicate::Subject(pattern);
+        let expr = expect_string_expression(diagnostics, arg)?;
+        let predicate = RevsetFilterPredicate::Subject(expr);
         Ok(RevsetExpression::filter(predicate))
     });
     map.insert("author", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let name_predicate = RevsetFilterPredicate::AuthorName(pattern.clone());
-        let email_predicate = RevsetFilterPredicate::AuthorEmail(pattern);
+        let expr = expect_string_expression(diagnostics, arg)?;
+        let name_predicate = RevsetFilterPredicate::AuthorName(expr.clone());
+        let email_predicate = RevsetFilterPredicate::AuthorEmail(expr);
         Ok(RevsetExpression::filter(name_predicate)
             .union(&RevsetExpression::filter(email_predicate)))
     });
     map.insert("author_name", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let predicate = RevsetFilterPredicate::AuthorName(pattern);
+        let expr = expect_string_expression(diagnostics, arg)?;
+        let predicate = RevsetFilterPredicate::AuthorName(expr);
         Ok(RevsetExpression::filter(predicate))
     });
     map.insert("author_email", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let predicate = RevsetFilterPredicate::AuthorEmail(pattern);
+        let expr = expect_string_expression(diagnostics, arg)?;
+        let predicate = RevsetFilterPredicate::AuthorEmail(expr);
         Ok(RevsetExpression::filter(predicate))
     });
     map.insert("author_date", |diagnostics, function, context| {
@@ -1009,28 +1009,28 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         // Email address domains are inherently case‐insensitive, and the local‐parts
         // are generally (although not universally) treated as case‐insensitive too, so
         // we use a case‐insensitive match here.
-        let predicate =
-            RevsetFilterPredicate::AuthorEmail(StringPattern::exact_i(context.user_email));
+        let pattern = StringPattern::exact_i(context.user_email);
+        let predicate = RevsetFilterPredicate::AuthorEmail(StringExpression::pattern(pattern));
         Ok(RevsetExpression::filter(predicate))
     });
     map.insert("committer", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let name_predicate = RevsetFilterPredicate::CommitterName(pattern.clone());
-        let email_predicate = RevsetFilterPredicate::CommitterEmail(pattern);
+        let expr = expect_string_expression(diagnostics, arg)?;
+        let name_predicate = RevsetFilterPredicate::CommitterName(expr.clone());
+        let email_predicate = RevsetFilterPredicate::CommitterEmail(expr);
         Ok(RevsetExpression::filter(name_predicate)
             .union(&RevsetExpression::filter(email_predicate)))
     });
     map.insert("committer_name", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let predicate = RevsetFilterPredicate::CommitterName(pattern);
+        let expr = expect_string_expression(diagnostics, arg)?;
+        let predicate = RevsetFilterPredicate::CommitterName(expr);
         Ok(RevsetExpression::filter(predicate))
     });
     map.insert("committer_email", |diagnostics, function, _context| {
         let [arg] = function.expect_exact_arguments()?;
-        let pattern = expect_string_pattern(diagnostics, arg)?;
-        let predicate = RevsetFilterPredicate::CommitterEmail(pattern);
+        let expr = expect_string_expression(diagnostics, arg)?;
+        let predicate = RevsetFilterPredicate::CommitterEmail(expr);
         Ok(RevsetExpression::filter(predicate))
     });
     map.insert("committer_date", |diagnostics, function, context| {
@@ -1057,7 +1057,7 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
     });
     map.insert("diff_contains", |diagnostics, function, context| {
         let ([text_arg], [files_opt_arg]) = function.expect_arguments()?;
-        let text = expect_string_pattern(diagnostics, text_arg)?;
+        let text = expect_string_expression(diagnostics, text_arg)?;
         let files = if let Some(files_arg) = files_opt_arg {
             let ctx = context.workspace.as_ref().ok_or_else(|| {
                 RevsetParseError::with_span(
@@ -1129,18 +1129,57 @@ pub fn expect_fileset_expression(
     })
 }
 
-pub fn expect_string_pattern(
+/// Transforms the given `node` into a string expression.
+pub fn expect_string_expression(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
-) -> Result<StringPattern, RevsetParseError> {
-    revset_parser::catch_aliases(diagnostics, node, |_diagnostics, node| {
-        let (value, kind) = revset_parser::expect_string_pattern("string pattern", node)?;
-        if let Some(kind) = kind {
-            StringPattern::from_str_kind(value, kind).map_err(|err| {
-                RevsetParseError::expression("Invalid string pattern", node.span).with_source(err)
-            })
-        } else {
-            Ok(StringPattern::Substring(value.to_owned()))
+) -> Result<StringExpression, RevsetParseError> {
+    revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
+        let expr_error = || RevsetParseError::expression("Invalid string expression", node.span);
+        let pattern_error = || RevsetParseError::expression("Invalid string pattern", node.span);
+        match &node.kind {
+            ExpressionKind::Identifier(value) => Ok(StringExpression::substring(*value)),
+            ExpressionKind::String(value) => Ok(StringExpression::substring(value)),
+            ExpressionKind::StringPattern { kind, value } => {
+                let pattern = StringPattern::from_str_kind(value, kind)
+                    .map_err(|err| pattern_error().with_source(err))?;
+                Ok(StringExpression::pattern(pattern))
+            }
+            ExpressionKind::RemoteSymbol(_)
+            | ExpressionKind::AtWorkspace(_)
+            | ExpressionKind::AtCurrentWorkspace
+            | ExpressionKind::DagRangeAll
+            | ExpressionKind::RangeAll => Err(expr_error()),
+            ExpressionKind::Unary(op, arg_node) => {
+                let arg = expect_string_expression(diagnostics, arg_node)?;
+                match op {
+                    UnaryOp::Negate => Ok(arg.negated()),
+                    UnaryOp::DagRangePre
+                    | UnaryOp::DagRangePost
+                    | UnaryOp::RangePre
+                    | UnaryOp::RangePost
+                    | UnaryOp::Parents
+                    | UnaryOp::Children => Err(expr_error()),
+                }
+            }
+            ExpressionKind::Binary(op, lhs_node, rhs_node) => {
+                let lhs = expect_string_expression(diagnostics, lhs_node)?;
+                let rhs = expect_string_expression(diagnostics, rhs_node)?;
+                match op {
+                    BinaryOp::Intersection => Ok(lhs.intersection(rhs)),
+                    BinaryOp::Difference => Ok(lhs.intersection(rhs.negated())),
+                    BinaryOp::DagRange | BinaryOp::Range => Err(expr_error()),
+                }
+            }
+            ExpressionKind::UnionAll(nodes) => {
+                let expressions = nodes
+                    .iter()
+                    .map(|node| expect_string_expression(diagnostics, node))
+                    .try_collect()?;
+                Ok(StringExpression::union_all(expressions))
+            }
+            ExpressionKind::FunctionCall(_) | ExpressionKind::Modifier(_) => Err(expr_error()),
+            ExpressionKind::AliasExpanded(..) => unreachable!(),
         }
     })
 }
@@ -1168,19 +1207,19 @@ fn parse_remote_bookmarks_arguments(
 ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
     let ([], [bookmark_opt_arg, remote_opt_arg]) =
         function.expect_named_arguments(&["", "remote"])?;
-    let bookmark_pattern = if let Some(bookmark_arg) = bookmark_opt_arg {
-        expect_string_pattern(diagnostics, bookmark_arg)?
+    let bookmark_expr = if let Some(bookmark_arg) = bookmark_opt_arg {
+        expect_string_expression(diagnostics, bookmark_arg)?
     } else {
-        StringPattern::all()
+        StringExpression::all()
     };
-    let remote_pattern = if let Some(remote_arg) = remote_opt_arg {
-        expect_string_pattern(diagnostics, remote_arg)?
+    let remote_expr = if let Some(remote_arg) = remote_opt_arg {
+        expect_string_expression(diagnostics, remote_arg)?
     } else {
-        StringPattern::all()
+        StringExpression::all()
     };
     Ok(RevsetExpression::remote_bookmarks(
-        bookmark_pattern,
-        remote_pattern,
+        bookmark_expr,
+        remote_expr,
         remote_ref_state,
     ))
 }
@@ -2815,23 +2854,23 @@ fn resolve_commit_ref(
             let resolver = &symbol_resolver.commit_id_resolver;
             Ok(resolver.try_resolve(repo, prefix)?.into_iter().collect())
         }
-        RevsetCommitRef::Bookmarks(pattern) => {
+        RevsetCommitRef::Bookmarks(expression) => {
             let commit_ids = repo
                 .view()
-                .local_bookmarks_matching(&pattern.to_matcher())
+                .local_bookmarks_matching(&expression.to_matcher())
                 .flat_map(|(_, target)| target.added_ids())
                 .cloned()
                 .collect();
             Ok(commit_ids)
         }
         RevsetCommitRef::RemoteBookmarks {
-            bookmark_pattern,
-            remote_pattern,
+            bookmark,
+            remote,
             remote_ref_state,
         } => {
             // TODO: should we allow to select @git bookmarks explicitly?
-            let bookmark_matcher = bookmark_pattern.to_matcher();
-            let remote_matcher = remote_pattern.to_matcher();
+            let bookmark_matcher = bookmark.to_matcher();
+            let remote_matcher = remote.to_matcher();
             let commit_ids = repo
                 .view()
                 .remote_bookmarks_matching(&bookmark_matcher, &remote_matcher)
@@ -2844,10 +2883,10 @@ fn resolve_commit_ref(
                 .collect();
             Ok(commit_ids)
         }
-        RevsetCommitRef::Tags(pattern) => {
+        RevsetCommitRef::Tags(expression) => {
             let commit_ids = repo
                 .view()
-                .local_tags_matching(&pattern.to_matcher())
+                .local_tags_matching(&expression.to_matcher())
                 .flat_map(|(_, target)| target.added_ids())
                 .cloned()
                 .collect();
@@ -3730,10 +3769,10 @@ mod tests {
         // "@" in function argument must be quoted
         insta::assert_debug_snapshot!(
             parse("author_name(foo@)").unwrap_err().kind(),
-            @r#"Expression("Expected string pattern")"#);
+            @r#"Expression("Invalid string expression")"#);
         insta::assert_debug_snapshot!(
             parse(r#"author_name("foo@")"#).unwrap(),
-            @r#"Filter(AuthorName(Substring("foo@")))"#);
+            @r#"Filter(AuthorName(Pattern(Substring("foo@"))))"#);
         // Parse a single symbol
         insta::assert_debug_snapshot!(
             parse("foo").unwrap(),
@@ -3741,16 +3780,16 @@ mod tests {
         // Default arguments for *bookmarks() are all ""
         insta::assert_debug_snapshot!(
             parse("bookmarks()").unwrap(),
-            @r#"CommitRef(Bookmarks(Substring("")))"#);
+            @r#"CommitRef(Bookmarks(Pattern(Substring(""))))"#);
         // Default argument for tags() is ""
         insta::assert_debug_snapshot!(
             parse("tags()").unwrap(),
-            @r#"CommitRef(Tags(Substring("")))"#);
+            @r#"CommitRef(Tags(Pattern(Substring(""))))"#);
         insta::assert_debug_snapshot!(parse("remote_bookmarks()").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark_pattern: Substring(""),
-                remote_pattern: Substring(""),
+                bookmark: Pattern(Substring("")),
+                remote: Pattern(Substring("")),
                 remote_ref_state: None,
             },
         )
@@ -3758,8 +3797,8 @@ mod tests {
         insta::assert_debug_snapshot!(parse("tracked_remote_bookmarks()").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark_pattern: Substring(""),
-                remote_pattern: Substring(""),
+                bookmark: Pattern(Substring("")),
+                remote: Pattern(Substring("")),
                 remote_ref_state: Some(Tracked),
             },
         )
@@ -3767,8 +3806,8 @@ mod tests {
         insta::assert_debug_snapshot!(parse("untracked_remote_bookmarks()").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark_pattern: Substring(""),
-                remote_pattern: Substring(""),
+                bookmark: Pattern(Substring("")),
+                remote: Pattern(Substring("")),
                 remote_ref_state: Some(New),
             },
         )
@@ -3897,47 +3936,108 @@ mod tests {
 
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks("foo")"#).unwrap(),
-            @r#"CommitRef(Bookmarks(Substring("foo")))"#);
+            @r#"CommitRef(Bookmarks(Pattern(Substring("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks(exact:"foo")"#).unwrap(),
-            @r#"CommitRef(Bookmarks(Exact("foo")))"#);
+            @r#"CommitRef(Bookmarks(Pattern(Exact("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks(substring:"foo")"#).unwrap(),
-            @r#"CommitRef(Bookmarks(Substring("foo")))"#);
+            @r#"CommitRef(Bookmarks(Pattern(Substring("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks(bad:"foo")"#).unwrap_err().kind(),
             @r#"Expression("Invalid string pattern")"#);
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks(exact::"foo")"#).unwrap_err().kind(),
-            @r#"Expression("Expected string pattern")"#);
+            @r#"Expression("Invalid string expression")"#);
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks(exact:"foo"+)"#).unwrap_err().kind(),
-            @r#"Expression("Expected string pattern")"#);
+            @r#"Expression("Invalid string expression")"#);
 
         insta::assert_debug_snapshot!(
             parse(r#"tags("foo")"#).unwrap(),
-            @r#"CommitRef(Tags(Substring("foo")))"#);
+            @r#"CommitRef(Tags(Pattern(Substring("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse(r#"tags(exact:"foo")"#).unwrap(),
-            @r#"CommitRef(Tags(Exact("foo")))"#);
+            @r#"CommitRef(Tags(Pattern(Exact("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse(r#"tags(substring:"foo")"#).unwrap(),
-            @r#"CommitRef(Tags(Substring("foo")))"#);
+            @r#"CommitRef(Tags(Pattern(Substring("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse(r#"tags(bad:"foo")"#).unwrap_err().kind(),
             @r#"Expression("Invalid string pattern")"#);
         insta::assert_debug_snapshot!(
             parse(r#"tags(exact::"foo")"#).unwrap_err().kind(),
-            @r#"Expression("Expected string pattern")"#);
+            @r#"Expression("Invalid string expression")"#);
         insta::assert_debug_snapshot!(
             parse(r#"tags(exact:"foo"+)"#).unwrap_err().kind(),
-            @r#"Expression("Expected string pattern")"#);
+            @r#"Expression("Invalid string expression")"#);
 
         // String pattern isn't allowed at top level.
         assert_matches!(
             parse(r#"(exact:"foo")"#).unwrap_err().kind(),
             RevsetParseErrorKind::NotInfixOperator { .. }
         );
+    }
+
+    #[test]
+    fn test_parse_compound_string_expression() {
+        let settings = insta_settings();
+        let _guard = settings.bind_to_scope();
+
+        insta::assert_debug_snapshot!(
+            parse(r#"tags(~a)"#).unwrap(),
+            @r#"
+        CommitRef(
+            Tags(NotIn(Pattern(Substring("a")))),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse(r#"tags(a|b&c)"#).unwrap(),
+            @r#"
+        CommitRef(
+            Tags(
+                Union(
+                    Pattern(Substring("a")),
+                    Intersection(
+                        Pattern(Substring("b")),
+                        Pattern(Substring("c")),
+                    ),
+                ),
+            ),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse(r#"tags(a|b|c)"#).unwrap(),
+            @r#"
+        CommitRef(
+            Tags(
+                Union(
+                    Pattern(Substring("a")),
+                    Union(
+                        Pattern(Substring("b")),
+                        Pattern(Substring("c")),
+                    ),
+                ),
+            ),
+        )
+        "#);
+        insta::assert_debug_snapshot!(
+            parse(r#"tags(a~(b|c))"#).unwrap(),
+            @r#"
+        CommitRef(
+            Tags(
+                Intersection(
+                    Pattern(Substring("a")),
+                    NotIn(
+                        Union(
+                            Pattern(Substring("b")),
+                            Pattern(Substring("c")),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        "#);
     }
 
     #[test]
@@ -3994,16 +4094,16 @@ mod tests {
         assert!(parse("root(a)").is_err());
         insta::assert_debug_snapshot!(
             parse(r#"description("")"#).unwrap(),
-            @r#"Filter(Description(Substring("")))"#);
+            @r#"Filter(Description(Pattern(Substring(""))))"#);
         insta::assert_debug_snapshot!(
             parse("description(foo)").unwrap(),
-            @r#"Filter(Description(Substring("foo")))"#);
+            @r#"Filter(Description(Pattern(Substring("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse("description(visible_heads())").unwrap_err().kind(),
-            @r#"Expression("Expected string pattern")"#);
+            @r#"Expression("Invalid string expression")"#);
         insta::assert_debug_snapshot!(
             parse("description(\"(foo)\")").unwrap(),
-            @r#"Filter(Description(Substring("(foo)")))"#);
+            @r#"Filter(Description(Pattern(Substring("(foo)"))))"#);
         assert!(parse("mine(foo)").is_err());
         insta::assert_debug_snapshot!(
             parse_with_workspace("empty()", WorkspaceName::DEFAULT).unwrap(),
@@ -4084,34 +4184,34 @@ mod tests {
         insta::assert_debug_snapshot!(
             parse("author(foo)").unwrap(), @r#"
         Union(
-            Filter(AuthorName(Substring("foo"))),
-            Filter(AuthorEmail(Substring("foo"))),
+            Filter(AuthorName(Pattern(Substring("foo")))),
+            Filter(AuthorEmail(Pattern(Substring("foo")))),
         )
         "#);
         insta::assert_debug_snapshot!(
             parse("author_name(foo)").unwrap(),
-            @r#"Filter(AuthorName(Substring("foo")))"#);
+            @r#"Filter(AuthorName(Pattern(Substring("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse("author_email(foo)").unwrap(),
-            @r#"Filter(AuthorEmail(Substring("foo")))"#);
+            @r#"Filter(AuthorEmail(Pattern(Substring("foo"))))"#);
 
         insta::assert_debug_snapshot!(
             parse("committer(foo)").unwrap(), @r#"
         Union(
-            Filter(CommitterName(Substring("foo"))),
-            Filter(CommitterEmail(Substring("foo"))),
+            Filter(CommitterName(Pattern(Substring("foo")))),
+            Filter(CommitterEmail(Pattern(Substring("foo")))),
         )
         "#);
         insta::assert_debug_snapshot!(
             parse("committer_name(foo)").unwrap(),
-            @r#"Filter(CommitterName(Substring("foo")))"#);
+            @r#"Filter(CommitterName(Pattern(Substring("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse("committer_email(foo)").unwrap(),
-            @r#"Filter(CommitterEmail(Substring("foo")))"#);
+            @r#"Filter(CommitterEmail(Pattern(Substring("foo"))))"#);
 
         insta::assert_debug_snapshot!(
             parse("mine()").unwrap(),
-            @r#"Filter(AuthorEmail(ExactI("test.user@example.com")))"#);
+            @r#"Filter(AuthorEmail(Pattern(ExactI("test.user@example.com"))))"#);
     }
 
     #[test]
@@ -4123,8 +4223,8 @@ mod tests {
             parse("remote_bookmarks(remote=foo)").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark_pattern: Substring(""),
-                remote_pattern: Substring("foo"),
+                bookmark: Pattern(Substring("")),
+                remote: Pattern(Substring("foo")),
                 remote_ref_state: None,
             },
         )
@@ -4133,8 +4233,8 @@ mod tests {
             parse("remote_bookmarks(foo, remote=bar)").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark_pattern: Substring("foo"),
-                remote_pattern: Substring("bar"),
+                bookmark: Pattern(Substring("foo")),
+                remote: Pattern(Substring("bar")),
                 remote_ref_state: None,
             },
         )
@@ -4143,8 +4243,8 @@ mod tests {
             parse("tracked_remote_bookmarks(foo, remote=bar)").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark_pattern: Substring("foo"),
-                remote_pattern: Substring("bar"),
+                bookmark: Pattern(Substring("foo")),
+                remote: Pattern(Substring("bar")),
                 remote_ref_state: Some(Tracked),
             },
         )
@@ -4153,8 +4253,8 @@ mod tests {
             parse("untracked_remote_bookmarks(foo, remote=bar)").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark_pattern: Substring("foo"),
-                remote_pattern: Substring("bar"),
+                bookmark: Pattern(Substring("foo")),
+                remote: Pattern(Substring("bar")),
                 remote_ref_state: Some(New),
             },
         )
@@ -4218,12 +4318,12 @@ mod tests {
         // Alias can be substituted to string pattern.
         insta::assert_debug_snapshot!(
             parse_with_aliases("author_name(A)", [("A", "a")]).unwrap(),
-            @r#"Filter(AuthorName(Substring("a")))"#);
+            @r#"Filter(AuthorName(Pattern(Substring("a"))))"#);
         // However, parentheses are required because top-level x:y is parsed as
         // program modifier.
         insta::assert_debug_snapshot!(
             parse_with_aliases("author_name(A)", [("A", "(exact:a)")]).unwrap(),
-            @r#"Filter(AuthorName(Exact("a")))"#);
+            @r#"Filter(AuthorName(Pattern(Exact("a"))))"#);
 
         // Sub-expression alias cannot be substituted to modifier expression.
         insta::assert_debug_snapshot!(
@@ -4241,8 +4341,8 @@ mod tests {
             parse_with_aliases("F(a)", [("F(x)", "author_name(x)|committer_name(x)")]).unwrap(),
             @r#"
         Union(
-            Filter(AuthorName(Substring("a"))),
-            Filter(CommitterName(Substring("a"))),
+            Filter(AuthorName(Pattern(Substring("a")))),
+            Filter(CommitterName(Pattern(Substring("a")))),
         )
         "#);
     }
@@ -4533,7 +4633,7 @@ mod tests {
         insta::assert_debug_snapshot!(
             optimize(parse("parents(bookmarks() & all())").unwrap()), @r#"
         Ancestors {
-            heads: CommitRef(Bookmarks(Substring(""))),
+            heads: CommitRef(Bookmarks(Pattern(Substring("")))),
             generation: 1..2,
             parents_range: 0..4294967295,
         }
@@ -4541,14 +4641,14 @@ mod tests {
         insta::assert_debug_snapshot!(
             optimize(parse("children(bookmarks() & all())").unwrap()), @r#"
         Descendants {
-            roots: CommitRef(Bookmarks(Substring(""))),
+            roots: CommitRef(Bookmarks(Pattern(Substring("")))),
             generation: 1..2,
         }
         "#);
         insta::assert_debug_snapshot!(
             optimize(parse("ancestors(bookmarks() & all())").unwrap()), @r#"
         Ancestors {
-            heads: CommitRef(Bookmarks(Substring(""))),
+            heads: CommitRef(Bookmarks(Pattern(Substring("")))),
             generation: 0..18446744073709551615,
             parents_range: 0..4294967295,
         }
@@ -4556,7 +4656,7 @@ mod tests {
         insta::assert_debug_snapshot!(
             optimize(parse("descendants(bookmarks() & all())").unwrap()), @r#"
         Descendants {
-            roots: CommitRef(Bookmarks(Substring(""))),
+            roots: CommitRef(Bookmarks(Pattern(Substring("")))),
             generation: 0..18446744073709551615,
         }
         "#);
@@ -4564,8 +4664,8 @@ mod tests {
         insta::assert_debug_snapshot!(
             optimize(parse("(bookmarks() & all())..(all() & tags())").unwrap()), @r#"
         Range {
-            roots: CommitRef(Bookmarks(Substring(""))),
-            heads: CommitRef(Tags(Substring(""))),
+            roots: CommitRef(Bookmarks(Pattern(Substring("")))),
+            heads: CommitRef(Tags(Pattern(Substring("")))),
             generation: 0..18446744073709551615,
             parents_range: 0..4294967295,
         }
@@ -4573,22 +4673,30 @@ mod tests {
         insta::assert_debug_snapshot!(
             optimize(parse("(bookmarks() & all())::(all() & tags())").unwrap()), @r#"
         DagRange {
-            roots: CommitRef(Bookmarks(Substring(""))),
-            heads: CommitRef(Tags(Substring(""))),
+            roots: CommitRef(Bookmarks(Pattern(Substring("")))),
+            heads: CommitRef(Tags(Pattern(Substring("")))),
         }
         "#);
 
         insta::assert_debug_snapshot!(
             optimize(parse("heads(bookmarks() & all())").unwrap()),
-            @r#"Heads(CommitRef(Bookmarks(Substring(""))))"#);
+            @r#"
+        Heads(
+            CommitRef(Bookmarks(Pattern(Substring("")))),
+        )
+        "#);
         insta::assert_debug_snapshot!(
             optimize(parse("roots(bookmarks() & all())").unwrap()),
-            @r#"Roots(CommitRef(Bookmarks(Substring(""))))"#);
+            @r#"
+        Roots(
+            CommitRef(Bookmarks(Pattern(Substring("")))),
+        )
+        "#);
 
         insta::assert_debug_snapshot!(
             optimize(parse("latest(bookmarks() & all(), 2)").unwrap()), @r#"
         Latest {
-            candidates: CommitRef(Bookmarks(Substring(""))),
+            candidates: CommitRef(Bookmarks(Pattern(Substring("")))),
             count: 2,
         }
         "#);
@@ -4604,13 +4712,17 @@ mod tests {
         "#);
         insta::assert_debug_snapshot!(
             optimize(parse("present(bookmarks() & all())").unwrap()),
-            @r#"Present(CommitRef(Bookmarks(Substring(""))))"#);
+            @r#"
+        Present(
+            CommitRef(Bookmarks(Pattern(Substring("")))),
+        )
+        "#);
 
         insta::assert_debug_snapshot!(
             optimize(parse("at_operation(@-, bookmarks() & all())").unwrap()), @r#"
         AtOperation {
             operation: "@-",
-            candidates: CommitRef(Bookmarks(Substring(""))),
+            candidates: CommitRef(Bookmarks(Pattern(Substring("")))),
         }
         "#);
         insta::assert_debug_snapshot!(
@@ -4619,7 +4731,7 @@ mod tests {
                 commits: vec![CommitId::from_hex("012345")],
             })), @r#"
         WithinReference {
-            candidates: CommitRef(Bookmarks(Substring(""))),
+            candidates: CommitRef(Bookmarks(Pattern(Substring("")))),
             commits: [
                 CommitId("012345"),
             ],
@@ -4632,7 +4744,7 @@ mod tests {
             })), @r#"
         WithinReference {
             candidates: WithinVisibility {
-                candidates: CommitRef(Bookmarks(Substring(""))),
+                candidates: CommitRef(Bookmarks(Pattern(Substring("")))),
                 visible_heads: [
                     CommitId("012345"),
                 ],
@@ -4645,26 +4757,30 @@ mod tests {
 
         insta::assert_debug_snapshot!(
             optimize(parse("~bookmarks() & all()").unwrap()),
-            @r#"NotIn(CommitRef(Bookmarks(Substring(""))))"#);
+            @r#"
+        NotIn(
+            CommitRef(Bookmarks(Pattern(Substring("")))),
+        )
+        "#);
         insta::assert_debug_snapshot!(
             optimize(parse("(bookmarks() & all()) | (all() & tags())").unwrap()), @r#"
         Union(
-            CommitRef(Bookmarks(Substring(""))),
-            CommitRef(Tags(Substring(""))),
+            CommitRef(Bookmarks(Pattern(Substring("")))),
+            CommitRef(Tags(Pattern(Substring("")))),
         )
         "#);
         insta::assert_debug_snapshot!(
             optimize(parse("(bookmarks() & all()) & (all() & tags())").unwrap()), @r#"
         Intersection(
-            CommitRef(Bookmarks(Substring(""))),
-            CommitRef(Tags(Substring(""))),
+            CommitRef(Bookmarks(Pattern(Substring("")))),
+            CommitRef(Tags(Pattern(Substring("")))),
         )
         "#);
         insta::assert_debug_snapshot!(
             optimize(parse("(bookmarks() & all()) ~ (all() & tags())").unwrap()), @r#"
         Difference(
-            CommitRef(Bookmarks(Substring(""))),
-            CommitRef(Tags(Substring(""))),
+            CommitRef(Bookmarks(Pattern(Substring("")))),
+            CommitRef(Tags(Pattern(Substring("")))),
         )
         "#);
     }
@@ -5016,7 +5132,7 @@ mod tests {
                 CommitRef(Symbol("baz")),
                 CommitRef(Symbol("bar")),
             ),
-            Filter(AuthorName(Substring("foo"))),
+            Filter(AuthorName(Pattern(Substring("foo")))),
         )
         "#);
 
@@ -5025,7 +5141,7 @@ mod tests {
             optimize(parse("~foo & author_name(bar)").unwrap()), @r#"
         Intersection(
             NotIn(CommitRef(Symbol("foo"))),
-            Filter(AuthorName(Substring("bar"))),
+            Filter(AuthorName(Pattern(Substring("bar")))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -5034,7 +5150,7 @@ mod tests {
             NotIn(CommitRef(Symbol("foo"))),
             AsFilter(
                 Union(
-                    Filter(AuthorName(Substring("bar"))),
+                    Filter(AuthorName(Pattern(Substring("bar")))),
                     CommitRef(Symbol("baz")),
                 ),
             ),
@@ -5046,7 +5162,7 @@ mod tests {
             optimize(parse("author_name(foo) ~ bar").unwrap()), @r#"
         Intersection(
             NotIn(CommitRef(Symbol("bar"))),
-            Filter(AuthorName(Substring("foo"))),
+            Filter(AuthorName(Pattern(Substring("foo")))),
         )
         "#);
     }
@@ -5058,26 +5174,26 @@ mod tests {
 
         insta::assert_debug_snapshot!(
             optimize(parse("author_name(foo)").unwrap()),
-            @r#"Filter(AuthorName(Substring("foo")))"#);
+            @r#"Filter(AuthorName(Pattern(Substring("foo"))))"#);
 
         insta::assert_debug_snapshot!(optimize(parse("foo & description(bar)").unwrap()), @r#"
         Intersection(
             CommitRef(Symbol("foo")),
-            Filter(Description(Substring("bar"))),
+            Filter(Description(Pattern(Substring("bar")))),
         )
         "#);
         insta::assert_debug_snapshot!(optimize(parse("author_name(foo) & bar").unwrap()), @r#"
         Intersection(
             CommitRef(Symbol("bar")),
-            Filter(AuthorName(Substring("foo"))),
+            Filter(AuthorName(Pattern(Substring("foo")))),
         )
         "#);
         insta::assert_debug_snapshot!(
             optimize(parse("author_name(foo) & committer_name(bar)").unwrap()), @r#"
         AsFilter(
             Intersection(
-                Filter(AuthorName(Substring("foo"))),
-                Filter(CommitterName(Substring("bar"))),
+                Filter(AuthorName(Pattern(Substring("foo")))),
+                Filter(CommitterName(Pattern(Substring("bar")))),
             ),
         )
         "#);
@@ -5088,8 +5204,8 @@ mod tests {
             CommitRef(Symbol("foo")),
             AsFilter(
                 Intersection(
-                    Filter(Description(Substring("bar"))),
-                    Filter(AuthorName(Substring("baz"))),
+                    Filter(Description(Pattern(Substring("bar")))),
+                    Filter(AuthorName(Pattern(Substring("baz")))),
                 ),
             ),
         )
@@ -5100,8 +5216,8 @@ mod tests {
             CommitRef(Symbol("bar")),
             AsFilter(
                 Intersection(
-                    Filter(CommitterName(Substring("foo"))),
-                    Filter(AuthorName(Substring("baz"))),
+                    Filter(CommitterName(Pattern(Substring("foo")))),
+                    Filter(AuthorName(Pattern(Substring("baz")))),
                 ),
             ),
         )
@@ -5115,7 +5231,7 @@ mod tests {
             CommitRef(Symbol("baz")),
             AsFilter(
                 Intersection(
-                    Filter(CommitterName(Substring("foo"))),
+                    Filter(CommitterName(Pattern(Substring("foo")))),
                     Filter(File(Pattern(PrefixPath("bar")))),
                 ),
             ),
@@ -5129,10 +5245,10 @@ mod tests {
         AsFilter(
             Intersection(
                 Intersection(
-                    Filter(CommitterName(Substring("foo"))),
+                    Filter(CommitterName(Pattern(Substring("foo")))),
                     Filter(File(Pattern(PrefixPath("bar")))),
                 ),
-                Filter(AuthorName(Substring("baz"))),
+                Filter(AuthorName(Pattern(Substring("baz")))),
             ),
         )
         "#);
@@ -5159,8 +5275,8 @@ mod tests {
             ),
             AsFilter(
                 Intersection(
-                    Filter(Description(Substring("bar"))),
-                    Filter(AuthorName(Substring("baz"))),
+                    Filter(Description(Pattern(Substring("bar")))),
+                    Filter(AuthorName(Pattern(Substring("baz")))),
                 ),
             ),
         )
@@ -5173,14 +5289,14 @@ mod tests {
                 Intersection(
                     CommitRef(Symbol("foo")),
                     Ancestors {
-                        heads: Filter(AuthorName(Substring("baz"))),
+                        heads: Filter(AuthorName(Pattern(Substring("baz")))),
                         generation: 1..2,
                         parents_range: 0..4294967295,
                     },
                 ),
                 CommitRef(Symbol("qux")),
             ),
-            Filter(Description(Substring("bar"))),
+            Filter(Description(Pattern(Substring("bar")))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -5192,13 +5308,13 @@ mod tests {
                 Ancestors {
                     heads: Intersection(
                         CommitRef(Symbol("qux")),
-                        Filter(AuthorName(Substring("baz"))),
+                        Filter(AuthorName(Pattern(Substring("baz")))),
                     ),
                     generation: 1..2,
                     parents_range: 0..4294967295,
                 },
             ),
-            Filter(Description(Substring("bar"))),
+            Filter(Description(Pattern(Substring("bar")))),
         )
         "#);
 
@@ -5217,10 +5333,10 @@ mod tests {
             AsFilter(
                 Intersection(
                     Intersection(
-                        Filter(AuthorName(Substring("A"))),
-                        Filter(AuthorName(Substring("B"))),
+                        Filter(AuthorName(Pattern(Substring("A")))),
+                        Filter(AuthorName(Pattern(Substring("B")))),
                     ),
-                    Filter(AuthorName(Substring("C"))),
+                    Filter(AuthorName(Pattern(Substring("C")))),
                 ),
             ),
         )
@@ -5242,10 +5358,10 @@ mod tests {
             AsFilter(
                 Intersection(
                     Intersection(
-                        Filter(AuthorName(Substring("A"))),
-                        Filter(AuthorName(Substring("B"))),
+                        Filter(AuthorName(Pattern(Substring("A")))),
+                        Filter(AuthorName(Pattern(Substring("B")))),
                     ),
-                    Filter(AuthorName(Substring("C"))),
+                    Filter(AuthorName(Pattern(Substring("C")))),
                 ),
             ),
         )
@@ -5259,8 +5375,8 @@ mod tests {
             CommitRef(Symbol("foo")),
             AsFilter(
                 Intersection(
-                    Filter(Description(Substring("bar"))),
-                    Filter(AuthorName(Substring("baz"))),
+                    Filter(Description(Pattern(Substring("bar")))),
+                    Filter(AuthorName(Pattern(Substring("baz")))),
                 ),
             ),
         )
@@ -5275,10 +5391,10 @@ mod tests {
                 CommitRef(Symbol("bar")),
                 AtOperation {
                     operation: "@-",
-                    candidates: Filter(CommitterName(Substring("baz"))),
+                    candidates: Filter(CommitterName(Pattern(Substring("baz")))),
                 },
             ),
-            Filter(AuthorName(Substring("foo"))),
+            Filter(AuthorName(Pattern(Substring("foo")))),
         )
         "#);
     }
@@ -5294,7 +5410,7 @@ mod tests {
             CommitRef(Symbol("baz")),
             AsFilter(
                 Union(
-                    Filter(AuthorName(Substring("foo"))),
+                    Filter(AuthorName(Pattern(Substring("foo")))),
                     CommitRef(Symbol("bar")),
                 ),
             ),
@@ -5353,9 +5469,9 @@ mod tests {
                 Intersection(
                     Union(
                         CommitRef(Symbol("foo")),
-                        Filter(CommitterName(Substring("bar"))),
+                        Filter(CommitterName(Pattern(Substring("bar")))),
                     ),
-                    Filter(Description(Substring("baz"))),
+                    Filter(Description(Pattern(Substring("baz")))),
                 ),
             ),
         )
@@ -5371,8 +5487,8 @@ mod tests {
                     NotIn(
                         Present(
                             Intersection(
-                                Filter(AuthorName(Substring("foo"))),
-                                Filter(Description(Substring("bar"))),
+                                Filter(AuthorName(Pattern(Substring("foo")))),
+                                Filter(Description(Pattern(Substring("bar")))),
                             ),
                         ),
                     ),
@@ -5399,16 +5515,16 @@ mod tests {
                 Intersection(
                     Intersection(
                         Union(
-                            Filter(AuthorName(Substring("A"))),
+                            Filter(AuthorName(Pattern(Substring("A")))),
                             CommitRef(Symbol("0")),
                         ),
                         Union(
-                            Filter(AuthorName(Substring("B"))),
+                            Filter(AuthorName(Pattern(Substring("B")))),
                             CommitRef(Symbol("1")),
                         ),
                     ),
                     Union(
-                        Filter(AuthorName(Substring("C"))),
+                        Filter(AuthorName(Pattern(Substring("C")))),
                         CommitRef(Symbol("2")),
                     ),
                 ),
@@ -5426,7 +5542,7 @@ mod tests {
                 filter: AsFilter(
                     Union(
                         CommitRef(Symbol("foo")),
-                        Filter(AuthorName(Substring("bar"))),
+                        Filter(AuthorName(Pattern(Substring("bar")))),
                     ),
                 ),
             },
@@ -5987,8 +6103,8 @@ mod tests {
             parents_range: 0..4294967295,
             filter: AsFilter(
                 Union(
-                    Filter(AuthorName(Substring("A"))),
-                    Filter(AuthorName(Substring("B"))),
+                    Filter(AuthorName(Pattern(Substring("A")))),
+                    Filter(AuthorName(Pattern(Substring("B")))),
                 ),
             ),
         }
@@ -5999,7 +6115,9 @@ mod tests {
             heads: VisibleHeadsOrReferenced,
             parents_range: 0..4294967295,
             filter: AsFilter(
-                NotIn(Filter(AuthorName(Substring("A")))),
+                NotIn(
+                    Filter(AuthorName(Pattern(Substring("A")))),
+                ),
             ),
         }
         "#);
@@ -6020,8 +6138,8 @@ mod tests {
             parents_range: 0..4294967295,
             filter: AsFilter(
                 Difference(
-                    Filter(AuthorName(Substring("A"))),
-                    Filter(AuthorName(Substring("B"))),
+                    Filter(AuthorName(Pattern(Substring("A")))),
+                    Filter(AuthorName(Pattern(Substring("B")))),
                 ),
             ),
         }
@@ -6052,8 +6170,10 @@ mod tests {
                 parents_range: 0..4294967295,
                 filter: Filter(
                     Description(
-                        Substring(
-                            "bar",
+                        Pattern(
+                            Substring(
+                                "bar",
+                            ),
                         ),
                     ),
                 ),
@@ -6070,8 +6190,10 @@ mod tests {
                 parents_range: 0..4294967295,
                 filter: Filter(
                     AuthorName(
-                        Substring(
-                            "foo",
+                        Pattern(
+                            Substring(
+                                "foo",
+                            ),
                         ),
                     ),
                 ),
@@ -6109,8 +6231,10 @@ mod tests {
         Ancestors {
             heads: Filter(
                 AuthorName(
-                    Substring(
-                        "foo",
+                    Pattern(
+                        Substring(
+                            "foo",
+                        ),
                     ),
                 ),
             ),
@@ -6122,8 +6246,10 @@ mod tests {
         Ancestors {
             heads: Filter(
                 AuthorName(
-                    Substring(
-                        "foo",
+                    Pattern(
+                        Substring(
+                            "foo",
+                        ),
                     ),
                 ),
             ),

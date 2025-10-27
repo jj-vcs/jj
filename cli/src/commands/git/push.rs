@@ -46,6 +46,7 @@ use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::SignBehavior;
+use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
@@ -975,12 +976,12 @@ fn find_bookmarks_targeted_by_revisions<'a>(
         // remote_bookmarks(remote=<remote>)..@
         let workspace_name = workspace_command.workspace_name();
         let expression = RevsetExpression::remote_bookmarks(
-            StringPattern::all(),
-            StringPattern::exact(remote),
+            StringExpression::all(),
+            StringExpression::exact(remote),
             None,
         )
         .range(&RevsetExpression::working_copy(workspace_name.to_owned()))
-        .intersection(&RevsetExpression::bookmarks(StringPattern::all()));
+        .intersection(&RevsetExpression::bookmarks(StringExpression::all()));
         let mut commit_ids = workspace_command
             .attach_revset_evaluator(expression)
             .evaluate_to_commit_ids()?
@@ -999,7 +1000,7 @@ fn find_bookmarks_targeted_by_revisions<'a>(
     }
     for rev_arg in revisions {
         let mut expression = workspace_command.parse_revset(ui, rev_arg)?;
-        expression.intersect_with(&RevsetExpression::bookmarks(StringPattern::all()));
+        expression.intersect_with(&RevsetExpression::bookmarks(StringExpression::all()));
         let mut commit_ids = expression.evaluate_to_commit_ids()?.peekable();
         if commit_ids.peek().is_none() {
             writeln!(

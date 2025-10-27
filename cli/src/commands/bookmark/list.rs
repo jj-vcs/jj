@@ -27,6 +27,7 @@ use jj_lib::config::ConfigValue;
 use jj_lib::ref_name::RefName;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringPattern;
 
 use crate::cli_util::CommandHelper;
@@ -155,7 +156,7 @@ pub fn cmd_bookmark_list(
             let mut expression = workspace_command.parse_union_revsets(ui, revisions)?;
             // Intersects with the set of local bookmark targets to minimize the lookup
             // space.
-            expression.intersect_with(&RevsetExpression::bookmarks(StringPattern::all()));
+            expression.intersect_with(&RevsetExpression::bookmarks(StringExpression::all()));
             let filtered_targets: HashSet<_> =
                 expression.evaluate_to_commit_ids()?.try_collect()?;
             bookmark_names.extend(

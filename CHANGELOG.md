@@ -79,6 +79,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   colocation state (`status`) and to convert a non-colocated git repo into
   a colocated repo (`enable`) and vice-versa `disable`.
 
+* Revsets now support logical operators in string patterns.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
