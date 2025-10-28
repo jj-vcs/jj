@@ -42,6 +42,7 @@ pub mod dag_walk;
 pub mod default_index;
 pub mod default_submodule_store;
 pub mod diff;
+pub mod diff_presentation;
 pub mod dsl_util;
 pub(crate) mod eol;
 pub mod evolution;
