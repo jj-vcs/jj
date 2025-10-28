@@ -54,6 +54,11 @@ pub struct Commit {
 impl Debug for Commit {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         f.debug_struct("Commit").field("id", &self.id).finish()
+        // We intentionally don't print the `data` field. You can debug-print
+        // `commit.store_commit()` to get those details.
+        //
+        // The reason is that `Commit` objects are debug-printed as part of many
+        // other data structures and in tracing.
     }
 }
 
