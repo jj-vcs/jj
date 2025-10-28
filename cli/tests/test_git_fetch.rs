@@ -97,7 +97,7 @@ fn clone_git_remote_into(
     let upstream_head = fork_repo
         .find_reference(&format!("refs/remotes/{upstream}/{upstream}"))
         .unwrap()
-        .peel_to_id_in_place()
+        .peel_to_id()
         .unwrap()
         .detach();
 
