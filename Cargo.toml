@@ -21,7 +21,7 @@ assert_cmd = "2.0.8"
 assert_matches = "1.5.0"
 async-trait = "0.1.89"
 blake2 = "0.10.6"
-bstr = "1.11.3"
+bstr = "1.12.1"
 clap = { version = "4.5.50", features = [
     "derive",
     "deprecated",
@@ -56,11 +56,11 @@ gix = { version = "0.74.1", default-features = false, features = [
     "max-performance-safe",
     "zlib-rs",
 ] }
-globset = "0.4.16"
+globset = "0.4.18"
 hashbrown = { version = "0.16.0", default-features = false, features = ["inline-more"] }
 ignore = "0.4.24"
 indexmap = { version = "2.12.0", features = ["serde"] }
-indoc = "2.0.6"
+indoc = "2.0.7"
 insta = { version = "1.43.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
@@ -74,10 +74,10 @@ pest = "2.8.3"
 pest_derive = "2.8.3"
 pollster = "0.4.0"
 pretty_assertions = "1.4.1"
-proc-macro2 = "1.0.96"
-proptest = "1.8.0"
+proc-macro2 = "1.0.103"
+proptest = "1.9.0"
 proptest-derive = "0.6.0"
-proptest-state-machine = "0.5.0"
+proptest-state-machine = "0.6.0"
 prost = "0.14.1"
 prost-build = "0.14.1"
 quote = "1.0.41"
@@ -102,7 +102,7 @@ smallvec = { version = "1.15.1", features = [
     "union",
 ] }
 strsim = "0.11.1"
-syn = "2.0.107"
+syn = "2.0.108"
 rustversion = "1.0.22"
 tempfile = "3.23.0"
 test-case = "3.3.1"
