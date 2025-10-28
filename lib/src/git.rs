@@ -698,7 +698,7 @@ fn diff_refs_to_import(
 }
 
 fn collect_changed_refs_to_import(
-    actual_git_refs: gix::reference::iter::Iter<'_>,
+    actual_git_refs: gix::reference::iter::Iter,
     known_git_refs: &mut HashMap<&GitRefName, &RefTarget>,
     known_remote_refs: &mut HashMap<RemoteRefKey<'_>, &RemoteRef>,
     changed_git_refs: &mut Vec<(GitRefNameBuf, RefTarget)>,
@@ -2470,7 +2470,7 @@ impl<'a> GitFetch<'a> {
             refspecs: mut remaining_refspecs,
             negative_refspecs,
         }: ExpandedFetchRefSpecs,
-        mut callbacks: RemoteCallbacks<'_>,
+        mut callbacks: RemoteCallbacks,
         depth: Option<NonZeroU32>,
         fetch_tags_override: Option<FetchTagsOverride>,
     ) -> Result<(), GitFetchError> {
@@ -2614,7 +2614,7 @@ pub fn push_branches(
     git_settings: &GitSettings,
     remote: &RemoteName,
     targets: &GitBranchPushTargets,
-    callbacks: RemoteCallbacks<'_>,
+    callbacks: RemoteCallbacks,
 ) -> Result<GitPushStats, GitPushError> {
     validate_remote_name(remote)?;
 
@@ -2660,7 +2660,7 @@ pub fn push_updates(
     git_settings: &GitSettings,
     remote_name: &RemoteName,
     updates: &[GitRefUpdate],
-    mut callbacks: RemoteCallbacks<'_>,
+    mut callbacks: RemoteCallbacks,
 ) -> Result<GitPushStats, GitPushError> {
     let mut qualified_remote_refs_expected_locations = HashMap::new();
     let mut refspecs = vec![];

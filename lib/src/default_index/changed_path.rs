@@ -117,7 +117,7 @@ pub(super) struct ReadonlyChangedPathIndexSegment {
 }
 
 impl Debug for ReadonlyChangedPathIndexSegment {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         f.debug_struct("ReadonlyChangedPathIndexSegment")
             .field("id", &self.id)
             .finish_non_exhaustive()
@@ -258,7 +258,7 @@ pub(super) struct MutableChangedPathIndexSegment {
 }
 
 impl Debug for MutableChangedPathIndexSegment {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         f.debug_struct("MutableChangedPathIndexSegment")
             .finish_non_exhaustive()
     }

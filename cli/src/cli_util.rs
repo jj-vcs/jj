@@ -190,7 +190,7 @@ struct ChromeTracingFlushGuard {
 }
 
 impl Debug for ChromeTracingFlushGuard {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let Self { _inner } = self;
         f.debug_struct("ChromeTracingFlushGuard")
             .finish_non_exhaustive()
@@ -2572,7 +2572,7 @@ pub fn start_repo_transaction(repo: &Arc<ReadonlyRepo>, string_args: &[String]) 
 }
 
 fn update_stale_working_copy(
-    mut locked_ws: LockedWorkspace<'_>,
+    mut locked_ws: LockedWorkspace,
     op_id: OperationId,
     stale_commit: &Commit,
     new_commit: &Commit,
@@ -3046,7 +3046,7 @@ impl RemoteBookmarkNamePattern {
 }
 
 impl fmt::Display for RemoteBookmarkNamePattern {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // TODO: use revset::format_remote_symbol() if FromStr is migrated to
         // the revset parser.
         let Self { bookmark, remote } = self;
@@ -3318,7 +3318,7 @@ impl AsRef<str> for RevisionArg {
 }
 
 impl fmt::Display for RevisionArg {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
