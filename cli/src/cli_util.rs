@@ -2869,12 +2869,9 @@ pub fn update_working_copy(
 /// Whether or not the `bookmark` has any tracked remotes (i.e. is a tracking
 /// local bookmark.)
 pub fn has_tracked_remote_bookmarks(view: &View, bookmark: &RefName) -> bool {
-    view.remote_bookmarks_matching(
-        &StringPattern::exact(bookmark),
-        &StringPattern::everything(),
-    )
-    .filter(|&(symbol, _)| !jj_lib::git::is_special_git_remote(symbol.remote))
-    .any(|(_, remote_ref)| remote_ref.is_tracked())
+    view.remote_bookmarks_matching(&StringPattern::exact(bookmark), &StringPattern::all())
+        .filter(|&(symbol, _)| !jj_lib::git::is_special_git_remote(symbol.remote))
+        .any(|(_, remote_ref)| remote_ref.is_tracked())
 }
 
 pub fn load_template_aliases(

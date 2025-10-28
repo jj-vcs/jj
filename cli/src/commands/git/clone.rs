@@ -299,9 +299,7 @@ fn fetch_new_remote(
 
         let fetch_refspecs = expand_fetch_refspecs(
             remote_name,
-            target_branches
-                .unwrap_or(&[StringPattern::everything()])
-                .to_vec(),
+            target_branches.unwrap_or(&[StringPattern::all()]).to_vec(),
         )?;
 
         with_remote_git_callbacks(ui, |cb| {

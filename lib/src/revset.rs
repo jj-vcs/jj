@@ -891,7 +891,7 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let pattern = if let Some(arg) = opt_arg {
             expect_string_pattern(diagnostics, arg)?
         } else {
-            StringPattern::everything()
+            StringPattern::all()
         };
         Ok(RevsetExpression::bookmarks(pattern))
     });
@@ -915,7 +915,7 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let pattern = if let Some(arg) = opt_arg {
             expect_string_pattern(diagnostics, arg)?
         } else {
-            StringPattern::everything()
+            StringPattern::all()
         };
         Ok(RevsetExpression::tags(pattern))
     });
@@ -1171,12 +1171,12 @@ fn parse_remote_bookmarks_arguments(
     let bookmark_pattern = if let Some(bookmark_arg) = bookmark_opt_arg {
         expect_string_pattern(diagnostics, bookmark_arg)?
     } else {
-        StringPattern::everything()
+        StringPattern::all()
     };
     let remote_pattern = if let Some(remote_arg) = remote_opt_arg {
         expect_string_pattern(diagnostics, remote_arg)?
     } else {
-        StringPattern::everything()
+        StringPattern::all()
     };
     Ok(RevsetExpression::remote_bookmarks(
         bookmark_pattern,

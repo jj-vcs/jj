@@ -3153,7 +3153,7 @@ fn test_fetch_empty_repo() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         None,
     )
@@ -3178,7 +3178,7 @@ fn test_fetch_initial_commit_head_is_not_set() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         None,
     )
@@ -3242,7 +3242,7 @@ fn test_fetch_initial_commit_head_is_set() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         None,
     )
@@ -3265,7 +3265,7 @@ fn test_fetch_success() {
     git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         None,
     )
@@ -3292,7 +3292,7 @@ fn test_fetch_success() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         None,
     )
@@ -3350,7 +3350,7 @@ fn test_fetch_prune_deleted_ref() {
     git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         None,
     )
@@ -3373,7 +3373,7 @@ fn test_fetch_prune_deleted_ref() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         None,
     )
@@ -3400,7 +3400,7 @@ fn test_fetch_no_default_branch() {
     git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         None,
     )
@@ -3419,7 +3419,7 @@ fn test_fetch_no_default_branch() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         None,
     )
@@ -3691,7 +3691,7 @@ fn test_fetch_no_such_remote() {
     let result = git_fetch(
         tx.repo_mut(),
         "invalid-remote".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         None,
     );
@@ -3791,7 +3791,7 @@ fn test_fetch_with_fetch_tags_override() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         None,
     )
@@ -3803,7 +3803,7 @@ fn test_fetch_with_fetch_tags_override() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         Some(FetchTagsOverride::AllTags),
     )
@@ -3831,7 +3831,7 @@ fn test_fetch_with_fetch_tags_override() {
     let stats = git_fetch(
         tx.repo_mut(),
         "originAllTags".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         Some(FetchTagsOverride::NoTags),
     )
@@ -3843,7 +3843,7 @@ fn test_fetch_with_fetch_tags_override() {
     let stats = git_fetch(
         tx.repo_mut(),
         "originAllTags".as_ref(),
-        vec![StringPattern::everything()],
+        vec![StringPattern::all()],
         &git_settings,
         None,
     )

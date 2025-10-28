@@ -1934,9 +1934,7 @@ pub fn add_remote(
 
     let fetch_refspecs = expand_fetch_refspecs(
         remote_name,
-        branch_patterns
-            .unwrap_or(&[StringPattern::everything()])
-            .to_vec(),
+        branch_patterns.unwrap_or(&[StringPattern::all()]).to_vec(),
     )?
     .refspecs
     .into_iter()

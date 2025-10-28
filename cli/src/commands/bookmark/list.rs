@@ -155,7 +155,7 @@ pub fn cmd_bookmark_list(
             let mut expression = workspace_command.parse_union_revsets(ui, revisions)?;
             // Intersects with the set of local bookmark targets to minimize the lookup
             // space.
-            expression.intersect_with(&RevsetExpression::bookmarks(StringPattern::everything()));
+            expression.intersect_with(&RevsetExpression::bookmarks(StringPattern::all()));
             let filtered_targets: HashSet<_> =
                 expression.evaluate_to_commit_ids()?.try_collect()?;
             bookmark_names.extend(

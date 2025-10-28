@@ -97,7 +97,7 @@ pub fn cmd_git_fetch(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let remote_patterns = if args.all_remotes {
-        vec![StringPattern::everything()]
+        vec![StringPattern::all()]
     } else if args.remotes.is_empty() {
         get_default_fetch_remotes(ui, &workspace_command)?
     } else {

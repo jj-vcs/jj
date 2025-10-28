@@ -115,7 +115,7 @@ pub enum StringPattern {
 
 impl StringPattern {
     /// Pattern that matches any string.
-    pub const fn everything() -> Self {
+    pub const fn all() -> Self {
         Self::Substring(String::new())
     }
 
@@ -385,7 +385,7 @@ mod tests {
 
     #[test]
     fn test_string_pattern_to_glob() {
-        assert_eq!(StringPattern::everything().to_glob(), Some("*".into()));
+        assert_eq!(StringPattern::all().to_glob(), Some("*".into()));
         assert_eq!(StringPattern::exact("a").to_glob(), Some("a".into()));
         assert_eq!(StringPattern::exact("*").to_glob(), Some("[*]".into()));
         assert_eq!(
