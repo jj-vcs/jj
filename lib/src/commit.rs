@@ -53,7 +53,10 @@ pub struct Commit {
 
 impl Debug for Commit {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        f.debug_struct("Commit").field("id", &self.id).finish()
+        f.debug_struct("Commit")
+            .field("id", &self.id)
+            .field("data", &self.data)
+            .finish()
     }
 }
 
