@@ -16,7 +16,6 @@
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::fs::{self};
 use std::io::Cursor;
 use std::io::ErrorKind;
 use std::path::PathBuf;
@@ -152,6 +151,22 @@ impl FileLoader for DiskFileLoader {
                 message: "Could not convert path into fs path".to_string(),
                 source: err.into(),
             })?;
+
+        // we use std::fs::symlink_metadata to not follow symlinks
+        let metadata = match std::fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(err) => {
+                return Err(GitAttributesError {
+                    message: format!("Failed to obtain the file metadata of {}", path.display()),
+                    source: err.into(),
+                });
+            }
+        };
+        if !metadata.is_file() {
+            return Ok(None);
+        }
+
         let file = match File::open(&path) {
             Ok(file) => file,
             Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
@@ -162,14 +177,6 @@ impl FileLoader for DiskFileLoader {
                 });
             }
         };
-        // we use std::fs::symlink_metadata to not follow symlinks
-        let metadata = fs::symlink_metadata(&path).map_err(|err| GitAttributesError {
-            message: "There was an io error".to_string(),
-            source: err.into(),
-        })?;
-        if !metadata.is_file() {
-            return Ok(None);
-        }
         Ok(Some(Box::new(BlockingAsyncReader::new(file))))
     }
 }
@@ -361,6 +368,7 @@ impl GitAttributes {
     }
 
     fn get_git_attributes_node(&self, path: &RepoPath) -> Arc<GitAttributesNode> {
+        let path = path.parent().unwrap_or(RepoPath::root());
         let mut val = self.node_cache.lock().expect("Not be poisoned");
         self.inner(&mut val, path)
     }
@@ -399,6 +407,7 @@ impl GitAttributes {
         let Some(State::Value(value)) = result.get("filter") else {
             return false;
         };
+
         let value = value.as_ref().as_bstr();
         self.ignore_filters.iter().any(|state| value == state)
     }
