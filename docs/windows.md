@@ -90,12 +90,12 @@ PS> jj log -r `@
 PS> jj log -r '@'
 ```
 
-One solution is to create a revset alias. For example, to make `HEAD` an alias
+One solution is to create a revset alias. For example, to make `wc` an alias
 for `@`:
 
 ```powershell
-PS> jj config set --user revset-aliases.HEAD '@'
-PS> jj log -r HEAD
+PS> jj config set --user revset-aliases.wc '@'
+PS> jj log -r wc
 ```
 
 ## WSL sets the execute bit on all files
