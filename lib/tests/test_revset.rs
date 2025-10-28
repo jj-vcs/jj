@@ -2579,7 +2579,7 @@ fn test_evaluate_expression_remote_bookmarks() {
         remote_symbol("bookmark2", "private"),
         normal_tracked_remote_ref(commit2.id()),
     );
-    // Git-tracking bookmarks aren't included
+    // Git-tracking bookmarks aren't included by default
     mut_repo.set_remote_bookmark(
         remote_symbol("bookmark", git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         normal_tracked_remote_ref(commit_git_remote.id()),
@@ -2630,6 +2630,19 @@ fn test_evaluate_expression_remote_bookmarks() {
             r#"remote_bookmarks(exact:bookmark1, exact:origin)"#
         ),
         vec![commit1.id().clone()]
+    );
+    // Can get Git-tracking bookmarks by specifying the remote
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_bookmarks(remote=exact:'git')"),
+        vec![commit_git_remote.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_bookmarks(remote=glob:'*')"),
+        vec![
+            commit_git_remote.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone(),
+        ]
     );
     // Can filter bookmarks by tracked and untracked
     assert_eq!(

@@ -268,8 +268,8 @@ revsets (expressions) as arguments.
   `main@origin` or `main@upstream`. If a bookmark is in a conflicted state, all
   its possible targets are included.
 
-  While Git-tracking bookmarks can be selected by `<name>@git`, these bookmarks
-  aren't included in `remote_bookmarks()`.
+  Git-tracking bookmarks are excluded by default. Use `remote=exact:"git"` or
+  `remote=glob:"*"` to select bookmarks including `@git` ones.
 
 * `tracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`: All
   targets of tracked remote bookmarks. Supports the same optional arguments as

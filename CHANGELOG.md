@@ -19,6 +19,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `core.watchman.register_snapshot_trigger`
   - `diff.format`
 
+* The `remote_bookmarks(remote=pattern)` revset now includes Git-tracking
+  bookmarks if the specified `pattern` matches `git`. The default is
+  `remote=~exact:"git"` as before.
+
 ### Deprecations
 
  * `jj bisect run --command <cmd>` is deprecated in favor of

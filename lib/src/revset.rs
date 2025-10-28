@@ -897,19 +897,34 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         };
         Ok(RevsetExpression::bookmarks(expr))
     });
-    map.insert("remote_bookmarks", |diagnostics, function, _context| {
-        parse_remote_bookmarks_arguments(diagnostics, function, None)
+    map.insert("remote_bookmarks", |diagnostics, function, context| {
+        parse_remote_bookmarks_arguments(
+            diagnostics,
+            function,
+            None,
+            context.default_ignored_remote,
+        )
     });
     map.insert(
         "tracked_remote_bookmarks",
-        |diagnostics, function, _context| {
-            parse_remote_bookmarks_arguments(diagnostics, function, Some(RemoteRefState::Tracked))
+        |diagnostics, function, context| {
+            parse_remote_bookmarks_arguments(
+                diagnostics,
+                function,
+                Some(RemoteRefState::Tracked),
+                context.default_ignored_remote,
+            )
         },
     );
     map.insert(
         "untracked_remote_bookmarks",
-        |diagnostics, function, _context| {
-            parse_remote_bookmarks_arguments(diagnostics, function, Some(RemoteRefState::New))
+        |diagnostics, function, context| {
+            parse_remote_bookmarks_arguments(
+                diagnostics,
+                function,
+                Some(RemoteRefState::New),
+                context.default_ignored_remote,
+            )
         },
     );
     map.insert("tags", |diagnostics, function, _context| {
@@ -1205,6 +1220,7 @@ fn parse_remote_bookmarks_arguments(
     diagnostics: &mut RevsetDiagnostics,
     function: &FunctionCallNode,
     remote_ref_state: Option<RemoteRefState>,
+    default_ignored_remote: Option<&RemoteName>,
 ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
     let ([], [bookmark_opt_arg, remote_opt_arg]) =
         function.expect_named_arguments(&["", "remote"])?;
@@ -1215,6 +1231,8 @@ fn parse_remote_bookmarks_arguments(
     };
     let remote_expr = if let Some(remote_arg) = remote_opt_arg {
         expect_string_expression(diagnostics, remote_arg)?
+    } else if let Some(remote) = default_ignored_remote {
+        StringExpression::exact(remote).negated()
     } else {
         StringExpression::all()
     };
@@ -2869,7 +2887,6 @@ fn resolve_commit_ref(
             remote,
             remote_ref_state,
         } => {
-            // TODO: should we allow to select @git bookmarks explicitly?
             let bookmark_matcher = bookmark.to_matcher();
             let remote_matcher = remote.to_matcher();
             let commit_ids = repo
@@ -2878,7 +2895,6 @@ fn resolve_commit_ref(
                 .filter(|(_, remote_ref)| {
                     remote_ref_state.is_none_or(|state| remote_ref.state == state)
                 })
-                .filter(|&(symbol, _)| !crate::git::is_special_git_remote(symbol.remote))
                 .flat_map(|(_, remote_ref)| remote_ref.target.added_ids())
                 .cloned()
                 .collect();
@@ -3395,13 +3411,14 @@ impl<'a> RevsetParseContext<'a> {
             local_variables: _,
             user_email,
             date_pattern_context,
-            default_ignored_remote: _,
+            default_ignored_remote,
             extensions,
             workspace,
         } = *self;
         LoweringContext {
             user_email,
             date_pattern_context,
+            default_ignored_remote,
             extensions,
             workspace,
         }
@@ -3413,6 +3430,7 @@ impl<'a> RevsetParseContext<'a> {
 pub struct LoweringContext<'a> {
     user_email: &'a str,
     date_pattern_context: DatePatternContext,
+    default_ignored_remote: Option<&'a RemoteName>,
     extensions: &'a RevsetExtensions,
     workspace: Option<RevsetWorkspaceContext<'a>>,
 }
@@ -3796,7 +3814,7 @@ mod tests {
         CommitRef(
             RemoteBookmarks {
                 bookmark: Pattern(Substring("")),
-                remote: Pattern(Substring("")),
+                remote: NotIn(Pattern(Exact("ignored"))),
                 remote_ref_state: None,
             },
         )
@@ -3805,7 +3823,7 @@ mod tests {
         CommitRef(
             RemoteBookmarks {
                 bookmark: Pattern(Substring("")),
-                remote: Pattern(Substring("")),
+                remote: NotIn(Pattern(Exact("ignored"))),
                 remote_ref_state: Some(Tracked),
             },
         )
@@ -3814,7 +3832,7 @@ mod tests {
         CommitRef(
             RemoteBookmarks {
                 bookmark: Pattern(Substring("")),
-                remote: Pattern(Substring("")),
+                remote: NotIn(Pattern(Exact("ignored"))),
                 remote_ref_state: Some(New),
             },
         )
