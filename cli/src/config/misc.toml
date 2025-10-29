@@ -57,3 +57,4 @@ auto-update-stale = false
 # in the future.
 [split]
 legacy-bookmark-behavior = true
+editor-mode = "sequential"
