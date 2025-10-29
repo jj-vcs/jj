@@ -74,7 +74,7 @@ Use `--dry-run` to see which commits would be modified and pushed, and where,
 without changing anything or contacting the remote.
 
 ```shell
-$ jj gerrit upload -r '@-' --for main --dry-run
+$ jj gerrit upload -r '@-' --remote-branch main --dry-run
 ```
 
 ## Target branch and remote selection
