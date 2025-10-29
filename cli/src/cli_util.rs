@@ -255,7 +255,7 @@ impl TracingSubscription {
                     .with_filter(filter),
             )
             .with(chrome_tracing_layer)
-            .init();
+            .try_init();
         Self {
             reload_log_filter,
             _chrome_tracing_flush_guard: chrome_tracing_flush_guard,
