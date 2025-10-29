@@ -79,6 +79,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   colocation state (`status`) and to convert a non-colocated git repo into
   a colocated repo (`enable`) and vice-versa `disable`.
 
+* Added support `revsets.git-push` which allows you to customize the default
+  set of commits to push. See issue
+  [#3649](https://github.com/jj-vcs/jj/issues/3650).
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
