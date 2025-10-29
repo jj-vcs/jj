@@ -56,19 +56,35 @@ pub struct GitInitArgs {
     #[arg(default_value = ".", value_hint = clap::ValueHint::DirPath)]
     destination: String,
 
-    /// Specifies that the `jj` repo should also be a valid
-    /// `git` repo, allowing the use of both `jj` and `git` commands
-    /// in the same directory.
+    /// Colocate the Jujutsu repo with the git repo
     ///
-    /// This is done by placing the backing git repo into a `.git` directory in
-    /// the root of the `jj` repo along with the `.jj` directory. If the `.git`
-    /// directory already exists, all the existing commits will be imported.
+    /// Specifies that the `jj` repo should also be a valid `git` repo, allowing
+    /// the use of both `jj` and `git` commands in the same directory.
+    ///
+    /// The repository will contain a `.git` dir in the top-level. Regular Git
+    /// tools will be able to operate on the repo.
+    ///
+    /// **This is the default**, and this option has no effect, unless the
+    /// [git.colocate config] is set to `false`.
     ///
     /// This option is mutually exclusive with `--git-repo`.
+    ///
+    /// [git.colocate config]:
+    ///     https://jj-vcs.github.io/jj/latest/config/#default-colocation
     #[arg(long, conflicts_with = "git_repo")]
     colocate: bool,
 
     /// Disable colocation of the Jujutsu repo with the git repo
+    ///
+    /// Prevent Git tools that are unaware of `jj` and regular Git commands from
+    /// operating on the repo. The Git repository that stores most of the
+    /// repo data will be hidden inside a sub-directory of the `.jj`
+    /// directory.
+    ///
+    /// See [colocation docs] for some minor advantages of non-colocated repos.
+    ///
+    /// [colocation docs]:
+    ///     https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos
     #[arg(long, conflicts_with = "colocate")]
     no_colocate: bool,
 

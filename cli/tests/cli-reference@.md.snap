@@ -1304,8 +1304,6 @@ See this [comparison], including a [table of commands].
 
 Create a new repo backed by a clone of a Git repo
 
-The Git repo will be a bare git repo stored inside the `.jj/` directory.
-
 **Usage:** `jj git clone [OPTIONS] <SOURCE> [DESTINATION]`
 
 ###### **Arguments:**
@@ -1320,8 +1318,22 @@ The Git repo will be a bare git repo stored inside the `.jj/` directory.
 * `--remote <REMOTE_NAME>` — Name of the newly created remote
 
   Default value: `origin`
-* `--colocate` — Whether or not to colocate the Jujutsu repo with the git repo
+* `--colocate` — Colocate the Jujutsu repo with the git repo
+
+   Specifies that the `jj` repo should also be a valid `git` repo, allowing the use of both `jj` and `git` commands in the same directory.
+
+   The repository will contain a `.git` dir in the top-level. Regular Git tools will be able to operate on the repo.
+
+   **This is the default**, and this option has no effect, unless the [git.colocate config] is set to `false`.
+
+   [git.colocate config]: https://jj-vcs.github.io/jj/latest/config/#default-colocation
 * `--no-colocate` — Disable colocation of the Jujutsu repo with the git repo
+
+   Prevent Git tools that are unaware of `jj` and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the `.jj` directory.
+
+   See [colocation docs] for some minor advantages of non-colocated repos.
+
+   [colocation docs]: https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos
 * `--depth <DEPTH>` — Create a shallow clone of the given depth
 * `--fetch-tags <FETCH_TAGS>` — Configure when to fetch tags
 
@@ -1446,12 +1458,24 @@ Create a new Git backed repo
 
 ###### **Options:**
 
-* `--colocate` — Specifies that the `jj` repo should also be a valid `git` repo, allowing the use of both `jj` and `git` commands in the same directory.
+* `--colocate` — Colocate the Jujutsu repo with the git repo
 
-   This is done by placing the backing git repo into a `.git` directory in the root of the `jj` repo along with the `.jj` directory. If the `.git` directory already exists, all the existing commits will be imported.
+   Specifies that the `jj` repo should also be a valid `git` repo, allowing the use of both `jj` and `git` commands in the same directory.
+
+   The repository will contain a `.git` dir in the top-level. Regular Git tools will be able to operate on the repo.
+
+   **This is the default**, and this option has no effect, unless the [git.colocate config] is set to `false`.
 
    This option is mutually exclusive with `--git-repo`.
+
+   [git.colocate config]: https://jj-vcs.github.io/jj/latest/config/#default-colocation
 * `--no-colocate` — Disable colocation of the Jujutsu repo with the git repo
+
+   Prevent Git tools that are unaware of `jj` and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the `.jj` directory.
+
+   See [colocation docs] for some minor advantages of non-colocated repos.
+
+   [colocation docs]: https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos
 * `--git-repo <GIT_REPO>` — Specifies a path to an **existing** git repository to be used as the backing git repo for the newly created `jj` repo.
 
    If the specified `--git-repo` path happens to be the same as the `jj` repo path (both .jj and .git directories are in the same working directory), then both `jj` and `git` commands will work on the same repo. This is called a colocated repo.

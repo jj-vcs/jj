@@ -123,11 +123,15 @@ You can undo the results of mutating `git` commands using `jj undo` and `jj op
 restore`. Inside `jj op log`, changes by `git` will be represented as an "import
 git refs" operation.
 
-There are a few downsides to this mode of operation. Generally, using colocated
-repos may require you to deal with more involved Jujutsu and Git concepts.
-You can disable colocation with the `--no-colocate` flag on the commands
-`jj git init` and `jj git clone` or by setting the configuration
-`git.colocate = false`.
+You can disable colocation with the `--no-colocate` flag on the commands `jj git
+init` and `jj git clone` or by setting the configuration `git.colocate = false`.
+Much of the repo data will still be stored in the Git repository format, but the
+Git repository will be hidden inside a sub-directory of the `.jj` directory.
+Moreover, unless you explicitly use the `jj git import` and `jj git export`
+commands, that Git repository will either have no branches at all (not even a
+main branch) or will have branches that are out of date with jj's bookmarks.
+
+Colocation can be disabled because it does have some disadvantages:
 
 * Interleaving `jj` and `git` commands increases the chance of confusing branch
   conflicts or [conflicted (AKA divergent) change

@@ -44,8 +44,6 @@ use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
 
 /// Create a new repo backed by a clone of a Git repo
-///
-/// The Git repo will be a bare git repo stored inside the `.jj/` directory.
 #[derive(clap::Args, Clone, Debug)]
 pub struct GitCloneArgs {
     /// URL or path of the Git repo to clone
@@ -62,10 +60,32 @@ pub struct GitCloneArgs {
     /// Name of the newly created remote
     #[arg(long = "remote", default_value = "origin")]
     remote_name: RemoteNameBuf,
-    /// Whether or not to colocate the Jujutsu repo with the git repo
+    /// Colocate the Jujutsu repo with the git repo
+    ///
+    /// Specifies that the `jj` repo should also be a valid `git` repo, allowing
+    /// the use of both `jj` and `git` commands in the same directory.
+    ///
+    /// The repository will contain a `.git` dir in the top-level. Regular Git
+    /// tools will be able to operate on the repo.
+    ///
+    /// **This is the default**, and this option has no effect, unless the
+    /// [git.colocate config] is set to `false`.
+    ///
+    /// [git.colocate config]:
+    ///     https://jj-vcs.github.io/jj/latest/config/#default-colocation
     #[arg(long)]
     colocate: bool,
     /// Disable colocation of the Jujutsu repo with the git repo
+    ///
+    /// Prevent Git tools that are unaware of `jj` and regular Git commands from
+    /// operating on the repo. The Git repository that stores most of the
+    /// repo data will be hidden inside a sub-directory of the `.jj`
+    /// directory.
+    ///
+    /// See [colocation docs] for some minor advantages of non-colocated repos.
+    ///
+    /// [colocation docs]:
+    ///     https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos
     #[arg(long, conflicts_with = "colocate")]
     no_colocate: bool,
     /// Create a shallow clone of the given depth
