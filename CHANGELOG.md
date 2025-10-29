@@ -79,6 +79,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   colocation state (`status`) and to convert a non-colocated git repo into
   a colocated repo (`enable`) and vice-versa `disable`.
 
+* `jj prev/next --no-edit` now generates an error if the working-copy has some
+  children.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

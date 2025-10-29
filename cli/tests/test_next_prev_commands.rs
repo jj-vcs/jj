@@ -203,11 +203,13 @@ fn test_next_exceeding_history() {
     work_dir.run_jj(["commit", "-m", "first"]).success();
     work_dir.run_jj(["commit", "-m", "second"]).success();
     work_dir.run_jj(["commit", "-m", "third"]).success();
-    work_dir.run_jj(["edit", "-r", "@--"]).success();
+    work_dir.run_jj(["new", "-r", "@--"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    ○  kkmpptxzrspx third
-    @  rlvkpnrzqnoo second
+    @  mzvwutvlkqwt
+    │ ○  kkmpptxzrspx third
+    ├─╯
+    ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -218,7 +220,7 @@ fn test_next_exceeding_history() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No other descendant found 3 commit(s) forward from the working copy parent(s)
-    Hint: Working copy parent: qpvuntsm 68a50538 (empty) first
+    Hint: Working copy parent: rlvkpnrz 9439bf06 (empty) second
     [EOF]
     [exit status: 1]
     ");
@@ -628,11 +630,11 @@ fn test_prev_prompts_on_multiple_parents() {
     ");
 
     work_dir.run_jj(["next"]).success();
-    work_dir.run_jj(["edit", "@-"]).success();
-
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    ○  vruxwmqvtpmx merge+1
-    @      yqosqzytrlsw merge
+    @  wqnwkozpkust
+    │ ○  vruxwmqvtpmx merge+1
+    ├─╯
+    ○      yqosqzytrlsw merge
     ├─┬─╮
     │ │ ○  qpvuntsmwlqt first
     │ ○ │  kkmpptxzrspx second
@@ -641,17 +643,6 @@ fn test_prev_prompts_on_multiple_parents() {
     ├─╯
     ◆  zzzzzzzzzzzz
     [EOF]
-    ");
-
-    let output = work_dir.run_jj(["next", "--no-edit"]);
-    insta::assert_snapshot!(output,@r"
-    ------- stderr -------
-    Error: No other descendant found 1 commit(s) forward from the working copy parent(s)
-    Hint: Working copy parent: mzvwutvl 5ec63817 (empty) third
-    Hint: Working copy parent: kkmpptxz e8959fbd (empty) second
-    Hint: Working copy parent: qpvuntsm 68a50538 (empty) first
-    [EOF]
-    [exit status: 1]
     ");
 }
 
@@ -1211,7 +1202,7 @@ fn test_movement_edit_mode_false() {
 }
 
 #[test]
-fn test_next_offset_when_wc_has_descendants() {
+fn test_next_when_wc_has_descendants() {
     let test_env = TestEnvironment::default();
     test_env.add_config(r#"ui.movement.edit = false"#);
 
@@ -1222,70 +1213,24 @@ fn test_next_offset_when_wc_has_descendants() {
     work_dir.run_jj(["commit", "-m", "right-wc"]).success();
     work_dir.run_jj(["commit", "-m", "right-1"]).success();
     work_dir.run_jj(["commit", "-m", "right-2"]).success();
-
-    work_dir.run_jj(["new", "description(base)"]).success();
-    work_dir.run_jj(["commit", "-m", "left-wc"]).success();
-    work_dir.run_jj(["commit", "-m", "left-1"]).success();
-    work_dir.run_jj(["commit", "-m", "left-2"]).success();
-
     work_dir.run_jj(["edit", "description(right-wc)"]).success();
+
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  zsuskulnrvyr right-2
     ○  kkmpptxzrspx right-1
     @  rlvkpnrzqnoo right-wc
-    │ ○  vruxwmqvtpmx left-2
-    │ ○  yqosqzytrlsw left-1
-    │ ○  royxmykxtrkr left-wc
-    ├─╯
     ○  qpvuntsmwlqt base
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
 
-    work_dir.run_jj(["next", "2"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  kmkuslswpqwq
-    │ ○  vruxwmqvtpmx left-2
-    ├─╯
-    ○  yqosqzytrlsw left-1
-    ○  royxmykxtrkr left-wc
-    │ ○  zsuskulnrvyr right-2
-    │ ○  kkmpptxzrspx right-1
-    │ ○  rlvkpnrzqnoo right-wc
-    ├─╯
-    ○  qpvuntsmwlqt base
-    ◆  zzzzzzzzzzzz
+    let output = work_dir.run_jj(["next", "2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: The working copy must not have any children
+    Hint: Create a new commit on top of this one or use `--edit`
     [EOF]
-    ");
-
-    work_dir.run_jj(["edit", "description(left-wc)"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    ○  vruxwmqvtpmx left-2
-    ○  yqosqzytrlsw left-1
-    @  royxmykxtrkr left-wc
-    │ ○  zsuskulnrvyr right-2
-    │ ○  kkmpptxzrspx right-1
-    │ ○  rlvkpnrzqnoo right-wc
-    ├─╯
-    ○  qpvuntsmwlqt base
-    ◆  zzzzzzzzzzzz
-    [EOF]
-    ");
-
-    work_dir.run_jj(["next"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  nkmrtpmomlro
-    │ ○  zsuskulnrvyr right-2
-    │ ○  kkmpptxzrspx right-1
-    ├─╯
-    ○  rlvkpnrzqnoo right-wc
-    │ ○  vruxwmqvtpmx left-2
-    │ ○  yqosqzytrlsw left-1
-    │ ○  royxmykxtrkr left-wc
-    ├─╯
-    ○  qpvuntsmwlqt base
-    ◆  zzzzzzzzzzzz
-    [EOF]
+    [exit status: 1]
     ");
 }
 
