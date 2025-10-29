@@ -1713,14 +1713,6 @@ impl GitRemoteManagementError {
     }
 }
 
-/// Determine, by its name, if a remote refers to the special local-only "git"
-/// remote that is used in the Git backend.
-///
-/// This function always returns false if the "git" feature is not enabled.
-pub fn is_special_git_remote(remote: &RemoteName) -> bool {
-    remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
-}
-
 fn default_fetch_refspec(remote: &RemoteName) -> String {
     format!(
         "+refs/heads/*:refs/remotes/{remote}/*",

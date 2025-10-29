@@ -38,6 +38,7 @@ use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
+use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
@@ -348,13 +349,14 @@ pub fn show_op_diff(
         writeln!(formatter)?;
     }
 
+    let ignored_remote = default_ignored_remote_name(current_repo.store());
     let changed_remote_bookmarks = diff_named_remote_refs(
         from_repo.view().all_remote_bookmarks(),
         to_repo.view().all_remote_bookmarks(),
     )
     // Skip updates to the local git repo, since they should typically be covered in
     // local branches.
-    .filter(|(symbol, _)| !jj_lib::git::is_special_git_remote(symbol.remote))
+    .filter(|(symbol, _)| ignored_remote.is_none_or(|ignored| symbol.remote != ignored))
     .collect_vec();
     if !changed_remote_bookmarks.is_empty() {
         writeln!(formatter)?;

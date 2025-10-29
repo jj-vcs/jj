@@ -55,19 +55,6 @@ pub mod fmt_util;
 pub mod fsmonitor;
 #[cfg(feature = "git")]
 pub mod git;
-#[cfg(not(feature = "git"))]
-/// A stub module that provides a no-op implementation of some of the functions
-/// in the `git` module.
-pub mod git {
-    use crate::ref_name::RemoteName;
-    /// Determine, by its name, if a remote refers to the special local-only
-    /// "git" remote that is used in the Git backend.
-    ///
-    /// This function always returns false if the "git" feature is not enabled.
-    pub fn is_special_git_remote(_remote: &RemoteName) -> bool {
-        false
-    }
-}
 #[cfg(feature = "git")]
 pub mod git_backend;
 #[cfg(feature = "git")]

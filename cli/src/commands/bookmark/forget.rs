@@ -18,11 +18,13 @@ use jj_lib::op_store::LocalRemoteRefTarget;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
+use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
 use super::find_bookmarks_with;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
@@ -65,6 +67,7 @@ pub fn cmd_bookmark_forget(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
+    let ignored_remote = default_ignored_remote_name(repo.store());
     let matched_bookmarks = find_forgettable_bookmarks(repo.view(), &args.names)?;
     let mut tx = workspace_command.start_transaction();
     let mut forgotten_remote: usize = 0;
@@ -82,7 +85,7 @@ pub fn cmd_bookmark_forget(
                 continue;
             }
             // Git-tracking remote bookmarks cannot be untracked currently, so skip them
-            if jj_lib::git::is_special_git_remote(symbol.remote) {
+            if ignored_remote.is_some_and(|ignored| symbol.remote == ignored) {
                 continue;
             }
             tx.repo_mut().untrack_remote_bookmark(symbol);

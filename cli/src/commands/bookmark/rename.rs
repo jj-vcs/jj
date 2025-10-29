@@ -79,8 +79,8 @@ pub fn cmd_bookmark_rename(
         ),
     )?;
 
-    let view = workspace_command.repo().view();
-    if has_tracked_remote_bookmarks(view, old_bookmark) {
+    let repo = workspace_command.repo().as_ref();
+    if has_tracked_remote_bookmarks(repo, old_bookmark) {
         writeln!(
             ui.warning_default(),
             "Tracked remote bookmarks for bookmark {old_bookmark} were not renamed.",
@@ -95,7 +95,7 @@ pub fn cmd_bookmark_rename(
             new_bookmark = new_bookmark.as_symbol()
         )?;
     }
-    if has_tracked_remote_bookmarks(view, new_bookmark) {
+    if has_tracked_remote_bookmarks(repo, new_bookmark) {
         // This isn't an error because bookmark renaming can't be propagated to
         // the remote immediately. "rename old new && rename new old" should be
         // allowed even if the original old bookmark had tracked remotes.

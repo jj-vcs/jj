@@ -117,10 +117,10 @@ use jj_lib::rewrite::restore_tree;
 use jj_lib::settings::HumanByteSize;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
+use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
 use jj_lib::str_util::StringPattern;
 use jj_lib::transaction::Transaction;
-use jj_lib::view::View;
 use jj_lib::working_copy;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::SnapshotOptions;
@@ -2888,9 +2888,13 @@ pub fn default_ignored_remote_name(store: &Store) -> Option<&'static RemoteName>
 
 /// Whether or not the `bookmark` has any tracked remotes (i.e. is a tracking
 /// local bookmark.)
-pub fn has_tracked_remote_bookmarks(view: &View, bookmark: &RefName) -> bool {
-    view.remote_bookmarks_matching(&StringMatcher::exact(bookmark), &StringMatcher::all())
-        .filter(|&(symbol, _)| !jj_lib::git::is_special_git_remote(symbol.remote))
+pub fn has_tracked_remote_bookmarks(repo: &dyn Repo, bookmark: &RefName) -> bool {
+    let remote_matcher = match default_ignored_remote_name(repo.store()) {
+        Some(remote) => StringExpression::exact(remote).negated().to_matcher(),
+        None => StringMatcher::all(),
+    };
+    repo.view()
+        .remote_bookmarks_matching(&StringMatcher::exact(bookmark), &remote_matcher)
         .any(|(_, remote_ref)| remote_ref.is_tracked())
 }
 

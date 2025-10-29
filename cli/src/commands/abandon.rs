@@ -184,10 +184,10 @@ pub(crate) fn cmd_abandon(
 
     #[cfg(feature = "git")]
     if jj_lib::git::get_git_backend(workspace_command.repo().store()).is_ok() {
-        let view = workspace_command.repo().view();
+        let repo = workspace_command.repo().as_ref();
         if deleted_bookmarks
             .iter()
-            .any(|name| has_tracked_remote_bookmarks(view, name))
+            .any(|name| has_tracked_remote_bookmarks(repo, name))
         {
             writeln!(
                 ui.hint_default(),

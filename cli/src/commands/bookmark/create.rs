@@ -62,7 +62,7 @@ pub fn cmd_bookmark_create(
                 "Use `jj bookmark set` to update it.",
             ));
         }
-        if has_tracked_remote_bookmarks(view, name) {
+        if has_tracked_remote_bookmarks(repo, name) {
             return Err(user_error_with_hint(
                 format!(
                     "Tracked remote bookmarks exist for deleted bookmark: {name}",

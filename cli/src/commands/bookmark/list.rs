@@ -32,6 +32,7 @@ use jj_lib::str_util::StringPattern;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitRef;
 use crate::complete;
@@ -185,6 +186,7 @@ pub fn cmd_bookmark_list(
             .labeled(["bookmark_list"])
     };
 
+    let ignored_tracked_remote = default_ignored_remote_name(repo.store());
     let mut bookmark_list_items: Vec<RefListItem> = Vec::new();
     let bookmarks_to_list = view.bookmarks().filter(|(name, target)| {
         bookmark_names_to_list
@@ -208,7 +210,9 @@ pub fn cmd_bookmark_list(
             .partition::<Vec<_>, _>(|&(_, remote_ref)| remote_ref.is_tracked());
 
         if args.tracked {
-            tracked_remote_refs.retain(|&(remote, _)| !jj_lib::git::is_special_git_remote(remote));
+            tracked_remote_refs.retain(|&(remote, _)| {
+                ignored_tracked_remote.is_none_or(|ignored| remote != ignored)
+            });
         } else if !args.all_remotes && args.remotes.is_none() {
             tracked_remote_refs.retain(|&(_, remote_ref)| remote_ref.target != *local_target);
         }
@@ -279,7 +283,7 @@ pub fn cmd_bookmark_list(
             .map(|item| {
                 item.tracked.iter().any(|r| {
                     let remote = r.remote_name().expect("tracked ref should be remote");
-                    !jj_lib::git::is_special_git_remote(remote.as_ref())
+                    ignored_tracked_remote.is_none_or(|ignored| remote != ignored)
                 })
             })
             .max();

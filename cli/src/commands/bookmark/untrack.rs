@@ -14,10 +14,12 @@
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
+use jj_lib::repo::Repo as _;
 
 use super::find_trackable_remote_bookmarks;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RemoteBookmarkNamePattern;
+use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
@@ -55,9 +57,10 @@ pub fn cmd_bookmark_untrack(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
+    let ignored_remote = default_ignored_remote_name(repo.store());
     let mut symbols = Vec::new();
     for (symbol, remote_ref) in find_trackable_remote_bookmarks(repo.view(), &args.names)? {
-        if jj_lib::git::is_special_git_remote(symbol.remote) {
+        if ignored_remote.is_some_and(|ignored| symbol.remote == ignored) {
             // This restriction can be lifted if we want to support untracked @git
             // bookmarks.
             writeln!(

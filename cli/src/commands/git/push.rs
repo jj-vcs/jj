@@ -815,9 +815,9 @@ fn classify_bookmark_update(
     }
 }
 
-fn ensure_new_bookmark_name(view: &View, name: &RefName) -> Result<(), CommandError> {
+fn ensure_new_bookmark_name(repo: &dyn Repo, name: &RefName) -> Result<(), CommandError> {
     let symbol = name.as_symbol();
-    if view.get_local_bookmark(name).is_present() {
+    if repo.view().get_local_bookmark(name).is_present() {
         return Err(user_error_with_hint(
             format!("Bookmark already exists: {symbol}"),
             format!(
@@ -826,7 +826,7 @@ fn ensure_new_bookmark_name(view: &View, name: &RefName) -> Result<(), CommandEr
             ),
         ));
     }
-    if has_tracked_remote_bookmarks(view, name) {
+    if has_tracked_remote_bookmarks(repo, name) {
         return Err(user_error_with_hint(
             format!("Tracked remote bookmarks exist for deleted bookmark: {symbol}"),
             format!(
@@ -868,7 +868,7 @@ fn create_explicitly_named_bookmarks(
         )
         .hinted(hint)
     })?;
-    ensure_new_bookmark_name(tx.repo().view(), &name)?;
+    ensure_new_bookmark_name(tx.repo(), &name)?;
     let revision = tx
         .base_workspace_helper()
         .resolve_single_rev(ui, &revision_str.to_string().into())?;
@@ -915,12 +915,11 @@ fn create_change_bookmarks(
 
     for (commit, name) in iter::zip(&all_commits, &bookmark_names) {
         let target = RefTarget::normal(commit.id().clone());
-        let view = tx.base_repo().view();
-        if view.get_local_bookmark(name) == &target {
+        if tx.base_repo().view().get_local_bookmark(name) == &target {
             // Existing bookmark pointing to the commit, which is allowed
             continue;
         }
-        ensure_new_bookmark_name(view, name)?;
+        ensure_new_bookmark_name(tx.base_repo().as_ref(), name)?;
         writeln!(
             ui.status(),
             "Creating bookmark {name} for revision {change_id:.12}",
