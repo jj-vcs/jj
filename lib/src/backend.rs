@@ -480,7 +480,8 @@ pub trait Backend: Any + Send + Sync + Debug {
 
     /// Find all copy histories that are related to the specified one. This is
     /// defined as those that are ancestors of the given specified one, plus
-    /// their descendants. Children must be returned before parents.
+    /// all descendants of those ancestors. Children must be returned before
+    /// parents.
     ///
     /// It is valid (but wasteful) to include other copy histories, such as
     /// siblings, or even completely unrelated copy histories.
