@@ -39,6 +39,7 @@ pub mod git_util {
     }
 }
 pub mod graphlog;
+pub mod hooks;
 pub mod merge_tools;
 pub mod movement_util;
 pub mod operation_templater;
