@@ -77,7 +77,7 @@ jobs:
               return;
             };
 
-            const body = `Hey @${reviewer}! Thanks for the approval. Please `
+            const body = `Hey @martinvonz! Please `
               + `make sure to add ${author} to jj-vcs/contributors so they `
               + "can merge their pull request. Feel free to also drop a note "
               + "in Discord so they can get their contributor role. Thanks!";
@@ -89,4 +89,4 @@ jobs:
               repo,
             });
 
-            core.notice(`Pinged ${reviewer} to add ${author} to jj-vcs/contributors.`);
+            core.notice(`Pinged martinvonz to add ${author} to jj-vcs/contributors.`);
