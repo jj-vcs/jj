@@ -44,6 +44,7 @@ use crate::object_id::PrefixResolution;
 use crate::op_store::RefTarget;
 use crate::op_store::RemoteRefState;
 use crate::op_walk;
+use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::RemoteRefSymbolBuf;
 use crate::ref_name::WorkspaceName;
@@ -3381,6 +3382,8 @@ pub struct RevsetParseContext<'a> {
     pub local_variables: HashMap<&'a str, ExpressionNode<'a>>,
     pub user_email: &'a str,
     pub date_pattern_context: DatePatternContext,
+    /// Special remote that should be ignored by default. (e.g. "git")
+    pub default_ignored_remote: Option<&'a RemoteName>,
     pub extensions: &'a RevsetExtensions,
     pub workspace: Option<RevsetWorkspaceContext<'a>>,
 }
@@ -3392,6 +3395,7 @@ impl<'a> RevsetParseContext<'a> {
             local_variables: _,
             user_email,
             date_pattern_context,
+            default_ignored_remote: _,
             extensions,
             workspace,
         } = *self;
@@ -3495,6 +3499,7 @@ mod tests {
             local_variables: HashMap::new(),
             user_email: "test.user@example.com",
             date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+            default_ignored_remote: Some("ignored".as_ref()),
             extensions: &RevsetExtensions::default(),
             workspace: None,
         };
@@ -3524,6 +3529,7 @@ mod tests {
             local_variables: HashMap::new(),
             user_email: "test.user@example.com",
             date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+            default_ignored_remote: Some("ignored".as_ref()),
             extensions: &RevsetExtensions::default(),
             workspace: Some(workspace_ctx),
         };
@@ -3549,6 +3555,7 @@ mod tests {
             local_variables: HashMap::new(),
             user_email: "test.user@example.com",
             date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+            default_ignored_remote: Some("ignored".as_ref()),
             extensions: &RevsetExtensions::default(),
             workspace: None,
         };

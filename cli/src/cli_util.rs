@@ -83,6 +83,7 @@ use jj_lib::op_walk::OpsetEvaluationError;
 use jj_lib::operation::Operation;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::CheckOutCommitError;
@@ -115,6 +116,7 @@ use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::restore_tree;
 use jj_lib::settings::HumanByteSize;
 use jj_lib::settings::UserSettings;
+use jj_lib::store::Store;
 use jj_lib::str_util::StringMatcher;
 use jj_lib::str_util::StringPattern;
 use jj_lib::transaction::Transaction;
@@ -782,6 +784,7 @@ pub struct WorkspaceCommandEnvironment {
     settings: UserSettings,
     revset_aliases_map: RevsetAliasesMap,
     template_aliases_map: TemplateAliasesMap,
+    default_ignored_remote: Option<&'static RemoteName>,
     path_converter: RepoPathUiConverter,
     workspace_name: WorkspaceNameBuf,
     immutable_heads_expression: Arc<UserRevsetExpression>,
@@ -795,6 +798,7 @@ impl WorkspaceCommandEnvironment {
         let settings = workspace.settings();
         let revset_aliases_map = revset_util::load_revset_aliases(ui, settings.config())?;
         let template_aliases_map = load_template_aliases(ui, settings.config())?;
+        let default_ignored_remote = default_ignored_remote_name(workspace.repo_loader().store());
         let path_converter = RepoPathUiConverter::Fs {
             cwd: command.cwd().to_owned(),
             base: workspace.workspace_root().to_owned(),
@@ -804,6 +808,7 @@ impl WorkspaceCommandEnvironment {
             settings: settings.clone(),
             revset_aliases_map,
             template_aliases_map,
+            default_ignored_remote,
             path_converter,
             workspace_name: workspace.workspace_name().to_owned(),
             immutable_heads_expression: RevsetExpression::root(),
@@ -840,6 +845,7 @@ impl WorkspaceCommandEnvironment {
             local_variables: HashMap::new(),
             user_email: self.settings.user_email(),
             date_pattern_context: now.into(),
+            default_ignored_remote: self.default_ignored_remote,
             extensions: self.command.revset_extensions(),
             workspace: Some(workspace_context),
         }
@@ -2865,6 +2871,19 @@ pub fn update_working_copy(
             )
         })?;
     Ok(stats)
+}
+
+/// Returns the special remote name that should be ignored by default.
+pub fn default_ignored_remote_name(store: &Store) -> Option<&'static RemoteName> {
+    #[cfg(feature = "git")]
+    {
+        use jj_lib::git;
+        if git::get_git_backend(store).is_ok() {
+            return Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO);
+        }
+    }
+    let _ = store;
+    None
 }
 
 /// Whether or not the `bookmark` has any tracked remotes (i.e. is a tracking
