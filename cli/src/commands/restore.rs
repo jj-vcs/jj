@@ -30,16 +30,16 @@ use crate::ui::Ui;
 
 /// Restore paths from another revision
 ///
-/// That means that the paths get the same content in the destination (`--to`)
+/// That means that the paths get the same content in the destination (`--into`)
 /// as they had in the source (`--from`). This is typically used for undoing
 /// changes to some paths in the working copy (`jj restore <paths>`).
 ///
-/// If only one of `--from` or `--to` is specified, the other one defaults to
+/// If only one of `--from` or `--into` is specified, the other one defaults to
 /// the working copy.
 ///
-/// When neither `--from` nor `--to` is specified, the command restores into the
-/// working copy from its parent(s). `jj restore` without arguments is similar
-/// to `jj abandon`, except that it leaves an empty revision with its
+/// When neither `--from` nor `--into` is specified, the command restores into
+/// the working copy from its parent(s). `jj restore` without arguments is
+/// similar to `jj abandon`, except that it leaves an empty revision with its
 /// description and other metadata preserved.
 ///
 /// See `jj diffedit` if you'd like to restore portions of files rather than

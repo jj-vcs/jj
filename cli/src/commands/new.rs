@@ -68,8 +68,8 @@ pub(crate) struct NewArgs {
     _edit: bool,
     /// Insert the new change after the given commit(s)
     ///
-    /// Example: `jj new --after A` creates a new change between `A` and its
-    /// children:
+    /// Example: `jj new --insert-after A` creates a new change between `A` and
+    /// its children:
     ///
     /// ```text
     ///                 B   C
@@ -79,11 +79,12 @@ pub(crate) struct NewArgs {
     ///       A           A
     /// ```
     ///
-    /// Specifying `--after` multiple times will relocate all children of the
-    /// given commits.
+    /// Specifying `--insert-after` multiple times will relocate all children of
+    /// the given commits.
     ///
-    /// Example: `jj new --after A --after X` creates a change with `A` and `X`
-    /// as parents, and rebases all children on top of the new change:
+    /// Example: `jj new --insert-after A --insert-after X` creates a change
+    /// with `A` and `X` as parents, and rebases all children on top of the new
+    /// change:
     ///
     /// ```text
     ///                 B   Y
@@ -104,8 +105,8 @@ pub(crate) struct NewArgs {
     insert_after: Option<Vec<RevisionArg>>,
     /// Insert the new change before the given commit(s)
     ///
-    /// Example: `jj new --before C` creates a new change between `C` and its
-    /// parents:
+    /// Example: `jj new --insert-before C` creates a new change between `C` and
+    /// its parents:
     ///
     /// ```text
     ///                    C
@@ -115,9 +116,9 @@ pub(crate) struct NewArgs {
     ///     A   B        A   B
     /// ```
     ///
-    /// `--after` and `--before` can be combined.
+    /// `--insert-after` and `--insert-before` can be combined.
     ///
-    /// Example: `jj new --after A --before D`:
+    /// Example: `jj new --insert-after A --insert-before D`:
     ///
     /// ```text
     /// 
@@ -130,7 +131,8 @@ pub(crate) struct NewArgs {
     ///     A            A
     /// ```
     ///
-    /// Similar to `--after`, you can specify `--before` multiple times.
+    /// Similar to `--insert-after`, you can specify `--insert-before` multiple
+    /// times.
     #[arg(
         long,
         short = 'B',

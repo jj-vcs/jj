@@ -1846,8 +1846,8 @@ Note that you can create a merge commit by specifying multiple revisions as argu
 * `--no-edit` — Do not edit the newly created change
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — Insert the new change after the given commit(s)
 
-   Example: `jj new --after A` creates a new change between `A` and its
-   children:
+   Example: `jj new --insert-after A` creates a new change between `A` and
+   its children:
 
    ```text
                    B   C
@@ -1857,11 +1857,12 @@ Note that you can create a merge commit by specifying multiple revisions as argu
          A           A
    ```
 
-   Specifying `--after` multiple times will relocate all children of the
-   given commits.
+   Specifying `--insert-after` multiple times will relocate all children of
+   the given commits.
 
-   Example: `jj new --after A --after X` creates a change with `A` and `X`
-   as parents, and rebases all children on top of the new change:
+   Example: `jj new --insert-after A --insert-after X` creates a change
+   with `A` and `X` as parents, and rebases all children on top of the new
+   change:
 
    ```text
                    B   Y
@@ -1872,8 +1873,8 @@ Note that you can create a merge commit by specifying multiple revisions as argu
    ```
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — Insert the new change before the given commit(s)
 
-   Example: `jj new --before C` creates a new change between `C` and its
-   parents:
+   Example: `jj new --insert-before C` creates a new change between `C` and
+   its parents:
 
    ```text
                       C
@@ -1883,9 +1884,9 @@ Note that you can create a merge commit by specifying multiple revisions as argu
        A   B        A   B
    ```
 
-   `--after` and `--before` can be combined.
+   `--insert-after` and `--insert-before` can be combined.
 
-   Example: `jj new --after A --before D`:
+   Example: `jj new --insert-after A --insert-before D`:
 
    ```text
 
@@ -1898,7 +1899,8 @@ Note that you can create a merge commit by specifying multiple revisions as argu
        A            A
    ```
 
-   Similar to `--after`, you can specify `--before` multiple times.
+   Similar to `--insert-after`, you can specify `--insert-before` multiple
+   times.
 
 
 
@@ -2560,11 +2562,11 @@ Note that conflicts can also be resolved without using this command. You may edi
 
 Restore paths from another revision
 
-That means that the paths get the same content in the destination (`--to`) as they had in the source (`--from`). This is typically used for undoing changes to some paths in the working copy (`jj restore <paths>`).
+That means that the paths get the same content in the destination (`--into`) as they had in the source (`--from`). This is typically used for undoing changes to some paths in the working copy (`jj restore <paths>`).
 
-If only one of `--from` or `--to` is specified, the other one defaults to the working copy.
+If only one of `--from` or `--into` is specified, the other one defaults to the working copy.
 
-When neither `--from` nor `--to` is specified, the command restores into the working copy from its parent(s). `jj restore` without arguments is similar to `jj abandon`, except that it leaves an empty revision with its description and other metadata preserved.
+When neither `--from` nor `--into` is specified, the command restores into the working copy from its parent(s). `jj restore` without arguments is similar to `jj abandon`, except that it leaves an empty revision with its description and other metadata preserved.
 
 See `jj diffedit` if you'd like to restore portions of files rather than entire files.
 
