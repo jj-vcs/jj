@@ -2492,6 +2492,14 @@ quotes are optional):</p>
 </ul>
 <p>You can append <code>-i</code> after the kind to match case‐insensitively (e.g.
 <code>glob-i:"fix*jpeg*"</code>).</p>
+<p>In revsets, string patterns can be combined by using logical operators
+(e.g. <code>bookmarks(~glob:"ci/*")</code>):</p>
+<ul>
+<li><code>~x</code>: Matches everything but <code>x</code>.</li>
+<li><code>x &amp; y</code>: Matches both <code>x</code> and <code>y</code>.</li>
+<li><code>x ~ y</code>: Matches <code>x</code> but not <code>y</code>.</li>
+<li><code>x | y</code>: Matches either <code>x</code> or <code>y</code> (or both).</li>
+</ul>
 <h2 id="date-patterns">Date patterns<a class="headerlink" href="#date-patterns" title="Permanent link">&para;</a></h2>
 <p>Functions that perform date matching support the following pattern syntax:</p>
 <ul>
