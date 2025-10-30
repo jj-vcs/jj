@@ -1401,6 +1401,8 @@ Show the current colocation status
 
 Update the underlying Git repo with changes made in the repo
 
+There is no need to run this command if you're in colocated repo because the export happens automatically there.
+
 **Usage:** `jj git export`
 
 
@@ -1437,6 +1439,8 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 Update repo with changes made in the underlying Git repo
 
 If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.
+
+There is no need to run this command if you're in colocated repo because the import happens automatically there.
 
 **Usage:** `jj git import`
 

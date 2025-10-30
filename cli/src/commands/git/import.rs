@@ -23,6 +23,9 @@ use crate::ui::Ui;
 ///
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
+///
+/// There is no need to run this command if you're in colocated repo because the
+/// import happens automatically there.
 #[derive(clap::Args, Clone, Debug)]
 pub struct GitImportArgs {}
 
