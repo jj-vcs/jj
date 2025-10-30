@@ -33,6 +33,23 @@ fn test_bisect_run_missing_command() {
 }
 
 #[test]
+fn test_bisect_run_empty_revset() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=none()", "false"]), @r"
+    Search complete. To discard any revisions created during search, run:
+      jj op restore 8f47435a3990
+    [EOF]
+    ------- stderr -------
+    Error: Could not find the first bad revision. Was the input range empty?
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_bisect_run() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -210,6 +227,100 @@ fn test_bisect_run_with_args() {
     ○  zsuskulnrvyr 123b4d91f6e5 'b' files: b
     ○  rlvkpnrzqnoo 7d980be7a1d4 'a' files: a
     ◆  zzzzzzzzzzzz 000000000000 '' files:
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bisect_run_abort() {
+    let mut test_env = TestEnvironment::default();
+    let bisector_path = fake_bisector_path();
+    let bisection_script = test_env.set_up_fake_bisector();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit(&work_dir, "a", &[]);
+    create_commit(&work_dir, "b", &["a"]);
+    create_commit(&work_dir, "c", &["b"]);
+
+    // stop immediately on failure
+    std::fs::write(&bisection_script, ["abort"].join("\0")).unwrap();
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    Now evaluating: rlvkpnrz 7d980be7 a | a
+    fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    [EOF]
+    ------- stderr -------
+    Working copy  (@) now at: vruxwmqv 538d9e7f (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Added 0 files, modified 0 files, removed 2 files
+    Error: Evaluation command returned 127 (command not found) - aborting bisection.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_bisect_run_skip() {
+    let mut test_env = TestEnvironment::default();
+    let bisector_path = fake_bisector_path();
+    let bisection_script = test_env.set_up_fake_bisector();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // head (b) is assumed to be bad, even though all revisions are skipped
+    create_commit(&work_dir, "a", &[]);
+    create_commit(&work_dir, "b", &["a"]);
+
+    std::fs::write(&bisection_script, ["skip"].join("\0")).unwrap();
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    Now evaluating: rlvkpnrz 7d980be7 a | a
+    fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    It could not be determined if the revision is good or bad.
+
+    Search complete. To discard any revisions created during search, run:
+      jj op restore 9cc40e5398a9
+    The first bad revision is: zsuskuln 123b4d91 b | b
+    [EOF]
+    ------- stderr -------
+    Working copy  (@) now at: royxmykx 2144134b (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Added 0 files, modified 0 files, removed 1 files
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bisect_run_multiple_results() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // heads (d and b) are assumed to be bad
+    create_commit(&work_dir, "a", &[]);
+    create_commit(&work_dir, "b", &["a"]);
+    create_commit(&work_dir, "c", &["a"]);
+    create_commit(&work_dir, "d", &["c"]);
+
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=a|b|c|d", "true"]), @r"
+    Now evaluating: rlvkpnrz 7d980be7 a | a
+    The revision is good.
+
+    Now evaluating: royxmykx 991a7501 c | c
+    The revision is good.
+
+    Search complete. To discard any revisions created during search, run:
+      jj op restore d750de12e02a
+    The first bad revisions are:
+    vruxwmqv a2dbb1aa d | d
+    zsuskuln 123b4d91 b | b
+    [EOF]
+    ------- stderr -------
+    Working copy  (@) now at: znkkpsqq 1b117fe7 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Added 0 files, modified 0 files, removed 2 files
+    Working copy  (@) now at: uuzqqzqu 6bf5f5e7 (empty) (no description set)
+    Parent commit (@-)      : royxmykx 991a7501 c | c
+    Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
 }
