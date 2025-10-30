@@ -14,7 +14,7 @@ config in sync[^1].
 
 !!! note
 
-    If you created a colocated git repo, forget to keep these 2 settings in
+    If you created a colocated git workspace, forget to keep these 2 settings in
     sync, and result in a dirty working copy with only EOL diffs, you can set
     the `working-copy.eol-conversion` setting correctly and run `jj abandon` to
     fix it.
@@ -54,7 +54,7 @@ converting them to CRLF. You'll want to make sure any tooling you use,
 especially IDEs, preserve LF line endings.
 
 [^1]: This poses the question if we should support reading the `core.autocrlf`
-      setting in colocated repos. See details at the
+      setting in colocated workspaces. See details at the
       [issue][read-git-config-issue].
 [^2]: To detect if a file is binary, Jujutsu currently checks if there is 0 byte
       in the file which is different from the algorithm of
@@ -127,5 +127,5 @@ system. This requires Windows 10 version 14972 or higher, as well as Developer
 Mode. If those conditions are not satisfied, `jj` will materialize symlinks as
 ordinary files.
 
-For colocated repositories, Git support must also be enabled using the
+For colocated workspaces, Git support must also be enabled using the
 `git config` option `core.symlinks=true`.

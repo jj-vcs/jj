@@ -502,7 +502,8 @@ fn test_import_refs_reimport_git_head_does_not_count() {
 
 #[test]
 fn test_import_refs_reimport_git_head_without_ref() {
-    // Simulate external `git checkout` in colocated repo, from anonymous bookmark.
+    // Simulate external `git checkout` in colocated workspace, from anonymous
+    // bookmark.
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
@@ -537,7 +538,7 @@ fn test_import_refs_reimport_git_head_without_ref() {
 
 #[test]
 fn test_import_refs_reimport_git_head_with_moved_ref() {
-    // Simulate external history rewriting in colocated repo.
+    // Simulate external history rewriting in colocated workspace.
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
@@ -1215,7 +1216,7 @@ fn test_import_refs_reimport_absent_tracked_remote_tags() {
 
 #[test]
 fn test_import_refs_reimport_git_head_with_fixed_ref() {
-    // Simulate external `git checkout` in colocated repo, from named bookmark.
+    // Simulate external `git checkout` in colocated workspace, from named bookmark.
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);

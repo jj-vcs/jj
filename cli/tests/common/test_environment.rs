@@ -63,7 +63,7 @@ impl Default for TestEnvironment {
             command_number: RefCell::new(0),
         };
         // Use absolute timestamps in the operation log to make tests independent of the
-        // current time. Use non-colocated repos by default for simplicity.
+        // current time. Use non-colocated workspaces by default for simplicity.
         env.add_config(
             r#"
 [template-aliases]

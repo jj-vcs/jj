@@ -57,14 +57,14 @@ changes.
 
 [sync-issue]: https://github.com/jj-vcs/jj/issues/1039
 
-## Working in a Git colocated repository
+## Working in a Git colocated workspaces
 
 After doing `jj git init`, which
 [colocates](git-compatibility.md#colocated-jujutsugit-repos) the `.jj` and
 `.git` directories, Git will be in a [detached HEAD state][detached], which is
 unusual, as Git mainly works with named branches; jj does not.
 
-In a colocated repository, every `jj` command will automatically synchronize
+In a colocated workspace, every `jj` command will automatically synchronize
 Jujutsu's view of the repo with Git's view. For example, `jj commit` updates the
 HEAD of the Git repository, enabling an incremental migration.
 
@@ -191,7 +191,7 @@ export GIT_DIR=$PWD/.jj/repo/store/git
 ```
 
 and run `direnv allow` to approve it for direnv to run. Then GitHub CLI will
-work automatically even in repos that aren't colocated so you can execute
+work automatically even in workspaces that aren't colocated so you can execute
 commands like `gh issue list` normally.
 
 [issue #1008]: https://github.com/jj-vcs/jj/issues/1008
