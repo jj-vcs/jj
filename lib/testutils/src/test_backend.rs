@@ -49,6 +49,7 @@ use jj_lib::index::Index;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
+use pollster::FutureExt as _;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
 use tokio::runtime::Runtime;
@@ -323,9 +324,10 @@ impl Backend for TestBackend {
             for id in topo_order_reverse(
                 copies.keys(),
                 |id| *id,
-                |id| copies.get(*id).unwrap().parents.iter(),
+                async |id| copies.get(*id).unwrap().parents.iter(),
                 |_| panic!("graph has cycle"),
             )
+            .block_on()
             .unwrap()
             {
                 histories.push(copies.get(id).unwrap().clone());

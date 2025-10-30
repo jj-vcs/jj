@@ -111,7 +111,8 @@ pub fn cmd_op_abandon(
         &abandon_head_ops,
         &current_head_ops,
         &abandon_root_op,
-    )?;
+    )
+    .block_on()?;
     assert_eq!(
         current_head_ops.len(),
         stats.new_head_ids.len(),

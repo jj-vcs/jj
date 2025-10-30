@@ -21,9 +21,12 @@ use std::io;
 use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
+use std::pin::pin;
 use std::slice;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use prost::Message as _;
@@ -260,7 +263,9 @@ impl DefaultIndexStore {
         // Pick the latest existing ancestor operation as the parent segment.
         let mut unindexed_ops = Vec::new();
         let mut parent_op = None;
-        for op in op_walk::walk_ancestors(slice::from_ref(operation)) {
+
+        let mut walk_ancestors_stream = pin!(op_walk::walk_ancestors(slice::from_ref(operation)));
+        while let Some(op) = walk_ancestors_stream.next().await {
             let op = op?;
             if op_links_dir.join(op.id().hex()).is_file()
                 || legacy_operations_dir.join(op.id().hex()).is_file()
@@ -275,7 +280,8 @@ impl DefaultIndexStore {
             // There may be concurrent ops, so revisit from the head. The parent
             // op is usually shallow if existed.
             op_walk::walk_ancestors_range(slice::from_ref(operation), slice::from_ref(op))
-                .try_collect()?
+                .try_collect()
+                .block_on()?
         } else {
             unindexed_ops
         };
@@ -359,7 +365,7 @@ impl DefaultIndexStore {
                 .filter(|&(commit_id, _)| !parent_index_has_id(commit_id))
                 .map(|(commit_id, op_id)| get_commit_with_op(commit_id, op_id)),
             |(CommitByCommitterTimestamp(commit), _)| commit.id().clone(),
-            |(CommitByCommitterTimestamp(commit), op_id)| {
+            async |(CommitByCommitterTimestamp(commit), op_id)| {
                 let keep_predecessors =
                     commits_to_keep_immediate_predecessors.contains(commit.id());
                 itertools::chain(
@@ -374,7 +380,8 @@ impl DefaultIndexStore {
                 .collect_vec()
             },
             |_| panic!("graph has cycle"),
-        )?;
+        )
+        .await?;
         for (CommitByCommitterTimestamp(commit), op_id) in commits.iter().rev() {
             mutable_index.add_commit(commit).await.map_err(|source| {
                 DefaultIndexStoreError::IndexCommits {

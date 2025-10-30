@@ -18,6 +18,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use assert_matches::assert_matches;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigLayer;
@@ -300,6 +301,7 @@ fn test_reparent_range_linear() {
         slice::from_ref(repo_d.operation()),
         repo_a.operation(),
     )
+    .block_on()
     .unwrap();
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 2);
@@ -319,6 +321,7 @@ fn test_reparent_range_linear() {
         slice::from_ref(repo_d.operation()),
         repo_a.operation(),
     )
+    .block_on()
     .unwrap();
     assert_eq!(stats.new_head_ids, vec![repo_a.op_id().clone()]);
     assert_eq!(stats.rewritten_count, 0);
@@ -379,6 +382,7 @@ fn test_reparent_range_branchy() {
         slice::from_ref(repo_g.operation()),
         repo_b.operation(),
     )
+    .block_on()
     .unwrap();
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 3);
@@ -406,6 +410,7 @@ fn test_reparent_range_branchy() {
         slice::from_ref(repo_g.operation()),
         repo_a.operation(),
     )
+    .block_on()
     .unwrap();
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 5);
@@ -432,6 +437,7 @@ fn test_reparent_range_branchy() {
         slice::from_ref(repo_g.operation()),
         repo_d.operation(),
     )
+    .block_on()
     .unwrap();
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 1);
@@ -454,6 +460,7 @@ fn test_reparent_range_branchy() {
         slice::from_ref(&op_f),
         repo_d.operation(),
     )
+    .block_on()
     .unwrap();
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 1);
@@ -566,6 +573,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         slice::from_ref(repo_4.operation()),
         repo_0.operation(),
     )
+    .block_on()
     .unwrap();
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 3);
@@ -592,6 +600,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         slice::from_ref(repo_4.operation()),
         repo_0.operation(),
     )
+    .block_on()
     .unwrap();
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 2);
@@ -626,6 +635,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         slice::from_ref(repo_4.operation()),
         repo_0.operation(),
     )
+    .block_on()
     .unwrap();
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 1);
@@ -859,12 +869,16 @@ fn test_walk_ancestors() {
     }
 
     fn collect_ancestors(head_ops: &[Operation]) -> Vec<Operation> {
-        op_walk::walk_ancestors(head_ops).try_collect().unwrap()
+        op_walk::walk_ancestors(head_ops)
+            .try_collect()
+            .block_on()
+            .unwrap()
     }
 
     fn collect_ancestors_range(head_ops: &[Operation], root_ops: &[Operation]) -> Vec<Operation> {
         op_walk::walk_ancestors_range(head_ops, root_ops)
             .try_collect()
+            .block_on()
             .unwrap()
     }
 
