@@ -1982,9 +1982,9 @@ a comparison with Git, including how workflows are different, see the
 <li><strong>Submodules: No.</strong> They will not show up in the working copy, but they will
   not be lost either.</li>
 <li><strong>Partial clones: No.</strong></li>
-<li><strong>Shallow clones: Kind of.</strong> Shallow commits all have the virtual root commit as
-  their parent. However, deepening or fully unshallowing a repository is currently not yet
-  supported and will cause issues.</li>
+<li><strong>Shallow clones: Kind of.</strong> Shallow commits all have the virtual root commit
+  as their parent. However, deepening or fully unshallowing a repository is
+  currently not yet supported and will cause issues.</li>
 <li><strong>git-worktree: No.</strong> However, there's native support for multiple working
   copies backed by a single repo. See the <code>jj workspace</code> family of commands.</li>
 <li><strong>Sparse checkouts: No.</strong> However, there's native support for sparse
@@ -1999,26 +1999,25 @@ a comparison with Git, including how workflows are different, see the
 creates a <a href="#co-located-jujutsugit-repos">colocated</a> Jujutsu repo, there will be
 a <code>.jj</code> directory and a <code>.git</code> directory.</p>
 <h2 id="creating-a-repo-backed-by-an-existing-git-repo">Creating a repo backed by an existing Git repo<a class="headerlink" href="#creating-a-repo-backed-by-an-existing-git-repo" title="Permanent link">&para;</a></h2>
-<p>To create a Jujutsu repo backed by a Git repo you already have on disk, use
-<code>jj git init --git-repo=&lt;path to Git repo&gt; &lt;name&gt;</code>. The repo will work similar
-to a <a href="https://git-scm.com/docs/git-worktree">Git worktree</a>, meaning that the
-working copies files and the record of the working-copy commit will be separate,
-but the commits will be accessible in both repos. Use <code>jj git import</code> to update
-the Jujutsu repo with changes made in the Git repo. Use <code>jj git export</code> to
-update the Git repo with changes made in the Jujutsu repo.</p>
+<p>To create a Jujutsu repo backed by a Git repo you already have on disk, use <code>jj
+git init --git-repo=&lt;path to Git repo&gt; &lt;name&gt;</code>. The repo will work similar to a
+<a href="https://git-scm.com/docs/git-worktree">Git worktree</a>, meaning that the working
+copies files and the record of the working-copy commit will be separate, but the
+commits will be accessible in both repos. Use <code>jj git import</code> to update the
+Jujutsu repo with changes made in the Git repo. Use <code>jj git export</code> to update
+the Git repo with changes made in the Jujutsu repo.</p>
 <h2 id="creating-a-repo-by-cloning-a-git-repo">Creating a repo by cloning a Git repo<a class="headerlink" href="#creating-a-repo-by-cloning-a-git-repo" title="Permanent link">&para;</a></h2>
 <p>To create a Jujutsu repo from a remote Git URL, use <code>jj git clone &lt;URL&gt;
 [&lt;destination&gt;]</code>. For example, <code>jj git clone
 https://github.com/octocat/Hello-World</code> will clone GitHub's "Hello-World" repo
 into a directory by the same name.</p>
-<p>By default, the remote repository will be named <code>origin</code>. You can use
-a name of your choice by adding <code>--remote &lt;remote name&gt;</code> to the <code>jj
-git clone</code> command.</p>
+<p>By default, the remote repository will be named <code>origin</code>. You can use a name of
+your choice by adding <code>--remote &lt;remote name&gt;</code> to the <code>jj git clone</code> command.</p>
 <h2 id="colocated-jujutsugit-repos"><a name="co-located-jujutsugit-repos"></a>Colocated Jujutsu/Git repos<a class="headerlink" href="#colocated-jujutsugit-repos" title="Permanent link">&para;</a></h2>
-<p>A colocated Jujutsu repo is a hybrid Jujutsu/Git repo. This is the default
-for Git-backed repositories created with <code>jj git init</code> or <code>jj git clone</code>.
-The Git repo and the Jujutsu repo then share the same working copy. Jujutsu will
-import and export from and to the Git repo on every <code>jj</code> command automatically.</p>
+<p>A colocated Jujutsu repo is a hybrid Jujutsu/Git repo. This is the default for
+Git-backed repositories created with <code>jj git init</code> or <code>jj git clone</code>. The Git
+repo and the Jujutsu repo then share the same working copy. Jujutsu will import
+and export from and to the Git repo on every <code>jj</code> command automatically.</p>
 <p>This mode is very convenient when tools (e.g. build tools) expect a Git repo to
 be present.</p>
 <p>It is allowed to mix <code>jj</code> and <code>git</code> commands in such a repo in any order.
@@ -2052,14 +2051,14 @@ time.</p>
 <li>
 <p>In colocated repos with a very large number of branches or other refs, <code>jj</code>
   commands can get noticeably slower because of the automatic <code>jj git import</code>
-  executed on each command. This can be mitigated by occasionally running <code>jj util
-  gc</code> to speed up the import (that command includes packing the Git refs).</p>
+  executed on each command. This can be mitigated by occasionally running <code>jj
+  util gc</code> to speed up the import (that command includes packing the Git refs).</p>
 </li>
 <li>
-<p>Git tools will have trouble with revisions that contain conflicted files. While
-  <code>jj</code> renders these files with conflict markers in the working copy, they are
-  stored in a non-human-readable fashion inside the repo. Git tools will often
-  see this non-human-readable representation.</p>
+<p>Git tools will have trouble with revisions that contain conflicted files.
+  While <code>jj</code> renders these files with conflict markers in the working copy, they
+  are stored in a non-human-readable fashion inside the repo. Git tools will
+  often see this non-human-readable representation.</p>
 </li>
 <li>
 <p>When a <code>jj</code> branch is conflicted, the position of the branch in the Git repo
