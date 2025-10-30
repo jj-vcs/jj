@@ -2031,11 +2031,14 @@ tell Git what the current branch should be with a <code>git switch</code> comman
 <p>You can undo the results of mutating <code>git</code> commands using <code>jj undo</code> and <code>jj op
 restore</code>. Inside <code>jj op log</code>, changes by <code>git</code> will be represented as an "import
 git refs" operation.</p>
-<p>There are a few downsides to this mode of operation. Generally, using colocated
-repos may require you to deal with more involved Jujutsu and Git concepts.
-You can disable colocation with the <code>--no-colocate</code> flag on the commands
-<code>jj git init</code> and <code>jj git clone</code> or by setting the configuration
-<code>git.colocate = false</code>.</p>
+<p>You can disable colocation with the <code>--no-colocate</code> flag on the commands <code>jj git
+init</code> and <code>jj git clone</code> or by setting the configuration <code>git.colocate = false</code>.
+Much of the repo data will still be stored in the Git repository format, but the
+Git repository will be hidden inside a sub-directory of the <code>.jj</code> directory.
+Moreover, unless you explicitly use the <code>jj git import</code> and <code>jj git export</code>
+commands, that Git repository will either have no branches at all (not even a
+main branch) or will have branches that are out of date with jj's bookmarks.</p>
+<p>Colocation can be disabled because it does have some disadvantages:</p>
 <ul>
 <li>
 <p>Interleaving <code>jj</code> and <code>git</code> commands increases the chance of confusing branch

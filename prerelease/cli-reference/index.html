@@ -8411,7 +8411,6 @@ output of the first tool.</p>
 </ul>
 <h2 id="jj-git-clone"><code>jj git clone</code><a class="headerlink" href="#jj-git-clone" title="Permanent link">&para;</a></h2>
 <p>Create a new repo backed by a clone of a Git repo</p>
-<p>The Git repo will be a bare git repo stored inside the <code>.jj/</code> directory.</p>
 <p><strong>Usage:</strong> <code>jj git clone [OPTIONS] &lt;SOURCE&gt; [DESTINATION]</code></p>
 <h6 id="arguments_29"><strong>Arguments:</strong><a class="headerlink" href="#arguments_29" title="Permanent link">&para;</a></h6>
 <ul>
@@ -8430,10 +8429,19 @@ output of the first tool.</p>
 <p>Default value: <code>origin</code></p>
 </li>
 <li>
-<p><code>--colocate</code> — Whether or not to colocate the Jujutsu repo with the git repo</p>
+<p><code>--colocate</code> — Colocate the Jujutsu repo with the git repo</p>
+<p>Specifies that the <code>jj</code> repo should also be a valid <code>git</code> repo, allowing the use of both <code>jj</code> and <code>git</code> commands in the same directory.</p>
+<p>The repository will contain a <code>.git</code> dir in the top-level. Regular Git tools will be able to operate on the repo.</p>
+<p><strong>This is the default</strong>, and this option has no effect, unless the <a href="https://jj-vcs.github.io/jj/latest/config/#default-colocation">git.colocate config</a> is set to <code>false</code>.</p>
 </li>
-<li><code>--no-colocate</code> — Disable colocation of the Jujutsu repo with the git repo</li>
-<li><code>--depth &lt;DEPTH&gt;</code> — Create a shallow clone of the given depth</li>
+<li>
+<p><code>--no-colocate</code> — Disable colocation of the Jujutsu repo with the git repo</p>
+<p>Prevent Git tools that are unaware of <code>jj</code> and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the <code>.jj</code> directory.</p>
+<p>See <a href="https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated repos.</p>
+</li>
+<li>
+<p><code>--depth &lt;DEPTH&gt;</code> — Create a shallow clone of the given depth</p>
+</li>
 <li>
 <p><code>--fetch-tags &lt;FETCH_TAGS&gt;</code> — Configure when to fetch tags</p>
 <p>Unless otherwise specified, the initial clone will fetch all tags, while all subsequent fetches will only fetch included tags.</p>
@@ -8517,12 +8525,16 @@ output of the first tool.</p>
 <h6 id="options_28"><strong>Options:</strong><a class="headerlink" href="#options_28" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>--colocate</code> — Specifies that the <code>jj</code> repo should also be a valid <code>git</code> repo, allowing the use of both <code>jj</code> and <code>git</code> commands in the same directory.</p>
-<p>This is done by placing the backing git repo into a <code>.git</code> directory in the root of the <code>jj</code> repo along with the <code>.jj</code> directory. If the <code>.git</code> directory already exists, all the existing commits will be imported.</p>
+<p><code>--colocate</code> — Colocate the Jujutsu repo with the git repo</p>
+<p>Specifies that the <code>jj</code> repo should also be a valid <code>git</code> repo, allowing the use of both <code>jj</code> and <code>git</code> commands in the same directory.</p>
+<p>The repository will contain a <code>.git</code> dir in the top-level. Regular Git tools will be able to operate on the repo.</p>
+<p><strong>This is the default</strong>, and this option has no effect, unless the <a href="https://jj-vcs.github.io/jj/latest/config/#default-colocation">git.colocate config</a> is set to <code>false</code>.</p>
 <p>This option is mutually exclusive with <code>--git-repo</code>.</p>
 </li>
 <li>
 <p><code>--no-colocate</code> — Disable colocation of the Jujutsu repo with the git repo</p>
+<p>Prevent Git tools that are unaware of <code>jj</code> and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the <code>.jj</code> directory.</p>
+<p>See <a href="https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated repos.</p>
 </li>
 <li>
 <p><code>--git-repo &lt;GIT_REPO&gt;</code> — Specifies a path to an <strong>existing</strong> git repository to be used as the backing git repo for the newly created <code>jj</code> repo.</p>
