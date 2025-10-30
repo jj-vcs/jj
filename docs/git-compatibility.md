@@ -61,9 +61,9 @@ a comparison with Git, including how workflows are different, see the
 * **Submodules: No.** They will not show up in the working copy, but they will
   not be lost either.
 * **Partial clones: No.**
-* **Shallow clones: Kind of.** Shallow commits all have the virtual root commit as
-  their parent. However, deepening or fully unshallowing a repository is currently not yet
-  supported and will cause issues.
+* **Shallow clones: Kind of.** Shallow commits all have the virtual root commit
+  as their parent. However, deepening or fully unshallowing a repository is
+  currently not yet supported and will cause issues.
 * **git-worktree: No.** However, there's native support for multiple working
   copies backed by a single repo. See the `jj workspace` family of commands.
 * **Sparse checkouts: No.** However, there's native support for sparse
@@ -82,13 +82,13 @@ a `.jj` directory and a `.git` directory.
 
 ## Creating a repo backed by an existing Git repo
 
-To create a Jujutsu repo backed by a Git repo you already have on disk, use
-`jj git init --git-repo=<path to Git repo> <name>`. The repo will work similar
-to a [Git worktree](https://git-scm.com/docs/git-worktree), meaning that the
-working copies files and the record of the working-copy commit will be separate,
-but the commits will be accessible in both repos. Use `jj git import` to update
-the Jujutsu repo with changes made in the Git repo. Use `jj git export` to
-update the Git repo with changes made in the Jujutsu repo.
+To create a Jujutsu repo backed by a Git repo you already have on disk, use `jj
+git init --git-repo=<path to Git repo> <name>`. The repo will work similar to a
+[Git worktree](https://git-scm.com/docs/git-worktree), meaning that the working
+copies files and the record of the working-copy commit will be separate, but the
+commits will be accessible in both repos. Use `jj git import` to update the
+Jujutsu repo with changes made in the Git repo. Use `jj git export` to update
+the Git repo with changes made in the Jujutsu repo.
 
 ## Creating a repo by cloning a Git repo
 
@@ -97,16 +97,15 @@ To create a Jujutsu repo from a remote Git URL, use `jj git clone <URL>
 https://github.com/octocat/Hello-World` will clone GitHub's "Hello-World" repo
 into a directory by the same name.
 
-By default, the remote repository will be named `origin`. You can use
-a name of your choice by adding `--remote <remote name>` to the `jj
-git clone` command.
+By default, the remote repository will be named `origin`. You can use a name of
+your choice by adding `--remote <remote name>` to the `jj git clone` command.
 
 ## <a name="co-located-jujutsugit-repos"></a>Colocated Jujutsu/Git repos
 
-A colocated Jujutsu repo is a hybrid Jujutsu/Git repo. This is the default
-for Git-backed repositories created with `jj git init` or `jj git clone`.
-The Git repo and the Jujutsu repo then share the same working copy. Jujutsu will
-import and export from and to the Git repo on every `jj` command automatically.
+A colocated Jujutsu repo is a hybrid Jujutsu/Git repo. This is the default for
+Git-backed repositories created with `jj git init` or `jj git clone`. The Git
+repo and the Jujutsu repo then share the same working copy. Jujutsu will import
+and export from and to the Git repo on every `jj` command automatically.
 
 This mode is very convenient when tools (e.g. build tools) expect a Git repo to
 be present.
@@ -144,13 +143,13 @@ Colocation can be disabled because it does have some disadvantages:
 
 * In colocated repos with a very large number of branches or other refs, `jj`
   commands can get noticeably slower because of the automatic `jj git import`
-  executed on each command. This can be mitigated by occasionally running `jj util
-  gc` to speed up the import (that command includes packing the Git refs).
+  executed on each command. This can be mitigated by occasionally running `jj
+  util gc` to speed up the import (that command includes packing the Git refs).
 
-* Git tools will have trouble with revisions that contain conflicted files. While
-  `jj` renders these files with conflict markers in the working copy, they are
-  stored in a non-human-readable fashion inside the repo. Git tools will often
-  see this non-human-readable representation.
+* Git tools will have trouble with revisions that contain conflicted files.
+  While `jj` renders these files with conflict markers in the working copy, they
+  are stored in a non-human-readable fashion inside the repo. Git tools will
+  often see this non-human-readable representation.
 
 * When a `jj` branch is conflicted, the position of the branch in the Git repo
   will disagree with one or more of the conflicted positions. The state of that

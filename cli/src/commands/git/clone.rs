@@ -78,9 +78,8 @@ pub struct GitCloneArgs {
     /// Disable colocation of the Jujutsu repo with the git repo
     ///
     /// Prevent Git tools that are unaware of `jj` and regular Git commands from
-    /// operating on the repo. The Git repository that stores most of the
-    /// repo data will be hidden inside a sub-directory of the `.jj`
-    /// directory.
+    /// operating on the repo. The Git repository that stores most of the repo
+    /// data will be hidden inside a sub-directory of the `.jj` directory.
     ///
     /// See [colocation docs] for some minor advantages of non-colocated repos.
     ///
