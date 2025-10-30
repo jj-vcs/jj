@@ -797,8 +797,8 @@ fn test_duplicate_insert_after() {
     Duplicated 6a9343b8797a as snrzyvry d10bd4dd b1
     Rebased 2 commits onto duplicated commits
     Working copy  (@) now at: nmzmmopx 57d2a947 d2 | d2
-    Parent commit (@-)      : muymlknp 7db83f0f a1
-    Parent commit (@-)      : snrzyvry d10bd4dd b1
+    Parent revision (@-)    : muymlknp 7db83f0f a1
+    Parent revision (@-)    : snrzyvry d10bd4dd b1
     Added 3 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1429,7 +1429,7 @@ fn test_duplicate_insert_before() {
     Duplicated 6a9343b8797a as snrzyvry b63fdd54 b1
     Rebased 4 commits onto duplicated commits
     Working copy  (@) now at: nmzmmopx 1aec68e6 d2 | d2
-    Parent commit (@-)      : xznxytkn 3b2ee7ee d1 | d1
+    Parent revision (@-)    : xznxytkn 3b2ee7ee d1 | d1
     Added 2 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1632,7 +1632,7 @@ fn test_duplicate_insert_before() {
     Duplicated 5fb83d2b58d6 as kzxwzvzw 22d5f430 a3
     Rebased 2 commits onto duplicated commits
     Working copy  (@) now at: nmzmmopx b00d1c06 d2 | d2
-    Parent commit (@-)      : kzxwzvzw 22d5f430 a3
+    Parent revision (@-)    : kzxwzvzw 22d5f430 a3
     Added 3 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1966,9 +1966,9 @@ fn test_duplicate_insert_after_before() {
     Duplicated 6a9343b8797a as yrwmsomt 0d18a4ba b1
     Rebased 1 commits onto duplicated commits
     Working copy  (@) now at: nmzmmopx 4aafd744 d2 | d2
-    Parent commit (@-)      : xznxytkn ae61a031 d1 | d1
-    Parent commit (@-)      : ukwxllxp 0cedc1c7 a1
-    Parent commit (@-)      : yrwmsomt 0d18a4ba b1
+    Parent revision (@-)    : xznxytkn ae61a031 d1 | d1
+    Parent revision (@-)    : ukwxllxp 0cedc1c7 a1
+    Parent revision (@-)    : yrwmsomt 0d18a4ba b1
     Added 3 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -2076,9 +2076,9 @@ fn test_duplicate_insert_after_before() {
     Duplicated 6a9343b8797a as snrzyvry d3066453 b1
     Rebased 1 commits onto duplicated commits
     Working copy  (@) now at: nmzmmopx 12e787a7 d2 | d2
-    Parent commit (@-)      : xznxytkn ae61a031 d1 | d1
-    Parent commit (@-)      : muymlknp e3890eb5 a1
-    Parent commit (@-)      : snrzyvry d3066453 b1
+    Parent revision (@-)    : xznxytkn ae61a031 d1 | d1
+    Parent revision (@-)    : muymlknp e3890eb5 a1
+    Parent revision (@-)    : snrzyvry d3066453 b1
     Added 3 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -2115,8 +2115,8 @@ fn test_duplicate_insert_after_before() {
     Duplicated 5fb83d2b58d6 as pvqonzsn eb5c8329 a3
     Rebased 1 commits onto duplicated commits
     Working copy  (@) now at: nmzmmopx e3fab709 d2 | d2
-    Parent commit (@-)      : xznxytkn ae61a031 d1 | d1
-    Parent commit (@-)      : pvqonzsn eb5c8329 a3
+    Parent revision (@-)    : xznxytkn ae61a031 d1 | d1
+    Parent revision (@-)    : pvqonzsn eb5c8329 a3
     Added 3 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -2405,7 +2405,7 @@ fn test_rebase_duplicates() {
     ------- stderr -------
     Rebased 4 commits to destination
     Working copy  (@) now at: royxmykx fa60711d c | c
-    Parent commit (@-)      : zsuskuln 594e9d32 b | b
+    Parent revision (@-)    : zsuskuln 594e9d32 b | b
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -2461,7 +2461,7 @@ fn test_duplicate_description_template() {
     Duplicated 7d980be7a1d4 as znkkpsqq fe35e4a3 (empty) a
     Rebased 2 commits onto duplicated commits
     Working copy  (@) now at: royxmykx c414af3f c | c
-    Parent commit (@-)      : zsuskuln 6960bbcf b | b
+    Parent revision (@-)    : zsuskuln 6960bbcf b | b
     [EOF]
     ");
 

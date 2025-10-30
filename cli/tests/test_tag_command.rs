@@ -59,7 +59,7 @@ fn test_tag_set_delete() {
     Moved 1 tags to rlvkpnrz bbc74930 (empty) (no description set)
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
     Working copy  (@) now at: yqosqzyt 13cbd515 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz bbc74930 (empty) (no description set)
+    Parent revision (@-)    : rlvkpnrz bbc74930 (empty) (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"

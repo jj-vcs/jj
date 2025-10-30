@@ -931,7 +931,7 @@ fn test_op_recover_from_bad_gc() {
         .run_jj(["op", "log", "--no-graph", r#"-Tid.short() ++ "\n""#])
         .success();
     let [head_op_id, _, _, bad_op_id] = output.stdout.raw().lines().next_array().unwrap();
-    insta::assert_snapshot!(head_op_id, @"9a34044af622");
+    insta::assert_snapshot!(head_op_id, @"af4579289ae0");
     insta::assert_snapshot!(bad_op_id, @"65860cfb750d");
 
     // Corrupt the repo by removing hidden but reachable commit object.
@@ -968,14 +968,14 @@ fn test_op_recover_from_bad_gc() {
     // "op log" should still be usable.
     let output = work_dir.run_jj(["op", "log", "--ignore-working-copy", "--at-op", head_op_id]);
     insta::assert_snapshot!(output, @r"
-    @  9a34044af622 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    @  af4579289ae0 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
     │  describe commit a053bc8736064a739ab73f2c775a6ac2851bf1a3
     │  args: jj describe -m4
-    ○  c08e984b3923 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    ○  e3f9a7bdac20 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │  new empty commit
     │  args: jj new -m3
-    ○  9988649fbebb test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
-    │  abandon commit 4e123bae951c3216a145dbcd56d60522739d362e
+    ○  9b785ef1322b test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │  abandon revision 4e123bae951c3216a145dbcd56d60522739d362e
     │  args: jj abandon
     ○  65860cfb750d test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  describe commit 884fe9b9c65602d724c7c0f2a238d5549efbe5e6
@@ -1460,7 +1460,7 @@ fn test_op_diff() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: xlzxqlsl 731ab199 (empty) new commit
-    Parent commit (@-)      : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
+    Parent revision (@-)    : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
     Added 2 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1555,7 +1555,7 @@ fn test_op_diff_patch() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz c1c924b8 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 6b57e33c (no description set)
+    Parent revision (@-)    : qpvuntsm 6b57e33c (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "diff", "--op", "@-", "-p", "--git"]);
@@ -1599,7 +1599,7 @@ fn test_op_diff_patch() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl 6cbd01ae (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 7aa2ec5d (no description set)
+    Parent revision (@-)    : qpvuntsm 7aa2ec5d (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "diff", "-p", "--git"]);
@@ -1630,16 +1630,16 @@ fn test_op_diff_patch() {
     let output = work_dir.run_jj(["abandon"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned 1 commits:
+    Abandoned 1 revisions:
       mzvwutvl 6cbd01ae (empty) (no description set)
     Working copy  (@) now at: yqosqzyt c97a8573 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 7aa2ec5d (no description set)
+    Parent revision (@-)    : qpvuntsm 7aa2ec5d (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "diff", "-p", "--git"]);
     insta::assert_snapshot!(output, @r"
     From operation: cfb8edbeae42 (2001-02-03 08:05:11) squash commits into 6b57e33cc56babbeaa6bcd6e2a296236b52ad93c
-      To operation: dd1ab16f2720 (2001-02-03 08:05:13) abandon commit 6cbd01aefe5ae05a015328311dbd63b7305b8ebe
+      To operation: cbee4e91bb76 (2001-02-03 08:05:13) abandon revision 6cbd01aefe5ae05a015328311dbd63b7305b8ebe
 
     Changed commits:
     ○  + yqosqzyt c97a8573 (empty) (no description set)
@@ -2506,7 +2506,7 @@ fn test_op_show() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: tlkvzzqu 8f340dd7 (empty) new commit
-    Parent commit (@-)      : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
+    Parent revision (@-)    : zkmtkqvo 0dee6313 bookmark-1?? bookmark-1@origin | Commit 4
     Added 2 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -2622,7 +2622,7 @@ fn test_op_show_patch() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz c1c924b8 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 6b57e33c (no description set)
+    Parent revision (@-)    : qpvuntsm 6b57e33c (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "show", "@-", "-p", "--git"]);
@@ -2668,7 +2668,7 @@ fn test_op_show_patch() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl 6cbd01ae (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 7aa2ec5d (no description set)
+    Parent revision (@-)    : qpvuntsm 7aa2ec5d (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "show", "-p", "--git"]);
@@ -2700,16 +2700,16 @@ fn test_op_show_patch() {
     let output = work_dir.run_jj(["abandon"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned 1 commits:
+    Abandoned 1 revisions:
       mzvwutvl 6cbd01ae (empty) (no description set)
     Working copy  (@) now at: yqosqzyt c97a8573 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 7aa2ec5d (no description set)
+    Parent revision (@-)    : qpvuntsm 7aa2ec5d (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "show", "-p", "--git"]);
     insta::assert_snapshot!(output, @r"
-    dd1ab16f2720 test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
-    abandon commit 6cbd01aefe5ae05a015328311dbd63b7305b8ebe
+    cbee4e91bb76 test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
+    abandon revision 6cbd01aefe5ae05a015328311dbd63b7305b8ebe
     args: jj abandon
 
     Changed commits:
@@ -2725,8 +2725,8 @@ fn test_op_show_patch() {
     // Try again with "op log".
     let output = work_dir.run_jj(["op", "log", "--git"]);
     insta::assert_snapshot!(output, @r"
-    @  dd1ab16f2720 test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
-    │  abandon commit 6cbd01aefe5ae05a015328311dbd63b7305b8ebe
+    @  cbee4e91bb76 test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
+    │  abandon revision 6cbd01aefe5ae05a015328311dbd63b7305b8ebe
     │  args: jj abandon
     │
     │  Changed commits:
