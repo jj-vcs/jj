@@ -36,6 +36,7 @@ use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
 use crate::backend::BackendResult;
+use crate::backend::CopyId;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::copies::CopiesTreeDiffEntry;
@@ -165,6 +166,17 @@ impl MergedTree {
                 }
             }
             None => Ok(self.to_merged_tree_value()),
+        }
+    }
+
+    /// Returns the `TreeValue` associated with `id` if it exists at the
+    /// expected path and is resolved.
+    pub async fn copy_value(&self, id: &CopyId) -> BackendResult<Option<TreeValue>> {
+        let copy = self.store().backend().read_copy(id).await?;
+        let merged_val = self.path_value_async(&copy.current_path).await?;
+        match merged_val.as_resolved() {
+            Some(Some(val)) if val.copy_id().as_ref() == Some(id) => Ok(Some(val.clone())),
+            _ => Ok(None),
         }
     }
 
