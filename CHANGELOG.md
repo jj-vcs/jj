@@ -19,6 +19,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `core.watchman.register_snapshot_trigger`
   - `diff.format`
 
+* `jj` now ignores `$PAGER` set in the environment and uses `less -FRX` on most
+  platforms (`:builtin` on Windows). See [the docs](docs/config.md#pager) for
+  more information, and [#3502](https://github.com/jj-vcs/jj/issues/3502) for
+  motivation.
+
 ### Deprecations
 
  * `jj bisect run --command <cmd>` is deprecated in favor of
