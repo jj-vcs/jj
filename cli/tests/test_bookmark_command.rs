@@ -910,9 +910,9 @@ fn test_bookmark_forget_export() {
     [exit status: 1]
     ");
 
-    // `jj git export` will delete the bookmark from git. In a colocated repo,
-    // this will happen automatically immediately after a `jj bookmark forget`.
-    // This is demonstrated in `test_git_colocated_bookmark_forget` in
+    // `jj git export` will delete the bookmark from git. In a colocated
+    // workspace, this will happen automatically immediately after a `jj bookmark
+    // forget`. This is demonstrated in `test_git_colocated_bookmark_forget` in
     // test_git_colocated.rs
     let output = work_dir.run_jj(["git", "export"]);
     insta::assert_snapshot!(output, @"");
@@ -965,7 +965,7 @@ fn test_bookmark_forget_fetched_bookmark() {
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
 
     // At this point `jj git export && jj git import` does *not* recreate the
-    // bookmark. This behavior is important in colocated repos, as otherwise a
+    // bookmark. This behavior is important in colocated workspaces, as otherwise a
     // forgotten bookmark would be immediately resurrected.
     //
     // Technically, this is because `jj bookmark forget` preserved

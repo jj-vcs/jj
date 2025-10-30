@@ -618,7 +618,7 @@ revsets. This seemed unlikely to be accepted by the Git project.
 
 [change]: glossary.md#change
 [change ID]: glossary.md#change-id
-[colocated]: glossary.md#colocated-repos
+[colocated]: glossary.md#colocated-workspaces
 [commit ID]: glossary.md#commit-id
 [commits]: glossary.md#commit
 [config]: config.md

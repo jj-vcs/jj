@@ -21,8 +21,8 @@ use crate::ui::Ui;
 
 /// Update the underlying Git repo with changes made in the repo
 ///
-/// There is no need to run this command if you're in colocated repo because the
-/// export happens automatically there.
+/// There is no need to run this command if you're in colocated workspace
+/// because the export happens automatically there.
 #[derive(clap::Args, Clone, Debug)]
 pub struct GitExportArgs {}
 

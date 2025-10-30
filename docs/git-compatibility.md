@@ -77,8 +77,8 @@ a comparison with Git, including how workflows are different, see the
 ## Creating an empty repo
 
 To create an empty repo using the Git backend, use `jj git init <name>`. This
-creates a [colocated](#co-located-jujutsugit-repos) Jujutsu repo, there will be
-a `.jj` directory and a `.git` directory.
+creates a [colocated](#colocated-jujutsugit-workspaces) Jujutsu workspace,
+there will be a `.jj` directory and a `.git` directory.
 
 ## Creating a repo backed by an existing Git repo
 
@@ -100,20 +100,21 @@ into a directory by the same name.
 By default, the remote repository will be named `origin`. You can use a name of
 your choice by adding `--remote <remote name>` to the `jj git clone` command.
 
-## <a name="co-located-jujutsugit-repos"></a>Colocated Jujutsu/Git repos
+## <a name="colocated-jujutsugit-repos"></a>Colocated Jujutsu/Git workspaces
 
-A colocated Jujutsu repo is a hybrid Jujutsu/Git repo. This is the default for
-Git-backed repositories created with `jj git init` or `jj git clone`. The Git
-repo and the Jujutsu repo then share the same working copy. Jujutsu will import
-and export from and to the Git repo on every `jj` command automatically.
+A colocated Jujutsu workspace is a hybrid Jujutsu/Git workspace. This is the
+default for Git-backed workspace created with `jj git init` or `jj git clone`.
+The Git repo and the Jujutsu workspace then share the same working copy. Jujutsu
+will import and export from and to the Git repo on every `jj` command
+automatically.
 
 This mode is very convenient when tools (e.g. build tools) expect a Git repo to
 be present.
 
-It is allowed to mix `jj` and `git` commands in such a repo in any order.
+It is allowed to mix `jj` and `git` commands in such a workspace in any order.
 However, it may be easier to keep track of what is going on if you mostly use
 read-only `git` commands and use `jj` to make changes to the repo. One reason
-for this (see below for more) is that `jj` commands will usually put the git
+for this (see below for more) is that `jj` commands will usually put the Git
 repo in a "detached HEAD" state, since in `jj` there is not concept of a
 "currently tracked branch". Before doing mutating Git commands, you may need to
 tell Git what the current branch should be with a `git switch` command.
@@ -141,10 +142,11 @@ Colocation can be disabled because it does have some disadvantages:
   it because they automatically run `git fetch` in the background from time to
   time.
 
-* In colocated repos with a very large number of branches or other refs, `jj`
-  commands can get noticeably slower because of the automatic `jj git import`
-  executed on each command. This can be mitigated by occasionally running `jj
-  util gc` to speed up the import (that command includes packing the Git refs).
+* In colocated workspaces with a very large number of branches or other refs,
+  `jj` commands can get noticeably slower because of the automatic
+  `jj git import` executed on each command. This can be mitigated by
+  occasionally running `jj util gc` to speed up the import (that command
+  includes packing the Git refs).
 
 * Git tools will have trouble with revisions that contain conflicted files.
   While `jj` renders these files with conflict markers in the working copy, they
@@ -160,7 +162,7 @@ Colocation can be disabled because it does have some disadvantages:
   as Git represents them, unfinished `git rebase` states, as well as other less
   common states a Git repository can be in.
 
-* Colocated repositories are less resilient to
+* Colocated workspaces are less resilient to
   [concurrency](technical/concurrency.md#syncing-with-rsync-nfs-dropbox-etc)
   issues if you share the repo using an NFS filesystem or Dropbox. In general,
   such use of Jujutsu is not currently thoroughly tested.
@@ -171,24 +173,25 @@ Colocation can be disabled because it does have some disadvantages:
   report any new ones you find, or if any of the known bugs are less minor than
   they appear.
 
-### Converting a repo into a colocated repo
+### Converting a workspace into a colocated workspace
 
-A Jujutsu repo backed by a Git repo has a full Git repo inside, which can be
-converted into a colocated repo using the `jj git colocation` command.
+A Jujutsu workspace backed by a Git repo has a full Git repo inside. Such a
+workspace can be converted into a colocated workspace using the
+`jj git colocation` command.
 
-To check the current colocation status of your repository:
+To check the current colocation status of your workspace:
 
 ```bash
 jj git colocation status
 ```
 
-To convert to a colocated repo:
+To convert to a colocated workspace:
 
 ```bash
 jj git colocation enable
 ```
 
-To convert to a non-colocated repo:
+To convert to a non-colocated workspace:
 
 ```bash
 jj git colocation disable

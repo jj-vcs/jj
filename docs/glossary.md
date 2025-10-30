@@ -38,7 +38,7 @@ branch](#anonymous-branch) or, less formally, a branch of the commit "tree"
 might resemble a tree even when it's not mathematically a tree).
 
 We also sometimes discuss Git's branches and branches on Git remotes. Locally,
-these correspond to [bookmarks](#bookmark). In a colocated repository, each
+these correspond to [bookmarks](#bookmark). In a colocated workspace, each
 local Git branch corresponds to a `jj` bookmark.
 
 ## Change
@@ -79,11 +79,11 @@ long when using the Git backend. They are presented in regular hexadecimal
 format at the end of the line in `jj log`, using 12 hexadecimal digits by
 default. When using the Git backend, the commit ID is the Git commit ID.
 
-## <a name="co-located-repos"></a>Colocated repos
+## <a name="colocated-repos"></a>Colocated workspaces
 
 When using the Git [backend](#backend) and the backing Git repository's `.git/`
-directory is a sibling of `.jj/`, we call the repository colocated. Most
-tools designed for Git can be easily used on such repositories. `jj` and `git`
+directory is a sibling of `.jj/`, we call the workspace colocated. Most
+tools designed for Git can be easily used on such workspace. `jj` and `git`
 commands can be used interchangeably.
 
 See [here](git-compatibility.md#colocated-jujutsugit-repos) for details.

@@ -1462,10 +1462,11 @@ Colocation allows some amount of two-way interoperability, but it can perform
 worse in large repos.
 
 The setting `git.colocate` is a boolean option that controls whether or not the
-`jj git init` and `jj git clone` commands should create colocated working copies
-by default. Set `git.colocate` to `false` to disable it.
+`jj git init` and `jj git clone` commands should create colocated workspace by
+default. Set `git.colocate` to `false` to disable it.
 
-See [Colocated Jujutsu/Git repos](git-compatibility.md#colocated-jujutsugit-repos) for more information.
+See [Colocated Jujutsu/Git workspaces](git-compatibility.md#colocated-jujutsugit-repos)
+for more information.
 
 ### Default remotes for `jj git fetch` and `jj git push`
 
@@ -1509,7 +1510,7 @@ local bookmark with the same name. This feature is disabled by default because i
 may be undesirable in some repositories, e.g.:
 
 - There is a remote with a lot of historical bookmarks that you don't
-  want to be exported to the colocated Git repo.
+  want to be exported to the colocated Git workspace.
 - There are multiple remotes with conflicting views of that bookmark,
   resulting in an unhelpful conflicted state.
 

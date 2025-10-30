@@ -24,7 +24,7 @@ fn read_git_target(workspace_root: &std::path::Path) -> String {
 fn test_git_colocation_enable_success() {
     let test_env = TestEnvironment::default();
 
-    // Initialize a non-colocated Jujutsu/Git repo
+    // Initialize a non-colocated Jujutsu/Git workspace
     test_env
         .run_jj_in(
             test_env.env_root(),
@@ -55,8 +55,9 @@ fn test_git_colocation_enable_success() {
     let output = work_dir.run_jj(["git", "colocation", "enable"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Repository successfully converted into a colocated Jujutsu/Git repository.
-    [EOF]");
+    Workspace successfully converted into a colocated Jujutsu/Git workspace.
+    [EOF]
+    ");
 
     // Verify colocate succeeded
     assert!(workspace_root.join(".git").exists());
@@ -100,8 +101,9 @@ fn test_git_colocation_enable_already_colocated() {
     let output = work_dir.run_jj(["git", "colocation", "enable"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Repository is already colocated with Git.
-    [EOF]");
+    Workspace is already colocated with Git.
+    [EOF]
+    ");
 }
 
 #[test]
@@ -163,8 +165,9 @@ fn test_git_colocation_disable_success() {
     let output = work_dir.run_jj(["git", "colocation", "disable"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Repository successfully converted into a non-colocated Jujutsu/Git repository.
-    [EOF]");
+    Workspace successfully converted into a non-colocated Jujutsu/Git workspace.
+    [EOF]
+    ");
 
     // Verify that disable colocation succeeded
     assert!(!workspace_root.join(".git").exists());
@@ -207,8 +210,9 @@ fn test_git_colocation_disable_not_colocated() {
     let output = work_dir.run_jj(["git", "colocation", "disable"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Repository is already not colocated with Git.
-    [EOF]");
+    Workspace is already not colocated with Git.
+    [EOF]
+    ");
 }
 
 #[test]
@@ -227,11 +231,12 @@ fn test_git_colocation_status_non_colocated() {
     // Check status - should show non-colocated
     let output = work_dir.run_jj(["git", "colocation", "status"]);
     insta::assert_snapshot!(output, @r"
-    Repository is currently not colocated with Git.
+    Workspace is currently not colocated with Git.
     [EOF]
     ------- stderr -------
     Hint: To enable colocation, run: `jj git colocation enable`
-    [EOF]");
+    [EOF]
+    ");
 }
 
 #[test]
@@ -247,11 +252,12 @@ fn test_git_colocation_status_colocated() {
     // Check status - should show colocated
     let output = work_dir.run_jj(["git", "colocation", "status"]);
     insta::assert_snapshot!(output, @r"
-    Repository is currently colocated with Git.
+    Workspace is currently colocated with Git.
     [EOF]
     ------- stderr -------
     Hint: To disable colocation, run: `jj git colocation disable`
-    [EOF]");
+    [EOF]
+    ");
 }
 
 #[test]

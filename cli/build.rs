@@ -24,7 +24,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=NIX_JJ_GIT_HASH");
     let git_hash = get_git_hash_from_nix().or_else(|| {
         if Path::new(GIT_HEAD_PATH).exists() {
-            // In colocated repo, .git/HEAD should reflect the working-copy parent.
+            // In colocated workspace, .git/HEAD should reflect the working-copy parent.
             println!("cargo:rerun-if-changed={GIT_HEAD_PATH}");
         } else if Path::new(JJ_OP_HEADS_PATH).exists() {
             // op_heads changes when working-copy files are mutated, which is way more

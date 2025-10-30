@@ -505,8 +505,8 @@ fn test_git_fetch_from_remote_named_git() {
     ");
 
     // Explicit import also works. Warnings are printed twice because this is a
-    // colocated repo. That should be fine since "jj git import" wouldn't be
-    // used in colocated environment.
+    // colocated workspace. That should be fine since "jj git import" wouldn't
+    // be used in colocated environment.
     insta::assert_snapshot!(work_dir.run_jj(["git", "import"]), @r"
     ------- stderr -------
     Warning: Failed to import some Git refs:
@@ -669,7 +669,7 @@ fn test_git_fetch_conflicting_bookmarks_colocated() {
 // Helper functions to test obtaining multiple bookmarks at once and changed
 // bookmarks
 fn create_colocated_repo_and_bookmarks_from_trunk1(work_dir: &TestWorkDir) -> String {
-    // Create a colocated repo in `source` to populate it more easily
+    // Create a colocated workspace in `source` to populate it more easily
     work_dir
         .run_jj(["git", "init", "--git-repo", "."])
         .success();

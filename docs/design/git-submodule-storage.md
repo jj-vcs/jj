@@ -56,7 +56,7 @@ but a full proposal for implementing them is not necessary.
 These extensions are:
 
 - Non-git subrepos
-- Colocated Git repos
+- Colocated Git workspace
 - The superproject using a non-git backend
 
 ## Proposed design
@@ -106,12 +106,12 @@ is unlikely to complicate any of the core features, since the top-level
 superproject/submodule relationship is almost identical to the submodule/nested
 submodule relationship.
 
-### Extending to colocated Git repos
+### Extending to colocated Git workspaces
 
 Git expects submodules to be in `.git/modules`, so it will not understand this
-storage format. To support colocated Git repos, we will have to change Git to
-allow a submodule's gitdir to be in an alternate location (e.g. we could add a
-new `submodule.<name>.gitdir` config option). This is a simple change, so it
+storage format. To support colocated Git workspaces, we will have to change Git
+to allow a submodule's gitdir to be in an alternate location (e.g. we could add
+a new `submodule.<name>.gitdir` config option). This is a simple change, so it
 should be feasible.
 
 ## Alternatives considered

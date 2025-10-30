@@ -55,7 +55,7 @@ about the bug, it is relatively easy to recover from.
 
 Moreover, such use of Jujutsu is not currently thoroughly tested,
 especially in the context of [colocated
-repositories](../glossary.md#colocated-repos). While the contents of commits
+repositories](../glossary.md#colocated-workspaces). While the contents of commits
 should be safe, concurrent modification of a repository from different computers
 might conceivably lose some bookmark pointers. Note that, unlike in pure
 Git, losing a bookmark pointer does not lead to losing commits.

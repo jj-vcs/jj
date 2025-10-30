@@ -72,8 +72,8 @@ of workflows, with the goal of getting feedback early and often. When support is
 incomplete, jj should not crash, but instead provide fallback behavior and warn
 the user where needed.
 
-The goal is to land good support for pure Jujutsu repositories, while colocated
-repositories will be supported when convenient.
+The goal is to land good support for pure Jujutsu workspaces, while colocated
+workspaces will be supported when convenient.
 
 This section should be treated as a set of guidelines, not a strict order of
 work.
