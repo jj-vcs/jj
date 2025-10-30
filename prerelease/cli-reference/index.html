@@ -8852,18 +8852,19 @@ output of the first tool.</p>
 <li><code>--no-edit</code> — Do not edit the newly created change</li>
 <li>
 <p><code>-A</code>, <code>--insert-after &lt;REVSETS&gt;</code> [alias: <code>after</code>] — Insert the new change after the given commit(s)</p>
-<p>Example: <code>jj new --after A</code> creates a new change between <code>A</code> and its
- children:</p>
+<p>Example: <code>jj new --insert-after A</code> creates a new change between <code>A</code> and
+ its children:</p>
 <div class="highlight"><pre><span></span><code>                B   C
                  \ /
     B   C   =&gt;    @
      \ /          |
       A           A
 </code></pre></div>
-<p>Specifying <code>--after</code> multiple times will relocate all children of the
- given commits.</p>
-<p>Example: <code>jj new --after A --after X</code> creates a change with <code>A</code> and <code>X</code>
- as parents, and rebases all children on top of the new change:</p>
+<p>Specifying <code>--insert-after</code> multiple times will relocate all children of
+ the given commits.</p>
+<p>Example: <code>jj new --insert-after A --insert-after X</code> creates a change
+ with <code>A</code> and <code>X</code> as parents, and rebases all children on top of the new
+ change:</p>
 <div class="highlight"><pre><span></span><code>                B   Y
                  \ /
     B  Y    =&gt;    @
@@ -8873,16 +8874,16 @@ output of the first tool.</p>
 </li>
 <li>
 <p><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — Insert the new change before the given commit(s)</p>
-<p>Example: <code>jj new --before C</code> creates a new change between <code>C</code> and its
- parents:</p>
+<p>Example: <code>jj new --insert-before C</code> creates a new change between <code>C</code> and
+ its parents:</p>
 <div class="highlight"><pre><span></span><code>                   C
                    |
       C     =&gt;     @
      / \          / \
     A   B        A   B
 </code></pre></div>
-<p><code>--after</code> and <code>--before</code> can be combined.</p>
-<p>Example: <code>jj new --after A --before D</code>:</p>
+<p><code>--insert-after</code> and <code>--insert-before</code> can be combined.</p>
+<p>Example: <code>jj new --insert-after A --insert-before D</code>:</p>
 <div class="highlight"><pre><span></span><code>    D            D
     |           / \
     C          |   C
@@ -8891,7 +8892,8 @@ output of the first tool.</p>
     |           \ /
     A            A
 </code></pre></div>
-<p>Similar to <code>--after</code>, you can specify <code>--before</code> multiple times.</p>
+<p>Similar to <code>--insert-after</code>, you can specify <code>--insert-before</code> multiple
+ times.</p>
 </li>
 </ul>
 <h2 id="jj-next"><code>jj next</code><a class="headerlink" href="#jj-next" title="Permanent link">&para;</a></h2>
@@ -9465,9 +9467,9 @@ J           J
 </ul>
 <h2 id="jj-restore"><code>jj restore</code><a class="headerlink" href="#jj-restore" title="Permanent link">&para;</a></h2>
 <p>Restore paths from another revision</p>
-<p>That means that the paths get the same content in the destination (<code>--to</code>) as they had in the source (<code>--from</code>). This is typically used for undoing changes to some paths in the working copy (<code>jj restore &lt;paths&gt;</code>).</p>
-<p>If only one of <code>--from</code> or <code>--to</code> is specified, the other one defaults to the working copy.</p>
-<p>When neither <code>--from</code> nor <code>--to</code> is specified, the command restores into the working copy from its parent(s). <code>jj restore</code> without arguments is similar to <code>jj abandon</code>, except that it leaves an empty revision with its description and other metadata preserved.</p>
+<p>That means that the paths get the same content in the destination (<code>--into</code>) as they had in the source (<code>--from</code>). This is typically used for undoing changes to some paths in the working copy (<code>jj restore &lt;paths&gt;</code>).</p>
+<p>If only one of <code>--from</code> or <code>--into</code> is specified, the other one defaults to the working copy.</p>
+<p>When neither <code>--from</code> nor <code>--into</code> is specified, the command restores into the working copy from its parent(s). <code>jj restore</code> without arguments is similar to <code>jj abandon</code>, except that it leaves an empty revision with its description and other metadata preserved.</p>
 <p>See <code>jj diffedit</code> if you'd like to restore portions of files rather than entire files.</p>
 <p><strong>Usage:</strong> <code>jj restore [OPTIONS] [FILESETS]...</code></p>
 <h6 id="arguments_48"><strong>Arguments:</strong><a class="headerlink" href="#arguments_48" title="Permanent link">&para;</a></h6>
