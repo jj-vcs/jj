@@ -202,7 +202,7 @@ pub fn cmd_gerrit_upload(
     // jj split / jj squash respectively.
     // If a user doesn't like this behavior, they can add the following to
     // their Cargo.toml.
-    // commit_trailers = 'if(!trailers.contains_key("Change-Id"),
+    // revision_trailers = 'if(!trailers.contains_key("Change-Id"),
     // format_gerrit_change_id_trailer(self))'
     let mut tx = workspace_command.start_transaction();
     let base_repo = tx.base_repo();
