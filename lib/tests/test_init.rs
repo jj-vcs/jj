@@ -22,6 +22,7 @@ use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::Repo as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::Workspace;
+use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
@@ -202,7 +203,7 @@ fn test_init_load_non_utf8_path() {
     .unwrap();
 
     // Just test that we can write a commit to the store
-    let repo = workspace.repo_loader().load_at_head().unwrap();
+    let repo = workspace.repo_loader().load_at_head().block_on().unwrap();
     let mut tx = repo.start_transaction();
     write_random_commit(tx.repo_mut());
 }

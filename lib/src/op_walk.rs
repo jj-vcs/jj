@@ -91,42 +91,43 @@ pub enum OpsetResolutionError {
 }
 
 /// Resolves operation set expression without loading a repo.
-pub fn resolve_op_for_load(
+pub async fn resolve_op_for_load(
     repo_loader: &RepoLoader,
     op_str: &str,
 ) -> Result<Operation, OpsetEvaluationError> {
     let op_store = repo_loader.op_store();
     let op_heads_store = repo_loader.op_heads_store().as_ref();
-    let get_current_op = || {
-        op_heads_store::resolve_op_heads(op_heads_store, op_store, |op_heads| {
+    let get_current_op = async || {
+        op_heads_store::resolve_op_heads(op_heads_store, op_store, async |op_heads| {
             Err(OpsetResolutionError::MultipleOperations {
                 expr: "@".to_owned(),
                 candidates: op_heads.iter().map(|op| op.id().clone()).collect(),
             }
             .into())
         })
+        .await
     };
-    let get_head_ops = || get_current_head_ops(op_store, op_heads_store);
-    resolve_single_op(op_store, get_current_op, get_head_ops, op_str)
+    let get_head_ops = async || get_current_head_ops(op_store, op_heads_store).await;
+    resolve_single_op(op_store, get_current_op, get_head_ops, op_str).await
 }
 
 /// Resolves operation set expression against the loaded repo.
 ///
 /// The "@" symbol will be resolved to the operation the repo was loaded at.
-pub fn resolve_op_with_repo(
+pub async fn resolve_op_with_repo(
     repo: &ReadonlyRepo,
     op_str: &str,
 ) -> Result<Operation, OpsetEvaluationError> {
-    resolve_op_at(repo.op_store(), slice::from_ref(repo.operation()), op_str)
+    resolve_op_at(repo.op_store(), slice::from_ref(repo.operation()), op_str).await
 }
 
 /// Resolves operation set expression at the given head operations.
-pub fn resolve_op_at(
+pub async fn resolve_op_at(
     op_store: &Arc<dyn OpStore>,
     head_ops: &[Operation],
     op_str: &str,
 ) -> Result<Operation, OpsetEvaluationError> {
-    let get_current_op = || match head_ops {
+    let get_current_op = async || match head_ops {
         [head_op] => Ok(head_op.clone()),
         [] => Err(OpsetResolutionError::EmptyOperations("@".to_owned()).into()),
         _ => Err(OpsetResolutionError::MultipleOperations {
@@ -135,29 +136,34 @@ pub fn resolve_op_at(
         }
         .into()),
     };
-    let get_head_ops = || Ok(head_ops.to_vec());
-    resolve_single_op(op_store, get_current_op, get_head_ops, op_str)
+    let get_head_ops = async || Ok(head_ops.to_vec());
+    resolve_single_op(op_store, get_current_op, get_head_ops, op_str).await
 }
 
 /// Resolves operation set expression with the given "@" symbol resolution
 /// callbacks.
-fn resolve_single_op(
+async fn resolve_single_op(
     op_store: &Arc<dyn OpStore>,
-    get_current_op: impl FnOnce() -> Result<Operation, OpsetEvaluationError>,
-    get_head_ops: impl FnOnce() -> Result<Vec<Operation>, OpsetEvaluationError>,
+    get_current_op: impl AsyncFnOnce() -> Result<Operation, OpsetEvaluationError>,
+    get_head_ops: impl AsyncFnOnce() -> Result<Vec<Operation>, OpsetEvaluationError>,
     op_str: &str,
 ) -> Result<Operation, OpsetEvaluationError> {
     let op_symbol = op_str.trim_end_matches(['-', '+']);
     let op_postfix = &op_str[op_symbol.len()..];
-    let head_ops = op_postfix.contains('+').then(get_head_ops).transpose()?;
+
+    let head_ops: Vec<Operation> = if op_postfix.contains('+') {
+        get_head_ops().await?
+    } else {
+        vec![]
+    };
     let mut operation = match op_symbol {
-        "@" => get_current_op(),
+        "@" => get_current_op().await,
         s => resolve_single_op_from_store(op_store, s),
     }?;
     for (i, c) in op_postfix.chars().enumerate() {
         let mut neighbor_ops = match c {
             '-' => operation.parents().try_collect()?,
-            '+' => find_child_ops(head_ops.as_ref().unwrap(), operation.id()).block_on()?,
+            '+' => find_child_ops(head_ops.as_ref(), operation.id()).await?,
             _ => unreachable!(),
         };
         operation = match neighbor_ops.len() {
@@ -207,13 +213,13 @@ fn resolve_single_op_from_store(
 
 /// Loads the current head operations. The returned operations may contain
 /// redundant ones which are ancestors of the other heads.
-pub fn get_current_head_ops(
+pub async fn get_current_head_ops(
     op_store: &Arc<dyn OpStore>,
     op_heads_store: &dyn OpHeadsStore,
 ) -> Result<Vec<Operation>, OpsetEvaluationError> {
     let mut head_ops: Vec<_> = op_heads_store
         .get_op_heads()
-        .block_on()?
+        .await?
         .into_iter()
         .map(|id| -> OpStoreResult<Operation> {
             let data = op_store.read_operation(&id).block_on()?;

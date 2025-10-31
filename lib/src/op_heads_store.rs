@@ -85,10 +85,10 @@ impl dyn OpHeadsStore {
 // lock.
 //
 // This routine is defined outside the trait because it must support generics.
-pub fn resolve_op_heads<E>(
+pub async fn resolve_op_heads<E>(
     op_heads_store: &dyn OpHeadsStore,
     op_store: &Arc<dyn OpStore>,
-    resolver: impl FnOnce(Vec<Operation>) -> Result<Operation, E>,
+    resolver: impl AsyncFnOnce(Vec<Operation>) -> Result<Operation, E>,
 ) -> Result<Operation, E>
 where
     E: From<OpHeadResolutionError> + From<OpHeadsStoreError> + From<OpStoreError>,
@@ -157,7 +157,7 @@ where
     }
 
     op_heads.sort_by_key(|op| op.metadata().time.end.timestamp);
-    let new_op = resolver(op_heads)?;
+    let new_op = resolver(op_heads).await?;
     let mut old_op_heads = ancestor_op_heads;
     old_op_heads.extend_from_slice(new_op.parent_ids());
     op_heads_store

@@ -109,7 +109,7 @@ Make sure they're ignored, then try again.",
             locked_ws.locked_wc().reset(&new_commit).block_on()?;
         }
     }
-    let num_rebased = tx.repo_mut().rebase_descendants()?;
+    let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
     if num_rebased > 0 {
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
     }

@@ -182,7 +182,8 @@ pub(crate) fn cmd_revert(
             num_rebased += 1;
             rewriter.rebase().await?.write()?;
             Ok(())
-        })?;
+        })
+        .block_on()?;
 
     if let Some(mut formatter) = ui.status_formatter() {
         writeln!(

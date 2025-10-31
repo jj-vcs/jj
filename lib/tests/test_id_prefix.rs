@@ -32,6 +32,7 @@ use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
+use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 
@@ -455,7 +456,7 @@ fn test_id_prefix_hidden() {
 
     let hidden_commit = &commits[8];
     tx.repo_mut().record_abandoned_commit(hidden_commit);
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
 
     let prefix = |x: &str| HexPrefix::try_from_hex(x).unwrap();

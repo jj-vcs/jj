@@ -260,7 +260,7 @@ impl ReadonlyRepo {
             submodule_store,
         };
 
-        let root_operation = loader.root_operation();
+        let root_operation = loader.root_operation().block_on();
         let root_view = root_operation.view().expect("failed to read root view");
         assert!(!root_view.heads().is_empty());
         let index = loader
@@ -324,8 +324,8 @@ impl ReadonlyRepo {
         Transaction::new(mut_repo, self.settings())
     }
 
-    pub fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at_head()
+    pub async fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
+        self.loader().load_at_head().await
     }
 
     #[instrument]
@@ -749,12 +749,13 @@ impl RepoLoader {
         &self.submodule_store
     }
 
-    pub fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+    pub async fn load_at_head(&self) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
-            |op_heads| self.resolve_op_heads(op_heads),
-        )?;
+            async |op_heads| self.resolve_op_heads(op_heads).await,
+        )
+        .await?;
         let view = op.view()?;
         self.finish_load(op, view)
     }
@@ -785,20 +786,21 @@ impl RepoLoader {
     // load_operation() will be moved there.
 
     /// Returns the root operation.
-    pub fn root_operation(&self) -> Operation {
+    pub async fn root_operation(&self) -> Operation {
         self.load_operation(self.op_store.root_operation_id())
+            .await
             .expect("failed to read root operation")
     }
 
     /// Loads the specified operation from the operation store.
-    pub fn load_operation(&self, id: &OperationId) -> OpStoreResult<Operation> {
-        let data = self.op_store.read_operation(id).block_on()?;
+    pub async fn load_operation(&self, id: &OperationId) -> OpStoreResult<Operation> {
+        let data = self.op_store.read_operation(id).await?;
         Ok(Operation::new(self.op_store.clone(), id.clone(), data))
     }
 
     /// Merges the given `operations` into a single operation. Returns the root
     /// operation if the `operations` is empty.
-    pub fn merge_operations(
+    pub async fn merge_operations(
         &self,
         operations: Vec<Operation>,
         tx_description: Option<&str>,
@@ -806,14 +808,14 @@ impl RepoLoader {
         let num_operations = operations.len();
         let mut operations = operations.into_iter();
         let Some(base_op) = operations.next() else {
-            return Ok(self.root_operation());
+            return Ok(self.root_operation().await);
         };
         let final_op = if num_operations > 1 {
             let base_repo = self.load_at(&base_op)?;
             let mut tx = base_repo.start_transaction();
             for other_op in operations {
                 tx.merge_operation(other_op)?;
-                tx.repo_mut().rebase_descendants()?;
+                tx.repo_mut().rebase_descendants().await?;
             }
             let tx_description = tx_description.map_or_else(
                 || format!("merge {num_operations} operations"),
@@ -828,9 +830,13 @@ impl RepoLoader {
         Ok(final_op)
     }
 
-    fn resolve_op_heads(&self, op_heads: Vec<Operation>) -> Result<Operation, RepoLoaderError> {
+    async fn resolve_op_heads(
+        &self,
+        op_heads: Vec<Operation>,
+    ) -> Result<Operation, RepoLoaderError> {
         assert!(!op_heads.is_empty());
         self.merge_operations(op_heads, Some("reconcile divergent operations"))
+            .await
     }
 
     fn finish_load(
@@ -1084,7 +1090,7 @@ impl MutableRepo {
     /// Fully resolves transitive replacements in `parent_mapping`.
     ///
     /// Returns an error if `parent_mapping` contains cycles
-    fn resolve_rewrite_mapping_with(
+    async fn resolve_rewrite_mapping_with(
         &self,
         mut predicate: impl FnMut(&Rewrite) -> bool,
     ) -> BackendResult<HashMap<CommitId, Vec<CommitId>>> {
@@ -1101,7 +1107,7 @@ impl MutableRepo {
                 )
             },
         )
-        .block_on()?;
+        .await?;
         let mut new_mapping: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
         for old_id in sorted_ids {
             let Some(rewrite) = self.parent_mapping.get(old_id).filter(|&v| predicate(v)) else {
@@ -1123,22 +1129,22 @@ impl MutableRepo {
 
     /// Updates bookmarks, working copies, and anonymous heads after rewriting
     /// and/or abandoning commits.
-    pub fn update_rewritten_references(
+    pub async fn update_rewritten_references(
         &mut self,
         options: &RewriteRefsOptions,
     ) -> BackendResult<()> {
-        self.update_all_references(options)?;
+        self.update_all_references(options).await?;
         self.update_heads()
             .map_err(|err| err.into_backend_error())?;
         Ok(())
     }
 
-    fn update_all_references(&mut self, options: &RewriteRefsOptions) -> BackendResult<()> {
-        let rewrite_mapping = self.resolve_rewrite_mapping_with(|_| true)?;
+    async fn update_all_references(&mut self, options: &RewriteRefsOptions) -> BackendResult<()> {
+        let rewrite_mapping = self.resolve_rewrite_mapping_with(|_| true).await?;
         self.update_local_bookmarks(&rewrite_mapping, options)
             // TODO: indexing error shouldn't be a "BackendError"
             .map_err(|err| BackendError::Other(err.into()))?;
-        self.update_wc_commits(&rewrite_mapping)?;
+        self.update_wc_commits(&rewrite_mapping).await?;
         Ok(())
     }
 
@@ -1177,7 +1183,7 @@ impl MutableRepo {
         Ok(())
     }
 
-    fn update_wc_commits(
+    async fn update_wc_commits(
         &mut self,
         rewrite_mapping: &HashMap<CommitId, Vec<CommitId>>,
     ) -> BackendResult<()> {
@@ -1206,7 +1212,7 @@ impl MutableRepo {
                     .iter()
                     .map(|id| self.store().get_commit(id))
                     .try_collect()?;
-                let merged_parents_tree = merge_commit_trees(self, &new_commits).block_on()?;
+                let merged_parents_tree = merge_commit_trees(self, &new_commits).await?;
                 let commit = self
                     .new_commit(new_commit_ids.clone(), merged_parents_tree.id().clone())
                     .write()?;
@@ -1262,7 +1268,7 @@ impl MutableRepo {
 
     /// Order a set of commits in an order they should be rebased in. The result
     /// is in reverse order so the next value can be removed from the end.
-    fn order_commits_for_rebase(
+    async fn order_commits_for_rebase(
         &self,
         to_visit: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
@@ -1303,7 +1309,7 @@ impl MutableRepo {
             },
             |_| panic!("graph has cycle"),
         )
-        .block_on()
+        .await
     }
 
     /// Rewrite descendants of the given roots.
@@ -1317,13 +1323,14 @@ impl MutableRepo {
     /// adds new descendants, then the callback will not be called for those.
     /// Similarly, if the callback rewrites unrelated commits, then the callback
     /// will not be called for descendants of those commits.
-    pub fn transform_descendants(
+    pub async fn transform_descendants(
         &mut self,
         roots: Vec<CommitId>,
         callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
         let options = RewriteRefsOptions::default();
         self.transform_descendants_with_options(roots, &HashMap::new(), &options, callback)
+            .await
     }
 
     /// Rewrite descendants of the given roots with options.
@@ -1333,7 +1340,7 @@ impl MutableRepo {
     /// parents.
     ///
     /// See [`Self::transform_descendants()`] for details.
-    pub fn transform_descendants_with_options(
+    pub async fn transform_descendants_with_options(
         &mut self,
         roots: Vec<CommitId>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
@@ -1342,6 +1349,7 @@ impl MutableRepo {
     ) -> BackendResult<()> {
         let descendants = self.find_descendants_for_rebase(roots)?;
         self.transform_commits(descendants, new_parents_map, options, callback)
+            .await
     }
 
     /// Rewrite the given commits in reverse topological order.
@@ -1351,23 +1359,25 @@ impl MutableRepo {
     /// This function is similar to
     /// [`Self::transform_descendants_with_options()`], but only rewrites the
     /// `commits` provided, and does not rewrite their descendants.
-    pub fn transform_commits(
+    pub async fn transform_commits(
         &mut self,
         commits: Vec<Commit>,
         new_parents_map: &HashMap<CommitId, Vec<CommitId>>,
         options: &RewriteRefsOptions,
         mut callback: impl AsyncFnMut(CommitRewriter) -> BackendResult<()>,
     ) -> BackendResult<()> {
-        let mut to_visit = self.order_commits_for_rebase(commits, new_parents_map)?;
+        let mut to_visit = self
+            .order_commits_for_rebase(commits, new_parents_map)
+            .await?;
         while let Some(old_commit) = to_visit.pop() {
             let parent_ids = new_parents_map
                 .get(old_commit.id())
                 .map_or(old_commit.parent_ids(), |parent_ids| parent_ids);
             let new_parent_ids = self.new_parents(parent_ids);
             let rewriter = CommitRewriter::new(self, old_commit, new_parent_ids);
-            callback(rewriter).block_on()?;
+            callback(rewriter).await?;
         }
-        self.update_rewritten_references(options)?;
+        self.update_rewritten_references(options).await?;
         // Since we didn't necessarily visit all descendants of rewritten commits (e.g.
         // if they were rewritten in the callback), there can still be commits left to
         // rebase, so we don't clear `parent_mapping` here.
@@ -1395,7 +1405,7 @@ impl MutableRepo {
     ///
     /// The `progress` callback will be invoked for each rebase operation with
     /// `(old_commit, rebased_commit)` as arguments.
-    pub fn rebase_descendants_with_options(
+    pub async fn rebase_descendants_with_options(
         &mut self,
         options: &RebaseOptions,
         mut progress: impl FnMut(Commit, RebasedCommit),
@@ -1413,7 +1423,8 @@ impl MutableRepo {
                 }
                 Ok(())
             },
-        )?;
+        )
+        .await?;
         self.parent_mapping.clear();
         Ok(())
     }
@@ -1427,12 +1438,13 @@ impl MutableRepo {
     /// All rebased descendant commits will be preserved even if they were
     /// emptied following the rebase operation. To customize the rebase
     /// behavior, use [`MutableRepo::rebase_descendants_with_options`].
-    pub fn rebase_descendants(&mut self) -> BackendResult<usize> {
+    pub async fn rebase_descendants(&mut self) -> BackendResult<usize> {
         let options = RebaseOptions::default();
         let mut num_rebased = 0;
         self.rebase_descendants_with_options(&options, |_old_commit, _rebased_commit| {
             num_rebased += 1;
-        })?;
+        })
+        .await?;
         Ok(num_rebased)
     }
 
@@ -1442,7 +1454,7 @@ impl MutableRepo {
     /// be recursively reparented onto the new version of their parents.
     /// The content of those descendants will remain untouched.
     /// Returns the number of reparented descendants.
-    pub fn reparent_descendants(&mut self) -> BackendResult<usize> {
+    pub async fn reparent_descendants(&mut self) -> BackendResult<usize> {
         let roots = self.parent_mapping.keys().cloned().collect_vec();
         let mut num_reparented = 0;
         self.transform_descendants(roots, async |rewriter| {
@@ -1452,7 +1464,8 @@ impl MutableRepo {
                 num_reparented += 1;
             }
             Ok(())
-        })?;
+        })
+        .await?;
         self.parent_mapping.clear();
         Ok(num_reparented)
     }

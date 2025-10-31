@@ -34,6 +34,7 @@ use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RebasedCommit;
 use jj_lib::settings::UserSettings;
+use pollster::FutureExt as _;
 use proptest::prelude::*;
 use testutils::TestRepo;
 
@@ -66,6 +67,7 @@ fn rebase_descendants(repo: &mut MutableRepo) -> Vec<Commit> {
         RebasedCommit::Rewritten(commit) => commits.push(commit),
         RebasedCommit::Abandoned { .. } => {}
     })
+    .block_on()
     .unwrap();
     commits
 }

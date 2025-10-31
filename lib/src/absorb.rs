@@ -329,7 +329,8 @@ pub fn absorb_hunks(
             .write()?;
         rewritten_destinations.push(new_commit);
         Ok(())
-    })?;
+    })
+    .block_on()?;
     Ok(AbsorbStats {
         rewritten_source,
         rewritten_destinations,

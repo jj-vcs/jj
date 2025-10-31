@@ -345,7 +345,8 @@ fn move_first_commit(
             let new_commit = rewriter.rebase().await?.write()?;
             rewritten_commits.insert(old_commit_id, new_commit.id().clone());
             Ok(())
-        })?;
+        })
+        .block_on()?;
 
     let new_parent_ids: Vec<_> = new_parent_ids
         .iter()
@@ -371,7 +372,8 @@ fn move_first_commit(
             },
             simplify_ancestor_merge: false,
         },
-    )?;
+    )
+    .block_on()?;
 
     // 1 for the transformation of the original commit to the second commit
     // that was inserted in rewritten_commits
@@ -412,9 +414,8 @@ fn rewrite_descendants(
             .set_rewritten_commit(target.commit.id().clone(), second_commit.id().clone());
     }
     let mut num_rebased = 0;
-    tx.repo_mut().transform_descendants(
-        vec![target.commit.id().clone()],
-        async |mut rewriter| {
+    tx.repo_mut()
+        .transform_descendants(vec![target.commit.id().clone()], async |mut rewriter| {
             num_rebased += 1;
             if parallel && legacy_bookmark_behavior {
                 // The old_parent is the second commit due to the rewrite above.
@@ -427,8 +428,8 @@ fn rewrite_descendants(
             }
             rewriter.rebase().await?.write()?;
             Ok(())
-        },
-    )?;
+        })
+        .block_on()?;
     // Move the working copy commit (@) to the second commit for any workspaces
     // where the target commit is the working copy commit.
     for (name, working_copy_commit) in tx.base_repo().clone().view().wc_commit_ids() {

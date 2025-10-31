@@ -293,7 +293,8 @@ pub(crate) fn cmd_squash(
                 rewritten.insert(old_commit_id, new_commit);
                 num_rebased += 1;
                 Ok(())
-            })?;
+            })
+            .block_on()?;
         for source in &mut *sources {
             if let Some(rewritten_source) = rewritten.remove(source.id()) {
                 *source = rewritten_source;
@@ -318,7 +319,9 @@ pub(crate) fn cmd_squash(
         &source_commits,
         &destination,
         args.keep_emptied,
-    )? {
+    )
+    .block_on()?
+    {
         let mut commit_builder = squashed.commit_builder.detach();
         let new_description = match description {
             SquashedDescription::Exact(description) => {
@@ -376,7 +379,7 @@ pub(crate) fn cmd_squash(
             );
         }
         let commit = commit_builder.write(tx.repo_mut())?;
-        let num_rebased = tx.repo_mut().rebase_descendants()?;
+        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
         if let Some(mut formatter) = ui.status_formatter() {
             if insert_destination_commit {
                 write!(formatter, "Created new commit ")?;
