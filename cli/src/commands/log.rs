@@ -116,6 +116,9 @@ pub(crate) struct LogArgs {
     /// Show patch
     #[arg(long, short = 'p')]
     patch: bool,
+    /// Print the number of commits instead of showing them
+    #[arg(long)]
+    count: bool,
     #[command(flatten)]
     diff_format: DiffFormatArgs,
 }
@@ -149,12 +152,33 @@ pub(crate) fn cmd_log(
         }
         expression
     };
+
+    let revset = revset_expression.evaluate()?;
+
+    if args.count {
+        let count = if args.limit.is_none() {
+            let (lower, upper) = revset.count_estimate()?;
+            if upper == Some(lower) {
+                lower
+            } else {
+                revset.iter().process_results(|iter| iter.count())?
+            }
+        } else {
+            revset
+                .iter()
+                .take(args.limit.unwrap_or(usize::MAX))
+                .process_results(|iter| iter.count())?
+        };
+        let mut formatter = ui.stdout_formatter();
+        writeln!(formatter, "{count}")?;
+        return Ok(());
+    }
+
     let prio_revset = settings.get_string("revsets.log-graph-prioritize")?;
     let prio_revset = workspace_command.parse_revset(ui, &RevisionArg::from(prio_revset))?;
 
     let repo = workspace_command.repo();
     let matcher = fileset_expression.to_matcher();
-    let revset = revset_expression.evaluate()?;
 
     let store = repo.store();
     let diff_renderer = workspace_command.diff_renderer_for_log(&args.diff_format, args.patch)?;
