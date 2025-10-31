@@ -41,6 +41,8 @@ fn main() {
         let parts = command.split(' ').collect_vec();
         match parts.as_slice() {
             [""] => {}
+            ["abort"] => exit(127),
+            ["skip"] => exit(125),
             ["fail"] => exit(1),
             ["fail-if-target-is", bad_target_commit] => {
                 if commit_to_test == *bad_target_commit {
