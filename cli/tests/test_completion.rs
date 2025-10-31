@@ -1105,6 +1105,7 @@ fn test_config() {
     let output = test_env.complete_fish(["log", "--config", "ui.conflict-marker-style="]);
     insta::assert_snapshot!(output, @r"
     ui.conflict-marker-style=diff
+    ui.conflict-marker-style=diff-experimental
     ui.conflict-marker-style=snapshot
     ui.conflict-marker-style=git
     [EOF]

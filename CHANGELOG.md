@@ -85,6 +85,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Revsets now support logical operators in string patterns.
 
+* New experimental conflict marker style which is similar to `"diff"`, but
+  always uses the first side as the snapshot. It can be enabled using
+  `ui.conflict-marker-style = "diff-experimental"`. This may become the default
+  in a future version depending on feedback. [#7917](https://github.com/jj-vcs/jj/issues/7917)
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
