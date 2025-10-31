@@ -14,7 +14,6 @@
 
 #![expect(missing_docs)]
 
-use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
@@ -239,10 +238,6 @@ fn prefix_tree_to_visit_sets(tree: &RepoPathTree<PrefixNodeKind>) -> Visit {
 }
 
 /// Matches file paths with glob patterns.
-///
-/// Patterns are provided as `(dir, pattern)` pairs, where `dir` should be the
-/// longest directory path that contains no glob meta characters, and `pattern`
-/// will be evaluated relative to `dir`.
 #[derive(Clone, Debug)]
 pub struct GlobsMatcher {
     // TODO: use Option<RegexSet> instead of Vec<Regex>?
@@ -250,20 +245,11 @@ pub struct GlobsMatcher {
 }
 
 impl GlobsMatcher {
-    pub fn new<D: AsRef<RepoPath>, P: Borrow<Glob>>(
-        dir_patterns: impl IntoIterator<Item = (D, P)>,
-    ) -> Self {
-        let mut tree: RepoPathTree<Vec<regex::bytes::Regex>> = Default::default();
-        for (dir, pattern) in dir_patterns {
-            // Based on new_regex() in globset. We don't use GlobMatcher because
-            // RepoPath separator should be "/" on all platforms.
-            let regex = regex::bytes::RegexBuilder::new(pattern.borrow().regex())
-                .dot_matches_new_line(true)
-                .build()
-                .expect("glob regex should be valid");
-            tree.add(dir.as_ref()).value.push(regex);
+    /// Returns new matcher builder.
+    pub fn builder<'a>() -> GlobsMatcherBuilder<'a> {
+        GlobsMatcherBuilder {
+            dir_patterns: vec![],
         }
-        Self { tree }
     }
 }
 
@@ -295,6 +281,43 @@ impl Matcher for GlobsMatcher {
             }
         }
         Visit::Nothing
+    }
+}
+
+/// Constructs [`GlobsMatcher`] from patterns.
+#[derive(Clone, Debug)]
+pub struct GlobsMatcherBuilder<'a> {
+    dir_patterns: Vec<(&'a RepoPath, &'a Glob)>,
+}
+
+impl<'a> GlobsMatcherBuilder<'a> {
+    /// Returns true if no patterns have been added yet.
+    pub fn is_empty(&self) -> bool {
+        self.dir_patterns.is_empty()
+    }
+
+    /// Adds `pattern` that should be evaluated relative to `dir`.
+    ///
+    /// The `dir` should be the longest directory path that contains no glob
+    /// meta characters.
+    pub fn add(&mut self, dir: &'a RepoPath, pattern: &'a Glob) {
+        self.dir_patterns.push((dir, pattern));
+    }
+
+    /// Compiles matcher.
+    pub fn build(self) -> GlobsMatcher {
+        let Self { dir_patterns } = self;
+        let mut tree: RepoPathTree<Vec<regex::bytes::Regex>> = Default::default();
+        for (dir, pattern) in dir_patterns {
+            // Based on new_regex() in globset. We don't use GlobMatcher because
+            // RepoPath separator should be "/" on all platforms.
+            let regex = regex::bytes::RegexBuilder::new(pattern.regex())
+                .dot_matches_new_line(true)
+                .build()
+                .expect("glob regex should be valid");
+            tree.add(dir).value.push(regex);
+        }
+        GlobsMatcher { tree }
     }
 }
 
@@ -527,6 +550,14 @@ mod tests {
         parse_file_glob(s, icase).unwrap()
     }
 
+    fn new_file_globs_matcher(dir_patterns: &[(&RepoPath, Glob)]) -> GlobsMatcher {
+        let mut builder = GlobsMatcher::builder();
+        for (dir, pattern) in dir_patterns {
+            builder.add(dir, pattern);
+        }
+        builder.build()
+    }
+
     #[test]
     fn test_nothing_matcher() {
         let m = NothingMatcher;
@@ -676,7 +707,7 @@ mod tests {
 
     #[test]
     fn test_file_globs_matcher_rooted() {
-        let m = GlobsMatcher::new([(RepoPath::root(), glob("*.rs"))]);
+        let m = new_file_globs_matcher(&[(RepoPath::root(), glob("*.rs"))]);
         assert!(!m.matches(repo_path("foo")));
         assert!(m.matches(repo_path("foo.rs")));
         assert!(m.matches(repo_path("foo\n.rs"))); // "*" matches newline
@@ -692,7 +723,7 @@ mod tests {
         );
 
         // Multiple patterns at the same directory
-        let m = GlobsMatcher::new([
+        let m = new_file_globs_matcher(&[
             (RepoPath::root(), glob("foo?")),
             (RepoPath::root(), glob("**/*.rs")),
         ]);
@@ -728,7 +759,7 @@ mod tests {
 
     #[test]
     fn test_file_globs_matcher_nested() {
-        let m = GlobsMatcher::new([
+        let m = new_file_globs_matcher(&[
             (repo_path("foo"), glob("**/*.a")),
             (repo_path("foo/bar"), glob("*.b")),
             (repo_path("baz"), glob("?*")),
@@ -787,7 +818,7 @@ mod tests {
     fn test_file_globs_matcher_wildcard_any() {
         // "*" could match the root path, but it doesn't matter since the root
         // isn't a valid file path.
-        let m = GlobsMatcher::new([(RepoPath::root(), glob("*"))]);
+        let m = new_file_globs_matcher(&[(RepoPath::root(), glob("*"))]);
         assert!(!m.matches(RepoPath::root())); // doesn't matter
         assert!(m.matches(repo_path("x")));
         assert!(m.matches(repo_path("x.rs")));
@@ -801,7 +832,7 @@ mod tests {
         );
 
         // "foo/*" shouldn't match "foo"
-        let m = GlobsMatcher::new([(repo_path("foo"), glob("*"))]);
+        let m = new_file_globs_matcher(&[(repo_path("foo"), glob("*"))]);
         assert!(!m.matches(RepoPath::root()));
         assert!(!m.matches(repo_path("foo")));
         assert!(m.matches(repo_path("foo/x")));

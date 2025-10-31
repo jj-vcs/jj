@@ -373,7 +373,7 @@ impl FilesetExpression {
 fn build_union_matcher(expressions: &[FilesetExpression]) -> Box<dyn Matcher> {
     let mut file_paths = Vec::new();
     let mut prefix_paths = Vec::new();
-    let mut file_globs = Vec::new();
+    let mut file_globs = GlobsMatcher::builder();
     let mut matchers: Vec<Option<Box<dyn Matcher>>> = Vec::new();
     for expr in expressions {
         let matcher: Box<dyn Matcher> = match expr {
@@ -384,9 +384,7 @@ fn build_union_matcher(expressions: &[FilesetExpression]) -> Box<dyn Matcher> {
                 match pattern {
                     FilePattern::FilePath(path) => file_paths.push(path),
                     FilePattern::PrefixPath(path) => prefix_paths.push(path),
-                    FilePattern::FileGlob { dir, pattern } => {
-                        file_globs.push((dir, pattern.clone()));
-                    }
+                    FilePattern::FileGlob { dir, pattern } => file_globs.add(dir, pattern),
                 }
                 continue;
             }
@@ -413,7 +411,7 @@ fn build_union_matcher(expressions: &[FilesetExpression]) -> Box<dyn Matcher> {
         matchers.push(Some(Box::new(PrefixMatcher::new(prefix_paths))));
     }
     if !file_globs.is_empty() {
-        matchers.push(Some(Box::new(GlobsMatcher::new(file_globs))));
+        matchers.push(Some(Box::new(file_globs.build())));
     }
     union_all_matchers(&mut matchers)
 }
