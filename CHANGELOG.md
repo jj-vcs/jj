@@ -56,6 +56,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Add support for `--when.workspaces` config scopes.
 
+* Add support for `--when.hostnames` config scopes. This allows configuration to
+  be conditionally applied based on the hostname set in `operation.hostname`.
+
 * `jj bisect run` accepts the command and arguments to pass to the command
   directly as positional arguments, such as
   `jj bisect --range=..main -- cargo check --all-targets`.

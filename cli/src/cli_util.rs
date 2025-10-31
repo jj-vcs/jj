@@ -3916,6 +3916,10 @@ impl<'a> CliRunner<'a> {
             process_global_args_fn(ui, &matches)?;
         }
         config_env.set_command_name(command_name(&matches));
+        // Set hostname for --when.hostnames conditional config scopes.
+        if let Ok(hostname) = raw_config.as_ref().get::<String>("operation.hostname") {
+            config_env.set_hostname(hostname);
+        }
 
         let maybe_workspace_loader = if let Some(path) = &args.global_args.repository {
             // TODO: maybe path should be canonicalized by WorkspaceLoader?
@@ -3945,6 +3949,7 @@ impl<'a> CliRunner<'a> {
             let source_str = match source {
                 ConfigSource::Default => "default-provided",
                 ConfigSource::EnvBase | ConfigSource::EnvOverrides => "environment-provided",
+                ConfigSource::Hostname => "hostname-level",
                 ConfigSource::User => "user-level",
                 ConfigSource::Repo => "repo-level",
                 ConfigSource::Workspace => "workspace-level",

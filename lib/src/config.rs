@@ -284,6 +284,8 @@ pub enum ConfigSource {
     Default,
     /// Base environment variables.
     EnvBase,
+    /// Hostname
+    Hostname,
     /// User configuration files.
     User,
     /// Repo configuration files.
@@ -301,6 +303,7 @@ impl Display for ConfigSource {
         use ConfigSource::*;
         let c = match self {
             Default => "default",
+            Hostname => "hostname",
             User => "user",
             Repo => "repo",
             Workspace => "workspace",
