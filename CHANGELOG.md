@@ -21,6 +21,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   more information, and [#3502](https://github.com/jj-vcs/jj/issues/3502) for
   motivation.
 
+* The minimum supported Rust version (MSRV) is now 1.89.
+
 ### Deprecations
 
 * The `--destination`/`-d` arguments for `jj rebase`, `jj split`, `jj revert`,

@@ -7,7 +7,7 @@
 bacon_version = "3.16.0"
 cargo_insta_version = "1.43.1"
 cargo_nextest_version = "0.9.103"
-rust_version = "1.88"
+rust_version = "1.89"
 uv_version = "0.8.13"
 
 [settings]

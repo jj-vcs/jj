@@ -7,7 +7,7 @@ members = ["cli", "lib", "lib/gen-protos", "lib/proc-macros", "lib/testutils"]
 [workspace.package]
 version = "0.35.0"
 license = "Apache-2.0"
-rust-version = "1.88" # NOTE: remember to update CI, mise.toml, contributing.md, changelog.md, and install-and-setup.md
+rust-version = "1.89" # NOTE: remember to update CI, mise.toml, contributing.md, changelog.md, and install-and-setup.md
 edition = "2024"
 readme = "README.md"
 homepage = "https://github.com/jj-vcs/jj"

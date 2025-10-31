@@ -68,7 +68,7 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
       with:
-        toolchain: 1.88
+        toolchain: 1.89
     - uses: taiki-e/install-action@44c6d64aa62cd779e873306675c7a58e86d6d532
       with:
         tool: nextest
@@ -107,7 +107,7 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
       with:
-        toolchain: 1.88
+        toolchain: 1.89
     - name: Build
       run: cargo build -p jj-cli --no-default-features --verbose
 
@@ -222,7 +222,7 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
-          toolchain: 1.88
+          toolchain: 1.89
       # NOTE: We need to run `cargo test --doc` separately from normal tests:
       # - `cargo build --all-targets` specifies: "Build all targets"
       # - `cargo test --all-targets` specifies: "Test all targets (does not include doctests)"

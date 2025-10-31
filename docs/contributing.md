@@ -150,7 +150,7 @@ recommended steps.
 One-time setup:
 
     rustup toolchain add nightly  # wanted for 'rustfmt'
-    rustup toolchain add 1.88     # also specified in Cargo.toml
+    rustup toolchain add 1.89     # also specified in Cargo.toml
     cargo install --locked bacon
     cargo install --locked cargo-insta
     cargo install --locked cargo-nextest
@@ -188,7 +188,7 @@ These are listed roughly in order of decreasing importance.
 3. Your code will be rejected if it cannot be compiled with the minimal
    supported version of Rust ("MSRV"). Currently, `jj` follows a rather
    casual MSRV policy: "The current `rustc` stable version, minus one."
-   As of this writing, that version is **1.88.0**.
+   As of this writing, that version is **1.89.0**.
 
 4. Your code needs to pass `cargo clippy`. You can also
    use `cargo +nightly clippy` if you wish to see more warnings.
