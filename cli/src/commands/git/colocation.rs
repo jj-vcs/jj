@@ -72,7 +72,7 @@ pub fn cmd_git_colocation(
 /// Check that the repository supports colocation commands
 /// which means that the repo is backed by git, is not
 /// already colocated, and is a main workspace
-fn repo_supports_git_colocation_commands(
+fn workspace_supports_git_colocation_commands(
     workspace_command: &crate::cli_util::WorkspaceCommandHelper,
 ) -> Result<(), CommandError> {
     // Check if backend is Git (will show an error otherwise)
@@ -95,14 +95,14 @@ fn cmd_git_colocation_status(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
 
-    // Make sure that the repository supports git colocation commands
-    repo_supports_git_colocation_commands(&workspace_command)?;
+    // Make sure that the workspace supports git colocation commands
+    workspace_supports_git_colocation_commands(&workspace_command)?;
 
     let is_colocated =
         is_colocated_git_workspace(workspace_command.workspace(), workspace_command.repo());
 
     if is_colocated {
-        writeln!(ui.stdout(), "Repository is currently colocated with Git.")?;
+        writeln!(ui.stdout(), "Workspace is currently colocated with Git.")?;
         writeln!(
             ui.hint_default(),
             "To disable colocation, run: `jj git colocation disable`"
@@ -110,7 +110,7 @@ fn cmd_git_colocation_status(
     } else {
         writeln!(
             ui.stdout(),
-            "Repository is currently not colocated with Git."
+            "Workspace is currently not colocated with Git."
         )?;
         writeln!(
             ui.hint_default(),
@@ -128,12 +128,12 @@ fn cmd_git_colocation_enable(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
 
-    // Make sure that the repository supports git colocation commands
-    repo_supports_git_colocation_commands(&workspace_command)?;
+    // Make sure that the workspace supports git colocation commands
+    workspace_supports_git_colocation_commands(&workspace_command)?;
 
-    // Then ensure that the repo is not already colocated before proceeding
+    // Then ensure that the workspace is not already colocated before proceeding
     if is_colocated_git_workspace(workspace_command.workspace(), workspace_command.repo()) {
-        writeln!(ui.status(), "Repository is already colocated with Git.")?;
+        writeln!(ui.status(), "Workspace is already colocated with Git.")?;
         return Ok(());
     }
 
@@ -156,7 +156,7 @@ fn cmd_git_colocation_enable(
             user_error("A .git directory already exists in the workspace root. Cannot colocate.")
         }
         _ => user_error_with_message(
-            "Failed to move Git repository from .jj/repo/store/git to repository root directory.",
+            "Failed to move Git repository from .jj/repo/store/git to workspace root directory.",
             err,
         ),
     })?;
@@ -181,7 +181,7 @@ fn cmd_git_colocation_enable(
 
     writeln!(
         ui.status(),
-        "Repository successfully converted into a colocated Jujutsu/Git repository."
+        "Workspace successfully converted into a colocated Jujutsu/Git workspace."
     )?;
 
     Ok(())
@@ -195,11 +195,11 @@ fn cmd_git_colocation_disable(
     let workspace_command = command.workspace_helper(ui)?;
 
     // Make sure that the repository supports git colocation commands
-    repo_supports_git_colocation_commands(&workspace_command)?;
+    workspace_supports_git_colocation_commands(&workspace_command)?;
 
     // Then ensure that the repo is colocated before proceeding
     if !is_colocated_git_workspace(workspace_command.workspace(), workspace_command.repo()) {
-        writeln!(ui.status(), "Repository is already not colocated with Git.")?;
+        writeln!(ui.status(), "Workspace is already not colocated with Git.")?;
         return Ok(());
     }
 
@@ -236,7 +236,7 @@ fn cmd_git_colocation_disable(
 
     writeln!(
         ui.status(),
-        "Repository successfully converted into a non-colocated Jujutsu/Git repository."
+        "Workspace successfully converted into a non-colocated Jujutsu/Git workspace."
     )?;
 
     Ok(())

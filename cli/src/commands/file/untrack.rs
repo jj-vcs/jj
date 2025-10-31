@@ -36,7 +36,7 @@ pub(crate) struct FileUntrackArgs {
     /// Paths to untrack. They must already be ignored.
     ///
     /// The paths could be ignored via a .gitignore or .git/info/exclude (in
-    /// colocated repos).
+    /// colocated workspaces).
     #[arg(
         required = true,
         value_name = "FILESETS",

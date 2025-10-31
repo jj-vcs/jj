@@ -833,7 +833,7 @@ fn test_git_init_external_but_git_dir_exists() {
     [EOF]
     ");
 
-    // Check that Git HEAD is not set because this isn't a colocated repo
+    // Check that Git HEAD is not set because this isn't a colocated workspace
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  1c1c95df80e5

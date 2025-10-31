@@ -24,8 +24,8 @@ use crate::ui::Ui;
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
 ///
-/// There is no need to run this command if you're in colocated repo because the
-/// import happens automatically there.
+/// There is no need to run this command if you're in colocated workspace
+/// because the import happens automatically there.
 #[derive(clap::Args, Clone, Debug)]
 pub struct GitImportArgs {}
 
@@ -37,7 +37,7 @@ pub fn cmd_git_import(
     let mut workspace_command = command.workspace_helper(ui)?;
     let git_settings = workspace_command.settings().git_settings()?;
     let mut tx = workspace_command.start_transaction();
-    // In non-colocated repo, Git HEAD will never be moved internally by jj.
+    // In non-colocated workspace, Git HEAD will never be moved internally by jj.
     // That's why cmd_git_export() doesn't export the HEAD ref.
     git::import_head(tx.repo_mut())?;
     let stats = git::import_refs(tx.repo_mut(), &git_settings)?;

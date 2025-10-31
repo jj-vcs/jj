@@ -81,7 +81,8 @@ pub struct GitCloneArgs {
     /// operating on the repo. The Git repository that stores most of the repo
     /// data will be hidden inside a sub-directory of the `.jj` directory.
     ///
-    /// See [colocation docs] for some minor advantages of non-colocated repos.
+    /// See [colocation docs] for some minor advantages of non-colocated
+    /// workspaces.
     ///
     /// [colocation docs]:
     ///     https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos

@@ -39,7 +39,7 @@ git_head: target?
   `git_refs["refs/remotes"]`. These two are mostly kept in sync, but there
   are two scenarios where remote-tracking branches and git refs can diverge:
   1. `jj branch forget`
-  2. `jj op revert`/`restore` in colocated repo
+  2. `jj op revert`/`restore` in colocated workspace
 * Pseudo `@git` tracking branches are stored in `git_refs["refs/heads"]`. We
   need special case to resolve `@git` branches, and their behavior is slightly
   different from the other remote-tracking branches.

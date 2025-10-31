@@ -19,7 +19,7 @@ example, `jj git push --bookmark foo` will push the state of the `foo` bookmark
 to the `foo` branch on the Git remote. Similarly, if you create a `bar` branch
 in the backing Git repo, then a subsequent `jj git import` will create a `bar`
 bookmark (reminder: that import happens automatically in
-[colocated repos][colocated-repos]).
+[colocated workspaces][colocated-workspaces]).
 
 ## Remotes and tracked bookmarks
 
@@ -232,5 +232,5 @@ command itself through an alias (as `jj b`), and for its subcommands.
 For example, `jj bookmark create BOOKMARK-NAME -r@` can be abbreviated as
 `jj b c BOOKMARK-NAME -r@`.
 
-[colocated-repos]: git-compatibility.md#colocated-jujutsugit-repos
+[colocated-workspaces]: git-compatibility.md#colocated-jujutsugit-repos
 [design]: design/tracking-branches.md

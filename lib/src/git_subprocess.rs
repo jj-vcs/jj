@@ -121,8 +121,8 @@ impl<'a> GitSubprocessContext<'a> {
             // config to be false for subprocess operations in order to avoid these
             // interactions.
             //
-            // In a colocated repo, the daemon will still get started the first time a `git`
-            // command is run manually if the gitconfigs are set up that way.
+            // In a colocated workspace, the daemon will still get started the first
+            // time a `git` command is run manually if the gitconfigs are set up that way.
             .args(["-c", "core.fsmonitor=false"])
             // Avoids an error message when fetching repos with submodules if
             // user has `submodule.recurse` configured to true in their Git
