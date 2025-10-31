@@ -13,11 +13,16 @@
 // limitations under the License.
 
 use jj_lib::config::ConfigLayer;
+use jj_lib::config::ConfigSource;
+use jj_lib::user_config::REPO_CONFIG_FILE;
+use jj_lib::user_config::WORKSPACE_CONFIG_FILE;
+use jj_lib::user_config::write_user_config;
 use tracing::instrument;
 
 use super::ConfigLevelArgs;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::command_error::internal_error;
 use crate::command_error::print_error_sources;
 use crate::ui::Ui;
 
@@ -68,7 +73,26 @@ pub fn cmd_config_edit(
                 break;
             }
         } else {
-            // config is OK
+            // config is OK. So we now record the config as having come from
+            // the user if it wasn't previously.
+            let config = command.config_env();
+            let update = |name| -> Result<(), CommandError> {
+                let secure_config = file.path().parent().unwrap().join(name);
+                if config
+                    .load_user_config("", file.path(), &secure_config)
+                    .is_err()
+                {
+                    write_user_config(&secure_config, &Default::default(), config.signing_key())
+                        .map_err(internal_error)?;
+                }
+                Ok(())
+            };
+
+            match args.level.get_source_kind() {
+                Some(ConfigSource::Repo) => update(REPO_CONFIG_FILE)?,
+                Some(ConfigSource::Workspace) => update(WORKSPACE_CONFIG_FILE)?,
+                _ => (),
+            }
             break;
         }
     }

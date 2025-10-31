@@ -57,6 +57,7 @@ fn test_init_additional_workspace() {
         &test_workspace.repo,
         &*default_working_copy_factory(),
         ws2_name.clone(),
+        None,
     )
     .unwrap();
     let wc_commit_id = repo.view().get_wc_commit_id(&ws2_name);
@@ -104,7 +105,7 @@ fn test_init_additional_workspace_non_utf8_path() {
 
     let ws1_root = test_env.root().join(OsStr::from_bytes(b"ws1_root\xe0"));
     std::fs::create_dir(&ws1_root).unwrap();
-    let (ws1, repo) = Workspace::init_simple(&settings, &ws1_root).unwrap();
+    let (ws1, repo) = Workspace::init_simple(&settings, &ws1_root, None).unwrap();
 
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws2_root = test_env.root().join(OsStr::from_bytes(b"ws2_root\xe0"));
@@ -115,6 +116,7 @@ fn test_init_additional_workspace_non_utf8_path() {
         &repo,
         &*default_working_copy_factory(),
         ws2_name.clone(),
+        None,
     )
     .unwrap();
     assert_eq!(ws2.workspace_name(), &ws2_name);

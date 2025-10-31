@@ -148,6 +148,16 @@ impl TestEnvironment {
         }
 
         if cfg!(windows) {
+            // On windows, etcetera's data_dir function attempts to use APPDATA.
+            // This prevents it from attempting to use the real APPDATA.
+            cmd.env(
+                "APPDATA",
+                self.home_dir
+                    .join("Appdata")
+                    .join("Roaming")
+                    .to_str()
+                    .unwrap(),
+            );
             // Windows uses `TEMP` to create temporary directories, which we need for some
             // tests.
             if let Ok(tmp_var) = std::env::var("TEMP") {

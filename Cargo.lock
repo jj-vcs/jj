@@ -2021,6 +2021,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
+name = "hmac"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
+dependencies = [
+ "digest",
+]
+
+[[package]]
 name = "home"
 version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2360,6 +2369,7 @@ dependencies = [
  "futures 0.3.31",
  "gix",
  "globset",
+ "hmac",
  "indexmap",
  "indoc",
  "insta",
@@ -2375,6 +2385,7 @@ dependencies = [
  "pollster",
  "proptest",
  "proptest-state-machine",
+ "rand_chacha",
  "rayon",
  "regex",
  "rpassword",
@@ -2419,6 +2430,7 @@ dependencies = [
  "gix",
  "globset",
  "hashbrown 0.16.0",
+ "hmac",
  "ignore",
  "indexmap",
  "indoc",
@@ -2446,6 +2458,7 @@ dependencies = [
  "same-file",
  "sapling-renderdag",
  "serde",
+ "sha2",
  "smallvec",
  "strsim",
  "tempfile",

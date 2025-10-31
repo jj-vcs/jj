@@ -260,6 +260,7 @@ impl TestRepo {
             ReadonlyRepo::default_op_heads_store_initializer(),
             ReadonlyRepo::default_index_store_initializer(),
             ReadonlyRepo::default_submodule_store_initializer(),
+            None,
         )
         .unwrap();
 
@@ -317,6 +318,7 @@ impl TestWorkspace {
             &workspace_root,
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
             signer,
+            None,
         )
         .unwrap();
 
