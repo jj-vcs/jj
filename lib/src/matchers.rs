@@ -240,8 +240,7 @@ fn prefix_tree_to_visit_sets(tree: &RepoPathTree<PrefixNodeKind>) -> Visit {
 /// Matches file paths with glob patterns.
 #[derive(Clone, Debug)]
 pub struct GlobsMatcher {
-    // TODO: use Option<RegexSet> instead of Vec<Regex>?
-    tree: RepoPathTree<Vec<regex::bytes::Regex>>,
+    tree: RepoPathTree<Option<regex::bytes::RegexSet>>,
 }
 
 impl GlobsMatcher {
@@ -260,15 +259,15 @@ impl Matcher for GlobsMatcher {
             .walk_to(file)
             .take_while(|(_, tail_path)| !tail_path.is_root()) // only dirs
             .any(|(sub, tail_path)| {
-                let name = tail_path.as_internal_file_string();
-                sub.value.iter().any(|pat| pat.is_match(name.as_bytes()))
+                let tail = tail_path.as_internal_file_string().as_bytes();
+                sub.value.as_ref().is_some_and(|pat| pat.is_match(tail))
             })
     }
 
     fn visit(&self, dir: &RepoPath) -> Visit {
         for (sub, tail_path) in self.tree.walk_to(dir) {
             // ancestor of 'dir' has patterns, can't narrow visit anymore
-            if !sub.value.is_empty() {
+            if sub.value.is_some() {
                 return Visit::Specific {
                     dirs: VisitDirs::All,
                     files: VisitFiles::All,
@@ -306,17 +305,23 @@ impl<'a> GlobsMatcherBuilder<'a> {
 
     /// Compiles matcher.
     pub fn build(self) -> GlobsMatcher {
-        let Self { dir_patterns } = self;
-        let mut tree: RepoPathTree<Vec<regex::bytes::Regex>> = Default::default();
-        for (dir, pattern) in dir_patterns {
-            // Based on new_regex() in globset. We don't use GlobMatcher because
+        let Self { mut dir_patterns } = self;
+        dir_patterns.sort_unstable_by_key(|&(dir, _)| dir);
+
+        let mut tree: RepoPathTree<Option<regex::bytes::RegexSet>> = Default::default();
+        for (dir, chunk) in &dir_patterns.into_iter().chunk_by(|&(dir, _)| dir) {
+            // Based on new_regex() in globset. We don't use GlobSet because
             // RepoPath separator should be "/" on all platforms.
-            let regex = regex::bytes::RegexBuilder::new(pattern.regex())
-                .dot_matches_new_line(true)
-                .build()
-                .expect("glob regex should be valid");
-            tree.add(dir).value.push(regex);
+            let regex =
+                regex::bytes::RegexSetBuilder::new(chunk.map(|(_, pattern)| pattern.regex()))
+                    .dot_matches_new_line(true)
+                    .build()
+                    .expect("glob regex should be valid");
+            let sub = tree.add(dir);
+            assert!(sub.value.is_none());
+            sub.value = Some(regex);
         }
+
         GlobsMatcher { tree }
     }
 }
@@ -725,6 +730,7 @@ mod tests {
         // Multiple patterns at the same directory
         let m = new_file_globs_matcher(&[
             (RepoPath::root(), glob("foo?")),
+            (repo_path("other"), glob("")),
             (RepoPath::root(), glob("**/*.rs")),
         ]);
         assert!(!m.matches(repo_path("foo")));

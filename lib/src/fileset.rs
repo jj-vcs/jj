@@ -1108,23 +1108,20 @@ mod tests {
 
         insta::assert_debug_snapshot!(glob_expr("", "*").to_matcher(), @r#"
         GlobsMatcher {
-            tree: [
-                Regex("(?-u)^[^/]*$"),
-            ] {},
+            tree: Some(RegexSet(["(?-u)^[^/]*$"])) {},
         }
         "#);
 
-        let expr =
-            FilesetExpression::union_all(vec![glob_expr("foo", "*"), glob_expr("foo/bar", "*")]);
+        let expr = FilesetExpression::union_all(vec![
+            glob_expr("foo", "*"),
+            glob_expr("foo/bar", "*"),
+            glob_expr("foo", "?"),
+        ]);
         insta::assert_debug_snapshot!(expr.to_matcher(), @r#"
         GlobsMatcher {
-            tree: [] {
-                "foo": [
-                    Regex("(?-u)^[^/]*$"),
-                ] {
-                    "bar": [
-                        Regex("(?-u)^[^/]*$"),
-                    ] {},
+            tree: None {
+                "foo": Some(RegexSet(["(?-u)^[^/]*$", "(?-u)^[^/]$"])) {
+                    "bar": Some(RegexSet(["(?-u)^[^/]*$"])) {},
                 },
             },
         }
