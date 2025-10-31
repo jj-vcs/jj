@@ -21,6 +21,7 @@ use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphEdgeType;
 use jj_lib::graph::TopoGroupedGraphIterator;
 use jj_lib::graph::reverse_graph;
+use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
@@ -33,6 +34,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::format_template;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
@@ -208,6 +210,9 @@ pub(crate) fn cmd_log(
                     Box::new(forward_iter)
                 }
             };
+
+            let mut explicit_paths = fileset_expression.explicit_paths().collect_vec();
+
             for node in iter {
                 let (commit_id, edges) = node?;
 
@@ -242,6 +247,9 @@ pub(crate) fn cmd_log(
                 let mut buffer = vec![];
                 let key = (commit_id, false);
                 let commit = store.get_commit(&key.0)?;
+                let tree = commit.tree()?;
+                // TODO: propagate errors
+                explicit_paths.retain(|&path| tree.path_value(path).unwrap().is_absent());
                 let within_graph =
                     with_content_format.sub_width(graph.width(&key, &graphlog_edges));
                 within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
@@ -289,6 +297,17 @@ pub(crate) fn cmd_log(
                     )?;
                 }
             }
+
+            if !explicit_paths.is_empty() {
+                let ui_paths = explicit_paths
+                    .iter()
+                    .map(|&path| workspace_command.format_file_path(path))
+                    .join(", ");
+                writeln!(
+                    ui.warning_default(),
+                    "No matching entries for paths: {ui_paths}"
+                )?;
+            }
         } else {
             let iter: Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>>> = {
                 let forward_iter = revset.iter().take(args.limit.unwrap_or(usize::MAX));
@@ -299,8 +318,15 @@ pub(crate) fn cmd_log(
                     Box::new(forward_iter)
                 }
             };
-            for commit_or_error in iter.commits(store) {
-                let commit = commit_or_error?;
+
+            let commits: Vec<Commit> = iter.commits(store).try_collect()?;
+
+            let trees: Vec<MergedTree> =
+                commits.iter().map(|commit| commit.tree()).try_collect()?;
+
+            print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, &trees)?;
+
+            for commit in commits {
                 with_content_format
                     .write(formatter, |formatter| template.format(&commit, formatter))?;
                 if let Some(renderer) = &diff_renderer {

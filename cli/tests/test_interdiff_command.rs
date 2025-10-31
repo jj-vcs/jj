@@ -126,10 +126,36 @@ fn test_interdiff_paths() {
         "right",
         "file1",
         "file2",
+        "nonexistent",
     ]);
     insta::assert_snapshot!(output, @r"
     Modified regular file file1:
        1    1: barbaz
+    Modified regular file file2:
+       1    1: barbaz
+    [EOF]
+    ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
+    [EOF]
+    ");
+
+    // Running interdiff on commits with deleted files should not show a warning.
+    let _ = work_dir.run_jj(["edit", "right"]);
+    work_dir.remove_file("file1");
+    let _ = work_dir.run_jj(["new"]);
+
+    let output = work_dir.run_jj([
+        "interdiff",
+        "--from",
+        "left",
+        "--to",
+        "right",
+        "file1",
+        "file2",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    Removed regular file file1:
+       1     : bar
     Modified regular file file2:
        1    1: barbaz
     [EOF]

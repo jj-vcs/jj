@@ -85,6 +85,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Revsets now support logical operators in string patterns.
 
+* All `jj` commands show a warning when the provided `fileset` expression 
+  doesn't match any files.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
