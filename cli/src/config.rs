@@ -376,6 +376,7 @@ pub struct ConfigEnv {
     repo_config_path: Option<ConfigPath>,
     workspace_config_path: Option<ConfigPath>,
     command: Option<String>,
+    hostname: Option<String>,
 }
 
 impl ConfigEnv {
@@ -423,11 +424,16 @@ impl ConfigEnv {
             repo_config_path: None,
             workspace_config_path: None,
             command: None,
+            hostname: None,
         }
     }
 
     pub fn set_command_name(&mut self, command: String) {
         self.command = Some(command);
+    }
+
+    pub fn set_hostname(&mut self, hostname: String) {
+        self.hostname = Some(hostname);
     }
 
     /// Returns the paths to the user-specific config files or directories.
@@ -602,6 +608,7 @@ impl ConfigEnv {
             repo_path: self.repo_path.as_deref(),
             workspace_path: self.workspace_path.as_deref(),
             command: self.command.as_deref(),
+            hostname: self.hostname.as_deref(),
         };
         jj_lib::config::resolve(config.as_ref(), &context)
     }
@@ -1852,6 +1859,7 @@ mod tests {
             repo_config_path: None,
             workspace_config_path: None,
             command: None,
+            hostname: None,
         }
     }
 }
