@@ -288,10 +288,20 @@ pub fn resolve_file_executable(merge: &Merge<Option<bool>>) -> Option<bool> {
 pub enum ConflictMarkerStyle {
     /// Style which shows a snapshot and a series of diffs to apply.
     Diff,
+    /// Similar to "diff", but always picks the first side as the snapshot. May
+    /// become the default in a future version.
+    DiffExperimental,
     /// Style which shows a snapshot for each base and side.
     Snapshot,
     /// Style which replicates Git's "diff3" style to support external tools.
     Git,
+}
+
+impl ConflictMarkerStyle {
+    /// Returns true if this style allows `%%%%%%%` conflict markers.
+    pub fn allows_diff(&self) -> bool {
+        matches!(self, Self::Diff | Self::DiffExperimental)
+    }
 }
 
 /// Options for conflict materialization.
@@ -592,6 +602,11 @@ fn materialize_jj_style_conflict(
         conflict_info,
     )?;
     let mut snapshot_written = false;
+    // The only conflict marker style which can start with a diff is "diff".
+    if conflict_marker_style != ConflictMarkerStyle::Diff {
+        write_side(0, hunk.first(), output)?;
+        snapshot_written = true;
+    }
     for (base_index, left) in hunk.removes().enumerate() {
         let add_index = if snapshot_written {
             base_index + 1
@@ -609,10 +624,11 @@ fn materialize_jj_style_conflict(
 
         let right1 = hunk.get_add(add_index).unwrap();
 
-        // For any style other than "diff", always emit sides and bases separately
-        if conflict_marker_style != ConflictMarkerStyle::Diff {
-            write_side(add_index, right1, output)?;
+        // Write the base and side separately if the conflict marker style doesn't
+        // support diffs.
+        if !conflict_marker_style.allows_diff() {
             write_base(&base_str, left, output)?;
+            write_side(add_index, right1, output)?;
             continue;
         }
 

@@ -261,6 +261,29 @@ fn test_materialize_conflict_three_sides() {
     line 5
     "
     );
+    // Test materializing "diff-experimental" conflict markers
+    insta::assert_snapshot!(
+        &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::DiffExperimental),
+        @r"
+    line 1
+    <<<<<<< Conflict 1 of 1
+    +++++++ Contents of side #1
+    line 2 a.1
+    line 3 a.2
+    line 4 base
+    %%%%%%% Changes from base #1 to side #2
+    -line 2 base
+    +line 2 b.1
+     line 3 base
+    -line 4 base
+    +line 4 b.2
+    %%%%%%% Changes from base #2 to side #3
+     line 2 base
+    +line 3 c.2
+    >>>>>>> Conflict 1 of 1 ends
+    line 5
+    "
+    );
     // Test materializing "snapshot" conflict markers
     insta::assert_snapshot!(
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Snapshot),
