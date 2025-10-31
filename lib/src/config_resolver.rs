@@ -50,6 +50,8 @@ pub struct ConfigResolutionContext<'a> {
     /// Space-separated subcommand. `jj file show ...` should result in `"file
     /// show"`.
     pub command: Option<&'a str>,
+    /// Hostname
+    pub hostname: &'a str,
 }
 
 /// Conditions to enable the parent table.
@@ -74,6 +76,8 @@ struct ScopeCondition {
     /// Platforms to match. The values are defined by `std::env::consts::FAMILY`
     /// and `std::env::consts::OS`.
     pub platforms: Option<Vec<String>>,
+    /// Hostnames to match the hostname.
+    pub hostnames: Option<Vec<String>>,
 }
 
 impl ScopeCondition {
@@ -107,6 +111,7 @@ impl ScopeCondition {
         matches_path_prefix(self.repositories.as_deref(), context.repo_path)
             && matches_path_prefix(self.workspaces.as_deref(), context.workspace_path)
             && matches_platform(self.platforms.as_deref())
+            && matches_hostname(self.hostnames.as_deref(), context.hostname)
             && matches_command(self.commands.as_deref(), context.command)
     }
 }
@@ -135,6 +140,10 @@ fn matches_platform(candidates: Option<&[String]>) -> bool {
             .iter()
             .any(|value| value == std::env::consts::FAMILY || value == std::env::consts::OS)
     })
+}
+
+fn matches_hostname(candidates: Option<&[String]>, actual: &str) -> bool {
+    candidates.is_none_or(|candidates| candidates.iter().any(|candidate| actual == candidate))
 }
 
 fn matches_command(candidates: Option<&[String]>, actual: Option<&str>) -> bool {
@@ -451,6 +460,7 @@ mod tests {
             repo_path: None,
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -458,6 +468,7 @@ mod tests {
             repo_path: Some(Path::new("/foo")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         assert!(condition.matches(&context));
     }
@@ -469,6 +480,7 @@ mod tests {
             workspaces: None,
             commands: None,
             platforms: None,
+            hostnames: None,
         };
 
         let context = ConfigResolutionContext {
@@ -476,6 +488,7 @@ mod tests {
             repo_path: None,
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -483,6 +496,7 @@ mod tests {
             repo_path: Some(Path::new("/foo")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -490,6 +504,7 @@ mod tests {
             repo_path: Some(Path::new("/fooo")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -497,6 +512,7 @@ mod tests {
             repo_path: Some(Path::new("/foo/baz")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -504,6 +520,7 @@ mod tests {
             repo_path: Some(Path::new("/bar")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         assert!(condition.matches(&context));
     }
@@ -515,6 +532,7 @@ mod tests {
             workspaces: None,
             commands: None,
             platforms: None,
+            hostnames: None,
         };
 
         let context = ConfigResolutionContext {
@@ -522,6 +540,7 @@ mod tests {
             repo_path: Some(Path::new(r"c:\foo")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
         let context = ConfigResolutionContext {
@@ -529,6 +548,7 @@ mod tests {
             repo_path: Some(Path::new(r"c:\foo\baz")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
         let context = ConfigResolutionContext {
@@ -536,6 +556,7 @@ mod tests {
             repo_path: Some(Path::new(r"d:\foo")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -543,8 +564,53 @@ mod tests {
             repo_path: Some(Path::new(r"d:/bar\baz")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
+    }
+
+    #[test]
+    fn test_condition_hostname() {
+        let condition = ScopeCondition {
+            repositories: None,
+            hostnames: Some(["host-a", "host-b"].map(String::from).into()),
+            workspaces: None,
+            commands: None,
+            platforms: None,
+        };
+
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "",
+        };
+        assert!(!condition.matches(&context));
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "host-a",
+        };
+        assert!(condition.matches(&context));
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "host-b",
+        };
+        assert!(condition.matches(&context));
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "host-c",
+        };
+        assert!(!condition.matches(&context));
     }
 
     fn new_user_layer(text: &str) -> ConfigLayer {
@@ -562,6 +628,7 @@ mod tests {
             repo_path: None,
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -600,6 +667,7 @@ mod tests {
             repo_path: None,
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 7);
@@ -640,6 +708,7 @@ mod tests {
             repo_path: None,
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -650,6 +719,7 @@ mod tests {
             repo_path: Some(Path::new("/foo/.jj/repo")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 3);
@@ -662,6 +732,7 @@ mod tests {
             repo_path: Some(Path::new("/bar/.jj/repo")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -673,11 +744,84 @@ mod tests {
             repo_path: Some(Path::new("/home/dir/baz/.jj/repo")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #1 baz'");
+    }
+
+    #[test]
+    fn test_resolve_hostname() {
+        let mut source_config = StackedConfig::empty();
+        source_config.add_layer(new_user_layer(indoc! {"
+            a = 'a #0'
+            [[--scope]]
+            --when.hostnames = ['host-a']
+            a = 'a #0.1 host-a'
+            [[--scope]]
+            --when.hostnames = ['host-a', 'host-b']
+            a = 'a #0.2 host-a|host-b'
+            [[--scope]]
+            --when.hostnames = []
+            a = 'a #0.3 none'
+        "}));
+        source_config.add_layer(new_user_layer(indoc! {"
+            --when.hostnames = ['host-c']
+            a = 'a #1 host-c'
+            [[--scope]]
+            --when.hostnames = ['host-a']  # should never be enabled
+            a = 'a #1.1 host-c&host-a'
+        "}));
+
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "",
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 1);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "host-a",
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 3);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1 host-a'");
+        insta::assert_snapshot!(resolved_config.layers()[2].data, @"a = 'a #0.2 host-a|host-b'");
+
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "host-b",
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 2);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.2 host-a|host-b'");
+
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "host-c",
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 2);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #1 host-c'");
     }
 
     #[test]
@@ -708,6 +852,7 @@ mod tests {
             repo_path: None,
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -718,6 +863,7 @@ mod tests {
             repo_path: None,
             workspace_path: Some(Path::new("/foo")),
             command: None,
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 3);
@@ -730,6 +876,7 @@ mod tests {
             repo_path: None,
             workspace_path: Some(Path::new("/bar")),
             command: None,
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -741,6 +888,7 @@ mod tests {
             repo_path: None,
             workspace_path: Some(Path::new("/home/dir/baz")),
             command: None,
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -772,6 +920,7 @@ mod tests {
             repo_path: None,
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -782,6 +931,7 @@ mod tests {
             repo_path: None,
             workspace_path: None,
             command: Some("foo"),
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 3);
@@ -794,6 +944,7 @@ mod tests {
             repo_path: None,
             workspace_path: None,
             command: Some("bar"),
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -805,6 +956,7 @@ mod tests {
             repo_path: None,
             workspace_path: None,
             command: Some("foo baz"),
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 4);
@@ -819,6 +971,7 @@ mod tests {
             repo_path: None,
             workspace_path: None,
             command: Some("fooqux"),
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -850,6 +1003,7 @@ mod tests {
             repo_path: None,
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         insta::assert_snapshot!(resolved_config.layers()[0].data, @r#"
@@ -891,6 +1045,7 @@ mod tests {
             repo_path: None,
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -902,6 +1057,7 @@ mod tests {
             repo_path: Some(Path::new("/foo")),
             workspace_path: None,
             command: Some("other"),
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -913,6 +1069,7 @@ mod tests {
             repo_path: Some(Path::new("/qux")),
             workspace_path: None,
             command: Some("ABC"),
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -924,6 +1081,7 @@ mod tests {
             repo_path: Some(Path::new("/bar")),
             workspace_path: None,
             command: Some("DEF"),
+            hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -943,6 +1101,7 @@ mod tests {
             repo_path: Some(Path::new("/foo/.jj/repo")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         assert_matches!(
             resolve(&new_config("--when.repositories = 0"), &context),
@@ -962,6 +1121,7 @@ mod tests {
             repo_path: Some(Path::new("/foo/.jj/repo")),
             workspace_path: None,
             command: None,
+            hostname: "",
         };
         assert_matches!(
             resolve(&new_config("[--scope]"), &context),

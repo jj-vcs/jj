@@ -1883,6 +1883,12 @@ email = "YOUR_DEFAULT_EMAIL@example.com"
 [--scope.user]
 email = "YOUR_OSS_EMAIL@example.org"
 
+# override ui.pager on specific machines
+[[--scope]]
+--when.hostnames = ["work-laptop", "work-desktop"]
+[--scope.ui]
+pager = "delta"
+
 # disable pagination for `jj status`, use `delta` for `jj diff` and `jj show`
 [[--scope]]
 --when.commands = ["status"]
@@ -1939,6 +1945,16 @@ wip = ["log", "-r", "work"]
   The same concerns about the path as for `--when.repositories` applies.
 
   Use `jj root` to see the workspace root directory.
+
+* `--when.hostnames`: List of hostnames to match against the `operation.hostname`
+  config setting.
+
+  Hostnames are compared case-sensitively and must match exactly.
+
+  ```toml
+  --when.hostnames = ["work-laptop"]               # matches only "work-laptop"
+  --when.hostnames = ["home-desktop", "laptop"]    # matches "home-desktop" OR "laptop"
+  ```
 
 * `--when.commands`: List of subcommands to match.
 
