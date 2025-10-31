@@ -29,8 +29,11 @@ The following patterns are supported. In all cases, we do not mention any shell
 quoting that might be necessary, and the quotes around `"path"` are optional if
 the path [has no special characters](#quoting-file-names).
 
-* `"path"` or `cwd:"path"`: Matches cwd-relative path prefix (file or files
-  under directory recursively.)
+By default, `"path"` is parsed as a `prefix-glob:` pattern, which matches
+cwd-relative path prefix.
+
+* `cwd:"path"`: Matches cwd-relative path prefix (file or files under directory
+  recursively.)
 * `file:"path"` or `cwd-file:"path"`: Matches cwd-relative file (or exact) path.
 * `glob:"pattern"` or `cwd-glob:"pattern"`: Matches file paths with cwd-relative
   Unix-style shell [wildcard `pattern`][glob]. For example, `glob:"*.c"` will

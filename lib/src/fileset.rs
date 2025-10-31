@@ -552,12 +552,12 @@ fn resolve_expression(
     match &node.kind {
         ExpressionKind::Identifier(name) => {
             let pattern =
-                FilePattern::cwd_prefix_path(path_converter, name).map_err(wrap_pattern_error)?;
+                FilePattern::cwd_prefix_glob(path_converter, name).map_err(wrap_pattern_error)?;
             Ok(FilesetExpression::pattern(pattern))
         }
         ExpressionKind::String(name) => {
             let pattern =
-                FilePattern::cwd_prefix_path(path_converter, name).map_err(wrap_pattern_error)?;
+                FilePattern::cwd_prefix_glob(path_converter, name).map_err(wrap_pattern_error)?;
             Ok(FilesetExpression::pattern(pattern))
         }
         ExpressionKind::StringPattern { kind, value } => {
@@ -673,6 +673,21 @@ mod tests {
         insta::assert_debug_snapshot!(
             parse("foo").unwrap(),
             @r#"Pattern(PrefixPath("cur/foo"))"#);
+        insta::assert_debug_snapshot!(
+            parse("*.*").unwrap(),
+            @r#"
+        Pattern(
+            PrefixGlob {
+                dir: "cur",
+                pattern: Glob {
+                    glob: "*.*",
+                    re: "(?-u)^[^/]*\\.[^/]*$",
+                    opts: _,
+                    tokens: _,
+                },
+            },
+        )
+        "#);
         insta::assert_debug_snapshot!(
             parse("cwd:.").unwrap(),
             @r#"Pattern(PrefixPath("cur"))"#);
