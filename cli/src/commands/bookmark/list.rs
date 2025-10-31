@@ -891,4 +891,19 @@ mod tests {
         chore               Test User       test.user@g.com  0             eve             test.user@g.com  0
         ");
     }
+
+    // Bookmarks are already sorted by name
+    // Test when sorting by name is not the only/last criteria
+    #[test]
+    fn test_sort_by_name_and_committer_date() {
+        insta::assert_snapshot!(
+            prepare_data_sort_and_snapshot(&[SortKey::Name, SortKey::AuthorDate]), @r"
+        Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
+        bug-fix@origin      Test User       test.user@g.com  3             Test User       test.user@g.com  0
+        bug-fix@upstream    Test User       test.user@g.com  1             Test User       test.user@g.com  0
+        chore               Test User       test.user@g.com  2             Test User       test.user@g.com  0
+        feature             Test User       test.user@g.com  1             Test User       test.user@g.com  0
+        feature@origin      -               -                -             -               -                -
+        ");
+    }
 }
