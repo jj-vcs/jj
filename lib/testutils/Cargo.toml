@@ -18,7 +18,7 @@ readme = { workspace = true }
 async-trait = { workspace = true }
 bstr = { workspace = true }
 futures = { workspace = true }
-gix = { workspace = true, features = [
+gix = { workspace = true, optional=true, features = [
     "status",
     "tree-editor",
     "worktree-mutation",
@@ -33,6 +33,10 @@ rand = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true }
 toml_edit = { workspace = true }
+
+[features]
+default = ["git"]
+git = ["dep:gix", "jj-lib/git"]
 
 [lints]
 workspace = true

@@ -118,7 +118,7 @@ jsonschema = { workspace = true }
 proptest = { workspace = true }
 proptest-state-machine = { workspace = true }
 test-case = { workspace = true }
-testutils = { workspace = true }
+testutils = { workspace = true, features = ["git"] }
 # https://github.com/rust-lang/cargo/issues/2911#issuecomment-1483256987
 jj-cli = { path = ".", features = ["test-fakes"], default-features = false }
 
