@@ -1228,6 +1228,15 @@ fn test_bookmark_track_untrack() {
     [EOF]
     ");
 
+    // Track non-existent remote bookmark
+    let output = work_dir.run_jj(["bookmark", "track", "feature3@origin"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: No such remote bookmark: feature3@origin
+    [EOF]
+    [exit status: 1]
+    ");
+
     // Track existing bookmark. Local bookmark should result in conflict.
     work_dir
         .run_jj(["bookmark", "create", "-r@", "feature2"])
