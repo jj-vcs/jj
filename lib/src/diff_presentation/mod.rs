@@ -24,6 +24,7 @@ use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
 use crate::backend::BackendResult;
+use crate::conflict_labels::ConflictLabels;
 use crate::conflicts::MaterializedFileValue;
 use crate::diff::CompareBytesExactly;
 use crate::diff::CompareBytesIgnoreAllWhitespace;
@@ -54,9 +55,9 @@ pub struct FileContent<T> {
     pub contents: T,
 }
 
-impl FileContent<Merge<BString>> {
+impl FileContent<(Merge<BString>, ConflictLabels)> {
     pub fn is_empty(&self) -> bool {
-        self.contents.as_resolved().is_some_and(|c| c.is_empty())
+        self.contents.0.as_resolved().is_some_and(|c| c.is_empty())
     }
 }
 

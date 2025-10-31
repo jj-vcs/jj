@@ -4555,7 +4555,7 @@ fn test_evaluate_expression_diff_contains_conflict(indexed: bool) {
     let commit1 = create_commit(vec![repo.store().root_commit_id().clone()], tree1.id());
     let tree2 = create_tree(&repo, &[(file_path, "0\n2\n")]);
     let tree3 = create_tree(&repo, &[(file_path, "0\n3\n")]);
-    let tree4 = tree2.merge(tree1, tree3).block_on().unwrap();
+    let tree4 = tree2.merge_unlabeled(tree1, tree3).block_on().unwrap();
     let commit2 = create_commit(vec![commit1.id().clone()], tree4.id());
 
     assert_eq!(
@@ -4667,7 +4667,7 @@ fn test_evaluate_expression_conflict() {
     let tree3 = create_tree(repo, &[(file_path1, "3"), (file_path2, "1")]);
     let commit3 = create_commit(vec![commit2.id().clone()], tree3.id());
     let tree4 = tree2
-        .merge(tree1.clone(), tree3.clone())
+        .merge_unlabeled(tree1.clone(), tree3.clone())
         .block_on()
         .unwrap();
     let commit4 = create_commit(vec![commit3.id().clone()], tree4.id());

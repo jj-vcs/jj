@@ -2146,7 +2146,12 @@ impl TreeDiff {
 
     fn into_formatted<F, E>(self, show: F) -> TreeDiffFormatted<F>
     where
-        F: Fn(&mut dyn Formatter, &Store, BoxStream<CopiesTreeDiffEntry>) -> Result<(), E>,
+        F: Fn(
+            &mut dyn Formatter,
+            &Store,
+            Diff<&MergedTree>,
+            BoxStream<CopiesTreeDiffEntry>,
+        ) -> Result<(), E>,
         E: Into<TemplatePropertyError>,
     {
         TreeDiffFormatted { diff: self, show }
@@ -2161,14 +2166,21 @@ struct TreeDiffFormatted<F> {
 
 impl<F, E> Template for TreeDiffFormatted<F>
 where
-    F: Fn(&mut dyn Formatter, &Store, BoxStream<CopiesTreeDiffEntry>) -> Result<(), E>,
+    F: Fn(
+        &mut dyn Formatter,
+        &Store,
+        Diff<&MergedTree>,
+        BoxStream<CopiesTreeDiffEntry>,
+    ) -> Result<(), E>,
     E: Into<TemplatePropertyError>,
 {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         let show = &self.show;
         let store = self.diff.from_tree.store();
+        let trees = Diff::new(&self.diff.from_tree, &self.diff.to_tree);
         let tree_diff = self.diff.diff_stream();
-        show(formatter.as_mut(), store, tree_diff).or_else(|err| formatter.handle_error(err.into()))
+        show(formatter.as_mut(), store, trees, tree_diff)
+            .or_else(|err| formatter.handle_error(err.into()))
     }
 }
 
@@ -2214,10 +2226,11 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                     if let Some(context) = context {
                         options.context = context;
                     }
-                    diff.into_formatted(move |formatter, store, tree_diff| {
+                    diff.into_formatted(move |formatter, store, trees, tree_diff| {
                         diff_util::show_color_words_diff(
                             formatter,
                             store,
+                            trees,
                             tree_diff,
                             path_converter,
                             &options,
@@ -2256,10 +2269,11 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
                     if let Some(context) = context {
                         options.context = context;
                     }
-                    diff.into_formatted(move |formatter, store, tree_diff| {
+                    diff.into_formatted(move |formatter, store, trees, tree_diff| {
                         diff_util::show_git_diff(
                             formatter,
                             store,
+                            trees,
                             tree_diff,
                             &options,
                             conflict_marker_style,
@@ -2312,7 +2326,7 @@ fn builtin_tree_diff_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, T
             let path_converter = language.path_converter;
             let template = self_property
                 .map(move |diff| {
-                    diff.into_formatted(move |formatter, _store, tree_diff| {
+                    diff.into_formatted(move |formatter, _store, _trees, tree_diff| {
                         diff_util::show_diff_summary(formatter, tree_diff, path_converter)
                             .block_on()
                     })

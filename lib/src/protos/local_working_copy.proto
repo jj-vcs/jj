@@ -51,6 +51,8 @@ message TreeState {
   // Alternating positive and negative terms if there's a conflict, otherwise a
   // single (positive) value
   repeated bytes tree_ids = 5;
+  // Labels for the terms of a conflict.
+  repeated string conflict_labels = 7;
   repeated FileStateEntry file_states = 2;
   bool is_file_states_sorted = 6;
   SparsePatterns sparse_patterns = 3;
