@@ -38,6 +38,7 @@ conflict-marker-style = "diff"
 # signature verification is slow, disable by default
 show-cryptographic-signatures = false
 bookmark-list-sort-keys = ["name"]
+status-hide-untracked = false
 
 [ui.movement]
 edit = false

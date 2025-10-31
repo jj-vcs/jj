@@ -273,6 +273,11 @@
                             "committer-date-"
                         ]
                     }
+                },
+                "status-hide-untracked": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether the status command should behave as if the --hide-untracked flag was passed."
                 }
             }
         },
