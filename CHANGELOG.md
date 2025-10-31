@@ -44,6 +44,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `RepoPath` template type now has a `absolute() -> String` method that returns
   the absolute path as a string.
 
+* Changed lockfile handling to use Rust stdlib file locking on non-Unix systems.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
