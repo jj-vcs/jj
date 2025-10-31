@@ -25,6 +25,8 @@ use std::path::Path;
 use std::slice;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
+use futures::stream;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
 use pollster::FutureExt as _;
@@ -1207,14 +1209,14 @@ impl MutableRepo {
             );
             let new_wc_commit = if !abandoned_old_commit {
                 // We arbitrarily pick a new working-copy commit among the candidates.
-                self.store().get_commit(&new_commit_ids[0])?
+                self.store().get_commit_async(&new_commit_ids[0]).await?
             } else if let Some(commit) = recreated_wc_commits.get(old_commit_id) {
                 commit.clone()
             } else {
-                let new_commits: Vec<_> = new_commit_ids
-                    .iter()
-                    .map(|id| self.store().get_commit(id))
-                    .try_collect()?;
+                let mut new_commits = vec![];
+                for id in new_commit_ids {
+                    new_commits.push(self.store().get_commit_async(id).await?);
+                }
                 let merged_parents_tree = merge_commit_trees(self, &new_commits).await?;
                 let commit = self
                     .new_commit(new_commit_ids.clone(), merged_parents_tree.id().clone())
@@ -1300,7 +1302,7 @@ impl MutableRepo {
                     .get(commit.id())
                     .map_or(commit.parent_ids(), |parent_ids| parent_ids);
                 for parent_id in parent_ids {
-                    let parent = store.get_commit(parent_id);
+                    let parent = store.get_commit_async(parent_id).await;
                     let Ok(parent) = parent else {
                         dependents.push(parent);
                         continue;
@@ -1308,7 +1310,7 @@ impl MutableRepo {
                     if let Some(rewrite) = self.parent_mapping.get(parent.id()) {
                         for target in rewrite.new_parent_ids() {
                             if to_visit_set.contains(target) && !visited.contains(target) {
-                                dependents.push(store.get_commit(target));
+                                dependents.push(store.get_commit_async(target).await);
                             }
                         }
                     }
@@ -1556,7 +1558,7 @@ impl MutableRepo {
         commit: &Commit,
     ) -> Result<(), EditCommitError> {
         self.maybe_abandon_wc_commit(&name).await?;
-        self.add_head(commit)?;
+        self.add_head(commit).await?;
         Ok(self.set_wc_commit(name, commit.id().clone())?)
     }
 
@@ -1582,7 +1584,8 @@ impl MutableRepo {
         if let Some(wc_commit_id) = maybe_wc_commit_id {
             let wc_commit = self
                 .store()
-                .get_commit(&wc_commit_id)
+                .get_commit_async(&wc_commit_id)
+                .await
                 .map_err(EditCommitError::WorkingCopyCommitNotFound)?;
             if wc_commit.is_discardable(self).await?
                 && self
@@ -1624,8 +1627,8 @@ impl MutableRepo {
 
     /// Ensures that the given `head` and ancestor commits are reachable from
     /// the visible heads.
-    pub fn add_head(&mut self, head: &Commit) -> BackendResult<()> {
-        self.add_heads(slice::from_ref(head))
+    pub async fn add_head(&mut self, head: &Commit) -> BackendResult<()> {
+        self.add_heads(slice::from_ref(head)).await
     }
 
     /// Ensures that the given `heads` and ancestor commits are reachable from
@@ -1634,7 +1637,7 @@ impl MutableRepo {
     /// The `heads` may contain redundant commits such as already visible ones
     /// and ancestors of the other heads. The `heads` and ancestor commits
     /// should exist in the store.
-    pub fn add_heads(&mut self, heads: &[Commit]) -> BackendResult<()> {
+    pub async fn add_heads(&mut self, heads: &[Commit]) -> BackendResult<()> {
         let current_heads = self.view.get_mut().heads();
         // Use incremental update for common case of adding a single commit on top a
         // current head. TODO: Also use incremental update when adding a single
@@ -1665,22 +1668,24 @@ impl MutableRepo {
                         .map(Ok),
                     |CommitByCommitterTimestamp(commit)| commit.id().clone(),
                     async |CommitByCommitterTimestamp(commit)| {
-                        commit
-                            .parent_ids()
-                            .iter()
-                            .filter_map(|id| match self.index().has_id(id) {
+                        stream::iter(commit.parent_ids().iter())
+                            .filter_map(async |id| match self.index().has_id(id) {
                                 Ok(false) => Some(
-                                    self.store().get_commit(id).map(CommitByCommitterTimestamp),
+                                    self.store()
+                                        .get_commit_async(id)
+                                        .await
+                                        .map(CommitByCommitterTimestamp),
                                 ),
                                 Ok(true) => None,
                                 // TODO: indexing error shouldn't be a "BackendError"
                                 Err(err) => Some(Err(BackendError::Other(err.into()))),
                             })
-                            .collect_vec()
+                            .collect::<Vec<_>>()
+                            .await
                     },
                     |_| panic!("graph has cycle"),
                 )
-                .block_on()?;
+                .await?;
                 for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
                     self.index
                         .add_commit(missing_commit)

@@ -506,6 +506,7 @@ pub async fn import_some_refs(
     // can still occur.
     mut_repo
         .add_heads(&head_commits)
+        .await
         .map_err(GitImportError::Backend)?;
 
     // Allocate views for new remotes configured externally. There may be
@@ -801,7 +802,7 @@ fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
 ///
 /// Unlike `reset_head()`, this function doesn't move the working-copy commit to
 /// the child of the new HEAD revision.
-pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
+pub async fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
     let store = mut_repo.store();
     let git_backend = get_git_backend(store)?;
     let git_repo = git_backend.git_repo();
@@ -829,10 +830,11 @@ pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
         }
         // It's unlikely the imported commits were missing, but I/O-related
         // error can still occur.
-        store
-            .get_commit(head_id)
-            .and_then(|commit| mut_repo.add_head(&commit))
+        let commit = store
+            .get_commit_async(head_id)
+            .await
             .map_err(GitImportError::Backend)?;
+        mut_repo.add_head(&commit).await?;
     }
 
     mut_repo.set_git_head_target(RefTarget::resolved(new_git_head_id));

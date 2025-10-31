@@ -675,10 +675,11 @@ pub async fn compute_move_commits(
         }
         new_children
     } else {
-        loc.new_child_ids
-            .iter()
-            .map(|id| repo.store().get_commit(id))
-            .try_collect()?
+        let mut accum = vec![];
+        for id in &loc.new_child_ids {
+            accum.push(repo.store().get_commit_async(id).await?);
+        }
+        accum
     };
 
     // Compute the parents of the new children, which will include the heads of the
@@ -1056,7 +1057,10 @@ pub async fn duplicate_commits_onto_parents(
     // Topological order ensures that any parents of the original commit are
     // either not in `target_commits` or were already duplicated.
     for original_commit_id in target_commits.iter().rev() {
-        let original_commit = mut_repo.store().get_commit(original_commit_id)?;
+        let original_commit = mut_repo
+            .store()
+            .get_commit_async(original_commit_id)
+            .await?;
         let new_parent_ids = original_commit
             .parent_ids()
             .iter()

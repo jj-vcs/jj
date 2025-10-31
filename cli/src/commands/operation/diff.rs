@@ -185,8 +185,9 @@ pub fn show_op_diff(
 ) -> Result<(), CommandError> {
     let changes = compute_operation_commits_diff(current_repo, from_repo, to_repo)?;
     if !changes.is_empty() {
-        let revset =
-            RevsetExpression::commits(changes.keys().cloned().collect()).evaluate(current_repo).block_on()?;
+        let revset = RevsetExpression::commits(changes.keys().cloned().collect())
+            .evaluate(current_repo)
+            .block_on()?;
         writeln!(formatter)?;
         with_content_format.write(formatter, |formatter| {
             writeln!(formatter, "Changed commits:")
@@ -514,7 +515,8 @@ fn compute_operation_commits_diff(
     let predecessor_commits = accumulate_predecessors(
         slice::from_ref(to_repo.operation()),
         slice::from_ref(from_repo.operation()),
-    )?;
+    )
+    .block_on()?;
 
     // Collect hidden commits to find abandoned/rewritten changes.
     let mut hidden_commits_by_change: HashMap<ChangeId, CommitId> = HashMap::new();

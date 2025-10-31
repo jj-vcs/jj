@@ -350,7 +350,7 @@ impl DefaultIndexStore {
                 if ancestors.contains(&commit_id) || parent_index_has_id(&commit_id) {
                     continue;
                 }
-                if let Ok(commit) = store.get_commit(&commit_id) {
+                if let Ok(commit) = store.get_commit_async(&commit_id).await {
                     work.extend(commit.parent_ids().iter().cloned());
                 }
                 ancestors.insert(commit_id);

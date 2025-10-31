@@ -395,7 +395,7 @@ impl DetachedCommitBuilder {
                 format!("Newly-created commit {id} already exists", id = commit.id()).into(),
             ));
         }
-        mut_repo.add_head(&commit)?;
+        mut_repo.add_head(&commit).await?;
         mut_repo.set_predecessors(commit.id().clone(), predecessors);
         if let Some(rewrite_source) = self.rewrite_source {
             mut_repo.set_rewritten_commit(rewrite_source.id().clone(), commit.id().clone());

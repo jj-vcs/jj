@@ -1143,7 +1143,7 @@ impl WorkspaceCommandHelper {
     fn import_git_head(&mut self, ui: &Ui) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
         let mut tx = self.start_transaction();
-        jj_lib::git::import_head(tx.repo_mut())?;
+        jj_lib::git::import_head(tx.repo_mut()).block_on()?;
         if !tx.repo().has_changes() {
             return Ok(());
         }
