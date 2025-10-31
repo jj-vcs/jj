@@ -256,7 +256,10 @@ fn test_rebase_on_lossy_merge(same_change: SameChange) {
                 tree_3.id().into_merge(),
             ])
             .flatten();
-            assert_eq!(*commit_d2.tree_id(), MergedTreeId::new(expected_tree_id));
+            assert_eq!(
+                *commit_d2.tree_id(),
+                MergedTreeId::unlabeled(expected_tree_id)
+            );
         }
     }
 }
