@@ -112,6 +112,15 @@ emerge -av dev-vcs/jj
 zypper install jujutsu
 ```
 
+#### Fedora
+
+`jj-cli` can be installed from the Jujutsu [Fedora COPR](https://copr.fedorainfracloud.org/coprs/jj-vcs/jj) repository:
+
+```shell
+sudo dnf copr enable jj-vcs/jj
+sudo dnf install jj-cli
+```
+
 ### Mac
 
 #### From Source
