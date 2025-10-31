@@ -31,6 +31,7 @@ use crate::backend::BackendError;
 use crate::backend::MergedTreeId;
 use crate::commit::Commit;
 use crate::dag_walk;
+use crate::gitattributes::GitAttributesError;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
 use crate::matchers::Matcher;
@@ -192,6 +193,9 @@ pub enum SnapshotError {
     /// Checking path with ignore patterns failed.
     #[error(transparent)]
     GitIgnoreError(#[from] GitIgnoreError),
+    /// Checking path with gitattributes patterns failed.
+    #[error(transparent)]
+    GitAttributesError(#[from] GitAttributesError),
     /// Failed to load the working copy state.
     #[error(transparent)]
     WorkingCopyStateError(#[from] WorkingCopyStateError),

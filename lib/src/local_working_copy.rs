@@ -88,6 +88,9 @@ use crate::fsmonitor::FsmonitorSettings;
 use crate::fsmonitor::WatchmanConfig;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::watchman;
+use crate::gitattributes::DiskFileLoader;
+use crate::gitattributes::GitAttributes;
+use crate::gitattributes::TreeFileLoader;
 use crate::gitignore::GitIgnoreFile;
 use crate::lock::FileLock;
 use crate::matchers::DifferenceMatcher;
@@ -811,6 +814,9 @@ pub struct TreeStateSettings {
     pub eol_conversion_mode: EolConversionMode,
     /// The fsmonitor (e.g. Watchman) to use, if any.
     pub fsmonitor_settings: FsmonitorSettings,
+
+    /// Ignore filters in .gitattributes
+    pub ignore_filters: Vec<String>,
 }
 
 impl TreeStateSettings {
@@ -820,6 +826,7 @@ impl TreeStateSettings {
             conflict_marker_style: user_settings.get("ui.conflict-marker-style")?,
             eol_conversion_mode: EolConversionMode::try_from_settings(user_settings)?,
             fsmonitor_settings: FsmonitorSettings::from_settings(user_settings)?,
+            ignore_filters: user_settings.git_settings()?.ignore_filters,
         })
     }
 }
@@ -843,6 +850,9 @@ pub struct TreeState {
     conflict_marker_style: ConflictMarkerStyle,
     fsmonitor_settings: FsmonitorSettings,
     target_eol_strategy: TargetEolStrategy,
+
+    // attributes
+    git_attributes: Arc<GitAttributes>,
 }
 
 #[derive(Debug, Error)]
@@ -902,9 +912,20 @@ impl TreeState {
             conflict_marker_style,
             eol_conversion_mode,
             ref fsmonitor_settings,
+            ref ignore_filters,
         }: &TreeStateSettings,
     ) -> Self {
         let tree_id = store.empty_merged_tree_id();
+
+        let tree = store.get_root_tree(&tree_id).unwrap();
+        let store_file_loader = TreeFileLoader::new(tree);
+        let disk_file_loader = DiskFileLoader::new(working_copy_path.clone());
+
+        let git_attributes = Arc::new(GitAttributes::new(
+            store_file_loader,
+            disk_file_loader,
+            ignore_filters,
+        ));
         Self {
             store,
             working_copy_path,
@@ -918,6 +939,7 @@ impl TreeState {
             conflict_marker_style,
             fsmonitor_settings: fsmonitor_settings.clone(),
             target_eol_strategy: TargetEolStrategy::new(eol_conversion_mode),
+            git_attributes,
         }
     }
 
@@ -1129,6 +1151,7 @@ impl TreeState {
                 error: OnceLock::new(),
                 progress,
                 max_new_file_size,
+                git_attributes: self.git_attributes.clone(),
             };
             let directory_to_visit = DirectoryToVisit {
                 dir: RepoPathBuf::root(),
@@ -1276,6 +1299,8 @@ struct FileSnapshotter<'a> {
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
     max_new_file_size: u64,
+
+    git_attributes: Arc<GitAttributes>,
 }
 
 impl FileSnapshotter<'_> {
@@ -1398,7 +1423,12 @@ impl FileSnapshotter<'_> {
             if let Some(progress) = self.progress {
                 progress(&path);
             }
-            if maybe_current_file_state.is_none()
+            if self.git_attributes.filter_matches(&path) {
+                // Skip gitattributes files that we want to ignore - this
+                // would result in them showing up as deleted, but we also
+                // omit them in `emit_deleted_files` to avoid that.
+                Ok(None)
+            } else if maybe_current_file_state.is_none()
                 && git_ignore.matches(path.as_internal_file_string())
             {
                 // If it wasn't already tracked and it matches
@@ -1534,6 +1564,8 @@ impl FileSnapshotter<'_> {
             .flat_map(|(_, chunk)| chunk)
             // Whether or not the entry exists, submodule should be ignored
             .filter(|(_, state)| state.file_type != FileType::GitSubmodule)
+            // Whether or not the entry exists, ignored gitattributes files should be omitted
+            .filter(|(path, _)| !self.git_attributes.filter_matches(path))
             .filter(|(path, _)| self.matcher.matches(path))
             .try_for_each(|(path, _)| self.deleted_files_tx.send(path.to_owned()))
             .ok();

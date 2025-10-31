@@ -153,6 +153,7 @@ pub(crate) fn check_out_trees(
             conflict_marker_style,
             eol_conversion_mode: EolConversionMode::None,
             fsmonitor_settings: FsmonitorSettings::None,
+            ignore_filters: Vec::new(),
         };
         let mut state = TreeState::init(store.clone(), wc_path, state_dir, &tree_state_settings)?;
         state.set_sparse_patterns(changed_files.clone())?;
