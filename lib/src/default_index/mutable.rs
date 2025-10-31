@@ -23,6 +23,7 @@ use std::ops::Bound;
 use std::path::Path;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use blake2::Blake2b512;
 use digest::Digest as _;
 use itertools::Itertools as _;
@@ -544,6 +545,7 @@ impl AsCompositeIndex for DefaultMutableIndex {
     }
 }
 
+#[async_trait(?Send)]
 impl Index for DefaultMutableIndex {
     fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> IndexResult<usize> {
         self.0.shortest_unique_commit_id_prefix_len(commit_id)
@@ -583,12 +585,12 @@ impl Index for DefaultMutableIndex {
         self.0.changed_paths_in_commit(commit_id)
     }
 
-    fn evaluate_revset(
+    async fn evaluate_revset(
         &self,
         expression: &ResolvedExpression,
         store: &Arc<Store>,
     ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
-        self.0.evaluate_revset(expression, store)
+        self.0.evaluate_revset(expression, store).await
     }
 }
 

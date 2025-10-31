@@ -143,7 +143,8 @@ pub(crate) fn cmd_fix(
     .resolve()?;
     workspace_command.check_rewritable_expr(&target_expr)?;
     let root_commits: Vec<CommitId> = target_expr
-        .evaluate(workspace_command.repo().as_ref())?
+        .evaluate(workspace_command.repo().as_ref())
+        .block_on()?
         .iter()
         .try_collect()?;
     let matcher = workspace_command

@@ -26,6 +26,7 @@ use std::ops::Range;
 use std::path::Path;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use itertools::Itertools as _;
 use smallvec::smallvec;
 use thiserror::Error;
@@ -695,12 +696,12 @@ impl DefaultReadonlyIndex {
     }
 
     #[doc(hidden)] // for tests
-    pub fn evaluate_revset_impl(
+    pub async fn evaluate_revset_impl(
         &self,
         expression: &ResolvedExpression,
         store: &Arc<Store>,
     ) -> Result<DefaultReadonlyIndexRevset, RevsetEvaluationError> {
-        let inner = revset_engine::evaluate(expression, store, self.clone())?;
+        let inner = revset_engine::evaluate(expression, store, self.clone()).await?;
         Ok(DefaultReadonlyIndexRevset { inner })
     }
 
@@ -715,6 +716,7 @@ impl AsCompositeIndex for DefaultReadonlyIndex {
     }
 }
 
+#[async_trait(?Send)]
 impl Index for DefaultReadonlyIndex {
     fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> IndexResult<usize> {
         self.0.shortest_unique_commit_id_prefix_len(commit_id)
@@ -754,12 +756,12 @@ impl Index for DefaultReadonlyIndex {
         self.0.changed_paths_in_commit(commit_id)
     }
 
-    fn evaluate_revset(
+    async fn evaluate_revset(
         &self,
         expression: &ResolvedExpression,
         store: &Arc<Store>,
     ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
-        self.0.evaluate_revset(expression, store)
+        self.0.evaluate_revset(expression, store).await
     }
 }
 

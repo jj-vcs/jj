@@ -1316,6 +1316,7 @@ fn evaluate_revset_expression<'repo>(
         .resolve_user_expression(repo, &symbol_resolver)
         .map_err(|err| make_error().with_source(err))?
         .evaluate(repo)
+        .block_on()
         .map_err(|err| make_error().with_source(err))?;
     Ok(revset)
 }
@@ -1536,7 +1537,7 @@ impl CommitRef {
             .get_or_try_init(|| {
                 let self_ids = self.target.added_ids().cloned().collect_vec();
                 let other_ids = tracking.target.added_ids().cloned().collect_vec();
-                Ok(revset::walk_revs(repo, &self_ids, &other_ids)?.count_estimate()?)
+                Ok(revset::walk_revs(repo, &self_ids, &other_ids).block_on()?.count_estimate()?)
             })
             .copied()
     }
@@ -1551,7 +1552,7 @@ impl CommitRef {
             .get_or_try_init(|| {
                 let self_ids = self.target.added_ids().cloned().collect_vec();
                 let other_ids = tracking.target.added_ids().cloned().collect_vec();
-                Ok(revset::walk_revs(repo, &other_ids, &self_ids)?.count_estimate()?)
+                Ok(revset::walk_revs(repo, &other_ids, &self_ids).block_on()?.count_estimate()?)
             })
             .copied()
     }

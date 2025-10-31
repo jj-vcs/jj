@@ -71,7 +71,8 @@ pub(crate) fn cmd_simplify_parents(
     };
     workspace_command.check_rewritable_expr(&revs)?;
     let commit_ids: Vec<_> = revs
-        .evaluate(workspace_command.repo().as_ref())?
+        .evaluate(workspace_command.repo().as_ref())
+        .block_on()?
         .iter()
         .try_collect()?;
     let commit_ids_set: HashSet<_> = commit_ids.iter().cloned().collect();

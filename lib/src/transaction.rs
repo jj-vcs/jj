@@ -107,7 +107,7 @@ impl Transaction {
         let other_repo = repo_loader.load_at(&other_op)?;
         self.parent_ops.push(other_op);
         let merged_repo = self.repo_mut();
-        merged_repo.merge(&base_repo, &other_repo)?;
+        merged_repo.merge(&base_repo, &other_repo).await?;
         Ok(())
     }
 

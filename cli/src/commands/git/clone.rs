@@ -346,7 +346,7 @@ fn fetch_new_remote(
             )
         })?;
 
-        let import_stats = git_fetch.import_refs()?;
+        let import_stats = git_fetch.import_refs().block_on()?;
 
         let default_branch = git_fetch.get_default_branch(remote_name)?;
         (default_branch, import_stats)

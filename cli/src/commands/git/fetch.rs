@@ -28,6 +28,7 @@ use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringMatcher;
 use jj_lib::str_util::StringPattern;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
@@ -167,7 +168,7 @@ pub fn cmd_git_fetch(
         })?;
     }
 
-    let import_stats = git_fetch.import_refs()?;
+    let import_stats = git_fetch.import_refs().block_on()?;
     print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
     warn_if_branches_not_found(ui, &tx, &args.branch, &remotes)?;
     tx.finish(

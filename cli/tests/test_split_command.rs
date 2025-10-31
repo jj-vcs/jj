@@ -160,10 +160,10 @@ fn test_split_by_paths() {
     ------- stderr -------
     Warning: No changes have been selected, so the new revision will be empty
     Rebased 1 descendant commits
-    Selected changes : qpvuntsm 49416632 (empty) (no description set)
-    Remaining changes: lylxulpl 718afbf5 (no description set)
-    Working copy  (@) now at: zsuskuln 0ed53ee6 (no description set)
-    Parent commit (@-)      : lylxulpl 718afbf5 (no description set)
+    Selected changes : qpvuntsm de3be509 (empty) (no description set)
+    Remaining changes: lylxulpl b6ed2a8b (no description set)
+    Working copy  (@) now at: zsuskuln dd17a720 (no description set)
+    Parent commit (@-)      : lylxulpl b6ed2a8b (no description set)
     [EOF]
     ");
 

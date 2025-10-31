@@ -140,7 +140,9 @@ impl Store {
     }
 
     pub fn root_commit(self: &Arc<Self>) -> Commit {
-        self.get_commit(self.backend.root_commit_id()).unwrap()
+        self.get_commit_async(self.backend.root_commit_id())
+            .block_on()
+            .unwrap()
     }
 
     pub fn get_commit(self: &Arc<Self>, id: &CommitId) -> BackendResult<Commit> {

@@ -84,7 +84,8 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
     workspace_command.check_rewritable_expr(&revset_expression)?;
 
     let to_sign: IndexSet<Commit> = revset_expression
-        .evaluate(workspace_command.repo().as_ref())?
+        .evaluate(workspace_command.repo().as_ref())
+        .block_on()?
         .iter()
         .commits(workspace_command.repo().store())
         .try_collect()?;

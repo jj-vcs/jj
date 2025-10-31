@@ -281,7 +281,10 @@ fn test_index_commits_criss_cross() {
             generation,
             parents_range: PARENTS_RANGE_FULL,
         };
-        let revset = index.evaluate_revset(&expression, repo.store()).unwrap();
+        let revset = index
+            .evaluate_revset(&expression, repo.store())
+            .block_on()
+            .unwrap();
         // Don't switch to more efficient .count() implementation. Here we're
         // testing the iterator behavior.
         revset.iter().count()

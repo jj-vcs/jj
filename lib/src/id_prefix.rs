@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::ChangeId;
@@ -68,7 +69,8 @@ impl DisambiguationData {
             let revset = self
                 .expression
                 .resolve_user_expression(repo, &symbol_resolver)?
-                .evaluate(repo)?;
+                .evaluate(repo)
+                .block_on()?;
 
             let commit_change_ids: Vec<_> = revset.commit_change_ids().try_collect()?;
             let mut commit_index = IdIndex::with_capacity(commit_change_ids.len());

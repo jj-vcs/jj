@@ -85,12 +85,14 @@ pub(crate) fn cmd_abandon(
         let visible_expr = target_expr.intersection(&RevsetExpression::visible_heads().ancestors());
         workspace_command.check_rewritable_expr(&visible_expr)?;
         let visible: IndexSet<_> = visible_expr
-            .evaluate(workspace_command.repo().as_ref())?
+            .evaluate(workspace_command.repo().as_ref())
+            .block_on()?
             .iter()
             .try_collect()?;
 
         let targets: Vec<_> = target_expr
-            .evaluate(workspace_command.repo().as_ref())?
+            .evaluate(workspace_command.repo().as_ref())
+            .block_on()?
             .iter()
             .try_collect()?;
         if visible.len() < targets.len() {

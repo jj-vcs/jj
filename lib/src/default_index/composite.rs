@@ -22,6 +22,7 @@ use std::ops::Range;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use async_trait::async_trait;
 use itertools::Itertools as _;
 use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
@@ -567,6 +568,7 @@ impl AsCompositeIndex for CompositeIndex {
 }
 
 // In revset engine, we need to convert &CompositeIndex to &dyn Index.
+#[async_trait(?Send)]
 impl Index for CompositeIndex {
     fn shortest_unique_commit_id_prefix_len(&self, commit_id: &CommitId) -> IndexResult<usize> {
         Ok(self
@@ -618,12 +620,12 @@ impl Index for CompositeIndex {
         Ok(Some(Box::new(paths.map(|path| path.to_owned()))))
     }
 
-    fn evaluate_revset(
+    async fn evaluate_revset(
         &self,
         expression: &ResolvedExpression,
         store: &Arc<Store>,
     ) -> Result<Box<dyn Revset + '_>, RevsetEvaluationError> {
-        let revset_impl = revset_engine::evaluate(expression, store, self)?;
+        let revset_impl = revset_engine::evaluate(expression, store, self).await?;
         Ok(Box::new(revset_impl))
     }
 }

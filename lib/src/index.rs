@@ -18,6 +18,7 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::backend::ChangeId;
@@ -94,6 +95,7 @@ impl dyn IndexStore {
 
 /// Defines the interface for types that provide an index of the commits in a
 /// repository by [`CommitId`].
+#[async_trait(?Send)]
 pub trait Index: Send + Sync {
     /// Returns the minimum prefix length to disambiguate `commit_id` from other
     /// commits in the index. The length returned is the number of hexadecimal
@@ -146,7 +148,7 @@ pub trait Index: Send + Sync {
 
     /// Resolves the revset `expression` against the index and corresponding
     /// `store`.
-    fn evaluate_revset(
+    async fn evaluate_revset(
         &self,
         expression: &ResolvedExpression,
         store: &Arc<Store>,

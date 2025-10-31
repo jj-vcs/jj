@@ -42,6 +42,7 @@ use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::command_error::CommandError;
@@ -109,6 +110,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
         self.resolve()
             .map_err(UserRevsetEvaluationError::Resolution)?
             .evaluate(self.repo)
+            .block_on()
             .map_err(UserRevsetEvaluationError::Evaluation)
     }
 

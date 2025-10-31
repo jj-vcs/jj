@@ -198,7 +198,8 @@ pub async fn fix_files(
     // doing this in long chains of commits with disjoint sets of modified files.
     let commits: Vec<_> = RevsetExpression::commits(root_commits.clone())
         .descendants()
-        .evaluate(repo_mut)?
+        .evaluate(repo_mut)
+        .await?
         .iter()
         .commits(repo_mut.store())
         .try_collect()?;

@@ -121,6 +121,7 @@ fn revset_for_commits<'index>(
         .resolve_user_expression(repo, &symbol_resolver)
         .unwrap()
         .evaluate(repo)
+        .block_on()
         .unwrap()
 }
 
@@ -530,6 +531,7 @@ fn test_resolve_working_copy() {
             .resolve_user_expression(tx.repo(), &symbol_resolver)
             .unwrap()
             .evaluate(tx.repo())
+            .block_on()
             .unwrap()
             .iter()
             .map(Result::unwrap)
@@ -551,6 +553,7 @@ fn test_resolve_working_copy() {
             .resolve_user_expression(tx.repo(), &symbol_resolver)
             .unwrap()
             .evaluate(tx.repo())
+            .block_on()
             .unwrap()
             .iter()
             .map(Result::unwrap)
@@ -589,6 +592,7 @@ fn test_resolve_working_copies() {
             .resolve_user_expression(tx.repo(), &symbol_resolver)
             .unwrap()
             .evaluate(tx.repo())
+            .block_on()
             .unwrap()
             .iter()
             .map(Result::unwrap)
@@ -1043,6 +1047,7 @@ fn try_resolve_commit_ids(
 ) -> Result<Vec<CommitId>, RevsetResolutionError> {
     Ok(try_resolve_expression(repo, revset_str)?
         .evaluate(repo)
+        .block_on()
         .unwrap()
         .iter()
         .map(Result::unwrap)
@@ -1056,6 +1061,7 @@ fn try_evaluate_expression<'index>(
     try_resolve_expression(repo, revset_str)
         .unwrap()
         .evaluate(repo)
+        .block_on()
 }
 
 fn resolve_commit_ids_in_workspace(
@@ -1089,6 +1095,7 @@ fn resolve_commit_ids_in_workspace(
         .unwrap();
     expression
         .evaluate(repo)
+        .block_on()
         .unwrap()
         .iter()
         .map(Result::unwrap)
@@ -1214,7 +1221,12 @@ fn test_evaluate_expression_root_and_checkout() {
     let expression = RevsetExpression::commit(commit1.id().clone())
         .resolve_user_expression(tx.repo(), &symbol_resolver)
         .unwrap();
-    assert!(expression.evaluate(tx.base_repo().as_ref()).is_err());
+    assert!(
+        expression
+            .evaluate(tx.base_repo().as_ref())
+            .block_on()
+            .is_err()
+    );
 }
 
 #[test]
@@ -4354,7 +4366,7 @@ fn test_evaluate_expression_file(indexed: bool) {
         let expression = RevsetExpression::filter(RevsetFilterPredicate::File(
             FilesetExpression::prefix_path(file_path.to_owned()),
         ));
-        let revset = expression.evaluate(mut_repo).unwrap();
+        let revset = expression.evaluate(mut_repo).block_on().unwrap();
         revset.iter().map(Result::unwrap).collect()
     };
 

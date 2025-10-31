@@ -393,10 +393,11 @@ pub(crate) fn cmd_rebase(
     };
 
     let mut tx = workspace_command.start_transaction();
-    let mut computed_move = compute_move_commits(tx.repo(), &loc)?;
+    let mut computed_move = compute_move_commits(tx.repo(), &loc).block_on()?;
     if !args.keep_divergent {
         let abandoned_divergent =
-            find_duplicate_divergent_commits(tx.repo(), &loc.new_parent_ids, &loc.target)?;
+            find_duplicate_divergent_commits(tx.repo(), &loc.new_parent_ids, &loc.target)
+                .block_on()?;
         computed_move.record_to_abandon(abandoned_divergent.iter().map(Commit::id).cloned());
         if !abandoned_divergent.is_empty()
             && let Some(mut formatter) = ui.status_formatter()
@@ -433,7 +434,8 @@ fn plan_rebase_revisions(
         .resolve()?;
     workspace_command.check_rewritable_expr(&target_expr)?;
     let target_commit_ids: Vec<_> = target_expr
-        .evaluate(workspace_command.repo().as_ref())?
+        .evaluate(workspace_command.repo().as_ref())
+        .block_on()?
         .iter()
         .try_collect()?; // in reverse topological order
 
@@ -528,6 +530,7 @@ fn plan_rebase_branch(
     workspace_command.check_rewritable_expr(&roots_expression)?;
     let root_commit_ids: Vec<_> = roots_expression
         .evaluate(workspace_command.repo().as_ref())
+        .block_on()
         .unwrap()
         .iter()
         .try_collect()?;

@@ -2083,6 +2083,7 @@ fn test_find_duplicate_divergent_commits() {
         &[commit_a2.id().clone()],
         &MoveCommitsTarget::Roots(vec![commit_d.id().clone()]),
     )
+    .block_on()
     .unwrap();
     // Commits b2 and c2 are duplicates
     assert_eq!(duplicate_commits, &[commit_c2.clone(), commit_b2.clone()]);
@@ -2093,6 +2094,7 @@ fn test_find_duplicate_divergent_commits() {
         &[commit_e.id().clone()],
         &MoveCommitsTarget::Roots(vec![commit_b1.id().clone()]),
     )
+    .block_on()
     .unwrap();
     // Commits b1 and c1 are duplicates. Commit a2 is not a duplicate, because
     // it already had a1 as an ancestor before the rebase.
@@ -2108,6 +2110,7 @@ fn test_find_duplicate_divergent_commits() {
             commit_e.id().clone(),
         ]),
     )
+    .block_on()
     .unwrap();
     // Commit c2 is a duplicate
     assert_eq!(duplicate_commits, std::slice::from_ref(&commit_c2));

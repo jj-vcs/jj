@@ -58,7 +58,8 @@ pub fn cmd_unsign(
         .resolve()?;
     workspace_command.check_rewritable_expr(&target_expr)?;
     let commits: IndexSet<Commit> = target_expr
-        .evaluate(workspace_command.repo().as_ref())?
+        .evaluate(workspace_command.repo().as_ref())
+        .block_on()?
         .iter()
         .commits(workspace_command.repo().store())
         .try_collect()?;

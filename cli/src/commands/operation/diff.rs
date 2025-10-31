@@ -186,7 +186,7 @@ pub fn show_op_diff(
     let changes = compute_operation_commits_diff(current_repo, from_repo, to_repo)?;
     if !changes.is_empty() {
         let revset =
-            RevsetExpression::commits(changes.keys().cloned().collect()).evaluate(current_repo)?;
+            RevsetExpression::commits(changes.keys().cloned().collect()).evaluate(current_repo).block_on()?;
         writeln!(formatter)?;
         with_content_format.write(formatter, |formatter| {
             writeln!(formatter, "Changed commits:")
@@ -519,7 +519,7 @@ fn compute_operation_commits_diff(
     // Collect hidden commits to find abandoned/rewritten changes.
     let mut hidden_commits_by_change: HashMap<ChangeId, CommitId> = HashMap::new();
     let mut abandoned_commits: HashSet<CommitId> = HashSet::new();
-    let newly_hidden = to_expr.range(&from_expr).evaluate(repo)?;
+    let newly_hidden = to_expr.range(&from_expr).evaluate(repo).block_on()?;
     for item in newly_hidden.commit_change_ids() {
         let (commit_id, change_id) = item?;
         // Just pick one if diverged. Divergent commits shouldn't be considered
@@ -532,7 +532,7 @@ fn compute_operation_commits_diff(
 
     // For each new commit, copy/deduce predecessors based on change id.
     let mut changes: HashMap<CommitId, ModifiedChange> = HashMap::new();
-    let newly_visible = from_expr.range(&to_expr).evaluate(repo)?;
+    let newly_visible = from_expr.range(&to_expr).evaluate(repo).block_on()?;
     for item in newly_visible.commit_change_ids() {
         let (commit_id, change_id) = item?;
         let predecessor_ids = if let Some(ids) = predecessor_commits.get(&commit_id) {

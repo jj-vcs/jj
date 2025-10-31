@@ -310,7 +310,8 @@ async fn process_commits(
     let heads = RevsetExpression::commits(state.commit_source_map.keys().cloned().collect());
     let revset = heads
         .union(&domain.intersection(&heads.ancestors()).filtered(predicate))
-        .evaluate(repo)?;
+        .evaluate(repo)
+        .await?;
 
     state.num_unresolved_roots = 0;
     for node in revset.iter_graph() {

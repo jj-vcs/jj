@@ -161,7 +161,8 @@ pub(crate) fn cmd_metaedit(
     .resolve()?;
     workspace_command.check_rewritable_expr(&target_expr)?;
     let commit_ids: Vec<_> = target_expr
-        .evaluate(workspace_command.repo().as_ref())?
+        .evaluate(workspace_command.repo().as_ref())
+        .block_on()?
         .iter()
         .try_collect()?;
     if commit_ids.is_empty() {
