@@ -244,10 +244,11 @@ fn prefix_tree_to_visit_sets(tree: &RepoPathTree<PrefixNodeKind>) -> Visit {
     Visit::sets(dirs, files)
 }
 
-/// Matches file paths with glob patterns.
+/// Matches file or prefix paths with glob patterns.
 #[derive(Clone, Debug)]
 pub struct GlobsMatcher {
     tree: RepoPathTree<Option<regex::bytes::RegexSet>>,
+    matches_prefix_paths: bool,
 }
 
 impl GlobsMatcher {
@@ -255,6 +256,7 @@ impl GlobsMatcher {
     pub fn builder<'a>() -> GlobsMatcherBuilder<'a> {
         GlobsMatcherBuilder {
             dir_patterns: vec![],
+            matches_prefix_paths: false,
         }
     }
 }
@@ -272,18 +274,28 @@ impl Matcher for GlobsMatcher {
     }
 
     fn visit(&self, dir: &RepoPath) -> Visit {
+        let mut max_visit = Visit::Nothing;
         for (sub, tail_path) in self.tree.walk_to(dir) {
-            // ancestor of 'dir' has patterns, can't narrow visit anymore
-            if sub.value.is_some() {
-                return Visit::SOME;
+            // ancestor of 'dir' has patterns
+            if let Some(pat) = &sub.value {
+                let tail = tail_path.as_internal_file_string().as_bytes();
+                if self.matches_prefix_paths && pat.is_match(tail) {
+                    // 'dir' matches prefix patterns
+                    return Visit::AllRecursively;
+                } else {
+                    max_visit = Visit::SOME;
+                }
+                if !self.matches_prefix_paths {
+                    break; // can't narrow visit anymore
+                }
             }
             // 'dir' found, and is an ancestor of pattern paths
-            if tail_path.is_root() {
+            if tail_path.is_root() && max_visit == Visit::Nothing {
                 let sub_dirs = sub.entries.keys().cloned().collect();
                 return Visit::sets(sub_dirs, HashSet::new());
             }
         }
-        Visit::Nothing
+        max_visit
     }
 }
 
@@ -291,9 +303,16 @@ impl Matcher for GlobsMatcher {
 #[derive(Clone, Debug)]
 pub struct GlobsMatcherBuilder<'a> {
     dir_patterns: Vec<(&'a RepoPath, &'a Glob)>,
+    matches_prefix_paths: bool,
 }
 
 impl<'a> GlobsMatcherBuilder<'a> {
+    /// Whether or not the matcher will match prefix paths.
+    pub fn prefix_paths(mut self, yes: bool) -> Self {
+        self.matches_prefix_paths = yes;
+        self
+    }
+
     /// Returns true if no patterns have been added yet.
     pub fn is_empty(&self) -> bool {
         self.dir_patterns.is_empty()
@@ -309,25 +328,47 @@ impl<'a> GlobsMatcherBuilder<'a> {
 
     /// Compiles matcher.
     pub fn build(self) -> GlobsMatcher {
-        let Self { mut dir_patterns } = self;
+        let Self {
+            mut dir_patterns,
+            matches_prefix_paths,
+        } = self;
         dir_patterns.sort_unstable_by_key(|&(dir, _)| dir);
 
         let mut tree: RepoPathTree<Option<regex::bytes::RegexSet>> = Default::default();
         for (dir, chunk) in &dir_patterns.into_iter().chunk_by(|&(dir, _)| dir) {
             // Based on new_regex() in globset. We don't use GlobSet because
             // RepoPath separator should be "/" on all platforms.
-            let regex =
+            let mut regex_builder = if matches_prefix_paths {
+                let regex_patterns = chunk.map(|(_, pattern)| glob_to_prefix_regex(pattern));
+                regex::bytes::RegexSetBuilder::new(regex_patterns)
+            } else {
                 regex::bytes::RegexSetBuilder::new(chunk.map(|(_, pattern)| pattern.regex()))
-                    .dot_matches_new_line(true)
-                    .build()
-                    .expect("glob regex should be valid");
+            };
+            let regex = regex_builder
+                .dot_matches_new_line(true)
+                .build()
+                .expect("glob regex should be valid");
             let sub = tree.add(dir);
             assert!(sub.value.is_none());
             sub.value = Some(regex);
         }
 
-        GlobsMatcher { tree }
+        GlobsMatcher {
+            tree,
+            matches_prefix_paths,
+        }
     }
+}
+
+fn glob_to_prefix_regex(glob: &Glob) -> String {
+    // Here we rely on the implementation detail of the globset crate.
+    // Alternatively, we can construct an anchored regex automaton and test
+    // prefix matching by feeding characters one by one.
+    let prefix = glob
+        .regex()
+        .strip_suffix('$')
+        .expect("glob regex should be anchored");
+    format!("{prefix}(?:/|$)")
 }
 
 /// Matches paths that are matched by any of the input matchers.
@@ -564,6 +605,14 @@ mod tests {
         builder.build()
     }
 
+    fn new_prefix_globs_matcher(dir_patterns: &[(&RepoPath, Glob)]) -> GlobsMatcher {
+        let mut builder = GlobsMatcher::builder().prefix_paths(true);
+        for (dir, pattern) in dir_patterns {
+            builder.add(dir, pattern);
+        }
+        builder.build()
+    }
+
     #[test]
     fn test_nothing_matcher() {
         let m = NothingMatcher;
@@ -775,10 +824,13 @@ mod tests {
 
     #[test]
     fn test_file_globs_matcher_wildcard_any() {
-        // "*" could match the root path, but it doesn't matter since the root
-        // isn't a valid file path.
+        // It's not obvious whether "*" should match the root directory path.
+        // Since "<dir>/*" shouldn't match "<dir>" itself, we can consider that
+        // "*" has an implicit "<root>/" prefix, and therefore it makes sense
+        // that "*" doesn't match the root. OTOH, if we compare paths as literal
+        // strings, "*" matches "". The current implementation is the former.
         let m = new_file_globs_matcher(&[(RepoPath::root(), glob("*"))]);
-        assert!(!m.matches(RepoPath::root())); // doesn't matter
+        assert!(!m.matches(RepoPath::root()));
         assert!(m.matches(repo_path("x")));
         assert!(m.matches(repo_path("x.rs")));
         assert!(!m.matches(repo_path("foo/bar.rs")));
@@ -799,6 +851,122 @@ mod tests {
         );
         assert_eq!(m.visit(repo_path("foo")), Visit::SOME);
         assert_eq!(m.visit(repo_path("bar")), Visit::Nothing);
+    }
+
+    #[test]
+    fn test_prefix_globs_matcher_rooted() {
+        let m = new_prefix_globs_matcher(&[(RepoPath::root(), glob("*.rs"))]);
+        assert!(!m.matches(repo_path("foo")));
+        assert!(m.matches(repo_path("foo.rs")));
+        assert!(m.matches(repo_path("foo\n.rs"))); // "*" matches newline
+        assert!(!m.matches(repo_path("foo.rss")));
+        assert!(m.matches(repo_path("foo.rs/bar")));
+        assert!(!m.matches(repo_path("foo/bar.rs")));
+        assert_eq!(m.visit(RepoPath::root()), Visit::SOME);
+        assert_eq!(m.visit(repo_path("foo.rs")), Visit::AllRecursively);
+        assert_eq!(m.visit(repo_path("foo.rs/bar")), Visit::AllRecursively);
+        assert_eq!(m.visit(repo_path("foo.rss")), Visit::SOME);
+        assert_eq!(m.visit(repo_path("foo.rss/bar")), Visit::SOME);
+
+        // Multiple patterns at the same directory
+        let m = new_prefix_globs_matcher(&[
+            (RepoPath::root(), glob("foo?")),
+            (repo_path("other"), glob("")),
+            (RepoPath::root(), glob("**/*.rs")),
+        ]);
+        assert!(!m.matches(repo_path("foo")));
+        assert!(m.matches(repo_path("foo1")));
+        assert!(!m.matches(repo_path("Foo1")));
+        assert!(m.matches(repo_path("foo1/foo2")));
+        assert!(m.matches(repo_path("foo.rs")));
+        assert!(m.matches(repo_path("foo.rs/bar.rs")));
+        assert!(m.matches(repo_path("foo/bar.rs")));
+        assert_eq!(m.visit(RepoPath::root()), Visit::SOME);
+        assert_eq!(m.visit(repo_path("foo")), Visit::SOME);
+        assert_eq!(m.visit(repo_path("bar/baz")), Visit::SOME);
+    }
+
+    #[test]
+    fn test_prefix_globs_matcher_nested() {
+        let m = new_prefix_globs_matcher(&[
+            (repo_path("foo"), glob("**/*.a")),
+            (repo_path("foo/bar"), glob("*.b")),
+            (repo_path("baz"), glob("?*")),
+        ]);
+        assert!(!m.matches(repo_path("foo")));
+        assert!(m.matches(repo_path("foo/x.a")));
+        assert!(!m.matches(repo_path("foo/x.b")));
+        assert!(m.matches(repo_path("foo/bar/x.a")));
+        assert!(m.matches(repo_path("foo/bar/x.b")));
+        assert!(m.matches(repo_path("foo/bar/x.b/y")));
+        assert!(m.matches(repo_path("foo/bar/baz/x.a")));
+        assert!(!m.matches(repo_path("foo/bar/baz/x.b")));
+        assert!(!m.matches(repo_path("baz")));
+        assert!(m.matches(repo_path("baz/x")));
+        assert!(m.matches(repo_path("baz/x/y")));
+        assert_eq!(
+            m.visit(RepoPath::root()),
+            Visit::Specific {
+                dirs: VisitDirs::Set(hashset! {
+                    repo_path_component_buf("foo"),
+                    repo_path_component_buf("baz"),
+                }),
+                files: VisitFiles::Set(hashset! {}),
+            }
+        );
+        assert_eq!(m.visit(repo_path("foo")), Visit::SOME);
+        assert_eq!(m.visit(repo_path("foo/x.a")), Visit::AllRecursively);
+        assert_eq!(m.visit(repo_path("foo/bar")), Visit::SOME);
+        assert_eq!(m.visit(repo_path("foo/bar/x.a")), Visit::AllRecursively);
+        assert_eq!(m.visit(repo_path("foo/bar/x.b")), Visit::AllRecursively);
+        assert_eq!(m.visit(repo_path("foo/bar/baz")), Visit::SOME);
+        assert_eq!(m.visit(repo_path("bar")), Visit::Nothing);
+        assert_eq!(m.visit(repo_path("baz")), Visit::SOME);
+        assert_eq!(m.visit(repo_path("baz/x")), Visit::AllRecursively);
+        assert_eq!(m.visit(repo_path("baz/x/y")), Visit::AllRecursively);
+    }
+
+    #[test]
+    fn test_prefix_globs_matcher_wildcard_any() {
+        // It's not obvious whether "*" should match the root directory path.
+        // Since "<dir>/*" shouldn't match "<dir>" itself, we can consider that
+        // "*" has an implicit "<root>/" prefix, and therefore it makes sense
+        // that "*" doesn't match the root. OTOH, if we compare paths as literal
+        // strings, "*" matches "". The current implementation is the former.
+        let m = new_prefix_globs_matcher(&[(RepoPath::root(), glob("*"))]);
+        assert!(!m.matches(RepoPath::root()));
+        assert!(m.matches(repo_path("x")));
+        assert!(m.matches(repo_path("x.rs")));
+        assert!(m.matches(repo_path("foo/bar.rs")));
+        assert_eq!(m.visit(RepoPath::root()), Visit::AllRecursively);
+
+        // "foo/*" shouldn't match "foo"
+        let m = new_prefix_globs_matcher(&[(repo_path("foo"), glob("*"))]);
+        assert!(!m.matches(RepoPath::root()));
+        assert!(!m.matches(repo_path("foo")));
+        assert!(m.matches(repo_path("foo/x")));
+        assert!(m.matches(repo_path("foo/bar/baz")));
+        assert_eq!(
+            m.visit(RepoPath::root()),
+            Visit::Specific {
+                dirs: VisitDirs::Set(hashset! {repo_path_component_buf("foo")}),
+                files: VisitFiles::Set(hashset! {}),
+            }
+        );
+        assert_eq!(m.visit(repo_path("foo")), Visit::AllRecursively);
+        assert_eq!(m.visit(repo_path("bar")), Visit::Nothing);
+    }
+
+    #[test]
+    fn test_prefix_globs_matcher_wildcard_suffix() {
+        // explicit "/**" in pattern
+        let m = new_prefix_globs_matcher(&[(repo_path("foo"), glob("**"))]);
+        assert!(!m.matches(repo_path("foo")));
+        assert!(m.matches(repo_path("foo/bar")));
+        assert!(m.matches(repo_path("foo/bar/baz")));
+        assert_eq!(m.visit(repo_path("foo")), Visit::AllRecursively);
+        assert_eq!(m.visit(repo_path("foo/bar")), Visit::AllRecursively);
+        assert_eq!(m.visit(repo_path("foo/bar/baz")), Visit::AllRecursively);
     }
 
     #[test]

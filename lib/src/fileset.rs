@@ -1109,6 +1109,7 @@ mod tests {
         insta::assert_debug_snapshot!(glob_expr("", "*").to_matcher(), @r#"
         GlobsMatcher {
             tree: Some(RegexSet(["(?-u)^[^/]*$"])) {},
+            matches_prefix_paths: false,
         }
         "#);
 
@@ -1124,6 +1125,7 @@ mod tests {
                     "bar": Some(RegexSet(["(?-u)^[^/]*$"])) {},
                 },
             },
+            matches_prefix_paths: false,
         }
         "#);
     }
