@@ -47,6 +47,7 @@ use jj_lib::git::GitPushError;
 use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitRefUpdate;
+use jj_lib::git::GitRemoteManagementError;
 use jj_lib::git::GitResetHeadError;
 use jj_lib::git::IgnoredRefspec;
 use jj_lib::git::IgnoredRefspecs;
@@ -5032,4 +5033,283 @@ fn test_remote_add_with_tags_specification() {
                 .fetch_tags()
         );
     }
+}
+
+#[test]
+fn test_add_remote_rejects_duplicate_in_local_config() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+
+    // Add remote "foo" to local config
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "foo".as_ref(),
+        "https://example.com/",
+        Default::default(),
+        None,
+    )
+    .unwrap();
+    let _repo = tx.commit("test").unwrap();
+
+    // Reload after Git configuration change
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // Try to add remote "foo" again - should fail
+    let mut tx = repo.start_transaction();
+    let result = git::add_remote(
+        tx.repo_mut(),
+        "foo".as_ref(),
+        "https://example.com/other",
+        Default::default(),
+        None,
+    );
+
+    assert_matches!(
+        result,
+        Err(GitRemoteManagementError::RemoteAlreadyExists(name)) if name.as_str() == "foo"
+    );
+}
+
+#[test]
+fn test_add_remote_allows_duplicate_when_only_in_global_config() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+
+    // Add remote "foo" to global config (not local)
+    let config = git_repo.config_snapshot().clone();
+    let global_config_path = config
+        .meta()
+        .path
+        .as_ref()
+        .expect("failed to find config file");
+
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(global_config_path)
+        .expect("failed to open config file")
+        .write_all(
+            br#"
+[remote "foo"]
+    url = https://global.example.com/
+    fetch = +refs/heads/*:refs/remotes/foo/*
+"#,
+        )
+        .expect("failed to write to config file");
+
+    // Reload after Git configuration change
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // Verify remote "foo" exists in git (from global config)
+    let git_repo = get_git_repo(repo);
+    assert!(git_repo.find_remote("foo").is_ok());
+
+    // Try to add remote "foo" to local config - should succeed
+    let mut tx = repo.start_transaction();
+    let result = git::add_remote(
+        tx.repo_mut(),
+        "foo".as_ref(),
+        "https://local.example.com/",
+        Default::default(),
+        None,
+    );
+
+    assert!(result.is_ok(), "Should allow adding remote that only exists in global config");
+
+    let _repo = tx.commit("test").unwrap();
+
+    // Reload and verify the local config took precedence
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+    let git_repo = get_git_repo(repo);
+    let remote = git_repo.find_remote("foo").expect("remote should exist");
+    assert_eq!(
+        remote.url(gix::remote::Direction::Fetch).unwrap().to_bstring(),
+        "https://local.example.com/"
+    );
+}
+
+#[test]
+fn test_rename_remote_rejects_when_old_not_in_local_config() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_repo.repo;
+    let git_repo = get_git_repo(repo);
+
+    // Add remote "foo" to global config only (not local)
+    let config = git_repo.config_snapshot().clone();
+    let global_config_path = config
+        .meta()
+        .path
+        .as_ref()
+        .expect("failed to find config file");
+
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(global_config_path)
+        .expect("failed to open config file")
+        .write_all(
+            br#"
+[remote "foo"]
+    url = https://example.com/
+    fetch = +refs/heads/*:refs/remotes/foo/*
+"#,
+        )
+        .expect("failed to write to config file");
+
+    // Reload after Git configuration change
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // Try to rename "foo" to "bar" - should fail because "foo" is not in local config
+    let mut tx = repo.start_transaction();
+    let result = git::rename_remote(tx.repo_mut(), "foo".as_ref(), "bar".as_ref());
+
+    assert_matches!(
+        result,
+        Err(GitRemoteManagementError::NoSuchRemote(name)) if name.as_str() == "foo"
+    );
+}
+
+#[test]
+fn test_rename_remote_rejects_when_new_exists_in_local_config() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+
+    // Add remote "foo" to local config
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "foo".as_ref(),
+        "https://example.com/foo",
+        Default::default(),
+        None,
+    )
+    .unwrap();
+    let _repo = tx.commit("test").unwrap();
+
+    // Reload after Git configuration change
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // Add remote "bar" to local config
+    let mut tx = repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "bar".as_ref(),
+        "https://example.com/bar",
+        Default::default(),
+        None,
+    )
+    .unwrap();
+    let _repo = tx.commit("test").unwrap();
+
+    // Reload after Git configuration change
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // Try to rename "foo" to "bar" - should fail because "bar" already exists in local config
+    let mut tx = repo.start_transaction();
+    let result = git::rename_remote(tx.repo_mut(), "foo".as_ref(), "bar".as_ref());
+
+    assert_matches!(
+        result,
+        Err(GitRemoteManagementError::RemoteAlreadyExists(name)) if name.as_str() == "bar"
+    );
+}
+
+#[test]
+fn test_rename_remote_allows_when_new_name_only_in_global_config() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+
+    // Add remote "foo" to local config
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "foo".as_ref(),
+        "https://example.com/",
+        Default::default(),
+        None,
+    )
+    .unwrap();
+    let _repo = tx.commit("test").unwrap();
+
+    // Reload after Git configuration change
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+    let git_repo = get_git_repo(repo);
+
+    // Create a commit on the foo remote
+    let commit_foo_a = empty_git_commit(&git_repo, "refs/remotes/foo/a", &[]);
+
+    // Add remote "bar" to global config only (not local)
+    let config = git_repo.config_snapshot().clone();
+    let global_config_path = config
+        .meta()
+        .path
+        .as_ref()
+        .expect("failed to find config file");
+
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(global_config_path)
+        .expect("failed to open config file")
+        .write_all(
+            br#"
+[remote "bar"]
+    url = https://global.example.com/
+    fetch = +refs/heads/*:refs/remotes/bar/*
+"#,
+        )
+        .expect("failed to write to config file");
+
+    // Reload after Git configuration change
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+
+    // Verify remote "bar" exists in git (from global config)
+    let git_repo = get_git_repo(repo);
+    assert!(git_repo.find_remote("bar").is_ok());
+
+    // Try to rename "foo" to "bar" - should succeed (local config can shadow global)
+    let mut tx = repo.start_transaction();
+    let result = git::rename_remote(tx.repo_mut(), "foo".as_ref(), "bar".as_ref());
+
+    assert!(result.is_ok(), "Should allow renaming to a name that only exists in global config");
+    let _repo = tx.commit("test").unwrap();
+
+    // Reload and verify the rename succeeded
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+    let git_repo = get_git_repo(repo);
+
+    // Old remote should not exist
+    assert!(
+        git_repo
+            .try_find_reference("refs/remotes/foo/a")
+            .unwrap()
+            .is_none()
+    );
+
+    // New remote should exist with the renamed ref
+    assert_eq!(
+        git_repo.find_reference("refs/remotes/bar/a").unwrap().id(),
+        commit_foo_a,
+    );
+
+    // Verify the remote configuration is in local config
+    let remote = git_repo.find_remote("bar").expect("remote should exist");
+    assert_eq!(
+        remote.url(gix::remote::Direction::Fetch).unwrap().to_bstring(),
+        "https://example.com/"
+    );
 }
