@@ -472,6 +472,25 @@ fn test_bookmark_move_matching() {
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
+    // Move multiple bookmarks by name
+    let output = work_dir.run_jj(["bookmark", "move", "b1", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Moved 2 bookmarks to vruxwmqv 0dd9a4b1 b1 c1 | (empty) head2
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  b1 c1 0dd9a4b12283
+    ○   2cbf65662e56
+    ○   c2934cfbfb19
+    │ ○   9328ecc52471
+    │ ○  a1 a2 e8849ae12c70
+    ├─╯
+    ◆   000000000000
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
     // Try to move multiple bookmarks, but one of them isn't fast-forward
     let output = work_dir.run_jj(["bookmark", "move", "glob:?1"]);
     insta::assert_snapshot!(output, @r"
