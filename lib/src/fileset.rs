@@ -38,8 +38,8 @@ use crate::fileset_parser::FunctionCallNode;
 use crate::fileset_parser::UnaryOp;
 use crate::matchers::DifferenceMatcher;
 use crate::matchers::EverythingMatcher;
-use crate::matchers::FileGlobsMatcher;
 use crate::matchers::FilesMatcher;
+use crate::matchers::GlobsMatcher;
 use crate::matchers::IntersectionMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::NothingMatcher;
@@ -413,7 +413,7 @@ fn build_union_matcher(expressions: &[FilesetExpression]) -> Box<dyn Matcher> {
         matchers.push(Some(Box::new(PrefixMatcher::new(prefix_paths))));
     }
     if !file_globs.is_empty() {
-        matchers.push(Some(Box::new(FileGlobsMatcher::new(file_globs))));
+        matchers.push(Some(Box::new(GlobsMatcher::new(file_globs))));
     }
     union_all_matchers(&mut matchers)
 }
@@ -1109,7 +1109,7 @@ mod tests {
         };
 
         insta::assert_debug_snapshot!(glob_expr("", "*").to_matcher(), @r#"
-        FileGlobsMatcher {
+        GlobsMatcher {
             tree: [
                 Regex("(?-u)^[^/]*$"),
             ] {},
@@ -1119,7 +1119,7 @@ mod tests {
         let expr =
             FilesetExpression::union_all(vec![glob_expr("foo", "*"), glob_expr("foo/bar", "*")]);
         insta::assert_debug_snapshot!(expr.to_matcher(), @r#"
-        FileGlobsMatcher {
+        GlobsMatcher {
             tree: [] {
                 "foo": [
                     Regex("(?-u)^[^/]*$"),

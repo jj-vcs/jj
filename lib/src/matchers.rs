@@ -244,12 +244,12 @@ fn prefix_tree_to_visit_sets(tree: &RepoPathTree<PrefixNodeKind>) -> Visit {
 /// longest directory path that contains no glob meta characters, and `pattern`
 /// will be evaluated relative to `dir`.
 #[derive(Clone, Debug)]
-pub struct FileGlobsMatcher {
+pub struct GlobsMatcher {
     // TODO: use Option<RegexSet> instead of Vec<Regex>?
     tree: RepoPathTree<Vec<regex::bytes::Regex>>,
 }
 
-impl FileGlobsMatcher {
+impl GlobsMatcher {
     pub fn new<D: AsRef<RepoPath>, P: Borrow<Glob>>(
         dir_patterns: impl IntoIterator<Item = (D, P)>,
     ) -> Self {
@@ -267,7 +267,7 @@ impl FileGlobsMatcher {
     }
 }
 
-impl Matcher for FileGlobsMatcher {
+impl Matcher for GlobsMatcher {
     fn matches(&self, file: &RepoPath) -> bool {
         // check if any ancestor (dir, patterns) matches 'file'
         self.tree
@@ -673,7 +673,7 @@ mod tests {
     fn test_file_globs_matcher_rooted() {
         let to_pattern = |s| parse_file_glob(s, false).unwrap();
 
-        let m = FileGlobsMatcher::new([(RepoPath::root(), to_pattern("*.rs"))]);
+        let m = GlobsMatcher::new([(RepoPath::root(), to_pattern("*.rs"))]);
         assert!(!m.matches(repo_path("foo")));
         assert!(m.matches(repo_path("foo.rs")));
         assert!(m.matches(repo_path("foo\n.rs"))); // "*" matches newline
@@ -689,7 +689,7 @@ mod tests {
         );
 
         // Multiple patterns at the same directory
-        let m = FileGlobsMatcher::new([
+        let m = GlobsMatcher::new([
             (RepoPath::root(), to_pattern("foo?")),
             (RepoPath::root(), to_pattern("**/*.rs")),
         ]);
@@ -727,7 +727,7 @@ mod tests {
     fn test_file_globs_matcher_nested() {
         let to_pattern = |s| parse_file_glob(s, false).unwrap();
 
-        let m = FileGlobsMatcher::new([
+        let m = GlobsMatcher::new([
             (repo_path("foo"), to_pattern("**/*.a")),
             (repo_path("foo/bar"), to_pattern("*.b")),
             (repo_path("baz"), to_pattern("?*")),
@@ -788,7 +788,7 @@ mod tests {
 
         // "*" could match the root path, but it doesn't matter since the root
         // isn't a valid file path.
-        let m = FileGlobsMatcher::new([(RepoPath::root(), to_pattern("*"))]);
+        let m = GlobsMatcher::new([(RepoPath::root(), to_pattern("*"))]);
         assert!(!m.matches(RepoPath::root())); // doesn't matter
         assert!(m.matches(repo_path("x")));
         assert!(m.matches(repo_path("x.rs")));
@@ -802,7 +802,7 @@ mod tests {
         );
 
         // "foo/*" shouldn't match "foo"
-        let m = FileGlobsMatcher::new([(repo_path("foo"), to_pattern("*"))]);
+        let m = GlobsMatcher::new([(repo_path("foo"), to_pattern("*"))]);
         assert!(!m.matches(RepoPath::root()));
         assert!(!m.matches(repo_path("foo")));
         assert!(m.matches(repo_path("foo/x")));
