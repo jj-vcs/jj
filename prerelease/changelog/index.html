@@ -5964,7 +5964,14 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </li>
 <li><code>signing.sign-all</code></li>
 <li><code>core.watchman.register_snapshot_trigger</code></li>
-<li><code>diff.format</code></li>
+<li>
+<p><code>diff.format</code></p>
+</li>
+<li>
+<p>The <code>remote_bookmarks(remote=pattern)</code> revset now includes Git-tracking
+  bookmarks if the specified <code>pattern</code> matches <code>git</code>. The default is
+  <code>remote=~exact:"git"</code> as before.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <ul>

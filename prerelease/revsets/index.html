@@ -2250,8 +2250,8 @@ indicates that all of the following usages are valid:</p>
 <code>push-123@origin</code> and <code>repushed@private</code> but not <code>push-123@upstream</code> or
 <code>main@origin</code> or <code>main@upstream</code>. If a bookmark is in a conflicted state, all
 its possible targets are included.</p>
-<p>While Git-tracking bookmarks can be selected by <code>&lt;name&gt;@git</code>, these bookmarks
-aren't included in <code>remote_bookmarks()</code>.</p>
+<p>Git-tracking bookmarks are excluded by default. Use <code>remote=exact:"git"</code> or
+<code>remote=glob:"*"</code> to select bookmarks including <code>@git</code> ones.</p>
 </li>
 <li>
 <p><code>tracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])</code>: All
