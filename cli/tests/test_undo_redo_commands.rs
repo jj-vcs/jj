@@ -56,6 +56,41 @@ fn test_undo_merge_operation() {
 }
 
 #[test]
+fn test_undo_push_operation() {
+    let test_env = TestEnvironment::default();
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "origin"])
+        .success();
+    let origin_dir = test_env.work_dir("origin");
+    let origin_git_repo_path = origin_dir.root().join(".git");
+    test_env
+        .run_jj_in(
+            ".",
+            [
+                "git",
+                "clone",
+                origin_git_repo_path.to_str().unwrap(),
+                "repo",
+            ],
+        )
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("foo", "foo");
+    work_dir.run_jj(["commit", "-mfoo"]).success();
+    work_dir.run_jj(["git", "push", "-c@-"]).success();
+    let output = work_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Undoing a push operation often leads to conflicted bookmarks.
+    Hint: To avoid this, run `jj redo` now.
+    Restored to operation: 5b87c43b033a (2001-02-03 08:05:09) commit 3850397cf31988d0657948307ad5bbe873d76a38
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_undo_jump_old_undo_stack() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
