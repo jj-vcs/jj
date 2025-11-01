@@ -34,6 +34,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   panic and allowing prefixes containing `.` or `..` to be completed correctly.
   [#6861](https://github.com/jj-vcs/jj/issues/6861)
 
+* Shell completion now always uses forward slashes to complete paths, even on
+  Windows. This renders completion results viable when using jj in Git Bash.
+  [#7024](https://github.com/jj-vcs/jj/issues/7024)
+
 ## [0.35.0] - 2025-11-05
 
 ### Release highlights

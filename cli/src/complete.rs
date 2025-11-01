@@ -23,6 +23,7 @@ use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::file_util::normalize_path;
+use jj_lib::file_util::slash_path;
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::DefaultWorkspaceLoaderFactory;
 use jj_lib::workspace::WorkspaceLoaderFactory as _;
@@ -742,33 +743,26 @@ pub fn branch_name_equals_any_revision(current: &std::ffi::OsStr) -> Vec<Complet
 
 fn path_completion_candidate_from(
     current_prefix: &str,
-    path: &str,
+    normalized_prefix_path: &Path,
+    path: &Path,
     mode: Option<clap::builder::StyledStr>,
 ) -> Option<CompletionCandidate> {
-    // The user-provided completion string might not prefix `path` unless cast in
-    // normal form.
-    let normalized_prefix_path = normalize_path(Path::new(current_prefix));
-    let normalized_prefix = match normalized_prefix_path.to_str() {
-        None => current_prefix,
-        Some(".") => "", // `.` cannot be normalized further, but doesn't prefix `path`.
-        Some(normalized_prefix) => normalized_prefix,
+    let normalized_prefix = match normalized_prefix_path.to_str()? {
+        "." => "", // `.` cannot be normalized further, but doesn't prefix `path`.
+        normalized_prefix => normalized_prefix,
     };
 
-    let mut remainder = path.strip_prefix(normalized_prefix)?;
+    let path = slash_path(path);
+    let mut remainder = path.to_str()?.strip_prefix(normalized_prefix)?;
 
     // Trailing slash might have been normalized away in which case we need to strip
     // the leading slash in the remainder away, or else the slash would appear
     // twice.
     if current_prefix.ends_with(std::path::is_separator) {
-        remainder = remainder
-            .strip_prefix(std::path::is_separator)
-            .unwrap_or(remainder);
+        remainder = remainder.strip_prefix('/').unwrap_or(remainder);
     }
 
-    match remainder
-        .split_inclusive(std::path::is_separator)
-        .at_most_one()
-    {
+    match remainder.split_inclusive('/').at_most_one() {
         // Completed component is the final component in `path`, so we're completing the file to
         // which `mode` refers.
         Ok(file_completion) => Some(
@@ -798,6 +792,10 @@ fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionC
     let Some(current) = current.to_str() else {
         return Vec::new();
     };
+
+    let normalized_prefix = normalize_path(Path::new(current));
+    let normalized_prefix = slash_path(&normalized_prefix);
+
     with_jj(|jj, _| {
         let mut child = jj
             .build()
@@ -805,6 +803,8 @@ fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionC
             .arg("list")
             .arg("--revision")
             .arg(rev)
+            .arg("--template")
+            .arg(r#"path.display() ++ "\n""#)
             .arg(current_prefix_to_fileset(current))
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
@@ -816,7 +816,9 @@ fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionC
             .lines()
             .take(1_000)
             .map_while(Result::ok)
-            .filter_map(|path| path_completion_candidate_from(current, &path, None))
+            .filter_map(|path| {
+                path_completion_candidate_from(current, &normalized_prefix, Path::new(&path), None)
+            })
             .dedup() // directories may occur multiple times
             .collect())
     })
@@ -830,6 +832,9 @@ fn modified_files_from_rev_with_jj_cmd(
     let Some(current) = current.to_str() else {
         return Ok(Vec::new());
     };
+
+    let normalized_prefix = normalize_path(Path::new(current));
+    let normalized_prefix = slash_path(&normalized_prefix);
 
     // In case of a rename, one entry of `diff` results in two suggestions.
     let template = indoc! {r#"
@@ -865,7 +870,7 @@ fn modified_files_from_rev_with_jj_cmd(
                 "copied" => "Copied".into(),
                 _ => format!("unknown mode: '{mode}'").into(),
             };
-            path_completion_candidate_from(current, path, Some(mode))
+            path_completion_candidate_from(current, &normalized_prefix, Path::new(path), Some(mode))
         })
         .collect();
 
@@ -888,6 +893,10 @@ fn conflicted_files_from_rev(rev: &str, current: &std::ffi::OsStr) -> Vec<Comple
     let Some(current) = current.to_str() else {
         return Vec::new();
     };
+
+    let normalized_prefix = normalize_path(Path::new(current));
+    let normalized_prefix = slash_path(&normalized_prefix);
+
     with_jj(|jj, _| {
         let output = jj
             .build()
@@ -908,7 +917,7 @@ fn conflicted_files_from_rev(rev: &str, current: &std::ffi::OsStr) -> Vec<Comple
                     .next()
                     .expect("resolve --list should contain whitespace after path");
 
-                path_completion_candidate_from(current, path, None)
+                path_completion_candidate_from(current, &normalized_prefix, Path::new(path), None)
             })
             .dedup() // directories may occur multiple times
             .collect())
