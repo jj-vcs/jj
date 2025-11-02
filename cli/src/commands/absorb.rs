@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use indoc::formatdoc;
 use jj_lib::absorb::AbsorbSource;
 use jj_lib::absorb::absorb_hunks;
 use jj_lib::absorb::split_hunks_to_trees;
 use jj_lib::matchers::EverythingMatcher;
+use jj_lib::repo::Repo as _;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
@@ -66,6 +69,16 @@ pub(crate) struct AbsorbArgs {
         add = ArgValueCompleter::new(complete::modified_from_files),
     )]
     paths: Vec<String>,
+    /// Interactively choose which parts to absorb
+    #[arg(long, short)]
+    interactive: bool,
+    /// Specify diff editor to be used (implies --interactive)
+    #[arg(
+        long,
+        value_name = "NAME",
+        add = ArgValueCandidates::new(complete::diff_editors),
+    )]
+    tool: Option<String>,
 }
 
 #[instrument(skip_all)]
@@ -81,13 +94,33 @@ pub(crate) fn cmd_absorb(
         .parse_union_revsets(ui, &args.into)?
         .resolve()?;
 
+    let repo = workspace_command.repo().as_ref();
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
+    let diff_selector =
+        workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
+    let format_instructions = || {
+        formatdoc! {"
+            You are selecting changes to be absorbed from: {source_commit}
 
-    let repo = workspace_command.repo().as_ref();
-    let source = AbsorbSource::from_commit(repo, source_commit)?;
-    let selected_trees = split_hunks_to_trees(repo, &source, &destinations, &matcher).block_on()?;
+            The diff initially shows all changes to be absorbed. Adjust the right side until it
+            shows only the contents you want to be absorbed.
+            ",
+            source_commit = workspace_command.format_commit_summary(&source_commit),
+        }
+    };
+    let parent_tree = source_commit.parent_tree(repo)?;
+    let selected_tree_id = diff_selector.select(
+        &parent_tree,
+        &source_commit.tree()?,
+        &matcher,
+        format_instructions,
+    )?;
+    let selected_tree = repo.store().get_root_tree(&selected_tree_id)?;
+    let source = AbsorbSource::new(source_commit, parent_tree);
+    let selected_trees =
+        split_hunks_to_trees(repo, &source, &destinations, &matcher, selected_tree).block_on()?;
 
     let path_converter = workspace_command.path_converter();
     for (path, reason) in selected_trees.skipped_paths {

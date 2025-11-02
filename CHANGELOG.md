@@ -347,6 +347,8 @@ Thanks to the people who made this release happen!
 * Merge tools can use the `$path` argument to learn where the file they
   are merging will end up in the repository.
 
+* `jj absorb` now supports `-i`/`--interactive` selection.
+
 ### Fixed bugs
 
 * `jj git clone` now correctly fetches all tags, unless `--fetch-tags` is
