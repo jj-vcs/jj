@@ -45,6 +45,13 @@ pub enum Visit {
 }
 
 impl Visit {
+    /// All entries in the directory need to be visited, but they are not
+    /// guaranteed to match.
+    const SOME: Self = Self::Specific {
+        dirs: VisitDirs::All,
+        files: VisitFiles::All,
+    };
+
     fn sets(dirs: HashSet<RepoPathComponentBuf>, files: HashSet<RepoPathComponentBuf>) -> Self {
         if dirs.is_empty() && files.is_empty() {
             Self::Nothing
@@ -268,10 +275,7 @@ impl Matcher for GlobsMatcher {
         for (sub, tail_path) in self.tree.walk_to(dir) {
             // ancestor of 'dir' has patterns, can't narrow visit anymore
             if sub.value.is_some() {
-                return Visit::Specific {
-                    dirs: VisitDirs::All,
-                    files: VisitFiles::All,
-                };
+                return Visit::SOME;
             }
             // 'dir' found, and is an ancestor of pattern paths
             if tail_path.is_root() {
@@ -406,10 +410,7 @@ impl<M1: Matcher, M2: Matcher> Matcher for DifferenceMatcher<M1, M2> {
             Visit::AllRecursively => Visit::Nothing,
             Visit::Nothing => self.wanted.visit(dir),
             Visit::Specific { .. } => match self.wanted.visit(dir) {
-                Visit::AllRecursively => Visit::Specific {
-                    dirs: VisitDirs::All,
-                    files: VisitFiles::All,
-                },
+                Visit::AllRecursively => Visit::SOME,
                 wanted_visit => wanted_visit,
             },
         }
@@ -719,13 +720,7 @@ mod tests {
         assert!(!m.matches(repo_path("foo.rss")));
         assert!(!m.matches(repo_path("foo.rs/bar.rs")));
         assert!(!m.matches(repo_path("foo/bar.rs")));
-        assert_eq!(
-            m.visit(RepoPath::root()),
-            Visit::Specific {
-                dirs: VisitDirs::All,
-                files: VisitFiles::All
-            }
-        );
+        assert_eq!(m.visit(RepoPath::root()), Visit::SOME);
 
         // Multiple patterns at the same directory
         let m = new_file_globs_matcher(&[
@@ -740,27 +735,9 @@ mod tests {
         assert!(m.matches(repo_path("foo.rs")));
         assert!(m.matches(repo_path("foo.rs/bar.rs")));
         assert!(m.matches(repo_path("foo/bar.rs")));
-        assert_eq!(
-            m.visit(RepoPath::root()),
-            Visit::Specific {
-                dirs: VisitDirs::All,
-                files: VisitFiles::All
-            }
-        );
-        assert_eq!(
-            m.visit(repo_path("foo")),
-            Visit::Specific {
-                dirs: VisitDirs::All,
-                files: VisitFiles::All
-            }
-        );
-        assert_eq!(
-            m.visit(repo_path("bar/baz")),
-            Visit::Specific {
-                dirs: VisitDirs::All,
-                files: VisitFiles::All
-            }
-        );
+        assert_eq!(m.visit(RepoPath::root()), Visit::SOME);
+        assert_eq!(m.visit(repo_path("foo")), Visit::SOME);
+        assert_eq!(m.visit(repo_path("bar/baz")), Visit::SOME);
     }
 
     #[test]
@@ -789,35 +766,11 @@ mod tests {
                 files: VisitFiles::Set(hashset! {}),
             }
         );
-        assert_eq!(
-            m.visit(repo_path("foo")),
-            Visit::Specific {
-                dirs: VisitDirs::All,
-                files: VisitFiles::All,
-            }
-        );
-        assert_eq!(
-            m.visit(repo_path("foo/bar")),
-            Visit::Specific {
-                dirs: VisitDirs::All,
-                files: VisitFiles::All,
-            }
-        );
-        assert_eq!(
-            m.visit(repo_path("foo/bar/baz")),
-            Visit::Specific {
-                dirs: VisitDirs::All,
-                files: VisitFiles::All,
-            }
-        );
+        assert_eq!(m.visit(repo_path("foo")), Visit::SOME);
+        assert_eq!(m.visit(repo_path("foo/bar")), Visit::SOME);
+        assert_eq!(m.visit(repo_path("foo/bar/baz")), Visit::SOME);
         assert_eq!(m.visit(repo_path("bar")), Visit::Nothing);
-        assert_eq!(
-            m.visit(repo_path("baz")),
-            Visit::Specific {
-                dirs: VisitDirs::All,
-                files: VisitFiles::All,
-            }
-        );
+        assert_eq!(m.visit(repo_path("baz")), Visit::SOME);
     }
 
     #[test]
@@ -829,13 +782,7 @@ mod tests {
         assert!(m.matches(repo_path("x")));
         assert!(m.matches(repo_path("x.rs")));
         assert!(!m.matches(repo_path("foo/bar.rs")));
-        assert_eq!(
-            m.visit(RepoPath::root()),
-            Visit::Specific {
-                dirs: VisitDirs::All,
-                files: VisitFiles::All
-            }
-        );
+        assert_eq!(m.visit(RepoPath::root()), Visit::SOME);
 
         // "foo/*" shouldn't match "foo"
         let m = new_file_globs_matcher(&[(repo_path("foo"), glob("*"))]);
@@ -850,13 +797,7 @@ mod tests {
                 files: VisitFiles::Set(hashset! {}),
             }
         );
-        assert_eq!(
-            m.visit(repo_path("foo")),
-            Visit::Specific {
-                dirs: VisitDirs::All,
-                files: VisitFiles::All
-            }
-        );
+        assert_eq!(m.visit(repo_path("foo")), Visit::SOME);
         assert_eq!(m.visit(repo_path("bar")), Visit::Nothing);
     }
 
@@ -986,13 +927,7 @@ mod tests {
                 },
             )
         );
-        assert_eq!(
-            m.visit(repo_path("foo")),
-            Visit::Specific {
-                dirs: VisitDirs::All,
-                files: VisitFiles::All,
-            }
-        );
+        assert_eq!(m.visit(repo_path("foo")), Visit::SOME);
         assert_eq!(m.visit(repo_path("foo/bar")), Visit::Nothing);
         assert_eq!(m.visit(repo_path("foo/baz")), Visit::AllRecursively);
         assert_eq!(m.visit(repo_path("bar")), Visit::AllRecursively);
