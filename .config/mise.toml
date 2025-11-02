@@ -98,14 +98,13 @@ tools.uv = "{{vars.uv_version}}"
 run = "uv run mkdocs serve"
 
 
-# not sure how to name these
-[tasks."clippy:live"]
+[tasks."clippy:watch"]
 description = "Lint the code with Clippy when the code changes"
 tools.rust = "{{vars.rust_version}}"
 tools."cargo:bacon" = "{{vars.bacon_version}}"
 run = "bacon clippy -- --workspace --all-targets"
 
-[tasks."test:live"]
+[tasks."test:watch"]
 description = "Run tests when the code changes"
 tools.rust = "{{vars.rust_version}}"
 tools."cargo:bacon" = "{{vars.bacon_version}}"
