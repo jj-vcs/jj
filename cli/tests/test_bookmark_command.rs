@@ -635,11 +635,37 @@ fn test_bookmark_rename() {
     Hint: To rename the bookmark on the remote, you can `jj git push --bookmark bremote` first (to delete it on the remote), and then `jj git push --bookmark bremote2`. `jj git push --all --deleted` would also be sufficient.
     [EOF]
     ");
+    let op_id_after_rename = work_dir.current_operation_id();
     let output = work_dir.run_jj(["bookmark", "rename", "bremote2", "bremote"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Tracked remote bookmarks for bookmark bremote exist.
     Hint: Run `jj bookmark untrack 'glob:bremote@*'` to disassociate them.
+    [EOF]
+    ");
+    work_dir
+        .run_jj(["op", "restore", &op_id_after_rename])
+        .success();
+    let output = work_dir.run_jj(["git", "push", "--bookmark", "bremote2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark bremote2 to a9d7418c1c3f
+    [EOF]
+    ");
+    work_dir
+        .run_jj(["git", "push", "--named", "bremote-untracked=@"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "forget", "bremote-untracked"])
+        .success();
+    let output = work_dir.run_jj(["bookmark", "rename", "bremote2", "bremote-untracked"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: The renamed bookmark already exists on the remote 'origin', tracking state was dropped.
+    Hint: To track the existing remote bookmark, run `jj bookmark track bremote-untracked@origin`
+    Warning: Tracked remote bookmarks for bookmark bremote2 were not renamed.
+    Hint: To rename the bookmark on the remote, you can `jj git push --bookmark bremote2` first (to delete it on the remote), and then `jj git push --bookmark bremote-untracked`. `jj git push --all --deleted` would also be sufficient.
     [EOF]
     ");
 }

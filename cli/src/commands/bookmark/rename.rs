@@ -12,12 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashSet;
+
 use clap_complete::ArgValueCandidates;
+use itertools::Itertools as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefNameBuf;
+use jj_lib::repo::Repo as _;
+use jj_lib::str_util::StringExpression;
+use jj_lib::str_util::StringMatcher;
 
 use crate::cli_util::CommandHelper;
-use crate::cli_util::has_tracked_remote_bookmarks;
+use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::complete;
@@ -70,6 +76,57 @@ pub fn cmd_bookmark_rename(
         .set_local_bookmark_target(new_bookmark, ref_target);
     tx.repo_mut()
         .set_local_bookmark_target(old_bookmark, RefTarget::absent());
+
+    let remote_matcher = match default_ignored_remote_name(tx.repo().store()) {
+        Some(remote) => StringExpression::exact(remote).negated().to_matcher(),
+        None => StringMatcher::all(),
+    };
+    let mut tracked_present_remote_bookmarks_exist_for_old_bookmark = false;
+    let old_tracked_remotes = tx
+        .base_repo()
+        .view()
+        .remote_bookmarks_matching(&StringMatcher::exact(old_bookmark), &remote_matcher)
+        .filter(|(_, remote_ref)| {
+            if remote_ref.is_tracked() && remote_ref.is_present() {
+                tracked_present_remote_bookmarks_exist_for_old_bookmark = true;
+            }
+            remote_ref.is_tracked()
+        })
+        .map(|(symbol, _)| symbol.remote.to_owned())
+        .collect_vec();
+    let mut tracked_present_remote_bookmarks_exist_for_new_bookmark = false;
+    let existing_untracked_remotes = tx
+        .base_repo()
+        .view()
+        .remote_bookmarks_matching(&StringMatcher::exact(new_bookmark), &remote_matcher)
+        .filter(|(_, remote_ref)| {
+            if remote_ref.is_tracked() && remote_ref.is_present() {
+                tracked_present_remote_bookmarks_exist_for_new_bookmark = true;
+            }
+            !remote_ref.is_tracked()
+        })
+        .map(|(symbol, _)| symbol.remote.to_owned())
+        .collect::<HashSet<_>>();
+    // preserve tracking state of old bookmark
+    for old_remote in old_tracked_remotes {
+        let new_remote_bookmark = new_bookmark.to_remote_symbol(&old_remote);
+        if existing_untracked_remotes.contains(new_remote_bookmark.remote) {
+            writeln!(
+                ui.warning_default(),
+                "The renamed bookmark already exists on the remote '{remote}', tracking state was \
+                 dropped.",
+                remote = new_remote_bookmark.remote.as_symbol(),
+            )?;
+            writeln!(
+                ui.hint_default(),
+                "To track the existing remote bookmark, run `jj bookmark track \
+                 {new_remote_bookmark}`",
+            )?;
+            continue;
+        }
+        tx.repo_mut().track_remote_bookmark(new_remote_bookmark)?;
+    }
+
     tx.finish(
         ui,
         format!(
@@ -79,8 +136,7 @@ pub fn cmd_bookmark_rename(
         ),
     )?;
 
-    let repo = workspace_command.repo().as_ref();
-    if has_tracked_remote_bookmarks(repo, old_bookmark) {
+    if tracked_present_remote_bookmarks_exist_for_old_bookmark {
         writeln!(
             ui.warning_default(),
             "Tracked remote bookmarks for bookmark {old_bookmark} were not renamed.",
@@ -95,7 +151,7 @@ pub fn cmd_bookmark_rename(
             new_bookmark = new_bookmark.as_symbol()
         )?;
     }
-    if has_tracked_remote_bookmarks(repo, new_bookmark) {
+    if tracked_present_remote_bookmarks_exist_for_new_bookmark {
         // This isn't an error because bookmark renaming can't be propagated to
         // the remote immediately. "rename old new && rename new old" should be
         // allowed even if the original old bookmark had tracked remotes.
