@@ -2248,6 +2248,129 @@ fn test_squash_to_new_commit() {
     ");
 }
 
+#[test]
+fn test_squash_with_editor_combine_messages() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "destination"]).success();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new", "-m", "source"]).success();
+    work_dir.write_file("file1", "b\n");
+
+    // Both source and destination have descriptions, so editor will open to combine
+    // them; the --editor was superfluous.
+    std::fs::write(
+        &edit_script,
+        ["dump editor", "write\nfinal description from editor"].join("\0"),
+    )
+    .unwrap();
+    work_dir.run_jj(["squash", "--editor"]).success();
+
+    // Verify editor was opened once with combined messages
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+    JJ: Enter a description for the combined commit.
+    JJ: Description from the destination commit:
+    destination
+
+    JJ: Description from source commit:
+    source
+
+    JJ: Change ID: qpvuntsm
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    final description from editor
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_squash_with_editor_and_message_args() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "destination"]).success();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "b\n");
+
+    std::fs::write(&edit_script, "dump editor").unwrap();
+    work_dir
+        .run_jj(["squash", "-m", "message from command line", "--editor"])
+        .success();
+
+    // Verify editor was opened with the message from command line
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+    message from command line
+
+    JJ: Change ID: qpvuntsm
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    message from command line
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_squash_with_editor_and_empty_message() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "destination"]).success();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "b\n");
+
+    // Use --editor with an empty message. The trailers should be added because
+    // the editor will be opened.
+    std::fs::write(&edit_script, "dump editor").unwrap();
+    work_dir
+        .run_jj([
+            "squash",
+            "-m",
+            "",
+            "--editor",
+            "--config",
+            r#"templates.commit_trailers='"Trailer: value"'"#,
+        ])
+        .success();
+
+    // Verify editor was opened with trailers added to the empty message
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+
+    Trailer: value
+
+    JJ: Change ID: qpvuntsm
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+
+    Trailer: value
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_description(work_dir: &TestWorkDir, rev: &str) -> CommandOutput {
     work_dir.run_jj(["log", "--no-graph", "-T", "description", "-r", rev])

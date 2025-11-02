@@ -2835,6 +2835,7 @@ An alternative squashing UI is available via the `-d`, `-A`, and `-B` options. T
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — (Experimental) The revision(s) to insert the new commit before (can be repeated to create a merge commit)
 * `-m`, `--message <MESSAGE>` — The description to use for squashed revision (don't open editor)
 * `-u`, `--use-destination-message` — Use the description of the destination revision and discard the description(s) of the source revision(s)
+* `-E`, `--editor` — Open an editor to edit the squashed commit's description
 * `-i`, `--interactive` — Interactively choose which parts to squash
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `-k`, `--keep-emptied` — The source revision will not be abandoned
