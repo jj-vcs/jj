@@ -8294,7 +8294,7 @@ Martin von Zweigbergk</p>
 <ul>
 <li>
 <p><code>&lt;FILESETS&gt;</code> — Paths to untrack. They must already be ignored.</p>
-<p>The paths could be ignored via a .gitignore or .git/info/exclude (in colocated repos).</p>
+<p>The paths could be ignored via a .gitignore or .git/info/exclude (in colocated workspaces).</p>
 </li>
 </ul>
 <h2 id="jj-fix"><code>jj fix</code><a class="headerlink" href="#jj-fix" title="Permanent link">&para;</a></h2>
@@ -8437,7 +8437,7 @@ output of the first tool.</p>
 <li>
 <p><code>--no-colocate</code> — Disable colocation of the Jujutsu repo with the git repo</p>
 <p>Prevent Git tools that are unaware of <code>jj</code> and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the <code>.jj</code> directory.</p>
-<p>See <a href="https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated repos.</p>
+<p>See <a href="https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated workspaces.</p>
 </li>
 <li>
 <p><code>--depth &lt;DEPTH&gt;</code> — Create a shallow clone of the given depth</p>
@@ -8483,7 +8483,7 @@ output of the first tool.</p>
 <p><strong>Usage:</strong> <code>jj git colocation status</code></p>
 <h2 id="jj-git-export"><code>jj git export</code><a class="headerlink" href="#jj-git-export" title="Permanent link">&para;</a></h2>
 <p>Update the underlying Git repo with changes made in the repo</p>
-<p>There is no need to run this command if you're in colocated repo because the export happens automatically there.</p>
+<p>There is no need to run this command if you're in colocated workspace because the export happens automatically there.</p>
 <p><strong>Usage:</strong> <code>jj git export</code></p>
 <h2 id="jj-git-fetch"><code>jj git fetch</code><a class="headerlink" href="#jj-git-fetch" title="Permanent link">&para;</a></h2>
 <p>Fetch from a Git remote</p>
@@ -8511,7 +8511,7 @@ output of the first tool.</p>
 <h2 id="jj-git-import"><code>jj git import</code><a class="headerlink" href="#jj-git-import" title="Permanent link">&para;</a></h2>
 <p>Update repo with changes made in the underlying Git repo</p>
 <p>If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.</p>
-<p>There is no need to run this command if you're in colocated repo because the import happens automatically there.</p>
+<p>There is no need to run this command if you're in colocated workspace because the import happens automatically there.</p>
 <p><strong>Usage:</strong> <code>jj git import</code></p>
 <h2 id="jj-git-init"><code>jj git init</code><a class="headerlink" href="#jj-git-init" title="Permanent link">&para;</a></h2>
 <p>Create a new Git backed repo</p>
@@ -8536,11 +8536,11 @@ output of the first tool.</p>
 <li>
 <p><code>--no-colocate</code> — Disable colocation of the Jujutsu repo with the git repo</p>
 <p>Prevent Git tools that are unaware of <code>jj</code> and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the <code>.jj</code> directory.</p>
-<p>See <a href="https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated repos.</p>
+<p>See <a href="https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated workspaces.</p>
 </li>
 <li>
 <p><code>--git-repo &lt;GIT_REPO&gt;</code> — Specifies a path to an <strong>existing</strong> git repository to be used as the backing git repo for the newly created <code>jj</code> repo.</p>
-<p>If the specified <code>--git-repo</code> path happens to be the same as the <code>jj</code> repo path (both .jj and .git directories are in the same working directory), then both <code>jj</code> and <code>git</code> commands will work on the same repo. This is called a colocated repo.</p>
+<p>If the specified <code>--git-repo</code> path happens to be the same as the <code>jj</code> repo path (both .jj and .git directories are in the same working directory), then both <code>jj</code> and <code>git</code> commands will work on the same repo. This is called a colocated workspace.</p>
 <p>This option is mutually exclusive with <code>--colocate</code>.</p>
 </li>
 </ul>

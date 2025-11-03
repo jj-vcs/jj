@@ -4788,9 +4788,10 @@ default, which places the <code>.git</code> directory next to the <code>.jj</cod
 Colocation allows some amount of two-way interoperability, but it can perform
 worse in large repos.</p>
 <p>The setting <code>git.colocate</code> is a boolean option that controls whether or not the
-<code>jj git init</code> and <code>jj git clone</code> commands should create colocated working copies
-by default. Set <code>git.colocate</code> to <code>false</code> to disable it.</p>
-<p>See <a href="../git-compatibility/#colocated-jujutsugit-repos">Colocated Jujutsu/Git repos</a> for more information.</p>
+<code>jj git init</code> and <code>jj git clone</code> commands should create colocated workspace by
+default. Set <code>git.colocate</code> to <code>false</code> to disable it.</p>
+<p>See <a href="../git-compatibility/#colocated-jujutsugit-repos">Colocated Jujutsu/Git workspaces</a>
+for more information.</p>
 <h3 id="default-remotes-for-jj-git-fetch-and-jj-git-push">Default remotes for <code>jj git fetch</code> and <code>jj git push</code><a class="headerlink" href="#default-remotes-for-jj-git-fetch-and-jj-git-push" title="Permanent link">&para;</a></h3>
 <p>By default, if a single remote exists it is used for <code>jj git fetch</code> and <code>jj git
 push</code>; however if multiple remotes exist, the default remote is assumed to be
@@ -4820,7 +4821,7 @@ local bookmark with the same name. This feature is disabled by default because i
 may be undesirable in some repositories, e.g.:</p>
 <ul>
 <li>There is a remote with a lot of historical bookmarks that you don't
-  want to be exported to the colocated Git repo.</li>
+  want to be exported to the colocated Git workspace.</li>
 <li>There are multiple remotes with conflicting views of that bookmark,
   resulting in an unhelpful conflicted state.</li>
 </ul>

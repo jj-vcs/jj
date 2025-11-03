@@ -1870,7 +1870,7 @@ keep the <code>working-copy.eol-conversion</code> setting and the <code>core.aut
 config in sync<sup id="fnref2:1"><a class="footnote-ref" href="#fn:1">1</a></sup>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If you created a colocated git repo, forget to keep these 2 settings in
+<p>If you created a colocated git workspace, forget to keep these 2 settings in
 sync, and result in a dirty working copy with only EOL diffs, you can set
 the <code>working-copy.eol-conversion</code> setting correctly and run <code>jj abandon</code> to
 fix it.</p>
@@ -1941,14 +1941,14 @@ create a workspace in the Linux file system:</p>
 system. This requires Windows 10 version 14972 or higher, as well as Developer
 Mode. If those conditions are not satisfied, <code>jj</code> will materialize symlinks as
 ordinary files.</p>
-<p>For colocated repositories, Git support must also be enabled using the
+<p>For colocated workspaces, Git support must also be enabled using the
 <code>git config</code> option <code>core.symlinks=true</code>.</p>
 <div class="footnote">
 <hr />
 <ol>
 <li id="fn:1">
 <p>This poses the question if we should support reading the <code>core.autocrlf</code>
-  setting in colocated repos. See details at the
+  setting in colocated workspaces. See details at the
   <a href="https://github.com/jj-vcs/jj/issues/4048">issue</a>.&#160;<a class="footnote-backref" href="#fnref:1" title="Jump back to footnote 1 in the text">&#8617;</a><a class="footnote-backref" href="#fnref2:1" title="Jump back to footnote 1 in the text">&#8617;</a></p>
 </li>
 <li id="fn:2">

@@ -493,9 +493,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#working-in-a-git-colocated-repository" class="md-nav__link">
+  <a href="#working-in-a-git-colocated-workspaces" class="md-nav__link">
     <span class="md-ellipsis">
-      Working in a Git colocated repository
+      Working in a Git colocated workspaces
     </span>
   </a>
   
@@ -1925,9 +1925,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#working-in-a-git-colocated-repository" class="md-nav__link">
+  <a href="#working-in-a-git-colocated-workspaces" class="md-nav__link">
     <span class="md-ellipsis">
-      Working in a Git colocated repository
+      Working in a Git colocated workspaces
     </span>
   </a>
   
@@ -2086,12 +2086,12 @@ a new commits. Unlike Git, Jujutsu will not do it automatically.</p>
 <a href="https://github.com/jj-vcs/jj/issues/1039">issue #1039</a>). Until such a command is added, you need to use
 <code>jj git fetch</code> followed by a <code>jj rebase -d $main_bookmark</code> to update your
 changes.</p>
-<h2 id="working-in-a-git-colocated-repository">Working in a Git colocated repository<a class="headerlink" href="#working-in-a-git-colocated-repository" title="Permanent link">&para;</a></h2>
+<h2 id="working-in-a-git-colocated-workspaces">Working in a Git colocated workspaces<a class="headerlink" href="#working-in-a-git-colocated-workspaces" title="Permanent link">&para;</a></h2>
 <p>After doing <code>jj git init</code>, which
 <a href="../git-compatibility/#colocated-jujutsugit-repos">colocates</a> the <code>.jj</code> and
 <code>.git</code> directories, Git will be in a <a href="https://git-scm.com/docs/git-checkout#_detached_head">detached HEAD state</a>, which is
 unusual, as Git mainly works with named branches; jj does not.</p>
-<p>In a colocated repository, every <code>jj</code> command will automatically synchronize
+<p>In a colocated workspace, every <code>jj</code> command will automatically synchronize
 Jujutsu's view of the repo with Git's view. For example, <code>jj commit</code> updates the
 HEAD of the Git repository, enabling an incremental migration.</p>
 <div class="highlight"><pre><span></span><code>$<span class="w"> </span>nvim<span class="w"> </span>docs/tutorial.md
@@ -2186,7 +2186,7 @@ Just add this line into <code>.envrc</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">GIT_DIR</span><span class="o">=</span><span class="nv">$PWD</span>/.jj/repo/store/git
 </code></pre></div>
 <p>and run <code>direnv allow</code> to approve it for direnv to run. Then GitHub CLI will
-work automatically even in repos that aren't colocated so you can execute
+work automatically even in workspaces that aren't colocated so you can execute
 commands like <code>gh issue list</code> normally.</p>
 <h2 id="useful-revsets">Useful Revsets<a class="headerlink" href="#useful-revsets" title="Permanent link">&para;</a></h2>
 <p>Log all revisions across all local bookmarks that aren't on the main bookmark nor

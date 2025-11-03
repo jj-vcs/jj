@@ -1664,9 +1664,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#extending-to-colocated-git-repos" class="md-nav__link">
+  <a href="#extending-to-colocated-git-workspaces" class="md-nav__link">
     <span class="md-ellipsis">
-      Extending to colocated Git repos
+      Extending to colocated Git workspaces
     </span>
   </a>
   
@@ -1986,9 +1986,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#extending-to-colocated-git-repos" class="md-nav__link">
+  <a href="#extending-to-colocated-git-workspaces" class="md-nav__link">
     <span class="md-ellipsis">
-      Extending to colocated Git repos
+      Extending to colocated Git workspaces
     </span>
   </a>
   
@@ -2097,7 +2097,7 @@ but a full proposal for implementing them is not necessary.</p>
 <p>These extensions are:</p>
 <ul>
 <li>Non-git subrepos</li>
-<li>Colocated Git repos</li>
+<li>Colocated Git workspace</li>
 <li>The superproject using a non-git backend</li>
 </ul>
 <h2 id="proposed-design">Proposed design<a class="headerlink" href="#proposed-design" title="Permanent link">&para;</a></h2>
@@ -2136,11 +2136,11 @@ and submodules) but it seems unlikely that we will need such a thing.</p>
 is unlikely to complicate any of the core features, since the top-level
 superproject/submodule relationship is almost identical to the submodule/nested
 submodule relationship.</p>
-<h3 id="extending-to-colocated-git-repos">Extending to colocated Git repos<a class="headerlink" href="#extending-to-colocated-git-repos" title="Permanent link">&para;</a></h3>
+<h3 id="extending-to-colocated-git-workspaces">Extending to colocated Git workspaces<a class="headerlink" href="#extending-to-colocated-git-workspaces" title="Permanent link">&para;</a></h3>
 <p>Git expects submodules to be in <code>.git/modules</code>, so it will not understand this
-storage format. To support colocated Git repos, we will have to change Git to
-allow a submodule's gitdir to be in an alternate location (e.g. we could add a
-new <code>submodule.&lt;name&gt;.gitdir</code> config option). This is a simple change, so it
+storage format. To support colocated Git workspaces, we will have to change Git
+to allow a submodule's gitdir to be in an alternate location (e.g. we could add
+a new <code>submodule.&lt;name&gt;.gitdir</code> config option). This is a simple change, so it
 should be feasible.</p>
 <h2 id="alternatives-considered">Alternatives considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
 <h3 id="git-repos-in-the-main-git-backend">Git repos in the main Git backend<a class="headerlink" href="#git-repos-in-the-main-git-backend" title="Permanent link">&para;</a></h3>
