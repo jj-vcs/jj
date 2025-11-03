@@ -22,14 +22,14 @@ assert_matches = "1.5.0"
 async-trait = "0.1.89"
 blake2 = "0.10.6"
 bstr = "1.12.1"
-clap = { version = "4.5.50", features = [
+clap = { version = "4.5.51", features = [
     "derive",
     "deprecated",
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.5.59", features = ["unstable-dynamic"] }
-clap_complete_nushell = "4.5.9"
+clap_complete = { version = "4.5.60", features = ["unstable-dynamic"] }
+clap_complete_nushell = "4.5.10"
 # Update clap-markdown manually since test_generate_md_cli_help snapshot
 # will need regenerating.
 clap-markdown = "=0.1.5"
@@ -47,7 +47,7 @@ digest = "0.10.7"
 dunce = "1.0.5"
 either = "1.15.0"
 erased-serde = "0.4.8"
-etcetera = "0.10.0"
+etcetera = "0.11.0"
 futures = "0.3.31"
 gix = { version = "0.74.1", default-features = false, features = [
     "attributes",
@@ -58,7 +58,7 @@ gix = { version = "0.74.1", default-features = false, features = [
 ] }
 globset = "0.4.18"
 hashbrown = { version = "0.16.0", default-features = false, features = ["inline-more"] }
-ignore = "0.4.24"
+ignore = "0.4.25"
 indexmap = { version = "2.12.0", features = ["serde"] }
 indoc = "2.0.7"
 insta = { version = "1.43.2", features = ["filters"] }
@@ -76,7 +76,7 @@ pollster = "0.4.0"
 pretty_assertions = "1.4.1"
 proc-macro2 = "1.0.103"
 proptest = "1.9.0"
-proptest-derive = "0.6.0"
+proptest-derive = "0.7.0"
 proptest-state-machine = "0.6.0"
 prost = "0.14.1"
 prost-build = "0.14.1"
