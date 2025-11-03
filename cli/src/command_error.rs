@@ -365,6 +365,10 @@ impl From<WorkspaceInitError> for CommandError {
             }
             WorkspaceInitError::SignInit(err) => user_error(err),
             WorkspaceInitError::TransactionCommit(err) => err.into(),
+            WorkspaceInitError::UserConfigError(err) => internal_error_with_message(
+                "Failed to initialize user configuration for the repo",
+                err,
+            ),
         }
     }
 }

@@ -739,7 +739,7 @@ fn test_git_init_colocated_dirty_working_copy() {
     // current implementation, the index is unchanged. Since jj created new
     // working copy commit, it's also okay to update the index reflecting the
     // working copy commit or the working copy parent.
-    insta::assert_debug_snapshot!(git::status(&git_repo), @r#"
+    insta::assert_debug_snapshot!(git::status(&git_repo), @r###"
     [
         GitStatus {
             path: ".jj/.gitignore",
@@ -749,6 +749,12 @@ fn test_git_init_colocated_dirty_working_copy() {
         },
         GitStatus {
             path: ".jj/repo",
+            status: Worktree(
+                Ignored,
+            ),
+        },
+        GitStatus {
+            path: ".jj/secure-workspace-config.binpb",
             status: Worktree(
                 Ignored,
             ),
@@ -778,7 +784,7 @@ fn test_git_init_colocated_dirty_working_copy() {
             ),
         },
     ]
-    "#);
+    "###);
 }
 
 #[test]

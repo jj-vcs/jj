@@ -1613,6 +1613,7 @@ impl GitRepoData {
             ReadonlyRepo::default_op_heads_store_initializer(),
             ReadonlyRepo::default_index_store_initializer(),
             ReadonlyRepo::default_submodule_store_initializer(),
+            None,
         )
         .unwrap();
         Self {
@@ -2711,9 +2712,13 @@ fn test_reset_head_to_root() {
     let temp_dir = testutils::new_temp_dir();
     let workspace_root = temp_dir.path().join("repo");
     let git_repo = testutils::git::init(&workspace_root);
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .unwrap();
+    let (_workspace, repo) = Workspace::init_external_git(
+        &settings,
+        &workspace_root,
+        &workspace_root.join(".git"),
+        None,
+    )
+    .unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -2774,9 +2779,13 @@ fn test_reset_head_detached_out_of_sync() {
     let temp_dir = testutils::new_temp_dir();
     let workspace_root = temp_dir.path().join("repo");
     let git_repo = testutils::git::init(&workspace_root);
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .unwrap();
+    let (_workspace, repo) = Workspace::init_external_git(
+        &settings,
+        &workspace_root,
+        &workspace_root.join(".git"),
+        None,
+    )
+    .unwrap();
 
     let mut tx = repo.start_transaction();
 
@@ -2864,9 +2873,13 @@ fn test_reset_head_with_index() {
     let temp_dir = testutils::new_temp_dir();
     let workspace_root = temp_dir.path().join("repo");
     let git_repo = testutils::git::init(&workspace_root);
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .unwrap();
+    let (_workspace, repo) = Workspace::init_external_git(
+        &settings,
+        &workspace_root,
+        &workspace_root.join(".git"),
+        None,
+    )
+    .unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -2906,9 +2919,13 @@ fn test_reset_head_with_index_no_conflict() {
     let temp_dir = testutils::new_temp_dir();
     let workspace_root = temp_dir.path().join("repo");
     gix::init(&workspace_root).unwrap();
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .unwrap();
+    let (_workspace, repo) = Workspace::init_external_git(
+        &settings,
+        &workspace_root,
+        &workspace_root.join(".git"),
+        None,
+    )
+    .unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -2959,9 +2976,13 @@ fn test_reset_head_with_index_merge_conflict() {
     let temp_dir = testutils::new_temp_dir();
     let workspace_root = temp_dir.path().join("repo");
     gix::init(&workspace_root).unwrap();
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .unwrap();
+    let (_workspace, repo) = Workspace::init_external_git(
+        &settings,
+        &workspace_root,
+        &workspace_root.join(".git"),
+        None,
+    )
+    .unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -3067,9 +3088,13 @@ fn test_reset_head_with_index_file_directory_conflict() {
     let temp_dir = testutils::new_temp_dir();
     let workspace_root = temp_dir.path().join("repo");
     gix::init(&workspace_root).unwrap();
-    let (_workspace, repo) =
-        Workspace::init_external_git(&settings, &workspace_root, &workspace_root.join(".git"))
-            .unwrap();
+    let (_workspace, repo) = Workspace::init_external_git(
+        &settings,
+        &workspace_root,
+        &workspace_root.join(".git"),
+        None,
+    )
+    .unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -3138,6 +3163,7 @@ fn test_init() {
         ReadonlyRepo::default_op_heads_store_initializer(),
         ReadonlyRepo::default_index_store_initializer(),
         ReadonlyRepo::default_submodule_store_initializer(),
+        None,
     )
     .unwrap();
     // The refs were *not* imported -- it's the caller's responsibility to import
@@ -3902,6 +3928,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         ReadonlyRepo::default_op_heads_store_initializer(),
         ReadonlyRepo::default_index_store_initializer(),
         ReadonlyRepo::default_submodule_store_initializer(),
+        None,
     )
     .unwrap();
     get_git_backend(&jj_repo)

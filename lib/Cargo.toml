@@ -44,6 +44,7 @@ either = { workspace = true }
 futures = { workspace = true }
 gix = { workspace = true, optional = true }
 globset = { workspace = true }
+hmac = { workspace = true }
 hashbrown = { workspace = true }
 ignore = { workspace = true }
 indexmap = { workspace = true }
@@ -63,6 +64,7 @@ ref-cast = { workspace = true }
 regex = { workspace = true }
 same-file = { workspace = true }
 serde = { workspace = true }
+sha2 = { workspace = true }
 smallvec = { workspace = true }
 strsim = { workspace = true }
 tempfile = { workspace = true }
