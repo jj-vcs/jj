@@ -156,8 +156,11 @@ pub(crate) struct SquashArgs {
     #[arg(long, short, conflicts_with = "message_paragraphs")]
     use_destination_message: bool,
 
-    /// Open an editor to edit the squashed commit's description
-    #[arg(long, short = 'E')]
+    /// Open an editor to edit the change description
+    ///
+    /// Forces an editor to open when using `--message` to allow the
+    /// message to be edited afterwards.
+    #[arg(long)]
     editor: bool,
 
     /// Interactively choose which parts to squash
@@ -326,7 +329,6 @@ pub(crate) fn cmd_squash(
         args.keep_emptied,
     )? {
         let mut commit_builder = squashed.commit_builder.detach();
-        let mut already_edited = false;
         let single_description = match squashed_description {
             SquashedDescription::Exact(description) => Some(description),
             SquashedDescription::UseDestination => Some(destination.description().to_owned()),
@@ -340,7 +342,16 @@ pub(crate) fn cmd_squash(
                 description
             } else {
                 commit_builder.set_description(&description);
-                add_trailers(ui, &tx, &commit_builder)?
+                let description_with_trailers = add_trailers(ui, &tx, &commit_builder)?;
+                if args.editor {
+                    commit_builder.set_description(&description_with_trailers);
+                    let temp_commit = commit_builder.write_hidden()?;
+                    let intro = "";
+                    let template = description_template(ui, &tx, intro, &temp_commit)?;
+                    edit_description(&text_editor, &template)?
+                } else {
+                    description_with_trailers
+                }
             }
         } else {
             // edit combined
@@ -354,22 +365,12 @@ pub(crate) fn cmd_squash(
             )?;
             // It's weird that commit.description() contains "JJ: " lines, but works.
             commit_builder.set_description(combined);
-            already_edited = true;
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the combined commit.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
         };
-        let finalized_description = if args.editor && !already_edited {
-            commit_builder.set_description(&description);
-            let temp_commit = commit_builder.write_hidden()?;
-            let intro = "";
-            let template = description_template(ui, &tx, intro, &temp_commit)?;
-            edit_description(&text_editor, &template)?
-        } else {
-            description
-        };
-        commit_builder.set_description(finalized_description);
+        commit_builder.set_description(description);
         if insert_destination_commit {
             // forget about the intermediate commit
             commit_builder.set_predecessors(
