@@ -69,7 +69,7 @@ jobs:
       uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
       with:
         toolchain: 1.88
-    - uses: taiki-e/install-action@c5b1b6f479c32f356cc6f4ba672a47f63853b13b
+    - uses: taiki-e/install-action@81ee1d48d9194cdcab880cbdc7d36e87d39874cb
       with:
         tool: nextest
     - name: Install mold
@@ -125,7 +125,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: cachix/install-nix-action@fd24c48048070c1be9acd18c9d369a83f0fe94d7
+      - uses: cachix/install-nix-action@456688f15bc354bef6d396e4a35f4f89d40bf2b7
       - run: nix flake check -L --show-trace
 
   check-protos:
@@ -289,7 +289,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@4e94bd11f71e507f7f87df81788dff88d1dacbfb
+        uses: github/codeql-action/upload-sarif@0499de31b99561a6d14a36a5f662c2a54f91beee
         with:
           sarif_file: results.sarif
           category: zizmor
