@@ -22,21 +22,21 @@ pub use self::test_environment::TestEnvironment;
 pub use self::test_environment::TestWorkDir;
 
 pub fn fake_bisector_path() -> String {
-    let path = assert_cmd::cargo::cargo_bin("fake-bisector");
+    let path = assert_cmd::cargo::cargo_bin!("fake-bisector");
     assert!(path.is_file());
-    path.into_os_string().into_string().unwrap()
+    path.as_os_str().to_str().unwrap().to_owned()
 }
 
 pub fn fake_editor_path() -> String {
-    let path = assert_cmd::cargo::cargo_bin("fake-editor");
+    let path = assert_cmd::cargo::cargo_bin!("fake-editor");
     assert!(path.is_file());
-    path.into_os_string().into_string().unwrap()
+    path.as_os_str().to_str().unwrap().to_owned()
 }
 
 pub fn fake_diff_editor_path() -> String {
-    let path = assert_cmd::cargo::cargo_bin("fake-diff-editor");
+    let path = assert_cmd::cargo::cargo_bin!("fake-diff-editor");
     assert!(path.is_file());
-    path.into_os_string().into_string().unwrap()
+    path.as_os_str().to_str().unwrap().to_owned()
 }
 
 /// Forcibly enable interactive prompt.

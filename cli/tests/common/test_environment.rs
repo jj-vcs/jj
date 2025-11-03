@@ -113,7 +113,8 @@ impl TestEnvironment {
     /// Use `run_jj_with()` to run command within customized environment.
     #[must_use]
     pub fn new_jj_cmd(&self) -> assert_cmd::Command {
-        let mut cmd = assert_cmd::Command::cargo_bin("jj").unwrap();
+        let jj_path = assert_cmd::cargo::cargo_bin!("jj");
+        let mut cmd = assert_cmd::Command::new(jj_path);
         cmd.current_dir(&self.env_root);
         cmd.env_clear();
         cmd.env("COLUMNS", "100");

@@ -128,7 +128,7 @@ fn test_shell_completions() {
 #[test]
 fn test_util_exec() {
     let test_env = TestEnvironment::default();
-    let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
     let output = test_env.run_jj_in(
         ".",
         [
@@ -147,7 +147,7 @@ fn test_util_exec() {
 #[test]
 fn test_util_exec_fail() {
     let test_env = TestEnvironment::default();
-    let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
     let output = test_env.run_jj_in(
         ".",
         [
