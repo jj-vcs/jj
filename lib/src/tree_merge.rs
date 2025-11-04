@@ -31,6 +31,7 @@ use tokio::io::AsyncReadExt as _;
 use crate::backend;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
+use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::config::ConfigGetError;
 use crate::files;
@@ -71,26 +72,24 @@ impl MergeOptions {
 
 /// The returned conflict will either be resolved or have the same number of
 /// sides as the input.
-pub async fn merge_trees(merge: Merge<Tree>) -> BackendResult<Merge<Tree>> {
+pub async fn merge_trees(store: &Arc<Store>, merge: Merge<TreeId>) -> BackendResult<Merge<TreeId>> {
     let merge = match merge.into_resolved() {
         Ok(tree) => return Ok(Merge::resolved(tree)),
         Err(merge) => merge,
     };
 
-    let store = merge.first().store().clone();
-    let merger = TreeMerger {
-        store,
+    let mut merger = TreeMerger {
+        store: store.clone(),
         trees_to_resolve: BTreeMap::new(),
         work: FuturesUnordered::new(),
         unstarted_work: BTreeMap::new(),
     };
-    merger.work.push(Box::pin(std::future::ready(
-        TreeMergerWorkOutput::ReadTrees {
-            dir: RepoPathBuf::root(),
-            result: Ok(merge),
-        },
-    )));
-    merger.merge().await
+    merger.enqueue_tree_read(
+        RepoPathBuf::root(),
+        merge.map(|tree_id| Some(TreeValue::Tree(tree_id.clone()))),
+    );
+    let trees = merger.merge().await?;
+    Ok(trees.map(|tree| tree.id().clone()))
 }
 
 struct MergedTreeInput {

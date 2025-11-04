@@ -2076,7 +2076,7 @@ fn test_snapshot_max_new_file_size() {
     let (new_tree, stats) = test_workspace
         .snapshot_with_options(&options)
         .expect("snapshot should not fail because of new files beyond the size limit");
-    assert_eq!(new_tree, old_tree);
+    assert_eq!(new_tree.id(), old_tree.id());
     assert_eq!(
         stats
             .untracked_paths
@@ -2107,7 +2107,7 @@ fn test_snapshot_max_new_file_size() {
     let (new_tree, stats) = test_workspace
         .snapshot_with_options(&options)
         .expect("snapshot should not fail because of new files beyond the size limit");
-    assert_eq!(new_tree, old_tree);
+    assert_eq!(new_tree.id(), old_tree.id());
     assert_eq!(
         stats
             .untracked_paths

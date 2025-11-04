@@ -144,8 +144,8 @@ pub(crate) fn cmd_diff(
         };
         let from = resolve_revision(&args.from)?;
         let to = resolve_revision(&args.to)?;
-        from_tree = from.tree()?;
-        to_tree = to.tree()?;
+        from_tree = from.tree();
+        to_tree = to.tree();
 
         let records = get_copy_records(repo.store(), from.id(), to.id(), &matcher)?;
         copy_records.add_records(records)?;

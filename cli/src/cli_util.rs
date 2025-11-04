@@ -1956,8 +1956,8 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
 
             #[cfg(feature = "git")]
             if self.working_copy_shared_with_git {
-                let old_tree = wc_commit.tree().map_err(snapshot_command_error)?;
-                let new_tree = commit.tree().map_err(snapshot_command_error)?;
+                let old_tree = wc_commit.tree();
+                let new_tree = commit.tree();
                 export_working_copy_changes_to_git(ui, mut_repo, &old_tree, &new_tree)
                     .map_err(snapshot_command_error)?;
             }
@@ -2016,7 +2016,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             && let Some(mut formatter) = ui.status_formatter()
             && new_commit.has_conflict()
         {
-            let conflicts = new_commit.tree()?.conflicts().collect_vec();
+            let conflicts = new_commit.tree().conflicts().collect_vec();
             writeln!(
                 formatter.labeled("warning").with_heading("Warning: "),
                 "There are unresolved conflicts at these paths:"

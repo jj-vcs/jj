@@ -443,7 +443,8 @@ impl TestTreeBuilder {
     }
 
     pub fn write_merged_tree(self) -> MergedTree {
-        MergedTree::resolved(self.write_single_tree())
+        let id = self.tree_builder.write_tree().unwrap();
+        MergedTree::resolved(self.store, id)
     }
 }
 

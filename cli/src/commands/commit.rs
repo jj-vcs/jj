@@ -141,7 +141,7 @@ new working-copy commit.
         )
     };
     let tree_id = diff_selector.select(
-        [&base_tree, &commit.tree()?],
+        [&base_tree, &commit.tree()],
         matcher.as_ref(),
         format_instructions,
     )?;

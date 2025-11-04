@@ -1430,8 +1430,8 @@ fn reset_index(
     // Use the merged parent tree as the Git index, allowing `git diff` to show the
     // same changes as `jj diff`. If the merged parent tree has conflicts, then the
     // Git index will also be conflicted.
-    let mut index = if let Some(tree) = parent_tree.as_merge().as_resolved() {
-        if tree.id() == repo.store().empty_tree_id() {
+    let mut index = if let Some(tree_id) = parent_tree.id().as_merge().as_resolved() {
+        if tree_id == repo.store().empty_tree_id() {
             // If the tree is empty, gix can fail to load the object (since Git doesn't
             // require the empty tree to actually be present in the object database), so we
             // just use an empty index directly.
@@ -1443,14 +1443,14 @@ fn reset_index(
             // If the parent tree is resolved, we can use gix's `index_from_tree` method.
             // This is more efficient than iterating over the tree and adding each entry.
             git_repo
-                .index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree.id().as_bytes()))
+                .index_from_tree(&gix::ObjectId::from_bytes_or_panic(tree_id.as_bytes()))
                 .map_err(GitResetHeadError::from_git)?
         }
     } else {
         build_index_from_merged_tree(git_repo, &parent_tree)?
     };
 
-    let wc_tree = wc_commit.tree()?;
+    let wc_tree = wc_commit.tree();
     update_intent_to_add_impl(git_repo, &mut index, &parent_tree, &wc_tree).block_on()?;
 
     // Match entries in the new index with entries in the old index, and copy stat

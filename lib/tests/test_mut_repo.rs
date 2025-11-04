@@ -150,11 +150,10 @@ fn test_edit_previous_empty_merge() {
     let mut_repo = tx.repo_mut();
     let old_parent1 = write_random_commit(mut_repo);
     let old_parent2 = write_random_commit(mut_repo);
-    let empty_tree = repo.store().root_commit().tree().unwrap();
+    let empty_tree = repo.store().root_commit().tree();
     let old_parent_tree = old_parent1
         .tree()
-        .unwrap()
-        .merge(empty_tree, old_parent2.tree().unwrap())
+        .merge(empty_tree, old_parent2.tree())
         .block_on()
         .unwrap();
     let old_wc_commit = mut_repo

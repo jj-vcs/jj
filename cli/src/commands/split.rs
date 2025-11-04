@@ -258,7 +258,7 @@ pub(crate) fn cmd_split(
     // Create the second commit, which includes everything the user didn't
     // select.
     let second_commit = {
-        let target_tree = target.commit.tree()?;
+        let target_tree = target.commit.tree();
         let new_tree = if parallel {
             // Merge the original commit tree with its parent using the tree
             // containing the user selected changes as the base for the merge.
@@ -465,7 +465,7 @@ The changes that are not selected will replace the original commit.
     };
     let parent_tree = target_commit.parent_tree(tx.repo())?;
     let selected_tree_id = diff_selector.select(
-        [&parent_tree, &target_commit.tree()?],
+        [&parent_tree, &target_commit.tree()],
         matcher,
         format_instructions,
     )?;

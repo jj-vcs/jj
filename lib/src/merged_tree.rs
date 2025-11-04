@@ -15,6 +15,7 @@
 //! A lazily merged view of a set of trees.
 
 use std::collections::BTreeMap;
+use std::fmt;
 use std::iter;
 use std::iter::zip;
 use std::pin::Pin;
@@ -56,50 +57,65 @@ use crate::tree::Tree;
 use crate::tree_builder::TreeBuilder;
 use crate::tree_merge::merge_trees;
 
-/// Presents a view of a merged set of trees at the root directory.
-#[derive(PartialEq, Eq, Clone, Debug)]
+/// Presents a view of a merged set of trees at the root directory. In the
+/// future, this may store additional metadata like conflict labels, so tree IDs
+/// should be compared instead when checking for file changes.
+#[derive(Clone)]
 pub struct MergedTree {
-    trees: Merge<Tree>,
+    store: Arc<Store>,
+    tree_ids: Merge<TreeId>,
+}
+
+impl fmt::Debug for MergedTree {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MergedTree")
+            .field("tree_ids", &self.tree_ids)
+            .finish_non_exhaustive()
+    }
 }
 
 impl MergedTree {
-    /// Creates a new `MergedTree` representing a single tree without conflicts.
-    pub fn resolved(tree: Tree) -> Self {
-        Self::new(Merge::resolved(tree))
+    /// Creates a `MergedTree` with the given resolved tree ID.
+    pub fn resolved(store: Arc<Store>, tree_id: TreeId) -> Self {
+        Self::new(store, Merge::resolved(tree_id))
     }
 
-    /// Creates a new `MergedTree` representing a merge of a set of trees. The
-    /// individual trees must not have any conflicts.
-    pub fn new(trees: Merge<Tree>) -> Self {
-        debug_assert!(trees.iter().all(|tree| tree.dir().is_root()));
-        debug_assert!(
-            trees
-                .iter()
-                .map(|tree| Arc::as_ptr(tree.store()))
-                .all_equal()
-        );
-        Self { trees }
-    }
-
-    /// Returns the underlying `Merge<Tree>`.
-    pub fn as_merge(&self) -> &Merge<Tree> {
-        &self.trees
-    }
-
-    /// Extracts the underlying `Merge<Tree>`.
-    pub fn into_merge(self) -> Merge<Tree> {
-        self.trees
+    /// Creates a `MergedTree` with the given tree IDs.
+    pub fn new(store: Arc<Store>, tree_ids: Merge<TreeId>) -> Self {
+        Self { store, tree_ids }
     }
 
     /// The `Store` associated with this tree.
     pub fn store(&self) -> &Arc<Store> {
-        self.trees.first().store()
+        &self.store
+    }
+
+    /// The underlying tree IDs for this `MergedTree`.
+    pub fn tree_ids(&self) -> &Merge<TreeId> {
+        &self.tree_ids
+    }
+
+    /// Extracts the underlying tree IDs for this `MergedTree`.
+    pub fn into_tree_ids(self) -> Merge<TreeId> {
+        self.tree_ids
+    }
+
+    /// Reads the merge of tree objects represented by this `MergedTree`.
+    pub fn trees(&self) -> BackendResult<Merge<Tree>> {
+        self.trees_async().block_on()
+    }
+
+    /// Async version of `trees()`.
+    pub async fn trees_async(&self) -> BackendResult<Merge<Tree>> {
+        self.tree_ids
+            .try_map_async(|id| self.store.get_tree_async(RepoPathBuf::root(), id))
+            .await
     }
 
     /// Tries to resolve any conflicts, resolving any conflicts that can be
     /// automatically resolved and leaving the rest unresolved.
     pub async fn resolve(self) -> BackendResult<Self> {
-        let merged = merge_trees(self.trees).await?;
+        let merged = merge_trees(&self.store, self.tree_ids).await?;
         // If the result can be resolved, then `merge_trees()` above would have returned
         // a resolved merge. However, that function will always preserve the arity of
         // conflicts it cannot resolve. So we simplify the conflict again
@@ -109,10 +125,10 @@ impl MergedTree {
         // particular,  that this last simplification doesn't enable further automatic
         // resolutions
         if cfg!(debug_assertions) {
-            let re_merged = merge_trees(simplified.clone()).await.unwrap();
+            let re_merged = merge_trees(&self.store, simplified.clone()).await.unwrap();
             debug_assert_eq!(re_merged, simplified);
         }
-        Ok(Self { trees: simplified })
+        Ok(Self::new(self.store, simplified))
     }
 
     /// An iterator over the conflicts in this tree, including subtrees.
@@ -128,7 +144,7 @@ impl MergedTree {
 
     /// Whether this tree has conflicts.
     pub fn has_conflict(&self) -> bool {
-        !self.trees.is_resolved()
+        !self.tree_ids.is_resolved()
     }
 
     /// The value at the given path. The value can be `Resolved` even if
@@ -141,19 +157,26 @@ impl MergedTree {
     /// Async version of `path_value()`.
     pub async fn path_value_async(&self, path: &RepoPath) -> BackendResult<MergedTreeValue> {
         match path.split() {
-            Some((dir, basename)) => match self.trees.sub_tree_recursive(dir).await? {
-                None => Ok(Merge::absent()),
-                Some(tree) => Ok(tree.value(basename).cloned()),
-            },
-            None => Ok(self
-                .trees
-                .map(|tree| Some(TreeValue::Tree(tree.id().clone())))),
+            Some((dir, basename)) => {
+                let trees = self.trees_async().await?;
+                match trees.sub_tree_recursive(dir).await? {
+                    None => Ok(Merge::absent()),
+                    Some(tree) => Ok(tree.value(basename).cloned()),
+                }
+            }
+            None => Ok(self.to_merged_tree_value()),
         }
     }
 
+    fn to_merged_tree_value(&self) -> MergedTreeValue {
+        self.tree_ids
+            .map(|tree_id| Some(TreeValue::Tree(tree_id.clone())))
+    }
+
     /// The tree's id
+    // TODO: delete this method after deleting `MergedTreeId`
     pub fn id(&self) -> MergedTreeId {
-        MergedTreeId::new(self.trees.map(|tree| tree.id().clone()))
+        MergedTreeId::new(self.tree_ids.clone())
     }
 
     /// Iterator over the entries matching the given matcher. Subtrees are
@@ -174,7 +197,7 @@ impl MergedTree {
         &self,
         matcher: &'matcher dyn Matcher,
     ) -> TreeEntriesIterator<'matcher> {
-        TreeEntriesIterator::new(&self.trees, matcher)
+        TreeEntriesIterator::new(self, matcher)
     }
 
     /// Stream of the differences between this tree and another tree.
@@ -189,17 +212,10 @@ impl MergedTree {
         let concurrency = self.store().concurrency();
         if concurrency <= 1 {
             Box::pin(futures::stream::iter(TreeDiffIterator::new(
-                &self.trees,
-                &other.trees,
-                matcher,
+                self, other, matcher,
             )))
         } else {
-            Box::pin(TreeDiffStreamImpl::new(
-                &self.trees,
-                &other.trees,
-                matcher,
-                concurrency,
-            ))
+            Box::pin(TreeDiffStreamImpl::new(self, other, matcher, concurrency))
         }
     }
 
@@ -249,10 +265,10 @@ impl MergedTree {
     /// Merges this tree with `other`, using `base` as base, without attempting
     /// to resolve file conflicts.
     pub fn merge_no_resolve(self, base: Self, other: Self) -> Self {
-        let nested = Merge::from_vec(vec![self.trees, base.trees, other.trees]);
-        Self {
-            trees: nested.flatten().simplify(),
-        }
+        debug_assert!(Arc::ptr_eq(&base.store, &self.store));
+        debug_assert!(Arc::ptr_eq(&other.store, &self.store));
+        let nested = Merge::from_vec(vec![self.tree_ids, base.tree_ids, other.tree_ids]);
+        Self::new(self.store, nested.flatten().simplify())
     }
 }
 
@@ -368,10 +384,12 @@ impl TreeEntriesDirItem {
 }
 
 impl<'matcher> TreeEntriesIterator<'matcher> {
-    fn new(trees: &Merge<Tree>, matcher: &'matcher dyn Matcher) -> Self {
+    fn new(trees: &MergedTree, matcher: &'matcher dyn Matcher) -> Self {
         Self {
-            store: trees.first().store().clone(),
-            stack: vec![TreeEntriesDirItem::new(trees, matcher)],
+            store: trees.store.clone(),
+            stack: vec![TreeEntriesDirItem {
+                entries: vec![(RepoPathBuf::root(), trees.to_merged_tree_value())],
+            }],
             matcher,
         }
     }
@@ -434,7 +452,9 @@ impl ConflictIterator {
     fn new(tree: &MergedTree) -> Self {
         Self {
             store: tree.store().clone(),
-            stack: vec![ConflictsDirItem::from(&tree.trees)],
+            stack: vec![ConflictsDirItem {
+                entries: vec![(RepoPathBuf::root(), tree.to_merged_tree_value())],
+            }],
         }
     }
 }
@@ -484,15 +504,20 @@ struct TreeDiffDir {
 
 impl<'matcher> TreeDiffIterator<'matcher> {
     /// Creates a iterator over the differences between two trees.
-    pub fn new(trees1: &Merge<Tree>, trees2: &Merge<Tree>, matcher: &'matcher dyn Matcher) -> Self {
-        assert!(Arc::ptr_eq(trees1.first().store(), trees2.first().store()));
+    pub fn new(tree1: &MergedTree, tree2: &MergedTree, matcher: &'matcher dyn Matcher) -> Self {
+        assert!(Arc::ptr_eq(tree1.store(), tree2.store()));
         let root_dir = RepoPath::root();
         let mut stack = Vec::new();
         if !matcher.visit(root_dir).is_nothing() {
-            stack.push(TreeDiffDir::from_trees(root_dir, trees1, trees2, matcher));
+            stack.push(TreeDiffDir {
+                entries: vec![(
+                    root_dir.to_owned(),
+                    Diff::new(tree1.to_merged_tree_value(), tree2.to_merged_tree_value()),
+                )],
+            });
         };
         Self {
-            store: trees1.first().store().clone(),
+            store: tree1.store().clone(),
             stack,
             matcher,
         }
@@ -630,21 +655,27 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
     /// Creates a iterator over the differences between two trees. Generally
     /// prefer `MergedTree::diff_stream()` of calling this directly.
     pub fn new(
-        trees1: &Merge<Tree>,
-        trees2: &Merge<Tree>,
+        tree1: &MergedTree,
+        tree2: &MergedTree,
         matcher: &'matcher dyn Matcher,
         max_concurrent_reads: usize,
     ) -> Self {
-        assert!(Arc::ptr_eq(trees1.first().store(), trees2.first().store()));
+        assert!(Arc::ptr_eq(tree1.store(), tree2.store()));
+        let store = tree1.store().clone();
         let mut stream = Self {
-            store: trees1.first().store().clone(),
+            store: store.clone(),
             matcher,
             items: BTreeMap::new(),
             pending_trees: BTreeMap::new(),
             max_concurrent_reads,
             max_queued_items: 10000,
         };
-        stream.add_dir_diff_items(RepoPath::root(), trees1, trees2);
+        let dir = RepoPathBuf::root();
+        let root_tree_fut = Box::pin(try_join(
+            Self::trees(store.clone(), dir.clone(), tree1.to_merged_tree_value()),
+            Self::trees(store, dir.clone(), tree2.to_merged_tree_value()),
+        ));
+        stream.pending_trees.insert(dir, root_tree_fut);
         stream
     }
 

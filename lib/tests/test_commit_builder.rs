@@ -125,10 +125,7 @@ fn test_initial(backend: TestRepoBackend) {
     assert_eq!(commit.author(), &author_signature);
     assert_eq!(commit.committer(), &committer_signature);
     assert_eq!(
-        diff_paths(
-            &store.root_commit().tree().unwrap(),
-            &commit.tree().unwrap(),
-        ),
+        diff_paths(&store.root_commit().tree(), &commit.tree()),
         to_owned_path_vec(&[dir_file_path, root_file_path]),
     );
     assert_matches!(
@@ -213,17 +210,11 @@ fn test_rewrite(backend: TestRepoBackend) {
         rewrite_settings.user_email()
     );
     assert_eq!(
-        diff_paths(
-            &store.root_commit().tree().unwrap(),
-            &rewritten_commit.tree().unwrap(),
-        ),
+        diff_paths(&store.root_commit().tree(), &rewritten_commit.tree()),
         to_owned_path_vec(&[dir_file_path, root_file_path]),
     );
     assert_eq!(
-        diff_paths(
-            &initial_commit.tree().unwrap(),
-            &rewritten_commit.tree().unwrap(),
-        ),
+        diff_paths(&initial_commit.tree(), &rewritten_commit.tree()),
         to_owned_path_vec(&[dir_file_path]),
     );
     assert_matches!(

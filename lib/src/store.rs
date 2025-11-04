@@ -135,6 +135,11 @@ impl Store {
         self.backend.concurrency()
     }
 
+    pub fn empty_merged_tree(self: &Arc<Self>) -> MergedTree {
+        let empty_tree_id = self.backend.empty_tree_id().clone();
+        MergedTree::resolved(self.clone(), empty_tree_id)
+    }
+
     pub fn empty_merged_tree_id(&self) -> MergedTreeId {
         MergedTreeId::resolved(self.backend.empty_tree_id().clone())
     }
@@ -215,19 +220,9 @@ impl Store {
         Ok(data)
     }
 
+    // TODO: delete this method after deleting `MergedTreeId`
     pub fn get_root_tree(self: &Arc<Self>, id: &MergedTreeId) -> BackendResult<MergedTree> {
-        self.get_root_tree_async(id).block_on()
-    }
-
-    pub async fn get_root_tree_async(
-        self: &Arc<Self>,
-        id: &MergedTreeId,
-    ) -> BackendResult<MergedTree> {
-        let trees = id
-            .as_merge()
-            .try_map_async(|id| self.get_tree_async(RepoPathBuf::root(), id))
-            .await?;
-        Ok(MergedTree::new(trees))
+        Ok(MergedTree::new(self.clone(), id.as_merge().clone()))
     }
 
     pub async fn write_tree(

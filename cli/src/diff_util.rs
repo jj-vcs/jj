@@ -626,7 +626,7 @@ impl<'a> DiffRenderer<'a> {
         };
         let to_description = Merge::resolved(to_commit.description());
         let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit)?;
-        let to_tree = to_commit.tree_async().await?;
+        let to_tree = to_commit.tree();
         let copy_records = CopyRecords::default(); // TODO
         self.show_diff_commit_descriptions(*formatter, [&from_description, &to_description])?;
         self.show_diff_trees(
@@ -650,7 +650,7 @@ impl<'a> DiffRenderer<'a> {
         width: usize,
     ) -> Result<(), DiffRenderError> {
         let from_tree = commit.parent_tree_async(self.repo).await?;
-        let to_tree = commit.tree_async().await?;
+        let to_tree = commit.tree();
         let mut copy_records = CopyRecords::default();
         for parent_id in commit.parent_ids() {
             let records = get_copy_records(self.repo.store(), parent_id, commit.id(), matcher)?;

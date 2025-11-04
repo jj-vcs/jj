@@ -55,7 +55,7 @@ use crate::store::Store;
 #[instrument(skip(repo))]
 pub async fn merge_commit_trees(repo: &dyn Repo, commits: &[Commit]) -> BackendResult<MergedTree> {
     if let [commit] = commits {
-        commit.tree_async().await
+        Ok(commit.tree())
     } else {
         merge_commit_trees_no_resolve_without_repo(repo.store(), repo.index(), commits)
             .await?
@@ -76,14 +76,16 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
         .map(|commit| commit.id().clone())
         .collect_vec();
     let commit_id_merge = find_recursive_merge_commits(store, index, commit_ids)?;
-    let tree_merge = commit_id_merge
+    let tree_id_merge = commit_id_merge
         .try_map_async(async |commit_id| {
             let commit = store.get_commit_async(commit_id).await?;
-            let tree = commit.tree_async().await?;
-            Ok::<_, BackendError>(tree.into_merge())
+            Ok::<_, BackendError>(commit.tree_id().as_merge().clone())
         })
         .await?;
-    Ok(MergedTree::new(tree_merge.flatten().simplify()))
+    Ok(MergedTree::new(
+        store.clone(),
+        tree_id_merge.flatten().simplify(),
+    ))
 }
 
 /// Find the commits to use as input to the recursive merge algorithm.
@@ -279,9 +281,8 @@ impl<'repo> CommitRewriter<'repo> {
             // resolve intermediate parent tree when rebasing" for details.
             let old_base_tree_fut = merge_commit_trees(self.mut_repo, &old_parents);
             let new_base_tree_fut = merge_commit_trees(self.mut_repo, &new_parents);
-            let old_tree_fut = self.old_commit.tree_async();
-            let (old_base_tree, new_base_tree, old_tree) =
-                try_join!(old_base_tree_fut, new_base_tree_fut, old_tree_fut)?;
+            let old_tree = self.old_commit.tree();
+            let (old_base_tree, new_base_tree) = try_join!(old_base_tree_fut, new_base_tree_fut)?;
             (
                 old_base_tree.id() == *self.old_commit.tree_id(),
                 new_base_tree.merge(old_base_tree, old_tree).await?.id(),
@@ -370,13 +371,13 @@ pub fn rebase_to_dest_parent(
     if let [source] = sources
         && source.parent_ids() == destination.parent_ids()
     {
-        return source.tree();
+        return Ok(source.tree());
     }
     sources.iter().try_fold(
         destination.parent_tree(repo)?,
         |destination_tree, source| {
             let source_parent_tree = source.parent_tree(repo)?;
-            let source_tree = source.tree()?;
+            let source_tree = source.tree();
             destination_tree
                 .merge(source_parent_tree, source_tree)
                 .block_on()
@@ -1193,7 +1194,7 @@ pub fn squash_commits<'repo>(
             repo.record_abandoned_commit(&source.commit.commit);
             abandoned_commits.push(source.commit.commit.clone());
         } else {
-            let source_tree = source.commit.commit.tree()?;
+            let source_tree = source.commit.commit.tree();
             // Apply the reverse of the selected changes onto the source
             let new_source_tree = source_tree
                 .merge(
@@ -1231,7 +1232,7 @@ pub fn squash_commits<'repo>(
         })?;
     }
     // Apply the selected changes onto the destination
-    let mut destination_tree = rewritten_destination.tree()?;
+    let mut destination_tree = rewritten_destination.tree();
     for source in &source_commits {
         destination_tree = destination_tree
             .merge(

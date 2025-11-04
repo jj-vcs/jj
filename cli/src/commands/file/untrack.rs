@@ -67,7 +67,7 @@ pub(crate) fn cmd_file_untrack(
     let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation()?;
     // Create a new tree without the unwanted files
     let mut tree_builder = MergedTreeBuilder::new(wc_commit.tree_id().clone());
-    let wc_tree = wc_commit.tree()?;
+    let wc_tree = wc_commit.tree();
     for (path, _value) in wc_tree.entries_matching(matcher.as_ref()) {
         tree_builder.set_or_remove(path, Merge::absent());
     }
@@ -114,7 +114,7 @@ Make sure they're ignored, then try again.",
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
     }
     if working_copy_shared_with_git {
-        export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_commit.tree()?)?;
+        export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_commit.tree())?;
     }
     let repo = tx.commit("untrack paths")?;
     locked_ws.finish(repo.op_id().clone())?;

@@ -110,7 +110,7 @@ fn test_merge_criss_cross() {
         .block_on()
         .unwrap();
 
-    assert_eq!(merged, tree_expected);
+    assert_eq!(merged.id(), tree_expected.id());
 }
 
 #[test]
@@ -980,10 +980,10 @@ fn test_rebase_descendants_contents() {
         .get_commit(rebase_map.get(commit_c.id()).unwrap())
         .unwrap();
 
-    let tree_b = commit_b.tree().unwrap();
-    let tree_c = commit_c.tree().unwrap();
-    let tree_d = commit_d.tree().unwrap();
-    let new_tree_c = new_commit_c.tree().unwrap();
+    let tree_b = commit_b.tree();
+    let tree_c = commit_c.tree();
+    let tree_d = commit_d.tree();
+    let new_tree_c = new_commit_c.tree();
     assert_eq!(
         new_tree_c.path_value(path3).unwrap(),
         tree_c.path_value(path3).unwrap()
@@ -1915,9 +1915,9 @@ fn test_commit_with_selection() {
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
-    let root_tree = repo.store().root_commit().tree().unwrap();
+    let root_tree = repo.store().root_commit().tree();
     let commit = write_random_commit(tx.repo_mut());
-    let commit_tree = commit.tree().unwrap();
+    let commit_tree = commit.tree();
     let empty_selection = CommitWithSelection {
         commit: commit.clone(),
         selected_tree: root_tree.clone(),

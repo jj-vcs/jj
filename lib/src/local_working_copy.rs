@@ -112,7 +112,6 @@ use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponent;
 use crate::settings::UserSettings;
 use crate::store::Store;
-use crate::tree::Tree;
 use crate::working_copy::CheckoutError;
 use crate::working_copy::CheckoutStats;
 use crate::working_copy::LockedWorkingCopy;
@@ -1903,7 +1902,7 @@ impl TreeState {
         let new_matcher = PrefixMatcher::new(&sparse_patterns);
         let added_matcher = DifferenceMatcher::new(&new_matcher, &old_matcher);
         let removed_matcher = DifferenceMatcher::new(&old_matcher, &new_matcher);
-        let empty_tree = MergedTree::resolved(Tree::empty(self.store.clone(), RepoPathBuf::root()));
+        let empty_tree = self.store.empty_merged_tree();
         let added_stats = self.update(&empty_tree, &tree, &added_matcher).block_on()?;
         let removed_stats = self
             .update(&tree, &empty_tree, &removed_matcher)
@@ -2436,7 +2435,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
     async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
         // TODO: Write a "pending_checkout" file with the new TreeId so we can
         // continue an interrupted update if we find such a file.
-        let new_tree = commit.tree()?;
+        let new_tree = commit.tree();
         let tree_state = self.wc.tree_state_mut()?;
         if tree_state.tree_id != *commit.tree_id() {
             let stats = tree_state.check_out(&new_tree)?;
@@ -2452,14 +2451,14 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
     }
 
     async fn reset(&mut self, commit: &Commit) -> Result<(), ResetError> {
-        let new_tree = commit.tree()?;
+        let new_tree = commit.tree();
         self.wc.tree_state_mut()?.reset(&new_tree).await?;
         self.tree_state_dirty = true;
         Ok(())
     }
 
     async fn recover(&mut self, commit: &Commit) -> Result<(), ResetError> {
-        let new_tree = commit.tree()?;
+        let new_tree = commit.tree();
         self.wc.tree_state_mut()?.recover(&new_tree).await?;
         self.tree_state_dirty = true;
         Ok(())

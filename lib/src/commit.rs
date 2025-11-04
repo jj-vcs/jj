@@ -119,12 +119,8 @@ impl Commit {
         .await
     }
 
-    pub fn tree(&self) -> BackendResult<MergedTree> {
-        self.tree_async().block_on()
-    }
-
-    pub async fn tree_async(&self) -> BackendResult<MergedTree> {
-        self.store.get_root_tree_async(&self.data.root_tree).await
+    pub fn tree(&self) -> MergedTree {
+        MergedTree::new(self.store.clone(), self.data.root_tree.as_merge().clone())
     }
 
     pub fn tree_id(&self) -> &MergedTreeId {
@@ -142,7 +138,7 @@ impl Commit {
         // queried only when parents.len() > 1, but index query would be cheaper
         // than extracting parent commit from the store.
         if is_commit_empty_by_index(repo, &self.id)? == Some(true) {
-            return self.tree_async().await;
+            return Ok(self.tree());
         }
         let parents: Vec<_> = self.parents_async().await?;
         merge_commit_trees(repo, &parents).await

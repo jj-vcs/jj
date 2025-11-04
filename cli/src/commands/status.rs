@@ -78,7 +78,7 @@ pub(crate) fn cmd_status(
 
     if let Some(wc_commit) = &maybe_wc_commit {
         let parent_tree = wc_commit.parent_tree(repo.as_ref())?;
-        let tree = wc_commit.tree()?;
+        let tree = wc_commit.tree();
 
         let wc_has_changes = tree.id() != parent_tree.id();
         let wc_has_untracked = !snapshot_stats.untracked_paths.is_empty();
@@ -144,7 +144,7 @@ pub(crate) fn cmd_status(
         if wc_commit.has_conflict() {
             // TODO: Conflicts should also be filtered by the `matcher`. See the related
             // TODO on `MergedTree::conflicts()`.
-            let conflicts = wc_commit.tree()?.conflicts().collect_vec();
+            let conflicts = wc_commit.tree().conflicts().collect_vec();
             writeln!(
                 formatter.labeled("warning").with_heading("Warning: "),
                 "There are unresolved conflicts at these paths:"
@@ -234,7 +234,7 @@ async fn visit_collapsed_untracked_files(
     tree: MergedTree,
     mut on_path: impl FnMut(&RepoPath, bool) -> Result<(), CommandError>,
 ) -> Result<(), CommandError> {
-    let trees = tree.into_merge();
+    let trees = tree.trees()?;
     let mut stack = vec![trees];
 
     // TODO: This loop can be improved with BTreeMap cursors once that's stable,

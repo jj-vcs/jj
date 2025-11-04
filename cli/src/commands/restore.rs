@@ -130,7 +130,7 @@ pub(crate) fn cmd_restore(
             .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))?;
         let from_commit = workspace_command
             .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?;
-        from_tree = from_commit.tree()?;
+        from_tree = from_commit.tree();
         from_commits = vec![from_commit];
     } else {
         to_commit = workspace_command
@@ -145,7 +145,7 @@ pub(crate) fn cmd_restore(
         .to_matcher();
     let diff_selector =
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
-    let to_tree = to_commit.tree()?;
+    let to_tree = to_commit.tree();
     let format_instructions = || {
         formatdoc! {"
             You are restoring changes from: {from_commits}

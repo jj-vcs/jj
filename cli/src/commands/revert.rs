@@ -142,7 +142,7 @@ pub(crate) fn cmd_revert(
         &commits_to_revert_with_new_commit_descriptions
     {
         let old_base_tree = commit_to_revert.parent_tree(tx.repo())?;
-        let old_tree = commit_to_revert.tree()?;
+        let old_tree = commit_to_revert.tree();
         let new_tree = new_base_tree.merge(old_tree, old_base_tree).block_on()?;
         let new_parent_ids = parent_ids.clone();
         let new_commit = tx
