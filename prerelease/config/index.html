@@ -5118,6 +5118,12 @@ conditions are specified, their intersection is used.</p>
 <span class="k">[--scope.user]</span>
 <span class="n">email</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;YOUR_OSS_EMAIL@example.org&quot;</span>
 
+<span class="c1"># override ui.pager on specific machines</span>
+<span class="k">[[--scope]]</span>
+<span class="n">--when</span><span class="p">.</span><span class="n">hostnames</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;work-laptop&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;work-desktop&quot;</span><span class="p">]</span>
+<span class="k">[--scope.ui]</span>
+<span class="n">pager</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;delta&quot;</span>
+
 <span class="c1"># disable pagination for `jj status`, use `delta` for `jj diff` and `jj show`</span>
 <span class="k">[[--scope]]</span>
 <span class="n">--when</span><span class="p">.</span><span class="n">commands</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span>
@@ -5165,6 +5171,14 @@ workspace</code>.</p>
 <p><code>--when.workspaces</code>: List of paths to match the workspace path prefix.</p>
 <p>The same concerns about the path as for <code>--when.repositories</code> applies.</p>
 <p>Use <code>jj root</code> to see the workspace root directory.</p>
+</li>
+<li>
+<p><code>--when.hostnames</code>: List of hostnames to match against the <code>operation.hostname</code>
+  config setting.</p>
+<p>Hostnames are compared case-sensitively and must match exactly.</p>
+<div class="highlight"><pre><span></span><code><span class="n">--when</span><span class="p">.</span><span class="n">hostnames</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;work-laptop&quot;</span><span class="p">]</span><span class="w">               </span><span class="c1"># matches only &quot;work-laptop&quot;</span>
+<span class="n">--when</span><span class="p">.</span><span class="n">hostnames</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;home-desktop&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;laptop&quot;</span><span class="p">]</span><span class="w">    </span><span class="c1"># matches &quot;home-desktop&quot; OR &quot;laptop&quot;</span>
+</code></pre></div>
 </li>
 <li>
 <p><code>--when.commands</code>: List of subcommands to match.</p>

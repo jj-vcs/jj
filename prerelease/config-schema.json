@@ -950,6 +950,13 @@
                         "type": "string"
                     }
                 },
+                "hostnames": {
+                    "type": "array",
+                    "description": "List of hostnames to match the hostname",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "workspaces": {
                     "type": "array",
                     "description": "List of paths to match the workspace path prefix",
