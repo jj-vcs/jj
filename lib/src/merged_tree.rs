@@ -101,11 +101,6 @@ impl MergedTree {
         self.trees.first().store()
     }
 
-    /// Base names of entries in this directory.
-    pub fn names<'a>(&'a self) -> Box<dyn Iterator<Item = &'a RepoPathComponent> + 'a> {
-        Box::new(all_tree_basenames(&self.trees))
-    }
-
     /// Tries to resolve any conflicts, resolving any conflicts that can be
     /// automatically resolved and leaving the rest unresolved.
     pub async fn resolve(self) -> BackendResult<Self> {
@@ -279,14 +274,6 @@ pub struct TreeDiffEntry {
 /// `Stream` instead of an `Iterator` so high-latency backends (e.g. cloud-based
 /// ones) can fetch trees asynchronously.
 pub type TreeDiffStream<'matcher> = BoxStream<'matcher, TreeDiffEntry>;
-
-fn all_tree_basenames(trees: &Merge<Tree>) -> impl Iterator<Item = &RepoPathComponent> {
-    trees
-        .iter()
-        .map(|tree| tree.data().names())
-        .kmerge()
-        .dedup()
-}
 
 fn all_tree_entries(
     trees: &Merge<Tree>,
