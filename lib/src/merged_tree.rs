@@ -56,7 +56,7 @@ use crate::tree::Tree;
 use crate::tree_builder::TreeBuilder;
 use crate::tree_merge::merge_trees;
 
-/// Presents a view of a merged set of trees.
+/// Presents a view of a merged set of trees at the root directory.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct MergedTree {
     trees: Merge<Tree>,
@@ -71,7 +71,7 @@ impl MergedTree {
     /// Creates a new `MergedTree` representing a merge of a set of trees. The
     /// individual trees must not have any conflicts.
     pub fn new(trees: Merge<Tree>) -> Self {
-        debug_assert!(trees.iter().map(|tree| tree.dir()).all_equal());
+        debug_assert!(trees.iter().all(|tree| tree.dir().is_root()));
         debug_assert!(
             trees
                 .iter()
@@ -89,11 +89,6 @@ impl MergedTree {
     /// Extracts the underlying `Merge<Tree>`.
     pub fn into_merge(self) -> Merge<Tree> {
         self.trees
-    }
-
-    /// This tree's directory
-    pub fn dir(&self) -> &RepoPath {
-        self.trees.first().dir()
     }
 
     /// The `Store` associated with this tree.
@@ -145,7 +140,6 @@ impl MergedTree {
 
     /// Async version of `path_value()`.
     pub async fn path_value_async(&self, path: &RepoPath) -> BackendResult<MergedTreeValue> {
-        assert_eq!(self.dir(), RepoPath::root());
         match path.split() {
             Some((dir, basename)) => match self.trees.sub_tree_recursive(dir).await? {
                 None => Ok(Merge::absent()),

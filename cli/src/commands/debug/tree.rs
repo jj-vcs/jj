@@ -15,8 +15,10 @@
 use std::fmt::Debug;
 use std::io::Write as _;
 
+use jj_lib::backend::BackendResult;
 use jj_lib::backend::TreeId;
-use jj_lib::merged_tree::MergedTree;
+use jj_lib::merge::Merge;
+use jj_lib::merge::MergedTreeValue;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathBuf;
 
@@ -46,26 +48,33 @@ pub fn cmd_debug_tree(
     args: &DebugTreeArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
-    let tree = if let Some(tree_id_hex) = &args.id {
-        let tree_id =
-            TreeId::try_from_hex(tree_id_hex).ok_or_else(|| user_error("Invalid tree id"))?;
-        let dir = if let Some(dir_str) = &args.dir {
-            workspace_command.parse_file_path(dir_str)?
-        } else {
-            RepoPathBuf::root()
-        };
-        let store = workspace_command.repo().store();
-        let tree = store.get_tree(dir, &tree_id)?;
-        MergedTree::resolved(tree)
-    } else {
-        let commit = workspace_command
-            .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
-        commit.tree()?
-    };
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
-    for (path, value) in tree.entries_matching(matcher.as_ref()) {
+    let entries: Box<dyn Iterator<Item = (RepoPathBuf, BackendResult<MergedTreeValue>)>> =
+        if let Some(tree_id_hex) = &args.id {
+            let tree_id =
+                TreeId::try_from_hex(tree_id_hex).ok_or_else(|| user_error("Invalid tree id"))?;
+            let dir = if let Some(dir_str) = &args.dir {
+                workspace_command.parse_file_path(dir_str)?
+            } else {
+                RepoPathBuf::root()
+            };
+            let store = workspace_command.repo().store();
+            let tree = store.get_tree(dir, &tree_id)?;
+            // We can't use `MergedTree` here, since it only supports iterating from the
+            // root, but we support a `--dir` option to read trees at any path.
+            Box::new(
+                tree.entries_matching(matcher.as_ref())
+                    .map(|(path, value)| (path, Ok(Merge::normal(value)))),
+            )
+        } else {
+            let commit = workspace_command
+                .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
+            let tree = commit.tree()?;
+            Box::new(tree.entries_matching(matcher.as_ref()))
+        };
+    for (path, value) in entries {
         let ui_path = workspace_command.format_file_path(&path);
         writeln!(ui.stdout(), "{ui_path}: {value:?}")?;
     }
