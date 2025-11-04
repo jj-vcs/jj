@@ -520,7 +520,7 @@ to `trunk()` in case no such change exists:
 
 ```toml
 [revsets]
-log-graph-prioritize = "coalesce(description("megamerge\n"), trunk())"
+log-graph-prioritize = 'coalesce(description("megamerge\n"), trunk())'
 ```
 
 ### Default Template
