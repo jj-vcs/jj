@@ -19,12 +19,12 @@ use itertools::Itertools as _;
 use jj_lib::annotate::FileAnnotation;
 use jj_lib::annotate::FileAnnotator;
 use jj_lib::backend::CommitId;
-use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::MillisSinceEpoch;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
+use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
@@ -37,7 +37,7 @@ use testutils::repo_path;
 
 fn create_commit_fn(
     mut_repo: &mut MutableRepo,
-) -> impl FnMut(&str, &[&CommitId], MergedTreeId) -> Commit {
+) -> impl FnMut(&str, &[&CommitId], MergedTree) -> Commit {
     // stabilize commit IDs for ease of debugging
     let signature = Signature {
         name: "Some One".to_owned(),
@@ -47,10 +47,10 @@ fn create_commit_fn(
             tz_offset: 0,
         },
     };
-    move |description, parent_ids, tree_id| {
+    move |description, parent_ids, tree| {
         let parent_ids = parent_ids.iter().map(|&id| id.clone()).collect();
         mut_repo
-            .new_commit(parent_ids, tree_id)
+            .new_commit(parent_ids, tree)
             .set_author(signature.clone())
             .set_committer(signature.clone())
             .set_description(description)
@@ -115,10 +115,10 @@ fn test_annotate_linear() {
     let tree1 = create_tree(repo, &[(file_path, content1)]);
     let tree2 = create_tree(repo, &[(file_path, content2)]);
     let tree3 = create_tree(repo, &[(file_path, content3)]);
-    let commit1 = create_commit("commit1", &[root_commit_id], tree1.id());
-    let commit2 = create_commit("commit2", &[commit1.id()], tree2.id());
-    let commit3 = create_commit("commit3", &[commit2.id()], tree3.id());
-    let commit4 = create_commit("commit4", &[commit3.id()], tree3.id()); // empty commit
+    let commit1 = create_commit("commit1", &[root_commit_id], tree1);
+    let commit2 = create_commit("commit2", &[commit1.id()], tree2);
+    let commit3 = create_commit("commit3", &[commit2.id()], tree3.clone());
+    let commit4 = create_commit("commit4", &[commit3.id()], tree3); // empty commit
     drop(create_commit);
 
     insta::assert_snapshot!(annotate(tx.repo(), &commit1, file_path), @"");
@@ -161,10 +161,10 @@ fn test_annotate_merge_simple() {
     let tree2 = create_tree(repo, &[(file_path, content2)]);
     let tree3 = create_tree(repo, &[(file_path, content3)]);
     let tree4 = create_tree(repo, &[(file_path, content4)]);
-    let commit1 = create_commit("commit1", &[root_commit_id], tree1.id());
-    let commit2 = create_commit("commit2", &[commit1.id()], tree2.id());
-    let commit3 = create_commit("commit3", &[commit1.id()], tree3.id());
-    let commit4 = create_commit("commit4", &[commit2.id(), commit3.id()], tree4.id());
+    let commit1 = create_commit("commit1", &[root_commit_id], tree1);
+    let commit2 = create_commit("commit2", &[commit1.id()], tree2);
+    let commit3 = create_commit("commit3", &[commit1.id()], tree3);
+    let commit4 = create_commit("commit4", &[commit2.id(), commit3.id()], tree4);
     drop(create_commit);
 
     insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r"
@@ -272,10 +272,10 @@ fn test_annotate_merge_split() {
     let tree2 = create_tree(repo, &[(file_path, content2)]);
     let tree3 = create_tree(repo, &[(file_path, content3)]);
     let tree4 = create_tree(repo, &[(file_path, content4)]);
-    let commit1 = create_commit("commit1", &[root_commit_id], tree1.id());
-    let commit2 = create_commit("commit2", &[commit1.id()], tree2.id());
-    let commit3 = create_commit("commit3", &[commit1.id()], tree3.id());
-    let commit4 = create_commit("commit4", &[commit2.id(), commit3.id()], tree4.id());
+    let commit1 = create_commit("commit1", &[root_commit_id], tree1);
+    let commit2 = create_commit("commit2", &[commit1.id()], tree2);
+    let commit3 = create_commit("commit3", &[commit1.id()], tree3);
+    let commit4 = create_commit("commit4", &[commit2.id(), commit3.id()], tree4);
     drop(create_commit);
 
     insta::assert_snapshot!(annotate(tx.repo(), &commit4, file_path), @r"
@@ -320,12 +320,12 @@ fn test_annotate_merge_split_interleaved() {
     let tree4 = create_tree(repo, &[(file_path, content4)]);
     let tree5 = create_tree(repo, &[(file_path, content5)]);
     let tree6 = create_tree(repo, &[(file_path, content6)]);
-    let commit1 = create_commit("commit1", &[root_commit_id], tree1.id());
-    let commit2 = create_commit("commit2", &[root_commit_id], tree2.id());
-    let commit3 = create_commit("commit3", &[commit1.id(), commit2.id()], tree3.id());
-    let commit4 = create_commit("commit4", &[commit3.id()], tree4.id());
-    let commit5 = create_commit("commit5", &[commit3.id()], tree5.id());
-    let commit6 = create_commit("commit6", &[commit4.id(), commit5.id()], tree6.id());
+    let commit1 = create_commit("commit1", &[root_commit_id], tree1);
+    let commit2 = create_commit("commit2", &[root_commit_id], tree2);
+    let commit3 = create_commit("commit3", &[commit1.id(), commit2.id()], tree3);
+    let commit4 = create_commit("commit4", &[commit3.id()], tree4);
+    let commit5 = create_commit("commit5", &[commit3.id()], tree5);
+    let commit6 = create_commit("commit6", &[commit4.id(), commit5.id()], tree6);
     drop(create_commit);
 
     insta::assert_snapshot!(annotate(tx.repo(), &commit6, file_path), @r"
@@ -364,10 +364,10 @@ fn test_annotate_merge_dup() {
     let tree2 = create_tree(repo, &[(file_path, content2)]);
     let tree3 = create_tree(repo, &[(file_path, content3)]);
     let tree4 = create_tree(repo, &[(file_path, content4)]);
-    let commit1 = create_commit("commit1", &[root_commit_id], tree1.id());
-    let commit2 = create_commit("commit2", &[commit1.id()], tree2.id());
-    let commit3 = create_commit("commit3", &[commit1.id()], tree3.id());
-    let commit4 = create_commit("commit4", &[commit2.id(), commit3.id()], tree4.id());
+    let commit1 = create_commit("commit1", &[root_commit_id], tree1);
+    let commit2 = create_commit("commit2", &[commit1.id()], tree2);
+    let commit3 = create_commit("commit3", &[commit1.id()], tree3);
+    let commit4 = create_commit("commit4", &[commit2.id(), commit3.id()], tree4);
     drop(create_commit);
 
     // Both "1"s can be propagated to commit1 through commit2 and commit3.
@@ -404,8 +404,8 @@ fn test_annotate_file_directory_transition() {
     let mut create_commit = create_commit_fn(tx.repo_mut());
     let tree1 = create_tree(repo, &[(file_path1, "1\n")]);
     let tree2 = create_tree(repo, &[(file_path2, "2\n")]);
-    let commit1 = create_commit("commit1", &[root_commit_id], tree1.id());
-    let commit2 = create_commit("commit2", &[commit1.id()], tree2.id());
+    let commit1 = create_commit("commit1", &[root_commit_id], tree1);
+    let commit2 = create_commit("commit2", &[commit1.id()], tree2);
     drop(create_commit);
 
     insta::assert_snapshot!(annotate(tx.repo(), &commit2, file_path2), @"commit2:1 : 2");

@@ -274,7 +274,7 @@ pub(crate) fn cmd_squash(
         let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).block_on()?;
         let commit = tx
             .repo_mut()
-            .new_commit(parent_ids.clone(), merged_tree.id())
+            .new_commit(parent_ids.clone(), merged_tree)
             .write()?;
         let mut rewritten = HashMap::new();
         tx.repo_mut()
@@ -481,9 +481,8 @@ fn select_diff(
                 destination = tx.format_commit_summary(destination),
             }
         };
-        let selected_tree_id =
+        let selected_tree =
             diff_selector.select([&parent_tree, &source_tree], matcher, format_instructions)?;
-        let selected_tree = tx.repo().store().get_root_tree(&selected_tree_id)?;
         source_commits.push(CommitWithSelection {
             commit: source.clone(),
             selected_tree,

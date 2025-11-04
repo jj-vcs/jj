@@ -18,7 +18,6 @@ use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTreeBuilder;
-use jj_lib::repo::Repo as _;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
@@ -53,7 +52,6 @@ pub(crate) fn cmd_file_untrack(
     args: &FileUntrackArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let store = workspace_command.repo().store().clone();
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
@@ -66,25 +64,24 @@ pub(crate) fn cmd_file_untrack(
     let mut tx = workspace_command.start_transaction().into_inner();
     let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation()?;
     // Create a new tree without the unwanted files
-    let mut tree_builder = MergedTreeBuilder::new(wc_commit.tree_id().clone());
+    let mut tree_builder = MergedTreeBuilder::new(wc_commit.tree());
     let wc_tree = wc_commit.tree();
     for (path, _value) in wc_tree.entries_matching(matcher.as_ref()) {
         tree_builder.set_or_remove(path, Merge::absent());
     }
-    let new_tree_id = tree_builder.write_tree(&store)?;
+    let new_tree = tree_builder.write_tree()?;
     let new_commit = tx
         .repo_mut()
         .rewrite_commit(&wc_commit)
-        .set_tree_id(new_tree_id)
+        .set_tree(new_tree)
         .write()?;
     // Reset the working copy to the new commit
     locked_ws.locked_wc().reset(&new_commit).block_on()?;
     // Commit the working copy again so we can inform the user if paths couldn't be
     // untracked because they're not ignored.
-    let (wc_tree_id, stats) = locked_ws.locked_wc().snapshot(&options).block_on()?;
-    if wc_tree_id != *new_commit.tree_id() {
-        let wc_tree = store.get_root_tree(&wc_tree_id)?;
-        let added_back = wc_tree.entries_matching(matcher.as_ref()).collect_vec();
+    let (new_wc_tree, stats) = locked_ws.locked_wc().snapshot(&options).block_on()?;
+    if new_wc_tree.tree_ids() != new_commit.tree_ids() {
+        let added_back = new_wc_tree.entries_matching(matcher.as_ref()).collect_vec();
         if !added_back.is_empty() {
             drop(locked_ws);
             let path = &added_back[0].0;

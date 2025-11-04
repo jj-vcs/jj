@@ -28,6 +28,7 @@ use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
+use testutils::assert_tree_eq;
 use testutils::base_user_config;
 use testutils::commit_with_tree;
 use testutils::repo_path;
@@ -127,18 +128,14 @@ fn test_eol_conversion_snapshot(
     );
     let tree = test_workspace.snapshot().unwrap();
     let new_tree = test_workspace.snapshot().unwrap();
-    assert_eq!(
-        new_tree.id(),
-        tree.id(),
-        "The working copy should be clean."
-    );
-    let file_added_commit = commit_with_tree(test_workspace.repo.store(), tree.id());
+    assert_tree_eq!(new_tree, tree, "The working copy should be clean.");
+    let file_added_commit = commit_with_tree(test_workspace.repo.store(), tree);
 
     // Create a commit with the file removed, so that later when we checkout the
     // file_added_commit, the test file is recreated.
     std::fs::remove_file(&file_disk_path).unwrap();
     let tree = test_workspace.snapshot().unwrap();
-    let file_removed_commit = commit_with_tree(test_workspace.repo.store(), tree.id());
+    let file_removed_commit = commit_with_tree(test_workspace.repo.store(), tree);
     let workspace = &mut test_workspace.workspace;
     workspace
         .check_out(
@@ -176,9 +173,9 @@ fn test_eol_conversion_snapshot(
         .unwrap();
     assert!(file_disk_path.exists());
     let new_tree = test_workspace.snapshot().unwrap();
-    assert_eq!(
-        new_tree.id(),
-        *file_added_commit.tree_id(),
+    assert_tree_eq!(
+        new_tree,
+        file_added_commit.tree(),
         "The working copy should be clean."
     );
 
@@ -219,7 +216,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     let mut tx = test_workspace.repo.start_transaction();
     let parent1_commit = tx
         .repo_mut()
-        .new_commit(vec![root_commit.id().clone()], tree.id())
+        .new_commit(vec![root_commit.id().clone()], tree)
         .write()
         .unwrap();
     tx.commit("commit parent1").unwrap();
@@ -237,7 +234,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     let mut tx = test_workspace.repo.start_transaction();
     let parent2_commit = tx
         .repo_mut()
-        .new_commit(vec![root_commit.id().clone()], tree.id())
+        .new_commit(vec![root_commit.id().clone()], tree)
         .write()
         .unwrap();
     tx.commit("commit parent2").unwrap();
@@ -248,7 +245,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     let tree = merge_commit_trees(&*test_workspace.repo, &[parent1_commit, parent2_commit])
         .block_on()
         .unwrap();
-    let merge_commit = commit_with_tree(test_workspace.repo.store(), tree.id());
+    let merge_commit = commit_with_tree(test_workspace.repo.store(), tree);
     // Append new texts to the file with conflicts to make sure the last line is not
     // conflict markers.
     test_workspace
@@ -271,13 +268,9 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     .expect("Failed to reload the workspace");
     let tree = test_workspace.snapshot().unwrap();
     let new_tree = test_workspace.snapshot().unwrap();
-    assert_eq!(
-        new_tree.id(),
-        tree.id(),
-        "The working copy should be clean."
-    );
+    assert_tree_eq!(new_tree, tree, "The working copy should be clean.");
     // Create the new merge commit with the conflict file appended.
-    let merge_commit = commit_with_tree(test_workspace.repo.store(), tree.id());
+    let merge_commit = commit_with_tree(test_workspace.repo.store(), tree);
 
     // Reload the Workspace with the working-copy.eol-conversion = "none" setting to
     // check the EOL of the file written to the store previously.
@@ -421,13 +414,13 @@ fn test_eol_conversion_update_conflicts(
     let tree = testutils::create_tree(&test_workspace.repo, &[(file_repo_path, parent1_contents)]);
     let parent1_commit = tx
         .repo_mut()
-        .new_commit(vec![root_commit.id().clone()], tree.id())
+        .new_commit(vec![root_commit.id().clone()], tree)
         .write()
         .unwrap();
     let tree = testutils::create_tree(&test_workspace.repo, &[(file_repo_path, parent2_contents)]);
     let parent2_commit = tx
         .repo_mut()
-        .new_commit(vec![root_commit.id().clone()], tree.id())
+        .new_commit(vec![root_commit.id().clone()], tree)
         .write()
         .unwrap();
     tx.commit("commit parent 2").unwrap();
@@ -438,7 +431,7 @@ fn test_eol_conversion_update_conflicts(
     let tree = merge_commit_trees(&*test_workspace.repo, &[parent1_commit, parent2_commit])
         .block_on()
         .unwrap();
-    let merge_commit = commit_with_tree(test_workspace.repo.store(), tree.id());
+    let merge_commit = commit_with_tree(test_workspace.repo.store(), tree);
 
     // Checkout the merge commit.
     test_workspace
@@ -541,7 +534,7 @@ fn test_eol_conversion_checkout(
         file_content,
     );
     let tree = test_workspace.snapshot().unwrap();
-    let commit = commit_with_tree(test_workspace.repo.store(), tree.id());
+    let commit = commit_with_tree(test_workspace.repo.store(), tree);
 
     // Checkout the empty commit to clear the directory, so that later when we
     // checkout, files are recreated.

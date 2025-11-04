@@ -140,12 +140,12 @@ new working-copy commit.
             tx.format_commit_summary(&commit)
         )
     };
-    let tree_id = diff_selector.select(
+    let tree = diff_selector.select(
         [&base_tree, &commit.tree()],
         matcher.as_ref(),
         format_instructions,
     )?;
-    if !args.paths.is_empty() && tree_id == base_tree.id() {
+    if !args.paths.is_empty() && tree.tree_ids() == base_tree.tree_ids() {
         writeln!(
             ui.warning_default(),
             "The given paths do not match any file: {}",
@@ -154,7 +154,7 @@ new working-copy commit.
     }
 
     let mut commit_builder = tx.repo_mut().rewrite_commit(&commit).detach();
-    commit_builder.set_tree_id(tree_id);
+    commit_builder.set_tree(tree);
     if args.reset_author {
         commit_builder.set_author(commit_builder.committer().clone());
     }
@@ -204,7 +204,7 @@ new working-copy commit.
     if !workspace_names.is_empty() {
         let new_wc_commit = tx
             .repo_mut()
-            .new_commit(vec![new_commit.id().clone()], commit.tree_id().clone())
+            .new_commit(vec![new_commit.id().clone()], commit.tree())
             .write()?;
 
         // Does nothing if there's no bookmarks to advance.

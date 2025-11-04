@@ -22,6 +22,7 @@ use jj_lib::workspace::Workspace;
 use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
 use testutils::TestWorkspace;
+use testutils::assert_tree_eq;
 use testutils::commit_with_tree;
 use testutils::create_tree;
 use testutils::empty_snapshot_options;
@@ -38,15 +39,12 @@ fn test_concurrent_checkout() {
     let repo = test_workspace1.repo.clone();
     let workspace1_root = test_workspace1.workspace.workspace_root().to_owned();
 
-    let tree_id1 = testutils::create_random_tree(&repo);
-    let tree_id2 = testutils::create_random_tree(&repo);
-    let tree_id3 = testutils::create_random_tree(&repo);
-    let tree1 = repo.store().get_root_tree(&tree_id1).unwrap();
-    let tree2 = repo.store().get_root_tree(&tree_id2).unwrap();
-    let tree3 = repo.store().get_root_tree(&tree_id3).unwrap();
-    let commit1 = commit_with_tree(repo.store(), tree1.id());
-    let commit2 = commit_with_tree(repo.store(), tree2.id());
-    let commit3 = commit_with_tree(repo.store(), tree3.id());
+    let tree1 = testutils::create_random_tree(&repo);
+    let tree2 = testutils::create_random_tree(&repo);
+    let tree3 = testutils::create_random_tree(&repo);
+    let commit1 = commit_with_tree(repo.store(), tree1.clone());
+    let commit2 = commit_with_tree(repo.store(), tree2.clone());
+    let commit3 = commit_with_tree(repo.store(), tree3);
 
     // Check out tree1
     let ws1 = &mut test_workspace1.workspace;
@@ -66,13 +64,13 @@ fn test_concurrent_checkout() {
         // Reload commit from the store associated with the workspace
         let repo = ws2.repo_loader().load_at(repo.operation()).unwrap();
         let commit2 = repo.store().get_commit(commit2.id()).unwrap();
-        ws2.check_out(repo.op_id().clone(), Some(&tree_id1), &commit2)
+        ws2.check_out(repo.op_id().clone(), Some(&tree1), &commit2)
             .unwrap();
     }
 
     // Checking out another tree (via the first workspace instance) should now fail.
     assert_matches!(
-        ws1.check_out(repo.op_id().clone(), Some(&tree_id1), &commit3,),
+        ws1.check_out(repo.op_id().clone(), Some(&tree1), &commit3,),
         Err(CheckoutError::ConcurrentCheckout)
     );
 
@@ -84,7 +82,7 @@ fn test_concurrent_checkout() {
         &default_working_copy_factories(),
     )
     .unwrap();
-    assert_eq!(*ws3.working_copy().tree_id().unwrap(), tree_id2);
+    assert_tree_eq!(*ws3.working_copy().tree().unwrap(), tree2);
 }
 
 #[test]
@@ -97,28 +95,28 @@ fn test_checkout_parallel() {
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
 
     let num_threads = max(num_cpus::get(), 4);
-    let mut tree_ids = vec![];
+    let mut trees = vec![];
     for i in 0..num_threads {
         let path = repo_path_buf(format!("file{i}"));
         let tree = create_tree(repo, &[(&path, "contents")]);
-        tree_ids.push(tree.id());
+        trees.push(tree);
     }
 
     // Create another tree just so we can test the update stats reliably from the
     // first update
     let tree = create_tree(repo, &[(repo_path("other file"), "contents")]);
-    let commit = commit_with_tree(repo.store(), tree.id());
+    let commit = commit_with_tree(repo.store(), tree);
     test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit)
         .unwrap();
 
     thread::scope(|s| {
-        for tree_id in &tree_ids {
+        for tree in &trees {
             let test_env = &test_workspace.env;
             let op_id = repo.op_id().clone();
-            let tree_ids = tree_ids.clone();
-            let commit = commit_with_tree(repo.store(), tree_id.clone());
+            let trees = trees.clone();
+            let commit = commit_with_tree(repo.store(), tree.clone());
             let settings = settings.clone();
             let workspace_root = workspace_root.clone();
             s.spawn(move || {
@@ -142,12 +140,16 @@ fn test_checkout_parallel() {
                 // write_tree() should take the same lock as check_out(), write_tree()
                 // should never produce a different tree.
                 let mut locked_ws = workspace.start_working_copy_mutation().unwrap();
-                let (new_tree_id, _stats) = locked_ws
+                let (new_tree, _stats) = locked_ws
                     .locked_wc()
                     .snapshot(&empty_snapshot_options())
                     .block_on()
                     .unwrap();
-                assert!(tree_ids.contains(&new_tree_id));
+                assert!(
+                    trees
+                        .iter()
+                        .any(|tree| tree.tree_ids() == new_tree.tree_ids())
+                );
             });
         }
     });
@@ -162,7 +164,7 @@ fn test_racy_checkout() {
 
     let path = repo_path("file");
     let tree = create_tree(repo, &[(path, "1")]);
-    let commit = commit_with_tree(repo.store(), tree.id());
+    let commit = commit_with_tree(repo.store(), tree.clone());
 
     let mut num_matches = 0;
     for _ in 0..100 {
@@ -176,7 +178,7 @@ fn test_racy_checkout() {
         // within the file system timestamp granularity) is detected as changed.
         write_working_copy_file(&workspace_root, path, "x");
         let modified_tree = test_workspace.snapshot().unwrap();
-        if modified_tree.id() == tree.id() {
+        if modified_tree.tree_ids() == tree.tree_ids() {
             num_matches += 1;
         }
         // Reset the state for the next round

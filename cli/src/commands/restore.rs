@@ -162,15 +162,14 @@ pub(crate) fn cmd_restore(
             to_commit = workspace_command.format_commit_summary(&to_commit),
         }
     };
-    let new_tree_id =
-        diff_selector.select([&to_tree, &from_tree], &matcher, format_instructions)?;
-    if &new_tree_id == to_commit.tree_id() {
+    let new_tree = diff_selector.select([&to_tree, &from_tree], &matcher, format_instructions)?;
+    if new_tree.tree_ids() == to_commit.tree_ids() {
         writeln!(ui.status(), "Nothing changed.")?;
     } else {
         let mut tx = workspace_command.start_transaction();
         tx.repo_mut()
             .rewrite_commit(&to_commit)
-            .set_tree_id(new_tree_id)
+            .set_tree(new_tree)
             .write()?;
         // rebase_descendants early; otherwise the new commit would always have
         // a conflicted change id at this point.

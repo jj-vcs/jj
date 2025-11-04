@@ -39,7 +39,6 @@ use crate::backend::BackendLoadError;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
-use crate::backend::MergedTreeId;
 use crate::commit::Commit;
 use crate::commit::CommitByCommitterTimestamp;
 use crate::commit_builder::CommitBuilder;
@@ -61,6 +60,7 @@ use crate::index::ReadonlyIndex;
 use crate::merge::MergeBuilder;
 use crate::merge::SameChange;
 use crate::merge::trivial_merge;
+use crate::merged_tree::MergedTree;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_heads_store;
@@ -941,13 +941,9 @@ impl MutableRepo {
     }
 
     /// Returns a [`CommitBuilder`] to write new commit to the repo.
-    pub fn new_commit(
-        &mut self,
-        parents: Vec<CommitId>,
-        tree_id: MergedTreeId,
-    ) -> CommitBuilder<'_> {
+    pub fn new_commit(&mut self, parents: Vec<CommitId>, tree: MergedTree) -> CommitBuilder<'_> {
         let settings = self.base_repo.settings();
-        DetachedCommitBuilder::for_new_commit(self, settings, parents, tree_id).attach(self)
+        DetachedCommitBuilder::for_new_commit(self, settings, parents, tree).attach(self)
     }
 
     /// Returns a [`CommitBuilder`] to rewrite an existing commit in the repo.
@@ -1207,7 +1203,7 @@ impl MutableRepo {
                     .try_collect()?;
                 let merged_parents_tree = merge_commit_trees(self, &new_commits).block_on()?;
                 let commit = self
-                    .new_commit(new_commit_ids.clone(), merged_parents_tree.id().clone())
+                    .new_commit(new_commit_ids.clone(), merged_parents_tree)
                     .write()?;
                 recreated_wc_commits.insert(old_commit_id, commit.clone());
                 commit
@@ -1517,7 +1513,7 @@ impl MutableRepo {
         commit: &Commit,
     ) -> Result<Commit, CheckOutCommitError> {
         let wc_commit = self
-            .new_commit(vec![commit.id().clone()], commit.tree_id().clone())
+            .new_commit(vec![commit.id().clone()], commit.tree())
             .write()?;
         self.edit(name, &wc_commit)?;
         Ok(wc_commit)

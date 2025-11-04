@@ -53,7 +53,6 @@ use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
-use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::config::ConfigGetError;
@@ -1260,7 +1259,7 @@ impl WorkspaceCommandHelper {
         &mut self,
     ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
         let (mut locked_ws, wc_commit) = self.unchecked_start_working_copy_mutation()?;
-        if wc_commit.tree_id() != locked_ws.locked_wc().old_tree_id() {
+        if wc_commit.tree_ids() != locked_ws.locked_wc().old_tree().tree_ids() {
             return Err(user_error("Concurrent working copy operation. Try again."));
         }
         Ok((locked_ws, wc_commit))
@@ -1918,7 +1917,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 Err(e) => return Err(snapshot_command_error(e)),
             };
         self.user_repo = ReadonlyUserRepo::new(repo);
-        let (new_tree_id, stats) = {
+        let (new_tree, stats) = {
             let mut options = options;
             let progress = crate::progress::snapshot_progress(ui);
             options.progress = progress.as_ref().map(|x| x as _);
@@ -1928,14 +1927,14 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .block_on()
                 .map_err(snapshot_command_error)?
         };
-        if new_tree_id != *wc_commit.tree_id() {
+        if new_tree.tree_ids() != wc_commit.tree_ids() {
             let mut tx =
                 start_repo_transaction(&self.user_repo.repo, self.env.command.string_args());
             tx.set_is_snapshot(true);
             let mut_repo = tx.repo_mut();
             let commit = mut_repo
                 .rewrite_commit(&wc_commit)
-                .set_tree_id(new_tree_id)
+                .set_tree(new_tree)
                 .write()
                 .map_err(snapshot_command_error)?;
             mut_repo
@@ -2591,7 +2590,7 @@ fn update_stale_working_copy(
 ) -> Result<CheckoutStats, CommandError> {
     // The same check as start_working_copy_mutation(), but with the stale
     // working-copy commit.
-    if stale_commit.tree_id() != locked_ws.locked_wc().old_tree_id() {
+    if stale_commit.tree_ids() != locked_ws.locked_wc().old_tree().tree_ids() {
         return Err(user_error("Concurrent working copy operation. Try again."));
     }
     let stats = locked_ws
@@ -2859,11 +2858,11 @@ pub fn update_working_copy(
     old_commit: Option<&Commit>,
     new_commit: &Commit,
 ) -> Result<CheckoutStats, CommandError> {
-    let old_tree_id = old_commit.map(|commit| commit.tree_id().clone());
+    let old_tree = old_commit.map(|commit| commit.tree());
     // TODO: CheckoutError::ConcurrentCheckout should probably just result in a
     // warning for most commands (but be an error for the checkout command)
     let stats = workspace
-        .check_out(repo.op_id().clone(), old_tree_id.as_ref(), new_commit)
+        .check_out(repo.op_id().clone(), old_tree.as_ref(), new_commit)
         .map_err(|err| {
             internal_error_with_message(
                 format!("Failed to check out commit {}", new_commit.id().hex()),
@@ -3015,16 +3014,15 @@ impl DiffSelector {
         [left_tree, right_tree]: [&MergedTree; 2],
         matcher: &dyn Matcher,
         format_instructions: impl FnOnce() -> String,
-    ) -> Result<MergedTreeId, CommandError> {
-        let selected_tree_id = restore_tree(right_tree, left_tree, matcher).block_on()?;
+    ) -> Result<MergedTree, CommandError> {
+        let selected_tree = restore_tree(right_tree, left_tree, matcher).block_on()?;
         match self {
-            Self::NonInteractive => Ok(selected_tree_id),
+            Self::NonInteractive => Ok(selected_tree),
             Self::Interactive(editor) => {
                 // edit_diff_external() is designed to edit the right tree,
                 // whereas we want to update the left tree. Unmatched paths
                 // shouldn't be based off the right tree.
-                let right_tree = right_tree.store().get_root_tree(&selected_tree_id)?;
-                Ok(editor.edit([left_tree, &right_tree], matcher, format_instructions)?)
+                Ok(editor.edit([left_tree, &selected_tree], matcher, format_instructions)?)
             }
         }
     }

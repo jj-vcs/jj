@@ -58,10 +58,8 @@ use tracing::instrument;
 use tracing::trace_span;
 
 use crate::backend::BackendError;
-use crate::backend::BackendResult;
 use crate::backend::CopyId;
 use crate::backend::FileId;
-use crate::backend::MergedTreeId;
 use crate::backend::MillisSinceEpoch;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;
@@ -827,7 +825,7 @@ pub struct TreeState {
     store: Arc<Store>,
     working_copy_path: PathBuf,
     state_path: PathBuf,
-    tree_id: MergedTreeId,
+    tree: MergedTree,
     file_states: FileStatesMap,
     // Currently only path prefixes
     sparse_patterns: Vec<RepoPathBuf>,
@@ -866,8 +864,8 @@ impl TreeState {
         &self.working_copy_path
     }
 
-    pub fn current_tree_id(&self) -> &MergedTreeId {
-        &self.tree_id
+    pub fn current_tree(&self) -> &MergedTree {
+        &self.tree
     }
 
     pub fn file_states(&self) -> FileStates<'_> {
@@ -903,12 +901,11 @@ impl TreeState {
             ref fsmonitor_settings,
         }: &TreeStateSettings,
     ) -> Self {
-        let tree_id = store.empty_merged_tree_id();
         Self {
-            store,
+            store: store.clone(),
             working_copy_path,
             state_path,
-            tree_id,
+            tree: store.empty_merged_tree(),
             file_states: FileStatesMap::new(),
             sparse_patterns: vec![RepoPathBuf::root()],
             own_mtime: MillisSinceEpoch(0),
@@ -969,14 +966,17 @@ impl TreeState {
         })?;
         #[expect(deprecated)]
         if proto.tree_ids.is_empty() {
-            self.tree_id = MergedTreeId::resolved(TreeId::new(proto.legacy_tree_id.clone()));
+            self.tree = MergedTree::resolved(
+                self.store.clone(),
+                TreeId::new(proto.legacy_tree_id.clone()),
+            );
         } else {
             let tree_ids_builder: MergeBuilder<TreeId> = proto
                 .tree_ids
                 .iter()
                 .map(|id| TreeId::new(id.clone()))
                 .collect();
-            self.tree_id = MergedTreeId::new(tree_ids_builder.build());
+            self.tree = MergedTree::new(self.store.clone(), tree_ids_builder.build());
         }
         self.file_states =
             FileStatesMap::from_proto(proto.file_states, proto.is_file_states_sorted);
@@ -989,8 +989,8 @@ impl TreeState {
     pub fn save(&mut self) -> Result<(), TreeStateError> {
         let mut proto: crate::protos::local_working_copy::TreeState = Default::default();
         proto.tree_ids = self
-            .tree_id
-            .as_merge()
+            .tree
+            .tree_ids()
             .iter()
             .map(|id| id.to_bytes())
             .collect();
@@ -1028,10 +1028,6 @@ impl TreeState {
             }
         })?;
         Ok(())
-    }
-
-    fn current_tree(&self) -> BackendResult<MergedTree> {
-        self.store.get_root_tree(&self.tree_id)
     }
 
     fn reset_watchman(&mut self) {
@@ -1117,7 +1113,7 @@ impl TreeState {
         trace_span!("traverse filesystem").in_scope(|| -> Result<(), SnapshotError> {
             let snapshotter = FileSnapshotter {
                 tree_state: self,
-                current_tree: &self.current_tree()?,
+                current_tree: &self.tree,
                 matcher: &matcher,
                 start_tracking_matcher,
                 // Move tx sides so they'll be dropped at the end of the scope.
@@ -1147,7 +1143,7 @@ impl TreeState {
         let stats = SnapshotStats {
             untracked_paths: untracked_paths_rx.into_iter().collect(),
         };
-        let mut tree_builder = MergedTreeBuilder::new(self.tree_id.clone());
+        let mut tree_builder = MergedTreeBuilder::new(self.tree.clone());
         trace_span!("process tree entries").in_scope(|| {
             for (path, tree_values) in &tree_entries_rx {
                 tree_builder.set_or_remove(path, tree_values);
@@ -1171,14 +1167,14 @@ impl TreeState {
                 .merge_in(changed_file_states, &deleted_files);
         });
         trace_span!("write tree").in_scope(|| -> Result<(), BackendError> {
-            let new_tree_id = tree_builder.write_tree(&self.store)?;
-            is_dirty |= new_tree_id != self.tree_id;
-            self.tree_id = new_tree_id;
+            let new_tree = tree_builder.write_tree()?;
+            is_dirty |= new_tree.tree_ids() != self.tree.tree_ids();
+            self.tree = new_tree.clone();
             Ok(())
         })?;
         if cfg!(debug_assertions) {
-            let tree = self.current_tree().unwrap();
-            let tree_paths: HashSet<_> = tree
+            let tree_paths: HashSet<_> = self
+                .tree
                 .entries_matching(sparse_matcher.as_ref())
                 .filter_map(|(path, result)| result.is_ok().then_some(path))
                 .collect();
@@ -1875,16 +1871,11 @@ impl TreeState {
     }
 
     pub fn check_out(&mut self, new_tree: &MergedTree) -> Result<CheckoutStats, CheckoutError> {
-        let old_tree = self.current_tree().map_err(|err| match err {
-            err @ BackendError::ObjectNotFound { .. } => CheckoutError::SourceNotFound {
-                source: Box::new(err),
-            },
-            other => CheckoutError::InternalBackendError(other),
-        })?;
+        let old_tree = self.tree.clone();
         let stats = self
             .update(&old_tree, new_tree, self.sparse_matcher().as_ref())
             .block_on()?;
-        self.tree_id = new_tree.id();
+        self.tree = new_tree.clone();
         Ok(stats)
     }
 
@@ -1892,12 +1883,7 @@ impl TreeState {
         &mut self,
         sparse_patterns: Vec<RepoPathBuf>,
     ) -> Result<CheckoutStats, CheckoutError> {
-        let tree = self.current_tree().map_err(|err| match err {
-            err @ BackendError::ObjectNotFound { .. } => CheckoutError::SourceNotFound {
-                source: Box::new(err),
-            },
-            other => CheckoutError::InternalBackendError(other),
-        })?;
+        let tree = self.tree.clone();
         let old_matcher = PrefixMatcher::new(&self.sparse_patterns);
         let new_matcher = PrefixMatcher::new(&sparse_patterns);
         let added_matcher = DifferenceMatcher::new(&new_matcher, &old_matcher);
@@ -2055,17 +2041,12 @@ impl TreeState {
     }
 
     pub async fn reset(&mut self, new_tree: &MergedTree) -> Result<(), ResetError> {
-        let old_tree = self.current_tree().map_err(|err| match err {
-            err @ BackendError::ObjectNotFound { .. } => ResetError::SourceNotFound {
-                source: Box::new(err),
-            },
-            other => ResetError::InternalBackendError(other),
-        })?;
-
         let matcher = self.sparse_matcher();
         let mut changed_file_states = Vec::new();
         let mut deleted_files = HashSet::new();
-        let mut diff_stream = old_tree.diff_stream_for_file_system(new_tree, matcher.as_ref());
+        let mut diff_stream = self
+            .tree
+            .diff_stream_for_file_system(new_tree, matcher.as_ref());
         while let Some(TreeDiffEntry { path, values }) = diff_stream.next().await {
             let after = values?.after;
             if after.is_absent() {
@@ -2107,13 +2088,13 @@ impl TreeState {
         }
         self.file_states
             .merge_in(changed_file_states, &deleted_files);
-        self.tree_id = new_tree.id();
+        self.tree = new_tree.clone();
         Ok(())
     }
 
     pub async fn recover(&mut self, new_tree: &MergedTree) -> Result<(), ResetError> {
         self.file_states.clear();
-        self.tree_id = self.store.empty_merged_tree_id();
+        self.tree = self.store.empty_merged_tree();
         self.reset(new_tree).await
     }
 }
@@ -2199,8 +2180,8 @@ impl WorkingCopy for LocalWorkingCopy {
         &self.checkout_state.operation_id
     }
 
-    fn tree_id(&self) -> Result<&MergedTreeId, WorkingCopyStateError> {
-        Ok(self.tree_state()?.current_tree_id())
+    fn tree(&self) -> Result<&MergedTree, WorkingCopyStateError> {
+        Ok(self.tree_state()?.current_tree())
     }
 
     fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError> {
@@ -2227,11 +2208,11 @@ impl WorkingCopy for LocalWorkingCopy {
             tree_state_settings: self.tree_state_settings.clone(),
         };
         let old_operation_id = wc.operation_id().clone();
-        let old_tree_id = wc.tree_id()?.clone();
+        let old_tree = wc.tree()?.clone();
         Ok(Box::new(LockedLocalWorkingCopy {
             wc,
             old_operation_id,
-            old_tree_id,
+            old_tree,
             tree_state_dirty: false,
             new_workspace_name: None,
             _lock: lock,
@@ -2406,7 +2387,7 @@ impl WorkingCopyFactory for LocalWorkingCopyFactory {
 pub struct LockedLocalWorkingCopy {
     wc: LocalWorkingCopy,
     old_operation_id: OperationId,
-    old_tree_id: MergedTreeId,
+    old_tree: MergedTree,
     tree_state_dirty: bool,
     new_workspace_name: Option<WorkspaceNameBuf>,
     _lock: FileLock,
@@ -2418,18 +2399,18 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         &self.old_operation_id
     }
 
-    fn old_tree_id(&self) -> &MergedTreeId {
-        &self.old_tree_id
+    fn old_tree(&self) -> &MergedTree {
+        &self.old_tree
     }
 
     async fn snapshot(
         &mut self,
         options: &SnapshotOptions,
-    ) -> Result<(MergedTreeId, SnapshotStats), SnapshotError> {
+    ) -> Result<(MergedTree, SnapshotStats), SnapshotError> {
         let tree_state = self.wc.tree_state_mut()?;
         let (is_dirty, stats) = tree_state.snapshot(options)?;
         self.tree_state_dirty |= is_dirty;
-        Ok((tree_state.current_tree_id().clone(), stats))
+        Ok((tree_state.current_tree().clone(), stats))
     }
 
     async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
@@ -2437,7 +2418,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         // continue an interrupted update if we find such a file.
         let new_tree = commit.tree();
         let tree_state = self.wc.tree_state_mut()?;
-        if tree_state.tree_id != *commit.tree_id() {
+        if tree_state.tree.tree_ids() != new_tree.tree_ids() {
             let stats = tree_state.check_out(&new_tree)?;
             self.tree_state_dirty = true;
             Ok(stats)
@@ -2487,7 +2468,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         mut self: Box<Self>,
         operation_id: OperationId,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
-        assert!(self.tree_state_dirty || &self.old_tree_id == self.wc.tree_id()?);
+        assert!(self.tree_state_dirty || self.old_tree.tree_ids() == self.wc.tree()?.tree_ids());
         if self.tree_state_dirty {
             self.wc
                 .tree_state_mut()?

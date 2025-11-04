@@ -33,12 +33,12 @@ use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
-use crate::backend::MergedTreeId;
 use crate::backend::SigningFn;
 use crate::backend::SymlinkId;
 use crate::backend::TreeId;
 use crate::commit::Commit;
 use crate::index::Index;
+use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
@@ -140,8 +140,8 @@ impl Store {
         MergedTree::resolved(self.clone(), empty_tree_id)
     }
 
-    pub fn empty_merged_tree_id(&self) -> MergedTreeId {
-        MergedTreeId::resolved(self.backend.empty_tree_id().clone())
+    pub fn empty_merged_tree_id(&self) -> Merge<TreeId> {
+        Merge::resolved(self.backend.empty_tree_id().clone())
     }
 
     pub fn root_commit(self: &Arc<Self>) -> Commit {
@@ -218,11 +218,6 @@ impl Store {
         let mut locked_cache = self.tree_cache.lock().unwrap();
         locked_cache.put(key, data.clone());
         Ok(data)
-    }
-
-    // TODO: delete this method after deleting `MergedTreeId`
-    pub fn get_root_tree(self: &Arc<Self>, id: &MergedTreeId) -> BackendResult<MergedTree> {
-        Ok(MergedTree::new(self.clone(), id.as_merge().clone()))
     }
 
     pub async fn write_tree(

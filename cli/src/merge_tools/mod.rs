@@ -21,7 +21,6 @@ use std::sync::Arc;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CopyId;
-use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigGetResultExt as _;
@@ -298,7 +297,7 @@ impl DiffEditor {
         trees: [&MergedTree; 2],
         matcher: &dyn Matcher,
         format_instructions: impl FnOnce() -> String,
-    ) -> Result<MergedTreeId, DiffEditError> {
+    ) -> Result<MergedTree, DiffEditError> {
         match &self.tool {
             DiffEditTool::Builtin => {
                 Ok(
@@ -430,7 +429,7 @@ impl MergeEditor {
         ui: &Ui,
         tree: &MergedTree,
         repo_paths: &[&RepoPath],
-    ) -> Result<(MergedTreeId, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
+    ) -> Result<(MergedTree, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
         let merge_tool_files: Vec<MergeToolFile> = repo_paths
             .iter()
             .map(|&repo_path| MergeToolFile::from_tree_and_path(tree, repo_path))
@@ -438,16 +437,16 @@ impl MergeEditor {
 
         match &self.tool {
             MergeTool::Builtin => {
-                let tree_id = edit_merge_builtin(tree, &merge_tool_files).map_err(Box::new)?;
-                Ok((tree_id, None))
+                let tree = edit_merge_builtin(tree, &merge_tool_files).map_err(Box::new)?;
+                Ok((tree, None))
             }
             MergeTool::Ours => {
-                let tree_id = pick_conflict_side(tree, &merge_tool_files, 0)?;
-                Ok((tree_id, None))
+                let tree = pick_conflict_side(tree, &merge_tool_files, 0)?;
+                Ok((tree, None))
             }
             MergeTool::Theirs => {
-                let tree_id = pick_conflict_side(tree, &merge_tool_files, 1)?;
-                Ok((tree_id, None))
+                let tree = pick_conflict_side(tree, &merge_tool_files, 1)?;
+                Ok((tree, None))
             }
             MergeTool::External(editor) => external::run_mergetool_external(
                 ui,
@@ -465,8 +464,8 @@ fn pick_conflict_side(
     tree: &MergedTree,
     merge_tool_files: &[MergeToolFile],
     add_index: usize,
-) -> Result<MergedTreeId, BackendError> {
-    let mut tree_builder = MergedTreeBuilder::new(tree.id());
+) -> Result<MergedTree, BackendError> {
+    let mut tree_builder = MergedTreeBuilder::new(tree.clone());
     for merge_tool_file in merge_tool_files {
         // We use file IDs here to match the logic for the other external merge tools.
         // This ensures that the behavior is consistent.
@@ -480,7 +479,7 @@ fn pick_conflict_side(
         }));
         tree_builder.set_or_remove(merge_tool_file.repo_path.clone(), new_tree_value);
     }
-    tree_builder.write_tree(tree.store())
+    tree_builder.write_tree()
 }
 
 #[cfg(test)]

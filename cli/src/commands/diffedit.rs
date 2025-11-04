@@ -148,13 +148,13 @@ don't make any changes, then the operation will be aborted.",
     };
     let base_tree = merge_commit_trees(tx.repo(), base_commits.as_slice()).block_on()?;
     let tree = target_commit.tree();
-    let tree_id = diff_editor.edit([&base_tree, &tree], &matcher, format_instructions)?;
-    if tree_id == *target_commit.tree_id() {
+    let edited_tree = diff_editor.edit([&base_tree, &tree], &matcher, format_instructions)?;
+    if edited_tree.tree_ids() == target_commit.tree_ids() {
         writeln!(ui.status(), "Nothing changed.")?;
     } else {
         tx.repo_mut()
             .rewrite_commit(&target_commit)
-            .set_tree_id(tree_id)
+            .set_tree(edited_tree)
             .write()?;
         // rebase_descendants early; otherwise `new_commit` would always have
         // a conflicted change id at this point.

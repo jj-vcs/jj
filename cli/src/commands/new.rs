@@ -190,7 +190,7 @@ pub(crate) fn cmd_new(
     let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).block_on()?;
     let mut commit_builder = tx
         .repo_mut()
-        .new_commit(parent_commit_ids, merged_tree.id())
+        .new_commit(parent_commit_ids, merged_tree)
         .detach();
     let mut description = join_message_paragraphs(&args.message_paragraphs);
     if !description.is_empty() {

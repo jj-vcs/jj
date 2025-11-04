@@ -273,13 +273,13 @@ pub async fn fix_files(
     // Substitute the fixed file IDs into all of the affected commits. Currently,
     // fixes cannot delete or rename files, change the executable bit, or modify
     // other parts of the commit like the description.
-    repo_mut.transform_descendants(root_commits, async |mut rewriter| {
+    repo_mut.transform_descendants(root_commits, async |rewriter| {
         // TODO: Build the trees in parallel before `transform_descendants()` and only
         // keep the tree IDs in memory, so we can pass them to the rewriter.
         let old_commit_id = rewriter.old_commit().id().clone();
         let repo_paths = commit_paths.get(&old_commit_id).unwrap();
         let old_tree = rewriter.old_commit().tree();
-        let mut tree_builder = MergedTreeBuilder::new(old_tree.id().clone());
+        let mut tree_builder = MergedTreeBuilder::new(old_tree.clone());
         let mut has_changes = false;
         for repo_path in repo_paths {
             let old_value = old_tree.path_value_async(repo_path).await?;
@@ -312,9 +312,9 @@ pub async fn fix_files(
         summary.num_checked_commits += 1;
         if has_changes {
             summary.num_fixed_commits += 1;
-            let new_tree = tree_builder.write_tree(rewriter.repo_mut().store())?;
+            let new_tree = tree_builder.write_tree()?;
             let builder = rewriter.reparent();
-            let new_commit = builder.set_tree_id(new_tree).write()?;
+            let new_commit = builder.set_tree(new_tree).write()?;
             summary
                 .rewrites
                 .insert(old_commit_id, new_commit.id().clone());

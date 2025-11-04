@@ -1335,7 +1335,7 @@ async fn has_diff_from_parent(
     let parents: Vec<_> = commit.parents_async().await?;
     if let [parent] = parents.as_slice() {
         // Fast path: no need to load the root tree
-        let unchanged = commit.tree_id() == parent.tree_id();
+        let unchanged = commit.tree_ids() == parent.tree_ids();
         if matcher.visit(RepoPath::root()) == Visit::AllRecursively {
             return Ok(!unchanged);
         } else if unchanged {

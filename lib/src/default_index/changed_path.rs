@@ -569,7 +569,7 @@ pub(super) async fn collect_changed_paths(
 ) -> BackendResult<Vec<RepoPathBuf>> {
     let parents: Vec<_> = commit.parents_async().await?;
     if let [p] = parents.as_slice()
-        && commit.tree_id() == p.tree_id()
+        && commit.tree_ids() == p.tree_ids()
     {
         return Ok(vec![]);
     }

@@ -46,7 +46,6 @@ use crate::backend::CopyHistory;
 use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
-use crate::backend::MergedTreeId;
 use crate::backend::MillisSinceEpoch;
 use crate::backend::SecureSig;
 use crate::backend::Signature;
@@ -359,12 +358,7 @@ pub fn commit_to_proto(commit: &Commit) -> crate::protos::simple_store::Commit {
     for predecessor in &commit.predecessors {
         proto.predecessors.push(predecessor.to_bytes());
     }
-    proto.root_tree = commit
-        .root_tree
-        .as_merge()
-        .iter()
-        .map(|id| id.to_bytes())
-        .collect();
+    proto.root_tree = commit.root_tree.iter().map(|id| id.to_bytes()).collect();
     proto.change_id = commit.change_id.to_bytes();
     proto.description = commit.description.clone();
     proto.author = Some(signature_to_proto(&commit.author));
@@ -383,7 +377,7 @@ fn commit_from_proto(mut proto: crate::protos::simple_store::Commit) -> Commit {
     let parents = proto.parents.into_iter().map(CommitId::new).collect();
     let predecessors = proto.predecessors.into_iter().map(CommitId::new).collect();
     let merge_builder: MergeBuilder<_> = proto.root_tree.into_iter().map(TreeId::new).collect();
-    let root_tree = MergedTreeId::new(merge_builder.build());
+    let root_tree = merge_builder.build();
     let change_id = ChangeId::new(proto.change_id);
     Commit {
         parents,
@@ -507,6 +501,7 @@ mod tests {
     use pollster::FutureExt as _;
 
     use super::*;
+    use crate::merge::Merge;
     use crate::tests::new_temp_dir;
 
     /// Test that parents get written correctly
@@ -519,7 +514,7 @@ mod tests {
         let mut commit = Commit {
             parents: vec![],
             predecessors: vec![],
-            root_tree: MergedTreeId::resolved(backend.empty_tree_id().clone()),
+            root_tree: Merge::resolved(backend.empty_tree_id().clone()),
             change_id: ChangeId::from_hex("abc123"),
             description: "".to_string(),
             author: create_signature(),

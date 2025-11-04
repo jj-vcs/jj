@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use futures::StreamExt as _;
-use jj_lib::backend::MergedTreeId;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
@@ -270,7 +269,7 @@ diff editing in mind and be a little inaccurate.
     pub fn snapshot_results(
         self,
         base_ignores: Arc<GitIgnoreFile>,
-    ) -> Result<MergedTreeId, DiffEditError> {
+    ) -> Result<MergedTree, DiffEditError> {
         if let Some(path) = self.instructions_path_to_cleanup {
             std::fs::remove_file(path).ok();
         }
@@ -284,6 +283,6 @@ diff editing in mind and be a little inaccurate.
             start_tracking_matcher: &EverythingMatcher,
             max_new_file_size: u64::MAX,
         })?;
-        Ok(output_tree_state.current_tree_id().clone())
+        Ok(output_tree_state.current_tree().clone())
     }
 }

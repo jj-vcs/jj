@@ -32,6 +32,6 @@ pub fn cmd_debug_working_copy(
     let wc = workspace_command.working_copy();
     writeln!(ui.stdout(), "Type: {:?}", wc.name())?;
     writeln!(ui.stdout(), "Current operation: {:?}", wc.operation_id())?;
-    writeln!(ui.stdout(), "Current tree: {:?}", wc.tree_id()?)?;
+    writeln!(ui.stdout(), "Current tree: {:?}", wc.tree()?)?;
     Ok(())
 }

@@ -678,7 +678,7 @@ fn test_op_abandon_ancestors() {
     ");
     insta::assert_snapshot!(work_dir.run_jj(["debug", "local-working-copy", "--ignore-working-copy"]), @r#"
     Current operation: OperationId("1675333b7de89b5da012c696d797345bad2a6ce55a4b605e85c3897f818f05e11e8c53de19d34c2fee38a36528dc95bd2a378f72ac0877f8bec2513a68043253")
-    Current tree: MergedTreeId { tree_ids: Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")) }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")), .. }
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log"]), @r"
@@ -739,7 +739,7 @@ fn test_op_abandon_ancestors() {
     ");
     insta::assert_snapshot!(work_dir.run_jj(["debug", "local-working-copy", "--ignore-working-copy"]), @r#"
     Current operation: OperationId("ce6a0300b7346109e75a6dcc97e3ff9e1488ce43a4073dd9eb81afb7f463b4543d3f15cf9a42a9864a4aaf6daab900b6b037dbdcb95f87422e891f7e884641aa")
-    Current tree: MergedTreeId { tree_ids: Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")) }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")), .. }
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log"]), @r"
@@ -787,7 +787,7 @@ fn test_op_abandon_without_updating_working_copy() {
     ");
     insta::assert_snapshot!(work_dir.run_jj(["debug", "local-working-copy", "--ignore-working-copy"]), @r#"
     Current operation: OperationId("0d4bb8e4a2babc4c216be0f9bde32aeef888abebde0062aeb1c204dde5e1f476fa951fcbeceb2263cf505008ba87a834849469dede30dfc589f37d5073aedfbe")
-    Current tree: MergedTreeId { tree_ids: Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")) }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")), .. }
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-n1", "--ignore-working-copy"]), @r"
@@ -809,7 +809,7 @@ fn test_op_abandon_without_updating_working_copy() {
     ");
     insta::assert_snapshot!(work_dir.run_jj(["debug", "local-working-copy", "--ignore-working-copy"]), @r#"
     Current operation: OperationId("0d4bb8e4a2babc4c216be0f9bde32aeef888abebde0062aeb1c204dde5e1f476fa951fcbeceb2263cf505008ba87a834849469dede30dfc589f37d5073aedfbe")
-    Current tree: MergedTreeId { tree_ids: Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")) }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("4b825dc642cb6eb9a060e54bf8d69288fbee4904")), .. }
     [EOF]
     "#);
     insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-n1", "--ignore-working-copy"]), @r"

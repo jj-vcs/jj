@@ -149,7 +149,7 @@ pub async fn split_hunks_to_trees(
             let tree_builder = selected_trees
                 .target_commits
                 .entry(commit_id.clone())
-                .or_insert_with(|| MergedTreeBuilder::new(left_tree.id().clone()));
+                .or_insert_with(|| MergedTreeBuilder::new(left_tree.clone()));
             let new_text = combine_texts(&left_text, &right_text, ranges);
             // Since changes to be absorbed are represented as diffs relative to
             // the source parent, we can propagate file deletion only if the
@@ -290,7 +290,6 @@ pub fn absorb_hunks(
     source: &AbsorbSource,
     mut selected_trees: HashMap<CommitId, MergedTreeBuilder>,
 ) -> BackendResult<AbsorbStats> {
-    let store = repo.store().clone();
     let mut rewritten_source = None;
     let mut rewritten_destinations = Vec::new();
     let mut num_rebased = 0;
@@ -314,17 +313,16 @@ pub fn absorb_hunks(
             return Ok(());
         };
         // Merge hunks between source parent tree and selected tree
-        let selected_tree_id = tree_builder.write_tree(&store)?;
+        let selected_tree = tree_builder.write_tree()?;
         let commit_builder = rewriter.rebase().await?;
-        let destination_tree = store.get_root_tree(commit_builder.tree_id())?;
-        let selected_tree = store.get_root_tree(&selected_tree_id)?;
+        let destination_tree = commit_builder.tree();
         let new_tree = destination_tree
             .merge(source.parent_tree.clone(), selected_tree)
             .block_on()?;
         let mut predecessors = commit_builder.predecessors().to_vec();
         predecessors.push(source.commit.id().clone());
         let new_commit = commit_builder
-            .set_tree_id(new_tree.id())
+            .set_tree(new_tree)
             .set_predecessors(predecessors)
             .write()?;
         rewritten_destinations.push(new_commit);

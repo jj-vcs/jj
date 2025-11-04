@@ -1430,7 +1430,7 @@ fn reset_index(
     // Use the merged parent tree as the Git index, allowing `git diff` to show the
     // same changes as `jj diff`. If the merged parent tree has conflicts, then the
     // Git index will also be conflicted.
-    let mut index = if let Some(tree_id) = parent_tree.id().as_merge().as_resolved() {
+    let mut index = if let Some(tree_id) = parent_tree.tree_ids().as_resolved() {
         if tree_id == repo.store().empty_tree_id() {
             // If the tree is empty, gix can fail to load the object (since Git doesn't
             // require the empty tree to actually be present in the object database), so we

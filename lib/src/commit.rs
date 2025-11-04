@@ -31,9 +31,10 @@ use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
-use crate::backend::MergedTreeId;
 use crate::backend::Signature;
+use crate::backend::TreeId;
 use crate::index::IndexResult;
+use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo::Repo;
 use crate::rewrite::merge_commit_trees;
@@ -120,10 +121,10 @@ impl Commit {
     }
 
     pub fn tree(&self) -> MergedTree {
-        MergedTree::new(self.store.clone(), self.data.root_tree.as_merge().clone())
+        MergedTree::new(self.store.clone(), self.data.root_tree.clone())
     }
 
-    pub fn tree_id(&self) -> &MergedTreeId {
+    pub fn tree_ids(&self) -> &Merge<TreeId> {
         &self.data.root_tree
     }
 
@@ -154,7 +155,7 @@ impl Commit {
     }
 
     pub fn has_conflict(&self) -> bool {
-        !self.tree_id().as_merge().is_resolved()
+        !self.tree_ids().is_resolved()
     }
 
     pub fn change_id(&self) -> &ChangeId {
@@ -210,7 +211,7 @@ pub(crate) fn is_backend_commit_empty(
     commit: &backend::Commit,
 ) -> BackendResult<bool> {
     if let [parent_id] = &*commit.parents {
-        return Ok(commit.root_tree == *store.get_commit(parent_id)?.tree_id());
+        return Ok(commit.root_tree == *store.get_commit(parent_id)?.tree_ids());
     }
     let parents: Vec<_> = commit
         .parents
@@ -218,7 +219,7 @@ pub(crate) fn is_backend_commit_empty(
         .map(|id| store.get_commit(id))
         .try_collect()?;
     let parent_tree = merge_commit_trees(repo, &parents).block_on()?;
-    Ok(commit.root_tree == parent_tree.id())
+    Ok(commit.root_tree == *parent_tree.tree_ids())
 }
 
 fn is_commit_empty_by_index(repo: &dyn Repo, id: &CommitId) -> BackendResult<Option<bool>> {

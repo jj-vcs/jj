@@ -20,7 +20,6 @@ use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::matchers::Matcher;
 use jj_lib::object_id::ObjectId as _;
-use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::CommitWithSelection;
 use jj_lib::rewrite::EmptyBehavior;
 use jj_lib::rewrite::MoveCommitsLocation;
@@ -228,7 +227,7 @@ pub(crate) fn cmd_split(
     // Create the first commit, which includes the changes selected by the user.
     let first_commit = {
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
-        commit_builder.set_tree_id(target.selected_tree.id());
+        commit_builder.set_tree(target.selected_tree.clone());
         if use_move_flags {
             commit_builder.clear_rewrite_source();
             // Generate a new change id so that the commit being split doesn't
@@ -275,9 +274,7 @@ pub(crate) fn cmd_split(
             vec![first_commit.id().clone()]
         };
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
-        commit_builder
-            .set_parents(parents)
-            .set_tree_id(new_tree.id());
+        commit_builder.set_parents(parents).set_tree(new_tree);
         if !use_move_flags {
             commit_builder.clear_rewrite_source();
             // Generate a new change id so that the commit being split doesn't
@@ -464,14 +461,14 @@ The changes that are not selected will replace the original commit.
         )
     };
     let parent_tree = target_commit.parent_tree(tx.repo())?;
-    let selected_tree_id = diff_selector.select(
+    let selected_tree = diff_selector.select(
         [&parent_tree, &target_commit.tree()],
         matcher,
         format_instructions,
     )?;
     let selection = CommitWithSelection {
         commit: target_commit.clone(),
-        selected_tree: tx.repo().store().get_root_tree(&selected_tree_id)?,
+        selected_tree,
         parent_tree,
     };
     if selection.is_full_selection() {

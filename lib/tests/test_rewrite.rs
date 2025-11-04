@@ -47,6 +47,7 @@ use test_case::test_case;
 use testutils::TestRepo;
 use testutils::assert_abandoned_with_parent;
 use testutils::assert_rebased_onto;
+use testutils::assert_tree_eq;
 use testutils::create_random_commit;
 use testutils::create_tree;
 use testutils::create_tree_with;
@@ -82,35 +83,31 @@ fn test_merge_criss_cross() {
     let tree_expected = create_tree(repo, &[(path, "1\n2\n3E\n4\n5\n6\n7\n8D\n9\n")]);
 
     let mut tx = repo.start_transaction();
-    let mut make_commit = |description, parents, tree_id| {
+    let mut make_commit = |description, parents, tree| {
         tx.repo_mut()
-            .new_commit(parents, tree_id)
+            .new_commit(parents, tree)
             .set_description(description)
             .write()
             .unwrap()
     };
-    let commit_a = make_commit(
-        "A",
-        vec![repo.store().root_commit_id().clone()],
-        tree_a.id(),
-    );
-    let commit_b = make_commit("B", vec![commit_a.id().clone()], tree_b.id());
-    let commit_c = make_commit("C", vec![commit_a.id().clone()], tree_c.id());
+    let commit_a = make_commit("A", vec![repo.store().root_commit_id().clone()], tree_a);
+    let commit_b = make_commit("B", vec![commit_a.id().clone()], tree_b);
+    let commit_c = make_commit("C", vec![commit_a.id().clone()], tree_c);
     let commit_d = make_commit(
         "D",
         vec![commit_b.id().clone(), commit_c.id().clone()],
-        tree_d.id(),
+        tree_d,
     );
     let commit_e = make_commit(
         "E",
         vec![commit_b.id().clone(), commit_c.id().clone()],
-        tree_e.id(),
+        tree_e,
     );
     let merged = merge_commit_trees(tx.repo_mut(), &[commit_d, commit_e])
         .block_on()
         .unwrap();
 
-    assert_eq!(merged.id(), tree_expected.id());
+    assert_tree_eq!(merged, tree_expected);
 }
 
 #[test]
@@ -163,7 +160,7 @@ fn test_restore_tree() {
     let restored = restore_tree(&left, &right, &EverythingMatcher)
         .block_on()
         .unwrap();
-    assert_eq!(restored, left.id());
+    assert_tree_eq!(restored, left);
 
     // Restore everything using FilesMatcher
     let restored = restore_tree(
@@ -173,14 +170,14 @@ fn test_restore_tree() {
     )
     .block_on()
     .unwrap();
-    assert_eq!(restored, left.id());
+    assert_tree_eq!(restored, left);
 
     // Restore some files
     let restored = restore_tree(&left, &right, &FilesMatcher::new([path1, path2]))
         .block_on()
         .unwrap();
     let expected = create_tree(repo, &[(path2, "left"), (path3, "right")]);
-    assert_eq!(restored, expected.id());
+    assert_tree_eq!(restored, expected);
 }
 
 #[test]
@@ -945,28 +942,28 @@ fn test_rebase_descendants_contents() {
     let tree1 = create_tree(repo, &[(path1, "content")]);
     let commit_a = tx
         .repo_mut()
-        .new_commit(vec![repo.store().root_commit_id().clone()], tree1.id())
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree1)
         .write()
         .unwrap();
     let path2 = repo_path("file2");
     let tree2 = create_tree(repo, &[(path2, "content")]);
     let commit_b = tx
         .repo_mut()
-        .new_commit(vec![commit_a.id().clone()], tree2.id())
+        .new_commit(vec![commit_a.id().clone()], tree2)
         .write()
         .unwrap();
     let path3 = repo_path("file3");
     let tree3 = create_tree(repo, &[(path3, "content")]);
     let commit_c = tx
         .repo_mut()
-        .new_commit(vec![commit_b.id().clone()], tree3.id())
+        .new_commit(vec![commit_b.id().clone()], tree3)
         .write()
         .unwrap();
     let path4 = repo_path("file4");
     let tree4 = create_tree(repo, &[(path4, "content")]);
     let commit_d = tx
         .repo_mut()
-        .new_commit(vec![commit_a.id().clone()], tree4.id())
+        .new_commit(vec![commit_a.id().clone()], tree4)
         .write()
         .unwrap();
 
@@ -1731,7 +1728,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehavior) {
                     .map(|commit| commit.id().clone())
                     .collect_vec(),
             )
-            .set_tree_id(tree.id())
+            .set_tree(tree.clone())
             .write()
             .unwrap()
     };
@@ -1849,17 +1846,17 @@ fn test_rebase_abandoning_empty() {
     let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     let commit_d = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_c.id().clone()])
-        .set_tree_id(commit_c.tree_id().clone())
+        .set_tree(commit_c.tree())
         .write()
         .unwrap();
     let commit_e = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_c.id().clone()])
-        .set_tree_id(commit_c.tree_id().clone())
+        .set_tree(commit_c.tree())
         .write()
         .unwrap();
     let commit_b2 = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_a.id().clone()])
-        .set_tree_id(commit_b.tree_id().clone())
+        .set_tree(commit_b.tree())
         .write()
         .unwrap();
     let commit_f = create_random_commit(tx.repo_mut())
@@ -1868,7 +1865,7 @@ fn test_rebase_abandoning_empty() {
         .unwrap();
     let commit_g = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_e.id().clone()])
-        .set_tree_id(commit_e.tree_id().clone())
+        .set_tree(commit_e.tree())
         .write()
         .unwrap();
 
@@ -1985,9 +1982,9 @@ fn test_find_duplicate_divergent_commits() {
         ],
     );
 
-    let mut make_commit = |change_id_byte, tree_id, parents| {
+    let mut make_commit = |change_id_byte, tree, parents| {
         tx.repo_mut()
-            .new_commit(parents, tree_id)
+            .new_commit(parents, tree)
             .set_change_id(ChangeId::new(vec![
                 change_id_byte;
                 store.change_id_length()
@@ -1996,14 +1993,14 @@ fn test_find_duplicate_divergent_commits() {
             .unwrap()
     };
 
-    let commit_a1 = make_commit(0xAA, tree_a1.id(), vec![store.root_commit_id().clone()]);
-    let commit_b1 = make_commit(0xBB, tree_b1.id(), vec![commit_a1.id().clone()]);
-    let commit_c1 = make_commit(0xCC, tree_c1.id(), vec![commit_b1.id().clone()]);
-    let commit_a2 = make_commit(0xAA, tree_a2.id(), vec![commit_c1.id().clone()]);
-    let commit_d = make_commit(0xDD, tree_d.id(), vec![commit_a1.id().clone()]);
-    let commit_b2 = make_commit(0xBB, tree_b2.id(), vec![commit_d.id().clone()]);
-    let commit_c2 = make_commit(0xCC, tree_c2.id(), vec![commit_b2.id().clone()]);
-    let commit_e = make_commit(0xEE, tree_e.id(), vec![commit_c2.id().clone()]);
+    let commit_a1 = make_commit(0xAA, tree_a1, vec![store.root_commit_id().clone()]);
+    let commit_b1 = make_commit(0xBB, tree_b1, vec![commit_a1.id().clone()]);
+    let commit_c1 = make_commit(0xCC, tree_c1, vec![commit_b1.id().clone()]);
+    let commit_a2 = make_commit(0xAA, tree_a2, vec![commit_c1.id().clone()]);
+    let commit_d = make_commit(0xDD, tree_d, vec![commit_a1.id().clone()]);
+    let commit_b2 = make_commit(0xBB, tree_b2, vec![commit_d.id().clone()]);
+    let commit_c2 = make_commit(0xCC, tree_c2, vec![commit_b2.id().clone()]);
+    let commit_e = make_commit(0xEE, tree_e, vec![commit_c2.id().clone()]);
 
     // Simulate rebase of "d::" onto "a2"
     let duplicate_commits = find_duplicate_divergent_commits(

@@ -23,10 +23,10 @@ use jj_cli::cli_util::CommandHelper;
 use jj_cli::command_error::CommandError;
 use jj_cli::ui::Ui;
 use jj_lib::backend::Backend;
-use jj_lib::backend::MergedTreeId;
 use jj_lib::commit::Commit;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::local_working_copy::LocalWorkingCopy;
+use jj_lib::merged_tree::MergedTree;
 use jj_lib::op_store::OperationId;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
@@ -166,8 +166,8 @@ impl WorkingCopy for ConflictsWorkingCopy {
         self.inner.operation_id()
     }
 
-    fn tree_id(&self) -> Result<&MergedTreeId, WorkingCopyStateError> {
-        self.inner.tree_id()
+    fn tree(&self) -> Result<&MergedTree, WorkingCopyStateError> {
+        self.inner.tree()
     }
 
     fn sparse_patterns(&self) -> Result<&[RepoPathBuf], WorkingCopyStateError> {
@@ -232,14 +232,14 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
         self.inner.old_operation_id()
     }
 
-    fn old_tree_id(&self) -> &MergedTreeId {
-        self.inner.old_tree_id()
+    fn old_tree(&self) -> &MergedTree {
+        self.inner.old_tree()
     }
 
     async fn snapshot(
         &mut self,
         options: &SnapshotOptions,
-    ) -> Result<(MergedTreeId, SnapshotStats), SnapshotError> {
+    ) -> Result<(MergedTree, SnapshotStats), SnapshotError> {
         let options = SnapshotOptions {
             base_ignores: options.base_ignores.chain(
                 "",

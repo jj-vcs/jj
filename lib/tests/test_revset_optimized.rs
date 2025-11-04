@@ -53,8 +53,8 @@ fn write_new_commit<'a>(
     parents: impl IntoIterator<Item = &'a Commit>,
 ) -> Commit {
     let parents = parents.into_iter().map(|c| c.id().clone()).collect();
-    let tree_id = repo.store().empty_merged_tree_id();
-    repo.new_commit(parents, tree_id)
+    let tree = repo.store().empty_merged_tree();
+    repo.new_commit(parents, tree)
         .set_description(desc)
         .write()
         .unwrap()

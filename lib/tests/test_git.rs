@@ -2719,13 +2719,13 @@ fn test_reset_head_to_root() {
     let mut_repo = tx.repo_mut();
 
     let root_commit_id = repo.store().root_commit_id();
-    let tree_id = repo.store().empty_merged_tree_id();
+    let tree = repo.store().empty_merged_tree();
     let commit1 = mut_repo
-        .new_commit(vec![root_commit_id.clone()], tree_id.clone())
+        .new_commit(vec![root_commit_id.clone()], tree.clone())
         .write()
         .unwrap();
     let commit2 = mut_repo
-        .new_commit(vec![commit1.id().clone()], tree_id.clone())
+        .new_commit(vec![commit1.id().clone()], tree.clone())
         .write()
         .unwrap();
 
@@ -2872,13 +2872,13 @@ fn test_reset_head_with_index() {
     let mut_repo = tx.repo_mut();
 
     let root_commit_id = repo.store().root_commit_id();
-    let tree_id = repo.store().empty_merged_tree_id();
+    let tree = repo.store().empty_merged_tree();
     let commit1 = mut_repo
-        .new_commit(vec![root_commit_id.clone()], tree_id.clone())
+        .new_commit(vec![root_commit_id.clone()], tree.clone())
         .write()
         .unwrap();
     let commit2 = mut_repo
-        .new_commit(vec![commit1.id().clone()], tree_id.clone())
+        .new_commit(vec![commit1.id().clone()], tree.clone())
         .write()
         .unwrap();
 
@@ -2914,7 +2914,7 @@ fn test_reset_head_with_index_no_conflict() {
     let mut_repo = tx.repo_mut();
 
     // Build tree containing every mode of file
-    let tree_id = testutils::create_tree_with(&repo, |builder| {
+    let tree = testutils::create_tree_with(&repo, |builder| {
         builder
             .file(repo_path("some/dir/normal-file"), "file\n")
             .executable(false);
@@ -2926,16 +2926,15 @@ fn test_reset_head_with_index_no_conflict() {
             repo_path("some/dir/commit"),
             testutils::write_random_commit(mut_repo).id().clone(),
         );
-    })
-    .id();
+    });
 
     let parent_commit = mut_repo
-        .new_commit(vec![repo.store().root_commit_id().clone()], tree_id.clone())
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree.clone())
         .write()
         .unwrap();
 
     let wc_commit = mut_repo
-        .new_commit(vec![parent_commit.id().clone()], tree_id.clone())
+        .new_commit(vec![parent_commit.id().clone()], tree.clone())
         .write()
         .unwrap();
 
@@ -2967,7 +2966,7 @@ fn test_reset_head_with_index_merge_conflict() {
     let mut_repo = tx.repo_mut();
 
     // Build conflict trees containing every mode of file
-    let base_tree_id = testutils::create_tree_with(&repo, |builder| {
+    let base_tree = testutils::create_tree_with(&repo, |builder| {
         builder
             .file(repo_path("some/dir/normal-file"), "base\n")
             .executable(false);
@@ -2979,10 +2978,9 @@ fn test_reset_head_with_index_merge_conflict() {
             repo_path("some/dir/commit"),
             testutils::write_random_commit(mut_repo).id().clone(),
         );
-    })
-    .id();
+    });
 
-    let left_tree_id = testutils::create_tree_with(&repo, |builder| {
+    let left_tree = testutils::create_tree_with(&repo, |builder| {
         builder
             .file(repo_path("some/dir/normal-file"), "left\n")
             .executable(false);
@@ -2994,10 +2992,9 @@ fn test_reset_head_with_index_merge_conflict() {
             repo_path("some/dir/commit"),
             testutils::write_random_commit(mut_repo).id().clone(),
         );
-    })
-    .id();
+    });
 
-    let right_tree_id = testutils::create_tree_with(&repo, |builder| {
+    let right_tree = testutils::create_tree_with(&repo, |builder| {
         builder
             .file(repo_path("some/dir/normal-file"), "right\n")
             .executable(false);
@@ -3009,22 +3006,21 @@ fn test_reset_head_with_index_merge_conflict() {
             repo_path("some/dir/commit"),
             testutils::write_random_commit(mut_repo).id().clone(),
         );
-    })
-    .id();
+    });
 
     let base_commit = mut_repo
         .new_commit(
             vec![repo.store().root_commit_id().clone()],
-            base_tree_id.clone(),
+            base_tree.clone(),
         )
         .write()
         .unwrap();
     let left_commit = mut_repo
-        .new_commit(vec![base_commit.id().clone()], left_tree_id.clone())
+        .new_commit(vec![base_commit.id().clone()], left_tree.clone())
         .write()
         .unwrap();
     let right_commit = mut_repo
-        .new_commit(vec![base_commit.id().clone()], right_tree_id.clone())
+        .new_commit(vec![base_commit.id().clone()], right_tree.clone())
         .write()
         .unwrap();
 
@@ -3034,7 +3030,7 @@ fn test_reset_head_with_index_merge_conflict() {
     let wc_commit = mut_repo
         .new_commit(
             vec![left_commit.id().clone(), right_commit.id().clone()],
-            right_tree_id.clone(),
+            right_tree.clone(),
         )
         .write()
         .unwrap();
@@ -3075,26 +3071,24 @@ fn test_reset_head_with_index_file_directory_conflict() {
     let mut_repo = tx.repo_mut();
 
     // Build conflict trees containing file-directory conflict
-    let left_tree_id = testutils::create_tree_with(&repo, |builder| {
+    let left_tree = testutils::create_tree_with(&repo, |builder| {
         builder.file(repo_path("test/dir/file"), "dir\n");
-    })
-    .id();
-    let right_tree_id = testutils::create_tree_with(&repo, |builder| {
+    });
+    let right_tree = testutils::create_tree_with(&repo, |builder| {
         builder.file(repo_path("test"), "file\n");
-    })
-    .id();
+    });
 
     let left_commit = mut_repo
         .new_commit(
             vec![repo.store().root_commit_id().clone()],
-            left_tree_id.clone(),
+            left_tree.clone(),
         )
         .write()
         .unwrap();
     let right_commit = mut_repo
         .new_commit(
             vec![repo.store().root_commit_id().clone()],
-            right_tree_id.clone(),
+            right_tree.clone(),
         )
         .write()
         .unwrap();
@@ -3102,7 +3096,7 @@ fn test_reset_head_with_index_file_directory_conflict() {
     let wc_commit = mut_repo
         .new_commit(
             vec![left_commit.id().clone(), right_commit.id().clone()],
-            repo.store().empty_merged_tree_id().clone(),
+            repo.store().empty_merged_tree().clone(),
         )
         .write()
         .unwrap();
@@ -4544,7 +4538,7 @@ fn test_rewrite_imported_commit() {
         .repo_mut()
         .new_commit(
             imported_commit.parent_ids().to_vec(),
-            imported_commit.tree_id().clone(),
+            imported_commit.tree(),
         )
         .set_author(imported_commit.author().clone())
         .set_committer(imported_commit.committer().clone())
@@ -4774,7 +4768,7 @@ fn create_rooted_commit(mut_repo: &mut MutableRepo) -> CommitBuilder<'_> {
     mut_repo
         .new_commit(
             vec![mut_repo.store().root_commit_id().clone()],
-            mut_repo.store().empty_merged_tree_id(),
+            mut_repo.store().empty_merged_tree(),
         )
         .set_author(signature.clone())
         .set_committer(signature)

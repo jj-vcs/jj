@@ -82,7 +82,7 @@ fn test_checkout() {
         .repo_mut()
         .check_out(ws_name.clone(), &wc_commit_parent)
         .unwrap();
-    assert_eq!(wc_commit.tree_id(), wc_commit_parent.tree_id());
+    assert_eq!(wc_commit.tree_ids(), wc_commit_parent.tree_ids());
     assert_eq!(wc_commit.parent_ids().len(), 1);
     assert_eq!(&wc_commit.parent_ids()[0], wc_commit_parent.id());
     let repo = tx.commit("test").unwrap();
@@ -123,7 +123,7 @@ fn test_edit_previous_empty() {
     let old_wc_commit = mut_repo
         .new_commit(
             vec![repo.store().root_commit_id().clone()],
-            repo.store().empty_merged_tree_id(),
+            repo.store().empty_merged_tree(),
         )
         .write()
         .unwrap();
@@ -159,9 +159,9 @@ fn test_edit_previous_empty_merge() {
     let old_wc_commit = mut_repo
         .new_commit(
             vec![old_parent1.id().clone(), old_parent2.id().clone()],
-            repo.store().empty_merged_tree_id(),
+            repo.store().empty_merged_tree(),
         )
-        .set_tree_id(old_parent_tree.id())
+        .set_tree(old_parent_tree)
         .write()
         .unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
@@ -188,7 +188,7 @@ fn test_edit_previous_empty_with_description() {
     let old_wc_commit = mut_repo
         .new_commit(
             vec![repo.store().root_commit_id().clone()],
-            repo.store().empty_merged_tree_id(),
+            repo.store().empty_merged_tree(),
         )
         .set_description("not empty")
         .write()
@@ -217,7 +217,7 @@ fn test_edit_previous_empty_with_local_bookmark() {
     let old_wc_commit = mut_repo
         .new_commit(
             vec![repo.store().root_commit_id().clone()],
-            repo.store().empty_merged_tree_id(),
+            repo.store().empty_merged_tree(),
         )
         .write()
         .unwrap();
@@ -246,7 +246,7 @@ fn test_edit_previous_empty_with_other_workspace() {
     let old_wc_commit = mut_repo
         .new_commit(
             vec![repo.store().root_commit_id().clone()],
-            repo.store().empty_merged_tree_id(),
+            repo.store().empty_merged_tree(),
         )
         .write()
         .unwrap();
@@ -278,15 +278,12 @@ fn test_edit_previous_empty_non_head() {
     let old_wc_commit = mut_repo
         .new_commit(
             vec![repo.store().root_commit_id().clone()],
-            repo.store().empty_merged_tree_id(),
+            repo.store().empty_merged_tree(),
         )
         .write()
         .unwrap();
     let old_child = mut_repo
-        .new_commit(
-            vec![old_wc_commit.id().clone()],
-            old_wc_commit.tree_id().clone(),
-        )
+        .new_commit(vec![old_wc_commit.id().clone()], old_wc_commit.tree())
         .write()
         .unwrap();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
@@ -658,7 +655,7 @@ fn test_remove_wc_commit_previous_discardable() {
     let old_wc_commit = mut_repo
         .new_commit(
             vec![repo.store().root_commit_id().clone()],
-            repo.store().empty_merged_tree_id(),
+            repo.store().empty_merged_tree(),
         )
         .write()
         .unwrap();
@@ -706,7 +703,7 @@ fn test_reparent_descendants() {
     let mut_repo = tx.repo_mut();
     mut_repo
         .rewrite_commit(&commit_a)
-        .set_tree_id(create_random_tree(&repo))
+        .set_tree(create_random_tree(&repo))
         .write()
         .unwrap();
     let reparented = mut_repo.reparent_descendants().unwrap();
@@ -736,7 +733,7 @@ fn test_reparent_descendants() {
             // their content.
             assert_ne!(commit.id(), &rewritten_id);
             let rewritten_commit = repo.store().get_commit(&rewritten_id).unwrap();
-            assert_eq!(commit.tree_id(), rewritten_commit.tree_id());
+            assert_eq!(commit.tree_ids(), rewritten_commit.tree_ids());
             let (parent_ids, rewritten_parent_ids) =
                 (commit.parent_ids(), rewritten_commit.parent_ids());
             assert_eq!(parent_ids.len(), rewritten_parent_ids.len());

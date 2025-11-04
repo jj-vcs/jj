@@ -63,7 +63,7 @@ fn test_id_prefix() {
             },
         };
         tx.repo_mut()
-            .new_commit(vec![parent_id.clone()], repo.store().empty_merged_tree_id())
+            .new_commit(vec![parent_id.clone()], repo.store().empty_merged_tree())
             .set_author(signature.clone())
             .set_committer(signature)
             .write()
@@ -264,7 +264,7 @@ fn test_id_prefix_divergent() {
                 },
             };
             tx.repo_mut()
-                .new_commit(vec![parent_id.clone()], repo.store().empty_merged_tree_id())
+                .new_commit(vec![parent_id.clone()], repo.store().empty_merged_tree())
                 .set_description(description)
                 .set_author(signature.clone())
                 .set_committer(signature)
@@ -406,7 +406,7 @@ fn test_id_prefix_hidden() {
             .repo_mut()
             .new_commit(
                 vec![root_commit_id.clone()],
-                repo.store().empty_merged_tree_id(),
+                repo.store().empty_merged_tree(),
             )
             .set_author(signature.clone())
             .set_committer(signature)
@@ -542,7 +542,7 @@ fn test_id_prefix_shadowed_by_ref() {
         .repo_mut()
         .new_commit(
             vec![root_commit_id.clone()],
-            repo.store().empty_merged_tree_id(),
+            repo.store().empty_merged_tree(),
         )
         .write()
         .unwrap();

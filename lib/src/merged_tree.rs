@@ -36,7 +36,6 @@ use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
 use crate::backend::BackendResult;
-use crate::backend::MergedTreeId;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::copies::CopiesTreeDiffEntry;
@@ -90,7 +89,8 @@ impl MergedTree {
         &self.store
     }
 
-    /// The underlying tree IDs for this `MergedTree`.
+    /// The underlying tree IDs for this `MergedTree`. If there are file changes
+    /// between two trees, then the tree IDs will be different.
     pub fn tree_ids(&self) -> &Merge<TreeId> {
         &self.tree_ids
     }
@@ -171,12 +171,6 @@ impl MergedTree {
     fn to_merged_tree_value(&self) -> MergedTreeValue {
         self.tree_ids
             .map(|tree_id| Some(TreeValue::Tree(tree_id.clone())))
-    }
-
-    /// The tree's id
-    // TODO: delete this method after deleting `MergedTreeId`
-    pub fn id(&self) -> MergedTreeId {
-        MergedTreeId::new(self.tree_ids.clone())
     }
 
     /// Iterator over the entries matching the given matcher. Subtrees are
@@ -898,15 +892,15 @@ impl Stream for DiffStreamForFileSystem<'_> {
 /// base trees. You then add overrides on top. The overrides may be
 /// conflicts. Then you can write the result as a merge of trees.
 pub struct MergedTreeBuilder {
-    base_tree_id: MergedTreeId,
+    base_tree: MergedTree,
     overrides: BTreeMap<RepoPathBuf, MergedTreeValue>,
 }
 
 impl MergedTreeBuilder {
     /// Create a new builder with the given trees as base.
-    pub fn new(base_tree_id: MergedTreeId) -> Self {
+    pub fn new(base_tree: MergedTree) -> Self {
         Self {
-            base_tree_id,
+            base_tree,
             overrides: BTreeMap::new(),
         }
     }
@@ -920,24 +914,21 @@ impl MergedTreeBuilder {
     }
 
     /// Create new tree(s) from the base tree(s) and overrides.
-    pub fn write_tree(self, store: &Arc<Store>) -> BackendResult<MergedTreeId> {
-        let base_tree_ids = self.base_tree_id.as_merge().clone();
-        let new_tree_ids = self.write_merged_trees(base_tree_ids, store)?;
+    pub fn write_tree(self) -> BackendResult<MergedTree> {
+        let store = self.base_tree.store.clone();
+        let new_tree_ids = self.write_merged_trees()?;
         match new_tree_ids.simplify().into_resolved() {
-            Ok(single_tree_id) => Ok(MergedTreeId::resolved(single_tree_id)),
-            Err(tree_id) => {
-                let tree = store.get_root_tree(&MergedTreeId::new(tree_id))?;
-                let resolved = tree.resolve().block_on()?;
-                Ok(resolved.id())
+            Ok(single_tree_id) => Ok(MergedTree::resolved(store, single_tree_id)),
+            Err(tree_ids) => {
+                let tree = MergedTree::new(store, tree_ids);
+                tree.resolve().block_on()
             }
         }
     }
 
-    fn write_merged_trees(
-        self,
-        mut base_tree_ids: Merge<TreeId>,
-        store: &Arc<Store>,
-    ) -> BackendResult<Merge<TreeId>> {
+    fn write_merged_trees(self) -> BackendResult<Merge<TreeId>> {
+        let store = self.base_tree.store;
+        let mut base_tree_ids = self.base_tree.tree_ids;
         let num_sides = self
             .overrides
             .values()

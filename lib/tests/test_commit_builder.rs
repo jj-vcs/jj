@@ -36,6 +36,7 @@ use test_case::test_case;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::assert_rebased_onto;
+use testutils::assert_tree_eq;
 use testutils::create_tree;
 use testutils::rebase_descendants_with_options_return_map;
 use testutils::repo_path;
@@ -104,14 +105,14 @@ fn test_initial(backend: TestRepoBackend) {
     let change_id = ChangeId::new(vec![100u8; 16]);
     let builder = tx
         .repo_mut()
-        .new_commit(vec![store.root_commit_id().clone()], tree.id())
+        .new_commit(vec![store.root_commit_id().clone()], tree.clone())
         .set_change_id(change_id.clone())
         .set_description("description")
         .set_author(author_signature.clone())
         .set_committer(committer_signature.clone());
     assert_eq!(builder.parents(), &[store.root_commit_id().clone()]);
     assert_eq!(builder.predecessors(), &[]);
-    assert_eq!(builder.tree_id(), &tree.id());
+    assert_tree_eq!(builder.tree(), tree);
     assert_eq!(builder.change_id(), &change_id);
     assert_eq!(builder.author(), &author_signature);
     assert_eq!(builder.committer(), &committer_signature);
@@ -156,7 +157,7 @@ fn test_rewrite(backend: TestRepoBackend) {
     let mut tx = repo.start_transaction();
     let initial_commit = tx
         .repo_mut()
-        .new_commit(vec![store.root_commit_id().clone()], initial_tree.id())
+        .new_commit(vec![store.root_commit_id().clone()], initial_tree)
         .write()
         .unwrap();
     let repo = tx.commit("test").unwrap();
@@ -183,12 +184,15 @@ fn test_rewrite(backend: TestRepoBackend) {
     let rewrite_settings = UserSettings::from_config(config).unwrap();
     let repo = test_env.load_repo_at_head(&rewrite_settings, test_repo.repo_path());
     let store = repo.store();
+    // We have a new store instance, so we need to associate the old tree with the
+    // new store instance.
+    let rewritten_tree = MergedTree::new(store.clone(), rewritten_tree.into_tree_ids());
     let initial_commit = store.get_commit(initial_commit.id()).unwrap();
     let mut tx = repo.start_transaction();
     let rewritten_commit = tx
         .repo_mut()
         .rewrite_commit(&initial_commit)
-        .set_tree_id(rewritten_tree.id().clone())
+        .set_tree(rewritten_tree)
         .write()
         .unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
@@ -242,7 +246,7 @@ fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
         .repo_mut()
         .new_commit(
             vec![repo.store().root_commit_id().clone()],
-            repo.store().empty_merged_tree_id(),
+            repo.store().empty_merged_tree(),
         )
         .write()
         .unwrap();
@@ -301,7 +305,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
         .repo_mut()
         .new_commit(
             vec![repo.store().root_commit_id().clone()],
-            repo.store().empty_merged_tree_id(),
+            repo.store().empty_merged_tree(),
         )
         .write()
         .unwrap();
@@ -374,7 +378,7 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
         .repo_mut()
         .new_commit(
             vec![store.root_commit_id().clone()],
-            store.empty_merged_tree_id(),
+            store.empty_merged_tree(),
         )
         .write()
         .unwrap();
@@ -429,7 +433,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
     tx.repo_mut()
         .new_commit(
             vec![store.root_commit_id().clone()],
-            store.empty_merged_tree_id(),
+            store.empty_merged_tree(),
         )
         .write()
         .unwrap();

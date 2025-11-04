@@ -58,7 +58,7 @@ fn test_sparse_checkout() {
             (dir2_file1_path, "contents"),
         ],
     );
-    let commit = commit_with_tree(repo.store(), tree.id());
+    let commit = commit_with_tree(repo.store(), tree);
 
     test_workspace
         .workspace
@@ -219,7 +219,7 @@ fn test_sparse_commit() {
         ],
     );
 
-    let commit = commit_with_tree(repo.store(), tree.id());
+    let commit = commit_with_tree(repo.store(), tree.clone());
     test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit)

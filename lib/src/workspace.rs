@@ -25,7 +25,6 @@ use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::BackendInitError;
-use crate::backend::MergedTreeId;
 use crate::commit::Commit;
 use crate::file_util;
 use crate::file_util::BadPathEncoding;
@@ -33,6 +32,7 @@ use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::local_working_copy::LocalWorkingCopy;
 use crate::local_working_copy::LocalWorkingCopyFactory;
+use crate::merged_tree::MergedTree;
 use crate::op_heads_store::OpHeadsStoreError;
 use crate::op_store::OperationId;
 use crate::ref_name::WorkspaceName;
@@ -428,7 +428,7 @@ impl Workspace {
     pub fn check_out(
         &mut self,
         operation_id: OperationId,
-        old_tree_id: Option<&MergedTreeId>,
+        old_tree: Option<&MergedTree>,
         commit: &Commit,
     ) -> Result<CheckoutStats, CheckoutError> {
         let mut locked_ws = self.start_working_copy_mutation()?;
@@ -436,8 +436,8 @@ impl Workspace {
         // the caller expected. It's safe to check out another commit
         // regardless, but it's probably not what  the caller wanted, so we let
         // them know.
-        if let Some(old_tree_id) = old_tree_id
-            && old_tree_id != locked_ws.locked_wc().old_tree_id()
+        if let Some(old_tree) = old_tree
+            && old_tree.tree_ids() != locked_ws.locked_wc().old_tree().tree_ids()
         {
             return Err(CheckoutError::ConcurrentCheckout);
         }

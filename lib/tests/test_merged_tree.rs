@@ -17,7 +17,6 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
-use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::copies::CopiesTreeDiffEntryPath;
 use jj_lib::copies::CopyOperation;
@@ -41,6 +40,7 @@ use jj_lib::repo_path::RepoPathBuf;
 use pollster::FutureExt as _;
 use pretty_assertions::assert_eq;
 use testutils::TestRepo;
+use testutils::assert_tree_eq;
 use testutils::create_single_tree;
 use testutils::create_tree;
 use testutils::repo_path;
@@ -78,13 +78,16 @@ fn test_merged_tree_builder_resolves_conflict() {
     let tree2 = create_single_tree(repo, &[(path1, "bar")]);
     let tree3 = create_single_tree(repo, &[(path1, "bar")]);
 
-    let base_tree_id = MergedTreeId::new(Merge::from_removes_adds(
-        [tree1.id().clone()],
-        [tree2.id().clone(), tree3.id().clone()],
-    ));
-    let tree_builder = MergedTreeBuilder::new(base_tree_id);
-    let tree_id = tree_builder.write_tree(store).unwrap();
-    assert_eq!(tree_id, MergedTreeId::resolved(tree2.id().clone()));
+    let base_tree = MergedTree::new(
+        store.clone(),
+        Merge::from_removes_adds(
+            [tree1.id().clone()],
+            [tree2.id().clone(), tree3.id().clone()],
+        ),
+    );
+    let tree_builder = MergedTreeBuilder::new(base_tree);
+    let tree = tree_builder.write_tree().unwrap();
+    assert_eq!(*tree.tree_ids(), Merge::resolved(tree2.id().clone()));
 }
 
 #[test]
@@ -287,10 +290,10 @@ fn test_resolve_success() {
         ),
     );
     let resolved_tree = tree.resolve().block_on().unwrap();
-    assert!(resolved_tree.id().as_merge().is_resolved());
-    assert_eq!(
-        resolved_tree.id(),
-        expected.id(),
+    assert!(resolved_tree.tree_ids().is_resolved());
+    assert_tree_eq!(
+        resolved_tree,
+        expected,
         "actual entries: {:#?}, expected entries {:#?}",
         resolved_tree.entries().collect_vec(),
         expected.entries().collect_vec()
@@ -317,7 +320,7 @@ fn test_resolve_root_becomes_empty() {
         ),
     );
     let resolved = tree.resolve().block_on().unwrap();
-    assert_eq!(resolved.id(), store.empty_merged_tree_id());
+    assert_tree_eq!(resolved, store.empty_merged_tree());
 }
 
 #[test]
@@ -348,7 +351,7 @@ fn test_resolve_with_conflict() {
     );
     let resolved_tree = tree.resolve().block_on().unwrap();
     assert_eq!(
-        resolved_tree.id().as_merge(),
+        resolved_tree.tree_ids(),
         &Merge::from_removes_adds(
             vec![expected_base1.id().clone()],
             vec![expected_side1.id().clone(), expected_side2.id().clone()]
@@ -376,7 +379,7 @@ fn test_resolve_with_conflict_containing_empty_subtree() {
         ),
     );
     let resolved_tree = tree.clone().resolve().block_on().unwrap();
-    assert_eq!(resolved_tree.id(), tree.id());
+    assert_tree_eq!(resolved_tree, tree);
 }
 
 #[test]
@@ -1220,7 +1223,7 @@ fn test_merge_simple() {
         .merge(base1_merged, side2_merged)
         .block_on()
         .unwrap();
-    assert_eq!(merged.id(), expected_merged.id());
+    assert_tree_eq!(merged, expected_merged);
 }
 
 /// Merge 3 resolved trees that can be partially resolved
@@ -1253,7 +1256,7 @@ fn test_merge_partial_resolution() {
         .merge(base1_merged, side2_merged)
         .block_on()
         .unwrap();
-    assert_eq!(merged.id(), expected_merged.id());
+    assert_tree_eq!(merged, expected_merged);
 }
 
 /// Merge 3 trees where each one is a 3-way conflict and the result is arrived
@@ -1297,7 +1300,7 @@ fn test_merge_simplify_only() {
         .merge(base1_merged, side2_merged)
         .block_on()
         .unwrap();
-    assert_eq!(merged.id(), expected_merged.id());
+    assert_tree_eq!(merged, expected_merged);
 }
 
 /// Merge 3 trees with 3+1+1 terms (i.e. a 5-way conflict) such that resolving
@@ -1340,7 +1343,7 @@ fn test_merge_simplify_result() {
         .merge(base1_merged, side2_merged)
         .block_on()
         .unwrap();
-    assert_eq!(merged.id(), expected_merged.id());
+    assert_tree_eq!(merged, expected_merged);
 }
 
 /// Test that we simplify content-level conflicts before passing them to
@@ -1457,7 +1460,7 @@ fn test_merge_simplify_file_conflict() {
         .merge(parent_merged, child2_merged)
         .block_on()
         .unwrap();
-    assert_eq!(merged.id(), expected_merged.id());
+    assert_tree_eq!(merged, expected_merged);
 
     // Also test the setup by checking that the unsimplified content conflict cannot
     // be resolved. If we later change files::merge() so this no longer fails,  it
@@ -1513,5 +1516,5 @@ fn test_merge_simplify_file_conflict_with_absent() {
         .merge(parent_merged, child2_merged)
         .block_on()
         .unwrap();
-    assert_eq!(merged.id(), expected_merged.id());
+    assert_tree_eq!(merged, expected_merged);
 }

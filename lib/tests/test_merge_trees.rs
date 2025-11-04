@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigSource;
@@ -24,6 +23,7 @@ use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::TestRepo;
+use testutils::assert_tree_eq;
 use testutils::create_tree;
 use testutils::repo_path;
 
@@ -49,25 +49,25 @@ fn test_simplify_conflict_after_resolving_parent() {
     let tree_a = create_tree(repo, &[(path, "abc\ndef\nghi\n")]);
     let commit_a = tx
         .repo_mut()
-        .new_commit(vec![repo.store().root_commit_id().clone()], tree_a.id())
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree_a)
         .write()
         .unwrap();
     let tree_b = create_tree(repo, &[(path, "Abc\ndef\nghi\n")]);
     let commit_b = tx
         .repo_mut()
-        .new_commit(vec![commit_a.id().clone()], tree_b.id())
+        .new_commit(vec![commit_a.id().clone()], tree_b)
         .write()
         .unwrap();
     let tree_c = create_tree(repo, &[(path, "Abc\ndef\nGhi\n")]);
     let commit_c = tx
         .repo_mut()
-        .new_commit(vec![commit_b.id().clone()], tree_c.id())
+        .new_commit(vec![commit_b.id().clone()], tree_c)
         .write()
         .unwrap();
     let tree_d = create_tree(repo, &[(path, "abC\ndef\nghi\n")]);
     let commit_d = tx
         .repo_mut()
-        .new_commit(vec![commit_a.id().clone()], tree_d.id())
+        .new_commit(vec![commit_a.id().clone()], tree_d)
         .write()
         .unwrap();
 
@@ -89,7 +89,7 @@ fn test_simplify_conflict_after_resolving_parent() {
     let commit_b3 = tx
         .repo_mut()
         .rewrite_commit(&commit_b2)
-        .set_tree_id(tree_b3.id())
+        .set_tree(tree_b3)
         .write()
         .unwrap();
     let commit_c3 = rebase_commit(tx.repo_mut(), commit_c2, vec![commit_b3.id().clone()])
@@ -148,21 +148,21 @@ fn test_rebase_linearize_lossy_merge(same_change: SameChange) {
     let tree_1 = create_tree(repo, &[(path, "1")]);
     let tree_2 = create_tree(repo, &[(path, "2")]);
     let commit_a = repo_mut
-        .new_commit(vec![repo.store().root_commit_id().clone()], tree_1.id())
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree_1.clone())
         .write()
         .unwrap();
     let commit_b = repo_mut
-        .new_commit(vec![commit_a.id().clone()], tree_2.id())
+        .new_commit(vec![commit_a.id().clone()], tree_2.clone())
         .write()
         .unwrap();
     let commit_c = repo_mut
-        .new_commit(vec![commit_a.id().clone()], tree_2.id())
+        .new_commit(vec![commit_a.id().clone()], tree_2.clone())
         .write()
         .unwrap();
     let commit_d = repo_mut
         .new_commit(
             vec![commit_b.id().clone(), commit_c.id().clone()],
-            tree_2.id(),
+            tree_2.clone(),
         )
         .write()
         .unwrap();
@@ -177,8 +177,8 @@ fn test_rebase_linearize_lossy_merge(same_change: SameChange) {
         .unwrap();
 
     match same_change {
-        SameChange::Keep => assert_eq!(*commit_d2.tree_id(), tree_1.id()),
-        SameChange::Accept => assert_eq!(*commit_d2.tree_id(), tree_2.id()),
+        SameChange::Keep => assert_tree_eq!(commit_d2.tree(), tree_1),
+        SameChange::Accept => assert_tree_eq!(commit_d2.tree(), tree_2),
     }
 }
 
@@ -211,21 +211,21 @@ fn test_rebase_on_lossy_merge(same_change: SameChange) {
     let tree_2 = create_tree(repo, &[(path, "2")]);
     let tree_3 = create_tree(repo, &[(path, "3")]);
     let commit_a = repo_mut
-        .new_commit(vec![repo.store().root_commit_id().clone()], tree_1.id())
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree_1.clone())
         .write()
         .unwrap();
     let commit_b = repo_mut
-        .new_commit(vec![commit_a.id().clone()], tree_2.id())
+        .new_commit(vec![commit_a.id().clone()], tree_2.clone())
         .write()
         .unwrap();
     let commit_c = repo_mut
-        .new_commit(vec![commit_a.id().clone()], tree_2.id())
+        .new_commit(vec![commit_a.id().clone()], tree_2.clone())
         .write()
         .unwrap();
     let commit_d = repo_mut
         .new_commit(
             vec![commit_b.id().clone(), commit_c.id().clone()],
-            tree_2.id(),
+            tree_2.clone(),
         )
         .write()
         .unwrap();
@@ -236,7 +236,7 @@ fn test_rebase_on_lossy_merge(same_change: SameChange) {
     }
 
     let commit_c2 = repo_mut
-        .new_commit(vec![commit_a.id().clone()], tree_3.id())
+        .new_commit(vec![commit_a.id().clone()], tree_3.clone())
         .write()
         .unwrap();
     let commit_d2 = rebase_commit(
@@ -248,15 +248,15 @@ fn test_rebase_on_lossy_merge(same_change: SameChange) {
     .unwrap();
 
     match same_change {
-        SameChange::Keep => assert_eq!(*commit_d2.tree_id(), tree_3.id()),
+        SameChange::Keep => assert_tree_eq!(commit_d2.tree(), tree_3),
         SameChange::Accept => {
             let expected_tree_id = Merge::from_vec(vec![
-                tree_2.id().into_merge(),
-                tree_1.id().into_merge(),
-                tree_3.id().into_merge(),
+                tree_2.into_tree_ids(),
+                tree_1.into_tree_ids(),
+                tree_3.into_tree_ids(),
             ])
             .flatten();
-            assert_eq!(*commit_d2.tree_id(), MergedTreeId::new(expected_tree_id));
+            assert_eq!(*commit_d2.tree_ids(), expected_tree_id);
         }
     }
 }

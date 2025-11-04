@@ -80,7 +80,7 @@ pub(crate) fn cmd_status(
         let parent_tree = wc_commit.parent_tree(repo.as_ref())?;
         let tree = wc_commit.tree();
 
-        let wc_has_changes = tree.id() != parent_tree.id();
+        let wc_has_changes = tree.tree_ids() != parent_tree.tree_ids();
         let wc_has_untracked = !snapshot_stats.untracked_paths.is_empty();
         if !wc_has_changes && !wc_has_untracked {
             writeln!(formatter, "The working copy has no changes.")?;

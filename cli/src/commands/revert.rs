@@ -147,7 +147,7 @@ pub(crate) fn cmd_revert(
         let new_parent_ids = parent_ids.clone();
         let new_commit = tx
             .repo_mut()
-            .new_commit(new_parent_ids, new_tree.id())
+            .new_commit(new_parent_ids, new_tree.clone())
             .set_description(new_commit_description)
             .write()?;
         parent_ids = vec![new_commit.id().clone()];
