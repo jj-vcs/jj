@@ -161,6 +161,9 @@ pub struct Commit {
     pub predecessors: Vec<CommitId>,
     #[serde(skip)] // TODO: should be exposed?
     pub root_tree: Merge<TreeId>,
+    // If resolved, must be empty string. Otherwise, must have same number of terms as `root_tree`.
+    #[serde(skip)]
+    pub conflict_labels: Merge<String>,
     pub change_id: ChangeId,
     pub description: String,
     pub author: Signature,
@@ -397,6 +400,7 @@ pub fn make_root_commit(root_change_id: ChangeId, empty_tree_id: TreeId) -> Comm
         parents: vec![],
         predecessors: vec![],
         root_tree: Merge::resolved(empty_tree_id),
+        conflict_labels: Merge::resolved(String::new()),
         change_id: root_change_id,
         description: String::new(),
         author: signature.clone(),

@@ -33,6 +33,7 @@ use crate::backend::ChangeId;
 use crate::backend::CommitId;
 use crate::backend::Signature;
 use crate::backend::TreeId;
+use crate::conflict_labels::ConflictLabels;
 use crate::index::IndexResult;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
@@ -121,7 +122,11 @@ impl Commit {
     }
 
     pub fn tree(&self) -> MergedTree {
-        MergedTree::unlabeled(self.store.clone(), self.data.root_tree.clone())
+        MergedTree::new(
+            self.store.clone(),
+            self.data.root_tree.clone(),
+            ConflictLabels::from_merge(self.data.conflict_labels.clone()),
+        )
     }
 
     pub fn tree_ids(&self) -> &Merge<TreeId> {

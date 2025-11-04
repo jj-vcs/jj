@@ -461,6 +461,7 @@ mod tests {
             parents: vec![],
             predecessors: vec![],
             root_tree: Merge::resolved(TreeId::new(vec![])),
+            conflict_labels: Merge::resolved(String::new()),
             change_id: ChangeId::new(vec![]),
             description: String::new(),
             author,

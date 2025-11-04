@@ -59,6 +59,7 @@ use crate::backend::make_root_commit;
 use crate::content_hash::blake2b_hash;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::index::Index;
+use crate::merge::Merge;
 use crate::merge::MergeBuilder;
 use crate::object_id::ObjectId;
 use crate::repo_path::RepoPath;
@@ -383,6 +384,8 @@ fn commit_from_proto(mut proto: crate::protos::simple_store::Commit) -> Commit {
         parents,
         predecessors,
         root_tree,
+        // TODO: store conflict labels
+        conflict_labels: Merge::resolved(String::new()),
         change_id,
         description: proto.description,
         author: signature_from_proto(proto.author.unwrap_or_default()),
@@ -515,6 +518,7 @@ mod tests {
             parents: vec![],
             predecessors: vec![],
             root_tree: Merge::resolved(backend.empty_tree_id().clone()),
+            conflict_labels: Merge::resolved(String::new()),
             change_id: ChangeId::from_hex("abc123"),
             description: "".to_string(),
             author: create_signature(),

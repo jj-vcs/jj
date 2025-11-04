@@ -27,6 +27,7 @@ use crate::backend::Signature;
 use crate::backend::TreeId;
 use crate::commit::Commit;
 use crate::commit::is_backend_commit_empty;
+use crate::conflict_labels::ConflictLabels;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo::MutableRepo;
@@ -194,11 +195,13 @@ impl DetachedCommitBuilder {
         let signature = settings.signature();
         assert!(!parents.is_empty());
         let rng = settings.get_rng();
+        let (root_tree, conflict_labels) = tree.into_tree_ids_and_labels();
         let change_id = rng.new_change_id(store.change_id_length());
         let commit = backend::Commit {
             parents,
             predecessors: vec![],
-            root_tree: tree.into_tree_ids(),
+            root_tree,
+            conflict_labels: conflict_labels.into_merge(),
             change_id,
             description: String::new(),
             author: signature.clone(),
@@ -303,7 +306,11 @@ impl DetachedCommitBuilder {
     }
 
     pub fn tree(&self) -> MergedTree {
-        MergedTree::unlabeled(self.store.clone(), self.commit.root_tree.clone())
+        MergedTree::new(
+            self.store.clone(),
+            self.commit.root_tree.clone(),
+            ConflictLabels::from_merge(self.commit.conflict_labels.clone()),
+        )
     }
 
     pub fn tree_ids(&self) -> &Merge<TreeId> {
@@ -312,7 +319,9 @@ impl DetachedCommitBuilder {
 
     pub fn set_tree(&mut self, tree: MergedTree) -> &mut Self {
         assert!(Arc::ptr_eq(tree.store(), &self.store));
-        self.commit.root_tree = tree.into_tree_ids();
+        let (root_tree, conflict_labels) = tree.into_tree_ids_and_labels();
+        self.commit.root_tree = root_tree;
+        self.commit.conflict_labels = conflict_labels.into_merge();
         self
     }
 

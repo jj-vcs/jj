@@ -549,7 +549,7 @@ fn test_id_prefix_shadowed_by_ref() {
 
     let commit_id_sym = commit.id().to_string();
     let change_id_sym = commit.change_id().to_string();
-    insta::assert_snapshot!(commit_id_sym, @"38b5c5aebe81a8441470");
+    insta::assert_snapshot!(commit_id_sym, @"b06a01f026da65ac5821");
     insta::assert_snapshot!(change_id_sym, @"sryyqqkqmuumyrlruupspprvnulvovzm");
 
     let context = IdPrefixContext::default();
