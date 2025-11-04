@@ -4041,7 +4041,7 @@ the left instead of <code>@</code>.</p>
 <p>The following example will prioritize the change with the description "megamerge" with a fallback
 to <code>trunk()</code> in case no such change exists:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[revsets]</span>
-<span class="n">log-graph-prioritize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;coalesce(description(&quot;</span><span class="n">megamerge</span><span class="err">\</span><span class="n">n</span><span class="s2">&quot;), trunk())&quot;</span>
+<span class="n">log-graph-prioritize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;coalesce(description(&quot;megamerge\n&quot;), trunk())&#39;</span>
 </code></pre></div>
 <h3 id="default-template_1">Default Template<a class="headerlink" href="#default-template_1" title="Permanent link">&para;</a></h3>
 <p>You can configure the template used when no <code>-T</code> is specified.</p>
