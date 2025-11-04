@@ -642,7 +642,7 @@ Show the initial commits in the repo (the ones Git calls "root commits"):
 jj log -r 'root()+'
 ```
 
-Show some important commits (like `git --simplify-by-decoration`):
+Show some important commits (like `git log --simplify-by-decoration`):
 
 ```shell
 jj log -r 'tags() | bookmarks()'
