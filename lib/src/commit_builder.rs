@@ -194,11 +194,13 @@ impl DetachedCommitBuilder {
         let signature = settings.signature();
         assert!(!parents.is_empty());
         let rng = settings.get_rng();
+        let (root_tree, conflict_labels) = tree.into_tree_ids_and_labels();
         let change_id = rng.new_change_id(store.change_id_length());
         let commit = backend::Commit {
             parents,
             predecessors: vec![],
-            root_tree: tree.into_tree_ids(),
+            root_tree,
+            conflict_labels,
             change_id,
             description: String::new(),
             author: signature.clone(),
@@ -303,7 +305,11 @@ impl DetachedCommitBuilder {
     }
 
     pub fn tree(&self) -> MergedTree {
-        MergedTree::unlabeled(self.store.clone(), self.commit.root_tree.clone())
+        MergedTree::new(
+            self.store.clone(),
+            self.commit.root_tree.clone(),
+            self.commit.conflict_labels.clone(),
+        )
     }
 
     pub fn tree_ids(&self) -> &Merge<TreeId> {
@@ -312,7 +318,7 @@ impl DetachedCommitBuilder {
 
     pub fn set_tree(&mut self, tree: MergedTree) -> &mut Self {
         assert!(Arc::ptr_eq(tree.store(), &self.store));
-        self.commit.root_tree = tree.into_tree_ids();
+        (self.commit.root_tree, self.commit.conflict_labels) = tree.into_tree_ids_and_labels();
         self
     }
 

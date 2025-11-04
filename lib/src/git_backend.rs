@@ -71,6 +71,7 @@ use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::backend::make_root_commit;
 use crate::config::ConfigGetError;
+use crate::conflict_labels::ConflictLabels;
 use crate::file_util;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
@@ -627,6 +628,8 @@ fn commit_from_git_without_root_parent(
         predecessors: vec![],
         // If this commit has associated extra metadata, we may reset this later.
         root_tree,
+        // TODO: store conflict labels
+        conflict_labels: ConflictLabels::unlabeled(),
         change_id,
         description,
         author,
@@ -1902,6 +1905,7 @@ mod tests {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
             root_tree: Merge::resolved(backend.empty_tree_id().clone()),
+            conflict_labels: ConflictLabels::unlabeled(),
             change_id: original_change_id.clone(),
             description: "initial".to_string(),
             author: create_signature(),
@@ -1993,6 +1997,7 @@ mod tests {
             parents: vec![],
             predecessors: vec![],
             root_tree: Merge::resolved(backend.empty_tree_id().clone()),
+            conflict_labels: ConflictLabels::unlabeled(),
             change_id: ChangeId::from_hex("abc123"),
             description: "".to_string(),
             author: create_signature(),
@@ -2079,6 +2084,7 @@ mod tests {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
             root_tree: root_tree.clone(),
+            conflict_labels: ConflictLabels::unlabeled(),
             change_id: ChangeId::from_hex("abc123"),
             description: "".to_string(),
             author: create_signature(),
@@ -2179,6 +2185,7 @@ mod tests {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
             root_tree: Merge::resolved(backend.empty_tree_id().clone()),
+            conflict_labels: ConflictLabels::unlabeled(),
             change_id: ChangeId::new(vec![42; 16]),
             description: "initial".to_string(),
             author: signature.clone(),
@@ -2259,6 +2266,7 @@ mod tests {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
             root_tree: Merge::resolved(backend.empty_tree_id().clone()),
+            conflict_labels: ConflictLabels::unlabeled(),
             change_id: ChangeId::from_hex("7f0a7ce70354b22efcccf7bf144017c4"),
             description: "initial".to_string(),
             author: create_signature(),
@@ -2301,6 +2309,7 @@ mod tests {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
             root_tree: Merge::resolved(backend.empty_tree_id().clone()),
+            conflict_labels: ConflictLabels::unlabeled(),
             change_id: ChangeId::new(vec![42; 16]),
             description: "initial".to_string(),
             author: create_signature(),
