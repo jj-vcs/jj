@@ -106,14 +106,6 @@ impl MergedTree {
         Box::new(all_tree_basenames(&self.trees))
     }
 
-    /// The value at the given basename. The value can be `Resolved` even if
-    /// `self` is a `Merge`, which happens if the value at the path can be
-    /// trivially merged. Does not recurse, so if `basename` refers to a Tree,
-    /// then a `TreeValue::Tree` will be returned.
-    pub fn value(&self, basename: &RepoPathComponent) -> MergedTreeVal<'_> {
-        trees_value(&self.trees, basename)
-    }
-
     /// Tries to resolve any conflicts, resolving any conflicts that can be
     /// automatically resolved and leaving the rest unresolved.
     pub async fn resolve(self) -> BackendResult<Self> {
@@ -149,40 +141,6 @@ impl MergedTree {
         !self.trees.is_resolved()
     }
 
-    /// Gets the `MergeTree` in a subdirectory of the current tree. If the path
-    /// doesn't correspond to a tree in any of the inputs to the merge, then
-    /// that entry will be replace by an empty tree in the result.
-    pub async fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Self>> {
-        match self.value(name).into_resolved() {
-            Ok(Some(TreeValue::Tree(sub_tree_id))) => {
-                let subdir = self.dir().join(name);
-                Ok(Some(Self::resolved(
-                    self.store().get_tree_async(subdir, sub_tree_id).await?,
-                )))
-            }
-            Ok(_) => Ok(None),
-            Err(merge) => {
-                if !merge.is_tree() {
-                    return Ok(None);
-                }
-                let trees = merge
-                    .try_map_async(async |value| match value {
-                        Some(TreeValue::Tree(sub_tree_id)) => {
-                            let subdir = self.dir().join(name);
-                            self.store().get_tree_async(subdir, sub_tree_id).await
-                        }
-                        Some(_) => unreachable!(),
-                        None => {
-                            let subdir = self.dir().join(name);
-                            Ok(Tree::empty(self.store().clone(), subdir))
-                        }
-                    })
-                    .await?;
-                Ok(Some(Self { trees }))
-            }
-        }
-    }
-
     /// The value at the given path. The value can be `Resolved` even if
     /// `self` is a `Conflict`, which happens if the value at the path can be
     /// trivially merged.
@@ -194,7 +152,7 @@ impl MergedTree {
     pub async fn path_value_async(&self, path: &RepoPath) -> BackendResult<MergedTreeValue> {
         assert_eq!(self.dir(), RepoPath::root());
         match path.split() {
-            Some((dir, basename)) => match self.sub_tree_recursive(dir).await? {
+            Some((dir, basename)) => match self.trees.sub_tree_recursive(dir).await? {
                 None => Ok(Merge::absent()),
                 Some(tree) => Ok(tree.value(basename).cloned()),
             },
@@ -207,22 +165,6 @@ impl MergedTree {
     /// The tree's id
     pub fn id(&self) -> MergedTreeId {
         MergedTreeId::new(self.trees.map(|tree| tree.id().clone()))
-    }
-
-    /// Look up the tree at the given path.
-    pub async fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Self>> {
-        let mut current_tree = self.clone();
-        for name in path.components() {
-            match current_tree.sub_tree(name).await? {
-                None => {
-                    return Ok(None);
-                }
-                Some(sub_tree) => {
-                    current_tree = sub_tree;
-                }
-            }
-        }
-        Ok(Some(current_tree))
     }
 
     /// Iterator over the entries matching the given matcher. Subtrees are
@@ -410,18 +352,6 @@ fn merged_tree_entry_diff<'a>(
         EitherOrBoth::Right((name, value2)) => (name, Diff::new(Merge::absent(), value2)),
     })
     .filter(|(_, diff)| diff.is_changed())
-}
-
-fn trees_value<'a>(trees: &'a Merge<Tree>, basename: &RepoPathComponent) -> MergedTreeVal<'a> {
-    if let Some(tree) = trees.as_resolved() {
-        return Merge::resolved(tree.value(basename));
-    }
-    let same_change = trees.first().store().merge_options().same_change;
-    let value = trees.map(|tree| tree.value(basename));
-    if let Some(resolved) = value.resolve_trivial(same_change) {
-        return Merge::resolved(*resolved);
-    }
-    value
 }
 
 /// Recursive iterator over the entries in a tree.

@@ -38,6 +38,7 @@ use crate::backend::TreeValue;
 use crate::content_hash::ContentHash;
 use crate::content_hash::DigestUpdate;
 use crate::repo_path::RepoPath;
+use crate::repo_path::RepoPathComponent;
 use crate::store::Store;
 use crate::tree::Tree;
 
@@ -753,6 +754,81 @@ fn describe_conflict_term(value: &TreeValue) -> String {
         TreeValue::GitSubmodule(id) => {
             format!("Git submodule with id {id}")
         }
+    }
+}
+
+impl Merge<Tree> {
+    /// The directory that is shared by all trees in the merge.
+    pub fn dir(&self) -> &RepoPath {
+        debug_assert!(self.iter().map(|tree| tree.dir()).all_equal());
+        self.first().dir()
+    }
+
+    /// The value at the given basename. The value can be `Resolved` even if
+    /// `self` is conflicted, which happens if the value at the path can be
+    /// trivially merged. Does not recurse, so if `basename` refers to a Tree,
+    /// then a `TreeValue::Tree` will be returned.
+    pub fn value(&self, basename: &RepoPathComponent) -> MergedTreeVal<'_> {
+        if let Some(tree) = self.as_resolved() {
+            return Merge::resolved(tree.value(basename));
+        }
+        let same_change = self.first().store().merge_options().same_change;
+        let value = self.map(|tree| tree.value(basename));
+        if let Some(resolved) = value.resolve_trivial(same_change) {
+            return Merge::resolved(*resolved);
+        }
+        value
+    }
+
+    /// Gets the `Merge<Tree>` in a subdirectory of the current tree. If the
+    /// path doesn't correspond to a tree in any of the inputs to the merge,
+    /// then that entry will be replaced by an empty tree in the result.
+    pub async fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Self>> {
+        let store = self.first().store();
+        match self.value(name).into_resolved() {
+            Ok(Some(TreeValue::Tree(sub_tree_id))) => {
+                let subdir = self.dir().join(name);
+                Ok(Some(Self::resolved(
+                    store.get_tree_async(subdir, sub_tree_id).await?,
+                )))
+            }
+            Ok(_) => Ok(None),
+            Err(merge) => {
+                if !merge.is_tree() {
+                    return Ok(None);
+                }
+                let trees = merge
+                    .try_map_async(async |value| match value {
+                        Some(TreeValue::Tree(sub_tree_id)) => {
+                            let subdir = self.dir().join(name);
+                            store.get_tree_async(subdir, sub_tree_id).await
+                        }
+                        Some(_) => unreachable!(),
+                        None => {
+                            let subdir = self.dir().join(name);
+                            Ok(Tree::empty(store.clone(), subdir))
+                        }
+                    })
+                    .await?;
+                Ok(Some(trees))
+            }
+        }
+    }
+
+    /// Look up the tree at the given path.
+    pub async fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Self>> {
+        let mut current_tree = self.clone();
+        for name in path.components() {
+            match current_tree.sub_tree(name).await? {
+                None => {
+                    return Ok(None);
+                }
+                Some(sub_tree) => {
+                    current_tree = sub_tree;
+                }
+            }
+        }
+        Ok(Some(current_tree))
     }
 }
 
