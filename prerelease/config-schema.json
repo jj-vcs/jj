@@ -42,6 +42,7 @@
                     "description": "Conflict marker style to use when materializing conflicts in the working copy",
                     "enum": [
                         "diff",
+                        "diff-experimental",
                         "snapshot",
                         "git"
                     ],
