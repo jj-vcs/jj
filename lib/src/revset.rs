@@ -65,6 +65,7 @@ pub use crate::revset_parser::RevsetParseErrorKind;
 pub use crate::revset_parser::UnaryOp;
 pub use crate::revset_parser::expect_literal;
 pub use crate::revset_parser::parse_program;
+pub use crate::revset_parser::parse_program_with_modifier;
 pub use crate::revset_parser::parse_symbol;
 use crate::store::Store;
 use crate::str_util::StringExpression;
@@ -1356,7 +1357,7 @@ pub fn parse_with_modifier(
     revset_str: &str,
     context: &RevsetParseContext,
 ) -> Result<(Arc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
-    let node = parse_program(revset_str)?;
+    let node = parse_program_with_modifier(revset_str)?;
     let node =
         dsl_util::expand_aliases_with_locals(node, context.aliases_map, &context.local_variables)?;
     revset_parser::catch_aliases(diagnostics, &node, |diagnostics, node| match &node.kind {

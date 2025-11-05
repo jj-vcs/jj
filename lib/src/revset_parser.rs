@@ -131,6 +131,7 @@ impl Rule {
             Self::range_expression => None,
             Self::expression => None,
             Self::program_modifier => None,
+            Self::program_with_modifier => None,
             Self::program => None,
             Self::symbol_name => None,
             Self::function_alias_declaration => None,
@@ -463,9 +464,13 @@ fn union_nodes<'i>(lhs: ExpressionNode<'i>, rhs: ExpressionNode<'i>) -> Expressi
     ExpressionNode::new(expr, span)
 }
 
-/// Parses text into expression tree. No name resolution is made at this stage.
-pub fn parse_program(revset_str: &str) -> Result<ExpressionNode<'_>, RevsetParseError> {
-    let mut pairs = RevsetParser::parse(Rule::program, revset_str)?;
+/// Parses text into expression tree. The text may be prefixed with `all:`.
+/// No name resolution is made at this stage.
+// TODO: drop support for legacy "all:" modifier in jj 0.38+
+pub fn parse_program_with_modifier(
+    revset_str: &str,
+) -> Result<ExpressionNode<'_>, RevsetParseError> {
+    let mut pairs = RevsetParser::parse(Rule::program_with_modifier, revset_str)?;
     let first = pairs.next().unwrap();
     match first.as_rule() {
         Rule::expression => parse_expression_node(first),
@@ -486,6 +491,14 @@ pub fn parse_program(revset_str: &str) -> Result<ExpressionNode<'_>, RevsetParse
         }
         r => panic!("unexpected revset parse rule: {r:?}"),
     }
+}
+
+/// Parses text into expression tree. No name resolution is made at this stage.
+pub fn parse_program(revset_str: &str) -> Result<ExpressionNode<'_>, RevsetParseError> {
+    let mut pairs = RevsetParser::parse(Rule::program, revset_str)?;
+    let first = pairs.next().unwrap();
+    assert_eq!(first.as_rule(), Rule::expression);
+    parse_expression_node(first)
 }
 
 fn parse_expression_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseError> {
@@ -753,7 +766,7 @@ impl AliasDefinitionParser for RevsetAliasParser {
     type Error = RevsetParseError;
 
     fn parse_definition<'i>(&self, source: &'i str) -> Result<ExpressionNode<'i>, Self::Error> {
-        parse_program(source)
+        parse_program_with_modifier(source)
     }
 }
 
@@ -866,7 +879,7 @@ mod tests {
         }
 
         fn parse(&'i self, text: &'i str) -> Result<ExpressionNode<'i>, RevsetParseError> {
-            let node = parse_program(text)?;
+            let node = parse_program_with_modifier(text)?;
             dsl_util::expand_aliases_with_locals(node, &self.aliases_map, &self.locals)
         }
 
@@ -895,7 +908,7 @@ mod tests {
     }
 
     fn parse_normalized(text: &str) -> ExpressionNode<'_> {
-        normalize_tree(parse_program(text).unwrap())
+        normalize_tree(parse_program_with_modifier(text).unwrap())
     }
 
     /// Drops auxiliary data from parsed tree so it can be compared with other.
@@ -1085,6 +1098,12 @@ mod tests {
 
     #[test]
     fn test_parse_revset_with_modifier() {
+        fn parse_into_kind(text: &str) -> Result<ExpressionKind<'_>, RevsetParseErrorKind> {
+            parse_program_with_modifier(text)
+                .map(|node| node.kind)
+                .map_err(|err| *err.kind)
+        }
+
         // all: is a program modifier, but all:: isn't
         assert_eq!(
             parse_into_kind("all:"),
@@ -1271,14 +1290,14 @@ mod tests {
     #[test]
     fn test_parse_string_pattern() {
         assert_eq!(
-            parse_into_kind(r#"(substring:"foo")"#),
+            parse_into_kind(r#"substring:"foo""#),
             Ok(ExpressionKind::StringPattern {
                 kind: "substring",
                 value: "foo".to_owned()
             })
         );
         assert_eq!(
-            parse_into_kind(r#"("exact:foo")"#),
+            parse_into_kind(r#""exact:foo""#),
             Ok(ExpressionKind::String("exact:foo".to_owned()))
         );
         assert_eq!(
@@ -1286,14 +1305,14 @@ mod tests {
             parse_normalized(r#"(exact:"foo")"#),
         );
         assert_eq!(
-            parse_into_kind(r#"(exact:'\')"#),
+            parse_into_kind(r#"exact:'\'"#),
             Ok(ExpressionKind::StringPattern {
                 kind: "exact",
                 value: r"\".to_owned()
             })
         );
         assert_matches!(
-            parse_into_kind(r#"(exact:("foo" ))"#),
+            parse_into_kind(r#"exact:("foo" )"#),
             Err(RevsetParseErrorKind::NotInfixOperator { .. })
         );
     }

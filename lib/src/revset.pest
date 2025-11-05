@@ -121,8 +121,11 @@ expression = {
 }
 
 program_modifier = { strict_identifier ~ pattern_kind_op ~ !":" }
-program = _{
+program_with_modifier = _{
   SOI ~ whitespace* ~ (program_modifier ~ whitespace*)? ~ expression ~ whitespace* ~ EOI
+}
+program = _{
+  SOI ~ whitespace* ~ expression ~ whitespace* ~ EOI
 }
 
 symbol_name = _{ SOI ~ symbol ~ EOI }
