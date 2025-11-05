@@ -2017,7 +2017,7 @@ fn test_bookmark_list_filtered() {
     Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
     [EOF]
     ");
-    insta::assert_snapshot!(query(&["--remote", "glob:gi?"]), @r"
+    insta::assert_snapshot!(query(&["--remote", "glob:'gi?'"]), @r"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
       @git: kpqxywon 4b2bc95c (empty) local-keep
     remote-keep: rlvkpnrz c2f2ee40 (empty) remote-keep
@@ -2062,7 +2062,7 @@ fn test_bookmark_list_filtered() {
     ");
 
     // Name patterns are OR-ed.
-    insta::assert_snapshot!(query(&["glob:*-keep", "remote-delete"]), @r"
+    insta::assert_snapshot!(query(&["glob:*-keep", "glob:remote-* & glob:*-delete"]), @r"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-delete (deleted)
       @origin: zsuskuln 0e6b7968 (empty) remote-delete
@@ -2099,6 +2099,21 @@ fn test_bookmark_list_filtered() {
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @git: royxmykx e6970e0e (empty) rewritten
     [EOF]
+    ");
+
+    // Syntax error in name pattern
+    insta::assert_snapshot!(query(&["foo &"]), @r"
+    ------- stderr -------
+    Error: Failed to parse name pattern: Syntax error
+    Caused by:  --> 1:6
+      |
+    1 | foo &
+      |      ^---
+      |
+      = expected `::`, `..`, `~`, or <primary>
+    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    [EOF]
+    [exit status: 1]
     ");
 }
 

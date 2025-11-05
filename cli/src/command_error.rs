@@ -871,7 +871,7 @@ fn opset_resolution_error_hint(err: &OpsetResolutionError) -> Option<String> {
     }
 }
 
-fn revset_parse_error_hint(err: &RevsetParseError) -> Option<String> {
+pub(crate) fn revset_parse_error_hint(err: &RevsetParseError) -> Option<String> {
     // Only for the bottom error, which is usually the root cause
     let bottom_err = iter::successors(Some(err), |e| e.origin()).last().unwrap();
     match bottom_err.kind() {

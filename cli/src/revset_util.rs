@@ -42,10 +42,14 @@ use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::str_util::StringExpression;
 use thiserror::Error;
 
 use crate::command_error::CommandError;
+use crate::command_error::print_parse_diagnostics;
+use crate::command_error::revset_parse_error_hint;
 use crate::command_error::user_error;
+use crate::command_error::user_error_with_message;
 use crate::formatter::Formatter;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
@@ -342,4 +346,27 @@ pub fn parse_tag_name(text: &str) -> Result<RefNameBuf, TagNameParseError> {
     revset::parse_symbol(text)
         .map(Into::into)
         .map_err(|source| TagNameParseError { source })
+}
+
+/// Parses bookmark/tag/remote name patterns and unions them all.
+pub fn parse_union_name_patterns<I>(ui: &Ui, texts: I) -> Result<StringExpression, CommandError>
+where
+    I: IntoIterator,
+    I::Item: AsRef<str>,
+{
+    let mut diagnostics = RevsetDiagnostics::new();
+    let expressions = texts
+        .into_iter()
+        .map(|text| revset::parse_string_expression(&mut diagnostics, text.as_ref()))
+        .try_collect()
+        .map_err(|err| {
+            // From<RevsetParseError>, but with different message
+            let hint = revset_parse_error_hint(&err);
+            let message = format!("Failed to parse name pattern: {}", err.kind());
+            let mut cmd_err = user_error_with_message(message, err);
+            cmd_err.extend_hints(hint);
+            cmd_err
+        })?;
+    print_parse_diagnostics(ui, "In name pattern", &diagnostics)?;
+    Ok(StringExpression::union_all(expressions))
 }

@@ -13,6 +13,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * In [filesets or path patterns](docs/filesets.md#file-patterns), glob matching
   is enabled by default. You can use `cwd:"path"` to match literal paths.
 
+* In the following commands, [string pattern
+  arguments](docs/revsets.md#string-patterns) are now parsed the same way they
+  are in revsets. and can be combined with logical operators: `jj bookmark
+  list`, `jj tag list`
+
 * Upgraded `scm-record` from v0.8.0 to v0.9.0. See release notes at
   <https://github.com/arxanas/scm-record/releases/tag/v0.9.0>.
 

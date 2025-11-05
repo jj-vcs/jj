@@ -15,12 +15,13 @@
 use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
-use jj_lib::str_util::StringPattern;
+use jj_lib::str_util::StringExpression;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitRef;
 use crate::complete;
+use crate::revset_util::parse_union_name_patterns;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
@@ -34,8 +35,7 @@ pub struct TagListArgs {
     ///
     /// [wildcard pattern]:
     ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
-    #[arg(value_parser = StringPattern::parse)]
-    pub names: Vec<StringPattern>,
+    pub names: Option<Vec<String>>,
     /// Render each tag using the given template
     ///
     /// All 0-argument methods of the [`CommitRef` type] are available as
@@ -60,6 +60,11 @@ pub fn cmd_tag_list(
     let repo = workspace_command.repo();
     let view = repo.view();
 
+    let name_expr = match &args.names {
+        Some(texts) => parse_union_name_patterns(ui, texts)?,
+        None => StringExpression::all(),
+    };
+    let name_matcher = name_expr.to_matcher();
     let template: TemplateRenderer<Rc<CommitRef>> = {
         let language = workspace_command.commit_template_language();
         let text = match &args.template {
@@ -74,15 +79,10 @@ pub fn cmd_tag_list(
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
 
-    for (name, target) in view.local_tags() {
-        if !args.names.is_empty()
-            && !args
-                .names
-                .iter()
-                .any(|pattern| pattern.is_match(name.as_str()))
-        {
-            continue;
-        }
+    for (name, target) in view
+        .local_tags()
+        .filter(|(name, _)| name_matcher.is_match(name.as_str()))
+    {
         let commit_ref = CommitRef::local_only(name, target.clone());
         template.format(&commit_ref, formatter.as_mut())?;
     }
