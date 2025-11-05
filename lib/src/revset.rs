@@ -1151,12 +1151,27 @@ pub fn expect_string_expression(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
 ) -> Result<StringExpression, RevsetParseError> {
+    let default_kind = "substring";
+    expect_string_expression_inner(diagnostics, node, default_kind)
+}
+
+fn expect_string_expression_inner(
+    diagnostics: &mut RevsetDiagnostics,
+    node: &ExpressionNode,
+    // TODO: enable glob matching by default and remove this parameter
+    default_kind: &str,
+) -> Result<StringExpression, RevsetParseError> {
     revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
         let expr_error = || RevsetParseError::expression("Invalid string expression", node.span);
         let pattern_error = || RevsetParseError::expression("Invalid string pattern", node.span);
+        let default_pattern = |value: &str| {
+            let pattern = StringPattern::from_str_kind(value, default_kind)
+                .map_err(|err| pattern_error().with_source(err))?;
+            Ok(StringExpression::pattern(pattern))
+        };
         match &node.kind {
-            ExpressionKind::Identifier(value) => Ok(StringExpression::substring(*value)),
-            ExpressionKind::String(value) => Ok(StringExpression::substring(value)),
+            ExpressionKind::Identifier(value) => default_pattern(value),
+            ExpressionKind::String(value) => default_pattern(value),
             ExpressionKind::StringPattern { kind, value } => {
                 let pattern = StringPattern::from_str_kind(value, kind)
                     .map_err(|err| pattern_error().with_source(err))?;
@@ -1168,7 +1183,7 @@ pub fn expect_string_expression(
             | ExpressionKind::DagRangeAll
             | ExpressionKind::RangeAll => Err(expr_error()),
             ExpressionKind::Unary(op, arg_node) => {
-                let arg = expect_string_expression(diagnostics, arg_node)?;
+                let arg = expect_string_expression_inner(diagnostics, arg_node, default_kind)?;
                 match op {
                     UnaryOp::Negate => Ok(arg.negated()),
                     UnaryOp::DagRangePre
@@ -1180,8 +1195,8 @@ pub fn expect_string_expression(
                 }
             }
             ExpressionKind::Binary(op, lhs_node, rhs_node) => {
-                let lhs = expect_string_expression(diagnostics, lhs_node)?;
-                let rhs = expect_string_expression(diagnostics, rhs_node)?;
+                let lhs = expect_string_expression_inner(diagnostics, lhs_node, default_kind)?;
+                let rhs = expect_string_expression_inner(diagnostics, rhs_node, default_kind)?;
                 match op {
                     BinaryOp::Intersection => Ok(lhs.intersection(rhs)),
                     BinaryOp::Difference => Ok(lhs.intersection(rhs.negated())),
@@ -1191,7 +1206,7 @@ pub fn expect_string_expression(
             ExpressionKind::UnionAll(nodes) => {
                 let expressions = nodes
                     .iter()
-                    .map(|node| expect_string_expression(diagnostics, node))
+                    .map(|node| expect_string_expression_inner(diagnostics, node, default_kind))
                     .try_collect()?;
                 Ok(StringExpression::union_all(expressions))
             }
@@ -1387,6 +1402,16 @@ pub fn parse_with_modifier(
         }
     })
     .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
+}
+
+/// Parses text into a string matcher expression.
+pub fn parse_string_expression(
+    diagnostics: &mut RevsetDiagnostics,
+    text: &str,
+) -> Result<StringExpression, RevsetParseError> {
+    let node = parse_program(text)?;
+    let default_kind = "exact"; // TODO: use "glob" by default
+    expect_string_expression_inner(diagnostics, &node, default_kind)
 }
 
 /// Constructs binary tree from `expressions` list, `unit` node, and associative
