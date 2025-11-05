@@ -10,6 +10,33 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.35.0] - 2025-11-05
+
+### Release highlights
+
+* Workspaces can now have their own separate configuration. For instance, you
+  can use `jj config set --workspace` to update a configuration option only in
+  the current workspace.
+
+* After creating a local bookmark, it is now possible to use `jj bookmark track`
+  to associate the bookmark with a specific remote before pushing it. When
+  pushing a tracked bookmark, it is not necessary to use `--allow-new`.
+
+* The new `jj git colocation enable` and `jj git colocation disable` commands
+  allow converting between colocated and non-colocated workspaces.
+
+### Breaking changes
+
+* The `remote_bookmarks(remote=pattern)` revset now includes Git-tracking
+  bookmarks if the specified `pattern` matches `git`. The default is
+  `remote=~exact:"git"` as before.
+
 * The deprecated flag `--summary` of `jj abandon` has been removed.
 
 * The deprecated command `jj backout` has been removed, use `jj revert` instead.
@@ -18,10 +45,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `signing.sign-all`
   - `core.watchman.register_snapshot_trigger`
   - `diff.format`
-
-* The `remote_bookmarks(remote=pattern)` revset now includes Git-tracking
-  bookmarks if the specified `pattern` matches `git`. The default is
-  `remote=~exact:"git"` as before.
 
 ### Deprecations
 
@@ -34,6 +57,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
    be updated.
 
 ### New features
+
+* Workspaces may have an additional layered configuration, located at
+  `.jj/workspace-config.toml`. `jj config` subcommands which took layer options
+  like `--repo` now also support `--workspace`.
+
+* `jj bookmark track` can now associate new local bookmarks with remote.
+  Tracked bookmarks can be pushed without `--allow-new`.
+  [#7072](https://github.com/jj-vcs/jj/issues/7072)
+
+* The new `jj git colocation` command provides sub-commands to show the
+  colocation state (`status`), to convert a non-colocated workspace into
+  a colocated workspace (`enable`), and vice-versa (`disable`).
+
+* New `jj tag set`/`delete` commands to create/update/delete tags locally.
+  Created/updated tags are currently always exported to Git as lightweight
+  tags. If you would prefer them to be exported as annotated tags, please give
+  us feedback on [#7908](https://github.com/jj-vcs/jj/issues/7908).
 
 * Templates now support a `.split(separator, [limit])` method on strings to
   split a string into a list of substrings.
@@ -50,10 +90,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `template-aliases.empty_commit_marker`. Users can override this value in
   their config to change the "(empty)" label on empty commits.
 
-* Workspaces may have an additional layered configuration, located at
-  `.jj/workspace-config.toml`. `jj config` subcommands which took layer options like
-  `--repo` now also support `--workspace`.
-
 * Add support for `--when.workspaces` config scopes.
 
 * Add support for `--when.hostnames` config scopes. This allows configuration to
@@ -67,13 +103,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   revision is immutable, the user shouldn't take any action, so the red color
   was unnecessarily alarming.
 
-* `jj bookmark track` can now associate new local bookmarks with remote.
-  Tracked bookmarks can be pushed without `--allow-new`.
-  [#7072](https://github.com/jj-vcs/jj/issues/7072)
-
-* New `jj tag set`/`delete` commands to create/update/delete tags locally.
-  Updated tags will be exported to Git as lightweight tags.
-
 * New commit template keywords `local`/`remote_tags` to show only local/remote
   tags. These keywords may be useful in non-colocated Git repositories where
   local and exported `@git` tags can point to different revisions.
@@ -81,10 +110,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 *  `jj git clone` now supports the `--branch` option to specify the branch(es)
   to fetch during clone. If present, the first matching branch is used as the
   working-copy parent.
-
-* The new `jj git colocation` command provides sub-commands to show the
-  colocation state (`status`) and to convert a non-colocated git repo into
-  a colocated repo (`enable`) and vice-versa `disable`.
 
 * Revsets now support logical operators in string patterns.
 
@@ -103,6 +128,46 @@ edits the change twice in some cases.
   [#7747](https://github.com/jj-vcs/jj/issues/7747)
 
 * Fixed `jj describe --stdin` to append a final newline character.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Alpha Chen (@kejadlen)
+* Angel Ezquerra (@AngelEzquerra)
+* ase (@adamse)
+* Austin Seipp (@thoughtpolice)
+* Benjamin Brittain (@benbrittain)
+* bipul (@bipulmgr)
+* Brian Schroeder (@bts)
+* Bryce Berger (@bryceberger)
+* Cole Helbling (@cole-h)
+* Daniel Luz (@mernen)
+* David Higgs (@higgsd)
+* Defelo (@Defelo)
+* Fedor (@sheremetyev)
+* Gabriel Goller (@kaffarell)
+* Gaëtan Lehmann (@glehmann)
+* George Christou (@gechr)
+* Ilya Grigoriev (@ilyagr)
+* Isaac Corbrey (@icorbrey)
+* James Coman (@jamescoman)
+* Joseph Lou (@josephlou5)
+* Lander Brandt (@landaire)
+* Martin von Zweigbergk (@martinvonz)
+* Michael Chirico (@MichaelChirico)
+* Owen Brooks (@owenbrooks)
+* Peter Schilling (@schpet)
+* Philip Metzger (@PhilipMetzger)
+* Remo Senekowitsch (@senekor)
+* Ross Smyth (@RossSmyth)
+* Scott Taylor (@scott2000)
+* Steve Fink (@hotsphink)
+* Steve Klabnik (@steveklabnik)
+* Theo Buehler (@botovq)
+* Theodore Dubois (@tbodt)
+* Theodore Keloglou (@sirodoht)
+* Yuya Nishihara (@yuja)
 
 ## [0.34.0] - 2025-10-01
 
@@ -4120,7 +4185,8 @@ No changes, only trying to get the automated build to work.
 Last release before this changelog started.
 
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.34.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.35.0...HEAD
+[0.35.0]: https://github.com/jj-vcs/jj/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/jj-vcs/jj/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/jj-vcs/jj/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/jj-vcs/jj/compare/v0.31.0...v0.32.0
