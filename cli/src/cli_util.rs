@@ -786,6 +786,7 @@ pub struct WorkspaceCommandEnvironment {
     revset_aliases_map: RevsetAliasesMap,
     template_aliases_map: TemplateAliasesMap,
     default_ignored_remote: Option<&'static RemoteName>,
+    revsets_use_glob_by_default: bool,
     path_converter: RepoPathUiConverter,
     workspace_name: WorkspaceNameBuf,
     immutable_heads_expression: Arc<UserRevsetExpression>,
@@ -810,6 +811,7 @@ impl WorkspaceCommandEnvironment {
             revset_aliases_map,
             template_aliases_map,
             default_ignored_remote,
+            revsets_use_glob_by_default: settings.get("ui.revsets-use-glob-by-default")?,
             path_converter,
             workspace_name: workspace.workspace_name().to_owned(),
             immutable_heads_expression: RevsetExpression::root(),
@@ -847,6 +849,7 @@ impl WorkspaceCommandEnvironment {
             user_email: self.settings.user_email(),
             date_pattern_context: now.into(),
             default_ignored_remote: self.default_ignored_remote,
+            use_glob_by_default: self.revsets_use_glob_by_default,
             extensions: self.command.revset_extensions(),
             workspace: Some(workspace_context),
         }

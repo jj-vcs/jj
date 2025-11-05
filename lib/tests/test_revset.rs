@@ -97,6 +97,7 @@ fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, Revset
         user_email: "",
         date_pattern_context: chrono::Local::now().into(),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
+        use_glob_by_default: false,
         extensions: &RevsetExtensions::default(),
         workspace: None,
     };
@@ -230,6 +231,7 @@ fn test_resolve_symbol_commit_id() {
         user_email: settings.user_email(),
         date_pattern_context: chrono::Utc::now().fixed_offset().into(),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
+        use_glob_by_default: false,
         extensions: &RevsetExtensions::default(),
         workspace: None,
     };
@@ -1020,6 +1022,7 @@ fn try_resolve_expression(
         user_email: settings.user_email(),
         date_pattern_context: chrono::Utc::now().fixed_offset().into(),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
+        use_glob_by_default: false,
         extensions: &RevsetExtensions::default(),
         workspace: None,
     };
@@ -1070,6 +1073,7 @@ fn resolve_commit_ids_in_workspace(
         user_email: settings.user_email(),
         date_pattern_context: chrono::Utc::now().fixed_offset().into(),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
+        use_glob_by_default: false,
         extensions: &RevsetExtensions::default(),
         workspace: Some(workspace_ctx),
     };

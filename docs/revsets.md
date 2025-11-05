@@ -476,14 +476,18 @@ revsets (expressions) as arguments.
 ## String patterns
 
 Functions that perform string matching support the following pattern syntax (the
-quotes are optional):
+quotes are optional).
 
-* `"string"` or `substring:"string"`: Matches strings that contain `string`.
+By default, `"string"` is parsed as a `substring:` pattern in revsets. The
+default will be changed to `glob:` in a future release. The new behavior can be
+enabled by: `ui.revsets-use-glob-by-default=true`.
+
 * `exact:"string"`: Matches strings exactly equal to `string`.
 * `glob:"pattern"`: Matches strings with Unix-style shell [wildcard
   `pattern`](https://docs.rs/globset/latest/globset/#syntax).
 * `regex:"pattern"`: Matches substrings with [regular
   expression `pattern`](https://docs.rs/regex/latest/regex/#syntax).
+* `substring:"string"`: Matches strings that contain `string`.
 
 You can append `-i` after the kind to match case‐insensitively (e.g.
 `glob-i:"fix*jpeg*"`).
