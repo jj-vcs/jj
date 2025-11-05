@@ -18,6 +18,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   are in revsets. and can be combined with logical operators: `jj bookmark
   list`, `jj tag list`
 
+* The default string pattern syntax in revsets will be changed to `glob:` in a
+  future release. You can opt in to the new default by setting
+  `ui.revsets-use-glob-by-default=true`.
+
 * Upgraded `scm-record` from v0.8.0 to v0.9.0. See release notes at
   <https://github.com/arxanas/scm-record/releases/tag/v0.9.0>.
 
