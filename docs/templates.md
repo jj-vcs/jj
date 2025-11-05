@@ -478,8 +478,11 @@ defined.
 * `.trim_start() -> String`: Removes leading whitespace
 * `.trim_end() -> String`: Removes trailing whitespace
 * `.substr(start: Integer, end: Integer) -> String`: Extract substring. The
-  `start`/`end` indices should be specified in UTF-8 bytes. Negative values
-  count from the end of the string.
+  `start`/`end` indices should be specified in UTF-8 bytes. Indices are 0-based
+  and `end` is exclusive. Negative values count from the end of the string,
+  with `-1` being the last byte. If the `start` index is in the middle of a UTF-8
+  codepoint, the codepoint is fully part of the result. If the `end` index is in
+  the middle of a UTF-8 codepoint, the codepoint is not part of the result.
 * `.escape_json() -> String`: Serializes the string in JSON format. This
   function is useful for making machine-readable templates. For example, you
   can use it in a template like `'{ "foo": ' ++ foo.escape_json() ++ ' }'` to
