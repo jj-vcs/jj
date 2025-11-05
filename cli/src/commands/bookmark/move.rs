@@ -29,14 +29,14 @@ use crate::command_error::user_error_with_hint;
 use crate::complete;
 use crate::ui::Ui;
 
-/// Move existing bookmarks to target revision
+/// Move an existing bookmark to a target revision
 ///
-/// If bookmark names are given, the specified bookmarks will be updated to
+/// If a bookmark name is given, the specified bookmark will be updated to
 /// point to the target revision.
 ///
 /// If `--from` options are given, bookmarks currently pointing to the
 /// specified revisions will be updated. The bookmarks can also be filtered by
-/// names.
+/// name.
 ///
 /// Example: pull up the nearest bookmarks to the working-copy parent
 ///
@@ -44,19 +44,26 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 #[command(group(clap::ArgGroup::new("source").multiple(true).required(true)))]
 pub struct BookmarkMoveArgs {
-    /// Move bookmarks matching the given name patterns
+    /// Move bookmark matching the given name pattern
     ///
-    /// By default, the specified name matches exactly. Use `glob:` prefix to
-    /// select bookmarks by [wildcard pattern].
+    /// By default, the specified name matches exactly. Use the `glob:` or
+    /// `regex:` prefix to select multiple bookmarks by [string pattern].
     ///
-    /// [wildcard pattern]:
+    /// [string pattern]:
     ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
     #[arg(
         group = "source",
         value_parser = StringPattern::parse,
         add = ArgValueCandidates::new(complete::local_bookmarks),
     )]
-    names: Vec<StringPattern>,
+    name: Option<StringPattern>,
+
+    // TODO: Delete in jj 0.41.0+
+    #[arg(
+        hide = true,
+        value_parser = StringPattern::parse,
+    )]
+    additional_names: Vec<StringPattern>,
 
     /// Move bookmarks from the given revisions
     #[arg(
@@ -86,6 +93,13 @@ pub fn cmd_bookmark_move(
     command: &CommandHelper,
     args: &BookmarkMoveArgs,
 ) -> Result<(), CommandError> {
+    if !args.additional_names.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "Using multiple bookmark arguments is deprecated. Use a string pattern \
+             ('regex:foo|bar') or a shell loop instead."
+        )?;
+    }
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
     let target_commit = workspace_command.resolve_single_rev(ui, &args.to)?;
@@ -106,8 +120,10 @@ pub fn cmd_bookmark_move(
         } else {
             Box::new(|_| Ok(true))
         };
-        let mut bookmarks = if !args.names.is_empty() {
-            find_bookmarks_with(&args.names, |matcher| {
+        let mut bookmarks = if let Some(name) = &args.name {
+            let mut names = args.additional_names.clone();
+            names.push(name.clone());
+            find_bookmarks_with(&names, |matcher| {
                 repo.view()
                     .local_bookmarks_matching(matcher)
                     .filter_map(|(name, target)| {
@@ -169,7 +185,7 @@ pub fn cmd_bookmark_move(
         tx.write_commit_summary(formatter.as_mut(), &target_commit)?;
         writeln!(formatter)?;
     }
-    if matched_bookmarks.len() > 1 && args.names.is_empty() {
+    if matched_bookmarks.len() > 1 && args.name.is_none() {
         writeln!(
             ui.hint_default(),
             "Specify bookmark by name to update just one of the bookmarks."

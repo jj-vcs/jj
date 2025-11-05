@@ -23,6 +23,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bookmarks if the specified `pattern` matches `git`. The default is
   `remote=~exact:"git"` as before.
 
+* Specifying multiple bookmark arguments for `jj bookmark move` is deprecated.
+  Moving multiple bookmarks at once can still be done with a string pattern.
+
 ### Deprecations
 
  * `jj bisect run --command <cmd>` is deprecated in favor of
