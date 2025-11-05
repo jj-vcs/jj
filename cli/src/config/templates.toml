@@ -34,7 +34,7 @@ commit_trailers = ''
 evolog = 'builtin_evolog_compact'
 
 file_list = '''
-path.display() ++ "\n"
+format_path(path) ++ "\n"
 '''
 file_show = ''
 
@@ -310,6 +310,7 @@ commit_summary_separator = 'label("separator", " | ")'
 'format_short_change_id(id)' = 'format_short_id(id)'
 'format_short_commit_id(id)' = 'format_short_id(id)'
 'format_short_operation_id(id)' = 'id.short()'
+'format_path(path)' = 'path.display()'
 'format_short_signature(signature)' = '''
   coalesce(signature.email(), email_placeholder)'''
 'format_short_signature_oneline(signature)' = '''

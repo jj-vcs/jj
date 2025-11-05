@@ -39,6 +39,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `RepoPath` template type now has a `absolute() -> String` method that returns
   the absolute path as a string.
 
+* Added `format_path(path)` template that controls how file paths are printed
+  with `jj file list`.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
