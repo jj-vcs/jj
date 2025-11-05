@@ -488,13 +488,15 @@ quotes are optional):
 You can append `-i` after the kind to match case‐insensitively (e.g.
 `glob-i:"fix*jpeg*"`).
 
-In revsets, string patterns can be combined by using logical operators
+String patterns can be combined by using logical operators
 (e.g. `bookmarks(~glob:"ci/*")`):
 
 * `~x`: Matches everything but `x`.
 * `x & y`: Matches both `x` and `y`.
 * `x ~ y`: Matches `x` but not `y`.
 * `x | y`: Matches either `x` or `y` (or both).
+
+Not all command arguments support logical operators yet.
 
 ## Date patterns
 

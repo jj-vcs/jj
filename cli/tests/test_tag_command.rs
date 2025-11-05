@@ -278,8 +278,13 @@ fn test_tag_list() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "glob:test_tag?"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "glob:'test_tag?'"]), @r"
     test_tag2: zsuskuln 76abdd20 (empty) commit2
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "glob:test* & ~glob:*2"]), @r"
+    test_tag: rlvkpnrz 893e67dc (empty) commit1
     [EOF]
     ");
 
