@@ -873,8 +873,7 @@ fn test_all_modifier() {
     [exit status: 1]
     ");
 
-    // immutable_heads() alias may be parsed as a top-level expression, but
-    // still, modifier shouldn't be allowed there.
+    // Modifier shouldn't be allowed in a top-level immutable_heads() expression
     let output = work_dir.run_jj([
         "new",
         "--config=revset-aliases.'immutable_heads()'='all:@'",
@@ -883,12 +882,12 @@ fn test_all_modifier() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Invalid `revset-aliases.immutable_heads()`
-    Caused by:  --> 1:1
+    Caused by:  --> 1:4
       |
     1 | all:@
-      | ^-^
+      |    ^
       |
-      = Modifier `all:` is not allowed in sub expression
+      = `:` is not an infix operator
     For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
