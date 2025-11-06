@@ -14,6 +14,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Add support for push options in `jj git push` with the `--option` flag.
+  This allows users to pass options to the remote server when pushing commits.
+  The short alias `-o` is also supported.
+
 ### Fixed bugs
 
 ## [0.35.0] - 2025-11-05
