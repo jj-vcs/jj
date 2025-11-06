@@ -1,0 +1,407 @@
+- Use case: Create a new repo
+  Git command: >
+    `git init`
+  Jujutsu command: >
+    `jj git init [--no-colocate]`
+  Notes: ''
+
+- Use case: Clone an existing repo
+  Git command: >
+    `git clone <source> <destination> [--origin <remote name>]`
+  Jujutsu command: >
+    `jj git clone <source> <destination> [--remote <remote name>]`
+  Notes: There is no support for cloning non-Git repos yet.
+
+# TODO: Mention that you might need to do a `jj bookmark track branch@remote` to see the
+# bookmark in `jj log`.
+- Use case: Update the local repo with all bookmarks/branches from a remote
+  Git command: >
+    `git fetch [<remote>]`
+  Jujutsu command: >
+    `jj git fetch [--remote <remote>]`
+  Notes: There is no support for fetching into non-Git repos yet.
+
+# TODO: This only affects tracked branches now.
+- Use case: Update a remote repo with all bookmarks/branches from the local repo
+  Git command: >
+    `git push --all [<remote>]`
+  Jujutsu command: >
+    `jj git push --all [--remote <remote>]`
+  Notes: There is no support for pushing from non-Git repos yet.
+
+- Use case: Update a remote repo with a single bookmark from the local repo
+  Git command: >
+    `git push <remote> <bookmark name>`
+  Jujutsu command: >
+    `jj git push --bookmark <bookmark name> [--remote <remote>]`
+  Notes: There is no support for pushing from non-Git repos yet.
+
+- Use case: Add a remote target to the repo
+  Git command: >
+    `git remote add <remote> <url>`
+  Jujutsu command: >
+    `jj git remote add <remote> <url>`
+  Notes: ''
+
+- Use case: Show summary of current work and repo status
+  Git command: >
+    `git status`
+  Jujutsu command: >
+    `jj st`
+  Notes: ''
+
+- Use case: Show diff of the current change
+  Git command: >
+    `git diff HEAD`
+  Jujutsu command: >
+    `jj diff`
+  Notes: ''
+
+- Use case: Show diff of another change
+  Git command: >
+    `git diff <revision>^ <revision>`
+  Jujutsu command: >
+    `jj diff -r <revision>`
+  Notes: ''
+
+- Use case: Show diff from another change to the current change
+  Git command: >
+    `git diff <revision>`
+  Jujutsu command: >
+    `jj diff --from <revision>`
+  Notes: ''
+
+- Use case: Show diff from change A to change B
+  Git command: >
+    `git diff A B`
+  Jujutsu command: >
+    `jj diff --from A --to B`
+  Notes: ''
+
+- Use case: Show all the changes in A..B
+  Git command: >
+    `git diff A...B`
+  Jujutsu command: >
+    `jj diff -r A..B`
+  Notes: ''
+
+- Use case: Show description and diff of a change
+  Git command: >
+    `git show <revision>`
+  Jujutsu command: >
+    `jj show <revision>`
+  Notes: ''
+
+- Use case: Add a file to the current change
+  Git command: >
+    `touch filename; git add filename`
+  Jujutsu command: >
+    `touch filename`
+  Notes: ''
+
+- Use case: Remove a file from the current change
+  Git command: >
+    `git rm filename`
+  Jujutsu command: >
+    `rm filename`
+  Notes: ''
+
+- Use case: Remove a previously tracked file from the current change, but keep it in the working copy
+  Git command: >
+    `git rm --cached filename`
+  Jujutsu command: >
+    `jj file untrack filename`
+  Notes: 'File name must match an ignore pattern to remain untracked. See <a href="../working-copy/#introduction">the documentation for working copies</a> for more.'
+
+- Use case: Modify a file in the current change
+  Git command: >
+    `echo stuff >> filename`
+  Jujutsu command: >
+    `echo stuff >> filename`
+  Notes: ''
+
+- Use case: Finish work on the current change and start a new change
+  Git command: >
+    `git commit -a`
+  Jujutsu command: >
+    `jj commit`
+  Notes: ''
+
+- Use case: See log of ancestors of the current commit
+  Git command: >
+    `git log --oneline --graph --decorate`
+  Jujutsu command: >
+    `jj log -r ::@`
+  Notes: ''
+
+- Use case: See log of all reachable commits
+  Git command: >
+    `git log --oneline --graph --decorate --branches`
+  Jujutsu command: >
+    `jj log -r 'all()'`
+    or `jj log -r ::`
+  Notes: ''
+
+- Use case: Show log of commits not on the main branch
+  Git command: (TODO)
+  Jujutsu command: >
+    `jj log`
+  Notes: ''
+
+- Use case: Show log of commits adding/removing the string "stuff"
+  Git command: >
+    `git log -G stuff`
+  Jujutsu command: >
+    `jj log -r 'diff_contains(stuff)'`
+  Notes: ''
+
+- Use case: List versioned files in the working copy
+  Git command: >
+    `git ls-files --cached`
+  Jujutsu command: >
+    `jj file list`
+  Notes: ''
+
+- Use case: Search among files versioned in the repository
+  Git command: >
+    `git grep foo`
+  Jujutsu command: >
+    `grep foo $(jj file list)`
+    or `rg --no-require-git foo`
+  Notes: ''
+
+- Use case: Abandon the current change and start a new change
+  Git command: >
+    `git reset --hard`
+    (cannot be undone)
+  Jujutsu command: >
+    `jj abandon`
+  Notes: ''
+
+- Use case: Make the current change empty
+  Git command: >
+    `git reset --hard`
+    (same as abandoning a change since Git has no concept of a "change")
+  Jujutsu command: >
+    `jj restore`
+  Notes: ''
+
+- Use case: Abandon the parent of the working copy, but keep its diff in the working copy
+  Git command: >
+    `git reset --soft HEAD~`
+  Jujutsu command: >
+    `jj squash --from @-`
+  Notes: ''
+
+- Use case: Discard working copy changes in some files
+  Git command: >
+    `git restore <paths>...`
+    or `git checkout HEAD -- <paths>...`
+  Jujutsu command: >
+    `jj restore <paths>...`
+  Notes: ''
+
+- Use case: Edit description (commit message) of the current change
+  Git command: Not supported
+  Jujutsu command: >
+    `jj describe`
+  Notes: ''
+
+- Use case: Edit description (commit message) of the previous change
+  Git command: >
+    `git commit --amend --only`
+  Jujutsu command: >
+    `jj describe @-`
+  Notes: ''
+
+- Use case: Temporarily put away the current change
+  Git command: >
+    `git stash`
+  Jujutsu command: >
+    `jj new @-`
+  Notes: >
+    The old working-copy commit remains as a sibling commit.
+    The old working-copy commit X can be restored with `jj edit X`.
+
+- Use case: Start working on a new change based on the <main> bookmark/branch
+  Git command: >
+    `git switch -c topic main`
+    or `git checkout -b topic main`
+    (may need to stash or commit first)
+  Jujutsu command: >
+    `jj new main`
+  Notes: ''
+
+- Use case: Merge branch A into the current change
+  Git command: >
+    `git merge A`
+  Jujutsu command: >
+    `jj new @ A`
+  Notes: ''
+
+- Use case: Check out a named revision (or branch) to examine source
+  Git command: >
+    `git checkout v1.0.1`
+  Jujutsu command: >
+    `jj new v1.0.1`
+  Notes: 'Creates new empty change on top (see `jj new main`)'
+
+- Use case: Move bookmark/branch A onto bookmark/branch B
+  Git command: >
+    `git rebase B A`
+    (may need to rebase other descendant branches separately)
+  Jujutsu command: >
+    `jj rebase -b A -d B`
+  Notes: ''
+
+- Use case: Move change A and its descendants onto change B
+  Git command: >
+    `git rebase --onto B A^ <some descendant bookmark>`
+    (may need to rebase other descendant bookmarks separately)
+  Jujutsu command: >
+    `jj rebase -s A -d B`
+  Notes: ''
+
+- Use case: Reorder changes from A-B-C-D to A-C-B-D
+  Git command: >
+    `git rebase -i A`
+  Jujutsu command: >
+    `jj rebase -r C --before B`
+  Notes: ''
+
+- Use case: Move the diff in the current change into the parent change
+  Git command: >
+    `git commit --amend -a`
+  Jujutsu command: >
+    `jj squash`
+  Notes: ''
+
+- Use case: Interactively move part of the diff in the current change into the parent change
+  Git command: >
+    `git add -p; git commit --amend`
+  Jujutsu command: >
+    `jj squash -i`
+  Notes: ''
+
+- Use case: Move the diff in the working copy into an ancestor
+  Git command: >
+    `git commit --fixup=X; git rebase -i --autosquash X^`
+  Jujutsu command: >
+    `jj squash --into X`
+  Notes: ''
+
+- Use case:
+    Interactively move part of the diff in an arbitrary change to another arbitrary
+    change
+  Git command: Not supported
+  Jujutsu command: >
+    `jj squash -i --from X --into Y`
+  Notes: ''
+
+- Use case: Interactively split the changes in the working copy in two
+  Git command: >
+    `git commit -p`
+  Jujutsu command: >
+    `jj split`
+  Notes: ''
+
+- Use case: Interactively split an arbitrary change in two
+  Git command: >
+    Not supported
+    (can be emulated with the "edit" action in `git rebase -i`)
+  Jujutsu command: >
+    `jj split -r <revision>`
+  Notes: ''
+
+- Use case: Interactively edit the diff in a given change
+  Git command: >
+    Not supported
+    (can be emulated with the "edit" action in `git rebase -i`)
+  Jujutsu command: >
+    `jj diffedit -r <revision>`
+  Notes: ''
+
+- Use case: Resolve conflicts and continue interrupted operation
+  Git command: >
+    `echo resolved > filename; git add filename; git rebase/merge/cherry-pick
+    --continue`
+  Jujutsu command: >
+    `echo resolved > filename; jj squash`
+  Notes: Operations don't get interrupted, so no need to continue.
+
+- Use case: Create a copy of a commit on top of another commit
+  Git command: >
+    `git co <destination>; git cherry-pick <source>`
+  Jujutsu command: >
+    `jj duplicate <source> -d <destination>`
+  Notes: ''
+
+- Use case: Find the root of the working copy (or check if in a repo)
+  Git command: >
+    `git rev-parse --show-toplevel`
+  Jujutsu command: >
+    `jj workspace root`
+  Notes: ''
+
+- Use case: List bookmarks/branches
+  Git command: >
+    `git branch`
+  Jujutsu command: >
+    `jj bookmark list`
+    or `jj b l` for short
+  Notes: ''
+
+- Use case: Create a bookmark/branch
+  Git command: >
+    `git branch <name> <revision>`
+  Jujutsu command: >
+    `jj bookmark create <name> -r <revision>`
+  Notes: ''
+
+- Use case: Move a bookmark/branch forward
+  Git command: >
+    `git branch -f <name> <revision>`
+  Jujutsu command: >
+    `jj bookmark move <name> --to <revision>`
+    or `jj b m <name> --to <revision>` for short
+  Notes: ''
+
+- Use case: Move a bookmark/branch backward or sideways
+  Git command: >
+    `git branch -f <name> <revision>`
+  Jujutsu command: >
+    `jj bookmark move <name> --to <revision> --allow-backwards`
+  Notes: ''
+
+- Use case: Delete a bookmark/branch
+  Git command: >
+    `git branch --delete <name>`
+  Jujutsu command: >
+    `jj bookmark delete <name>`
+  Notes: ''
+
+- Use case: See log of operations performed on the repo
+  Git command: Not supported
+  Jujutsu command: >
+    `jj op log`
+  Notes: ''
+
+- Use case: Undo an earlier operation
+  Git command: Not supported
+  Jujutsu command: >
+    `jj undo`
+  Notes: 'A matching `jj redo` command exists as well.'
+
+- Use case: Create a commit that cancels out a previous commit
+  Git command: >
+    `git revert <revision>`
+  Jujutsu command: >
+    `jj revert -r <revision> -B @`
+  Notes: ''
+
+- Use case: Show what revision and author last modified each line of a file
+  Git command: >
+    `git blame <file>`
+  Jujutsu command: >
+    `jj file annotate <path>`
+  Notes: ''
