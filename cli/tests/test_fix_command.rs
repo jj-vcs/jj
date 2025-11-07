@@ -65,6 +65,30 @@ fn test_config_no_tools() {
 }
 
 #[test]
+fn test_config_nonexistent_tool() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(
+        r###"
+        [fix.tools.my-tool]
+        command = ["nonexistent-fix-tool-binary"]
+        patterns = ["glob:**"]
+        "###,
+    );
+
+    work_dir.write_file("file", "content\n");
+    let output = work_dir.run_jj(["fix"]);
+    // TODO: We inform the user about the non-existent tool
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fixed 0 commits of 1 checked.
+    Nothing changed.
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_config_multiple_tools() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
