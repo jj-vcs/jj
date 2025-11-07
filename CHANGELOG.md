@@ -17,11 +17,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   point in the future, but we realize that they are deep in muscle memory, so
   you can expect an unusually long deprecation period.
 
+* `jj describe --edit` is deprecated in favor of `--editor`.
+
 ### New features
 
-* `jj commit`, `jj split`, and `jj squash` now accept `--editor`, which ensures
-  an editor will be opened with the commit description even if one
-  was provided via `--message`/`-m`.
+* `jj commit`, `jj describe`, `jj squash`, and `jj split` now accept
+  `--editor`, which ensures an editor will be opened with the commit
+  description even if one was provided via `--message`/`-m`.
 
 ### Fixed bugs
 

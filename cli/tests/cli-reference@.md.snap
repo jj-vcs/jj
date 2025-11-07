@@ -815,7 +815,7 @@ Starts an editor to let you edit the description of changes. The editor will be 
 * `--stdin` — Read the change description from stdin
 
    If multiple revisions are specified, the same description will be used for all of them.
-* `--edit` — Open an editor
+* `--editor` — Open an editor to edit the change description
 
    Forces an editor to open when using `--stdin` or `--message` to allow the message to be edited afterwards.
 

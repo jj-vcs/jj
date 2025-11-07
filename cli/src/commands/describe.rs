@@ -81,13 +81,20 @@ pub(crate) struct DescribeArgs {
     /// Don't open an editor
     ///
     /// This is mainly useful in combination with e.g. `--reset-author`.
-    #[arg(long, hide = true, conflicts_with = "edit")]
+    #[arg(long, hide = true, conflicts_with_all = ["edit", "editor"])]
     no_edit: bool,
-    /// Open an editor
+    /// Open an editor to edit the change description
     ///
     /// Forces an editor to open when using `--stdin` or `--message` to
     /// allow the message to be edited afterwards.
     #[arg(long)]
+    editor: bool,
+    // TODO: Delete in jj 0.42.0+
+    /// Open an editor to edit the change description
+    ///
+    /// Forces an editor to open when using `--stdin` or `--message` to
+    /// allow the message to be edited afterwards.
+    #[arg(long, hide = true, conflicts_with = "editor")]
     edit: bool,
     // TODO: Delete in jj 0.40.0+
     /// Reset the author name, email, and timestamp
@@ -125,6 +132,12 @@ pub(crate) fn cmd_describe(
         writeln!(
             ui.warning_default(),
             "`jj describe --no-edit` is deprecated; use `jj metaedit` instead"
+        )?;
+    }
+    if args.edit {
+        writeln!(
+            ui.warning_default(),
+            "`jj describe --edit` is deprecated; use `jj describe --editor` instead"
         )?;
     }
     if args.reset_author {
@@ -205,7 +218,7 @@ pub(crate) fn cmd_describe(
         })
         .collect_vec();
 
-    let use_editor = args.edit || (shared_description.is_none() && !args.no_edit);
+    let use_editor = args.editor || args.edit || (shared_description.is_none() && !args.no_edit);
 
     if let Some(trailer_template) = parse_trailers_template(ui, &tx)? {
         for commit_builder in &mut commit_builders {
