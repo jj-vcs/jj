@@ -833,6 +833,12 @@
                     "type": "boolean",
                     "description": "If true, bookmarks will move to the second commit instead of the first.",
                     "default": true
+                },
+                "editor-mode": {
+                    "type": "string",
+                    "description": "How to open the editor for commit descriptions during split. 'sequential' opens two editors one after another (default). 'vsplit' opens both descriptions side-by-side in a single editor session using the --vsplit flag (requires editor support, e.g., Helix).",
+                    "enum": ["sequential", "vsplit"],
+                    "default": "sequential"
                 }
             }
         },
