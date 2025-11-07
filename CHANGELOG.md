@@ -63,6 +63,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   pattern. New bookmarks matching it will automatically track that remote.
   See <https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks>.
 
+* `jj file untrack` now succeeds even if not all paths matching the fileset are
+  ignored. Files that match the fileset but aren't ignored will not be untracked.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
