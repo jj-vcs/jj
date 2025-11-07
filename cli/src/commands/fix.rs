@@ -297,6 +297,13 @@ fn run_tool(
     if output.status.success() {
         Ok(output.stdout)
     } else {
+        writeln!(
+            ui.warning_default(),
+            "Fix tool `{}` exited with non-zero exit code for `{}`",
+            tool_command.split_name(),
+            path_converter.format_file_path(&file_to_fix.repo_path)
+        )
+        .ok();
         Err(())
     }
 }

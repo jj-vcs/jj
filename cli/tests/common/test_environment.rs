@@ -213,7 +213,6 @@ impl TestEnvironment {
         self.env_vars.insert(key.into(), val.into());
     }
 
-    #[allow(dead_code)]
     pub fn add_paths_to_normalize(
         &mut self,
         path: impl Into<PathBuf>,
