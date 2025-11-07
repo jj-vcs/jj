@@ -621,6 +621,9 @@ Otherwise, this command is very similar to `jj split`. Differences include:
 * `-i`, `--interactive` — Interactively choose which changes to include in the first commit
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `-m`, `--message <MESSAGE>` — The change description to use (don't open editor)
+* `--editor` — Open an editor to edit the change description
+
+   Forces an editor to open when using `--message` to allow the message to be edited afterwards.
 
 
 

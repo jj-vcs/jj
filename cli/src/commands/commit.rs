@@ -63,6 +63,12 @@ pub(crate) struct CommitArgs {
     /// The change description to use (don't open editor)
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Vec<String>,
+    /// Open an editor to edit the change description
+    ///
+    /// Forces an editor to open when using `--message` to allow the
+    /// message to be edited afterwards.
+    #[arg(long)]
+    editor: bool,
     /// Put these paths in the first commit
     #[arg(
         value_name = "FILESETS",
@@ -169,7 +175,7 @@ new working-copy commit.
 
     let description = if !args.message_paragraphs.is_empty() {
         let mut description = join_message_paragraphs(&args.message_paragraphs);
-        if !description.is_empty() {
+        if !description.is_empty() || args.editor {
             // The first trailer would become the first line of the description.
             // Also, a commit with no description is treated in a special way in jujutsu: it
             // can be discarded as soon as it's no longer the working copy. Adding a
@@ -179,7 +185,9 @@ new working-copy commit.
         }
         description
     } else {
-        let description = add_trailers(ui, &tx, &commit_builder)?;
+        add_trailers(ui, &tx, &commit_builder)?
+    };
+    let description = if args.message_paragraphs.is_empty() || args.editor {
         commit_builder.set_description(description);
         let temp_commit = commit_builder.write_hidden()?;
         let intro = "";
@@ -195,6 +203,8 @@ new working-copy commit.
                 "
             )?;
         }
+        description
+    } else {
         description
     };
     commit_builder.set_description(description);

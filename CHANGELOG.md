@@ -19,7 +19,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
-* `jj split` and `jj squash` now accept `--editor`, which ensures
+* `jj commit`, `jj split`, and `jj squash` now accept `--editor`, which ensures
   an editor will be opened with the commit description even if one
   was provided via `--message`/`-m`.
 
