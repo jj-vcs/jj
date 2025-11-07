@@ -194,8 +194,10 @@ pub fn cmd_bookmark_list(
             .is_none_or(|bookmark_names| bookmark_names.contains(name))
             && (!args.conflicted || target.local_target.has_conflict())
     });
+    let mut any_conflicts = false;
     for (name, bookmark_target) in bookmarks_to_list {
         let local_target = bookmark_target.local_target;
+        any_conflicts |= local_target.has_conflict();
         let remote_refs = bookmark_target.remote_refs;
         let (mut tracked_remote_refs, untracked_remote_refs) = remote_refs
             .iter()
@@ -272,6 +274,13 @@ pub fn cmd_bookmark_list(
         .flat_map(|item| itertools::chain([&item.primary], &item.tracked))
         .try_for_each(|commit_ref| template.format(commit_ref, formatter.as_mut()))?;
     drop(formatter);
+
+    if any_conflicts {
+        writeln!(
+            ui.hint_default(),
+            "Some bookmarks have conflicts. Use `jj bookmark set <name> -r <rev>` to resolve."
+        )?;
+    }
 
     #[cfg(feature = "git")]
     if jj_lib::git::get_git_backend(repo.store()).is_ok() {

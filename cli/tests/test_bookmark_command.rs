@@ -2277,6 +2277,9 @@ fn test_bookmark_list_conflicted() {
       + rlvkpnrz 4e1b2d80 (empty) a
       + kkmpptxz a82129fb (empty) b
     [EOF]
+    ------- stderr -------
+    Hint: Some bookmarks have conflicts. Use `jj bookmark set <name> -r <rev>` to resolve.
+    [EOF]
     ");
 }
 
