@@ -252,7 +252,21 @@ impl TestEnvironment {
 
     #[must_use]
     fn normalize_output(&self, raw: String) -> CommandOutputString {
-        let normalized = normalize_output(&raw, &self.env_root);
+        let text = raw.replace("jj.exe", "jj");
+        let env_root = self.env_root.display().to_string();
+        // Platform-native $TEST_ENV
+        let regex = Regex::new(&format!(r"{}(\S+)", regex::escape(&env_root))).unwrap();
+        let text = regex.replace_all(&text, |caps: &Captures| {
+            format!("$TEST_ENV{}", caps[1].replace('\\', "/"))
+        });
+        // Slash-separated $TEST_ENV
+        let text = if cfg!(windows) {
+            let regex = Regex::new(&regex::escape(&env_root.replace('\\', "/"))).unwrap();
+            regex.replace_all(&text, regex::NoExpand("$TEST_ENV"))
+        } else {
+            text
+        };
+        let normalized = text.into_owned();
         CommandOutputString { raw, normalized }
     }
 
@@ -368,22 +382,4 @@ impl TestWorkDir<'_> {
         }
         std::fs::write(self.root.join(path), contents).unwrap();
     }
-}
-
-fn normalize_output(text: &str, env_root: &Path) -> String {
-    let text = text.replace("jj.exe", "jj");
-    let env_root = env_root.display().to_string();
-    // Platform-native $TEST_ENV
-    let regex = Regex::new(&format!(r"{}(\S+)", regex::escape(&env_root))).unwrap();
-    let text = regex.replace_all(&text, |caps: &Captures| {
-        format!("$TEST_ENV{}", caps[1].replace('\\', "/"))
-    });
-    // Slash-separated $TEST_ENV
-    let text = if cfg!(windows) {
-        let regex = Regex::new(&regex::escape(&env_root.replace('\\', "/"))).unwrap();
-        regex.replace_all(&text, regex::NoExpand("$TEST_ENV"))
-    } else {
-        text
-    };
-    text.into_owned()
 }
