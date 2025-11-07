@@ -227,6 +227,103 @@ fn test_concurrent_snapshot_wc_reloadable() {
     ");
 }
 
+#[test]
+#[should_panic(expected = "Race condition detected")]
+fn test_git_head_race_condition() {
+    // Test for race condition where concurrent jj processes create divergent
+    // operations when importing/exporting Git HEAD. This test spawns two
+    // processes in parallel: one running `jj debug snapshot` repeatedly
+    // (which imports Git HEAD) and another running `jj next/prev` repeatedly
+    // (which exports Git HEAD). Without the fix, this would create divergent
+    // operations.
+
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a large initial working copy to make snapshotting slower
+    for j in 0..200 {
+        let filename = format!("file_{j}");
+        let content = format!("content for file {j}\n").repeat(100);
+        work_dir.write_file(&filename, &content);
+    }
+    work_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    // Create additional commits to iterate through with jj next/prev
+    for i in 0..10 {
+        for j in 0..50 {
+            let filename = format!("file_{i}_{j}");
+            let content = format!("content for commit {i} file {j}\n").repeat(100);
+            work_dir.write_file(&filename, &content);
+        }
+        work_dir
+            .run_jj(["commit", "-m", &format!("commit {i}")])
+            .success();
+    }
+
+    // Extract environment from TestEnvironment to use in spawned processes
+    let base_cmd = test_env.new_jj_cmd();
+    let jj_bin = base_cmd.get_program().to_owned();
+    let base_env: Vec<_> = base_cmd
+        .get_envs()
+        .filter_map(|(k, v)| v.map(|v| (k.to_owned(), v.to_owned())))
+        // Filter out timestamp and randomness seed so each command gets different values
+        .filter(|(k, _)| k != "JJ_TIMESTAMP" && k != "JJ_OP_TIMESTAMP" && k != "JJ_RANDOMNESS_SEED")
+        .collect();
+
+    let repo_path = work_dir.root();
+    let duration = std::time::Duration::from_secs(5);
+    let start = std::time::Instant::now();
+
+    std::thread::scope(|s| {
+        s.spawn(|| {
+            while start.elapsed() < duration {
+                // Snapshot repeatedly without delay
+                let mut cmd = std::process::Command::new(&jj_bin);
+                cmd.current_dir(repo_path);
+                cmd.args(["debug", "snapshot"]);
+                for (key, value) in &base_env {
+                    cmd.env(key, value);
+                }
+                let _ = cmd.output();
+            }
+        });
+
+        s.spawn(|| {
+            let mut count = 0;
+            while start.elapsed() < duration {
+                // Go through commit history back and forth
+                let direction = if count % 20 < 10 { "prev" } else { "next" };
+                let mut cmd = std::process::Command::new(&jj_bin);
+                cmd.current_dir(repo_path);
+                cmd.arg(direction);
+                for (key, value) in &base_env {
+                    cmd.env(key, value);
+                }
+                let _ = cmd.output();
+                count += 1;
+            }
+        });
+    });
+
+    // Check for concurrent operations
+    let output = work_dir.run_jj(["op", "log", "-T", "description", "--ignore-working-copy"]);
+    let concurrent_count = output
+        .stdout
+        .raw()
+        .lines()
+        .filter(|line| line.contains("import git head"))
+        .count();
+
+    if concurrent_count > 0 {
+        eprintln!("Found {concurrent_count} concurrent operations:");
+        eprintln!("{}", output.stdout.raw());
+        panic!("Race condition detected: {concurrent_count} concurrent operations found");
+    }
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj(["log", "-T", "description"])
