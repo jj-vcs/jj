@@ -2797,6 +2797,9 @@ Splitting an empty commit is not supported because the same effect can be achiev
 * `-m`, `--message <MESSAGE>` — The change description to use (don't open editor)
 
    The description is used for the commit with the selected changes. The source commit description is kept unchanged.
+* `--editor` — Open an editor to edit the change description
+
+   Forces an editor to open when using `--message` to allow the message to be edited afterwards.
 * `-p`, `--parallel` — Split the revision into two parallel revisions instead of a parent and child
 
 

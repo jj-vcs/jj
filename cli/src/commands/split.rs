@@ -127,6 +127,12 @@ pub(crate) struct SplitArgs {
     /// source commit description is kept unchanged.
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Vec<String>,
+    /// Open an editor to edit the change description
+    ///
+    /// Forces an editor to open when using `--message` to allow the
+    /// message to be edited afterwards.
+    #[arg(long)]
+    editor: bool,
     /// Split the revision into two parallel revisions instead of a parent and
     /// child
     #[arg(long, short)]
@@ -235,21 +241,25 @@ pub(crate) fn cmd_split(
             // become divergent.
             commit_builder.generate_new_change_id();
         }
-        let description = if !args.message_paragraphs.is_empty() {
-            let description = join_message_paragraphs(&args.message_paragraphs);
-            if !description.is_empty() {
-                commit_builder.set_description(description);
-                add_trailers(ui, &tx, &commit_builder)?
-            } else {
-                description
-            }
+        let description = if args.message_paragraphs.is_empty() {
+            commit_builder.description().to_owned()
         } else {
-            let new_description = add_trailers(ui, &tx, &commit_builder)?;
-            commit_builder.set_description(new_description);
+            join_message_paragraphs(&args.message_paragraphs)
+        };
+        let description = if !description.is_empty() || args.editor {
+            commit_builder.set_description(description);
+            add_trailers(ui, &tx, &commit_builder)?
+        } else {
+            description
+        };
+        let description = if args.editor || args.message_paragraphs.is_empty() {
+            commit_builder.set_description(description);
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the selected changes.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
+        } else {
+            description
         };
         commit_builder.set_description(description);
         commit_builder.write(tx.repo_mut())?
@@ -276,6 +286,7 @@ pub(crate) fn cmd_split(
         };
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_parents(parents).set_tree(new_tree);
+        let mut show_editor = args.editor;
         if !use_move_flags {
             commit_builder.clear_rewrite_source();
             // Generate a new change id so that the commit being split doesn't
@@ -286,16 +297,20 @@ pub(crate) fn cmd_split(
             // If there was no description before, don't ask for one for the
             // second commit.
             "".to_string()
-        } else if !args.message_paragraphs.is_empty() {
+        } else {
+            show_editor = show_editor || args.message_paragraphs.is_empty();
             // Just keep the original message unchanged
             commit_builder.description().to_owned()
-        } else {
+        };
+        let description = if show_editor {
             let new_description = add_trailers(ui, &tx, &commit_builder)?;
             commit_builder.set_description(new_description);
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the remaining changes.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
+        } else {
+            description
         };
         commit_builder.set_description(description);
         commit_builder.write(tx.repo_mut())?

@@ -1563,3 +1563,207 @@ fn test_split_with_bookmarks(bookmark_behavior: BookmarkBehavior) {
         }
     }
 }
+
+#[test]
+fn test_split_with_editor_and_message_args() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir
+        .run_jj(["describe", "-m", "original description"])
+        .success();
+
+    std::fs::write(
+        &edit_script,
+        [
+            "dump editor1",
+            "write\nedited message 1",
+            "next invocation\n",
+            "dump editor2",
+            "write\nedited message 2",
+        ]
+        .join("\0"),
+    )
+    .unwrap();
+    work_dir
+        .run_jj([
+            "split",
+            "-m",
+            "message from command line",
+            "--editor",
+            "file1",
+        ])
+        .success();
+
+    // Verify editor was opened for the first commit with message from command line
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+    JJ: Enter a description for the selected changes.
+    message from command line
+
+    JJ: Change ID: qpvuntsm
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+
+    // Verify editor was opened for the second commit with the original description
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
+    JJ: Enter a description for the remaining changes.
+    original description
+
+    JJ: Change ID: kkmpptxz
+    JJ: This commit contains the following changes:
+    JJ:     A file2
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  kkmpptxzrspx false edited message 2
+    ○  qpvuntsmwlqt false edited message 1
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_split_with_editor_and_empty_message() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir
+        .run_jj(["describe", "-m", "original description"])
+        .success();
+
+    // Use --editor with an empty message. The trailers should be added because
+    // the editor will be opened.
+    std::fs::write(
+        &edit_script,
+        [
+            "dump editor1",
+            "write\nfirst commit",
+            "next invocation\n",
+            "dump editor2",
+            "write\nsecond commit",
+        ]
+        .join("\0"),
+    )
+    .unwrap();
+    work_dir
+        .run_jj([
+            "split",
+            "-m",
+            "",
+            "--editor",
+            "--config",
+            r#"templates.commit_trailers='"Trailer: value"'"#,
+            "file1",
+        ])
+        .success();
+
+    // Verify editor was opened for the first commit with trailers added to the
+    // empty message
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+    JJ: Enter a description for the selected changes.
+
+
+    Trailer: value
+
+    JJ: Change ID: qpvuntsm
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    // Verify editor was opened for the second commit with the original description
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor2")).unwrap(), @r#"
+    JJ: Enter a description for the remaining changes.
+    original description
+
+    Trailer: value
+
+    JJ: Change ID: kkmpptxz
+    JJ: This commit contains the following changes:
+    JJ:     A file2
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  kkmpptxzrspx false second commit
+    ○  qpvuntsmwlqt false first commit
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_split_with_editor_without_message() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir
+        .run_jj(["describe", "-m", "original description"])
+        .success();
+
+    // --editor without -m should behave the same as without --editor (normal flow)
+    std::fs::write(
+        &edit_script,
+        [
+            "dump editor0",
+            "write\nfrom editor1",
+            "next invocation\n",
+            "dump editor1",
+            "write\nfrom editor2",
+        ]
+        .join("\0"),
+    )
+    .unwrap();
+    work_dir.run_jj(["split", "--editor", "file1"]).success();
+
+    // Verify editor was opened for the first commit
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+    JJ: Enter a description for the selected changes.
+    original description
+
+    JJ: Change ID: qpvuntsm
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    // Verify editor was opened for the second commit
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+    JJ: Enter a description for the remaining changes.
+    original description
+
+    JJ: Change ID: kkmpptxz
+    JJ: This commit contains the following changes:
+    JJ:     A file2
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  kkmpptxzrspx false from editor2
+    ○  qpvuntsmwlqt false from editor1
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+}
