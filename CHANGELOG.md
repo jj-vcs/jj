@@ -18,6 +18,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj fix` now prints a warning if a tool failed to run on a file.
+  [#7971](https://github.com/jj-vcs/jj/issues/7971)
+
 ## [0.35.0] - 2025-11-05
 
 ### Release highlights
