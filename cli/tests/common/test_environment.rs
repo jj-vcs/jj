@@ -38,6 +38,7 @@ pub struct TestEnvironment {
     home_dir: PathBuf,
     config_path: PathBuf,
     env_vars: HashMap<OsString, OsString>,
+    paths_to_normalize: Vec<(PathBuf, String)>,
     config_file_number: RefCell<i64>,
     command_number: RefCell<i64>,
 }
@@ -53,12 +54,16 @@ impl Default for TestEnvironment {
         let config_dir = env_root.join("config");
         std::fs::create_dir(&config_dir).unwrap();
         let env_vars = HashMap::new();
+        let paths_to_normalize = [(env_root.clone(), "$TEST_ENV".to_string())]
+            .into_iter()
+            .collect();
         let env = Self {
             _temp_dir: tmp_dir,
             env_root,
             home_dir,
             config_path: config_dir,
             env_vars,
+            paths_to_normalize,
             config_file_number: RefCell::new(0),
             command_number: RefCell::new(0),
         };
@@ -208,6 +213,16 @@ impl TestEnvironment {
         self.env_vars.insert(key.into(), val.into());
     }
 
+    #[allow(dead_code)]
+    pub fn add_paths_to_normalize(
+        &mut self,
+        path: impl Into<PathBuf>,
+        replacement: impl Into<String>,
+    ) {
+        self.paths_to_normalize
+            .push((path.into(), replacement.into()));
+    }
+
     /// Sets up the fake bisection test command to read a script from the
     /// returned path
     pub fn set_up_fake_bisector(&mut self) -> PathBuf {
@@ -252,21 +267,24 @@ impl TestEnvironment {
 
     #[must_use]
     fn normalize_output(&self, raw: String) -> CommandOutputString {
-        let text = raw.replace("jj.exe", "jj");
-        let env_root = self.env_root.display().to_string();
-        // Platform-native $TEST_ENV
-        let regex = Regex::new(&format!(r"{}(\S+)", regex::escape(&env_root))).unwrap();
-        let text = regex.replace_all(&text, |caps: &Captures| {
-            format!("$TEST_ENV{}", caps[1].replace('\\', "/"))
-        });
-        // Slash-separated $TEST_ENV
-        let text = if cfg!(windows) {
-            let regex = Regex::new(&regex::escape(&env_root.replace('\\', "/"))).unwrap();
-            regex.replace_all(&text, regex::NoExpand("$TEST_ENV"))
-        } else {
-            text
-        };
-        let normalized = text.into_owned();
+        let mut normalized = raw.replace("jj.exe", "jj");
+        for (path, replacement) in &self.paths_to_normalize {
+            let path = path.display().to_string();
+            // Platform-native $TEST_ENV
+            let regex = Regex::new(&format!(r"{}(\S+)", regex::escape(&path))).unwrap();
+            normalized = regex
+                .replace_all(&normalized, |caps: &Captures| {
+                    format!("{}{}", replacement, caps[1].replace('\\', "/"))
+                })
+                .to_string();
+            // Slash-separated $TEST_ENV
+            if cfg!(windows) {
+                let regex = Regex::new(&regex::escape(&path.replace('\\', "/"))).unwrap();
+                normalized = regex
+                    .replace_all(&normalized, regex::NoExpand(replacement))
+                    .to_string();
+            };
+        }
         CommandOutputString { raw, normalized }
     }
 
