@@ -12,6 +12,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* `jj describe --edit` is deprecated in favor of `--editor` / `-E`.
+
 ### New features
 
 * `jj squash` now accepts `--editor` / `-E` to edit the squashed commit message.
