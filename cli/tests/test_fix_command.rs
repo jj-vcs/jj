@@ -64,6 +64,89 @@ fn test_config_no_tools() {
 }
 
 #[test]
+fn test_tool_not_found() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Configure a tool that doesn't exist
+    test_env.add_config(indoc! {"
+        [fix.tools.nonexistent]
+        command = ['nonexistent-tool-that-should-not-exist']
+        patterns = ['all()']
+    "});
+
+    work_dir.write_file("file.txt", "content\n");
+
+    let output = work_dir.run_jj(["fix"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Failed to run tool 'nonexistent-tool-that-should-not-exist': command not found
+    Fixed 0 commits of 1 checked.
+    Nothing changed.
+    [EOF]
+    ");
+
+    // File should remain unchanged
+    let output = work_dir.run_jj(["file", "show", "file.txt", "-r", "@"]);
+    insta::assert_snapshot!(output, @r"
+    content
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_multiple_tools_some_missing() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+
+    // Configure three tools: two that don't exist and one that does
+    test_env.add_config(formatdoc! {"
+        [fix.tools.nonexistent-tool-1]
+        command = ['nonexistent-tool-1']
+        patterns = ['all()']
+
+        [fix.tools.working-tool]
+        command = {command}
+        patterns = ['all()']
+
+        [fix.tools.nonexistent-tool-2]
+        command = ['nonexistent-tool-2']
+        patterns = ['all()']
+        ",
+        command = toml_edit::Value::from_iter(
+            [formatter_path.to_str().unwrap(), "--uppercase"]
+                .iter()
+                .copied()
+        )
+    });
+
+    work_dir.write_file("file.txt", "content\n");
+
+    let output = work_dir.run_jj(["fix"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Failed to run tool 'nonexistent-tool-1': command not found
+    Warning: Failed to run tool 'nonexistent-tool-2': command not found
+    Fixed 1 commits of 1 checked.
+    Working copy  (@) now at: qpvuntsm e09ff5c3 (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+
+    // File should be fixed by the working tool
+    let output = work_dir.run_jj(["file", "show", "file.txt", "-r", "@"]);
+    insta::assert_snapshot!(output, @r"
+    CONTENT
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_config_multiple_tools() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

@@ -273,7 +273,16 @@ fn run_tool(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .or(Err(()))?;
+        .map_err(|err| {
+            if err.kind() == std::io::ErrorKind::NotFound {
+                let tool_binary = tool_command.split_name_and_args().0;
+                writeln!(
+                    ui.warning_default(),
+                    "Failed to run tool '{tool_binary}': command not found"
+                )
+                .ok();
+            }
+        })?;
     let mut stdin = child.stdin.take().unwrap();
     let output = std::thread::scope(|s| {
         s.spawn(move || {
