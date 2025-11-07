@@ -1435,9 +1435,9 @@ Stop tracking specified paths in the working copy
 
 ###### **Arguments:**
 
-* `<FILESETS>` — Paths to untrack. They must already be ignored.
+* `<FILESETS>` — Paths to untrack.
 
-   The paths could be ignored via a .gitignore or .git/info/exclude (in colocated workspaces).
+   Paths must be ignored to be untracked. Any paths that are not ignored will remain tracked. The paths could be ignored via a .gitignore or .git/info/exclude (in colocated workspaces).
 
 
 

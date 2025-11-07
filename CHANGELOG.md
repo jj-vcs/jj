@@ -70,6 +70,9 @@ and this project adheres to
   different than `self.target().current_working_copy()` because multiple
   workspaces can point to the same commit.
 
+* `jj file untrack` now succeeds even if not all paths matching the fileset are
+  ignored. Files that match the fileset but aren't ignored will not be untracked.
+
 ### Fixed bugs
 
 * The operations created by `jj workspace add` are now attributed to the
