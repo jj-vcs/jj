@@ -946,7 +946,16 @@ mod tests {
             }
             ExpressionKind::UnionAll(nodes) => {
                 let nodes = normalize_list(nodes);
-                ExpressionKind::UnionAll(nodes)
+                // Flatten nested UnionAll nodes after normalization.
+                let mut flattened = Vec::new();
+                for node in nodes {
+                    if let ExpressionKind::UnionAll(inner_nodes) = node.kind {
+                        flattened.extend(inner_nodes);
+                    } else {
+                        flattened.push(node);
+                    }
+                }
+                ExpressionKind::UnionAll(flattened)
             }
             ExpressionKind::FunctionCall(function) => {
                 let function = Box::new(normalize_function_call(*function));
@@ -1901,6 +1910,91 @@ mod tests {
                 .set_local("A", "a")
                 .parse_normalized("A|B|F(A)"),
             parse_normalized("a|A|(a&A)")
+        );
+    }
+
+    #[test]
+    fn test_expand_alias_super() {
+        // Basic symbol alias with super.
+        assert_eq!(
+            with_aliases([("immutable", "main"), ("immutable", "super | @-")])
+                .parse_normalized("immutable"),
+            parse_normalized("main | @-")
+        );
+
+        // Multiple layers of super.
+        assert_eq!(
+            with_aliases([
+                ("base", "main"),
+                ("base", "super | @-"),
+                ("base", "super | tags()"),
+            ])
+            .parse_normalized("base"),
+            parse_normalized("(main | @-) | tags()")
+        );
+
+        // No argument function.
+        assert_eq!(
+            with_aliases([("heads()", "main"), ("heads()", "super() | @-")])
+                .parse_normalized("heads()"),
+            parse_normalized("main | @-")
+        );
+
+        // One argument.
+        assert_eq!(
+            with_aliases([
+                ("immutable(x)", "x & main"),
+                ("immutable(x)", "super(x) | @-")
+            ])
+            .parse_normalized("immutable(heads())"),
+            parse_normalized("(heads() & main) | @-")
+        );
+
+        // Multiple layers for function.
+        assert_eq!(
+            with_aliases([
+                ("base(x)", "x & main"),
+                ("base(x)", "super(x) | @-"),
+                ("base(x)", "super(x) | tags()"),
+            ])
+            .parse_normalized("base(heads())"),
+            parse_normalized("((heads() & main) | @-) | tags()")
+        );
+    }
+
+    #[test]
+    fn test_expand_alias_super_error() {
+        // Error: super without previous definition.
+        assert_eq!(
+            *with_aliases([("solo", "super")])
+                .parse("solo")
+                .unwrap_err()
+                .kind,
+            RevsetParseErrorKind::InAliasExpansion("solo".to_owned())
+        );
+
+        // Error: super() used outside alias.
+        let aliases: Vec<(&str, &str)> = vec![];
+        assert_eq!(
+            *with_aliases(aliases).parse("super()").unwrap_err().kind,
+            RevsetParseErrorKind::InvalidFunctionArguments {
+                name: "super".to_owned(),
+                message: "super can only be used within an alias definition".to_owned()
+            }
+        );
+
+        // Error: wrong number of arguments to super() in function alias.
+        assert!(
+            with_aliases([("func(x)", "main"), ("func(x)", "super()")])
+                .parse("func(heads())")
+                .is_err()
+        );
+
+        // Error: super() with parentheses should not work in symbol alias.
+        assert!(
+            with_aliases([("symbol", "main"), ("symbol", "super() | tags()")])
+                .parse("symbol")
+                .is_err()
         );
     }
 }
