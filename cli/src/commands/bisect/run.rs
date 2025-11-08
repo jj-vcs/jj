@@ -52,7 +52,7 @@ use crate::ui::Ui;
 ///
 /// Example: To run `cargo test` with the changes from revision `xyz` applied:
 ///
-/// `jj bisect --range v1.0..main -- bash -c "jj duplicate -r xyz -B @ && cargo
+/// `jj bisect run --range v1.0..main -- bash -c "jj duplicate -r xyz -B @ && cargo
 /// test"`
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct BisectRunArgs {
