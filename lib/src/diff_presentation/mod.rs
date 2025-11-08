@@ -32,6 +32,7 @@ use crate::diff::ContentDiff;
 use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::diff::find_line_ranges;
+use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::repo_path::RepoPath;
 
@@ -113,7 +114,7 @@ pub fn diff_by_line<'input, T: AsRef<[u8]> + ?Sized + 'input>(
 }
 
 /// Splits `[left, right]` hunk pairs into `[left_lines, right_lines]`.
-pub fn unzip_diff_hunks_to_lines<'content, I>(diff_hunks: I) -> [Vec<DiffTokenVec<'content>>; 2]
+pub fn unzip_diff_hunks_to_lines<'content, I>(diff_hunks: I) -> Diff<Vec<DiffTokenVec<'content>>>
 where
     I: IntoIterator,
     I::Item: Borrow<DiffHunk<'content>>,
@@ -164,5 +165,5 @@ where
     if !right_tokens.is_empty() {
         right_lines.push(right_tokens);
     }
-    [left_lines, right_lines]
+    Diff::new(left_lines, right_lines)
 }

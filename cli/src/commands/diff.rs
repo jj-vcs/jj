@@ -17,6 +17,7 @@ use clap_complete::ArgValueCompleter;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
+use jj_lib::merge::Diff;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
 use pollster::FutureExt as _;
@@ -222,7 +223,7 @@ pub(crate) fn cmd_diff(
         .show_diff(
             ui,
             ui.stdout_formatter().as_mut(),
-            [&from_tree, &to_tree],
+            Diff::new(&from_tree, &to_tree),
             &matcher,
             &copy_records,
             ui.term_width(),

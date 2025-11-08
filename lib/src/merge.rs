@@ -46,7 +46,7 @@ use crate::tree::Tree;
 ///
 /// This is not a diff in the `patch(1)` sense. See `diff::ContentDiff` for
 /// that.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Diff<T> {
     /// The state before
     pub before: T,
@@ -66,6 +66,19 @@ impl<T> Diff<T> {
             before: f(self.before),
             after: f(self.after),
         }
+    }
+
+    /// Convert a `&Diff<T>` into a `Diff<&T>`.
+    pub fn as_ref(&self) -> Diff<&T> {
+        Diff {
+            before: &self.before,
+            after: &self.after,
+        }
+    }
+
+    /// Convert a diff into an array `[before, after]`.
+    pub fn into_array(self) -> [T; 2] {
+        [self.before, self.after]
     }
 }
 

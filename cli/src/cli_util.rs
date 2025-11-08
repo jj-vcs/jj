@@ -70,6 +70,7 @@ use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
@@ -3011,18 +3012,22 @@ impl DiffSelector {
     /// Only files matching the `matcher` will be copied to the new tree.
     pub fn select(
         &self,
-        [left_tree, right_tree]: [&MergedTree; 2],
+        trees: Diff<&MergedTree>,
         matcher: &dyn Matcher,
         format_instructions: impl FnOnce() -> String,
     ) -> Result<MergedTree, CommandError> {
-        let selected_tree = restore_tree(right_tree, left_tree, matcher).block_on()?;
+        let selected_tree = restore_tree(trees.after, trees.before, matcher).block_on()?;
         match self {
             Self::NonInteractive => Ok(selected_tree),
             Self::Interactive(editor) => {
                 // edit_diff_external() is designed to edit the right tree,
                 // whereas we want to update the left tree. Unmatched paths
                 // shouldn't be based off the right tree.
-                Ok(editor.edit([left_tree, &selected_tree], matcher, format_instructions)?)
+                Ok(editor.edit(
+                    Diff::new(trees.before, &selected_tree),
+                    matcher,
+                    format_instructions,
+                )?)
             }
         }
     }

@@ -14,6 +14,7 @@
 
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
+use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
@@ -98,7 +99,7 @@ pub(crate) fn cmd_status(
                     .show_diff(
                         ui,
                         formatter,
-                        [&parent_tree, &tree],
+                        Diff::new(&parent_tree, &tree),
                         &matcher,
                         &copy_records,
                         width,

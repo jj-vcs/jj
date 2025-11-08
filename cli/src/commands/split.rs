@@ -19,6 +19,7 @@ use clap_complete::ArgValueCompleter;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::rewrite::CommitWithSelection;
 use jj_lib::rewrite::EmptyBehavior;
@@ -462,7 +463,7 @@ The changes that are not selected will replace the original commit.
     };
     let parent_tree = target_commit.parent_tree(tx.repo())?;
     let selected_tree = diff_selector.select(
-        [&parent_tree, &target_commit.tree()],
+        Diff::new(&parent_tree, &target_commit.tree()),
         matcher,
         format_instructions,
     )?;

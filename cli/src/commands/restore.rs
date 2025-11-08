@@ -18,6 +18,7 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::formatdoc;
 use itertools::Itertools as _;
+use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;
 
@@ -162,7 +163,11 @@ pub(crate) fn cmd_restore(
             to_commit = workspace_command.format_commit_summary(&to_commit),
         }
     };
-    let new_tree = diff_selector.select([&to_tree, &from_tree], &matcher, format_instructions)?;
+    let new_tree = diff_selector.select(
+        Diff::new(&to_tree, &from_tree),
+        &matcher,
+        format_instructions,
+    )?;
     if new_tree.tree_ids() == to_commit.tree_ids() {
         writeln!(ui.status(), "Nothing changed.")?;
     } else {

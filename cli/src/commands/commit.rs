@@ -16,6 +16,7 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::writedoc;
 use jj_lib::backend::Signature;
+use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use tracing::instrument;
@@ -141,7 +142,7 @@ new working-copy commit.
         )
     };
     let tree = diff_selector.select(
-        [&base_tree, &commit.tree()],
+        Diff::new(&base_tree, &commit.tree()),
         matcher.as_ref(),
         format_instructions,
     )?;

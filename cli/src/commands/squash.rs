@@ -22,6 +22,7 @@ use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite;
@@ -481,8 +482,11 @@ fn select_diff(
                 destination = tx.format_commit_summary(destination),
             }
         };
-        let selected_tree =
-            diff_selector.select([&parent_tree, &source_tree], matcher, format_instructions)?;
+        let selected_tree = diff_selector.select(
+            Diff::new(&parent_tree, &source_tree),
+            matcher,
+            format_instructions,
+        )?;
         source_commits.push(CommitWithSelection {
             commit: source.clone(),
             selected_tree,

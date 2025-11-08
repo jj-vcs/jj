@@ -30,6 +30,7 @@ use jj_lib::conflicts::MaterializedFileConflictValue;
 use jj_lib::conflicts::try_materialize_file_conflict_value;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
@@ -294,7 +295,7 @@ impl DiffEditor {
     /// Starts a diff editor on the two directories.
     pub fn edit(
         &self,
-        trees: [&MergedTree; 2],
+        trees: Diff<&MergedTree>,
         matcher: &dyn Matcher,
         format_instructions: impl FnOnce() -> String,
     ) -> Result<MergedTree, DiffEditError> {

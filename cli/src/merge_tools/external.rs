@@ -19,6 +19,7 @@ use jj_lib::conflicts::choose_materialized_conflict_marker_len;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
@@ -376,7 +377,7 @@ pub fn run_mergetool_external(
 
 pub fn edit_diff_external(
     editor: &ExternalMergeTool,
-    trees: [&MergedTree; 2],
+    trees: Diff<&MergedTree>,
     matcher: &dyn Matcher,
     instructions: Option<&str>,
     base_ignores: Arc<GitIgnoreFile>,
@@ -423,7 +424,7 @@ pub fn edit_diff_external(
 pub fn generate_diff(
     ui: &Ui,
     writer: &mut dyn Write,
-    trees: [&MergedTree; 2],
+    trees: Diff<&MergedTree>,
     matcher: &dyn Matcher,
     tool: &ExternalMergeTool,
     default_conflict_marker_style: ConflictMarkerStyle,

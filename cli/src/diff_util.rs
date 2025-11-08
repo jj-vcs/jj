@@ -443,7 +443,7 @@ impl<'a> DiffRenderer<'a> {
         &self,
         ui: &Ui, // TODO: remove Ui dependency if possible
         formatter: &mut dyn Formatter,
-        trees: [&MergedTree; 2],
+        trees: Diff<&MergedTree>,
         matcher: &dyn Matcher,
         copy_records: &CopyRecords,
         width: usize,
@@ -457,41 +457,42 @@ impl<'a> DiffRenderer<'a> {
         &self,
         ui: &Ui,
         formatter: &mut dyn Formatter,
-        [from_tree, to_tree]: [&MergedTree; 2],
+        trees: Diff<&MergedTree>,
         matcher: &dyn Matcher,
         copy_records: &CopyRecords,
         width: usize,
     ) -> Result<(), DiffRenderError> {
+        let diff_stream = || {
+            trees
+                .before
+                .diff_stream_with_copies(trees.after, matcher, copy_records)
+        };
+
         let store = self.repo.store();
         let path_converter = self.path_converter;
         for format in &self.formats {
             match format {
                 DiffFormat::Summary => {
-                    let tree_diff =
-                        from_tree.diff_stream_with_copies(to_tree, matcher, copy_records);
+                    let tree_diff = diff_stream();
                     show_diff_summary(formatter, tree_diff, path_converter).await?;
                 }
                 DiffFormat::Stat(options) => {
-                    let tree_diff =
-                        from_tree.diff_stream_with_copies(to_tree, matcher, copy_records);
+                    let tree_diff = diff_stream();
                     let stats =
                         DiffStats::calculate(store, tree_diff, options, self.conflict_marker_style)
                             .block_on()?;
                     show_diff_stats(formatter, &stats, path_converter, width)?;
                 }
                 DiffFormat::Types => {
-                    let tree_diff =
-                        from_tree.diff_stream_with_copies(to_tree, matcher, copy_records);
+                    let tree_diff = diff_stream();
                     show_types(formatter, tree_diff, path_converter).await?;
                 }
                 DiffFormat::NameOnly => {
-                    let tree_diff =
-                        from_tree.diff_stream_with_copies(to_tree, matcher, copy_records);
+                    let tree_diff = diff_stream();
                     show_names(formatter, tree_diff, path_converter).await?;
                 }
                 DiffFormat::Git(options) => {
-                    let tree_diff =
-                        from_tree.diff_stream_with_copies(to_tree, matcher, copy_records);
+                    let tree_diff = diff_stream();
                     show_git_diff(
                         formatter,
                         store,
@@ -502,8 +503,7 @@ impl<'a> DiffRenderer<'a> {
                     .await?;
                 }
                 DiffFormat::ColorWords(options) => {
-                    let tree_diff =
-                        from_tree.diff_stream_with_copies(to_tree, matcher, copy_records);
+                    let tree_diff = diff_stream();
                     show_color_words_diff(
                         formatter,
                         store,
@@ -517,8 +517,7 @@ impl<'a> DiffRenderer<'a> {
                 DiffFormat::Tool(tool) => {
                     match tool.diff_invocation_mode {
                         DiffToolMode::FileByFile => {
-                            let tree_diff =
-                                from_tree.diff_stream_with_copies(to_tree, matcher, copy_records);
+                            let tree_diff = diff_stream();
                             show_file_by_file_diff(
                                 ui,
                                 formatter,
@@ -536,7 +535,7 @@ impl<'a> DiffRenderer<'a> {
                             generate_diff(
                                 ui,
                                 writer.as_mut(),
-                                [from_tree, to_tree],
+                                trees,
                                 matcher,
                                 tool,
                                 self.conflict_marker_style,
@@ -554,9 +553,9 @@ impl<'a> DiffRenderer<'a> {
     fn show_diff_commit_descriptions(
         &self,
         formatter: &mut dyn Formatter,
-        [from_description, to_description]: [&Merge<&str>; 2],
+        descriptions: Diff<&Merge<&str>>,
     ) -> Result<(), DiffRenderError> {
-        if from_description == to_description {
+        if !descriptions.is_changed() {
             return Ok(());
         }
         const DUMMY_PATH: &str = "JJ-COMMIT-DESCRIPTION";
@@ -577,8 +576,8 @@ impl<'a> DiffRenderer<'a> {
                     // Git format must be parsable, so use dummy file path.
                     show_git_diff_texts(
                         formatter,
-                        [DUMMY_PATH, DUMMY_PATH],
-                        [from_description, to_description],
+                        Diff::new(DUMMY_PATH, DUMMY_PATH),
+                        descriptions,
                         options,
                         &materialize_options,
                     )?;
@@ -587,7 +586,7 @@ impl<'a> DiffRenderer<'a> {
                     writeln!(formatter.labeled("header"), "Modified commit description:")?;
                     show_color_words_diff_hunks(
                         formatter,
-                        [from_description, to_description],
+                        descriptions,
                         options,
                         &materialize_options,
                     )?;
@@ -628,11 +627,14 @@ impl<'a> DiffRenderer<'a> {
         let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit)?;
         let to_tree = to_commit.tree();
         let copy_records = CopyRecords::default(); // TODO
-        self.show_diff_commit_descriptions(*formatter, [&from_description, &to_description])?;
+        self.show_diff_commit_descriptions(
+            *formatter,
+            Diff::new(&from_description, &to_description),
+        )?;
         self.show_diff_trees(
             ui,
             *formatter,
-            [&from_tree, &to_tree],
+            Diff::new(&from_tree, &to_tree),
             matcher,
             &copy_records,
             width,
@@ -659,7 +661,7 @@ impl<'a> DiffRenderer<'a> {
         self.show_diff(
             ui,
             formatter,
-            [&from_tree, &to_tree],
+            Diff::new(&from_tree, &to_tree),
             matcher,
             &copy_records,
             width,
@@ -753,29 +755,39 @@ impl ColorWordsDiffOptions {
 
 fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
     formatter: &mut dyn Formatter,
-    [lefts, rights]: [&Merge<T>; 2],
+    contents: Diff<&Merge<T>>,
     options: &ColorWordsDiffOptions,
     materialize_options: &ConflictMaterializeOptions,
 ) -> io::Result<()> {
     let line_number = DiffLineNumber { left: 1, right: 1 };
-    let labels = ["removed", "added"];
-    if let (Some(left), Some(right)) = (lefts.as_resolved(), rights.as_resolved()) {
-        let contents = [left, right].map(BStr::new);
+    let labels = Diff::new("removed", "added");
+    if let (Some(left), Some(right)) = (contents.before.as_resolved(), contents.after.as_resolved())
+    {
+        let contents = Diff::new(left, right).map(BStr::new);
         show_color_words_resolved_hunks(formatter, contents, line_number, labels, options)?;
         return Ok(());
     }
     match options.conflict {
         ConflictDiffMethod::Materialize => {
-            let left = materialize_merge_result_to_bytes(lefts, materialize_options);
-            let right = materialize_merge_result_to_bytes(rights, materialize_options);
-            let contents = [&left, &right].map(BStr::new);
-            show_color_words_resolved_hunks(formatter, contents, line_number, labels, options)?;
+            let contents =
+                contents.map(|side| materialize_merge_result_to_bytes(side, materialize_options));
+            show_color_words_resolved_hunks(
+                formatter,
+                contents.as_ref().map(BStr::new),
+                line_number,
+                labels,
+                options,
+            )?;
         }
         ConflictDiffMethod::Pair => {
-            let lefts = files::merge(lefts, &materialize_options.merge);
-            let rights = files::merge(rights, &materialize_options.merge);
-            let contents = [&lefts, &rights];
-            show_color_words_conflict_hunks(formatter, contents, line_number, labels, options)?;
+            let contents = contents.map(|side| files::merge(side, &materialize_options.merge));
+            show_color_words_conflict_hunks(
+                formatter,
+                contents.as_ref(),
+                line_number,
+                labels,
+                options,
+            )?;
         }
     }
     Ok(())
@@ -783,20 +795,20 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
 
 fn show_color_words_conflict_hunks(
     formatter: &mut dyn Formatter,
-    [lefts, rights]: [&Merge<BString>; 2],
+    contents: Diff<&Merge<BString>>,
     mut line_number: DiffLineNumber,
-    labels: [&str; 2],
+    labels: Diff<&str>,
     options: &ColorWordsDiffOptions,
 ) -> io::Result<DiffLineNumber> {
-    let num_lefts = lefts.as_slice().len();
+    let num_lefts = contents.before.as_slice().len();
     let line_diff = diff_by_line(
-        lefts.iter().chain(rights.iter()),
+        contents.before.iter().chain(contents.after.iter()),
         &options.line_diff.compare_mode,
     );
     // Matching entries shouldn't appear consecutively in diff of two inputs.
     // However, if the inputs have conflicts, there may be a hunk that can be
     // resolved, resulting [matching, resolved, matching] sequence.
-    let mut contexts: Vec<[&BStr; 2]> = Vec::new();
+    let mut contexts: Vec<Diff<&BStr>> = Vec::new();
     let mut emitted = false;
 
     for hunk in files::conflict_diff_hunks(line_diff.hunks(), num_lefts) {
@@ -804,7 +816,7 @@ fn show_color_words_conflict_hunks(
             // There may be conflicts in matching hunk, but just pick one. It
             // would be too verbose to show all conflict pairs as context.
             DiffHunkKind::Matching => {
-                contexts.push([hunk.lefts.first(), hunk.rights.first()]);
+                contexts.push(Diff::new(hunk.lefts.first(), hunk.rights.first()));
             }
             DiffHunkKind::Different => {
                 let num_after = if emitted { options.context } else { 0 };
@@ -823,8 +835,13 @@ fn show_color_words_conflict_hunks(
                 line_number = if let (Some(&left), Some(&right)) =
                     (hunk.lefts.as_resolved(), hunk.rights.as_resolved())
                 {
-                    let contents = [left, right];
-                    show_color_words_diff_lines(formatter, contents, line_number, labels, options)?
+                    show_color_words_diff_lines(
+                        formatter,
+                        Diff::new(left, right),
+                        line_number,
+                        labels,
+                        options,
+                    )?
                 } else {
                     show_color_words_unresolved_hunk(
                         formatter,
@@ -855,7 +872,7 @@ fn show_color_words_unresolved_hunk(
     formatter: &mut dyn Formatter,
     hunk: &ConflictDiffHunk,
     line_number: DiffLineNumber,
-    [label1, label2]: [&str; 2],
+    labels: Diff<&str>,
     options: &ColorWordsDiffOptions,
 ) -> io::Result<DiffLineNumber> {
     let hunk_desc = if hunk.lefts.is_resolved() {
@@ -892,10 +909,10 @@ fn show_color_words_unresolved_hunk(
             right_name = if right_index % 2 == 0 { "side" } else { "base" },
             right_index = right_index / 2 + 1,
         )?;
-        let contents = [left_content, right_content];
+        let contents = Diff::new(left_content, right_content);
         let labels = match positive {
-            true => [label1, label2],
-            false => [label2, label1],
+            true => labels,
+            false => Diff::new(labels.after, labels.before),
         };
         // Individual hunk pair may be largely the same, so diff it again.
         let new_line_number =
@@ -913,18 +930,21 @@ fn show_color_words_unresolved_hunk(
 
 fn show_color_words_resolved_hunks(
     formatter: &mut dyn Formatter,
-    contents: [&BStr; 2],
+    contents: Diff<&BStr>,
     mut line_number: DiffLineNumber,
-    labels: [&str; 2],
+    labels: Diff<&str>,
     options: &ColorWordsDiffOptions,
 ) -> io::Result<DiffLineNumber> {
-    let line_diff = diff_by_line(contents, &options.line_diff.compare_mode);
+    let line_diff = diff_by_line(contents.into_array(), &options.line_diff.compare_mode);
     // Matching entries shouldn't appear consecutively in diff of two inputs.
-    let mut context: Option<[&BStr; 2]> = None;
+    let mut context: Option<Diff<&BStr>> = None;
     let mut emitted = false;
 
     for hunk in line_diff.hunks() {
-        let hunk_contents: [&BStr; 2] = hunk.contents[..].try_into().unwrap();
+        let &[left, right] = hunk.contents.as_slice() else {
+            panic!("hunk contents should have two sides")
+        };
+        let hunk_contents = Diff::new(left, right);
         match hunk.kind {
             DiffHunkKind::Matching => {
                 context = Some(hunk_contents);
@@ -970,18 +990,25 @@ fn show_color_words_resolved_hunks(
 /// Prints `num_after` lines, ellipsis, and `num_before` lines.
 fn show_color_words_context_lines(
     formatter: &mut dyn Formatter,
-    contexts: &[[&BStr; 2]],
+    contexts: &[Diff<&BStr>],
     mut line_number: DiffLineNumber,
-    labels: [&str; 2],
+    labels: Diff<&str>,
     options: &ColorWordsDiffOptions,
     num_after: usize,
     num_before: usize,
 ) -> io::Result<DiffLineNumber> {
     const SKIPPED_CONTEXT_LINE: &str = "    ...\n";
-    let extract = |side: usize| -> (Vec<&[u8]>, Vec<&[u8]>, u32) {
+    let extract = |after: bool| -> (Vec<&[u8]>, Vec<&[u8]>, u32) {
         let mut lines = contexts
             .iter()
-            .flat_map(|contents| contents[side].split_inclusive(|b| *b == b'\n'))
+            .map(|contents| {
+                if after {
+                    contents.after
+                } else {
+                    contents.before
+                }
+            })
+            .flat_map(|side| side.split_inclusive(|b| *b == b'\n'))
             .fuse();
         let after_lines = lines.by_ref().take(num_after).collect();
         let before_lines = lines.by_ref().rev().take(num_before + 1).collect();
@@ -995,7 +1022,7 @@ fn show_color_words_context_lines(
             for line in left_lines {
                 show_color_words_line_number(
                     formatter,
-                    [Some(line_number.left), Some(line_number.right)],
+                    Diff::new(Some(line_number.left), Some(line_number.right)),
                     labels,
                 )?;
                 show_color_words_inline_hunks(
@@ -1012,7 +1039,7 @@ fn show_color_words_context_lines(
             let right = right_lines.concat();
             show_color_words_diff_lines(
                 formatter,
-                [&left, &right].map(BStr::new),
+                Diff::new(&left, &right).map(BStr::new),
                 line_number,
                 labels,
                 options,
@@ -1020,8 +1047,8 @@ fn show_color_words_context_lines(
         }
     };
 
-    let (left_after, mut left_before, num_left_skipped) = extract(0);
-    let (right_after, mut right_before, num_right_skipped) = extract(1);
+    let (left_after, mut left_before, num_left_skipped) = extract(false);
+    let (right_after, mut right_before, num_right_skipped) = extract(true);
     line_number = show(formatter, [&left_after, &right_after], line_number)?;
     if num_left_skipped > 0 || num_right_skipped > 0 {
         write!(formatter, "{SKIPPED_CONTEXT_LINE}")?;
@@ -1044,12 +1071,14 @@ fn show_color_words_context_lines(
 
 fn show_color_words_diff_lines(
     formatter: &mut dyn Formatter,
-    contents: [&BStr; 2],
+    contents: Diff<&BStr>,
     mut line_number: DiffLineNumber,
-    labels: [&str; 2],
+    labels: Diff<&str>,
     options: &ColorWordsDiffOptions,
 ) -> io::Result<DiffLineNumber> {
-    let word_diff_hunks = ContentDiff::by_word(contents).hunks().collect_vec();
+    let word_diff_hunks = ContentDiff::by_word(contents.into_array())
+        .hunks()
+        .collect_vec();
     let can_inline = match options.max_inline_alternation {
         None => true,     // unlimited
         Some(0) => false, // no need to count alternation
@@ -1064,30 +1093,37 @@ fn show_color_words_diff_lines(
         for diff_line in diff_line_iter.by_ref() {
             show_color_words_line_number(
                 formatter,
-                [
+                Diff::new(
                     diff_line
                         .has_left_content()
                         .then_some(diff_line.line_number.left),
                     diff_line
                         .has_right_content()
                         .then_some(diff_line.line_number.right),
-                ],
+                ),
                 labels,
             )?;
             show_color_words_inline_hunks(formatter, &diff_line.hunks, labels)?;
         }
         line_number = diff_line_iter.next_line_number();
     } else {
-        let [left_lines, right_lines] = unzip_diff_hunks_to_lines(&word_diff_hunks);
-        let [left_label, right_label] = labels;
-        for tokens in &left_lines {
-            show_color_words_line_number(formatter, [Some(line_number.left), None], labels)?;
-            show_color_words_single_sided_line(formatter, tokens, left_label)?;
+        let lines = unzip_diff_hunks_to_lines(&word_diff_hunks);
+        for tokens in &lines.before {
+            show_color_words_line_number(
+                formatter,
+                Diff::new(Some(line_number.left), None),
+                labels,
+            )?;
+            show_color_words_single_sided_line(formatter, tokens, labels.before)?;
             line_number.left += 1;
         }
-        for tokens in &right_lines {
-            show_color_words_line_number(formatter, [None, Some(line_number.right)], labels)?;
-            show_color_words_single_sided_line(formatter, tokens, right_label)?;
+        for tokens in &lines.after {
+            show_color_words_line_number(
+                formatter,
+                Diff::new(None, Some(line_number.right)),
+                labels,
+            )?;
+            show_color_words_single_sided_line(formatter, tokens, labels.after)?;
             line_number.right += 1;
         }
     }
@@ -1096,21 +1132,21 @@ fn show_color_words_diff_lines(
 
 fn show_color_words_line_number(
     formatter: &mut dyn Formatter,
-    [left_line_number, right_line_number]: [Option<u32>; 2],
-    [left_label, right_label]: [&str; 2],
+    line_numbers: Diff<Option<u32>>,
+    labels: Diff<&str>,
 ) -> io::Result<()> {
-    if let Some(line_number) = left_line_number {
+    if let Some(line_number) = line_numbers.before {
         write!(
-            formatter.labeled(left_label).labeled("line_number"),
+            formatter.labeled(labels.before).labeled("line_number"),
             "{line_number:>4}"
         )?;
         write!(formatter, " ")?;
     } else {
         write!(formatter, "     ")?;
     }
-    if let Some(line_number) = right_line_number {
+    if let Some(line_number) = line_numbers.after {
         write!(
-            formatter.labeled(right_label).labeled("line_number"),
+            formatter.labeled(labels.after).labeled("line_number"),
             "{line_number:>4}"
         )?;
         write!(formatter, ": ")?;
@@ -1124,13 +1160,13 @@ fn show_color_words_line_number(
 fn show_color_words_inline_hunks(
     formatter: &mut dyn Formatter,
     line_hunks: &[(DiffLineHunkSide, &BStr)],
-    [left_label, right_label]: [&str; 2],
+    labels: Diff<&str>,
 ) -> io::Result<()> {
     for (side, data) in line_hunks {
         let label = match side {
             DiffLineHunkSide::Both => None,
-            DiffLineHunkSide::Left => Some(left_label),
-            DiffLineHunkSide::Right => Some(right_label),
+            DiffLineHunkSide::Left => Some(labels.before),
+            DiffLineHunkSide::Right => Some(labels.after),
         };
         if let Some(label) = label {
             formatter.labeled(label).labeled("token").write_all(data)?;
@@ -1334,7 +1370,7 @@ pub async fn show_color_words_diff(
             } else {
                 show_color_words_diff_hunks(
                     formatter,
-                    [&empty_content(), &right_content.contents],
+                    Diff::new(&empty_content(), &right_content.contents),
                     options,
                     &materialize_options,
                 )?;
@@ -1401,7 +1437,7 @@ pub async fn show_color_words_diff(
             } else if left_content.contents != right_content.contents {
                 show_color_words_diff_hunks(
                     formatter,
-                    [&left_content.contents, &right_content.contents],
+                    Diff::new(&left_content.contents, &right_content.contents),
                     options,
                     &materialize_options,
                 )?;
@@ -1420,7 +1456,7 @@ pub async fn show_color_words_diff(
             } else {
                 show_color_words_diff_hunks(
                     formatter,
-                    [&left_content.contents, &empty_content()],
+                    Diff::new(&left_content.contents, &empty_content()),
                     options,
                     &materialize_options,
                 )?;
@@ -1538,7 +1574,7 @@ impl UnifiedDiffOptions {
 
 fn show_unified_diff_hunks(
     formatter: &mut dyn Formatter,
-    contents: [&BStr; 2],
+    contents: Diff<&BStr>,
     options: &UnifiedDiffOptions,
 ) -> io::Result<()> {
     // "If the chunk size is 0, the first number is one lower than one would
@@ -1682,7 +1718,7 @@ pub async fn show_git_diff(
             writeln!(formatter.labeled("file_header"), "+++ {right_path}")?;
             show_unified_diff_hunks(
                 formatter,
-                [&left_part.content.contents, &right_part.content.contents].map(BStr::new),
+                Diff::new(&left_part.content.contents, &right_part.content.contents).map(BStr::new),
                 options,
             )?;
         }
@@ -1693,25 +1729,29 @@ pub async fn show_git_diff(
 /// Generates diff of non-binary contents in Git format.
 fn show_git_diff_texts<T: AsRef<[u8]>>(
     formatter: &mut dyn Formatter,
-    [left_path, right_path]: [&str; 2],
-    contents: [&Merge<T>; 2],
+    paths: Diff<&str>,
+    contents: Diff<&Merge<T>>,
     options: &UnifiedDiffOptions,
     materialize_options: &ConflictMaterializeOptions,
 ) -> io::Result<()> {
+    let Diff {
+        before: left_path,
+        after: right_path,
+    } = paths;
     {
         let mut formatter = formatter.labeled("file_header");
         writeln!(formatter, "diff --git a/{left_path} b/{right_path}")?;
         writeln!(formatter, "--- {left_path}")?;
         writeln!(formatter, "+++ {right_path}")?;
     }
-    let [left, right] = contents.map(|content| match content.as_resolved() {
+    let contents = contents.map(|content| match content.as_resolved() {
         Some(text) => Cow::Borrowed(BStr::new(text)),
         None => Cow::Owned(materialize_merge_result_to_bytes(
             content,
             materialize_options,
         )),
     });
-    show_unified_diff_hunks(formatter, [left.as_ref(), right.as_ref()], options)
+    show_unified_diff_hunks(formatter, contents.as_ref().map(Cow::as_ref), options)
 }
 
 #[instrument(skip_all)]
@@ -1787,7 +1827,8 @@ impl DiffStats {
                 let (left, right) = values?;
                 let left_content = diff_content(path.source(), left, &materialize_options)?;
                 let right_content = diff_content(path.target(), right, &materialize_options)?;
-                let stat = get_diff_stat_entry(path, [&left_content, &right_content], options);
+                let stat =
+                    get_diff_stat_entry(path, Diff::new(&left_content, &right_content), options);
                 BackendResult::Ok(stat)
             })
             .try_collect()
@@ -1828,15 +1869,14 @@ pub struct DiffStatEntry {
 
 fn get_diff_stat_entry(
     path: CopiesTreeDiffEntryPath,
-    contents: [&FileContent<BString>; 2],
+    contents: Diff<&FileContent<BString>>,
     options: &DiffStatOptions,
 ) -> DiffStatEntry {
-    let [left_content, right_content] = contents;
-    let added_removed = if left_content.is_binary || right_content.is_binary {
+    let added_removed = if contents.before.is_binary || contents.after.is_binary {
         None
     } else {
         let diff = diff_by_line(
-            contents.map(|content| &content.contents),
+            contents.map(|content| &content.contents).into_array(),
             &options.line_diff.compare_mode,
         );
         let mut added = 0;
@@ -1857,7 +1897,8 @@ fn get_diff_stat_entry(
     DiffStatEntry {
         path,
         added_removed,
-        bytes_delta: right_content.contents.len() as isize - left_content.contents.len() as isize,
+        bytes_delta: contents.after.contents.len() as isize
+            - contents.before.contents.len() as isize,
     }
 }
 

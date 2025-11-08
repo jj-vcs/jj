@@ -22,6 +22,7 @@ use jj_lib::diff::DiffHunkKind;
 use jj_lib::files;
 use jj_lib::files::MergeResult;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
@@ -536,14 +537,16 @@ fn override_file_executable_bit(
 }
 
 pub fn edit_diff_builtin(
-    [left_tree, right_tree]: [&MergedTree; 2],
+    trees: Diff<&MergedTree>,
     matcher: &dyn Matcher,
     conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<MergedTree, BuiltinToolError> {
-    let store = left_tree.store().clone();
+    let store = trees.before.store().clone();
     // TODO: handle copy tracking
     let copy_records = CopyRecords::default();
-    let tree_diff = left_tree.diff_stream_with_copies(right_tree, matcher, &copy_records);
+    let tree_diff = trees
+        .before
+        .diff_stream_with_copies(trees.after, matcher, &copy_records);
     let (changed_files, files) =
         make_diff_files(&store, tree_diff, conflict_marker_style).block_on()?;
     let mut input = scm_record::helpers::CrosstermInput;
@@ -556,8 +559,14 @@ pub fn edit_diff_builtin(
         &mut input,
     );
     let result = recorder.run().map_err(BuiltinToolError::Record)?;
-    apply_diff_builtin(&store, left_tree, right_tree, changed_files, &result.files)
-        .map_err(BuiltinToolError::BackendError)
+    apply_diff_builtin(
+        &store,
+        trees.before,
+        trees.after,
+        changed_files,
+        &result.files,
+    )
+    .map_err(BuiltinToolError::BackendError)
 }
 
 fn make_merge_sections(
