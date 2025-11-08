@@ -85,7 +85,7 @@ fn test_split_by_paths() {
 
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file2
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -208,7 +208,7 @@ fn test_split_with_non_empty_description() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     Selected changes : qpvuntsm c7f7b14b part 1
     Remaining changes: kkmpptxz ac33a5a9 part 2
     Working copy  (@) now at: kkmpptxz ac33a5a9 part 2
@@ -222,7 +222,7 @@ fn test_split_with_non_empty_description() {
     test
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -233,7 +233,7 @@ fn test_split_with_non_empty_description() {
     test
 
     JJ: Change ID: kkmpptxz
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file2
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -244,7 +244,7 @@ fn test_split_with_non_empty_description() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -268,7 +268,7 @@ fn test_split_with_default_description() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     Selected changes : qpvuntsm ff633dcc TESTED=TODO
     Remaining changes: rlvkpnrz b1d20b7e (no description set)
     Working copy  (@) now at: rlvkpnrz b1d20b7e (no description set)
@@ -288,7 +288,7 @@ fn test_split_with_default_description() {
     TESTED=TODO
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -300,7 +300,7 @@ fn test_split_with_default_description() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -373,7 +373,7 @@ fn test_split_with_descendants() {
     Add file1 & file2
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -384,7 +384,7 @@ fn test_split_with_descendants() {
     Add file1 & file2
 
     JJ: Change ID: royxmykx
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file2
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -504,7 +504,7 @@ fn test_split_parallel_no_descendants() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 
@@ -516,7 +516,7 @@ fn test_split_parallel_no_descendants() {
     let output = work_dir.run_jj(["split", "--parallel", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     Selected changes : qpvuntsm 7bcd474c TESTED=TODO
     Remaining changes: kkmpptxz 431886f6 (no description set)
     Working copy  (@) now at: kkmpptxz 431886f6 (no description set)
@@ -531,7 +531,7 @@ fn test_split_parallel_no_descendants() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 
@@ -547,7 +547,7 @@ fn test_split_parallel_no_descendants() {
     TESTED=TODO
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -571,7 +571,7 @@ fn test_split_parallel_no_descendants() {
        -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 
@@ -590,7 +590,7 @@ fn test_split_parallel_no_descendants() {
        -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -670,7 +670,7 @@ fn test_split_parallel_with_descendants() {
     Add file1 & file2
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -681,7 +681,7 @@ fn test_split_parallel_with_descendants() {
     Add file1 & file2
 
     JJ: Change ID: vruxwmqv
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file2
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -826,7 +826,7 @@ fn test_split_interactive() {
 
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -892,7 +892,7 @@ fn test_split_interactive_with_paths() {
 
 
     JJ: Change ID: rlvkpnrz
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -1072,12 +1072,12 @@ fn test_split_with_non_empty_description_and_trailers() {
 
     test_env.add_config(
         r#"[templates]
-        commit_trailers = '''"Signed-off-by: " ++ committer.email()'''"#,
+        revision_trailers = '''"Signed-off-by: " ++ committer.email()'''"#,
     );
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     Selected changes : qpvuntsm c7f7b14b part 1
     Remaining changes: kkmpptxz ac33a5a9 part 2
     Working copy  (@) now at: kkmpptxz ac33a5a9 part 2
@@ -1093,7 +1093,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     Signed-off-by: test.user@example.com
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -1106,7 +1106,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     Signed-off-by: test.user@example.com
 
     JJ: Change ID: kkmpptxz
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file2
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -1117,7 +1117,7 @@ fn test_split_with_non_empty_description_and_trailers() {
     ◆  zzzzzzzzzzzz true
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
 }
@@ -1155,7 +1155,7 @@ fn test_split_with_message() {
     let output = work_dir.run_jj([
         "split",
         "--config",
-        r#"templates.commit_trailers='"CC: " ++ committer.email()'"#,
+        r#"templates.revision_trailers='"CC: " ++ committer.email()'"#,
         "-m",
         "fix in file1",
         "file1",

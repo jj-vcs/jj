@@ -341,6 +341,16 @@ fn test_config_list_origin() {
     operation.hostname = "host.example.com" # env
     operation.username = "test-username" # env
     test-cli-key = "test-cli-val" # cli
+    template-aliases.builtin_draft_commit_description = "builtin_draft_revision_description" # cli
+    template-aliases.commit_summary_separator = "revision_summary_separator" # cli
+    template-aliases."commit_timestamp(commit)" = "revision_timestamp(commit)" # cli
+    template-aliases.default_commit_description = "default_revision_description" # cli
+    template-aliases."format_commit_summary_with_refs(commit, refs)" = "format_revision_summary_with_refs(commit, refs)" # cli
+    template-aliases."format_root_commit(root)" = "format_root_revision(root)" # cli
+    template-aliases."format_short_commit_header_redacted(commit)" = "format_short_revision_header_redacted(commit)" # cli
+    template-aliases."format_short_commit_header(commit)" = "format_short_revision_header(commit)" # cli
+    template-aliases."format_short_commit_id(id)" = "format_short_revision_id(id)" # cli
+    template-aliases.empty_commit_marker = "empty_revision_marker" # cli
     [EOF]
     "#);
 

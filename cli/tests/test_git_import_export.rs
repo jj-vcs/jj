@@ -41,7 +41,7 @@ fn test_resolution_of_git_tracking_bookmarks() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm 384a1421 (empty) new_message
-      @git (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden a7f9930b (empty) old_message
+      @git (ahead by 1 revisions, behind by 1 revisions): qpvuntsm hidden a7f9930b (empty) old_message
     [EOF]
     ");
 
@@ -258,7 +258,7 @@ fn test_git_import_move_export_with_default_undo() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     a: royxmykx e7d0d5fd (empty) (no description set)
-      @git (behind by 1 commits): qpvuntsm e8849ae1 (empty) (no description set)
+      @git (behind by 1 revisions): qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "export"]);

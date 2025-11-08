@@ -48,6 +48,7 @@ fn test_log_with_no_template() {
     - builtin_config_list
     - builtin_config_list_detailed
     - builtin_draft_commit_description
+    - builtin_draft_revision_description
     - builtin_evolog_compact
     - builtin_log_comfortable
     - builtin_log_compact
@@ -65,11 +66,14 @@ fn test_log_with_no_template() {
     - builtin_op_log_redacted
     - commit_summary_separator
     - default_commit_description
+    - default_revision_description
     - description_placeholder
     - email_placeholder
     - empty_commit_marker
+    - empty_revision_marker
     - git_format_patch_email_headers
     - name_placeholder
+    - revision_summary_separator
     [EOF]
     [exit status: 2]
     ");

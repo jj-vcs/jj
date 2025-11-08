@@ -279,6 +279,11 @@ enum MigrationRule {
         old_name: ConfigNamePathBuf,
         new_name: ConfigNamePathBuf,
     },
+    RenameTemplateAlias {
+        old_name: ConfigNamePathBuf,
+        new_name: ConfigNamePathBuf,
+        compatibility_name: ConfigNamePathBuf,
+    },
     RenameUpdateValue {
         old_name: ConfigNamePathBuf,
         new_name: ConfigNamePathBuf,
@@ -298,6 +303,20 @@ impl ConfigMigrationRule {
         let inner = MigrationRule::RenameValue {
             old_name: old_name.into_name_path().into(),
             new_name: new_name.into_name_path().into(),
+        };
+        Self { inner }
+    }
+
+    /// Creates rule that moves a template alias from `old_name` to `new_name`.
+    pub fn rename_template_alias(
+        old_name: impl ToConfigNamePath,
+        new_name: impl ToConfigNamePath,
+        compatibility_name: impl ToConfigNamePath,
+    ) -> Self {
+        let inner = MigrationRule::RenameTemplateAlias {
+            old_name: old_name.into_name_path().into(),
+            new_name: new_name.into_name_path().into(),
+            compatibility_name: compatibility_name.into_name_path().into(),
         };
         Self { inner }
     }
@@ -342,6 +361,7 @@ impl ConfigMigrationRule {
             | MigrationRule::RenameUpdateValue { old_name, .. } => {
                 matches!(layer.look_up_item(old_name), Ok(Some(_)))
             }
+            MigrationRule::RenameTemplateAlias { .. } => true,
             MigrationRule::Custom { matches_fn, .. } => matches_fn(layer),
         }
     }
@@ -352,6 +372,11 @@ impl ConfigMigrationRule {
             MigrationRule::RenameValue { old_name, new_name } => {
                 rename_value(layer, old_name, new_name)
             }
+            MigrationRule::RenameTemplateAlias {
+                old_name,
+                new_name,
+                compatibility_name,
+            } => rename_template_alias(layer, old_name, new_name, compatibility_name),
             MigrationRule::RenameUpdateValue {
                 old_name,
                 new_name,
@@ -373,6 +398,43 @@ fn rename_value(
     }
     layer.set_value(new_name, value)?;
     Ok(format!("{old_name} is renamed to {new_name}"))
+}
+
+fn rename_template_alias(
+    layer: &mut ConfigLayer,
+    old_name: &ConfigNamePathBuf,
+    new_name: &ConfigNamePathBuf,
+    compatibility_name: &ConfigNamePathBuf,
+) -> Result<String, ConfigMigrateLayerError> {
+    let renamed = if let Some(value) = layer.delete_value(old_name)? {
+        if matches!(layer.look_up_item(new_name), Ok(Some(_))) {
+            return Ok(format!("{old_name} is deleted (superseded by {new_name})"));
+        }
+        if matches!(layer.look_up_item(compatibility_name), Ok(Some(_))) {
+            return Ok(format!(
+                "{old_name} is deleted (superseded by {compatibility_name})"
+            ));
+        }
+        layer.set_value(compatibility_name, value)?;
+        true
+    } else {
+        false
+    };
+    // redirect the old value to the new one
+    layer.set_value(
+        old_name,
+        compatibility_name
+            .components()
+            .last()
+            .expect("new name should have at least one component")
+            .to_string()
+            .trim_matches(|c| c == '"'),
+    )?;
+    if renamed {
+        Ok(format!("{old_name} is renamed to {new_name}"))
+    } else {
+        Ok("".to_string())
+    }
 }
 
 fn rename_update_value(
@@ -422,7 +484,9 @@ fn migrate_layer(
     let layer_mut = Arc::make_mut(layer);
     for rule in rules_to_apply {
         let desc = rule.apply(layer_mut)?;
-        descriptions.push((layer_mut.source, desc));
+        if !desc.is_empty() {
+            descriptions.push((layer_mut.source, desc));
+        }
     }
     Ok(())
 }
