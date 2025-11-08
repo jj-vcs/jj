@@ -647,6 +647,7 @@ fn test_bookmark_rename() {
     work_dir
         .run_jj(["git", "push", "--allow-new", "-b=bremote"])
         .success();
+
     let output = work_dir.run_jj(["bookmark", "rename", "bremote", "bremote2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -687,6 +688,19 @@ fn test_bookmark_rename() {
     Hint: To rename the bookmark on the remote, you can `jj git push --bookmark bremote2` first (to delete it on the remote), and then `jj git push --bookmark bremote-untracked`. `jj git push --all --deleted` would also be sufficient.
     [EOF]
     ");
+
+    // rename an untracked bookmark
+    work_dir
+        .run_jj(["bookmark", "create", "buntracked", "-r=@-"])
+        .success();
+    work_dir
+        .run_jj(["git", "push", "--allow-new", "-b=buntracked"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "untrack", "buntracked@origin"])
+        .success();
+    let output = work_dir.run_jj(["bookmark", "rename", "buntracked", "buntracked2"]);
+    insta::assert_snapshot!(output, @"");
 }
 
 #[test]
