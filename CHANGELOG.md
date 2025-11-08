@@ -115,6 +115,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Revsets now support logical operators in string patterns.
 
+* `jj status` supports hiding the list of untracked files with config option
+  `ui.status-hide-untracked` overridable by flags `--hide-untracked` and
+  `--no-hide-untracked`.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
