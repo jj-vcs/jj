@@ -2131,9 +2131,8 @@ $<span class="w"> </span>jj<span class="w"> </span>log
 </code></pre></div>
 <p>We now have a few commits, where A, B1, and B2 modify the same file, while C
 modifies a different file. Let's now rebase B2 directly onto A. We use the
-<code>--source</code>/<code>-s</code> option on the change ID of B2, and <code>--destination</code>/<code>-d</code> option
-on A.</p>
-<div class="highlight"><pre><span></span><code>$<span class="w"> </span>jj<span class="w"> </span>rebase<span class="w"> </span>-s<span class="w"> </span>puqltutt<span class="w"> </span>-d<span class="w"> </span>nuvyytnq<span class="w">  </span><span class="c1"># Replace the IDs by what you have for B2 and A</span>
+<code>--source</code>/<code>-s</code> option on the change ID of B2, and <code>--onto</code>/<code>-o</code> option on A.</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>jj<span class="w"> </span>rebase<span class="w"> </span>-s<span class="w"> </span>puqltutt<span class="w"> </span>-o<span class="w"> </span>nuvyytnq<span class="w">  </span><span class="c1"># Replace the IDs by what you have for B2 and A</span>
 Rebased<span class="w"> </span><span class="m">2</span><span class="w"> </span>commits<span class="w"> </span>to<span class="w"> </span>destination
 Working<span class="w"> </span>copy<span class="w">  </span><span class="o">(</span>@<span class="o">)</span><span class="w"> </span>now<span class="w"> </span>at:<span class="w"> </span>qzvqqupx<span class="w"> </span>1978b534<span class="w"> </span><span class="o">(</span>conflict<span class="o">)</span><span class="w"> </span>C
 Parent<span class="w"> </span>commit<span class="w"> </span><span class="o">(</span>@-<span class="o">)</span><span class="w">      </span>:<span class="w"> </span>puqltutt<span class="w"> </span>f7fb5943<span class="w"> </span><span class="o">(</span>conflict<span class="o">)</span><span class="w"> </span>B2
@@ -2257,7 +2256,7 @@ commands to interact with it. To list the operations, use <code>jj op log</code>
 │<span class="w">  </span>args:<span class="w"> </span>jj<span class="w"> </span>new<span class="w"> </span>puqltutt
 ○<span class="w">  </span>367400773f87<span class="w"> </span>martinvonz@vonz.svl.corp.google.com<span class="w"> </span><span class="m">12</span><span class="w"> </span>minutes<span class="w"> </span>ago,<span class="w"> </span>lasted<span class="w"> </span><span class="m">3</span><span class="w"> </span>milliseconds
 │<span class="w">  </span>rebase<span class="w"> </span>commit<span class="w"> </span>daa6ffd5a09a8a7d09a65796194e69b7ed0a566d<span class="w"> </span>and<span class="w"> </span>descendants
-│<span class="w">  </span>args:<span class="w"> </span>jj<span class="w"> </span>rebase<span class="w"> </span>-s<span class="w"> </span>puqltutt<span class="w"> </span>-d<span class="w"> </span>nuvyytnq
+│<span class="w">  </span>args:<span class="w"> </span>jj<span class="w"> </span>rebase<span class="w"> </span>-s<span class="w"> </span>puqltutt<span class="w"> </span>-o<span class="w"> </span>nuvyytnq
 <span class="o">[</span>many<span class="w"> </span>more<span class="w"> </span>lines<span class="o">]</span>
 </code></pre></div>
 <p>The most useful command is <code>jj undo</code>, which will undo your last operation.</p>

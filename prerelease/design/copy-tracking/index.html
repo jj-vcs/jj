@@ -2490,8 +2490,8 @@ should ideally preserve this property when possible.</p>
 <span class="go">|</span>
 <span class="go">A add foo</span>
 
-<span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>C<span class="w"> </span>-d<span class="w"> </span>A
-<span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>C<span class="w"> </span>-d<span class="w"> </span>B<span class="w"> </span><span class="c1"># Takes us back to the state above</span>
+<span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>C<span class="w"> </span>-o<span class="w"> </span>A
+<span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>C<span class="w"> </span>-o<span class="w"> </span>B<span class="w"> </span><span class="c1"># Takes us back to the state above</span>
 </code></pre></div></p>
 <h4 id="reverting-the-parent-commit-should-be-a-no-op">Reverting the parent commit should be a no-op<a class="headerlink" href="#reverting-the-parent-commit-should-be-a-no-op" title="Permanent link">&para;</a></h4>
 <p>Patches should be reversible so you can make a change and then revert it, and
@@ -2502,7 +2502,7 @@ end up with an empty diff across both commits.</p>
 <span class="go">|</span>
 <span class="go">A add foo</span>
 
-<span class="gp">$ </span>jj<span class="w"> </span>revert<span class="w"> </span>-r<span class="w"> </span>B<span class="w"> </span>-d<span class="w"> </span>B
+<span class="gp">$ </span>jj<span class="w"> </span>revert<span class="w"> </span>-r<span class="w"> </span>B<span class="w"> </span>-o<span class="w"> </span>B
 <span class="gp">$ </span>jj<span class="w"> </span>diff<span class="w"> </span>--from<span class="w"> </span>B-<span class="w"> </span>--to<span class="w"> </span>B+<span class="w"> </span><span class="c1"># Should be empty</span>
 </code></pre></div></p>
 <h4 id="parallelizeserialize">Parallelize/serialize<a class="headerlink" href="#parallelizeserialize" title="Permanent link">&para;</a></h4>
@@ -2860,7 +2860,7 @@ ID would still have been clear.</p>
 <span class="go">|</span>
 <span class="go">A add foo</span>
 
-<span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>C<span class="w"> </span>-d<span class="w"> </span>A
+<span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>C<span class="w"> </span>-o<span class="w"> </span>A
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
 <span class="go">C rename foo-&gt;baz</span>
@@ -2869,7 +2869,7 @@ ID would still have been clear.</p>
 <span class="go">|/</span>
 <span class="go">A add foo</span>
 
-<span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>C<span class="w"> </span>-d<span class="w"> </span>B
+<span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>C<span class="w"> </span>-o<span class="w"> </span>B
 </code></pre></div>
 <h4 id="example-rename-added-file">Example: Rename added file<a class="headerlink" href="#example-rename-added-file" title="Permanent link">&para;</a></h4>
 <p>A well-known and thorny problem in Mercurial occurs in the following scenario:</p>
@@ -2945,7 +2945,7 @@ in the copy ID at both paths after propagating the renames.</p>
 <span class="go">|/</span>
 <span class="go">A add foo=&quot;foo&quot; and bar=&quot;bar&quot;</span>
 
-<span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>E<span class="w"> </span>-d<span class="w"> </span>C
+<span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>E<span class="w"> </span>-o<span class="w"> </span>C
 <span class="gp">$ </span>jj<span class="w"> </span>new<span class="w"> </span>D<span class="w"> </span>E<span class="w"> </span>-m<span class="w"> </span>F
 </code></pre></div>
 <p>If F is empty (auto-merged), it should have the same state as E before.</p>

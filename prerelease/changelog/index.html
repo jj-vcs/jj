@@ -6091,6 +6091,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased"><a href="https://github.com/jj-vcs/jj/compare/v0.35.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The <code>--destination</code>/<code>-d</code> arguments for <code>jj rebase</code>, <code>jj split</code>, <code>jj revert</code>,
+  etc. were renamed to <code>--onto</code>/<code>-o</code>. The old names will be removed at some
+  point in the future, but we realize that they are deep in muscle memory, so
+  you can expect an unusually long deprecation period.</li>
+</ul>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>jj squash</code> now accepts <code>--editor</code> / <code>-E</code> to edit the squashed commit message.</li>

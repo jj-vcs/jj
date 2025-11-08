@@ -2683,7 +2683,7 @@ To revert the merge in <code>C</code>, create a new commit with <code>jj new C</
 then <code>jj restore --from B</code>, and then describe the message
 with something like <code>jj desc -m "Revert the merge of D into B</code>. Now, commit <code>@</code>
 undoes the merge of <code>D</code> into  <code>B</code>. If necessary, you can now rebase it
-elsewhere, e.g. <code>jj rebase -r @ -d main</code>.</p>
+elsewhere, e.g. <code>jj rebase -r @ -o main</code>.</p>
 <h3 id="how-do-i-deal-with-divergent-changes-after-the-change-id">How do I deal with divergent changes ('??' after the <a href="../glossary/#change-id">change ID</a>)?<a class="headerlink" href="#how-do-i-deal-with-divergent-changes-after-the-change-id" title="Permanent link">&para;</a></h3>
 <p>See: <a href="../guides/divergence/">Handling divergent commits</a>.</p>
 <h3 id="how-do-i-deal-with-conflicted-bookmarks-after-bookmark-name">How do I deal with conflicted bookmarks ('??' after bookmark name)?<a class="headerlink" href="#how-do-i-deal-with-conflicted-bookmarks-after-bookmark-name" title="Permanent link">&para;</a></h3>

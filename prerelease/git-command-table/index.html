@@ -1950,13 +1950,13 @@ parent.</p>
 <tr>
 <td style="text-align: left;">Move bookmark/branch A onto bookmark/branch B</td>
 <td style="text-align: left;"><code>git rebase B A</code> (may need to rebase other descendant branches separately)</td>
-<td style="text-align: left;"><code>jj rebase -b A -d B</code></td>
+<td style="text-align: left;"><code>jj rebase -b A -o B</code></td>
 <td style="text-align: left;"></td>
 </tr>
 <tr>
 <td style="text-align: left;">Move change A and its descendants onto change B</td>
 <td style="text-align: left;"><code>git rebase --onto B A^ &lt;some descendant bookmark&gt;</code> (may need to rebase other descendant bookmarks separately)</td>
-<td style="text-align: left;"><code>jj rebase -s A -d B</code></td>
+<td style="text-align: left;"><code>jj rebase -s A -o B</code></td>
 <td style="text-align: left;"></td>
 </tr>
 <tr>
@@ -2016,7 +2016,7 @@ parent.</p>
 <tr>
 <td style="text-align: left;">Create a copy of a commit on top of another commit</td>
 <td style="text-align: left;"><code>git co &lt;destination&gt;; git cherry-pick &lt;source&gt;</code></td>
-<td style="text-align: left;"><code>jj duplicate &lt;source&gt; -d &lt;destination&gt;</code></td>
+<td style="text-align: left;"><code>jj duplicate &lt;source&gt; -o &lt;destination&gt;</code></td>
 <td style="text-align: left;"></td>
 </tr>
 <tr>

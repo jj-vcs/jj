@@ -8108,8 +8108,8 @@ Martin von Zweigbergk</p>
 </ul>
 <h2 id="jj-duplicate"><code>jj duplicate</code><a class="headerlink" href="#jj-duplicate" title="Permanent link">&para;</a></h2>
 <p>Create new changes with the same content as existing ones</p>
-<p>When none of the <code>--destination</code>, <code>--insert-after</code>, or <code>--insert-before</code> arguments are provided, commits will be duplicated onto their existing parents or onto other newly duplicated commits.</p>
-<p>When any of the <code>--destination</code>, <code>--insert-after</code>, or <code>--insert-before</code> arguments are provided, the roots of the specified commits will be duplicated onto the destination indicated by the arguments. Other specified commits will be duplicated onto these newly duplicated commits. If the <code>--insert-after</code> or <code>--insert-before</code> arguments are provided, the new children indicated by the arguments will be rebased onto the heads of the specified commits.</p>
+<p>When none of the <code>--onto</code>, <code>--insert-after</code>, or <code>--insert-before</code> arguments are provided, commits will be duplicated onto their existing parents or onto other newly duplicated commits.</p>
+<p>When any of the <code>--onto</code>, <code>--insert-after</code>, or <code>--insert-before</code> arguments are provided, the roots of the specified commits will be duplicated onto the destination indicated by the arguments. Other specified commits will be duplicated onto these newly duplicated commits. If the <code>--insert-after</code> or <code>--insert-before</code> arguments are provided, the new children indicated by the arguments will be rebased onto the heads of the specified commits.</p>
 <p>By default, the duplicated commits retain the descriptions of the originals. This can be customized with the <code>templates.duplicate_description</code> setting.</p>
 <p><strong>Usage:</strong> <code>jj duplicate [OPTIONS] [REVSETS]...</code></p>
 <h6 id="arguments_20"><strong>Arguments:</strong><a class="headerlink" href="#arguments_20" title="Permanent link">&para;</a></h6>
@@ -8118,7 +8118,7 @@ Martin von Zweigbergk</p>
 </ul>
 <h6 id="options_18"><strong>Options:</strong><a class="headerlink" href="#options_18" title="Permanent link">&para;</a></h6>
 <ul>
-<li><code>-d</code>, <code>--destination &lt;REVSETS&gt;</code> — The revision(s) to duplicate onto (can be repeated to create a merge commit)</li>
+<li><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> — The revision(s) to duplicate onto (can be repeated to create a merge commit)</li>
 <li><code>-A</code>, <code>--insert-after &lt;REVSETS&gt;</code> [alias: <code>after</code>] — The revision(s) to insert after (can be repeated to create a merge commit)</li>
 <li><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — The revision(s) to insert before (can be repeated to create a merge commit)</li>
 </ul>
@@ -9243,7 +9243,7 @@ changes (diff) in the revisions.</p>
 <p>There are three different ways of specifying where the revisions should be
 rebased to:</p>
 <ul>
-<li><code>--destination/-d</code> to rebase the revisions onto the specified targets</li>
+<li><code>--onto/-o</code> to rebase the revisions onto the specified targets</li>
 <li><code>--insert-after/-A</code> to rebase the revisions onto the specified targets and
   to rebase the targets' descendants onto the rebased revisions</li>
 <li><code>--insert-before/-B</code> to rebase the revisions onto the specified targets'
@@ -9256,7 +9256,7 @@ which revisions to rebase where.</p>
 revision. This is true in general; it is not specific to this command.</p>
 <h3 id="specifying-which-revisions-to-rebase">Specifying which revisions to rebase<a class="headerlink" href="#specifying-which-revisions-to-rebase" title="Permanent link">&para;</a></h3>
 <p>With <code>--source/-s</code>, the command rebases the specified revision and its
-descendants to the destination. For example, <code>jj rebase -s M -d O</code> would
+descendants to the destination. For example, <code>jj rebase -s M -o O</code> would
 transform your history like this (letters followed by an apostrophe are
 post-rebase versions):</p>
 <div class="highlight"><pre><span></span><code>O           N&#39;
@@ -9272,7 +9272,7 @@ post-rebase versions):</p>
 J           J
 </code></pre></div>
 <p>Each revision passed to <code>-s</code> will become a direct child of the destination,
-so if you instead run <code>jj rebase -s M -s N -d O</code> (or <code>jj rebase -s 'M|N' -d
+so if you instead run <code>jj rebase -s M -s N -o O</code> (or <code>jj rebase -s 'M|N' -o
 O</code>) in the example above, then N' would instead be a direct child of O.</p>
 <p>With <code>--branch/-b</code>, the command rebases the whole "branch" containing the
 specified revision. A "branch" is the set of revisions that includes:</p>
@@ -9281,10 +9281,10 @@ specified revision. A "branch" is the set of revisions that includes:</p>
   destination</li>
 <li>all descendants of those revisions</li>
 </ul>
-<p>In other words, <code>jj rebase -b X -d Y</code> rebases revisions in the revset
-<code>(Y..X)::</code> (which is equivalent to <code>jj rebase -s 'roots(Y..X)' -d Y</code> for a
-single root). For example, either <code>jj rebase -b L -d O</code> or <code>jj rebase -b M
--d O</code> would transform your history like this (because <code>L</code> and <code>M</code> are on the
+<p>In other words, <code>jj rebase -b X -o Y</code> rebases revisions in the revset
+<code>(Y..X)::</code> (which is equivalent to <code>jj rebase -s 'roots(Y..X)' -o Y</code> for a
+single root). For example, either <code>jj rebase -b L -o O</code> or <code>jj rebase -b M
+-o O</code> would transform your history like this (because <code>L</code> and <code>M</code> are on the
 same "branch", relative to the destination):</p>
 <div class="highlight"><pre><span></span><code>O           N&#39;
 |           |
@@ -9301,7 +9301,7 @@ J           J
 <p>With <code>--revisions/-r</code>, the command rebases only the specified revisions to
 the destination. Any "hole" left behind will be filled by rebasing
 descendants onto the specified revisions' parent(s). For example,
-<code>jj rebase -r K -d M</code> would transform your history like this:</p>
+<code>jj rebase -r K -o M</code> would transform your history like this:</p>
 <div class="highlight"><pre><span></span><code>M          K&#39;
 |          |
 | L        M
@@ -9311,7 +9311,7 @@ descendants onto the specified revisions' parent(s). For example,
 J          J
 </code></pre></div>
 <p>Multiple revisions can be specified, and any dependencies (graph edges)
-within the set will be preserved. For example, <code>jj rebase -r 'K|N' -d O</code>
+within the set will be preserved. For example, <code>jj rebase -r 'K|N' -o O</code>
 would transform your history like this:</p>
 <div class="highlight"><pre><span></span><code>O           N&#39;
 |           |
@@ -9330,10 +9330,10 @@ if X is a single revision. However, if X is a set of multiple revisions,
 or if you passed multiple <code>-s</code> arguments, then <code>jj rebase -s</code> will make each
 of the specified revisions an immediate child of the destination, while
 <code>jj rebase -r</code> will preserve dependencies within the set.</p>
-<p>Note that you can create a merge revision by repeating the <code>-d</code> argument.
+<p>Note that you can create a merge revision by repeating the <code>-o</code> argument.
 For example, if you realize that revision L actually depends on revision M
 in order to work (in addition to its current parent K), you can run <code>jj
-rebase -s L -d K -d M</code>:</p>
+rebase -s L -o K -o M</code>:</p>
 <div class="highlight"><pre><span></span><code>M          L&#39;
 |          |\
 | L        M |
@@ -9343,11 +9343,11 @@ rebase -s L -d K -d M</code>:</p>
 J          J
 </code></pre></div>
 <h3 id="specifying-where-to-rebase-the-revisions">Specifying where to rebase the revisions<a class="headerlink" href="#specifying-where-to-rebase-the-revisions" title="Permanent link">&para;</a></h3>
-<p>With <code>--destination/-d</code>, the command rebases the selected revisions onto
-the targets. Existing descendants of the targets will not be affected. See
+<p>With <code>--onto/-o</code>, the command rebases the selected revisions onto the
+targets. Existing descendants of the targets will not be affected. See
 the section above for examples.</p>
 <p>With <code>--insert-after/-A</code>, the selected revisions will be inserted after the
-targets. This is similar to <code>-d</code>, but if the targets have any existing
+targets. This is similar to <code>-o</code>, but if the targets have any existing
 descendants, then those will be rebased onto the rebased selected revisions.</p>
 <p>For example, <code>jj rebase -r K -A L</code> will rewrite history like this:
 <div class="highlight"><pre><span></span><code>N           N&#39;
@@ -9387,7 +9387,7 @@ J           J
 </code></pre></div></p>
 <p>The <code>-A</code> and <code>-B</code> arguments can also be combined, which can be useful around
 merges. For example, you can use <code>jj rebase -r K -A J -B M</code> to create a new
-merge (but <code>jj rebase -r M -d L -d K</code> might be simpler in this particular
+merge (but <code>jj rebase -r M -o L -o K</code> might be simpler in this particular
 case):
 <div class="highlight"><pre><span></span><code>M           M&#39;
 |           |\
@@ -9410,12 +9410,12 @@ K |         K |
 |/          |/
 J           J
 </code></pre></div></p>
-<p><strong>Usage:</strong> <code>jj rebase [OPTIONS] &lt;--destination &lt;REVSETS&gt;|--insert-after &lt;REVSETS&gt;|--insert-before &lt;REVSETS&gt;&gt;</code></p>
+<p><strong>Usage:</strong> <code>jj rebase [OPTIONS] &lt;--onto &lt;REVSETS&gt;|--insert-after &lt;REVSETS&gt;|--insert-before &lt;REVSETS&gt;&gt;</code></p>
 <h6 id="options_43"><strong>Options:</strong><a class="headerlink" href="#options_43" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
 <p><code>-b</code>, <code>--branch &lt;REVSETS&gt;</code> — Rebase the whole branch relative to destination's ancestors (can be repeated)</p>
-<p><code>jj rebase -b=br -d=dst</code> is equivalent to <code>jj rebase '-s=roots(dst..br)' -d=dst</code>.</p>
+<p><code>jj rebase -b=br -o=dst</code> is equivalent to <code>jj rebase '-s=roots(dst..br)' -o=dst</code>.</p>
 <p>If none of <code>-b</code>, <code>-s</code>, or <code>-r</code> is provided, then the default is <code>-b @</code>.</p>
 </li>
 <li>
@@ -9429,7 +9429,7 @@ J           J
 <p>If none of <code>-b</code>, <code>-s</code>, or <code>-r</code> is provided, then the default is <code>-b @</code>.</p>
 </li>
 <li>
-<p><code>-d</code>, <code>--destination &lt;REVSETS&gt;</code> — The revision(s) to rebase onto (can be repeated to create a merge commit)</p>
+<p><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> — The revision(s) to rebase onto (can be repeated to create a merge commit)</p>
 </li>
 <li><code>-A</code>, <code>--insert-after &lt;REVSETS&gt;</code> [alias: <code>after</code>] — The revision(s) to insert after (can be repeated to create a merge commit)</li>
 <li><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — The revision(s) to insert before (can be repeated to create a merge commit)</li>
@@ -9497,11 +9497,11 @@ J           J
 <p>Apply the reverse of the given revision(s)</p>
 <p>The reverse of each of the given revisions is applied sequentially in reverse topological order at the given location.</p>
 <p>The description of the new revisions can be customized with the <code>templates.revert_description</code> config variable.</p>
-<p><strong>Usage:</strong> <code>jj revert [OPTIONS] &lt;--destination &lt;REVSETS&gt;|--insert-after &lt;REVSETS&gt;|--insert-before &lt;REVSETS&gt;&gt;</code></p>
+<p><strong>Usage:</strong> <code>jj revert [OPTIONS] &lt;--onto &lt;REVSETS&gt;|--insert-after &lt;REVSETS&gt;|--insert-before &lt;REVSETS&gt;&gt;</code></p>
 <h6 id="options_46"><strong>Options:</strong><a class="headerlink" href="#options_46" title="Permanent link">&para;</a></h6>
 <ul>
 <li><code>-r</code>, <code>--revisions &lt;REVSETS&gt;</code> — The revision(s) to apply the reverse of</li>
-<li><code>-d</code>, <code>--destination &lt;REVSETS&gt;</code> — The revision(s) to apply the reverse changes on top of</li>
+<li><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> — The revision(s) to apply the reverse changes on top of</li>
 <li><code>-A</code>, <code>--insert-after &lt;REVSETS&gt;</code> [alias: <code>after</code>] — The revision(s) to insert the reverse changes after (can be repeated to create a merge commit)</li>
 <li><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — The revision(s) to insert the reverse changes before (can be repeated to create a merge commit)</li>
 </ul>
@@ -9634,7 +9634,7 @@ J           J
 <p>Default value: <code>@</code></p>
 </li>
 <li>
-<p><code>-d</code>, <code>--destination &lt;REVSETS&gt;</code> — The revision(s) to base the new revision onto (can be repeated to create a merge commit)</p>
+<p><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> — The revision(s) to base the new revision onto (can be repeated to create a merge commit)</p>
 </li>
 <li><code>-A</code>, <code>--insert-after &lt;REVSETS&gt;</code> [alias: <code>after</code>] — The revision(s) to insert after (can be repeated to create a merge commit)</li>
 <li><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — The revision(s) to insert before (can be repeated to create a merge commit)</li>
@@ -9654,7 +9654,7 @@ J           J
 <p>If the source was abandoned and both the source and destination had a non-empty description, you will be asked for the combined description. If either was empty, then the other one will be used.</p>
 <p>If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.</p>
 <p>EXPERIMENTAL FEATURES</p>
-<p>An alternative squashing UI is available via the <code>-d</code>, <code>-A</code>, and <code>-B</code> options. They can be used together with one or more <code>--from</code> options (if no <code>--from</code> is specified, <code>--from @</code> is assumed).</p>
+<p>An alternative squashing UI is available via the <code>-o</code>, <code>-A</code>, and <code>-B</code> options. They can be used together with one or more <code>--from</code> options (if no <code>--from</code> is specified, <code>--from @</code> is assumed).</p>
 <p><strong>Usage:</strong> <code>jj squash [OPTIONS] [FILESETS]...</code></p>
 <h6 id="arguments_51"><strong>Arguments:</strong><a class="headerlink" href="#arguments_51" title="Permanent link">&para;</a></h6>
 <ul>
@@ -9662,10 +9662,10 @@ J           J
 </ul>
 <h6 id="options_52"><strong>Options:</strong><a class="headerlink" href="#options_52" title="Permanent link">&para;</a></h6>
 <ul>
-<li><code>-r</code>, <code>--revision &lt;REVSET&gt;</code> — Revision to squash into its parent (default: @). Incompatible with the experimental <code>-d</code>/<code>-A</code>/<code>-B</code> options</li>
+<li><code>-r</code>, <code>--revision &lt;REVSET&gt;</code> — Revision to squash into its parent (default: @). Incompatible with the experimental <code>-o</code>/<code>-A</code>/<code>-B</code> options</li>
 <li><code>-f</code>, <code>--from &lt;REVSETS&gt;</code> — Revision(s) to squash from (default: @)</li>
 <li><code>-t</code>, <code>--into &lt;REVSET&gt;</code> [alias: <code>to</code>] — Revision to squash into (default: @)</li>
-<li><code>-d</code>, <code>--destination &lt;REVSETS&gt;</code> — (Experimental) The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)</li>
+<li><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> — (Experimental) The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)</li>
 <li><code>-A</code>, <code>--insert-after &lt;REVSETS&gt;</code> [alias: <code>after</code>] — (Experimental) The revision(s) to insert the new commit after (can be repeated to create a merge commit)</li>
 <li><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — (Experimental) The revision(s) to insert the new commit before (can be repeated to create a merge commit)</li>
 <li><code>-m</code>, <code>--message &lt;MESSAGE&gt;</code> — The description to use for squashed revision (don't open editor)</li>
