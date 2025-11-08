@@ -42,7 +42,7 @@ use crate::ui::Ui;
 /// The description of the new revisions can be customized with the
 /// `templates.revert_description` config variable.
 #[derive(clap::Args, Clone, Debug)]
-#[command(group(ArgGroup::new("location").args(&["destination", "insert_after", "insert_before"]).required(true).multiple(true)))]
+#[command(group(ArgGroup::new("location").args(&["onto", "insert_after", "insert_before"]).required(true).multiple(true)))]
 pub(crate) struct RevertArgs {
     /// The revision(s) to apply the reverse of
     #[arg(
@@ -53,18 +53,21 @@ pub(crate) struct RevertArgs {
     revisions: Vec<RevisionArg>,
     /// The revision(s) to apply the reverse changes on top of
     #[arg(
-        long, short,
+        long,
+        alias = "destination",
+        short,
+        short_alias = 'd',
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
-    destination: Option<Vec<RevisionArg>>,
+    onto: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert the reverse changes after (can be repeated to
     /// create a merge commit)
     #[arg(
         long,
         short = 'A',
         visible_alias = "after",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
@@ -75,7 +78,7 @@ pub(crate) struct RevertArgs {
         long,
         short = 'B',
         visible_alias = "before",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
@@ -100,7 +103,7 @@ pub(crate) fn cmd_revert(
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
         &workspace_command,
-        args.destination.as_deref(),
+        args.onto.as_deref(),
         args.insert_after.as_deref(),
         args.insert_before.as_deref(),
         "reverted commits",

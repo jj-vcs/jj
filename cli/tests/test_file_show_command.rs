@@ -101,7 +101,7 @@ fn test_show() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "c\n");
     work_dir
-        .run_jj(["rebase", "-r", "@", "-d", "@--"])
+        .run_jj(["rebase", "-r", "@", "-o", "@--"])
         .success();
     let output = work_dir.run_jj(["file", "show", "file1"]);
     insta::assert_snapshot!(output, @r"

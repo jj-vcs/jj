@@ -71,13 +71,13 @@ use crate::ui::Ui;
 ///
 /// EXPERIMENTAL FEATURES
 ///
-/// An alternative squashing UI is available via the `-d`, `-A`, and `-B`
+/// An alternative squashing UI is available via the `-o`, `-A`, and `-B`
 /// options. They can be used together with one or more `--from` options
 /// (if no `--from` is specified, `--from @` is assumed).
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct SquashArgs {
     /// Revision to squash into its parent (default: @). Incompatible with the
-    /// experimental `-d`/`-A`/`-B` options.
+    /// experimental `-o`/`-A`/`-B` options.
     #[arg(
         long,
         short,
@@ -109,13 +109,15 @@ pub(crate) struct SquashArgs {
     /// be repeated to create a merge commit)
     #[arg(
         long,
+        alias = "destination",
         short,
+        short_alias = 'd',
         conflicts_with = "into",
         conflicts_with = "revision",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
-    destination: Option<Vec<RevisionArg>>,
+    onto: Option<Vec<RevisionArg>>,
 
     /// (Experimental) The revision(s) to insert the new commit after (can be
     /// repeated to create a merge commit)
@@ -123,7 +125,7 @@ pub(crate) struct SquashArgs {
         long,
         short = 'A',
         visible_alias = "after",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         conflicts_with = "into",
         conflicts_with = "revision",
         value_name = "REVSETS",
@@ -137,7 +139,7 @@ pub(crate) struct SquashArgs {
         long,
         short = 'B',
         visible_alias = "before",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         conflicts_with = "into",
         conflicts_with = "revision",
         value_name = "REVSETS",
@@ -190,7 +192,7 @@ pub(crate) fn cmd_squash(
     args: &SquashArgs,
 ) -> Result<(), CommandError> {
     let insert_destination_commit =
-        args.destination.is_some() || args.insert_after.is_some() || args.insert_before.is_some();
+        args.onto.is_some() || args.insert_after.is_some() || args.insert_before.is_some();
 
     let mut workspace_command = command.workspace_helper(ui)?;
 
@@ -257,7 +259,7 @@ pub(crate) fn cmd_squash(
         let (parent_ids, child_ids) = compute_commit_location(
             ui,
             tx.base_workspace_helper(),
-            args.destination.as_deref(),
+            args.onto.as_deref(),
             args.insert_after.as_deref(),
             args.insert_before.as_deref(),
             "squashed commit",

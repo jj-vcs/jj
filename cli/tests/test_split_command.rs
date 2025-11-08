@@ -1291,7 +1291,7 @@ fn test_split_move_first_commit() {
         "file1",
         "-r",
         "qpvuntsmwlqt",
-        "--destination",
+        "--onto",
         "rlvkpnrzqnoo",
         "file1",
     ]);

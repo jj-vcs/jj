@@ -266,11 +266,10 @@ $ jj log
 
 We now have a few commits, where A, B1, and B2 modify the same file, while C
 modifies a different file. Let's now rebase B2 directly onto A. We use the
-`--source`/`-s` option on the change ID of B2, and `--destination`/`-d` option
-on A.
+`--source`/`-s` option on the change ID of B2, and `--onto`/`-o` option on A.
 
 ```shell
-$ jj rebase -s puqltutt -d nuvyytnq  # Replace the IDs by what you have for B2 and A
+$ jj rebase -s puqltutt -o nuvyytnq  # Replace the IDs by what you have for B2 and A
 Rebased 2 commits to destination
 Working copy  (@) now at: qzvqqupx 1978b534 (conflict) C
 Parent commit (@-)      : puqltutt f7fb5943 (conflict) B2
@@ -404,7 +403,7 @@ $ jj op log
 │  args: jj new puqltutt
 ○  367400773f87 martinvonz@vonz.svl.corp.google.com 12 minutes ago, lasted 3 milliseconds
 │  rebase commit daa6ffd5a09a8a7d09a65796194e69b7ed0a566d and descendants
-│  args: jj rebase -s puqltutt -d nuvyytnq
+│  args: jj rebase -s puqltutt -o nuvyytnq
 [many more lines]
 ```
 

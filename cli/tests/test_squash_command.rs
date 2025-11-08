@@ -1644,10 +1644,10 @@ fn test_squash_option_exclusion() {
     insta::assert_snapshot!(work_dir.run_jj([
         "squash",
         "-r@",
-        "--destination=@-"
+        "--onto=@-"
     ]), @r"
     ------- stderr -------
-    error: the argument '--revision <REVSET>' cannot be used with '--destination <REVSETS>'
+    error: the argument '--revision <REVSET>' cannot be used with '--onto <REVSETS>'
 
     Usage: jj squash --revision <REVSET> [FILESETS]...
 
@@ -1688,13 +1688,13 @@ fn test_squash_option_exclusion() {
 
     insta::assert_snapshot!(work_dir.run_jj([
         "squash",
-        "--destination=@",
+        "--onto=@",
         "--into=@-"
     ]), @r"
     ------- stderr -------
-    error: the argument '--destination <REVSETS>' cannot be used with '--into <REVSET>'
+    error: the argument '--onto <REVSETS>' cannot be used with '--into <REVSET>'
 
-    Usage: jj squash --destination <REVSETS> [FILESETS]...
+    Usage: jj squash --onto <REVSETS> [FILESETS]...
 
     For more information, try '--help'.
     [EOF]
@@ -1836,7 +1836,7 @@ fn test_squash_to_new_commit() {
         "file 3&4",
         "-f",
         "kkmpptxzrspx::",
-        "--destination",
+        "--onto",
         "qpvuntsmwlqt",
     ]);
     insta::assert_snapshot!(output, @r"
@@ -1935,9 +1935,9 @@ fn test_squash_to_new_commit() {
         "file 3&4",
         "-f",
         "kkmpptxzrspx::",
-        "--destination",
+        "--onto",
         "rlvkpnrzqnoo",
-        "--destination",
+        "--onto",
         "kkmpptxzrspx",
     ]);
     insta::assert_snapshot!(output, @r"
@@ -2016,10 +2016,10 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○    xlzxqlsl test.user@example.com 2001-02-03 08:05:31 8ceb6c68
     ├─╮  file 3&4
-    │ │  -- operation dc662694ff45 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ │  -- operation 05266483f4c2 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:31 c7946a56
     │ │  file4
-    │ │  -- operation dc662694ff45 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ │  -- operation 05266483f4c2 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:11 38778966
     │ │  file4
     │ │  -- operation 83489d186f66 commit 89a30a7539466ed176c1ef122a020fd9cb15848e
@@ -2031,7 +2031,7 @@ fn test_squash_to_new_commit() {
     │    -- operation 19d57874b952 commit c23c424826221bc4fdee9487926595324e50ee95
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:31 3ab8a4a5
     │  file3
-    │  -- operation dc662694ff45 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │  -- operation 05266483f4c2 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:10 0d254956
     │  file3
     │  -- operation 19d57874b952 commit c23c424826221bc4fdee9487926595324e50ee95
@@ -2115,7 +2115,7 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○  zowrlwsv test.user@example.com 2001-02-03 08:05:38 5feda7c2
        (empty) (no description set)
-       -- operation 8dc838fe4842 squash 0 commits
+       -- operation bfcdfe8808b3 squash 0 commits
     [EOF]
     ");
 
@@ -2158,7 +2158,7 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○  nsrwusvy test.user@example.com 2001-02-03 08:05:42 c2183685
        (empty) (no description set)
-       -- operation 2b93f729fd60 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+       -- operation 68089102e2bb squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     [EOF]
     ");
 
@@ -2175,7 +2175,7 @@ fn test_squash_to_new_commit() {
         "squash",
         "-f",
         "wtlqussy",
-        "--destination",
+        "--onto",
         "root()",
         "--use-destination-message",
     ]);
@@ -2205,10 +2205,10 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ○  ukwxllxp test.user@example.com 2001-02-03 08:05:46 43a4b8e0
     │  (empty) (no description set)
-    │  -- operation ff0dd67ed609 squash commit 7eff41c8d17b8b4d2e7110402719e9d245dba975
+    │  -- operation 05a5eef8665f squash commit 7eff41c8d17b8b4d2e7110402719e9d245dba975
     ○  wtlqussy hidden test.user@example.com 2001-02-03 08:05:46 7eff41c8
        (empty) (no description set)
-       -- operation a8bb9104802c new empty commit
+       -- operation 9f39ca40bedf new empty commit
     [EOF]
     ");
 

@@ -251,7 +251,7 @@
     `git rebase B A`
     (may need to rebase other descendant branches separately)
   Jujutsu command: >
-    `jj rebase -b A -d B`
+    `jj rebase -b A -o B`
   Notes: ''
 
 - Use case: Move change A and its descendants onto change B
@@ -259,7 +259,7 @@
     `git rebase --onto B A^ <some descendant bookmark>`
     (may need to rebase other descendant bookmarks separately)
   Jujutsu command: >
-    `jj rebase -s A -d B`
+    `jj rebase -s A -o B`
   Notes: ''
 
 - Use case: Reorder changes from A-B-C-D to A-C-B-D
@@ -333,7 +333,7 @@
   Git command: >
     `git co <destination>; git cherry-pick <source>`
   Jujutsu command: >
-    `jj duplicate <source> -d <destination>`
+    `jj duplicate <source> -o <destination>`
   Notes: ''
 
 - Use case: Find the root of the working copy (or check if in a repo)

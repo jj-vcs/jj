@@ -12,6 +12,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* The `--destination`/`-d` arguments for `jj rebase`, `jj split`, `jj revert`,
+  etc. were renamed to `--onto`/`-o`. The old names will be removed at some
+  point in the future, but we realize that they are deep in muscle memory, so
+  you can expect an unusually long deprecation period.
+
 ### New features
 
 * `jj squash` now accepts `--editor` / `-E` to edit the squashed commit message.

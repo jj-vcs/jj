@@ -71,8 +71,8 @@ B rename foo->bar
 |
 A add foo
 
-$ jj rebase -r C -d A
-$ jj rebase -r C -d B # Takes us back to the state above
+$ jj rebase -r C -o A
+$ jj rebase -r C -o B # Takes us back to the state above
 ```
 
 
@@ -88,7 +88,7 @@ B rename foo->bar
 |
 A add foo
 
-$ jj revert -r B -d B
+$ jj revert -r B -o B
 $ jj diff --from B- --to B+ # Should be empty
 ```
 
@@ -528,7 +528,7 @@ B rename foo->bar
 |
 A add foo
 
-$ jj rebase -r C -d A
+$ jj rebase -r C -o A
 ```
 
 
@@ -540,7 +540,7 @@ C rename foo->baz
 |/
 A add foo
 
-$ jj rebase -r C -d B
+$ jj rebase -r C -o B
 ```
 
 #### Example: Rename added file
@@ -637,7 +637,7 @@ C | rename bar->baz
 |/
 A add foo="foo" and bar="bar"
 
-$ jj rebase -r E -d C
+$ jj rebase -r E -o C
 $ jj new D E -m F
 ```
 

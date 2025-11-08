@@ -917,9 +917,9 @@ See `jj restore` if you want to move entire files from one revision to another. 
 
 Create new changes with the same content as existing ones
 
-When none of the `--destination`, `--insert-after`, or `--insert-before` arguments are provided, commits will be duplicated onto their existing parents or onto other newly duplicated commits.
+When none of the `--onto`, `--insert-after`, or `--insert-before` arguments are provided, commits will be duplicated onto their existing parents or onto other newly duplicated commits.
 
-When any of the `--destination`, `--insert-after`, or `--insert-before` arguments are provided, the roots of the specified commits will be duplicated onto the destination indicated by the arguments. Other specified commits will be duplicated onto these newly duplicated commits. If the `--insert-after` or `--insert-before` arguments are provided, the new children indicated by the arguments will be rebased onto the heads of the specified commits.
+When any of the `--onto`, `--insert-after`, or `--insert-before` arguments are provided, the roots of the specified commits will be duplicated onto the destination indicated by the arguments. Other specified commits will be duplicated onto these newly duplicated commits. If the `--insert-after` or `--insert-before` arguments are provided, the new children indicated by the arguments will be rebased onto the heads of the specified commits.
 
 By default, the duplicated commits retain the descriptions of the originals. This can be customized with the `templates.duplicate_description` setting.
 
@@ -931,7 +931,7 @@ By default, the duplicated commits retain the descriptions of the originals. Thi
 
 ###### **Options:**
 
-* `-d`, `--destination <REVSETS>` — The revision(s) to duplicate onto (can be repeated to create a merge commit)
+* `-o`, `--onto <REVSETS>` — The revision(s) to duplicate onto (can be repeated to create a merge commit)
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert before (can be repeated to create a merge commit)
 
@@ -2294,7 +2294,7 @@ If no option is specified, it defaults to `-b @`.
 There are three different ways of specifying where the revisions should be
 rebased to:
 
-* `--destination/-d` to rebase the revisions onto the specified targets
+* `--onto/-o` to rebase the revisions onto the specified targets
 * `--insert-after/-A` to rebase the revisions onto the specified targets and
   to rebase the targets' descendants onto the rebased revisions
 * `--insert-before/-B` to rebase the revisions onto the specified targets'
@@ -2310,7 +2310,7 @@ revision. This is true in general; it is not specific to this command.
 ### Specifying which revisions to rebase
 
 With `--source/-s`, the command rebases the specified revision and its
-descendants to the destination. For example, `jj rebase -s M -d O` would
+descendants to the destination. For example, `jj rebase -s M -o O` would
 transform your history like this (letters followed by an apostrophe are
 post-rebase versions):
 
@@ -2329,7 +2329,7 @@ J           J
 ```
 
 Each revision passed to `-s` will become a direct child of the destination,
-so if you instead run `jj rebase -s M -s N -d O` (or `jj rebase -s 'M|N' -d
+so if you instead run `jj rebase -s M -s N -o O` (or `jj rebase -s 'M|N' -o
 O`) in the example above, then N' would instead be a direct child of O.
 
 With `--branch/-b`, the command rebases the whole "branch" containing the
@@ -2339,10 +2339,10 @@ specified revision. A "branch" is the set of revisions that includes:
   destination
 * all descendants of those revisions
 
-In other words, `jj rebase -b X -d Y` rebases revisions in the revset
-`(Y..X)::` (which is equivalent to `jj rebase -s 'roots(Y..X)' -d Y` for a
-single root). For example, either `jj rebase -b L -d O` or `jj rebase -b M
--d O` would transform your history like this (because `L` and `M` are on the
+In other words, `jj rebase -b X -o Y` rebases revisions in the revset
+`(Y..X)::` (which is equivalent to `jj rebase -s 'roots(Y..X)' -o Y` for a
+single root). For example, either `jj rebase -b L -o O` or `jj rebase -b M
+-o O` would transform your history like this (because `L` and `M` are on the
 same "branch", relative to the destination):
 
 ```text
@@ -2362,7 +2362,7 @@ J           J
 With `--revisions/-r`, the command rebases only the specified revisions to
 the destination. Any "hole" left behind will be filled by rebasing
 descendants onto the specified revisions' parent(s). For example,
-`jj rebase -r K -d M` would transform your history like this:
+`jj rebase -r K -o M` would transform your history like this:
 
 ```text
 M          K'
@@ -2375,7 +2375,7 @@ J          J
 ```
 
 Multiple revisions can be specified, and any dependencies (graph edges)
-within the set will be preserved. For example, `jj rebase -r 'K|N' -d O`
+within the set will be preserved. For example, `jj rebase -r 'K|N' -o O`
 would transform your history like this:
 
 ```text
@@ -2398,10 +2398,10 @@ or if you passed multiple `-s` arguments, then `jj rebase -s` will make each
 of the specified revisions an immediate child of the destination, while
 `jj rebase -r` will preserve dependencies within the set.
 
-Note that you can create a merge revision by repeating the `-d` argument.
+Note that you can create a merge revision by repeating the `-o` argument.
 For example, if you realize that revision L actually depends on revision M
 in order to work (in addition to its current parent K), you can run `jj
-rebase -s L -d K -d M`:
+rebase -s L -o K -o M`:
 
 ```text
 M          L'
@@ -2415,12 +2415,12 @@ J          J
 
 ### Specifying where to rebase the revisions
 
-With `--destination/-d`, the command rebases the selected revisions onto
-the targets. Existing descendants of the targets will not be affected. See
+With `--onto/-o`, the command rebases the selected revisions onto the
+targets. Existing descendants of the targets will not be affected. See
 the section above for examples.
 
 With `--insert-after/-A`, the selected revisions will be inserted after the
-targets. This is similar to `-d`, but if the targets have any existing
+targets. This is similar to `-o`, but if the targets have any existing
 descendants, then those will be rebased onto the rebased selected revisions.
 
 For example, `jj rebase -r K -A L` will rewrite history like this:
@@ -2468,7 +2468,7 @@ J           J
 
 The `-A` and `-B` arguments can also be combined, which can be useful around
 merges. For example, you can use `jj rebase -r K -A J -B M` to create a new
-merge (but `jj rebase -r M -d L -d K` might be simpler in this particular
+merge (but `jj rebase -r M -o L -o K` might be simpler in this particular
 case):
 ```text
 M           M'
@@ -2495,13 +2495,13 @@ K |         K |
 J           J
 ```
 
-**Usage:** `jj rebase [OPTIONS] <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>`
+**Usage:** `jj rebase [OPTIONS] <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>`
 
 ###### **Options:**
 
 * `-b`, `--branch <REVSETS>` — Rebase the whole branch relative to destination's ancestors (can be repeated)
 
-   `jj rebase -b=br -d=dst` is equivalent to `jj rebase '-s=roots(dst..br)' -d=dst`.
+   `jj rebase -b=br -o=dst` is equivalent to `jj rebase '-s=roots(dst..br)' -o=dst`.
 
    If none of `-b`, `-s`, or `-r` is provided, then the default is `-b @`.
 * `-s`, `--source <REVSETS>` — Rebase specified revision(s) together with their trees of descendants (can be repeated)
@@ -2514,7 +2514,7 @@ J           J
    Unlike `-s` or `-b`, you may `jj rebase -r` a revision `A` onto a descendant of `A`.
 
    If none of `-b`, `-s`, or `-r` is provided, then the default is `-b @`.
-* `-d`, `--destination <REVSETS>` — The revision(s) to rebase onto (can be repeated to create a merge commit)
+* `-o`, `--onto <REVSETS>` — The revision(s) to rebase onto (can be repeated to create a merge commit)
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert before (can be repeated to create a merge commit)
 * `--skip-emptied` — If true, when rebasing would produce an empty commit, the commit is abandoned. It will not be abandoned if it was already empty before the rebase. Will never skip merge commits with multiple non-empty parents
@@ -2603,12 +2603,12 @@ The reverse of each of the given revisions is applied sequentially in reverse to
 
 The description of the new revisions can be customized with the `templates.revert_description` config variable.
 
-**Usage:** `jj revert [OPTIONS] <--destination <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>`
+**Usage:** `jj revert [OPTIONS] <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>`
 
 ###### **Options:**
 
 * `-r`, `--revisions <REVSETS>` — The revision(s) to apply the reverse of
-* `-d`, `--destination <REVSETS>` — The revision(s) to apply the reverse changes on top of
+* `-o`, `--onto <REVSETS>` — The revision(s) to apply the reverse changes on top of
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert the reverse changes after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert the reverse changes before (can be repeated to create a merge commit)
 
@@ -2791,7 +2791,7 @@ Splitting an empty commit is not supported because the same effect can be achiev
 * `-r`, `--revision <REVSET>` — The revision to split
 
   Default value: `@`
-* `-d`, `--destination <REVSETS>` — The revision(s) to base the new revision onto (can be repeated to create a merge commit)
+* `-o`, `--onto <REVSETS>` — The revision(s) to base the new revision onto (can be repeated to create a merge commit)
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert before (can be repeated to create a merge commit)
 * `-m`, `--message <MESSAGE>` — The change description to use (don't open editor)
@@ -2817,7 +2817,7 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
 EXPERIMENTAL FEATURES
 
-An alternative squashing UI is available via the `-d`, `-A`, and `-B` options. They can be used together with one or more `--from` options (if no `--from` is specified, `--from @` is assumed).
+An alternative squashing UI is available via the `-o`, `-A`, and `-B` options. They can be used together with one or more `--from` options (if no `--from` is specified, `--from @` is assumed).
 
 **Usage:** `jj squash [OPTIONS] [FILESETS]...`
 
@@ -2827,10 +2827,10 @@ An alternative squashing UI is available via the `-d`, `-A`, and `-B` options. T
 
 ###### **Options:**
 
-* `-r`, `--revision <REVSET>` — Revision to squash into its parent (default: @). Incompatible with the experimental `-d`/`-A`/`-B` options
+* `-r`, `--revision <REVSET>` — Revision to squash into its parent (default: @). Incompatible with the experimental `-o`/`-A`/`-B` options
 * `-f`, `--from <REVSETS>` — Revision(s) to squash from (default: @)
 * `-t`, `--into <REVSET>` [alias: `to`] — Revision to squash into (default: @)
-* `-d`, `--destination <REVSETS>` — (Experimental) The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)
+* `-o`, `--onto <REVSETS>` — (Experimental) The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — (Experimental) The revision(s) to insert the new commit after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — (Experimental) The revision(s) to insert the new commit before (can be repeated to create a merge commit)
 * `-m`, `--message <MESSAGE>` — The description to use for squashed revision (don't open editor)
