@@ -1179,7 +1179,7 @@ impl WorkspaceCommandHelper {
             }
         } else {
             // Unlikely, but the HEAD ref got deleted by git?
-            self.finish_transaction(ui, tx, "import git head")?;
+            self.finish_transaction(ui, tx, "import git head", &HashSet::new())?;
         }
         Ok(())
     }
@@ -1212,7 +1212,7 @@ impl WorkspaceCommandHelper {
                 "Rebased {num_rebased} descendant commits off of commits rewritten from git"
             )?;
         }
-        self.finish_transaction(ui, tx, "import git refs")?;
+        self.finish_transaction(ui, tx, "import git refs", &HashSet::new())?;
         writeln!(
             ui.status(),
             "Done importing changes from the underlying Git repo."
@@ -2040,12 +2040,17 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         ui: &Ui,
         mut tx: Transaction,
         description: impl Into<String>,
+        to_restore: &HashSet<CommitId>,
     ) -> Result<(), CommandError> {
         if !tx.repo().has_changes() {
             writeln!(ui.status(), "Nothing changed.")?;
             return Ok(());
         }
-        let num_rebased = tx.repo_mut().rebase_descendants()?;
+        let mut num_rebased = 0;
+        tx.repo_mut().rebase_or_reparent_descendants(|commit_id| {
+            num_rebased += 1;
+            to_restore.contains(commit_id)
+        })?;
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
@@ -2474,8 +2479,18 @@ impl WorkspaceCommandTransaction<'_> {
         self.helper.env.parse_template(ui, &language, template_text)
     }
 
+    pub fn finish_with_to_restore(
+        self,
+        ui: &Ui,
+        description: impl Into<String>,
+        to_restore: &HashSet<CommitId>,
+    ) -> Result<(), CommandError> {
+        self.helper
+            .finish_transaction(ui, self.tx, description, to_restore)
+    }
+
     pub fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
-        self.helper.finish_transaction(ui, self.tx, description)
+        self.finish_with_to_restore(ui, description, &HashSet::new())
     }
 
     /// Returns the wrapped [`Transaction`] for circumstances where

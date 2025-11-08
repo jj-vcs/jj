@@ -328,6 +328,14 @@ pub(crate) struct RebaseArgs {
     /// destination with identical changes.
     #[arg(long)]
     keep_divergent: bool,
+
+    /// The revision(s) to preserve the content of (not the diff)
+    #[arg(
+        long,
+        value_name = "REVSETS",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    restore_snapshots: Option<Vec<RevisionArg>>,
 }
 
 #[derive(clap::Args, Clone, Debug)]
@@ -393,6 +401,15 @@ pub(crate) fn cmd_rebase(
         plan_rebase_branch(ui, &workspace_command, &args.branch, &args.destination)?
     };
 
+    let to_restore = if let Some(restore_snapshots) = args.restore_snapshots.as_deref() {
+        workspace_command
+            .parse_union_revsets(ui, restore_snapshots)?
+            .evaluate_to_commit_ids()?
+            .try_collect()?
+    } else {
+        std::collections::HashSet::new()
+    };
+
     let mut tx = workspace_command.start_transaction();
     let mut computed_move = compute_move_commits(tx.repo(), &loc)?;
     if !args.keep_divergent {
@@ -414,9 +431,9 @@ pub(crate) fn cmd_rebase(
             )?;
         }
     };
-    let stats = computed_move.apply(tx.repo_mut(), &rebase_options)?;
+    let stats = computed_move.apply(tx.repo_mut(), &rebase_options, &to_restore)?;
     print_move_commits_stats(ui, &stats)?;
-    tx.finish(ui, tx_description(&loc.target))?;
+    tx.finish_with_to_restore(ui, tx_description(&loc.target), &to_restore)?;
 
     Ok(())
 }

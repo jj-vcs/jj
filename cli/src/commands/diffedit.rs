@@ -100,6 +100,14 @@ pub(crate) struct DiffeditArgs {
     /// is preserved instead of preserving the diff.
     #[arg(long)]
     restore_descendants: bool,
+    /// The revision(s) to preserve the content of (not the diff)
+    #[arg(
+        long,
+        value_name = "REVSETS",
+        conflicts_with = "restore_descendants",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    restore_snapshots: Option<Vec<RevisionArg>>,
 }
 
 #[instrument(skip_all)]
@@ -132,6 +140,15 @@ pub(crate) fn cmd_diffedit(
     };
     workspace_command.check_rewritable([target_commit.id()])?;
 
+    let to_restore = if let Some(restore_snapshots) = args.restore_snapshots.as_deref() {
+        workspace_command
+            .parse_union_revsets(ui, restore_snapshots)?
+            .evaluate_to_commit_ids()?
+            .try_collect()?
+    } else {
+        std::collections::HashSet::new()
+    };
+
     let diff_editor = workspace_command.diff_editor(ui, args.tool.as_deref())?;
     let mut tx = workspace_command.start_transaction();
     let format_instructions = || {
@@ -158,23 +175,33 @@ don't make any changes, then the operation will be aborted.",
             .write()?;
         // rebase_descendants early; otherwise `new_commit` would always have
         // a conflicted change id at this point.
-        let (num_rebased, extra_msg) = if args.restore_descendants {
-            (
-                tx.repo_mut().reparent_descendants()?,
-                " (while preserving their content)",
-            )
-        } else {
-            (tx.repo_mut().rebase_descendants()?, "")
-        };
-        if let Some(mut formatter) = ui.status_formatter()
-            && num_rebased > 0
-        {
-            writeln!(
-                formatter,
-                "Rebased {num_rebased} descendant commits{extra_msg}"
-            )?;
+        let mut num_reparented = 0;
+        let mut num_rebased = 0;
+        tx.repo_mut().rebase_or_reparent_descendants(|commit_id| {
+            if args.restore_descendants || to_restore.contains(commit_id) {
+                num_reparented += 1;
+                true
+            } else {
+                num_rebased += 1;
+                false
+            }
+        })?;
+        if let Some(mut formatter) = ui.status_formatter() {
+            if num_reparented > 0 {
+                writeln!(
+                    formatter,
+                    "Rebased {num_reparented} descendant commits (while preserving their content)"
+                )?;
+            }
+            if num_rebased > 0 {
+                writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
+            }
         }
-        tx.finish(ui, format!("edit commit {}", target_commit.id().hex()))?;
+        tx.finish_with_to_restore(
+            ui,
+            format!("edit commit {}", target_commit.id().hex()),
+            &to_restore,
+        )?;
     }
     print_unmatched_explicit_paths(
         ui,

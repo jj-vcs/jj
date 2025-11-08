@@ -245,6 +245,7 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
    Bookmarks will be moved to the parent revisions instead.
 * `--restore-descendants` — Do not modify the content of the children of the abandoned commits
+* `--restore-snapshots <REVSETS>` — The revision(s) to preserve the content of (not the diff)
 
 
 
@@ -910,6 +911,7 @@ See `jj restore` if you want to move entire files from one revision to another. 
 * `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
 
    When rebasing a descendant on top of the rewritten revision, its diff compared to its parent(s) is normally preserved, i.e. the same way that descendants are always rebased. This flag makes it so the content/state is preserved instead of preserving the diff.
+* `--restore-snapshots <REVSETS>` — The revision(s) to preserve the content of (not the diff)
 
 
 
@@ -2521,6 +2523,7 @@ J           J
 * `--keep-divergent` — Keep divergent commits while rebasing
 
    Without this flag, divergent commits are abandoned while rebasing if another commit with the same change ID is already present in the destination with identical changes.
+* `--restore-snapshots <REVSETS>` — The revision(s) to preserve the content of (not the diff)
 
 
 
@@ -2592,6 +2595,7 @@ See `jj diffedit` if you'd like to restore portions of files rather than entire 
 * `-i`, `--interactive` — Interactively choose which parts to restore
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants
+* `--restore-snapshots <REVSETS>` — The revision(s) to preserve the content of (not the diff)
 
 
 
@@ -2839,6 +2843,7 @@ An alternative squashing UI is available via the `-o`, `-A`, and `-B` options. T
 * `-i`, `--interactive` — Interactively choose which parts to squash
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `-k`, `--keep-emptied` — The source revision will not be abandoned
+* `--restore-snapshots <REVSETS>` — The revision(s) to preserve the content of (not the diff)
 
 
 
