@@ -291,13 +291,7 @@ fn test_resolve_success() {
     );
     let resolved_tree = tree.resolve().block_on().unwrap();
     assert!(resolved_tree.tree_ids().is_resolved());
-    assert_tree_eq!(
-        resolved_tree,
-        expected,
-        "actual entries: {:#?}, expected entries {:#?}",
-        resolved_tree.entries().collect_vec(),
-        expected.entries().collect_vec()
-    );
+    assert_tree_eq!(resolved_tree, expected);
 }
 
 #[test]

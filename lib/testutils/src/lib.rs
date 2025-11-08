@@ -554,38 +554,34 @@ pub fn commit_with_tree(store: &Arc<Store>, tree: MergedTree) -> Commit {
     store.write_commit(commit, None).block_on().unwrap()
 }
 
-pub fn dump_tree(tree: &MergedTree) -> String {
+pub fn dump_tree(merged_tree: &MergedTree) -> String {
     use std::fmt::Write as _;
-    let store = tree.store();
+    let store = merged_tree.store();
     let mut buf = String::new();
-    writeln!(
-        &mut buf,
-        "tree {}",
-        tree.tree_ids()
-            .iter()
-            .map(|tree_id| tree_id.hex())
-            .join("&")
-    )
-    .unwrap();
-    for (path, result) in tree.entries() {
-        match result.unwrap().into_resolved() {
-            Ok(Some(TreeValue::File {
-                id,
-                executable: _,
-                copy_id: _,
-            })) => {
-                let file_buf = read_file(store, &path, &id);
-                let file_contents = String::from_utf8_lossy(&file_buf);
-                writeln!(&mut buf, "  file {path:?} ({id}): {file_contents:?}").unwrap();
-            }
-            Ok(Some(TreeValue::Symlink(id))) => {
-                writeln!(&mut buf, "  symlink {path:?} ({id})").unwrap();
-            }
-            Ok(Some(TreeValue::GitSubmodule(id))) => {
-                writeln!(&mut buf, "  submodule {path:?} ({id})").unwrap();
-            }
-            entry => {
-                unimplemented!("dumping tree entry {entry:?}");
+    let trees = merged_tree.trees().unwrap();
+    writeln!(&mut buf, "merged tree (sides: {})", trees.num_sides()).unwrap();
+    for tree in trees.iter() {
+        writeln!(&mut buf, "  tree {}", tree.id()).unwrap();
+        for (path, entry) in tree.entries_matching(&EverythingMatcher) {
+            match entry {
+                TreeValue::File {
+                    id,
+                    executable: _,
+                    copy_id: _,
+                } => {
+                    let file_buf = read_file(store, &path, &id);
+                    let file_contents = String::from_utf8_lossy(&file_buf);
+                    writeln!(&mut buf, "    file {path:?} ({id}): {file_contents:?}").unwrap();
+                }
+                TreeValue::Symlink(id) => {
+                    writeln!(&mut buf, "    symlink {path:?} ({id})").unwrap();
+                }
+                TreeValue::GitSubmodule(id) => {
+                    writeln!(&mut buf, "    submodule {path:?} ({id})").unwrap();
+                }
+                _ => {
+                    writeln!(&mut buf, "    entry {path:?}: {entry:?}").unwrap();
+                }
             }
         }
     }

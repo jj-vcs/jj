@@ -2004,16 +2004,18 @@ fn test_fsmonitor() {
 
     let tree_state = snapshot(&[foo_path]);
     insta::assert_snapshot!(testutils::dump_tree(tree_state.current_tree()), @r#"
-    tree 2a5341b103917cfdb48a
-      file "foo" (e99c2057c15160add351): "foo\n"
+    merged tree (sides: 1)
+      tree 2a5341b103917cfdb48a
+        file "foo" (e99c2057c15160add351): "foo\n"
     "#);
 
     let mut tree_state = snapshot(&[foo_path, bar_path, nested_path, ignored_path]);
     insta::assert_snapshot!(testutils::dump_tree(tree_state.current_tree()), @r#"
-    tree 1c5c336421714b1df7bb
-      file "bar" (94cc973e7e1aefb7eff6): "bar\n"
-      file "foo" (e99c2057c15160add351): "foo\n"
-      file "path/to/nested" (6209060941cd770c8d46): "nested\n"
+    merged tree (sides: 1)
+      tree 1c5c336421714b1df7bb
+        file "bar" (94cc973e7e1aefb7eff6): "bar\n"
+        file "foo" (e99c2057c15160add351): "foo\n"
+        file "path/to/nested" (6209060941cd770c8d46): "nested\n"
     "#);
     tree_state.save().unwrap();
 
@@ -2021,18 +2023,20 @@ fn test_fsmonitor() {
     testutils::write_working_copy_file(&workspace_root, bar_path, "updated bar\n");
     let tree_state = snapshot(&[foo_path]);
     insta::assert_snapshot!(testutils::dump_tree(tree_state.current_tree()), @r#"
-    tree f653dfa18d0b025bdb9e
-      file "bar" (94cc973e7e1aefb7eff6): "bar\n"
-      file "foo" (e0fbd106147cc04ccd05): "updated foo\n"
-      file "path/to/nested" (6209060941cd770c8d46): "nested\n"
+    merged tree (sides: 1)
+      tree f653dfa18d0b025bdb9e
+        file "bar" (94cc973e7e1aefb7eff6): "bar\n"
+        file "foo" (e0fbd106147cc04ccd05): "updated foo\n"
+        file "path/to/nested" (6209060941cd770c8d46): "nested\n"
     "#);
 
     std::fs::remove_file(foo_path.to_fs_path_unchecked(&workspace_root)).unwrap();
     let mut tree_state = snapshot(&[foo_path]);
     insta::assert_snapshot!(testutils::dump_tree(tree_state.current_tree()), @r#"
-    tree b7416fc248a038b920c3
-      file "bar" (94cc973e7e1aefb7eff6): "bar\n"
-      file "path/to/nested" (6209060941cd770c8d46): "nested\n"
+    merged tree (sides: 1)
+      tree b7416fc248a038b920c3
+        file "bar" (94cc973e7e1aefb7eff6): "bar\n"
+        file "path/to/nested" (6209060941cd770c8d46): "nested\n"
     "#);
     tree_state.save().unwrap();
 }
