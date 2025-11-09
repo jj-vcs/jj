@@ -17,11 +17,17 @@
 //! for more details.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::hash_map::Entry::Occupied;
+use std::collections::hash_map::Entry::Vacant;
 use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::executor::block_on_stream;
+use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -31,7 +37,9 @@ use jj_lib::commit::Commit;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::evolution::WalkPredecessorsError;
+use jj_lib::evolution::walk_predecessors;
 use jj_lib::graph_dominators::FlowGraph;
+use jj_lib::graph_dominators::SimpleDirectedGraph;
 use jj_lib::graph_dominators::ValueCache;
 use jj_lib::index::IndexError;
 use jj_lib::merge::Merge;
@@ -318,10 +326,117 @@ impl TruncatedEvolutionGraph {
     /// Builds a truncated evolution graph for the given divergent commits,
     /// which are expected to all have the same change-id.
     pub async fn new(
-        _repo: &ReadonlyRepo,
-        _divergent_commits: &[Commit],
+        repo: &ReadonlyRepo,
+        divergent_commits: &[Commit],
     ) -> Result<Self, ConvergeError> {
-        todo!()
+        validate(
+            !divergent_commits.is_empty(),
+            "divergent_commits must not be empty",
+        )?;
+
+        let divergent_commit_ids = divergent_commits
+            .iter()
+            .map(|c| c.id().clone())
+            .collect_vec();
+
+        // Ensure all provided divergent commits belong to the same change-id.
+        // Note: divergent_commits is not empty, so it is ok to unwrap.
+        let divergent_change_id = if divergent_commits.iter().map(|c| c.change_id()).all_equal() {
+            divergent_commits.iter().next().unwrap().change_id().clone()
+        } else {
+            return Err(ConvergeError::Other(
+                "all divergent commits must have the same change-id".into(),
+            ));
+        };
+
+        // The list of edges, with commits pointing to their successors.
+        let mut edges = vec![];
+        let mut commits = HashMap::new();
+        let mut to_visit = HashSet::with_capacity(divergent_commit_ids.len());
+        to_visit.extend(divergent_commit_ids.iter().cloned());
+
+        let evolution_nodes =
+            block_on_stream(walk_predecessors(repo, divergent_commit_ids.as_slice()).boxed_local());
+
+        // These are the commits in the graph that have no predecessors. Typically
+        // there is exactly one entry in initial_nodes (the first commit for the
+        // change-id).
+        let mut initial_nodes = vec![];
+
+        for node in evolution_nodes {
+            let entry = node?;
+            let commit_id = entry.commit.id();
+            if *entry.commit.change_id() != divergent_change_id {
+                // Skip commits with unrelated change ids.
+                continue;
+            }
+            to_visit.remove(commit_id);
+            match commits.entry(commit_id.clone()) {
+                Occupied(_) => {
+                    // TODO: think about this some more. Can 2 different operations result in the
+                    // same commit? Maybe the key should be (commit-id, operation-id).
+
+                    // Note: currently walk_predecessors returns an error if the graph is cyclic, so
+                    // we shouldn't encounter the same commit twice. But in the future we could
+                    // allow cyclic evolution, and if we do there is no reason to disallow it here.
+                    // By continuing we future proof this.
+                    continue;
+                }
+                Vacant(e) => e.insert(entry.clone()),
+            };
+            let predecessor_commits = entry.predecessors().await?;
+            let predecessors = predecessor_commits
+                .iter()
+                .filter_map(|commit| {
+                    if *commit.change_id() == divergent_change_id {
+                        Some(commit.id().clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect_vec();
+            for predecessor in &predecessors {
+                edges.push((predecessor.clone(), commit_id.clone()));
+            }
+            if predecessors.is_empty() {
+                initial_nodes.push(commit_id.clone());
+                if to_visit.is_empty() {
+                    break;
+                }
+            } else {
+                to_visit.extend(predecessors);
+            }
+        }
+
+        validate(
+            !initial_nodes.is_empty(),
+            "Unexpected error: initial_nodes should not be empty",
+        )?;
+
+        // To compute the evolution fork point (see below) there must be a single
+        // "initial node". In graphs with multiple "real" initial nodes we introduce a
+        // virtual initial node (the root commit) and pretend the two or more "real"
+        // initial nodes are successors of the root commit.
+        let initial_node = if initial_nodes.len() == 1 {
+            initial_nodes[0].clone()
+        } else {
+            let root_commit_id = repo.store().root_commit_id().clone();
+            commits.insert(
+                root_commit_id.clone(),
+                CommitEvolutionEntry::for_root_commit(repo.store()),
+            );
+            for initial_node in initial_nodes {
+                edges.push((root_commit_id.clone(), initial_node));
+            }
+            root_commit_id
+        };
+
+        let flow_graph = FlowGraph::new(SimpleDirectedGraph::new(edges), initial_node);
+        Ok(Self {
+            divergent_commit_ids,
+            flow_graph,
+            commits,
+        })
     }
 
     /// Returns the change-id of the commits in the graph.
@@ -494,5 +609,13 @@ where
     match ui_chooser(converge_ui)? {
         Some(value) => Ok(ConvergeResult::Solution(value)),
         None => Ok(ConvergeResult::Aborted),
+    }
+}
+
+fn validate(predicate: bool, msg: &str) -> Result<(), ConvergeError> {
+    if !predicate {
+        Err(ConvergeError::Other(msg.into()))
+    } else {
+        Ok(())
     }
 }
