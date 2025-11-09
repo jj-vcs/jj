@@ -38,6 +38,7 @@ pub mod config;
 mod config_resolver;
 pub mod conflict_labels;
 pub mod conflicts;
+pub mod converge;
 pub mod copies;
 pub mod dag_walk;
 pub mod default_index;
