@@ -94,11 +94,11 @@ impl CopyId {
 pub struct TimestampOutOfRange;
 
 /// The number of milliseconds since the Unix epoch.
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
+#[derive(ContentHash, Hash, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub struct MillisSinceEpoch(pub i64);
 
 /// A timestamp with millisecond precision and a time zone offset.
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
+#[derive(ContentHash, Hash, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub struct Timestamp {
     /// The number of milliseconds since the Unix epoch.
     pub timestamp: MillisSinceEpoch,
@@ -157,7 +157,7 @@ impl serde::Serialize for Timestamp {
 
 /// Represents a person/entity and a timestamp for when they authored or
 /// committed a commit.
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone, serde::Serialize)]
+#[derive(ContentHash, Hash, Debug, PartialEq, Eq, Clone, serde::Serialize)]
 pub struct Signature {
     /// The name of the person/entity.
     pub name: String,
