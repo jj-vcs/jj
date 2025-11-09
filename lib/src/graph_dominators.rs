@@ -392,7 +392,7 @@ pub enum FindDominatorValueError<E> {
 /// Helper struct for constructing a value flow graph. It caches the results
 /// of applying value_fn to nodes, and also keeps track of the mapping from
 /// values to nodes and nodes to values.
-struct ValueCache<N, V, VF> {
+pub struct ValueCache<N, V, VF> {
     /// The function that emits values.
     value_fn: VF,
     /// Maps nodes to their corresponding values.
@@ -408,7 +408,7 @@ where
     VF: AsyncFn(&N) -> Result<V, E>,
 {
     /// Creates a new ValueCache that uses the given function to get values.
-    fn new(value_fn: VF) -> Self {
+    pub fn new(value_fn: VF) -> Self {
         Self {
             value_fn,
             node_values: HashMap::new(),
@@ -416,8 +416,14 @@ where
         }
     }
 
+    /// Returns the value cached for the given node, or None if the value has
+    /// not been computed.
+    pub fn get_value(&self, node: &N) -> Option<&Rc<V>> {
+        self.node_values.get(node)
+    }
+
     /// Gets all the values currently cached.
-    fn get_values(&self) -> Vec<Rc<V>> {
+    pub fn get_values(&self) -> Vec<Rc<V>> {
         self.value_to_nodes.keys().cloned().collect_vec()
     }
 
