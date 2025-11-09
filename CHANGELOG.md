@@ -26,6 +26,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `jj arrange` TUI now includes immediate parents and children. They are not
   selectable and are dimmed by default.
 
+* The new `jj converge` command allows users to "fix" divergence. The command
+  tries to create a new commit for the divergent change that rewrites all
+  divergent commits. The command tries to do this automatically, but falls back
+  to prompting the user for pieces of information as needed.
+
 ### Fixed bugs
 
 ## [0.39.0] - 2026-03-04
