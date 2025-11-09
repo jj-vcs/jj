@@ -68,6 +68,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::hash::Hash;
 
 use indexmap::IndexMap;
@@ -231,6 +232,60 @@ where
     pub fn new(graph: SimpleDirectedGraph<N>, start_node: N) -> Self {
         Self { graph, start_node }
     }
+
+    /// Creates a new FlowGraph by trimming the graph to the subgraph backwards
+    /// reachable from the given final nodes, with the same start node as
+    /// this FlowGraph (whether or not it is backwards reachable from the
+    /// final nodes).
+    pub fn trim(self, final_nodes: &[N]) -> Self {
+        let mut rev_adj: HashMap<N, Vec<N>> = HashMap::new();
+        for (parent, child) in self.graph.edges() {
+            rev_adj
+                .entry(child.clone())
+                .or_default()
+                .push(parent.clone());
+        }
+
+        let mut to_visit = VecDeque::with_capacity(final_nodes.len());
+        let mut visited = HashSet::new();
+        let mut adj: IndexMap<N, IndexSet<N>> = IndexMap::new();
+
+        for final_node in final_nodes {
+            visited.insert(final_node.clone());
+            if *final_node != self.start_node {
+                to_visit.push_back(final_node.clone());
+            }
+        }
+
+        while let Some(child) = &to_visit.pop_front() {
+            if let Some(parents) = rev_adj.get(child) {
+                for parent in parents {
+                    adj.entry(parent.clone()).or_default().insert(child.clone());
+                    if visited.insert(parent.clone()) && *parent != self.start_node {
+                        to_visit.push_back(parent.clone());
+                    }
+                }
+            }
+        }
+
+        if visited.contains(&self.start_node)
+            && let Some(start_node_parents) = rev_adj.get(&self.start_node)
+        {
+            for parent in start_node_parents {
+                if visited.contains(parent) {
+                    adj.entry(parent.clone())
+                        .or_default()
+                        .insert(self.start_node.clone());
+                }
+            }
+        }
+
+        // Ensure the start node is in the adj map, even if it has no edges in the
+        // trimmed graph.
+        adj.entry(self.start_node.clone()).or_default();
+
+        Self::new(SimpleDirectedGraph::new(adj), self.start_node.clone())
+    }
 }
 
 // Below is the implementation of the closest common dominator algorithm for
@@ -392,6 +447,181 @@ where
     /// Consumes this FlowGraph and returns the underlying graph and start node.
     pub fn consume(self) -> (SimpleDirectedGraph<N>, N) {
         (self.graph, self.start_node)
+    }
+}
+
+/// Helper struct for constructing a value flow graph. It memoizes the results
+/// of applying value_fn to nodes, and also keeps track of the mapping from
+/// values to nodes and nodes to values.
+pub struct ValueRecorder<N, V> {
+    /// Maps nodes to their corresponding values.
+    pub node_values: HashMap<N, V>,
+    /// Maps values to the nodes that have that value.
+    pub value_to_nodes: IndexMap<V, Vec<N>>,
+}
+
+impl<N, V> Default for ValueRecorder<N, V>
+where
+    N: Hash + Eq + Clone,
+    V: Hash + Eq + Clone,
+{
+    fn default() -> Self {
+        Self {
+            node_values: HashMap::new(),
+            value_to_nodes: IndexMap::new(),
+        }
+    }
+}
+
+impl<N, V> ValueRecorder<N, V>
+where
+    N: Hash + Eq + Clone,
+    V: Hash + Eq + Clone,
+{
+    /// Returns the value for the given node, using the cached value if it
+    /// exists, otherwise using value_fn to compute the value, caching it, and
+    /// returning it. Returns an error if value_fn returns an error.
+    pub fn get_value<VF, E>(&mut self, node: &N, value_fn: &VF) -> Result<V, E>
+    where
+        VF: Fn(&N) -> Result<V, E>,
+    {
+        match self.node_values.entry(node.clone()) {
+            std::collections::hash_map::Entry::Occupied(entry) => Ok(entry.get().clone()),
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                let value = value_fn(node)?;
+                entry.insert(value.clone());
+                self.value_to_nodes
+                    .entry(value.clone())
+                    .or_default()
+                    .push(node.clone());
+                Ok(value.clone())
+            }
+        }
+    }
+
+    /// Consumes this ValueRecorder and returns the node to value and value to
+    /// nodes maps.
+    pub fn done(self) -> (HashMap<N, V>, IndexMap<V, Vec<N>>) {
+        (self.node_values, self.value_to_nodes)
+    }
+}
+
+// Below is the implementation of value flow graphs and dominator value finding
+// for FlowGraphs.
+impl<N> FlowGraph<N>
+where
+    N: Clone + Eq + Hash + PartialEq,
+{
+    /// Creates a flow graph of values from a flow graph of nodes, using the
+    /// given value_fn to obtain the value of each node, and memoizing the
+    /// results in the given ValueRecorder.
+    ///
+    /// More precisely, let G be a FlowGraph of nodes with start node S. The
+    /// value flow graph G' is a FlowGraph derived from G. Let v(g) be the
+    /// result of applying value_fn to g. The nodes of G' are the set of values
+    /// v(g), for all g in G. For each edge g1->g2 in G, there is a
+    /// corresponding edge v(g1)->v(g2) in G'. The start node in G' is v(S).
+    ///
+    /// Returns an error if any value_fn invocation fails.
+    pub fn create_value_flow_graph<V, VF, E>(
+        &self,
+        value_recorder: &mut ValueRecorder<N, V>,
+        value_fn: &VF,
+    ) -> Result<FlowGraph<V>, E>
+    where
+        V: Clone + Eq + Hash + PartialEq,
+        VF: Fn(&N) -> Result<V, E>,
+    {
+        let mut value_adj: IndexMap<V, IndexSet<V>> = IndexMap::new();
+        let mut seen_value_edge: HashSet<(V, V)> = HashSet::new();
+        let mut seen_children: HashSet<N> = HashSet::new();
+        let start_value = value_recorder.get_value(&self.start_node, value_fn)?;
+        for (parent, children) in &self.graph.adj {
+            let parent_value = value_recorder.get_value(parent, value_fn)?;
+            let value_adj_entry = value_adj.entry(parent_value.clone()).or_default();
+            seen_children.clear();
+            for child in children {
+                if seen_children.insert(child.clone()) {
+                    let child_value = value_recorder.get_value(child, value_fn)?;
+                    if seen_value_edge.insert((parent_value.clone(), child_value.clone())) {
+                        value_adj_entry.insert(child_value.clone());
+                    }
+                }
+            }
+        }
+        Ok(FlowGraph::new(
+            SimpleDirectedGraph::new(value_adj),
+            start_value,
+        ))
+    }
+
+    /// Constructs a value flow graph from the given flow graph and value
+    /// function, and finds the closest common dominator value for the
+    /// values of the final nodes. Returns an error if value_fn returns an
+    /// error for any node in the flow graph.
+    pub fn find_dominator_value<V, VF, E>(
+        &self,
+        final_nodes: &[N],
+        value_fn: VF,
+    ) -> Result<Option<V>, E>
+    where
+        N: Hash + Eq + Clone,
+        V: Hash + Eq + Clone,
+        VF: Fn(&N) -> Result<V, E>,
+    {
+        self.find_dominator_value_with_recorder(
+            final_nodes,
+            &mut ValueRecorder::default(),
+            value_fn,
+        )
+    }
+
+    /// Constructs a value flow graph from the given flow graph and value
+    /// function, and finds the closest common dominator value for the
+    /// values of the final nodes. Returns an error if value_fn returns an
+    /// error for any node in the flow graph. Records the results of value_fn in
+    /// the given ValueRecorder.
+    pub fn find_dominator_value_with_recorder<V, VF, E>(
+        &self,
+        final_nodes: &[N],
+        value_recorder: &mut ValueRecorder<N, V>,
+        value_fn: VF,
+    ) -> Result<Option<V>, E>
+    where
+        N: Hash + Eq + Clone,
+        V: Hash + Eq + Clone,
+        VF: Fn(&N) -> Result<V, E>,
+    {
+        for final_node in final_nodes {
+            value_recorder.get_value(final_node, &value_fn)?;
+        }
+        let final_values = value_recorder
+            .value_to_nodes
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+        match final_values.len() {
+            0 => Ok(None),
+            1 => {
+                // Optimization: if all final nodes have the same value, that value is the
+                // closest common dominator. There is no need to build the value flow graph.
+                Ok(final_values[0].clone().into())
+            }
+            n => {
+                if n == self.graph.adj.len() {
+                    // Optimization: if every node has a different value, then the closest common
+                    // dominator must be the value of the start node, since the shape of the value
+                    // flow graph is then identical to the shape of the original flow graph.
+                    let start_node_value = value_recorder.get_value(&self.start_node, &value_fn)?;
+                    Ok(Some(start_node_value))
+                } else {
+                    // Run the find_closest_common_dominator algorithm over the value flow graph.
+                    let value_flow_graph =
+                        self.create_value_flow_graph(value_recorder, &value_fn)?;
+                    Ok(value_flow_graph.find_closest_common_dominator(final_values))
+                }
+            }
+        }
     }
 }
 
@@ -847,6 +1077,44 @@ mod tests {
     }
 
     #[test]
+    fn test_flow_graph_trim() {
+        // A -> B -> C -> D -> E
+        // |         ^
+        // v         |
+        // F --------/
+        let edges = vec![
+            ("A", "B"),
+            ("B", "C"),
+            ("C", "D"),
+            ("D", "E"),
+            ("A", "F"),
+            ("F", "C"),
+        ];
+        let simple_graph = SimpleDirectedGraph::from_edge_list(edges.clone());
+        let flow_graph = FlowGraph::new(simple_graph, "A");
+
+        // Trim from E
+        let trimmed = flow_graph.clone().trim(&["E"]);
+        let expected_graph = SimpleDirectedGraph::from_edge_list(edges.clone());
+        assert_eq!(trimmed.graph, expected_graph);
+        assert_eq!(trimmed.start_node, "A");
+
+        // Trim from C and E
+        let trimmed = flow_graph.clone().trim(&["C", "E"]);
+        let expected_graph = SimpleDirectedGraph::from_edge_list(edges.clone());
+        assert_eq!(trimmed.graph, expected_graph);
+
+        let trimmed = flow_graph.clone().trim(&["F"]);
+        let expected_graph = SimpleDirectedGraph::from_edge_list(vec![("A", "F")]);
+        assert_eq!(trimmed.graph, expected_graph);
+
+        // Trim from A (start node is in the target set)
+        let trimmed = flow_graph.clone().trim(&["A"]);
+        let expected_graph = SimpleDirectedGraph::new(indexmap! {"A" => indexset! {}});
+        assert_eq!(trimmed.graph, expected_graph);
+    }
+
+    #[test]
     fn test_flow_graph_find_closest_common_dominator() {
         // A -> B -> C -> D
         let edges = vec![("A", "B"), ("B", "C"), ("C", "D")];
@@ -893,6 +1161,81 @@ mod tests {
         assert_eq!(
             flow_graph.find_closest_common_dominator(vec!["B", "C"]),
             None
+        );
+    }
+
+    #[test]
+    fn test_value_flow_graph_new() {
+        // A(1) -> B(1) -> C(2)
+        let edges = vec![("A", "B"), ("B", "C")];
+        let simple_graph = SimpleDirectedGraph::from_edge_list(edges);
+        let flow_graph = FlowGraph::new(simple_graph, "A");
+        let value_fn = |node: &&str| -> Result<i32, ()> {
+            if *node == "A" || *node == "B" {
+                Ok(1)
+            } else {
+                Ok(2)
+            }
+        };
+        let value_flow_graph = flow_graph
+            .create_value_flow_graph(&mut ValueRecorder::default(), &value_fn)
+            .unwrap();
+
+        let expected_value_adj: IndexMap<i32, IndexSet<i32>> =
+            IndexMap::from([(1, IndexSet::from([1, 2])), (2, IndexSet::new())]);
+        let expected_flow_graph = FlowGraph::new(SimpleDirectedGraph::new(expected_value_adj), 1);
+        assert_eq!(value_flow_graph, expected_flow_graph);
+
+        // Test value_fn error
+        let value_fn_err = |_: &&str| -> Result<i32, String> { Err("Error".to_string()) };
+        let value_flow_graph_err =
+            flow_graph.create_value_flow_graph(&mut ValueRecorder::default(), &value_fn_err);
+        assert_eq!(value_flow_graph_err.err(), Some("Error".to_string()));
+    }
+
+    #[test]
+    fn test_value_flow_graph_find_dominator_value() {
+        // A(1) -> B(1) -> C(2) -> D(3)
+        //          \------------> E(3)
+        let edges = vec![("A", "B"), ("B", "C"), ("C", "D"), ("B", "E")];
+        let simple_graph = SimpleDirectedGraph::from_edge_list(edges);
+        let flow_graph = FlowGraph::new(simple_graph, "A");
+        let value_fn = |node: &&str| match *node {
+            "A" | "B" => Ok(1),
+            "C" => Ok(2),
+            "D" | "E" => Ok(3),
+            _ => Err("Unknown node".to_string()),
+        };
+
+        // Value graph (* means node has a self-loop):
+        //   1* -> 2 -> 3
+        //    \         ^
+        //     \--------|
+        assert_eq!(
+            flow_graph.find_dominator_value(&["D", "E"], value_fn),
+            Ok(Some(3))
+        );
+        assert_eq!(
+            flow_graph.find_dominator_value(&["C", "D"], value_fn),
+            Ok(Some(1))
+        );
+        assert_eq!(
+            flow_graph.find_dominator_value(&["B", "C"], value_fn),
+            Ok(Some(1))
+        );
+
+        // Disjoint values: A(1) -> B(1), C(2) -> D(2)
+        let edges = vec![("A", "B"), ("C", "D")];
+        let simple_graph = SimpleDirectedGraph::from_edge_list(edges);
+        let flow_graph = FlowGraph::new(simple_graph, "A");
+        let value_fn = |node: &&str| match *node {
+            "A" | "B" => Ok(1),
+            "C" | "D" => Ok(2),
+            _ => Err("Unknown node".to_string()),
+        };
+        assert_eq!(
+            flow_graph.find_dominator_value(&["B", "D"], value_fn),
+            Ok(None)
         );
     }
 }
