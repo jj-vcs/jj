@@ -22,6 +22,7 @@ use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::commit::Commit;
 use jj_lib::converge::CommitsByChangeId;
+use jj_lib::converge::TruncatedEvolutionGraph;
 use jj_lib::converge::find_divergent_changes;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::ReadonlyRepo;
@@ -32,6 +33,7 @@ use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::TestResult;
+use testutils::write_random_commit;
 
 fn make_change_id(repo: &TestRepo, byte: u8) -> ChangeId {
     ChangeId::new(vec![byte; repo.repo.store().change_id_length()])
@@ -241,5 +243,78 @@ fn test_find_divergent_changes_two_found() -> TestResult {
             (&change_bb, &[commit_3.clone(), commit_4.clone()]),
         ],
     )?);
+    Ok(())
+}
+
+#[test]
+fn test_build_truncated_evolution_graph() -> TestResult {
+    let test_repo = TestRepo::init();
+
+    let mut tx = test_repo.repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let repo1 = tx.commit("tx1").block_on()?;
+
+    let commit2 = {
+        let mut tx = repo1.start_transaction();
+        let commit2 = tx
+            .repo_mut()
+            .rewrite_commit(&commit1)
+            .set_description("rewritten->foo")
+            .write_unwrap();
+        tx.repo_mut().rebase_descendants().block_on()?;
+        tx.commit("tx2").block_on()?;
+        commit2
+    };
+
+    let commit3 = {
+        let mut tx = repo1.start_transaction();
+        let commit3 = tx
+            .repo_mut()
+            .rewrite_commit(&commit1)
+            .set_description("rewritten->bar")
+            .write_unwrap();
+        tx.repo_mut().rebase_descendants().block_on()?;
+        tx.commit("tx3").block_on()?;
+        commit3
+    };
+
+    let repo = repo1.reload_at_head().block_on()?;
+
+    let divergent_commits = vec![commit2.clone(), commit3.clone()];
+    let truncated_evolution_graph =
+        TruncatedEvolutionGraph::new(repo, divergent_commits).block_on()?;
+    assert_eq!(truncated_evolution_graph.change_id(), commit1.change_id());
+    assert_eq!(
+        truncated_evolution_graph.divergent_commit_ids(),
+        &[commit2.id().clone(), commit3.id().clone()]
+    );
+    assert_eq!(
+        truncated_evolution_graph
+            .flow_graph
+            .graph
+            .adjacent_nodes(commit1.id())
+            .unwrap()
+            .collect::<Vec<_>>(),
+        &[commit2.id(), commit3.id()]
+    );
+    assert!(
+        truncated_evolution_graph
+            .flow_graph
+            .graph
+            .adjacent_nodes(commit2.id())
+            .unwrap()
+            .collect::<Vec<_>>()
+            .is_empty(),
+    );
+    assert!(
+        truncated_evolution_graph
+            .flow_graph
+            .graph
+            .adjacent_nodes(commit3.id())
+            .unwrap()
+            .collect::<Vec<_>>()
+            .is_empty(),
+    );
+
     Ok(())
 }
