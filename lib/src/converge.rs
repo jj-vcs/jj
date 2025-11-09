@@ -18,6 +18,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -614,7 +615,15 @@ where
     Ok(merge.resolve_trivial(SameChange::Accept).cloned())
 }
 
-#[allow(unused)]
+// A node in the value history graph. It can be either a "real" value (i.e. an
+// attribute of a commit, for example the commit description), or a "virtual"
+// value that we introduce to represent the single entry point of the graph.
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+enum ValueTag<T> {
+    Real(T),
+    Virtual,
+}
+
 fn find_dominator_value<T, VF>(
     divergent_commits: &[Commit],
     graph: &TruncatedEvolutionGraph,
@@ -624,7 +633,56 @@ where
     T: Eq + Hash + Clone,
     VF: Fn(&Commit) -> Result<T, ConvergeError>,
 {
-    todo!();
+    let fork_point = graph.get_evolution_fork_point()?;
+    let fork_point_value = value_fn(fork_point)?;
+
+    let mut nodes: HashSet<ValueTag<T>> = HashSet::new();
+    let mut edges: HashSet<(ValueTag<T>, ValueTag<T>)> = HashSet::new();
+    let mut targets: HashSet<ValueTag<T>> = HashSet::new();
+    let mut to_visit = VecDeque::with_capacity(divergent_commits.len());
+
+    nodes.insert(ValueTag::Virtual);
+    nodes.insert(ValueTag::Real(fork_point_value.clone()));
+
+    // Add an edge from the virtual entry value to the fork point value, to ensure
+    // the graph has a single entry node.
+    edges.insert((ValueTag::Virtual, ValueTag::Real(fork_point_value.clone())));
+
+    for divergent_commit in divergent_commits {
+        let commit_value = value_fn(divergent_commit)?;
+        targets.insert(ValueTag::Real(commit_value));
+        to_visit.push_back(divergent_commit.id().clone());
+    }
+
+    while let Some(commit_id) = to_visit.pop_front() {
+        let node = graph.nodes.get(&commit_id).unwrap();
+        let node_value = value_fn(&node.entry.commit)?;
+        nodes.insert(ValueTag::Real(node_value.clone()));
+        for predecessor_commit_id in &node.predecessors {
+            let predecessor_commit = graph.get_commit(predecessor_commit_id)?;
+            let predecessor_value = value_fn(predecessor_commit)?;
+            edges.insert((
+                ValueTag::Real(predecessor_value),
+                ValueTag::Real(node_value.clone()),
+            ));
+            if predecessor_commit_id != &graph.evolution_fork_point {
+                to_visit.push_back(predecessor_commit_id.clone());
+            }
+        }
+    }
+
+    match find_closest_common_dominator(nodes, edges, targets.iter().cloned()) {
+        Ok(Some(ValueTag::Real(value))) => Ok(value.clone()),
+        Ok(Some(ValueTag::Virtual)) => Err(ConvergeError::Other(
+            "Unexpected error: the common dominator should not be the virtual node".into(),
+        )),
+        Ok(None) => Err(ConvergeError::Other(
+            "Unexpected error: no common dominator found".into(),
+        )),
+        Err(e) => Err(ConvergeError::Other(
+            format!("Unexpected error: {e}").into(),
+        )),
+    }
 }
 
 fn converge_interactively<T, F>(
