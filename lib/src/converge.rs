@@ -237,7 +237,100 @@ impl TruncatedEvolutionGraph {
         divergent_commits: &[Commit],
         max_evolution_nodes: usize,
     ) -> Result<Self, ConvergeError> {
-        todo!()
+        assert!(!divergent_commits.is_empty());
+        let divergent_commit_ids = divergent_commits
+            .iter()
+            .map(|c| c.id().clone())
+            .collect_vec();
+
+        // Ensure all provided divergent commits belong to the same change-id.
+        // Note: divergent_commits is not empty, so it is ok to unwrap.
+        let divergent_change_id = divergent_commits.iter().next().unwrap().change_id().clone();
+        for c in divergent_commits.iter().skip(1) {
+            assert!(*c.change_id() == divergent_change_id);
+        }
+
+        let mut nodes = HashMap::new();
+        let evolution_nodes = walk_predecessors(repo, divergent_commit_ids.as_slice());
+        for node in evolution_nodes {
+            let entry = node?;
+            if *entry.commit.change_id() != divergent_change_id {
+                continue;
+            }
+            if nodes.contains_key(entry.commit.id()) {
+                // Note: currently walk_predecessors returns an error if the graph is cyclic, so
+                // we shouldn't encounter the same commit twice. But in the future we could
+                // allow cyclic evolution, and if we do there is no reason to disallow it here.
+                // By continuing we future proof this.
+                // TODO: consider a different approach: make (OperationId, CommitId) the key for
+                // the nodes, instead of just CommitId. This would allow us to support "cyclic"
+                // evolution without actually having any cycles.
+                continue;
+            }
+
+            let predecessors: Vec<CommitId> = entry
+                .predecessors()
+                .filter_map_ok(|commit| {
+                    if *commit.change_id() == divergent_change_id {
+                        Some(commit.id().clone())
+                    } else {
+                        None
+                    }
+                })
+                .try_collect()?;
+
+            if nodes.len() >= max_evolution_nodes {
+                return Err(ConvergeError::TooManyCommitsInChangeEvolution());
+            }
+
+            nodes.insert(
+                entry.commit.id().clone(),
+                TruncatedEvolutionNode {
+                    entry,
+                    predecessors,
+                },
+            );
+        }
+
+        // These are the commits in the graph that have no predecessors. Typically
+        // (perhaps always) there is exactly one initial node corresponding to
+        // the first commit for the change-id. However the jj data model allows
+        // creating a commit with an arbitrary change-id, so we allow more than
+        // one entry here to future-proof this.
+        let mut initial_nodes = vec![];
+        for node in nodes.values() {
+            if node.predecessors.is_empty() {
+                initial_nodes.push(node.entry.commit.id().clone());
+            }
+        }
+        assert!(!initial_nodes.is_empty());
+
+        // TODO: properly compute the evolution fork point. What we want is the "closest
+        // common post-dominator" of the set of divergent commits (with the
+        // predecessor relationship). This is the same as the "closest common dominator"
+        // on the reverse graph (that is, with edges pointing to successors). In graphs
+        // with a single initial node, this is guaranteed to exist and is a single node.
+        // For now we just use the initial node as the evolution fork point.
+        let evolution_fork_point = match initial_nodes.len() {
+            1 => {
+                // Note: initial_nodes is not empty, so it is ok to unwrap.
+                Ok(initial_nodes.first().unwrap().clone())
+            }
+            _ => {
+                // TODO: In the rare case (if at all possible) where there are multiple initial
+                // nodes, introduce a single virtual initial node, thus
+                // guaranteeing we always have a single evolution fork point.
+                Err(ConvergeError::Other(
+                    format!("evolution graph has {} initial nodes", initial_nodes.len()).into(),
+                ))
+            }
+        }?;
+
+        Ok(Self {
+            divergent_commit_ids,
+            nodes,
+            evolution_fork_point,
+        })
     }
 
     fn get_evolution_fork_point(&self) -> Result<&Commit, ConvergeError> {
