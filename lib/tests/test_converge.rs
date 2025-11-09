@@ -30,6 +30,7 @@ use jj_lib::converge::ConvergeUI;
 use jj_lib::converge::TruncatedEvolutionGraph;
 use jj_lib::converge::choose_change;
 use jj_lib::converge::find_divergent_changes;
+use jj_lib::converge::remove_descendants;
 use jj_lib::merge::MergeBuilder;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::ReadonlyRepo;
@@ -43,6 +44,7 @@ use testutils::create_tree_with;
 use testutils::repo_path;
 use testutils::repo_path_buf;
 use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 struct MockConvergeUI {
     pub chosen_change: Option<ChangeId>,
@@ -212,6 +214,40 @@ fn test_find_divergent_changes_none_found() -> Result<(), Box<dyn std::error::Er
 
     let result = find_divergent_changes(&repo, RevsetExpression::all())?;
     assert!(result.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_remove_descendants_linear_chain() -> Result<(), Box<dyn std::error::Error>> {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let repo = tx.repo_mut();
+    let commit1 = write_random_commit(repo);
+    let commit2 = write_random_commit_with_parents(repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(repo, &[&commit2]);
+    let repo = tx.commit("test").block_on().unwrap();
+
+    let result = remove_descendants(
+        &repo,
+        &[
+            commit1.id().clone(),
+            commit2.id().clone(),
+            commit3.id().clone(),
+        ],
+    )?;
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].id(), commit1.id());
+
+    let result = remove_descendants(&repo, &[commit1.id().clone(), commit2.id().clone()])?;
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].id(), commit1.id());
+
+    let result = remove_descendants(&repo, &[commit1.id().clone()])?;
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].id(), commit1.id());
+
     Ok(())
 }
 
