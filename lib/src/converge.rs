@@ -559,38 +559,85 @@ where
     // ADD
     merge_builder.extend([(*dominator_value).clone()]);
     for divergent_commit in divergent_commits {
-        let commit_value = value_cache.get_value(divergent_commit.id()).unwrap();
+        let commit_value = value_cache.get_value(divergent_commit.id()).await?;
         // REMOVE, ADD
-        merge_builder.extend([(*dominator_value).clone(), (**commit_value).clone()]);
+        merge_builder.extend([(*dominator_value).clone(), (*commit_value).clone()]);
     }
     Ok((merge_builder.build(), dominator_producer))
 }
 
 async fn find_dominator_value<T, VF>(
-    _graph: &TruncatedEvolutionGraph,
-    _divergent_commits: &[Commit],
-    _value_cache: &mut ValueCache<CommitId, T, VF>,
+    graph: &TruncatedEvolutionGraph,
+    divergent_commits: &[Commit],
+    value_cache: &mut ValueCache<CommitId, T, VF>,
 ) -> Result<Rc<T>, ConvergeError>
 where
     T: Eq + Hash,
     VF: AsyncFn(&CommitId) -> Result<T, ConvergeError>,
 {
-    todo!();
+    let divergent_commit_ids = divergent_commits
+        .iter()
+        .map(|c| c.id().clone())
+        .collect_vec();
+
+    // Calculate the dominator value on the value flow graph, and record which
+    // commits produce which values.
+    let dominator_value = graph
+        .flow_graph
+        .find_dominator_value_with_value_cache(divergent_commit_ids.as_slice(), value_cache)
+        .await
+        .map_err(|e| ConvergeError::Other(e.into()))?;
+
+    Ok(dominator_value)
 }
 
 /// Returns a commit that produces a given value (e.g. finds a commit that
 /// produces a given description). The value must be present in value_cache.
 fn get_value_producer<T, VF>(
-    _repo: &Arc<ReadonlyRepo>,
-    _truncated_evolution_graph: &TruncatedEvolutionGraph,
-    _value: &Rc<T>,
-    _value_cache: &ValueCache<CommitId, T, VF>,
+    repo: &Arc<ReadonlyRepo>,
+    truncated_evolution_graph: &TruncatedEvolutionGraph,
+    value: &Rc<T>,
+    value_cache: &ValueCache<CommitId, T, VF>,
 ) -> Result<CommitId, IndexError>
 where
     T: Eq + Hash,
     VF: AsyncFn(&CommitId) -> Result<T, ConvergeError>,
 {
-    todo!();
+    let producers = value_cache.get_nodes_for_value(value).unwrap();
+    match producers.len() {
+        0 => unreachable!(), // If it is present in ValueCache, it comes from some commit.
+        1 => return Ok(producers[0].clone()),
+        _ => {}
+    }
+
+    // If there is more than one producer we choose the one of minimum rank, where
+    // rank is defined as lowest change-offset. Because some backends may not
+    // provide change-offsets for hidden commits, we consider those as having
+    // maximum change-offset and use input-order as the secondary sorting criterion.
+    // By input-order we refer to the order of commits passed to converge_change.
+    // But some commits are not given as input, so we use CommitId as tertiary
+    // sorting criterion.
+
+    let resolved_change_targets = repo.resolve_change_id(truncated_evolution_graph.change_id())?;
+    let input_position: HashMap<&CommitId, usize> = truncated_evolution_graph
+        .divergent_commit_ids
+        .iter()
+        .enumerate()
+        .map(|(position, commit_id)| (commit_id, position))
+        .collect();
+    let producer = producers
+        .iter()
+        .min_by_key(|commit_id: &&CommitId| {
+            let change_offset = match &resolved_change_targets {
+                Some(change_targets) => change_targets.find_offset(commit_id).unwrap_or(usize::MAX),
+                None => usize::MAX,
+            };
+            let input_position = *input_position.get(commit_id).unwrap_or(&usize::MAX);
+            (change_offset, input_position, *commit_id)
+        })
+        .unwrap()
+        .clone();
+    Ok(producer)
 }
 
 fn converge_interactively<T, F>(
