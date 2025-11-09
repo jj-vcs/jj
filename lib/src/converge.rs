@@ -16,15 +16,18 @@
 //! <https://github.com/jj-vcs/jj/blob/main/docs/design/jj-converge-command.md>
 //! for more details.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Deref as _;
 use std::sync::Arc;
 
+use futures::future::try_join_all;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
+use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::Signature;
@@ -36,6 +39,7 @@ use jj_lib::evolution::WalkPredecessorsError;
 use jj_lib::evolution::walk_predecessors;
 use jj_lib::graph_dominators::FlowGraph;
 use jj_lib::graph_dominators::SimpleDirectedGraph;
+use jj_lib::graph_dominators::ValueRecorder;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::SameChange;
@@ -47,6 +51,8 @@ use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::rewrite::merge_commit_trees_no_resolve;
+use jj_lib::store::Store;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
@@ -529,6 +535,30 @@ fn converge_parents(
     converge_interactively(converge_ui, ui_chooser, "parents")
 }
 
+/// A MergedTree, without the Arc<Store>. That allows us to derive Eq and Hash
+/// for it, which we need in some algorithms.
+#[derive(Eq, Hash, PartialEq, Clone)]
+struct TreeIdsAndLabels {
+    tree_ids: Merge<TreeId>,
+    labels: ConflictLabels,
+}
+
+impl TreeIdsAndLabels {
+    fn new(merged_tree: MergedTree) -> Self {
+        let (tree_ids, labels) = merged_tree.into_tree_ids_and_labels();
+        Self { tree_ids, labels }
+    }
+
+    fn from_commit(commit: &Commit) -> Self {
+        let (tree_ids, labels) = commit.tree().into_tree_ids_and_labels();
+        Self { tree_ids, labels }
+    }
+
+    fn to_merged_tree(&self, store: &Arc<Store>) -> MergedTree {
+        MergedTree::new(store.clone(), self.tree_ids.clone(), self.labels.clone())
+    }
+}
+
 // Assume A, B, C are the divergent commits, P is the solution parents (i.e. the
 // parents chosen by converge_parents), and F is a commit chosen as a "good base
 // for converging trees" as explained below.
@@ -561,12 +591,126 @@ fn converge_parents(
 //    truncated evolution graph
 // 5. F is any of those producer commits (we pick the first one)
 async fn converge_trees(
-    _repo: &Arc<ReadonlyRepo>,
-    _divergent_commits: &[Commit],
-    _truncated_evolution_graph: &TruncatedEvolutionGraph,
-    _parents: &[CommitId],
+    repo: &Arc<ReadonlyRepo>,
+    divergent_commits: &[Commit],
+    truncated_evolution_graph: &TruncatedEvolutionGraph,
+    parents: &[CommitId],
 ) -> Result<MergedTree, ConvergeError> {
-    todo!()
+    let parent_commits: Vec<Commit> =
+        try_join_all(parents.iter().map(|id| repo.store().get_commit_async(id))).await?;
+    let parents_merged_tree = merge_commit_trees_no_resolve(repo.as_ref(), &parent_commits).await?;
+    let rebased_resolved_trees = RefCell::new(ValueRecorder::default());
+
+    // We first compute the dominator value of the trees (in the value history graph
+    // of the trees), together with the commit(s) that produce that tree. Any
+    // such commit is a good candidate to be used as the base of the merge.
+
+    let mut value_recorder = ValueRecorder::default();
+    let dominator_tree_ids = truncated_evolution_graph
+        .flow_graph
+        .find_dominator_value_with_recorder(
+            &truncated_evolution_graph.divergent_commit_ids,
+            &mut value_recorder,
+            |commit_id| {
+                get_rebased_and_resolved_tree_ids(
+                    repo,
+                    commit_id,
+                    parents,
+                    &parents_merged_tree,
+                    truncated_evolution_graph,
+                    &rebased_resolved_trees,
+                )
+            },
+        )?
+        .unwrap();
+
+    let dominator_producers = value_recorder
+        .value_to_nodes
+        .get(&dominator_tree_ids)
+        .unwrap()
+        .clone();
+    if dominator_producers.is_empty() {
+        return Err(ConvergeError::Other(
+            "Unexpected error: no producer commits found for the dominator tree".into(),
+        ));
+    }
+    let (rebased_resolved_trees, _) = rebased_resolved_trees.into_inner().done();
+
+    // The first "producer" is the base of our merge of trees.
+    let base_commit = truncated_evolution_graph.get_commit(&dominator_producers[0])?;
+
+    let mut terms: Vec<(MergedTree, String)> = Vec::new();
+    let base_term = get_term_for_tree_merge(
+        base_commit,
+        parents,
+        &rebased_resolved_trees,
+        "converge base",
+    );
+
+    // Add
+    terms.push(base_term.clone());
+    for divergent_commit in divergent_commits {
+        // Remove
+        terms.push(base_term.clone());
+        // Add
+        terms.push(get_term_for_tree_merge(
+            divergent_commit,
+            parents,
+            &rebased_resolved_trees,
+            "divergent commit",
+        ));
+    }
+    Ok(MergedTree::merge(MergeBuilder::from_iter(terms).build()).await?)
+}
+
+fn get_rebased_and_resolved_tree_ids(
+    repo: &Arc<ReadonlyRepo>,
+    commit_id: &CommitId,
+    parents: &[CommitId],
+    parents_merged_tree: &MergedTree,
+    truncated_evolution_graph: &TruncatedEvolutionGraph,
+    rebased_resolved_trees: &RefCell<ValueRecorder<CommitId, TreeIdsAndLabels>>,
+) -> Result<Merge<TreeId>, ConvergeError> {
+    let commit = truncated_evolution_graph.get_commit(commit_id)?;
+    let tree_ids_and_labels =
+        rebased_resolved_trees
+            .borrow_mut()
+            .get_value(commit_id, &|_| -> Result<TreeIdsAndLabels, ConvergeError> {
+                if commit.parent_ids() == parents {
+                    Ok(TreeIdsAndLabels::from_commit(commit))
+                } else {
+                    Ok(TreeIdsAndLabels::new(
+                        rebase_tree_onto_solution_parents(commit, parents_merged_tree, repo)
+                            .block_on()?,
+                    ))
+                }
+            })?;
+    // Note we only return the tree ids here, not the labels. We do that to increase
+    // the chances of finding a common dominator value that is closer to the
+    // divergent commits, ideally one that result in a simple merge of the trees
+    // later on.
+    Ok(tree_ids_and_labels.tree_ids.clone())
+}
+
+fn get_term_for_tree_merge(
+    commit: &Commit,
+    parents: &[CommitId],
+    rebased_resolved_trees: &HashMap<CommitId, TreeIdsAndLabels>,
+    prefix: &str,
+) -> (MergedTree, String) {
+    let rebased_and_resolved_tree = rebased_resolved_trees
+        .get(commit.id())
+        .unwrap()
+        .to_merged_tree(commit.store());
+    let conflict_label = if commit.parent_ids() == parents {
+        format!("{prefix}: {}", commit.conflict_label())
+    } else {
+        format!(
+            "{prefix}: tree of {} rebased onto parents",
+            commit.conflict_label()
+        )
+    };
+    (rebased_and_resolved_tree, conflict_label)
 }
 
 fn converge<T, VF>(
@@ -610,6 +754,27 @@ where
     // By construction the dominator value always exists, so it is safe to unwrap
     // here.
     Ok(dominator_value.unwrap().clone())
+}
+
+async fn rebase_tree_onto_solution_parents(
+    c: &Commit,
+    parents_merged_tree: &MergedTree,
+    repo: &Arc<ReadonlyRepo>,
+) -> BackendResult<MergedTree> {
+    let mut terms: Vec<(MergedTree, String)> = Vec::new();
+    // Add
+    terms.push((
+        parents_merged_tree.clone(),
+        "converge solution parent(s)".to_string(),
+    ));
+    // Remove
+    terms.push((
+        c.parent_tree_no_resolve(repo.as_ref()).await?,
+        c.parents_conflict_label().await?,
+    ));
+    // Add
+    terms.push((c.tree(), c.conflict_label()));
+    MergedTree::merge(MergeBuilder::from_iter(terms).build()).await
 }
 
 /// Returns those commits in commit_ids that are not descendants of any other
