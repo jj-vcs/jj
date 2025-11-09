@@ -94,14 +94,14 @@ pub fn cmd_bookmark_rename(
         })
         .map(|(symbol, _)| symbol.remote.to_owned())
         .collect_vec();
-    let mut tracked_present_remote_bookmarks_exist_for_new_bookmark = false;
+    let mut tracked_remote_bookmarks_exist_for_new_bookmark = false;
     let existing_untracked_remotes = tx
         .base_repo()
         .view()
         .remote_bookmarks_matching(&StringMatcher::exact(new_bookmark), &remote_matcher)
         .filter(|(_, remote_ref)| {
-            if remote_ref.is_tracked() && remote_ref.is_present() {
-                tracked_present_remote_bookmarks_exist_for_new_bookmark = true;
+            if remote_ref.is_tracked() {
+                tracked_remote_bookmarks_exist_for_new_bookmark = true;
             }
             !remote_ref.is_tracked()
         })
@@ -151,7 +151,7 @@ pub fn cmd_bookmark_rename(
             new_bookmark = new_bookmark.as_symbol()
         )?;
     }
-    if tracked_present_remote_bookmarks_exist_for_new_bookmark {
+    if tracked_remote_bookmarks_exist_for_new_bookmark {
         // This isn't an error because bookmark renaming can't be propagated to
         // the remote immediately. "rename old new && rename new old" should be
         // allowed even if the original old bookmark had tracked remotes.
