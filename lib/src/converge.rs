@@ -20,6 +20,8 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::sync::Arc;
 
+use indexmap::IndexMap;
+use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
@@ -30,7 +32,9 @@ use jj_lib::commit::Commit;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::evolution::WalkPredecessorsError;
+use jj_lib::evolution::walk_predecessors;
 use jj_lib::graph_dominators::FlowGraph;
+use jj_lib::graph_dominators::SimpleDirectedGraph;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::SameChange;
@@ -313,11 +317,139 @@ impl TruncatedEvolutionGraph {
     /// Builds a truncated evolution graph for the given divergent commits,
     /// which are expected to all have the same change-id.
     pub fn new(
-        _repo: &ReadonlyRepo,
-        _divergent_commits: &[Commit],
-        _max_evolution_nodes: usize,
+        repo: &ReadonlyRepo,
+        divergent_commits: &[Commit],
+        max_evolution_nodes: usize,
     ) -> Result<Self, ConvergeError> {
-        todo!()
+        validate(
+            !divergent_commits.is_empty(),
+            "divergent_commits must not be empty",
+        )?;
+        let max_evolution_nodes = max_evolution_nodes.max(divergent_commits.len());
+
+        let divergent_commit_ids = divergent_commits
+            .iter()
+            .map(|c| c.id().clone())
+            .collect_vec();
+
+        // Ensure all provided divergent commits belong to the same change-id.
+        // Note: divergent_commits is not empty, so it is ok to unwrap.
+        let divergent_change_id = divergent_commits.iter().next().unwrap().change_id().clone();
+        for c in divergent_commits.iter().skip(1) {
+            validate(
+                *c.change_id() == divergent_change_id,
+                "all divergent commits must have the same change-id",
+            )?;
+        }
+
+        // The adjacency list, with commits pointing to their predecessors.
+        let mut adj: IndexMap<CommitId, IndexSet<CommitId>> = IndexMap::new();
+        let mut commits = HashMap::new();
+        let evolution_nodes = walk_predecessors(repo, divergent_commit_ids.as_slice());
+
+        // These are the commits in the graph that have no predecessors. Typically
+        // there is exactly one entry in initial_nodes (the first commit for the
+        // change-id).
+        let mut initial_nodes = vec![];
+
+        for node in evolution_nodes {
+            let entry = node?;
+            let commit_id = entry.commit.id();
+            if *entry.commit.change_id() != divergent_change_id {
+                // Skip commits with unrelated change ids.
+                continue;
+            }
+            match commits.entry(commit_id.clone()) {
+                std::collections::hash_map::Entry::Occupied(_) => {
+                    // TODO: think about this some more. Can 2 different operations result in the
+                    // same commit? Maybe the key should be (commit-id, operation-id).
+
+                    // Note: currently walk_predecessors returns an error if the graph is cyclic, so
+                    // we shouldn't encounter the same commit twice. But in the future we could
+                    // allow cyclic evolution, and if we do there is no reason to disallow it here.
+                    // By continuing we future proof this.
+                    continue;
+                }
+                std::collections::hash_map::Entry::Vacant(e) => e.insert(entry.clone()),
+            };
+            if commits.len() >= max_evolution_nodes {
+                adj.entry(commit_id.clone()).or_default();
+                initial_nodes.push(commit_id.clone());
+                break;
+            }
+            let predecessors: Vec<CommitId> = entry
+                .predecessors()
+                .filter_map_ok(|commit| {
+                    if *commit.change_id() == divergent_change_id {
+                        Some(commit.id().clone())
+                    } else {
+                        None
+                    }
+                })
+                .try_collect()?;
+            adj.entry(commit_id.clone())
+                .or_default()
+                .extend(predecessors.iter().cloned());
+            if predecessors.is_empty() {
+                initial_nodes.push(commit_id.clone());
+            }
+        }
+
+        validate(
+            !initial_nodes.is_empty(),
+            "Unexpected error: initial_nodes should not be empty",
+        )?;
+
+        // To compute the evolution fork point (see below) there must be a single
+        // "initial node". In graphs with multiple "real" initial nodes we introduce a
+        // virtual initial node (the root commit) and pretend the two or more "real"
+        // initial nodes are successors of the root commit.
+        let initial_node = if initial_nodes.len() == 1 {
+            initial_nodes[0].clone()
+        } else {
+            let root_commit_id = repo.store().root_commit_id().clone();
+            commits.insert(
+                root_commit_id.clone(),
+                CommitEvolutionEntry::for_root_commit(repo.store()),
+            );
+            adj.entry(root_commit_id.clone()).or_default();
+            for initial_node in &initial_nodes {
+                adj.entry(initial_node.clone())
+                    .or_default()
+                    .insert(root_commit_id.clone());
+            }
+            root_commit_id
+        };
+
+        let flow_graph = FlowGraph::new(SimpleDirectedGraph::new(adj).reverse(), initial_node);
+
+        // The evolution fork point is the "closest common dominator" of the set of
+        // divergent commits in the reverse truncated evolution graph (with edge U->V
+        // when commit V is a successor of commit U). To compute it, there must be a
+        // single "entry node" in the (reverse) graph. The logic above ensures this
+        // condition is satisfied, thus the closest common dominator is
+        // guaranteed to exist (although it could happen to be the virtual
+        // initial node).
+        let evolution_fork_point =
+            match flow_graph.find_closest_common_dominator(divergent_commit_ids.clone()) {
+                Some(dominator) => dominator.clone(),
+                None => {
+                    // Should not happen since we added a virtual initial node.
+                    return Err(ConvergeError::Other("Unexpected error".into()));
+                }
+            };
+
+        // Remove irrelevant commits.
+        let (graph, _) = flow_graph.consume();
+        let flow_graph =
+            FlowGraph::new(graph, evolution_fork_point.clone()).trim(&divergent_commit_ids);
+        commits.retain(|commit_id, _| flow_graph.graph.contains_node(commit_id));
+
+        Ok(Self {
+            divergent_commit_ids,
+            flow_graph,
+            commits,
+        })
     }
 
     /// Returns the change-id of the commits in the graph.
@@ -476,5 +608,13 @@ where
     match ui_chooser(converge_ui)? {
         Some(value) => Ok(ConvergeResult::Solution(value)),
         None => Ok(ConvergeResult::Aborted),
+    }
+}
+
+fn validate(predicate: bool, msg: &str) -> Result<(), ConvergeError> {
+    if !predicate {
+        Err(ConvergeError::Other(msg.into()))
+    } else {
+        Ok(())
     }
 }

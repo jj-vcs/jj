@@ -14,6 +14,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::ops::Deref as _;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -26,6 +27,7 @@ use jj_lib::commit::Commit;
 use jj_lib::converge::CommitsByChangeId;
 use jj_lib::converge::ConvergeError;
 use jj_lib::converge::ConvergeUI;
+use jj_lib::converge::TruncatedEvolutionGraph;
 use jj_lib::converge::choose_change;
 use jj_lib::converge::find_divergent_changes;
 use jj_lib::merge::MergeBuilder;
@@ -40,6 +42,7 @@ use testutils::TestRepo;
 use testutils::create_tree_with;
 use testutils::repo_path;
 use testutils::repo_path_buf;
+use testutils::write_random_commit;
 
 struct MockConvergeUI {
     pub chosen_change: Option<ChangeId>,
@@ -390,6 +393,108 @@ fn test_find_divergent_changes_two_found() -> Result<(), Box<dyn std::error::Err
     assert_eq!(chosen_change, None);
     let ui_called = *converge_ui.choose_change_called.lock().unwrap();
     assert!(ui_called);
+
+    Ok(())
+}
+
+#[test]
+fn test_build_truncated_evolution_graph() -> Result<(), Box<dyn std::error::Error>> {
+    let test_repo = TestRepo::init();
+
+    let mut tx = test_repo.repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let repo1 = tx.commit("tx1").block_on().unwrap();
+
+    let commit2 = {
+        let mut tx = repo1.start_transaction();
+        let commit2 = tx
+            .repo_mut()
+            .rewrite_commit(&commit1)
+            .set_description("rewritten->foo")
+            .write_unwrap();
+        tx.repo_mut().rebase_descendants().block_on().unwrap();
+        tx.commit("tx2").block_on().unwrap();
+        commit2
+    };
+
+    let commit3 = {
+        let mut tx = repo1.start_transaction();
+        let commit3 = tx
+            .repo_mut()
+            .rewrite_commit(&commit1)
+            .set_description("rewritten->bar")
+            .write_unwrap();
+        tx.repo_mut().rebase_descendants().block_on().unwrap();
+        tx.commit("tx3").block_on().unwrap();
+        commit3
+    };
+
+    let repo = repo1.reload_at_head().block_on().unwrap();
+
+    let divergent_commits = [commit2.clone(), commit3.clone()];
+    let max_evolution_nodes = 100;
+    let truncated_evolution_graph =
+        TruncatedEvolutionGraph::new(repo.deref(), &divergent_commits, max_evolution_nodes)?;
+    assert_eq!(truncated_evolution_graph.change_id(), commit1.change_id());
+    assert_eq!(
+        truncated_evolution_graph.divergent_commit_ids,
+        vec![commit2.id().clone(), commit3.id().clone(),]
+    );
+    assert_eq!(
+        truncated_evolution_graph.get_evolution_fork_point().id(),
+        commit1.id()
+    );
+    assert_eq!(
+        truncated_evolution_graph
+            .commits
+            .keys()
+            .cloned()
+            .collect::<HashSet<_>>(),
+        HashSet::from([
+            commit1.id().clone(),
+            commit2.id().clone(),
+            commit3.id().clone()
+        ])
+    );
+    assert_eq!(
+        truncated_evolution_graph.commits[commit1.id()].commit.id(),
+        commit1.id()
+    );
+    assert_eq!(
+        truncated_evolution_graph.commits[commit2.id()].commit.id(),
+        commit2.id()
+    );
+    assert_eq!(
+        truncated_evolution_graph.commits[commit3.id()].commit.id(),
+        commit3.id()
+    );
+    assert_eq!(
+        truncated_evolution_graph
+            .flow_graph
+            .graph
+            .adjacent_nodes(commit1.id())
+            .unwrap()
+            .collect::<Vec<_>>(),
+        &[commit2.id(), commit3.id()]
+    );
+    assert!(
+        truncated_evolution_graph
+            .flow_graph
+            .graph
+            .adjacent_nodes(commit2.id())
+            .unwrap()
+            .collect::<Vec<_>>()
+            .is_empty(),
+    );
+    assert!(
+        truncated_evolution_graph
+            .flow_graph
+            .graph
+            .adjacent_nodes(commit3.id())
+            .unwrap()
+            .collect::<Vec<_>>()
+            .is_empty(),
+    );
 
     Ok(())
 }
