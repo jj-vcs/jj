@@ -3,6 +3,7 @@
 
 [revsets]
 arrange = "reachable(@, mutable())"
+converge = "mutable() & divergent()"
 fix = "reachable(@, mutable())"
 run = "reachable(@, mutable())"
 simplify-parents = "reachable(@, mutable())"

@@ -322,6 +322,11 @@ None
   revisions by default (defined by `revsets.op-diff-changes-in`). A new flag,
   `--show-changes-in`, can be used to override this. [#6083](https://github.com/jj-vcs/jj/issues/6083)
 
+* The new `jj converge` command allows users to "fix" divergence. The command
+  tries to create a new commit for the divergent change that rewrites all
+  divergent commits. The command tries to do this automatically, but falls back
+  to prompting the user for pieces of information as needed.
+
 ### Fixed bugs
 
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.
