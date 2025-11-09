@@ -439,6 +439,11 @@ where
         Ok(self.node_values.get(node).expect("cached").clone())
     }
 
+    /// Returns the nodes that have the given value.
+    pub fn get_nodes_for_value(&self, value: &Rc<V>) -> Option<&Vec<N>> {
+        self.value_to_nodes.get(value)
+    }
+
     /// Computes the value of each node, asynchronously and concurrently. Values
     /// for nodes which were previously evaluated are skipped.
     async fn compute_values<'a, NI>(&mut self, nodes: NI) -> Result<(), E>
