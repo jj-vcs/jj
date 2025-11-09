@@ -29,6 +29,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * [Diff colors](docs/config.md#diff-colors-and-styles) can now be configured
   differently for each format.
 
+* The new `jj converge` command allows users to "fix" divergence. The command
+  tries to create a new commit for the divergent change that rewrites all
+  divergent commits. The command tries to do this automatically, but falls back
+  to prompting the user for pieces of information as needed.
+
 ### Fixed bugs
 
 * `.gitignore` with UTF-8 BOM can now be parsed correctly.
