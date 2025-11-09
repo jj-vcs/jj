@@ -579,7 +579,6 @@ where
     Ok(merge.resolve_trivial(SameChange::Accept).cloned())
 }
 
-#[allow(unused)]
 fn find_dominator_value<T, VF>(
     graph: &TruncatedEvolutionGraph,
     value_fn: &VF,
@@ -588,7 +587,14 @@ where
     T: Eq + Hash + Clone,
     VF: Fn(&Commit) -> Result<T, ConvergeError>,
 {
-    todo!();
+    let dominator_value = graph
+        .flow_graph
+        .find_dominator_value(&graph.divergent_commit_ids, |commit_id: &CommitId| {
+            value_fn(graph.get_commit(commit_id)?)
+        })?;
+    // By construction the dominator value always exists, so it is safe to unwrap
+    // here.
+    Ok(dominator_value.unwrap().clone())
 }
 
 fn converge_interactively<T, F>(
