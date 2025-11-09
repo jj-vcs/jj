@@ -31,6 +31,8 @@ use jj_lib::commit::Commit;
 use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::evolution::CommitEvolutionEntry;
 use jj_lib::evolution::WalkPredecessorsError;
+use jj_lib::evolution::walk_predecessors;
+use jj_lib::graph_dominators::find_closest_common_dominator;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::SameChange;
@@ -204,10 +206,22 @@ pub async fn converge_change(
     divergent_commits: &[Commit],
     max_evolution_nodes: usize,
 ) -> Result<ConvergeResult<Box<ConvergeCommit>>, ConvergeError> {
-    if divergent_commits.len() <= 1 {
-        return Err(ConvergeError::Other(
-            "expected multiple divergent commits for the change-id".into(),
-        ));
+    match divergent_commits.len() {
+        0 => {
+            return Err(ConvergeError::Other(
+                "divergent_commits must not be empty".into(),
+            ));
+        }
+        1 => {
+            return Err(ConvergeError::Other(
+                format!(
+                    "divergent_commits must have multiple commits, change-id: {}",
+                    divergent_commits[0].change_id()
+                )
+                .into(),
+            ));
+        }
+        _ => (),
     }
 
     let truncated_evolution_graph =
@@ -317,15 +331,124 @@ pub struct TruncatedEvolutionGraph {
     pub evolution_fork_point: CommitId,
 }
 
+impl TruncatedEvolutionNode {
+    /// Returns the commit id represented by this node.
+    pub fn commit_id(&self) -> &CommitId {
+        self.entry.commit.id()
+    }
+}
+
 impl TruncatedEvolutionGraph {
     /// Builds a truncated evolution graph for the given divergent commits,
     /// which are expected to all have the same change-id.
     pub fn new(
-        _repo: &ReadonlyRepo,
-        _divergent_commits: &[Commit],
-        _max_evolution_nodes: usize,
+        repo: &ReadonlyRepo,
+        divergent_commits: &[Commit],
+        max_evolution_nodes: usize,
     ) -> Result<Self, ConvergeError> {
-        todo!()
+        validate(
+            !divergent_commits.is_empty(),
+            "divergent_commits must not be empty",
+        )?;
+        let divergent_commit_ids = divergent_commits
+            .iter()
+            .map(|c| c.id().clone())
+            .collect_vec();
+
+        // Ensure all provided divergent commits belong to the same change-id.
+        // Note: divergent_commits is not empty, so it is ok to unwrap.
+        let divergent_change_id = divergent_commits.iter().next().unwrap().change_id().clone();
+        for c in divergent_commits.iter().skip(1) {
+            validate(
+                *c.change_id() == divergent_change_id,
+                "all divergent commits must have the same change-id",
+            )?;
+        }
+
+        let mut nodes = HashMap::new();
+        let evolution_nodes = walk_predecessors(repo, divergent_commit_ids.as_slice());
+
+        // These are the commits in the graph that have no predecessors. Typically
+        // there is exactly one entry in initial_nodes (the first commit for the
+        // change-id).
+        let mut initial_nodes = vec![];
+
+        for node in evolution_nodes {
+            let entry = node?;
+            if *entry.commit.change_id() != divergent_change_id {
+                continue;
+            }
+            if nodes.contains_key(entry.commit.id()) {
+                // TODO: think about this some more. Can 2 different operations result in the
+                // same commit? Maybe the key should be (commit-id, operation-id).
+
+                // Note: currently walk_predecessors returns an error if the graph is cyclic, so
+                // we shouldn't encounter the same commit twice. But in the future we could
+                // allow cyclic evolution, and if we do there is no reason to disallow it here.
+                // By continuing we future proof this.
+                continue;
+            }
+
+            let predecessors: Vec<CommitId> = entry
+                .predecessors()
+                .filter_map_ok(|commit| {
+                    if *commit.change_id() == divergent_change_id {
+                        Some(commit.id().clone())
+                    } else {
+                        None
+                    }
+                })
+                .try_collect()?;
+
+            if nodes.len() >= max_evolution_nodes {
+                return Err(ConvergeError::TooManyCommitsInChangeEvolution());
+            }
+
+            if predecessors.is_empty() {
+                initial_nodes.push(entry.commit.id().clone());
+            }
+            nodes.insert(
+                entry.commit.id().clone(),
+                TruncatedEvolutionNode {
+                    entry,
+                    predecessors,
+                },
+            );
+        }
+
+        validate(
+            !initial_nodes.is_empty(),
+            "Unexpected error: initial_nodes should not be empty",
+        )?;
+
+        // To compute the evolution fork point (see below) there must be a single
+        // "initial node". In graphs with multiple "real" initial nodes we introduce a
+        // virtual initial node (the root commit) and pretend the two or more "real"
+        // initial nodes are successors of the root commit.
+        if initial_nodes.len() > 1 {
+            let root_commit_id = repo.store().root_commit_id().clone();
+            nodes
+                .entry(root_commit_id.clone())
+                .or_insert(TruncatedEvolutionNode {
+                    entry: CommitEvolutionEntry::for_root_commit(repo.store()),
+                    predecessors: vec![],
+                });
+            for initial_node in &initial_nodes {
+                let predecessors = &mut nodes.get_mut(initial_node).unwrap().predecessors;
+                if predecessors.contains(&root_commit_id) {
+                    continue;
+                }
+                predecessors.push(root_commit_id.clone());
+            }
+        }
+
+        let evolution_fork_point =
+            Self::compute_evolution_fork_point(&divergent_commit_ids, &nodes)?;
+        Ok(Self {
+            divergent_commit_ids,
+            nodes,
+            evolution_fork_point,
+        })
     }
 
     /// Returns the change-id of the commits in the graph.
@@ -350,6 +473,47 @@ impl TruncatedEvolutionGraph {
         // Note: evolution_fork_point is guaranteed to be a key in nodes, so this unwrap
         // should never fail.
         self.get_commit(&self.evolution_fork_point)
+    }
+
+    fn compute_evolution_fork_point(
+        divergent_commit_ids: &[CommitId],
+        nodes: &HashMap<CommitId, TruncatedEvolutionNode>,
+    ) -> Result<CommitId, ConvergeError> {
+        // The evolution fork point is the "closest common dominator" of the set of
+        // divergent commits in the reverse truncated evolution graph (with edge U->V
+        // when commit V is a successor of commit U). To compute it, there must be a
+        // single "entry node" in the (reverse) graph. The logic above ensures this
+        // condition is satisfied, thus the closest common dominator is
+        // guaranteed to exist (although it could happen to be the virtual
+        // initial node).
+
+        let edges: Vec<_> = nodes
+            .iter()
+            .flat_map(|(commit_id, node)| {
+                node.predecessors
+                    .iter()
+                    .map(move |predecessor_id| (predecessor_id.clone(), commit_id.clone()))
+            })
+            .collect();
+
+        let dominator = find_closest_common_dominator(
+            nodes.keys().cloned(),
+            edges,
+            divergent_commit_ids.iter().cloned(),
+        );
+        match dominator {
+            Ok(Some(dominator)) => Ok(dominator),
+            Ok(None) => {
+                // Should not happen since we added a virtual initial node.
+                Err(ConvergeError::Other("Unexpected error".into()))
+            }
+            Err(e) => {
+                // Should not happen since our nodes2 and edges are well-formed.
+                Err(ConvergeError::Other(
+                    format!("Unexpected error: {e}").into(),
+                ))
+            }
+        }
     }
 }
 
@@ -481,5 +645,13 @@ where
         None => Ok(ConvergeResult::NeedUserInput(format!(
             "cannot converge {msg} automatically"
         ))),
+    }
+}
+
+fn validate(predicate: bool, msg: &str) -> Result<(), ConvergeError> {
+    if !predicate {
+        Err(ConvergeError::Other(msg.into()))
+    } else {
+        Ok(())
     }
 }
