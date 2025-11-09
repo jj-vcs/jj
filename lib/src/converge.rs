@@ -23,6 +23,7 @@ use std::hash::Hash;
 use std::ops::Deref as _;
 use std::sync::Arc;
 
+use futures::future::try_join_all;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
@@ -46,6 +47,7 @@ use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::rewrite::merge_commit_trees_no_resolve;
 use pollster::FutureExt as _;
 use thiserror::Error;
 
@@ -601,12 +603,76 @@ fn converge_parents(
 //   = (P-F^+F) +   (-A^+A      -F+F^)  +   (-B^+B      -F+F^)  +   (-C^+C      -F+F^)
 
 async fn converge_trees(
-    _repo: &Arc<ReadonlyRepo>,
-    _divergent_commits: &[Commit],
-    _truncated_evolution_graph: &TruncatedEvolutionGraph,
-    _parents: &[CommitId],
+    repo: &Arc<ReadonlyRepo>,
+    divergent_commits: &[Commit],
+    truncated_evolution_graph: &TruncatedEvolutionGraph,
+    parents: &[CommitId],
 ) -> Result<MergedTree, ConvergeError> {
-    todo!()
+    let parent_commits: Vec<Commit> =
+        try_join_all(parents.iter().map(|id| repo.store().get_commit_async(id))).await?;
+    let parents_merged_tree = merge_commit_trees_no_resolve(repo.as_ref(), &parent_commits).await?;
+
+    // TODO: for now we are using the evolution fork point as the base of the merge when converging trees. We
+    // should instead use the dominator value algorithm, more specifically, we should find the dominator
+    // value of the trees (of the divergent commits); that tree will come from one or more commits in the
+    // evolution graph. We should use one of those commits as the base of the merge.
+
+    let base_commit = truncated_evolution_graph.get_evolution_fork_point()?;
+    let base_commit_tree_labels = format!("evolution fork point: {}", base_commit.conflict_label());
+    let base_commit_parent_tree = base_commit.parent_tree_no_resolve(repo.as_ref()).await?;
+    let base_commit_parent_tree_labels = format!(
+        "evolution fork point parent(s): {}",
+        base_commit.parents_conflict_label().await?
+    );
+
+    let mut terms: Vec<(MergedTree, String)> = Vec::new();
+
+    // First add the tree of the base commit "rebased" on top of the solution's parent(s).
+    {
+        // Add
+        terms.push((
+            parents_merged_tree.clone(),
+            "converge solution parent(s)".to_string(),
+        ));
+        // Remove
+        terms.push((
+            base_commit_parent_tree.clone(),
+            base_commit_parent_tree_labels.clone(),
+        ));
+        // Add
+        terms.push((base_commit.tree(), base_commit_tree_labels.clone()));
+    }
+
+    for divergent_commit in divergent_commits {
+        // Add the tree of each divergent commit "rebased" on top of the solution's
+        // parent(s), minus the tree of the base commit "rebased" on top of the
+        // solution's parent(s).
+
+        // Remove
+        terms.push((
+            divergent_commit
+                .parent_tree_no_resolve(repo.as_ref())
+                .await?,
+            format!(
+                "divergent commit parents: {}",
+                divergent_commit.parents_conflict_label().await?
+            ),
+        ));
+        // Add
+        terms.push((
+            divergent_commit.tree(),
+            format!("divergent commit: {}", divergent_commit.conflict_label()),
+        ));
+        // Remove
+        terms.push((base_commit.tree(), base_commit_tree_labels.clone()));
+        // Add
+        terms.push((
+            base_commit_parent_tree.clone(),
+            base_commit_parent_tree_labels.clone(),
+        ));
+    }
+
+    Ok(MergedTree::merge(MergeBuilder::from_iter(terms).build()).await?)
 }
 
 fn converge<T, VF>(
