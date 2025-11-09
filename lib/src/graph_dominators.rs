@@ -392,7 +392,7 @@ pub enum FindDominatorValueError<E> {
 /// Helper struct for constructing a value flow graph. It caches the results
 /// of applying value_fn to nodes, and also keeps track of the mapping from
 /// values to nodes and nodes to values.
-struct ValueCache<N, V, VF> {
+pub struct ValueCache<N, V, VF> {
     /// The function that emits values.
     value_fn: VF,
     /// Maps nodes to their corresponding values.
@@ -408,7 +408,7 @@ where
     VF: AsyncFn(&N) -> Result<V, E>,
 {
     /// Creates a new ValueCache that uses the given function to get values.
-    fn new(value_fn: VF) -> Self {
+    pub fn new(value_fn: VF) -> Self {
         Self {
             value_fn,
             node_values: HashMap::new(),
@@ -416,46 +416,60 @@ where
         }
     }
 
-    /// Gets all the values currently cached.
-    fn get_values(&self) -> Vec<Rc<V>> {
-        self.value_to_nodes.keys().cloned().collect_vec()
-    }
-
-    /// Returns the number of distinct values currently cached.
-    fn num_distinct_values(&self) -> usize {
-        self.value_to_nodes.len()
-    }
-
     /// Returns the value for the given node, computing it if it is not already
     /// cached.
-    async fn get_or_compute_value(&mut self, node: &N) -> Result<Rc<V>, E> {
-        self.compute_values([node]).await?;
-        Ok(self.node_values.get(node).expect("cached").clone())
+    pub async fn get_value(&mut self, node: &N) -> Result<Rc<V>, E> {
+        let values = self.get_values([node]).await?;
+        assert_eq!(values.len(), 1);
+        Ok(values[0].clone())
     }
 
-    /// Computes the value of each node, asynchronously and concurrently. Values
-    /// for nodes which were previously evaluated are skipped.
-    async fn compute_values<'a, NI>(&mut self, nodes: NI) -> Result<(), E>
+    /// Returns the nodes that have the given value.
+    pub fn get_nodes_for_value(&self, value: &Rc<V>) -> Option<&Vec<N>> {
+        self.value_to_nodes.get(value)
+    }
+
+    /// Returns the value of the given nodes, computing them (if they are not
+    /// already cached) asynchronously and concurrently. The result will have
+    /// the same cardinality as `nodes`, and may contain duplicate values
+    /// (e.g. if multiple nodes have the same value, or if
+    /// there are repeated nodes). The order of the result is not specified
+    /// (any order is possible).
+    async fn get_values<'a, NI>(&mut self, nodes: NI) -> Result<Vec<Rc<V>>, E>
     where
         N: 'a,
         NI: IntoIterator<Item = &'a N>,
     {
+        let mut values = vec![];
+        let mut futures = vec![];
+
         // 1. Filter out nodes already in the map and create futures for new nodes.
-        let futures = nodes
-            .into_iter()
-            .filter(|node| !self.node_values.contains_key(node))
-            .map(|node| async {
-                let value = (self.value_fn)(node).await?;
-                Ok((node.clone(), Rc::new(value)))
-            });
+        for node in nodes {
+            match self.node_values.get(node) {
+                Some(value) => {
+                    values.push(value.clone());
+                }
+                None => {
+                    // This node is not cached, we will compute its value.
+                    futures.push(async {
+                        let value = (self.value_fn)(node).await?;
+                        Ok((node.clone(), Rc::new(value)))
+                    });
+                }
+            }
+        }
         // 2. Run all new futures concurrently
         let new_results: Vec<(N, Rc<V>)> = try_join_all(futures).await?;
         // 3. Insert the new entries into the maps.
         for (node, value) in new_results {
             self.node_values.insert(node.clone(), value.clone());
-            self.value_to_nodes.entry(value).or_default().push(node);
+            self.value_to_nodes
+                .entry(value.clone())
+                .or_default()
+                .push(node);
+            values.push(value);
         }
-        Ok(())
+        Ok(values)
     }
 }
 
@@ -497,23 +511,45 @@ where
     /// function, and finds the closest common dominator value for the
     /// values of the final nodes. Returns an error if value_fn returns an
     /// error for any node in the flow graph. `final_nodes` must not be empty.
-    pub async fn find_dominator_value<V, VF, E>(
-        &self,
-        final_nodes: &[N],
+    pub async fn find_dominator_value<'a, NI, V, VF, E>(
+        &'a self,
+        final_nodes: NI,
         value_fn: VF,
     ) -> Result<V, FindDominatorValueError<E>>
     where
+        NI: IntoIterator<Item = &'a N>,
         V: Hash + Eq + Clone,
         VF: AsyncFn(&N) -> Result<V, E>,
     {
         let mut value_cache = ValueCache::new(value_fn);
+        let value_rc = self
+            .find_dominator_value_with_value_cache(final_nodes, &mut value_cache)
+            .await?;
+        Ok((*value_rc).clone())
+    }
+
+    /// Constructs a value flow graph from the given flow graph and value_cache,
+    /// and finds the closest common dominator value (in the value flow graph)
+    /// of the values of the final nodes.
+    ///
+    /// Returns an error if final_nodes is empty or if value_cache returns an
+    /// error.
+    pub async fn find_dominator_value_with_value_cache<'a, NI, V, VF, E>(
+        &'a self,
+        final_nodes: NI,
+        value_cache: &mut ValueCache<N, V, VF>,
+    ) -> Result<Rc<V>, FindDominatorValueError<E>>
+    where
+        NI: IntoIterator<Item = &'a N>,
+        V: Hash + Eq,
+        VF: AsyncFn(&N) -> Result<V, E>,
+    {
         // First compute the values of all final nodes asynchronously and concurrently.
-        value_cache
-            .compute_values(final_nodes)
+        let final_values = value_cache
+            .get_values(final_nodes)
             .await
             .map_err(|e| FindDominatorValueError::ValueFnError(e))?;
 
-        let final_values = value_cache.get_values();
         match &*final_values {
             [] => {
                 return Err(FindDominatorValueError::DominatorFinderError(
@@ -523,27 +559,22 @@ where
             [final_value] => {
                 // Optimization: if all final nodes have the same value, that value is the
                 // closest common dominator. There is no need to build the value flow graph.
-                return Ok(final_value.as_ref().clone());
+                return Ok(final_value.clone());
             }
             _ => {}
         }
 
         let start_value = value_cache
-            .get_or_compute_value(&self.start_node)
+            .get_value(&self.start_node)
             .await
             .map_err(|err| FindDominatorValueError::ValueFnError(err))?;
-
-        if value_cache.num_distinct_values() == final_values.len() {
-            // Optimization: at this point we know that the value of the start node is one
-            // of the final values (because the cardinality of the value set did not
-            // increase when we calculated the value of the start node). In such cases we
-            // know immediately that the closest common dominator is `start_value`.
-            return Ok(start_value.as_ref().clone());
+        if final_values.contains(&start_value) {
+            return Ok(Rc::clone(&start_value));
         }
 
         // Compute all remaining values.
         value_cache
-            .compute_values(self.graph.nodes())
+            .get_values(self.graph.nodes())
             .await
             .map_err(|err| FindDominatorValueError::ValueFnError(err))?;
 
@@ -567,7 +598,7 @@ where
         let dominator_value =
             dominator_finder.find_closest_common_dominator(final_values.iter())?;
 
-        Ok(dominator_value.as_ref().clone())
+        Ok(Rc::clone(dominator_value))
     }
 }
 
