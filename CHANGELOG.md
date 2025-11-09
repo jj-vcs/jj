@@ -88,6 +88,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   take a second (positional or named) argument `max_bar_width` for an equivalent
   effect.
 
+* The new `jj converge` command attempts to automatically resolve divergence by
+  creating a new commit that replaces the divergent commits. It applies
+  heuristics to try to automatically come up with a good solution, and falls
+  back to prompting the user if the heuristics are inconclusive. It can also
+  run in non-interactive mode.
+
 ### Fixed bugs
 
 * Recursive alias definitions are detected more precisely. jj can now expand
