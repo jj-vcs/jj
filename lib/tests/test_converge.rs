@@ -24,6 +24,7 @@ use jj_lib::commit::Commit;
 use jj_lib::converge::CommitsByChangeId;
 use jj_lib::converge::TruncatedEvolutionGraph;
 use jj_lib::converge::find_divergent_changes;
+use jj_lib::converge::remove_descendants;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
@@ -34,6 +35,7 @@ use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::TestResult;
 use testutils::write_random_commit;
+use testutils::write_random_commit_with_parents;
 
 fn make_change_id(repo: &TestRepo, byte: u8) -> ChangeId {
     ChangeId::new(vec![byte; repo.repo.store().change_id_length()])
@@ -104,6 +106,42 @@ fn test_find_divergent_changes_none_found() -> TestResult {
 
     let result = find_divergent_changes(&repo, RevsetExpression::all()).block_on()?;
     assert!(result.is_empty());
+    Ok(())
+}
+
+#[test]
+fn test_remove_descendants_linear_chain() -> TestResult {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let repo = tx.repo_mut();
+    let commit1 = write_random_commit(repo);
+    let commit2 = write_random_commit_with_parents(repo, &[&commit1]);
+    let commit3 = write_random_commit_with_parents(repo, &[&commit2]);
+    let repo = tx.commit("test").block_on()?;
+
+    assert_eq!(
+        remove_descendants(
+            &repo,
+            &[
+                commit1.id().clone(),
+                commit2.id().clone(),
+                commit3.id().clone(),
+            ],
+        )
+        .block_on()?,
+        HashSet::from([commit1.id().clone()])
+    );
+    assert_eq!(
+        remove_descendants(&repo, &[commit1.id().clone(), commit2.id().clone(),],).block_on()?,
+        HashSet::from([commit1.id().clone()])
+    );
+    assert_eq!(
+        remove_descendants(&repo, &[commit1.id().clone()],).block_on()?,
+        HashSet::from([commit1.id().clone()])
+    );
+
     Ok(())
 }
 

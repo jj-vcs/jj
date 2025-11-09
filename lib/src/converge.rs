@@ -19,6 +19,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::Hash;
+use std::ops::Deref as _;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -48,6 +49,7 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetEvaluationError;
+use jj_lib::revset::RevsetExpression;
 use jj_lib::store::Store;
 use thiserror::Error;
 
@@ -399,9 +401,30 @@ async fn converge_description(
 }
 
 async fn converge_parents(
-    _graph: &TruncatedEvolutionGraph,
+    graph: &TruncatedEvolutionGraph,
 ) -> Result<ConvergedAttribute<Vec<CommitId>>, ConvergeError> {
-    todo!()
+    // Filter out divergent commits that are descendants of other divergent commits
+    // (we cannot use the parents of those commits because that would introduce
+    // cycles when we rebase everything on top of the parents).
+    let viable_commits = remove_descendants(graph.repo(), graph.divergent_commit_ids()).await?;
+    let excluded_divergent_commits: HashSet<CommitId> = graph
+        .divergent_commit_ids()
+        .iter()
+        .filter(|commit_id| !viable_commits.contains(commit_id))
+        .cloned()
+        .collect();
+
+    let get_parents_fn = async |c: &Commit| Ok(c.parent_ids().to_vec());
+    let (value_merge, base_commit) =
+        create_value_merge(graph, &excluded_divergent_commits, get_parents_fn).await?;
+    if let Some(value) = value_merge.resolve_trivial(SameChange::Accept) {
+        Ok(ConvergedAttribute::Solved(value.clone()))
+    } else {
+        Ok(ConvergedAttribute::Unsolved {
+            base_commit,
+            excluded_divergent_commits,
+        })
+    }
 }
 
 /// A MergedTree, without the `Arc<Store>`. That allows us to derive Eq and Hash
@@ -556,6 +579,29 @@ where
         .unwrap()
         .clone();
     Ok(producer)
+}
+
+/// Returns those commits in commit_ids that are not descendants of any other
+/// commit in commit_ids.
+pub async fn remove_descendants(
+    repo: &Arc<ReadonlyRepo>,
+    commit_ids: &[CommitId],
+) -> Result<HashSet<CommitId>, ConvergeError> {
+    if commit_ids.is_empty() {
+        return Ok(HashSet::default());
+    }
+    let revset_expression = Arc::new(RevsetExpression::Commits(commit_ids.to_vec())).roots();
+    let mut result = HashSet::with_capacity(commit_ids.len());
+    let mut stream = revset_expression.evaluate(repo.deref())?.stream();
+    while let Some(commit_id) = stream.try_next().await? {
+        result.insert(commit_id);
+    }
+
+    validate(
+        !result.is_empty(),
+        &format!("the result of remove_descendants should never be empty; commits: {commit_ids:?}"),
+    )?;
+    Ok(result)
 }
 
 fn validate(predicate: bool, msg: &str) -> Result<(), ConvergeError> {
