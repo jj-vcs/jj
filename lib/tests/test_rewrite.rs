@@ -38,6 +38,7 @@ use jj_lib::rewrite::RewriteRefsOptions;
 use jj_lib::rewrite::find_duplicate_divergent_commits;
 use jj_lib::rewrite::find_recursive_merge_commits;
 use jj_lib::rewrite::merge_commit_trees;
+use jj_lib::rewrite::merge_commit_trees_no_resolve;
 use jj_lib::rewrite::rebase_commit_with_options;
 use jj_lib::rewrite::restore_tree;
 use maplit::hashmap;
@@ -91,22 +92,39 @@ fn test_merge_criss_cross() -> TestResult {
             .set_description(description)
             .write_unwrap()
     };
-    let commit_a = make_commit("A", vec![repo.store().root_commit_id().clone()], tree_a);
-    let commit_b = make_commit("B", vec![commit_a.id().clone()], tree_b);
-    let commit_c = make_commit("C", vec![commit_a.id().clone()], tree_c);
+    let commit_a = make_commit(
+        "A",
+        vec![repo.store().root_commit_id().clone()],
+        tree_a.clone(),
+    );
+    let commit_b = make_commit("B", vec![commit_a.id().clone()], tree_b.clone());
+    let commit_c = make_commit("C", vec![commit_a.id().clone()], tree_c.clone());
     let commit_d = make_commit(
         "D",
         vec![commit_b.id().clone(), commit_c.id().clone()],
-        tree_d,
+        tree_d.clone(),
     );
     let commit_e = make_commit(
         "E",
         vec![commit_b.id().clone(), commit_c.id().clone()],
-        tree_e,
+        tree_e.clone(),
     );
-    let merged = merge_commit_trees(tx.repo_mut(), &[commit_d, commit_e]).block_on()?;
-
+    let merged =
+        merge_commit_trees(tx.repo_mut(), &[commit_d.clone(), commit_e.clone()]).block_on()?;
     assert_tree_eq!(merged, tree_expected);
+
+    let tree_unresolved_expected = MergedTree::merge_no_resolve(Merge::from_vec(vec![
+        (tree_d, commit_d.conflict_label()),
+        (tree_b, commit_b.conflict_label()),
+        (tree_a, commit_a.conflict_label()),
+        (tree_c, commit_c.conflict_label()),
+        (tree_e, commit_e.conflict_label()),
+    ]));
+    let unresolved_merged =
+        merge_commit_trees_no_resolve(tx.repo_mut(), &[commit_d, commit_e]).block_on()?;
+    assert_tree_eq!(unresolved_merged, tree_unresolved_expected);
+    assert_tree_eq!(unresolved_merged.resolve().block_on()?, tree_expected);
+
     Ok(())
 }
 

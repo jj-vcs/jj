@@ -60,10 +60,22 @@ pub async fn merge_commit_trees(repo: &dyn Repo, commits: &[Commit]) -> BackendR
     if let [commit] = commits {
         Ok(commit.tree())
     } else {
-        merge_commit_trees_no_resolve_without_repo(repo.store(), repo.index(), commits)
+        merge_commit_trees_no_resolve(repo, commits)
             .await?
             .resolve()
             .await
+    }
+}
+
+/// Merges `commits` without attempting to resolve file conflicts.
+pub async fn merge_commit_trees_no_resolve(
+    repo: &dyn Repo,
+    commits: &[Commit],
+) -> BackendResult<MergedTree> {
+    if let [commit] = commits {
+        Ok(commit.tree())
+    } else {
+        merge_commit_trees_no_resolve_without_repo(repo.store(), repo.index(), commits).await
     }
 }
 
