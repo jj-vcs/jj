@@ -17,6 +17,7 @@
 
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fmt::Write as _;
@@ -455,6 +456,30 @@ impl<T> Merge<T> {
         T: Eq + Hash,
     {
         trivial_merge(&self.values, same_change)
+    }
+
+    pub fn try_resolve_deduplicating_same_diffs(&self) -> Option<&T>
+    where
+        T: Eq + Hash,
+    {
+        let mut seen: HashSet<(&T, &T)> = HashSet::new();
+        assert!(
+            self.values.len() % 2 == 1,
+            "trivial_merge() requires an odd number of terms"
+        );
+        let mut dedupped_values = Vec::with_capacity(self.values.len());
+        dedupped_values.push(&self.values[0]);
+        for term in self.values[1..].chunks(2) {
+            let (add, remove) = (&term[0], &term[1]);
+            if seen.insert((add, remove)) {
+                dedupped_values.push(add);
+                dedupped_values.push(remove);
+            }
+        }
+        match trivial_merge(dedupped_values.iter().as_slice(), SameChange::Accept) {
+            Some(value) => Some(*value),
+            None => None,
+        }
     }
 
     /// Pads this merge with to the specified number of sides with the specified
