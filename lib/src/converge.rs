@@ -443,7 +443,51 @@ fn solve_parents(
     converge_ui: &dyn ConvergeUI,
     graph: &TruncatedEvolutionGraph,
 ) -> Result<Vec<CommitId>, ConvergeError> {
-    todo!()
+    // Filter out divergent commits that are descendants of other divergent commits
+    // (we cannot use the parents of those commits because that would introduce
+    // cycles when we rebase everything on top of the parents).
+    let viable_commits = remove_descendants(repo, &graph.divergent_commit_ids)?;
+    let get_parents_fn = |c: &Commit| c.parent_ids().to_vec();
+    let viable_parents: HashSet<_> = viable_commits.iter().map(get_parents_fn).collect();
+    if viable_parents.len() == 1 {
+        return Ok(viable_parents.into_iter().next().unwrap()); // Note: viable_parents is not empty.
+    }
+    let merge = create_merge(graph, get_parents_fn)?;
+    if let Some(parents) = merge.try_resolve_deduplicating_same_diffs() {
+        // TODO: We need to do additional validation, to avoid introducing cycles in the
+        // commit graph or additional divergence (in the same change-id or a different
+        // one).
+        Ok(parents.clone())
+    } else {
+        // TODO: need to think about the best way to present the parent choices to the
+        // user. There may be 10 divergent commits, 9 of them with parents {A, B} and 1
+        // with parents {C, D}. Showing a list of 10 commit ids may not be the best way
+        // to do this.
+        converge_ui.choose_parents(viable_commits.as_slice())
+    }
+}
+
+/// Returns those commits in commit_ids that are not descendants of any other
+/// commit in commit_ids.
+fn remove_descendants(
+    repo: &Arc<ReadonlyRepo>,
+    commit_ids: &[CommitId],
+) -> Result<Vec<Commit>, RevsetEvaluationError> {
+    if commit_ids.is_empty() {
+        return Ok(vec![]);
+    }
+    let commits = Arc::new(RevsetExpression::Commits(commit_ids.to_vec()));
+    let revset_expression = commits.minus(&commits.children().descendants());
+    let result: Vec<_> = revset_expression
+        .evaluate(repo.deref())?
+        .iter()
+        .commits(repo.store())
+        .try_collect()?;
+    assert!(
+        !result.is_empty(),
+        "the result of remove_descendants should never be empty"
+    );
+    Ok(result)
 }
 
 async fn converge_trees(
@@ -452,7 +496,36 @@ async fn converge_trees(
     fork_point: &Commit,
     parents: &[CommitId],
 ) -> Result<MergedTree, ConvergeError> {
-    todo!()
+    let parent_commits: Vec<Commit> =
+        try_join_all(parents.iter().map(|id| repo.store().get_commit_async(id))).await?;
+    let parents_merged_tree = merge_commit_trees(repo.as_ref(), &parent_commits).await?;
+
+    let fork_point_tree = fork_point.tree();
+    let fork_point_parent_tree = fork_point.parent_tree_async(repo.as_ref()).await?;
+
+    let mut terms: Vec<(MergedTree, String)> = Vec::new();
+    terms.push((
+        parents_merged_tree,
+        "converge solution parent(s)".to_string(),
+    ));
+    for divergent_commit_id in divergent_commit_ids {
+        let divergent_commit = repo.store().get_commit_async(divergent_commit_id).await?;
+        terms.push((
+            divergent_commit.tree(),
+            format!("divergent commit {divergent_commit_id:.12}"),
+        ));
+        terms.push((
+            divergent_commit.parent_tree_async(repo.as_ref()).await?,
+            format!("divergent commit {divergent_commit_id:.12} parent(s)"),
+        ));
+    }
+    terms.push((
+        fork_point_parent_tree,
+        "evolution fork point parent(s)".to_string(),
+    ));
+    terms.push((fork_point_tree, "fork point".to_string()));
+
+    Ok(MergedTree::merge(MergeBuilder::from_iter(terms).build()).await?)
 }
 
 fn create_merge<T>(
