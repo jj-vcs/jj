@@ -24,6 +24,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   jj workspace can have its own Git HEAD. Existing repositories are migrated
   automatically.
 
+* The new `jj converge` command attempts to automatically resolve divergence by
+  creating a new commit that replaces the divergent commits. It applies
+  heuristics to try to automatically come up with a good solution, and falls
+  back to prompting the user if the heuristics are inconclusive. It can also run
+  in non-interactive mode, which aborts if prompting would be needed.
+
 ### Fixed bugs
 
 * The default pager flags now include `-K` (`--quit-on-intr`), so pressing

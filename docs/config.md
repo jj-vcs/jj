@@ -2029,6 +2029,19 @@ different results depending on the order of merging. To turn it off, set
 same-change = "accept"
 ```
 
+## Converge settings
+
+The `jj converge` command attempts to resolve divergence by replacing two or
+more divergent commits with a single commit. The command accepts a
+`--revisions REVSET` argument, and looks for divergence within the commits that
+match that revset. The `--revisions` argument is optional. By default
+`jj converge` uses the `revsets.converge` revset:
+
+```toml
+[revsets]
+converge = "mutable() & divergent()"
+```
+
 ## Filesystem monitor
 
 In large repositories, it may be beneficial to use a "filesystem monitor" to
