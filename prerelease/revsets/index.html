@@ -2211,7 +2211,8 @@ indicates that all of the following usages are valid:</p>
 </li>
 <li>
 <p><code>reachable(srcs, domain)</code>: All commits reachable from <code>srcs</code> within
-  <code>domain</code>, traversing all parent and child edges.</p>
+  <code>domain</code>, traversing all parent and child edges. <code>srcs</code> outside <code>domain</code> are
+  not considered even if a parent or child edge would reach into <code>domain</code>.</p>
 </li>
 <li>
 <p><code>connected(x)</code>: Same as <code>x::x</code>. Useful when <code>x</code> includes several commits.</p>
