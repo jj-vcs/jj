@@ -26,6 +26,7 @@ use futures::stream::BoxStream;
 use thiserror::Error;
 use tokio::io::AsyncRead;
 
+use crate::conflict_labels::ConflictLabels;
 use crate::content_hash::ContentHash;
 use crate::hex_util;
 use crate::index::Index;
@@ -161,6 +162,8 @@ pub struct Commit {
     pub predecessors: Vec<CommitId>,
     #[serde(skip)] // TODO: should be exposed?
     pub root_tree: Merge<TreeId>,
+    #[serde(skip)]
+    pub conflict_labels: ConflictLabels,
     pub change_id: ChangeId,
     pub description: String,
     pub author: Signature,
@@ -397,6 +400,7 @@ pub fn make_root_commit(root_change_id: ChangeId, empty_tree_id: TreeId) -> Comm
         parents: vec![],
         predecessors: vec![],
         root_tree: Merge::resolved(empty_tree_id),
+        conflict_labels: ConflictLabels::unlabeled(),
         change_id: root_change_id,
         description: String::new(),
         author: signature.clone(),

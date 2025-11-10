@@ -441,7 +441,8 @@ async fn get_file_contents(
     tree: &MergedTree,
 ) -> Result<BString, BackendError> {
     let file_value = tree.path_value_async(path).await?;
-    let effective_file_value = materialize_tree_value(store, path, file_value).await?;
+    let effective_file_value =
+        materialize_tree_value(store, path, file_value, tree.labels()).await?;
     match effective_file_value {
         MaterializedTreeValue::File(mut file) => Ok(file.read_all(path).await?.into()),
         MaterializedTreeValue::FileConflict(file) => {
@@ -454,7 +455,11 @@ async fn get_file_contents(
                     same_change: SameChange::Accept,
                 },
             };
-            Ok(materialize_merge_result_to_bytes(&file.contents, &options))
+            Ok(materialize_merge_result_to_bytes(
+                &file.contents,
+                &file.labels,
+                &options,
+            ))
         }
         _ => Ok(BString::default()),
     }

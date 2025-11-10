@@ -1,5 +1,7 @@
 //! Portable, stable hashing suitable for identifying values
 
+use std::sync::Arc;
+
 use blake2::Blake2b512;
 // Re-export DigestUpdate so that the ContentHash proc macro can be used in
 // external crates without directly depending on the digest crate.
@@ -125,6 +127,12 @@ impl<T: ContentHash> ContentHash for Option<T> {
                 x.hash(state);
             }
         }
+    }
+}
+
+impl<T: ContentHash + ?Sized> ContentHash for Arc<T> {
+    fn hash(&self, state: &mut impl DigestUpdate) {
+        self.as_ref().hash(state);
     }
 }
 
