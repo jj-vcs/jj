@@ -67,7 +67,7 @@ pub(crate) fn cmd_file_list(
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
     let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
-    let tree = commit.tree()?;
+    let tree = commit.tree();
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();

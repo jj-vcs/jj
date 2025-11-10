@@ -31,7 +31,6 @@ use tracing::instrument;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::CommitId;
-use crate::backend::MergedTreeId;
 use crate::commit::Commit;
 use crate::commit::CommitIteratorExt as _;
 use crate::commit_builder::CommitBuilder;
@@ -55,7 +54,7 @@ use crate::store::Store;
 #[instrument(skip(repo))]
 pub async fn merge_commit_trees(repo: &dyn Repo, commits: &[Commit]) -> BackendResult<MergedTree> {
     if let [commit] = commits {
-        commit.tree_async().await
+        Ok(commit.tree())
     } else {
         merge_commit_trees_no_resolve_without_repo(repo.store(), repo.index(), commits)
             .await?
@@ -76,14 +75,16 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
         .map(|commit| commit.id().clone())
         .collect_vec();
     let commit_id_merge = find_recursive_merge_commits(store, index, commit_ids)?;
-    let tree_merge = commit_id_merge
+    let tree_id_merge = commit_id_merge
         .try_map_async(async |commit_id| {
             let commit = store.get_commit_async(commit_id).await?;
-            let tree = commit.tree_async().await?;
-            Ok::<_, BackendError>(tree.into_merge())
+            Ok::<_, BackendError>(commit.tree_ids().clone())
         })
         .await?;
-    Ok(MergedTree::new(tree_merge.flatten().simplify()))
+    Ok(MergedTree::new(
+        store.clone(),
+        tree_id_merge.flatten().simplify(),
+    ))
 }
 
 /// Find the commits to use as input to the recursive merge algorithm.
@@ -120,14 +121,14 @@ pub async fn restore_tree(
     source: &MergedTree,
     destination: &MergedTree,
     matcher: &dyn Matcher,
-) -> BackendResult<MergedTreeId> {
+) -> BackendResult<MergedTree> {
     if matcher.visit(RepoPath::root()) == Visit::AllRecursively {
         // Optimization for a common case
-        Ok(source.id())
+        Ok(source.clone())
     } else {
         // TODO: We should be able to not traverse deeper in the diff if the matcher
         // matches an entire subtree.
-        let mut tree_builder = MergedTreeBuilder::new(destination.id().clone());
+        let mut tree_builder = MergedTreeBuilder::new(destination.clone());
         // TODO: handle copy tracking
         let mut diff_stream = source.diff_stream(destination, matcher);
         while let Some(TreeDiffEntry {
@@ -138,7 +139,7 @@ pub async fn restore_tree(
             let source_value = values?.before;
             tree_builder.set_or_remove(repo_path, source_value);
         }
-        tree_builder.write_tree(destination.store())
+        tree_builder.write_tree()
     }
 }
 
@@ -258,20 +259,20 @@ impl<'repo> CommitRewriter<'repo> {
         let (old_parents, new_parents) = try_join!(old_parents_fut, new_parents_fut)?;
         let old_parent_trees = old_parents
             .iter()
-            .map(|parent| parent.tree_id().clone())
+            .map(|parent| parent.tree_ids().clone())
             .collect_vec();
         let new_parent_trees = new_parents
             .iter()
-            .map(|parent| parent.tree_id().clone())
+            .map(|parent| parent.tree_ids().clone())
             .collect_vec();
 
-        let (was_empty, new_tree_id) = if new_parent_trees == old_parent_trees {
+        let (was_empty, new_tree) = if new_parent_trees == old_parent_trees {
             (
                 // Optimization: was_empty is only used for newly empty, but when the
                 // parents haven't changed it can't be newly empty.
                 true,
                 // Optimization: Skip merging.
-                self.old_commit.tree_id().clone(),
+                self.old_commit.tree(),
             )
         } else {
             // We wouldn't need to resolve merge conflicts here if the
@@ -279,12 +280,11 @@ impl<'repo> CommitRewriter<'repo> {
             // resolve intermediate parent tree when rebasing" for details.
             let old_base_tree_fut = merge_commit_trees(self.mut_repo, &old_parents);
             let new_base_tree_fut = merge_commit_trees(self.mut_repo, &new_parents);
-            let old_tree_fut = self.old_commit.tree_async();
-            let (old_base_tree, new_base_tree, old_tree) =
-                try_join!(old_base_tree_fut, new_base_tree_fut, old_tree_fut)?;
+            let old_tree = self.old_commit.tree();
+            let (old_base_tree, new_base_tree) = try_join!(old_base_tree_fut, new_base_tree_fut)?;
             (
-                old_base_tree.id() == *self.old_commit.tree_id(),
-                new_base_tree.merge(old_base_tree, old_tree).await?.id(),
+                old_base_tree.tree_ids() == self.old_commit.tree_ids(),
+                new_base_tree.merge(old_base_tree, old_tree).await?,
             )
         };
         // Ensure we don't abandon commits with multiple parents (merge commits), even
@@ -292,8 +292,10 @@ impl<'repo> CommitRewriter<'repo> {
         if let [parent] = &new_parents[..] {
             let should_abandon = match empty {
                 EmptyBehavior::Keep => false,
-                EmptyBehavior::AbandonNewlyEmpty => *parent.tree_id() == new_tree_id && !was_empty,
-                EmptyBehavior::AbandonAllEmpty => *parent.tree_id() == new_tree_id,
+                EmptyBehavior::AbandonNewlyEmpty => {
+                    parent.tree_ids() == new_tree.tree_ids() && !was_empty
+                }
+                EmptyBehavior::AbandonAllEmpty => parent.tree_ids() == new_tree.tree_ids(),
             };
             if should_abandon {
                 self.abandon();
@@ -305,7 +307,7 @@ impl<'repo> CommitRewriter<'repo> {
             .mut_repo
             .rewrite_commit(&self.old_commit)
             .set_parents(self.new_parents)
-            .set_tree_id(new_tree_id);
+            .set_tree(new_tree);
         Ok(Some(builder))
     }
 
@@ -370,13 +372,13 @@ pub fn rebase_to_dest_parent(
     if let [source] = sources
         && source.parent_ids() == destination.parent_ids()
     {
-        return source.tree();
+        return Ok(source.tree());
     }
     sources.iter().try_fold(
         destination.parent_tree(repo)?,
         |destination_tree, source| {
             let source_parent_tree = source.parent_tree(repo)?;
-            let source_tree = source.tree()?;
+            let source_tree = source.tree();
             destination_tree
                 .merge(source_parent_tree, source_tree)
                 .block_on()
@@ -1130,7 +1132,7 @@ pub struct CommitWithSelection {
 impl CommitWithSelection {
     /// Returns true if the selection contains all changes in the commit.
     pub fn is_full_selection(&self) -> bool {
-        &self.selected_tree.id() == self.commit.tree_id()
+        self.selected_tree.tree_ids() == self.commit.tree_ids()
     }
 
     /// Returns true if the selection matches the parent tree (contains no
@@ -1139,7 +1141,7 @@ impl CommitWithSelection {
     /// Both `is_full_selection()` and `is_empty_selection()`
     /// can be true if the commit is itself empty.
     pub fn is_empty_selection(&self) -> bool {
-        self.selected_tree.id() == self.parent_tree.id()
+        self.selected_tree.tree_ids() == self.parent_tree.tree_ids()
     }
 }
 
@@ -1193,7 +1195,7 @@ pub fn squash_commits<'repo>(
             repo.record_abandoned_commit(&source.commit.commit);
             abandoned_commits.push(source.commit.commit.clone());
         } else {
-            let source_tree = source.commit.commit.tree()?;
+            let source_tree = source.commit.commit.tree();
             // Apply the reverse of the selected changes onto the source
             let new_source_tree = source_tree
                 .merge(
@@ -1202,7 +1204,7 @@ pub fn squash_commits<'repo>(
                 )
                 .block_on()?;
             repo.rewrite_commit(&source.commit.commit)
-                .set_tree_id(new_source_tree.id().clone())
+                .set_tree(new_source_tree)
                 .write()?;
         }
     }
@@ -1231,7 +1233,7 @@ pub fn squash_commits<'repo>(
         })?;
     }
     // Apply the selected changes onto the destination
-    let mut destination_tree = rewritten_destination.tree()?;
+    let mut destination_tree = rewritten_destination.tree();
     for source in &source_commits {
         destination_tree = destination_tree
             .merge(
@@ -1249,7 +1251,7 @@ pub fn squash_commits<'repo>(
 
     let commit_builder = repo
         .rewrite_commit(&rewritten_destination)
-        .set_tree_id(destination_tree.id().clone())
+        .set_tree(destination_tree)
         .set_predecessors(predecessors);
     Ok(Some(SquashedCommit {
         commit_builder,
@@ -1329,7 +1331,7 @@ pub fn find_duplicate_divergent_commits(
                 rebase_to_dest_parent(repo, slice::from_ref(target_commit), &ancestor_candidate)?;
             // Check whether the rebased commit would have the same tree as the existing
             // commit if they had the same parents. If so, we can skip this rebased commit.
-            if new_tree.id() == *ancestor_candidate.tree_id() {
+            if new_tree.tree_ids() == ancestor_candidate.tree_ids() {
                 duplicate_divergent.push(target_commit.clone());
                 break;
             }

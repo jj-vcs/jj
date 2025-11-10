@@ -267,7 +267,7 @@ impl Source {
     }
 
     fn load(commit: &Commit, file_path: &RepoPath) -> Result<Self, BackendError> {
-        let tree = commit.tree()?;
+        let tree = commit.tree();
         let text = get_file_contents(commit.store(), file_path, &tree).block_on()?;
         Ok(Self::new(text))
     }

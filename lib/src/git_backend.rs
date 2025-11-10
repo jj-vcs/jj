@@ -60,7 +60,6 @@ use crate::backend::CopyHistory;
 use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
-use crate::backend::MergedTreeId;
 use crate::backend::MillisSinceEpoch;
 use crate::backend::SecureSig;
 use crate::backend::Signature;
@@ -494,7 +493,7 @@ impl GitBackend {
         repo: &'repo gix::Repository,
         id: &CommitId,
     ) -> BackendResult<gix::Tree<'repo>> {
-        let tree = self.read_commit(id).block_on()?.root_tree.into_merge();
+        let tree = self.read_commit(id).block_on()?.root_tree;
         // TODO(kfm): probably want to do something here if it is a merge
         let tree_id = tree.first().clone();
         let gix_id = validate_git_object_id(&tree_id)?;
@@ -539,7 +538,7 @@ fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
 }
 
 /// Parses the `jj:trees` header value.
-fn root_tree_from_git_extra_header(value: &BStr) -> Result<MergedTreeId, ()> {
+fn root_tree_from_git_extra_header(value: &BStr) -> Result<Merge<TreeId>, ()> {
     let mut tree_ids = SmallVec::new();
     for hex in value.split(|b| *b == b' ') {
         let tree_id = TreeId::try_from_hex(hex).ok_or(())?;
@@ -554,7 +553,7 @@ fn root_tree_from_git_extra_header(value: &BStr) -> Result<MergedTreeId, ()> {
     if tree_ids.len() == 1 || tree_ids.len() % 2 == 0 {
         return Err(());
     }
-    Ok(MergedTreeId::new(Merge::from_vec(tree_ids)))
+    Ok(Merge::from_vec(tree_ids))
 }
 
 fn commit_from_git_without_root_parent(
@@ -594,7 +593,7 @@ fn commit_from_git_without_root_parent(
         .map_err(|()| to_read_object_err("Invalid jj:trees header", id))?
         .unwrap_or_else(|| {
             let tree_id = TreeId::from_bytes(commit.tree().as_bytes());
-            MergedTreeId::resolved(tree_id)
+            Merge::resolved(tree_id)
         });
     // Use lossy conversion as commit message with "mojibake" is still better than
     // nothing.
@@ -721,12 +720,11 @@ fn serialize_extras(commit: &Commit) -> Vec<u8> {
         ..Default::default()
     };
     proto.uses_tree_conflict_format = true;
-    let tree_ids = commit.root_tree.as_merge();
-    if !tree_ids.is_resolved() {
+    if !commit.root_tree.is_resolved() {
         // This is done for the sake of jj versions <0.28 (before commit
         // f7b14be) being able to read the repo. At some point in the
         // future, we can stop doing it.
-        proto.root_tree = tree_ids.iter().map(|r| r.to_bytes()).collect();
+        proto.root_tree = commit.root_tree.iter().map(|r| r.to_bytes()).collect();
     }
     for predecessor in &commit.predecessors {
         proto.predecessors.push(predecessor.to_bytes());
@@ -739,7 +737,7 @@ fn deserialize_extras(commit: &mut Commit, bytes: &[u8]) {
     if !proto.change_id.is_empty() {
         commit.change_id = ChangeId::new(proto.change_id);
     }
-    if commit.root_tree.as_merge().is_resolved()
+    if commit.root_tree.is_resolved()
         && proto.uses_tree_conflict_format
         && !proto.root_tree.is_empty()
     {
@@ -748,7 +746,7 @@ fn deserialize_extras(commit: &mut Commit, bytes: &[u8]) {
             .iter()
             .map(|id_bytes| TreeId::from_bytes(id_bytes))
             .collect();
-        commit.root_tree = MergedTreeId::new(merge_builder.build());
+        commit.root_tree = merge_builder.build();
     }
     for predecessor in &proto.predecessors {
         commit.predecessors.push(CommitId::from_bytes(predecessor));
@@ -1223,7 +1221,7 @@ impl Backend for GitBackend {
         assert!(contents.secure_sig.is_none(), "commit.secure_sig was set");
 
         let locked_repo = self.lock_git_repo();
-        let tree_ids = contents.root_tree.as_merge();
+        let tree_ids = &contents.root_tree;
         let git_tree_id = match tree_ids.as_resolved() {
             Some(tree_id) => validate_git_object_id(tree_id)?,
             None => write_tree_conflict(&locked_repo, tree_ids)?,
@@ -1648,7 +1646,7 @@ mod tests {
         assert_eq!(commit.predecessors, vec![]);
         assert_eq!(
             commit.root_tree,
-            MergedTreeId::resolved(TreeId::from_bytes(root_tree_id.as_bytes()))
+            Merge::resolved(TreeId::from_bytes(root_tree_id.as_bytes()))
         );
         assert_eq!(commit.description, "git commit message");
         assert_eq!(commit.author.name, "git author");
@@ -1713,7 +1711,7 @@ mod tests {
         assert_eq!(commit.predecessors, vec![]);
         assert_eq!(
             commit.root_tree,
-            MergedTreeId::resolved(TreeId::from_bytes(root_tree_id.as_bytes()))
+            Merge::resolved(TreeId::from_bytes(root_tree_id.as_bytes()))
         );
     }
 
@@ -1903,7 +1901,7 @@ mod tests {
         let commit = Commit {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
-            root_tree: MergedTreeId::resolved(backend.empty_tree_id().clone()),
+            root_tree: Merge::resolved(backend.empty_tree_id().clone()),
             change_id: original_change_id.clone(),
             description: "initial".to_string(),
             author: create_signature(),
@@ -1994,7 +1992,7 @@ mod tests {
         let mut commit = Commit {
             parents: vec![],
             predecessors: vec![],
-            root_tree: MergedTreeId::resolved(backend.empty_tree_id().clone()),
+            root_tree: Merge::resolved(backend.empty_tree_id().clone()),
             change_id: ChangeId::from_hex("abc123"),
             description: "".to_string(),
             author: create_signature(),
@@ -2080,7 +2078,7 @@ mod tests {
         let mut commit = Commit {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
-            root_tree: MergedTreeId::new(root_tree.clone()),
+            root_tree: root_tree.clone(),
             change_id: ChangeId::from_hex("abc123"),
             description: "".to_string(),
             author: create_signature(),
@@ -2148,7 +2146,7 @@ mod tests {
 
         // When writing a single tree using the new format, it's represented by a
         // regular git tree.
-        commit.root_tree = MergedTreeId::resolved(create_tree(5));
+        commit.root_tree = Merge::resolved(create_tree(5));
         let read_commit_id = write_commit(commit.clone()).unwrap().0;
         let read_commit = backend.read_commit(&read_commit_id).block_on().unwrap();
         assert_eq!(read_commit, commit);
@@ -2158,7 +2156,7 @@ mod tests {
             ))
             .unwrap();
         assert_eq!(
-            MergedTreeId::resolved(TreeId::from_bytes(git_commit.tree_id().unwrap().as_bytes())),
+            Merge::resolved(TreeId::from_bytes(git_commit.tree_id().unwrap().as_bytes())),
             commit.root_tree
         );
     }
@@ -2180,7 +2178,7 @@ mod tests {
         let commit = Commit {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
-            root_tree: MergedTreeId::resolved(backend.empty_tree_id().clone()),
+            root_tree: Merge::resolved(backend.empty_tree_id().clone()),
             change_id: ChangeId::new(vec![42; 16]),
             description: "initial".to_string(),
             author: signature.clone(),
@@ -2260,7 +2258,7 @@ mod tests {
         let commit1 = Commit {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
-            root_tree: MergedTreeId::resolved(backend.empty_tree_id().clone()),
+            root_tree: Merge::resolved(backend.empty_tree_id().clone()),
             change_id: ChangeId::from_hex("7f0a7ce70354b22efcccf7bf144017c4"),
             description: "initial".to_string(),
             author: create_signature(),
@@ -2302,7 +2300,7 @@ mod tests {
         let commit = Commit {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
-            root_tree: MergedTreeId::resolved(backend.empty_tree_id().clone()),
+            root_tree: Merge::resolved(backend.empty_tree_id().clone()),
             change_id: ChangeId::new(vec![42; 16]),
             description: "initial".to_string(),
             author: create_signature(),

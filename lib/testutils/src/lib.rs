@@ -33,7 +33,6 @@ use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::FileId;
-use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::MillisSinceEpoch;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
@@ -343,16 +342,16 @@ impl TestWorkspace {
         options: &SnapshotOptions,
     ) -> Result<(MergedTree, SnapshotStats), SnapshotError> {
         let mut locked_ws = self.workspace.start_working_copy_mutation().unwrap();
-        let (tree_id, stats) = locked_ws.locked_wc().snapshot(options).block_on()?;
+        let (tree, stats) = locked_ws.locked_wc().snapshot(options).block_on()?;
         // arbitrary operation id
         locked_ws.finish(self.repo.op_id().clone()).unwrap();
-        Ok((self.repo.store().get_root_tree(&tree_id).unwrap(), stats))
+        Ok((tree, stats))
     }
 
     /// Like `snapshot_with_option()` but with default options
     pub fn snapshot(&mut self) -> Result<MergedTree, SnapshotError> {
-        let (tree_id, _stats) = self.snapshot_with_options(&empty_snapshot_options())?;
-        Ok(tree_id)
+        let (tree, _stats) = self.snapshot_with_options(&empty_snapshot_options())?;
+        Ok(tree)
     }
 }
 
@@ -443,7 +442,8 @@ impl TestTreeBuilder {
     }
 
     pub fn write_merged_tree(self) -> MergedTree {
-        MergedTree::resolved(self.write_single_tree())
+        let id = self.tree_builder.write_tree().unwrap();
+        MergedTree::resolved(self.store, id)
     }
 }
 
@@ -516,24 +516,23 @@ pub fn create_tree(repo: &Arc<ReadonlyRepo>, path_contents: &[(&RepoPath, &str)]
 }
 
 #[must_use]
-pub fn create_random_tree(repo: &Arc<ReadonlyRepo>) -> MergedTreeId {
+pub fn create_random_tree(repo: &Arc<ReadonlyRepo>) -> MergedTree {
     let number = rand::random::<u32>();
     let path = repo_path_buf(format!("file{number}"));
     create_tree_with(repo, |builder| {
         builder.file(&path, "contents");
     })
-    .id()
 }
 
 pub fn create_random_commit(mut_repo: &mut MutableRepo) -> CommitBuilder<'_> {
-    let tree_id = create_random_tree(mut_repo.base_repo());
+    let tree = create_random_tree(mut_repo.base_repo());
     let number = rand::random::<u32>();
     mut_repo
-        .new_commit(vec![mut_repo.store().root_commit_id().clone()], tree_id)
+        .new_commit(vec![mut_repo.store().root_commit_id().clone()], tree)
         .set_description(format!("random commit {number}"))
 }
 
-pub fn commit_with_tree(store: &Arc<Store>, tree_id: MergedTreeId) -> Commit {
+pub fn commit_with_tree(store: &Arc<Store>, tree: MergedTree) -> Commit {
     let signature = Signature {
         name: "Some One".to_string(),
         email: "someone@example.com".to_string(),
@@ -545,7 +544,7 @@ pub fn commit_with_tree(store: &Arc<Store>, tree_id: MergedTreeId) -> Commit {
     let commit = backend::Commit {
         parents: vec![store.root_commit_id().clone()],
         predecessors: vec![],
-        root_tree: tree_id,
+        root_tree: tree.into_tree_ids(),
         change_id: ChangeId::from_hex("abcd"),
         description: "description".to_string(),
         author: signature.clone(),
@@ -555,39 +554,34 @@ pub fn commit_with_tree(store: &Arc<Store>, tree_id: MergedTreeId) -> Commit {
     store.write_commit(commit, None).block_on().unwrap()
 }
 
-pub fn dump_tree(store: &Arc<Store>, tree_id: &MergedTreeId) -> String {
+pub fn dump_tree(merged_tree: &MergedTree) -> String {
     use std::fmt::Write as _;
+    let store = merged_tree.store();
     let mut buf = String::new();
-    writeln!(
-        &mut buf,
-        "tree {}",
-        tree_id
-            .as_merge()
-            .iter()
-            .map(|tree_id| tree_id.hex())
-            .join("&")
-    )
-    .unwrap();
-    let tree = store.get_root_tree(tree_id).unwrap();
-    for (path, result) in tree.entries() {
-        match result.unwrap().into_resolved() {
-            Ok(Some(TreeValue::File {
-                id,
-                executable: _,
-                copy_id: _,
-            })) => {
-                let file_buf = read_file(store, &path, &id);
-                let file_contents = String::from_utf8_lossy(&file_buf);
-                writeln!(&mut buf, "  file {path:?} ({id}): {file_contents:?}").unwrap();
-            }
-            Ok(Some(TreeValue::Symlink(id))) => {
-                writeln!(&mut buf, "  symlink {path:?} ({id})").unwrap();
-            }
-            Ok(Some(TreeValue::GitSubmodule(id))) => {
-                writeln!(&mut buf, "  submodule {path:?} ({id})").unwrap();
-            }
-            entry => {
-                unimplemented!("dumping tree entry {entry:?}");
+    let trees = merged_tree.trees().unwrap();
+    writeln!(&mut buf, "merged tree (sides: {})", trees.num_sides()).unwrap();
+    for tree in trees.iter() {
+        writeln!(&mut buf, "  tree {}", tree.id()).unwrap();
+        for (path, entry) in tree.entries_matching(&EverythingMatcher) {
+            match entry {
+                TreeValue::File {
+                    id,
+                    executable: _,
+                    copy_id: _,
+                } => {
+                    let file_buf = read_file(store, &path, &id);
+                    let file_contents = String::from_utf8_lossy(&file_buf);
+                    writeln!(&mut buf, "    file {path:?} ({id}): {file_contents:?}").unwrap();
+                }
+                TreeValue::Symlink(id) => {
+                    writeln!(&mut buf, "    symlink {path:?} ({id})").unwrap();
+                }
+                TreeValue::GitSubmodule(id) => {
+                    writeln!(&mut buf, "    submodule {path:?} ({id})").unwrap();
+                }
+                _ => {
+                    writeln!(&mut buf, "    entry {path:?}: {entry:?}").unwrap();
+                }
             }
         }
     }
@@ -596,18 +590,19 @@ pub fn dump_tree(store: &Arc<Store>, tree_id: &MergedTreeId) -> String {
 
 #[macro_export]
 macro_rules! assert_tree_eq {
-    ($left_tree_id:expr, $right_tree_id:expr, $store:expr $(,)?) => {
-        assert_tree_eq!($left_tree_id, $right_tree_id, $store, "trees are different")
+    ($left_tree:expr, $right_tree:expr $(,)?) => {
+        assert_tree_eq!($left_tree, $right_tree, "trees are different")
     };
-    ($left_tree_id:expr, $right_tree_id:expr, $store:expr, $($args:tt)+) => {{
-        let store = $store;
+    ($left_tree:expr, $right_tree:expr, $($args:tt)+) => {{
+        let left_tree: &::jj_lib::merged_tree::MergedTree = &$left_tree;
+        let right_tree: &::jj_lib::merged_tree::MergedTree = &$right_tree;
         assert_eq!(
-            $left_tree_id,
-            $right_tree_id,
+            left_tree.tree_ids(),
+            right_tree.tree_ids(),
             "{}:\n left: {}\nright: {}",
             format_args!($($args)*),
-            $crate::dump_tree(store, $left_tree_id),
-            $crate::dump_tree(store, $right_tree_id),
+            $crate::dump_tree(left_tree),
+            $crate::dump_tree(right_tree),
         )
     }};
 }

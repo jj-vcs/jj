@@ -79,7 +79,7 @@ pub(crate) fn cmd_file_annotate(
     let starting_commit = workspace_command
         .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
     let file_path = workspace_command.parse_file_path(&args.path)?;
-    let file_value = starting_commit.tree()?.path_value(&file_path)?;
+    let file_value = starting_commit.tree().path_value(&file_path)?;
     let ui_path = workspace_command.format_file_path(&file_path);
     if file_value.is_absent() {
         return Err(user_error(format!("No such path: {ui_path}")));

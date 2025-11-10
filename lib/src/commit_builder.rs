@@ -23,10 +23,12 @@ use crate::backend::BackendError;
 use crate::backend::BackendResult;
 use crate::backend::ChangeId;
 use crate::backend::CommitId;
-use crate::backend::MergedTreeId;
 use crate::backend::Signature;
+use crate::backend::TreeId;
 use crate::commit::Commit;
 use crate::commit::is_backend_commit_empty;
+use crate::merge::Merge;
+use crate::merged_tree::MergedTree;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::settings::JJRng;
@@ -74,12 +76,16 @@ impl CommitBuilder<'_> {
         self
     }
 
-    pub fn tree_id(&self) -> &MergedTreeId {
-        self.inner.tree_id()
+    pub fn tree(&self) -> MergedTree {
+        self.inner.tree()
     }
 
-    pub fn set_tree_id(mut self, tree_id: MergedTreeId) -> Self {
-        self.inner.set_tree_id(tree_id);
+    pub fn tree_ids(&self) -> &Merge<TreeId> {
+        self.inner.tree_ids()
+    }
+
+    pub fn set_tree(mut self, tree: MergedTree) -> Self {
+        self.inner.set_tree(tree);
         self
     }
 
@@ -182,7 +188,7 @@ impl DetachedCommitBuilder {
         repo: &dyn Repo,
         settings: &UserSettings,
         parents: Vec<CommitId>,
-        tree_id: MergedTreeId,
+        tree: MergedTree,
     ) -> Self {
         let store = repo.store().clone();
         let signature = settings.signature();
@@ -192,7 +198,7 @@ impl DetachedCommitBuilder {
         let commit = backend::Commit {
             parents,
             predecessors: vec![],
-            root_tree: tree_id,
+            root_tree: tree.into_tree_ids(),
             change_id,
             description: String::new(),
             author: signature.clone(),
@@ -296,12 +302,17 @@ impl DetachedCommitBuilder {
         self
     }
 
-    pub fn tree_id(&self) -> &MergedTreeId {
+    pub fn tree(&self) -> MergedTree {
+        MergedTree::new(self.store.clone(), self.commit.root_tree.clone())
+    }
+
+    pub fn tree_ids(&self) -> &Merge<TreeId> {
         &self.commit.root_tree
     }
 
-    pub fn set_tree_id(&mut self, tree_id: MergedTreeId) -> &mut Self {
-        self.commit.root_tree = tree_id;
+    pub fn set_tree(&mut self, tree: MergedTree) -> &mut Self {
+        assert!(Arc::ptr_eq(tree.store(), &self.store));
+        self.commit.root_tree = tree.into_tree_ids();
         self
     }
 

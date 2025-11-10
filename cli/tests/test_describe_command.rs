@@ -889,14 +889,14 @@ fn test_describe_avoids_unc() {
 }
 
 #[test]
-fn test_describe_with_edit_and_message_args_opens_editor() {
+fn test_describe_with_editor_and_message_args_opens_editor() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
-    let output = work_dir.run_jj(["describe", "-m", "message from command line", "--edit"]);
+    let output = work_dir.run_jj(["describe", "-m", "message from command line", "--editor"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm f9bee6de (empty) message from command line
@@ -914,7 +914,7 @@ fn test_describe_with_edit_and_message_args_opens_editor() {
 }
 
 #[test]
-fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_editor() {
+fn test_describe_change_with_existing_message_with_editor_and_message_args_opens_editor() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -925,7 +925,7 @@ fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_e
         .success();
 
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
-    let output = work_dir.run_jj(["describe", "-m", "new message", "--edit"]);
+    let output = work_dir.run_jj(["describe", "-m", "new message", "--editor"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm f8f14f7c (empty) new message
@@ -943,21 +943,39 @@ fn test_describe_change_with_existing_message_with_edit_and_message_args_opens_e
 }
 
 #[test]
-fn test_edit_cannot_be_used_with_no_edit() {
+fn test_editor_cannot_be_used_with_no_edit() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    let output = work_dir.run_jj(["describe", "--no-edit", "--edit"]);
+    let output = work_dir.run_jj(["describe", "--no-edit", "--editor"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: the argument '--no-edit' cannot be used with '--edit'
+    error: the argument '--no-edit' cannot be used with '--editor'
 
     Usage: jj describe [OPTIONS] [REVSETS]...
 
     For more information, try '--help'.
     [EOF]
     [exit status: 2]
+    ");
+}
+
+#[test]
+fn test_describe_deprecated_edit_flag() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    std::fs::write(edit_script, ["write\nfinal message"].join("\0")).unwrap();
+    let output = work_dir.run_jj(["describe", "-m", "initial message", "--edit"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: `jj describe --edit` is deprecated; use `jj describe --editor` instead
+    Working copy  (@) now at: qpvuntsm 46842128 (empty) final message
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
     ");
 }
 

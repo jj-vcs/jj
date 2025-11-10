@@ -10,7 +10,6 @@ use std::sync::Arc;
 use bstr::BString;
 use itertools::Itertools as _;
 use jj_lib::backend::CopyId;
-use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
@@ -20,6 +19,7 @@ use jj_lib::conflicts::choose_materialized_conflict_marker_len;
 use jj_lib::conflicts::materialize_merge_result_to_bytes;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
@@ -337,10 +337,10 @@ pub fn run_mergetool_external(
     tree: &MergedTree,
     merge_tool_files: &[MergeToolFile],
     default_conflict_marker_style: ConflictMarkerStyle,
-) -> Result<(MergedTreeId, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
+) -> Result<(MergedTree, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
     // TODO: add support for "dir" invocation mode, similar to the
     // "diff-invocation-mode" config option for diffs
-    let mut tree_builder = MergedTreeBuilder::new(tree.id());
+    let mut tree_builder = MergedTreeBuilder::new(tree.clone());
     let mut partial_resolution_error = None;
     for (i, merge_tool_file) in merge_tool_files.iter().enumerate() {
         writeln!(
@@ -371,18 +371,18 @@ pub fn run_mergetool_external(
             }
         }
     }
-    let new_tree = tree_builder.write_tree(tree.store())?;
+    let new_tree = tree_builder.write_tree()?;
     Ok((new_tree, partial_resolution_error))
 }
 
 pub fn edit_diff_external(
     editor: &ExternalMergeTool,
-    trees: [&MergedTree; 2],
+    trees: Diff<&MergedTree>,
     matcher: &dyn Matcher,
     instructions: Option<&str>,
     base_ignores: Arc<GitIgnoreFile>,
     default_conflict_marker_style: ConflictMarkerStyle,
-) -> Result<MergedTreeId, DiffEditError> {
+) -> Result<MergedTree, DiffEditError> {
     let conflict_marker_style = editor
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
@@ -424,7 +424,7 @@ pub fn edit_diff_external(
 pub fn generate_diff(
     ui: &Ui,
     writer: &mut dyn Write,
-    trees: [&MergedTree; 2],
+    trees: Diff<&MergedTree>,
     matcher: &dyn Matcher,
     tool: &ExternalMergeTool,
     default_conflict_marker_style: ConflictMarkerStyle,

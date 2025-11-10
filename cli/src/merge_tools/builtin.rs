@@ -7,7 +7,6 @@ use futures::stream::BoxStream;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CopyId;
-use jj_lib::backend::MergedTreeId;
 use jj_lib::backend::TreeValue;
 use jj_lib::conflicts;
 use jj_lib::conflicts::ConflictMarkerStyle;
@@ -23,6 +22,7 @@ use jj_lib::diff::DiffHunkKind;
 use jj_lib::files;
 use jj_lib::files::MergeResult;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
@@ -387,10 +387,10 @@ fn apply_diff_builtin(
     right_tree: &MergedTree,
     changed_files: Vec<RepoPathBuf>,
     files: &[scm_record::File],
-) -> BackendResult<MergedTreeId> {
+) -> BackendResult<MergedTree> {
     // Start with the right tree to match external tool behavior.
     // This ensures unmatched paths keep their values from the right tree.
-    let mut tree_builder = MergedTreeBuilder::new(right_tree.id().clone());
+    let mut tree_builder = MergedTreeBuilder::new(right_tree.clone());
 
     // First, revert all changed files to their left versions
     for path in &changed_files {
@@ -438,7 +438,7 @@ fn apply_diff_builtin(
             Ok(new_value)
         },
     )?;
-    tree_builder.write_tree(store)
+    tree_builder.write_tree()
 }
 
 fn apply_changes(
@@ -537,14 +537,16 @@ fn override_file_executable_bit(
 }
 
 pub fn edit_diff_builtin(
-    [left_tree, right_tree]: [&MergedTree; 2],
+    trees: Diff<&MergedTree>,
     matcher: &dyn Matcher,
     conflict_marker_style: ConflictMarkerStyle,
-) -> Result<MergedTreeId, BuiltinToolError> {
-    let store = left_tree.store().clone();
+) -> Result<MergedTree, BuiltinToolError> {
+    let store = trees.before.store().clone();
     // TODO: handle copy tracking
     let copy_records = CopyRecords::default();
-    let tree_diff = left_tree.diff_stream_with_copies(right_tree, matcher, &copy_records);
+    let tree_diff = trees
+        .before
+        .diff_stream_with_copies(trees.after, matcher, &copy_records);
     let (changed_files, files) =
         make_diff_files(&store, tree_diff, conflict_marker_style).block_on()?;
     let mut input = scm_record::helpers::CrosstermInput;
@@ -557,9 +559,14 @@ pub fn edit_diff_builtin(
         &mut input,
     );
     let result = recorder.run().map_err(BuiltinToolError::Record)?;
-    let tree_id = apply_diff_builtin(&store, left_tree, right_tree, changed_files, &result.files)
-        .map_err(BuiltinToolError::BackendError)?;
-    Ok(tree_id)
+    apply_diff_builtin(
+        &store,
+        trees.before,
+        trees.after,
+        changed_files,
+        &result.files,
+    )
+    .map_err(BuiltinToolError::BackendError)
 }
 
 fn make_merge_sections(
@@ -673,7 +680,7 @@ fn make_merge_file(
 pub fn edit_merge_builtin(
     tree: &MergedTree,
     merge_tool_files: &[MergeToolFile],
-) -> Result<MergedTreeId, BuiltinToolError> {
+) -> Result<MergedTree, BuiltinToolError> {
     let store = tree.store();
     let mut input = scm_record::helpers::CrosstermInput;
     let recorder = scm_record::Recorder::new(
@@ -689,7 +696,7 @@ pub fn edit_merge_builtin(
     );
     let state = recorder.run()?;
 
-    let mut tree_builder = MergedTreeBuilder::new(tree.id().clone());
+    let mut tree_builder = MergedTreeBuilder::new(tree.clone());
     apply_changes(
         &mut tree_builder,
         merge_tool_files
@@ -712,7 +719,7 @@ pub fn edit_merge_builtin(
             }))
         },
     )?;
-    Ok(tree_builder.write_tree(store)?)
+    Ok(tree_builder.write_tree()?)
 }
 
 #[cfg(test)]
@@ -765,7 +772,7 @@ mod tests {
         right_tree: &MergedTree,
         changed_files: &[RepoPathBuf],
         files: &[scm_record::File],
-    ) -> MergedTreeId {
+    ) -> MergedTree {
         apply_diff_builtin(store, left_tree, right_tree, changed_files.to_vec(), files).unwrap()
     }
 
@@ -874,26 +881,17 @@ mod tests {
         ]
         "#);
 
-        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_tree_eq!(
-            &left_tree.id(),
-            &no_changes_tree.id(),
-            store,
-            "no-changes tree was different",
-        );
+        let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
         let mut files = files;
         for file in &mut files {
             file.toggle_all();
         }
-        let all_changes_tree_id =
-            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        let all_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(
-            &right_tree.id(),
-            &all_changes_tree.id(),
-            store,
+            right_tree,
+            all_changes_tree,
             "all-changes tree was different",
         );
     }
@@ -930,26 +928,17 @@ mod tests {
             },
         ]
         "#);
-        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_tree_eq!(
-            &left_tree.id(),
-            &no_changes_tree.id(),
-            store,
-            "no-changes tree was different",
-        );
+        let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
         let mut files = files;
         for file in &mut files {
             file.toggle_all();
         }
-        let all_changes_tree_id =
-            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        let all_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(
-            &right_tree.id(),
-            &all_changes_tree.id(),
-            store,
+            right_tree,
+            all_changes_tree,
             "all-changes tree was different",
         );
     }
@@ -999,26 +988,17 @@ mod tests {
             },
         ]
         "###);
-        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_tree_eq!(
-            &left_tree.id(),
-            &no_changes_tree.id(),
-            store,
-            "no-changes tree was different",
-        );
+        let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
         let mut files = files;
         for file in &mut files {
             file.toggle_all();
         }
-        let all_changes_tree_id =
-            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        let all_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(
-            &right_tree.id(),
-            &all_changes_tree.id(),
-            store,
+            right_tree,
+            all_changes_tree,
             "all-changes tree was different",
         );
     }
@@ -1061,26 +1041,17 @@ mod tests {
             },
         ]
         "#);
-        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_tree_eq!(
-            &left_tree.id(),
-            &no_changes_tree.id(),
-            store,
-            "no-changes tree was different",
-        );
+        let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
         let mut files = files;
         for file in &mut files {
             file.toggle_all();
         }
-        let all_changes_tree_id =
-            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        let all_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(
-            &right_tree.id(),
-            &all_changes_tree.id(),
-            store,
+            right_tree,
+            all_changes_tree,
             "all-changes tree was different",
         );
     }
@@ -1128,26 +1099,17 @@ mod tests {
             },
         ]
         "#);
-        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_tree_eq!(
-            &left_tree.id(),
-            &no_changes_tree.id(),
-            store,
-            "no-changes tree was different",
-        );
+        let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
         let mut files = files;
         for file in &mut files {
             file.toggle_all();
         }
-        let all_changes_tree_id =
-            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        let all_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(
-            &right_tree.id(),
-            &all_changes_tree.id(),
-            store,
+            right_tree,
+            all_changes_tree,
             "all-changes tree was different",
         );
     }
@@ -1194,26 +1156,17 @@ mod tests {
             },
         ]
         "#);
-        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_tree_eq!(
-            &left_tree.id(),
-            &no_changes_tree.id(),
-            store,
-            "no-changes tree was different",
-        );
+        let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
         let mut files = files;
         for file in &mut files {
             file.toggle_all();
         }
-        let all_changes_tree_id =
-            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        let all_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(
-            &right_tree.id(),
-            &all_changes_tree.id(),
-            store,
+            right_tree,
+            all_changes_tree,
             "all-changes tree was different",
         );
     }
@@ -1285,9 +1238,8 @@ mod tests {
                 .file(binary_file_path, vec![0xff, 0x01])
                 .executable(false);
         });
-        let actual_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let actual_tree = store.get_root_tree(&actual_tree_id).unwrap();
-        assert_tree_eq!(&expected_tree.id(), &actual_tree.id(), store);
+        let actual_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(expected_tree, actual_tree);
     }
 
     #[test]
@@ -1345,9 +1297,8 @@ mod tests {
         let expected_tree = testutils::create_tree_with(&test_repo.repo, |builder| {
             builder.file(binary_file_path, vec![]);
         });
-        let actual_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let actual_tree = store.get_root_tree(&actual_tree_id).unwrap();
-        assert_tree_eq!(&expected_tree.id(), &actual_tree.id(), store);
+        let actual_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(expected_tree, actual_tree);
     }
 
     #[test]
@@ -1391,26 +1342,17 @@ mod tests {
             },
         ]
         "###);
-        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_tree_eq!(
-            &left_tree.id(),
-            &no_changes_tree.id(),
-            store,
-            "no-changes tree was different",
-        );
+        let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
         let mut files = files;
         for file in &mut files {
             file.toggle_all();
         }
-        let all_changes_tree_id =
-            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        let all_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(
-            &right_tree.id(),
-            &all_changes_tree.id(),
-            store,
+            right_tree,
+            all_changes_tree,
             "all-changes tree was different",
         );
     }
@@ -1447,26 +1389,17 @@ mod tests {
             },
         ]
         "#);
-        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_tree_eq!(
-            &left_tree.id(),
-            &no_changes_tree.id(),
-            store,
-            "no-changes tree was different",
-        );
+        let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
         let mut files = files;
         for file in &mut files {
             file.toggle_all();
         }
-        let all_changes_tree_id =
-            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        let all_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(
-            &right_tree.id(),
-            &all_changes_tree.id(),
-            store,
+            right_tree,
+            all_changes_tree,
             "all-changes tree was different",
         );
     }
@@ -1509,26 +1442,17 @@ mod tests {
             },
         ]
         "#);
-        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_tree_eq!(
-            &left_tree.id(),
-            &no_changes_tree.id(),
-            store,
-            "no-changes tree was different",
-        );
+        let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
         let mut files = files;
         for file in &mut files {
             file.toggle_all();
         }
-        let all_changes_tree_id =
-            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        let all_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(
-            &right_tree.id(),
-            &all_changes_tree.id(),
-            store,
+            right_tree,
+            all_changes_tree,
             "all-changes tree was different",
         );
     }
@@ -1570,26 +1494,17 @@ mod tests {
             },
         ]
         "###);
-        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_tree_eq!(
-            &left_tree.id(),
-            &no_changes_tree.id(),
-            store,
-            "no-changes tree was different",
-        );
+        let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
         let mut files = files;
         for file in &mut files {
             file.toggle_all();
         }
-        let all_changes_tree_id =
-            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        let all_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(
-            &right_tree.id(),
-            &all_changes_tree.id(),
-            store,
+            right_tree,
+            all_changes_tree,
             "all-changes tree was different",
         );
     }
@@ -1604,7 +1519,14 @@ mod tests {
             let base = testutils::create_single_tree(&test_repo.repo, &[(file_path, "")]);
             let left = testutils::create_single_tree(&test_repo.repo, &[(file_path, "1\n")]);
             let right = testutils::create_single_tree(&test_repo.repo, &[(file_path, "2\n")]);
-            MergedTree::new(Merge::from_vec(vec![left, base, right]))
+            MergedTree::new(
+                store.clone(),
+                Merge::from_vec(vec![
+                    left.id().clone(),
+                    base.id().clone(),
+                    right.id().clone(),
+                ]),
+            )
         };
         let right_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "resolved\n")]);
 
@@ -1666,26 +1588,17 @@ mod tests {
             },
         ]
         "#);
-        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_tree_eq!(
-            &left_tree.id(),
-            &no_changes_tree.id(),
-            store,
-            "no-changes tree was different",
-        );
+        let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
         let mut files = files;
         for file in &mut files {
             file.toggle_all();
         }
-        let all_changes_tree_id =
-            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        let all_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(
-            &right_tree.id(),
-            &all_changes_tree.id(),
-            store,
+            right_tree,
+            all_changes_tree,
             "all-changes tree was different",
         );
     }
@@ -1743,26 +1656,17 @@ mod tests {
             ]
             "#);
         });
-        let no_changes_tree_id = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-        assert_tree_eq!(
-            &left_tree.id(),
-            &no_changes_tree.id(),
-            store,
-            "no-changes tree was different",
-        );
+        let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
+        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
         let mut files = files;
         for file in &mut files {
             file.toggle_all();
         }
-        let all_changes_tree_id =
-            apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+        let all_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(
-            &right_tree.id(),
-            &all_changes_tree.id(),
-            store,
+            right_tree,
+            all_changes_tree,
             "all-changes tree was different",
         );
     }
@@ -1796,9 +1700,8 @@ mod tests {
 
         assert_eq!(changed_files, vec![matched_path.to_owned()]);
 
-        let result_tree_id =
+        let result_tree =
             apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
-        let result_tree = store.get_root_tree(&result_tree_id).unwrap();
 
         assert_eq!(
             result_tree.path_value(matched_path).unwrap(),
@@ -1920,7 +1823,7 @@ mod tests {
     /// or the left tree, respectively.
     struct EditDiffBuiltinAllOrNothingPropTest {
         test_repo: TestRepo,
-        prev_tree_id: MergedTreeId,
+        prev_tree: MergedTree,
     }
 
     impl StateMachineTest for EditDiffBuiltinAllOrNothingPropTest {
@@ -1930,10 +1833,10 @@ mod tests {
 
         fn init_test(ref_state: &WorkingCopyReferenceStateMachine) -> Self::SystemUnderTest {
             let test_repo = TestRepo::init();
-            let initial_tree_id = ref_state.create_tree(&test_repo.repo).id();
+            let initial_tree = ref_state.create_tree(&test_repo.repo);
             Self {
                 test_repo,
-                prev_tree_id: initial_tree_id,
+                prev_tree: initial_tree,
             }
         }
 
@@ -1944,10 +1847,10 @@ mod tests {
         ) -> Self::SystemUnderTest {
             match transition {
                 Transition::Commit => {
-                    let prev_tree_id = ref_state.create_tree(&state.test_repo.repo).id();
+                    let prev_tree = ref_state.create_tree(&state.test_repo.repo);
                     Self {
                         test_repo: state.test_repo,
-                        prev_tree_id,
+                        prev_tree,
                     }
                 }
 
@@ -1963,32 +1866,22 @@ mod tests {
             ref_state: &WorkingCopyReferenceStateMachine,
         ) {
             let store = state.test_repo.repo.store();
-            let left_tree = store.get_root_tree(&state.prev_tree_id).unwrap();
-            let right_tree_id = ref_state.create_tree(&state.test_repo.repo).id();
-            let right_tree = store.get_root_tree(&right_tree_id).unwrap();
+            let left_tree = &state.prev_tree;
+            let right_tree = ref_state.create_tree(&state.test_repo.repo);
 
-            let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
-            let no_changes_tree_id =
-                apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-            let no_changes_tree = store.get_root_tree(&no_changes_tree_id).unwrap();
-            assert_tree_eq!(
-                &left_tree.id(),
-                &no_changes_tree.id(),
-                store,
-                "no-changes tree was different",
-            );
+            let (changed_files, files) = make_diff(store, left_tree, &right_tree);
+            let no_changes_tree = apply_diff(store, left_tree, &right_tree, &changed_files, &files);
+            assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
             let mut files = files;
             for file in &mut files {
                 file.toggle_all();
             }
-            let all_changes_tree_id =
-                apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-            let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
+            let all_changes_tree =
+                apply_diff(store, left_tree, &right_tree, &changed_files, &files);
             assert_tree_eq!(
-                &right_tree_id,
-                &all_changes_tree.id(),
-                store,
+                right_tree,
+                all_changes_tree,
                 "all-changes tree was different",
             );
         }
@@ -2021,7 +1914,7 @@ mod tests {
     /// transitions.
     struct EditDiffBuiltinPartialSelectionPropTest {
         test_repo: TestRepo,
-        prev_tree_id: MergedTreeId,
+        prev_tree: MergedTree,
         prev_file_list: BTreeSet<RepoPathBuf>,
     }
 
@@ -2031,10 +1924,10 @@ mod tests {
 
         fn init_test(ref_state: &WorkingCopyWithSelectionStateMachine) -> Self::SystemUnderTest {
             let test_repo = TestRepo::init();
-            let initial_tree_id = ref_state.working_copy.create_tree(&test_repo.repo).id();
+            let initial_tree = ref_state.working_copy.create_tree(&test_repo.repo);
             Self {
                 test_repo,
-                prev_tree_id: initial_tree_id,
+                prev_tree: initial_tree,
                 prev_file_list: BTreeSet::new(),
             }
         }
@@ -2046,10 +1939,7 @@ mod tests {
         ) -> Self::SystemUnderTest {
             match transition {
                 Transition::Commit => {
-                    let prev_tree_id = ref_state
-                        .working_copy
-                        .create_tree(&state.test_repo.repo)
-                        .id();
+                    let prev_tree = ref_state.working_copy.create_tree(&state.test_repo.repo);
                     let prev_file_list = ref_state
                         .working_copy
                         .paths()
@@ -2057,7 +1947,7 @@ mod tests {
                         .collect();
                     Self {
                         test_repo: state.test_repo,
-                        prev_tree_id,
+                        prev_tree,
                         prev_file_list,
                     }
                 }
@@ -2074,14 +1964,10 @@ mod tests {
             ref_state: &WorkingCopyWithSelectionStateMachine,
         ) {
             let store = state.test_repo.repo.store();
-            let left_tree = store.get_root_tree(&state.prev_tree_id).unwrap();
-            let right_tree_id = ref_state
-                .working_copy
-                .create_tree(&state.test_repo.repo)
-                .id();
-            let right_tree = store.get_root_tree(&right_tree_id).unwrap();
+            let left_tree = &state.prev_tree;
+            let right_tree = ref_state.working_copy.create_tree(&state.test_repo.repo);
 
-            let (changed_files, files) = make_diff(store, &left_tree, &right_tree);
+            let (changed_files, files) = make_diff(store, left_tree, &right_tree);
 
             let mut files = files;
             for (path, file) in changed_files.iter().zip(&mut files) {
@@ -2135,13 +2021,12 @@ mod tests {
 
             eprintln!("selected changes: {files:#?}");
 
-            let selected_changes_tree_id =
-                apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-            let selected_changes_tree = store.get_root_tree(&selected_changes_tree_id).unwrap();
+            let selected_changes_tree =
+                apply_diff(store, left_tree, &right_tree, &changed_files, &files);
 
             eprintln!(
                 "selected changes intermediate tree:\n{}",
-                dump_tree(store, &selected_changes_tree_id)
+                dump_tree(&selected_changes_tree)
             );
 
             // Transform `files` to create the complementary set of changes:
@@ -2213,18 +2098,16 @@ mod tests {
 
             eprintln!("remaining changes: {files:#?}");
 
-            let all_changes_tree_id = apply_diff(
+            let all_changes_tree = apply_diff(
                 store,
                 &selected_changes_tree,
                 &right_tree,
                 &changed_files,
                 &files,
             );
-            let all_changes_tree = store.get_root_tree(&all_changes_tree_id).unwrap();
             assert_tree_eq!(
-                &right_tree_id,
-                &all_changes_tree.id(),
-                store,
+                right_tree,
+                all_changes_tree,
                 "all-changes tree was different",
             );
         }

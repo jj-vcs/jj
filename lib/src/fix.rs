@@ -26,7 +26,6 @@ use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
 use jj_lib::backend::TreeValue;
 use jj_lib::matchers::Matcher;
-use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::merged_tree::TreeDiffEntry;
 use jj_lib::repo::MutableRepo;
@@ -35,7 +34,6 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::store::Store;
-use jj_lib::tree::Tree;
 use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
 
@@ -218,7 +216,7 @@ pub async fn fix_files(
         // were fixed in ancestors, so we don't lose those changes. We do this
         // instead of rebasing onto those changes, to avoid merge conflicts.
         let parent_tree = if include_unchanged_files {
-            MergedTree::resolved(Tree::empty(repo_mut.store().clone(), RepoPathBuf::root()))
+            repo_mut.store().empty_merged_tree()
         } else {
             for parent_id in commit.parent_ids() {
                 if let Some(parent_paths) = commit_paths.get(parent_id) {
@@ -228,7 +226,7 @@ pub async fn fix_files(
             commit.parent_tree_async(repo_mut).await?
         };
         // TODO: handle copy tracking
-        let mut diff_stream = parent_tree.diff_stream(&commit.tree_async().await?, &matcher);
+        let mut diff_stream = parent_tree.diff_stream(&commit.tree(), &matcher);
         while let Some(TreeDiffEntry {
             path: repo_path,
             values,
@@ -275,13 +273,13 @@ pub async fn fix_files(
     // Substitute the fixed file IDs into all of the affected commits. Currently,
     // fixes cannot delete or rename files, change the executable bit, or modify
     // other parts of the commit like the description.
-    repo_mut.transform_descendants(root_commits, async |mut rewriter| {
+    repo_mut.transform_descendants(root_commits, async |rewriter| {
         // TODO: Build the trees in parallel before `transform_descendants()` and only
         // keep the tree IDs in memory, so we can pass them to the rewriter.
         let old_commit_id = rewriter.old_commit().id().clone();
         let repo_paths = commit_paths.get(&old_commit_id).unwrap();
-        let old_tree = rewriter.old_commit().tree_async().await?;
-        let mut tree_builder = MergedTreeBuilder::new(old_tree.id().clone());
+        let old_tree = rewriter.old_commit().tree();
+        let mut tree_builder = MergedTreeBuilder::new(old_tree.clone());
         let mut has_changes = false;
         for repo_path in repo_paths {
             let old_value = old_tree.path_value_async(repo_path).await?;
@@ -314,9 +312,9 @@ pub async fn fix_files(
         summary.num_checked_commits += 1;
         if has_changes {
             summary.num_fixed_commits += 1;
-            let new_tree = tree_builder.write_tree(rewriter.repo_mut().store())?;
+            let new_tree = tree_builder.write_tree()?;
             let builder = rewriter.reparent();
-            let new_commit = builder.set_tree_id(new_tree).write()?;
+            let new_commit = builder.set_tree(new_tree).write()?;
             summary
                 .rewrites
                 .insert(old_commit_id, new_commit.id().clone());

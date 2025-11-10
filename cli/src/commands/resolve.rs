@@ -91,7 +91,7 @@ pub(crate) fn cmd_resolve(
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
     let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
-    let tree = commit.tree()?;
+    let tree = commit.tree();
     let conflicts = tree
         .conflicts()
         .filter(|path| matcher.matches(&path.0))
@@ -118,12 +118,11 @@ pub(crate) fn cmd_resolve(
     workspace_command.check_rewritable([commit.id()])?;
     let merge_editor = workspace_command.merge_editor(ui, args.tool.as_deref())?;
     let mut tx = workspace_command.start_transaction();
-    let (new_tree_id, partial_resolution_error) =
-        merge_editor.edit_files(ui, &tree, &repo_paths)?;
+    let (new_tree, partial_resolution_error) = merge_editor.edit_files(ui, &tree, &repo_paths)?;
     let new_commit = tx
         .repo_mut()
         .rewrite_commit(&commit)
-        .set_tree_id(new_tree_id)
+        .set_tree(new_tree)
         .write()?;
     tx.finish(
         ui,
@@ -137,7 +136,7 @@ pub(crate) fn cmd_resolve(
         && let Some(mut formatter) = ui.status_formatter()
         && new_commit.has_conflict()
     {
-        let new_tree = new_commit.tree()?;
+        let new_tree = new_commit.tree();
         let new_conflicts = new_tree.conflicts().collect_vec();
         writeln!(
             formatter.labeled("warning").with_heading("Warning: "),

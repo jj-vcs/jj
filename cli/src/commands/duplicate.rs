@@ -37,17 +37,16 @@ use crate::ui::Ui;
 
 /// Create new changes with the same content as existing ones
 ///
-/// When none of the `--destination`, `--insert-after`, or `--insert-before`
-/// arguments are provided, commits will be duplicated onto their existing
-/// parents or onto other newly duplicated commits.
+/// When none of the `--onto`, `--insert-after`, or `--insert-before` arguments
+/// are provided, commits will be duplicated onto their existing parents or onto
+/// other newly duplicated commits.
 ///
-/// When any of the `--destination`, `--insert-after`, or `--insert-before`
-/// arguments are provided, the roots of the specified commits will be
-/// duplicated onto the destination indicated by the arguments. Other specified
-/// commits will be duplicated onto these newly duplicated commits. If the
-/// `--insert-after` or `--insert-before` arguments are provided, the new
-/// children indicated by the arguments will be rebased onto the heads of the
-/// specified commits.
+/// When any of the `--onto`, `--insert-after`, or `--insert-before` arguments
+/// are provided, the roots of the specified commits will be duplicated onto the
+/// destination indicated by the arguments. Other specified commits will be
+/// duplicated onto these newly duplicated commits. If the `--insert-after` or
+/// `--insert-before` arguments are provided, the new children indicated by the
+/// arguments will be rebased onto the heads of the specified commits.
 ///
 /// By default, the duplicated commits retain the descriptions of the originals.
 /// This can be customized with the `templates.duplicate_description` setting.
@@ -70,18 +69,20 @@ pub(crate) struct DuplicateArgs {
     /// commit)
     #[arg(
         long,
+        alias = "destination",
         short,
+        short_alias = 'd',
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
-    destination: Option<Vec<RevisionArg>>,
+    onto: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert after (can be repeated to create a merge
     /// commit)
     #[arg(
         long,
         short = 'A',
         visible_alias = "after",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
@@ -92,7 +93,7 @@ pub(crate) struct DuplicateArgs {
         long,
         short = 'B',
         visible_alias = "before",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
@@ -123,21 +124,19 @@ pub(crate) fn cmd_duplicate(
         return Err(user_error("Cannot duplicate the root commit"));
     }
 
-    let location = if args.destination.is_none()
-        && args.insert_after.is_none()
-        && args.insert_before.is_none()
-    {
-        None
-    } else {
-        Some(compute_commit_location(
-            ui,
-            &workspace_command,
-            args.destination.as_deref(),
-            args.insert_after.as_deref(),
-            args.insert_before.as_deref(),
-            "duplicated commits",
-        )?)
-    };
+    let location =
+        if args.onto.is_none() && args.insert_after.is_none() && args.insert_before.is_none() {
+            None
+        } else {
+            Some(compute_commit_location(
+                ui,
+                &workspace_command,
+                args.onto.as_deref(),
+                args.insert_after.as_deref(),
+                args.insert_before.as_deref(),
+                "duplicated commits",
+            )?)
+        };
 
     let mut tx = workspace_command.start_transaction();
 

@@ -226,7 +226,7 @@ async fn fix_one_file(
                 // TODO: Because the stderr is passed through, this isn't always failing
                 // silently, but it should do something better will the exit code, tool
                 // name, etc.
-                Err(_) => prev_content,
+                Err(()) => prev_content,
             }
         });
         if new_content != old_content {
@@ -267,13 +267,24 @@ fn run_tool(
     }
     let mut command = tool_command.to_command_with_variables(&vars);
     tracing::debug!(?command, ?file_to_fix.repo_path, "spawning fix tool");
-    let mut child = command
+    let mut child = match command
         .current_dir(workspace_root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .or(Err(()))?;
+    {
+        Ok(child) => child,
+        Err(_) => {
+            writeln!(
+                ui.warning_default(),
+                "Failed to start `{}`",
+                tool_command.split_name(),
+            )
+            .ok();
+            return Err(());
+        }
+    };
     let mut stdin = child.stdin.take().unwrap();
     let output = std::thread::scope(|s| {
         s.spawn(move || {
@@ -297,6 +308,13 @@ fn run_tool(
     if output.status.success() {
         Ok(output.stdout)
     } else {
+        writeln!(
+            ui.warning_default(),
+            "Fix tool `{}` exited with non-zero exit code for `{}`",
+            tool_command.split_name(),
+            path_converter.format_file_path(&file_to_fix.repo_path)
+        )
+        .ok();
         Err(())
     }
 }

@@ -52,7 +52,7 @@ a new commits. Unlike Git, Jujutsu will not do it automatically.
 
 As of October 2023, Jujutsu has no equivalent to a `git pull` command (see
 [issue #1039][sync-issue]). Until such a command is added, you need to use
-`jj git fetch` followed by a `jj rebase -d $main_bookmark` to update your
+`jj git fetch` followed by a `jj rebase -o $main_bookmark` to update your
 changes.
 
 [sync-issue]: https://github.com/jj-vcs/jj/issues/1039

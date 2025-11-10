@@ -544,7 +544,7 @@ To revert the merge in `C`, create a new commit with `jj new C`,
 then `jj restore --from B`, and then describe the message
 with something like `jj desc -m "Revert the merge of D into B`. Now, commit `@`
 undoes the merge of `D` into  `B`. If necessary, you can now rebase it
-elsewhere, e.g. `jj rebase -r @ -d main`.
+elsewhere, e.g. `jj rebase -r @ -o main`.
 
 ### How do I deal with divergent changes ('??' after the [change ID])?
 

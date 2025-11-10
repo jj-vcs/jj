@@ -132,7 +132,7 @@ pub fn cmd_debug_object(
             let id = if let Some(rev) = &args.revision {
                 let workspace_command = command.workspace_helper_no_snapshot(ui)?;
                 let commit = workspace_command.resolve_single_rev(ui, rev)?;
-                let tree_value = commit.tree()?.path_value(&dir)?;
+                let tree_value = commit.tree().path_value(&dir)?;
                 if let Some(Some(TreeValue::Tree(id))) = tree_value.as_resolved() {
                     id.clone()
                 } else {

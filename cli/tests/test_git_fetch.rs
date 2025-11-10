@@ -687,7 +687,7 @@ fn create_trunk2_and_rebase_bookmarks(work_dir: &TestWorkDir) -> String {
     create_commit(work_dir, "trunk2", &["trunk1"]);
     for br in ["a1", "a2", "b"] {
         work_dir
-            .run_jj(["rebase", "-b", br, "-d", "trunk2"])
+            .run_jj(["rebase", "-b", br, "-o", "trunk2"])
             .success();
     }
     format!(

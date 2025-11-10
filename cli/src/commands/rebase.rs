@@ -62,7 +62,7 @@ use crate::ui::Ui;
 /// There are three different ways of specifying where the revisions should be
 /// rebased to:
 ///
-/// * `--destination/-d` to rebase the revisions onto the specified targets
+/// * `--onto/-o` to rebase the revisions onto the specified targets
 /// * `--insert-after/-A` to rebase the revisions onto the specified targets and
 ///   to rebase the targets' descendants onto the rebased revisions
 /// * `--insert-before/-B` to rebase the revisions onto the specified targets'
@@ -78,7 +78,7 @@ use crate::ui::Ui;
 /// ### Specifying which revisions to rebase
 ///
 /// With `--source/-s`, the command rebases the specified revision and its
-/// descendants to the destination. For example, `jj rebase -s M -d O` would
+/// descendants to the destination. For example, `jj rebase -s M -o O` would
 /// transform your history like this (letters followed by an apostrophe are
 /// post-rebase versions):
 ///
@@ -97,7 +97,7 @@ use crate::ui::Ui;
 /// ```
 ///
 /// Each revision passed to `-s` will become a direct child of the destination,
-/// so if you instead run `jj rebase -s M -s N -d O` (or `jj rebase -s 'M|N' -d
+/// so if you instead run `jj rebase -s M -s N -o O` (or `jj rebase -s 'M|N' -o
 /// O`) in the example above, then N' would instead be a direct child of O.
 ///
 /// With `--branch/-b`, the command rebases the whole "branch" containing the
@@ -107,10 +107,10 @@ use crate::ui::Ui;
 ///   destination
 /// * all descendants of those revisions
 ///
-/// In other words, `jj rebase -b X -d Y` rebases revisions in the revset
-/// `(Y..X)::` (which is equivalent to `jj rebase -s 'roots(Y..X)' -d Y` for a
-/// single root). For example, either `jj rebase -b L -d O` or `jj rebase -b M
-/// -d O` would transform your history like this (because `L` and `M` are on the
+/// In other words, `jj rebase -b X -o Y` rebases revisions in the revset
+/// `(Y..X)::` (which is equivalent to `jj rebase -s 'roots(Y..X)' -o Y` for a
+/// single root). For example, either `jj rebase -b L -o O` or `jj rebase -b M
+/// -o O` would transform your history like this (because `L` and `M` are on the
 /// same "branch", relative to the destination):
 ///
 /// ```text
@@ -130,7 +130,7 @@ use crate::ui::Ui;
 /// With `--revisions/-r`, the command rebases only the specified revisions to
 /// the destination. Any "hole" left behind will be filled by rebasing
 /// descendants onto the specified revisions' parent(s). For example,
-/// `jj rebase -r K -d M` would transform your history like this:
+/// `jj rebase -r K -o M` would transform your history like this:
 ///
 /// ```text
 /// M          K'
@@ -143,7 +143,7 @@ use crate::ui::Ui;
 /// ```
 ///
 /// Multiple revisions can be specified, and any dependencies (graph edges)
-/// within the set will be preserved. For example, `jj rebase -r 'K|N' -d O`
+/// within the set will be preserved. For example, `jj rebase -r 'K|N' -o O`
 /// would transform your history like this:
 ///
 /// ```text
@@ -166,10 +166,10 @@ use crate::ui::Ui;
 /// of the specified revisions an immediate child of the destination, while
 /// `jj rebase -r` will preserve dependencies within the set.
 ///
-/// Note that you can create a merge revision by repeating the `-d` argument.
+/// Note that you can create a merge revision by repeating the `-o` argument.
 /// For example, if you realize that revision L actually depends on revision M
 /// in order to work (in addition to its current parent K), you can run `jj
-/// rebase -s L -d K -d M`:
+/// rebase -s L -o K -o M`:
 ///
 /// ```text
 /// M          L'
@@ -183,12 +183,12 @@ use crate::ui::Ui;
 ///
 /// ### Specifying where to rebase the revisions
 ///
-/// With `--destination/-d`, the command rebases the selected revisions onto
-/// the targets. Existing descendants of the targets will not be affected. See
+/// With `--onto/-o`, the command rebases the selected revisions onto the
+/// targets. Existing descendants of the targets will not be affected. See
 /// the section above for examples.
 ///
 /// With `--insert-after/-A`, the selected revisions will be inserted after the
-/// targets. This is similar to `-d`, but if the targets have any existing
+/// targets. This is similar to `-o`, but if the targets have any existing
 /// descendants, then those will be rebased onto the rebased selected revisions.
 ///
 /// For example, `jj rebase -r K -A L` will rewrite history like this:
@@ -236,7 +236,7 @@ use crate::ui::Ui;
 ///
 /// The `-A` and `-B` arguments can also be combined, which can be useful around
 /// merges. For example, you can use `jj rebase -r K -A J -B M` to create a new
-/// merge (but `jj rebase -r M -d L -d K` might be simpler in this particular
+/// merge (but `jj rebase -r M -o L -o K` might be simpler in this particular
 /// case):
 /// ```text
 /// M           M'
@@ -269,8 +269,8 @@ pub(crate) struct RebaseArgs {
     /// Rebase the whole branch relative to destination's ancestors (can be
     /// repeated)
     ///
-    /// `jj rebase -b=br -d=dst` is equivalent to `jj rebase '-s=roots(dst..br)'
-    /// -d=dst`.
+    /// `jj rebase -b=br -o=dst` is equivalent to `jj rebase '-s=roots(dst..br)'
+    /// -o=dst`.
     ///
     /// If none of `-b`, `-s`, or `-r` is provided, then the default is `-b @`.
     #[arg(
@@ -337,18 +337,20 @@ pub struct RebaseDestinationArgs {
     /// commit)
     #[arg(
         long,
+        alias = "destination",
         short,
+        short_alias = 'd',
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
-    destination: Option<Vec<RevisionArg>>,
+    onto: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert after (can be repeated to create a merge
     /// commit)
     #[arg(
         long,
         short = 'A',
         visible_alias = "after",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
@@ -359,7 +361,7 @@ pub struct RebaseDestinationArgs {
         long,
         short = 'B',
         visible_alias = "before",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
@@ -437,12 +439,12 @@ fn plan_rebase_revisions(
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
         workspace_command,
-        rebase_destination.destination.as_deref(),
+        rebase_destination.onto.as_deref(),
         rebase_destination.insert_after.as_deref(),
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
     )?;
-    if rebase_destination.destination.is_some() && new_child_ids.is_empty() {
+    if rebase_destination.onto.is_some() && new_child_ids.is_empty() {
         for id in &target_commit_ids {
             if new_parent_ids.contains(id) {
                 return Err(user_error(format!(
@@ -472,12 +474,12 @@ fn plan_rebase_source(
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
         workspace_command,
-        rebase_destination.destination.as_deref(),
+        rebase_destination.onto.as_deref(),
         rebase_destination.insert_after.as_deref(),
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
     )?;
-    if rebase_destination.destination.is_some() && new_child_ids.is_empty() {
+    if rebase_destination.onto.is_some() && new_child_ids.is_empty() {
         for id in &source_commit_ids {
             let commit = workspace_command.repo().store().get_commit(id)?;
             check_rebase_destinations(workspace_command.repo(), &new_parent_ids, &commit)?;
@@ -514,7 +516,7 @@ fn plan_rebase_branch(
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
         workspace_command,
-        rebase_destination.destination.as_deref(),
+        rebase_destination.onto.as_deref(),
         rebase_destination.insert_after.as_deref(),
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
@@ -528,7 +530,7 @@ fn plan_rebase_branch(
         .unwrap()
         .iter()
         .try_collect()?;
-    if rebase_destination.destination.is_some() && new_child_ids.is_empty() {
+    if rebase_destination.onto.is_some() && new_child_ids.is_empty() {
         for id in &root_commit_ids {
             let commit = workspace_command.repo().store().get_commit(id)?;
             check_rebase_destinations(workspace_command.repo(), &new_parent_ids, &commit)?;

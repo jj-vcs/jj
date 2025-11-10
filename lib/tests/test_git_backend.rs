@@ -25,6 +25,7 @@ use jj_lib::backend::CopyRecord;
 use jj_lib::commit::Commit;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::git_backend::JJ_TREES_COMMIT_HEADER;
+use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
@@ -85,10 +86,7 @@ fn make_commit(
     content: &[(&RepoPath, &str)],
 ) -> Commit {
     let tree = create_tree(tx.base_repo(), content);
-    tx.repo_mut()
-        .new_commit(parents, tree.id())
-        .write()
-        .unwrap()
+    tx.repo_mut().new_commit(parents, tree).write().unwrap()
 }
 
 #[test]
@@ -344,7 +342,7 @@ fn test_jj_trees_header_with_one_tree() {
     // Create a normal commit with tree 1
     let commit = commit_with_tree(
         repo.store(),
-        jj_lib::backend::MergedTreeId::resolved(tree_1.id().clone()),
+        MergedTree::resolved(repo.store().clone(), tree_1.id().clone()),
     );
     let git_commit_id = gix::ObjectId::from_bytes_or_panic(commit.id().as_bytes());
     let git_commit = git_repo.find_commit(git_commit_id).unwrap();

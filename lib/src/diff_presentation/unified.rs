@@ -33,6 +33,7 @@ use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_merge_result_to_bytes;
 use crate::diff::ContentDiff;
 use crate::diff::DiffHunkKind;
+use crate::merge::Diff;
 use crate::object_id::ObjectId as _;
 use crate::repo_path::RepoPath;
 
@@ -175,7 +176,7 @@ impl<'content> UnifiedDiffHunk<'content> {
 }
 
 pub fn unified_diff_hunks<'content>(
-    contents: [&'content BStr; 2],
+    contents: Diff<&'content BStr>,
     context: usize,
     options: LineCompareMode,
 ) -> Vec<UnifiedDiffHunk<'content>> {
@@ -185,7 +186,7 @@ pub fn unified_diff_hunks<'content>(
         right_line_range: 0..0,
         lines: vec![],
     };
-    let diff = diff_by_line(contents, &options);
+    let diff = diff_by_line(contents.into_array(), &options);
     let mut diff_hunks = diff.hunks().peekable();
     while let Some(hunk) = diff_hunks.next() {
         match hunk.kind {
@@ -221,10 +222,9 @@ pub fn unified_diff_hunks<'content>(
                 current_hunk.extend_context_lines(before_lines.into_iter().rev());
             }
             DiffHunkKind::Different => {
-                let [left_lines, right_lines] =
-                    unzip_diff_hunks_to_lines(ContentDiff::by_word(hunk.contents).hunks());
-                current_hunk.extend_removed_lines(left_lines);
-                current_hunk.extend_added_lines(right_lines);
+                let lines = unzip_diff_hunks_to_lines(ContentDiff::by_word(hunk.contents).hunks());
+                current_hunk.extend_removed_lines(lines.before);
+                current_hunk.extend_added_lines(lines.after);
             }
         }
     }

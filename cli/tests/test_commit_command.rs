@@ -588,6 +588,114 @@ fn test_commit_trailers() {
     ");
 }
 
+#[test]
+fn test_commit_with_editor_and_message_args() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    std::fs::write(&edit_script, "dump editor").unwrap();
+    work_dir
+        .run_jj(["commit", "-m", "message from command line", "--editor"])
+        .success();
+
+    // Verify editor was opened with the message from command line
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+    message from command line
+
+    JJ: Change ID: qpvuntsm
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  c3a4bb8be8d7
+    ○  f6acb1a163f2 message from command line
+    ◆  000000000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_commit_with_editor_and_empty_message() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+
+    // Use --editor with an empty message. The trailers should be added because
+    // the editor will be opened.
+    std::fs::write(&edit_script, "dump editor").unwrap();
+    work_dir
+        .run_jj([
+            "commit",
+            "-m",
+            "",
+            "--editor",
+            "--config",
+            r#"templates.commit_trailers='"Trailer: value"'"#,
+        ])
+        .success();
+
+    // Verify editor was opened with trailers added to the empty message
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+
+    Trailer: value
+
+    JJ: Change ID: qpvuntsm
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+}
+
+#[test]
+fn test_commit_with_editor_without_message() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+
+    // --editor without -m should behave the same as without --editor (normal flow)
+    std::fs::write(&edit_script, "dump editor").unwrap();
+    let output = work_dir.run_jj(["commit", "--editor"]).success();
+
+    // Verify editor was opened
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+    JJ: Change ID: qpvuntsm
+    JJ: This commit contains the following changes:
+    JJ:     A file1
+    JJ:
+    JJ: Lines starting with "JJ:" (like this one) will be removed.
+    "#);
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  f5a89f0f6366
+    ○  38f3e84bb6a9
+    ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Hint: The commit message was left empty.
+    If this was not intentional, run `jj undo` to restore the previous state.
+    Or run `jj desc @-` to add a description to the parent commit.
+    Working copy  (@) now at: rlvkpnrz f5a89f0f (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 38f3e84b (no description set)
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"commit_id.short() ++ " " ++ description"#;

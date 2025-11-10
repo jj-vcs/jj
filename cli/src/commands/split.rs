@@ -19,8 +19,8 @@ use clap_complete::ArgValueCompleter;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
-use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::CommitWithSelection;
 use jj_lib::rewrite::EmptyBehavior;
 use jj_lib::rewrite::MoveCommitsLocation;
@@ -90,19 +90,21 @@ pub(crate) struct SplitArgs {
     /// a merge commit)
     #[arg(
         long,
+        alias = "destination",
         short,
+        short_alias = 'd',
         conflicts_with = "parallel",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
-    destination: Option<Vec<RevisionArg>>,
+    onto: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert after (can be repeated to create a merge
     /// commit)
     #[arg(
         long,
         short = 'A',
         visible_alias = "after",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         conflicts_with = "parallel",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
@@ -114,7 +116,7 @@ pub(crate) struct SplitArgs {
         long,
         short = 'B',
         visible_alias = "before",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         conflicts_with = "parallel",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
@@ -126,6 +128,12 @@ pub(crate) struct SplitArgs {
     /// source commit description is kept unchanged.
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Vec<String>,
+    /// Open an editor to edit the change description
+    ///
+    /// Forces an editor to open when using `--message` to allow the
+    /// message to be edited afterwards.
+    #[arg(long)]
+    editor: bool,
     /// Split the revision into two parallel revisions instead of a parent and
     /// child
     #[arg(long, short)]
@@ -166,14 +174,13 @@ impl SplitArgs {
             self.tool.as_deref(),
             self.interactive || self.paths.is_empty(),
         )?;
-        let use_move_flags = self.destination.is_some()
-            || self.insert_after.is_some()
-            || self.insert_before.is_some();
+        let use_move_flags =
+            self.onto.is_some() || self.insert_after.is_some() || self.insert_before.is_some();
         let (new_parent_ids, new_child_ids) = if use_move_flags {
             compute_commit_location(
                 ui,
                 workspace_command,
-                self.destination.as_deref(),
+                self.onto.as_deref(),
                 self.insert_after.as_deref(),
                 self.insert_before.as_deref(),
                 "split-out commit",
@@ -228,28 +235,32 @@ pub(crate) fn cmd_split(
     // Create the first commit, which includes the changes selected by the user.
     let first_commit = {
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
-        commit_builder.set_tree_id(target.selected_tree.id());
+        commit_builder.set_tree(target.selected_tree.clone());
         if use_move_flags {
             commit_builder.clear_rewrite_source();
             // Generate a new change id so that the commit being split doesn't
             // become divergent.
             commit_builder.generate_new_change_id();
         }
-        let description = if !args.message_paragraphs.is_empty() {
-            let description = join_message_paragraphs(&args.message_paragraphs);
-            if !description.is_empty() {
-                commit_builder.set_description(description);
-                add_trailers(ui, &tx, &commit_builder)?
-            } else {
-                description
-            }
+        let description = if args.message_paragraphs.is_empty() {
+            commit_builder.description().to_owned()
         } else {
-            let new_description = add_trailers(ui, &tx, &commit_builder)?;
-            commit_builder.set_description(new_description);
+            join_message_paragraphs(&args.message_paragraphs)
+        };
+        let description = if !description.is_empty() || args.editor {
+            commit_builder.set_description(description);
+            add_trailers(ui, &tx, &commit_builder)?
+        } else {
+            description
+        };
+        let description = if args.editor || args.message_paragraphs.is_empty() {
+            commit_builder.set_description(description);
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the selected changes.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
+        } else {
+            description
         };
         commit_builder.set_description(description);
         commit_builder.write(tx.repo_mut())?
@@ -258,7 +269,7 @@ pub(crate) fn cmd_split(
     // Create the second commit, which includes everything the user didn't
     // select.
     let second_commit = {
-        let target_tree = target.commit.tree()?;
+        let target_tree = target.commit.tree();
         let new_tree = if parallel {
             // Merge the original commit tree with its parent using the tree
             // containing the user selected changes as the base for the merge.
@@ -275,9 +286,8 @@ pub(crate) fn cmd_split(
             vec![first_commit.id().clone()]
         };
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
-        commit_builder
-            .set_parents(parents)
-            .set_tree_id(new_tree.id());
+        commit_builder.set_parents(parents).set_tree(new_tree);
+        let mut show_editor = args.editor;
         if !use_move_flags {
             commit_builder.clear_rewrite_source();
             // Generate a new change id so that the commit being split doesn't
@@ -288,16 +298,20 @@ pub(crate) fn cmd_split(
             // If there was no description before, don't ask for one for the
             // second commit.
             "".to_string()
-        } else if !args.message_paragraphs.is_empty() {
+        } else {
+            show_editor = show_editor || args.message_paragraphs.is_empty();
             // Just keep the original message unchanged
             commit_builder.description().to_owned()
-        } else {
+        };
+        let description = if show_editor {
             let new_description = add_trailers(ui, &tx, &commit_builder)?;
             commit_builder.set_description(new_description);
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the remaining changes.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
+        } else {
+            description
         };
         commit_builder.set_description(description);
         commit_builder.write(tx.repo_mut())?
@@ -464,14 +478,14 @@ The changes that are not selected will replace the original commit.
         )
     };
     let parent_tree = target_commit.parent_tree(tx.repo())?;
-    let selected_tree_id = diff_selector.select(
-        [&parent_tree, &target_commit.tree()?],
+    let selected_tree = diff_selector.select(
+        Diff::new(&parent_tree, &target_commit.tree()),
         matcher,
         format_instructions,
     )?;
     let selection = CommitWithSelection {
         commit: target_commit.clone(),
-        selected_tree: tx.repo().store().get_root_tree(&selected_tree_id)?,
+        selected_tree,
         parent_tree,
     };
     if selection.is_full_selection() {

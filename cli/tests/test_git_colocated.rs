@@ -1241,7 +1241,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
 
     // Create rebase conflict
     work_dir
-        .run_jj(["rebase", "-r", "left", "-d", "right"])
+        .run_jj(["rebase", "-r", "left", "-o", "right"])
         .success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"

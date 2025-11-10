@@ -18,6 +18,7 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::formatdoc;
 use itertools::Itertools as _;
+use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;
 
@@ -130,7 +131,7 @@ pub(crate) fn cmd_restore(
             .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))?;
         let from_commit = workspace_command
             .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?;
-        from_tree = from_commit.tree()?;
+        from_tree = from_commit.tree();
         from_commits = vec![from_commit];
     } else {
         to_commit = workspace_command
@@ -145,7 +146,7 @@ pub(crate) fn cmd_restore(
         .to_matcher();
     let diff_selector =
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
-    let to_tree = to_commit.tree()?;
+    let to_tree = to_commit.tree();
     let format_instructions = || {
         formatdoc! {"
             You are restoring changes from: {from_commits}
@@ -162,15 +163,18 @@ pub(crate) fn cmd_restore(
             to_commit = workspace_command.format_commit_summary(&to_commit),
         }
     };
-    let new_tree_id =
-        diff_selector.select([&to_tree, &from_tree], &matcher, format_instructions)?;
-    if &new_tree_id == to_commit.tree_id() {
+    let new_tree = diff_selector.select(
+        Diff::new(&to_tree, &from_tree),
+        &matcher,
+        format_instructions,
+    )?;
+    if new_tree.tree_ids() == to_commit.tree_ids() {
         writeln!(ui.status(), "Nothing changed.")?;
     } else {
         let mut tx = workspace_command.start_transaction();
         tx.repo_mut()
             .rewrite_commit(&to_commit)
-            .set_tree_id(new_tree_id)
+            .set_tree(new_tree)
             .write()?;
         // rebase_descendants early; otherwise the new commit would always have
         // a conflicted change id at this point.

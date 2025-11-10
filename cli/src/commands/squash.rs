@@ -22,6 +22,7 @@ use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite;
@@ -71,13 +72,13 @@ use crate::ui::Ui;
 ///
 /// EXPERIMENTAL FEATURES
 ///
-/// An alternative squashing UI is available via the `-d`, `-A`, and `-B`
+/// An alternative squashing UI is available via the `-o`, `-A`, and `-B`
 /// options. They can be used together with one or more `--from` options
 /// (if no `--from` is specified, `--from @` is assumed).
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct SquashArgs {
     /// Revision to squash into its parent (default: @). Incompatible with the
-    /// experimental `-d`/`-A`/`-B` options.
+    /// experimental `-o`/`-A`/`-B` options.
     #[arg(
         long,
         short,
@@ -109,13 +110,15 @@ pub(crate) struct SquashArgs {
     /// be repeated to create a merge commit)
     #[arg(
         long,
+        alias = "destination",
         short,
+        short_alias = 'd',
         conflicts_with = "into",
         conflicts_with = "revision",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
-    destination: Option<Vec<RevisionArg>>,
+    onto: Option<Vec<RevisionArg>>,
 
     /// (Experimental) The revision(s) to insert the new commit after (can be
     /// repeated to create a merge commit)
@@ -123,7 +126,7 @@ pub(crate) struct SquashArgs {
         long,
         short = 'A',
         visible_alias = "after",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         conflicts_with = "into",
         conflicts_with = "revision",
         value_name = "REVSETS",
@@ -137,7 +140,7 @@ pub(crate) struct SquashArgs {
         long,
         short = 'B',
         visible_alias = "before",
-        conflicts_with = "destination",
+        conflicts_with = "onto",
         conflicts_with = "into",
         conflicts_with = "revision",
         value_name = "REVSETS",
@@ -154,8 +157,11 @@ pub(crate) struct SquashArgs {
     #[arg(long, short, conflicts_with = "message_paragraphs")]
     use_destination_message: bool,
 
-    /// Open an editor to edit the squashed commit's description
-    #[arg(long, short = 'E')]
+    /// Open an editor to edit the change description
+    ///
+    /// Forces an editor to open when using `--message` to allow the
+    /// message to be edited afterwards.
+    #[arg(long)]
     editor: bool,
 
     /// Interactively choose which parts to squash
@@ -190,7 +196,7 @@ pub(crate) fn cmd_squash(
     args: &SquashArgs,
 ) -> Result<(), CommandError> {
     let insert_destination_commit =
-        args.destination.is_some() || args.insert_after.is_some() || args.insert_before.is_some();
+        args.onto.is_some() || args.insert_after.is_some() || args.insert_before.is_some();
 
     let mut workspace_command = command.workspace_helper(ui)?;
 
@@ -257,7 +263,7 @@ pub(crate) fn cmd_squash(
         let (parent_ids, child_ids) = compute_commit_location(
             ui,
             tx.base_workspace_helper(),
-            args.destination.as_deref(),
+            args.onto.as_deref(),
             args.insert_after.as_deref(),
             args.insert_before.as_deref(),
             "squashed commit",
@@ -274,7 +280,7 @@ pub(crate) fn cmd_squash(
         let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).block_on()?;
         let commit = tx
             .repo_mut()
-            .new_commit(parent_ids.clone(), merged_tree.id())
+            .new_commit(parent_ids.clone(), merged_tree)
             .write()?;
         let mut rewritten = HashMap::new();
         tx.repo_mut()
@@ -324,7 +330,6 @@ pub(crate) fn cmd_squash(
         args.keep_emptied,
     )? {
         let mut commit_builder = squashed.commit_builder.detach();
-        let mut already_edited = false;
         let single_description = match squashed_description {
             SquashedDescription::Exact(description) => Some(description),
             SquashedDescription::UseDestination => Some(destination.description().to_owned()),
@@ -338,7 +343,16 @@ pub(crate) fn cmd_squash(
                 description
             } else {
                 commit_builder.set_description(&description);
-                add_trailers(ui, &tx, &commit_builder)?
+                let description_with_trailers = add_trailers(ui, &tx, &commit_builder)?;
+                if args.editor {
+                    commit_builder.set_description(&description_with_trailers);
+                    let temp_commit = commit_builder.write_hidden()?;
+                    let intro = "";
+                    let template = description_template(ui, &tx, intro, &temp_commit)?;
+                    edit_description(&text_editor, &template)?
+                } else {
+                    description_with_trailers
+                }
             }
         } else {
             // edit combined
@@ -352,22 +366,12 @@ pub(crate) fn cmd_squash(
             )?;
             // It's weird that commit.description() contains "JJ: " lines, but works.
             commit_builder.set_description(combined);
-            already_edited = true;
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the combined commit.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
         };
-        let finalized_description = if args.editor && !already_edited {
-            commit_builder.set_description(&description);
-            let temp_commit = commit_builder.write_hidden()?;
-            let intro = "";
-            let template = description_template(ui, &tx, intro, &temp_commit)?;
-            edit_description(&text_editor, &template)?
-        } else {
-            description
-        };
-        commit_builder.set_description(finalized_description);
+        commit_builder.set_description(description);
         if insert_destination_commit {
             // forget about the intermediate commit
             commit_builder.set_predecessors(
@@ -463,7 +467,7 @@ fn select_diff(
     let mut source_commits = vec![];
     for source in sources {
         let parent_tree = source.parent_tree(tx.repo())?;
-        let source_tree = source.tree()?;
+        let source_tree = source.tree();
         let format_instructions = || {
             formatdoc! {"
                 You are moving changes from: {source}
@@ -481,9 +485,11 @@ fn select_diff(
                 destination = tx.format_commit_summary(destination),
             }
         };
-        let selected_tree_id =
-            diff_selector.select([&parent_tree, &source_tree], matcher, format_instructions)?;
-        let selected_tree = tx.repo().store().get_root_tree(&selected_tree_id)?;
+        let selected_tree = diff_selector.select(
+            Diff::new(&parent_tree, &source_tree),
+            matcher,
+            format_instructions,
+        )?;
         source_commits.push(CommitWithSelection {
             commit: source.clone(),
             selected_tree,

@@ -12,11 +12,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* The `--destination`/`-d` arguments for `jj rebase`, `jj split`, `jj revert`,
+  etc. were renamed to `--onto`/`-o`. The old names will be removed at some
+  point in the future, but we realize that they are deep in muscle memory, so
+  you can expect an unusually long deprecation period.
+
+* `jj describe --edit` is deprecated in favor of `--editor`.
+
 ### New features
 
-* `jj squash` now accepts `--editor` / `-E` to edit the squashed commit message.
+* `jj commit`, `jj describe`, `jj squash`, and `jj split` now accept
+  `--editor`, which ensures an editor will be opened with the commit
+  description even if one was provided via `--message`/`-m`.
 
 ### Fixed bugs
+
+* `jj fix` now prints a warning if a tool failed to run on a file.
+  [#7971](https://github.com/jj-vcs/jj/issues/7971)
 
 ## [0.35.0] - 2025-11-05
 

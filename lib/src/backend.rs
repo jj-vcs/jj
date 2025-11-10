@@ -152,37 +152,6 @@ pub struct SecureSig {
 
 pub type SigningFn<'a> = dyn FnMut(&[u8]) -> SignResult<Vec<u8>> + Send + 'a;
 
-/// Identifies a merge of multiple trees. Can be read as a `MergedTree`.
-// TODO: this type doesn't add anything over `Merge<TreeId>` currently, but conflict labels could be
-// added here in the future if we also add them to `MergedTree`.
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone)]
-pub struct MergedTreeId {
-    /// The tree id(s) of a merge tree
-    tree_ids: Merge<TreeId>,
-}
-
-impl MergedTreeId {
-    /// Create a resolved `MergedTreeId` from a single regular tree.
-    pub fn resolved(tree_id: TreeId) -> Self {
-        Self::new(Merge::resolved(tree_id))
-    }
-
-    /// Create a `MergedTreeId` from a `Merge<TreeId>`.
-    pub fn new(tree_ids: Merge<TreeId>) -> Self {
-        Self { tree_ids }
-    }
-
-    /// Returns the underlying `Merge<TreeId>`.
-    pub fn as_merge(&self) -> &Merge<TreeId> {
-        &self.tree_ids
-    }
-
-    /// Extracts the underlying `Merge<TreeId>`.
-    pub fn into_merge(self) -> Merge<TreeId> {
-        self.tree_ids
-    }
-}
-
 #[derive(ContentHash, Debug, PartialEq, Eq, Clone, serde::Serialize)]
 pub struct Commit {
     pub parents: Vec<CommitId>,
@@ -191,7 +160,7 @@ pub struct Commit {
     #[serde(skip)] // deprecated
     pub predecessors: Vec<CommitId>,
     #[serde(skip)] // TODO: should be exposed?
-    pub root_tree: MergedTreeId,
+    pub root_tree: Merge<TreeId>,
     pub change_id: ChangeId,
     pub description: String,
     pub author: Signature,
@@ -427,7 +396,7 @@ pub fn make_root_commit(root_change_id: ChangeId, empty_tree_id: TreeId) -> Comm
     Commit {
         parents: vec![],
         predecessors: vec![],
-        root_tree: MergedTreeId::resolved(empty_tree_id),
+        root_tree: Merge::resolved(empty_tree_id),
         change_id: root_change_id,
         description: String::new(),
         author: signature.clone(),

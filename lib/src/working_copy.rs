@@ -28,12 +28,12 @@ use thiserror::Error;
 use tracing::instrument;
 
 use crate::backend::BackendError;
-use crate::backend::MergedTreeId;
 use crate::commit::Commit;
 use crate::dag_walk;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
 use crate::matchers::Matcher;
+use crate::merged_tree::MergedTree;
 use crate::op_store::OpStoreError;
 use crate::op_store::OperationId;
 use crate::operation::Operation;
@@ -61,8 +61,8 @@ pub trait WorkingCopy: Any + Send {
     /// The operation this working copy was most recently updated to.
     fn operation_id(&self) -> &OperationId;
 
-    /// The ID of the tree this working copy was most recently updated to.
-    fn tree_id(&self) -> Result<&MergedTreeId, WorkingCopyStateError>;
+    /// The tree this working copy was most recently updated to.
+    fn tree(&self) -> Result<&MergedTree, WorkingCopyStateError>;
 
     /// Patterns that decide which paths from the current tree should be checked
     /// out in the working copy. An empty list means that no paths should be
@@ -112,13 +112,13 @@ pub trait LockedWorkingCopy: Any + Send {
     fn old_operation_id(&self) -> &OperationId;
 
     /// The tree at the time the lock was taken
-    fn old_tree_id(&self) -> &MergedTreeId;
+    fn old_tree(&self) -> &MergedTree;
 
-    /// Snapshot the working copy. Returns the tree id and stats.
+    /// Snapshot the working copy. Returns the tree and stats.
     async fn snapshot(
         &mut self,
         options: &SnapshotOptions,
-    ) -> Result<(MergedTreeId, SnapshotStats), SnapshotError>;
+    ) -> Result<(MergedTree, SnapshotStats), SnapshotError>;
 
     /// Check out the specified commit in the working copy.
     async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError>;
@@ -363,8 +363,8 @@ impl WorkingCopyFreshness {
         repo: &ReadonlyRepo,
     ) -> Result<Self, OpStoreError> {
         // Check if the working copy's tree matches the repo's view
-        let wc_tree_id = locked_wc.old_tree_id();
-        if wc_commit.tree_id() == wc_tree_id {
+        let wc_tree = locked_wc.old_tree();
+        if wc_commit.tree_ids() == wc_tree.tree_ids() {
             // The working copy isn't stale, and no need to reload the repo.
             Ok(Self::Fresh)
         } else {
@@ -430,7 +430,7 @@ pub fn create_and_check_out_recovery_commit(
         })?;
     let commit = repo.store().get_commit(commit_id)?;
     let new_commit = repo_mut
-        .new_commit(vec![commit_id.clone()], commit.tree_id().clone())
+        .new_commit(vec![commit_id.clone()], commit.tree())
         .set_description(description)
         .write()?;
     repo_mut.set_wc_commit(workspace_name, new_commit.id().clone())?;

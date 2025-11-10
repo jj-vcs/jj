@@ -1242,7 +1242,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             };
             let matcher = files.to_matcher();
             let out_property = self_property.and_then(move |commit| {
-                let tree = commit.tree()?;
+                let tree = commit.tree();
                 let entries: Vec<_> = tree
                     .entries_matching(&*matcher)
                     .map(|(path, value)| value.map(|value| (path, value)))
@@ -2126,7 +2126,7 @@ impl TreeDiff {
         }
         Ok(Self {
             from_tree: commit.parent_tree(repo)?,
-            to_tree: commit.tree()?,
+            to_tree: commit.tree(),
             matcher,
             copy_records,
         })

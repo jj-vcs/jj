@@ -16,6 +16,7 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::writedoc;
 use jj_lib::backend::Signature;
+use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use tracing::instrument;
@@ -63,6 +64,12 @@ pub(crate) struct CommitArgs {
     /// The change description to use (don't open editor)
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Vec<String>,
+    /// Open an editor to edit the change description
+    ///
+    /// Forces an editor to open when using `--message` to allow the
+    /// message to be edited afterwards.
+    #[arg(long)]
+    editor: bool,
     /// Put these paths in the first commit
     #[arg(
         value_name = "FILESETS",
@@ -140,12 +147,12 @@ new working-copy commit.
             tx.format_commit_summary(&commit)
         )
     };
-    let tree_id = diff_selector.select(
-        [&base_tree, &commit.tree()?],
+    let tree = diff_selector.select(
+        Diff::new(&base_tree, &commit.tree()),
         matcher.as_ref(),
         format_instructions,
     )?;
-    if !args.paths.is_empty() && tree_id == base_tree.id() {
+    if !args.paths.is_empty() && tree.tree_ids() == base_tree.tree_ids() {
         writeln!(
             ui.warning_default(),
             "The given paths do not match any file: {}",
@@ -154,7 +161,7 @@ new working-copy commit.
     }
 
     let mut commit_builder = tx.repo_mut().rewrite_commit(&commit).detach();
-    commit_builder.set_tree_id(tree_id);
+    commit_builder.set_tree(tree);
     if args.reset_author {
         commit_builder.set_author(commit_builder.committer().clone());
     }
@@ -169,7 +176,7 @@ new working-copy commit.
 
     let description = if !args.message_paragraphs.is_empty() {
         let mut description = join_message_paragraphs(&args.message_paragraphs);
-        if !description.is_empty() {
+        if !description.is_empty() || args.editor {
             // The first trailer would become the first line of the description.
             // Also, a commit with no description is treated in a special way in jujutsu: it
             // can be discarded as soon as it's no longer the working copy. Adding a
@@ -179,7 +186,9 @@ new working-copy commit.
         }
         description
     } else {
-        let description = add_trailers(ui, &tx, &commit_builder)?;
+        add_trailers(ui, &tx, &commit_builder)?
+    };
+    let description = if args.message_paragraphs.is_empty() || args.editor {
         commit_builder.set_description(description);
         let temp_commit = commit_builder.write_hidden()?;
         let intro = "";
@@ -196,6 +205,8 @@ new working-copy commit.
             )?;
         }
         description
+    } else {
+        description
     };
     commit_builder.set_description(description);
     let new_commit = commit_builder.write(tx.repo_mut())?;
@@ -204,7 +215,7 @@ new working-copy commit.
     if !workspace_names.is_empty() {
         let new_wc_commit = tx
             .repo_mut()
-            .new_commit(vec![new_commit.id().clone()], commit.tree_id().clone())
+            .new_commit(vec![new_commit.id().clone()], commit.tree())
             .write()?;
 
         // Does nothing if there's no bookmarks to advance.

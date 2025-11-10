@@ -460,11 +460,11 @@ fn sort(
 #[cfg(test)]
 mod tests {
     use jj_lib::backend::ChangeId;
-    use jj_lib::backend::MergedTreeId;
     use jj_lib::backend::MillisSinceEpoch;
     use jj_lib::backend::Signature;
     use jj_lib::backend::Timestamp;
     use jj_lib::backend::TreeId;
+    use jj_lib::merge::Merge;
     use jj_lib::op_store::RefTarget;
 
     use super::*;
@@ -473,7 +473,7 @@ mod tests {
         Arc::new(backend::Commit {
             parents: vec![],
             predecessors: vec![],
-            root_tree: MergedTreeId::resolved(TreeId::new(vec![])),
+            root_tree: Merge::resolved(TreeId::new(vec![])),
             change_id: ChangeId::new(vec![]),
             description: String::new(),
             author,

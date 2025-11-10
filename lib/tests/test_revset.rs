@@ -167,7 +167,7 @@ fn test_resolve_symbol_commit_id() {
         let commit = mut_repo
             .new_commit(
                 vec![repo.store().root_commit_id().clone()],
-                repo.store().empty_merged_tree_id(),
+                repo.store().empty_merged_tree(),
             )
             // An arbitrary change id that doesn't start with "01"
             .set_change_id(ChangeId::from_hex("781199f9d55d18e855a7aa84c5e4b40d"))
@@ -295,7 +295,7 @@ fn test_resolve_symbol_change_id(readonly: bool) {
         },
     };
     let root_commit_id = repo.store().root_commit_id();
-    let empty_tree_id = repo.store().empty_merged_tree_id();
+    let empty_tree = repo.store().empty_merged_tree();
     // These are change ids that would be generated for the imported commits,
     // but that isn't important. Here we have common prefixes "04", "040",
     // "04e1" across commit and change ids.
@@ -311,7 +311,7 @@ fn test_resolve_symbol_change_id(readonly: bool) {
     for (i, change_id) in iter::zip([0, 1, 2, 5359], change_ids) {
         let commit = tx
             .repo_mut()
-            .new_commit(vec![root_commit_id.clone()], empty_tree_id.clone())
+            .new_commit(vec![root_commit_id.clone()], empty_tree.clone())
             .set_change_id(change_id)
             .set_description(format!("test {i}"))
             .set_author(author.clone())
@@ -4291,19 +4291,19 @@ fn test_evaluate_expression_file(indexed: bool) {
         ],
     );
     let commit1 = mut_repo
-        .new_commit(vec![repo.store().root_commit_id().clone()], tree1.id())
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree1)
         .write()
         .unwrap();
     let commit2 = mut_repo
-        .new_commit(vec![commit1.id().clone()], tree2.id())
+        .new_commit(vec![commit1.id().clone()], tree2)
         .write()
         .unwrap();
     let commit3 = mut_repo
-        .new_commit(vec![commit2.id().clone()], tree3.id())
+        .new_commit(vec![commit2.id().clone()], tree3.clone())
         .write()
         .unwrap();
     let commit4 = mut_repo
-        .new_commit(vec![commit3.id().clone()], tree3.id())
+        .new_commit(vec![commit3.id().clone()], tree3)
         .write()
         .unwrap();
 
@@ -4420,19 +4420,19 @@ fn test_evaluate_expression_diff_contains(indexed: bool) {
         ],
     );
     let commit1 = mut_repo
-        .new_commit(vec![repo.store().root_commit_id().clone()], tree1.id())
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree1)
         .write()
         .unwrap();
     let commit2 = mut_repo
-        .new_commit(vec![commit1.id().clone()], tree2.id())
+        .new_commit(vec![commit1.id().clone()], tree2)
         .write()
         .unwrap();
     let commit3 = mut_repo
-        .new_commit(vec![commit2.id().clone()], tree3.id())
+        .new_commit(vec![commit2.id().clone()], tree3)
         .write()
         .unwrap();
     let commit4 = mut_repo
-        .new_commit(vec![commit3.id().clone()], tree4.id())
+        .new_commit(vec![commit3.id().clone()], tree4)
         .write()
         .unwrap();
 
@@ -4520,7 +4520,7 @@ fn test_evaluate_expression_diff_contains_non_utf8() {
         builder.file(repo_path("file"), b"\x81\x40");
     });
     let commit1 = mut_repo
-        .new_commit(vec![repo.store().root_commit_id().clone()], tree1.id())
+        .new_commit(vec![repo.store().root_commit_id().clone()], tree1)
         .write()
         .unwrap();
 
@@ -4548,15 +4548,15 @@ fn test_evaluate_expression_diff_contains_conflict(indexed: bool) {
     let mut_repo = tx.repo_mut();
 
     let mut create_commit =
-        |parent_ids, tree_id| mut_repo.new_commit(parent_ids, tree_id).write().unwrap();
+        |parent_ids, tree| mut_repo.new_commit(parent_ids, tree).write().unwrap();
 
     let file_path = repo_path("file");
     let tree1 = create_tree(&repo, &[(file_path, "0\n1\n")]);
-    let commit1 = create_commit(vec![repo.store().root_commit_id().clone()], tree1.id());
+    let commit1 = create_commit(vec![repo.store().root_commit_id().clone()], tree1.clone());
     let tree2 = create_tree(&repo, &[(file_path, "0\n2\n")]);
     let tree3 = create_tree(&repo, &[(file_path, "0\n3\n")]);
     let tree4 = tree2.merge(tree1, tree3).block_on().unwrap();
-    let commit2 = create_commit(vec![commit1.id().clone()], tree4.id());
+    let commit2 = create_commit(vec![commit1.id().clone()], tree4);
 
     assert_eq!(
         resolve_commit_ids(mut_repo, "diff_contains('0')"),
@@ -4594,11 +4594,11 @@ fn test_evaluate_expression_file_merged_parents(indexed: bool) {
     let tree4 = create_tree(&repo, &[(file_path1, "1\n4\n"), (file_path2, "2\n1\n3\n")]);
 
     let mut create_commit =
-        |parent_ids, tree_id| mut_repo.new_commit(parent_ids, tree_id).write().unwrap();
-    let commit1 = create_commit(vec![repo.store().root_commit_id().clone()], tree1.id());
-    let commit2 = create_commit(vec![commit1.id().clone()], tree2.id());
-    let commit3 = create_commit(vec![commit1.id().clone()], tree3.id());
-    let commit4 = create_commit(vec![commit2.id().clone(), commit3.id().clone()], tree4.id());
+        |parent_ids, tree| mut_repo.new_commit(parent_ids, tree).write().unwrap();
+    let commit1 = create_commit(vec![repo.store().root_commit_id().clone()], tree1);
+    let commit2 = create_commit(vec![commit1.id().clone()], tree2);
+    let commit3 = create_commit(vec![commit1.id().clone()], tree3);
+    let commit4 = create_commit(vec![commit2.id().clone(), commit3.id().clone()], tree4);
 
     let query = |revset_str: &str| {
         resolve_commit_ids_in_workspace(
@@ -4655,22 +4655,22 @@ fn test_evaluate_expression_conflict() {
     let mut_repo = tx.repo_mut();
 
     let mut create_commit =
-        |parent_ids, tree_id| mut_repo.new_commit(parent_ids, tree_id).write().unwrap();
+        |parent_ids, tree| mut_repo.new_commit(parent_ids, tree).write().unwrap();
 
     // Create a few trees, including one with a conflict in `file1`
     let file_path1 = repo_path("file1");
     let file_path2 = repo_path("file2");
     let tree1 = create_tree(repo, &[(file_path1, "1"), (file_path2, "1")]);
-    let commit1 = create_commit(vec![repo.store().root_commit_id().clone()], tree1.id());
+    let commit1 = create_commit(vec![repo.store().root_commit_id().clone()], tree1.clone());
     let tree2 = create_tree(repo, &[(file_path1, "2"), (file_path2, "2")]);
-    let commit2 = create_commit(vec![commit1.id().clone()], tree2.id());
+    let commit2 = create_commit(vec![commit1.id().clone()], tree2.clone());
     let tree3 = create_tree(repo, &[(file_path1, "3"), (file_path2, "1")]);
-    let commit3 = create_commit(vec![commit2.id().clone()], tree3.id());
+    let commit3 = create_commit(vec![commit2.id().clone()], tree3.clone());
     let tree4 = tree2
         .merge(tree1.clone(), tree3.clone())
         .block_on()
         .unwrap();
-    let commit4 = create_commit(vec![commit3.id().clone()], tree4.id());
+    let commit4 = create_commit(vec![commit3.id().clone()], tree4);
 
     // Only commit4 has a conflict
     assert_eq!(

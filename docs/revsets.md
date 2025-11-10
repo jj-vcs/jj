@@ -234,7 +234,8 @@ revsets (expressions) as arguments.
   `first_ancestors()` can be used to exclude changes made on other branches.
 
 * `reachable(srcs, domain)`: All commits reachable from `srcs` within
-  `domain`, traversing all parent and child edges.
+  `domain`, traversing all parent and child edges. `srcs` outside `domain` are
+  not considered even if a parent or child edge would reach into `domain`.
 
 * `connected(x)`: Same as `x::x`. Useful when `x` includes several commits.
 
@@ -593,21 +594,21 @@ meaning. Strictly speaking, it is not part of the revset language. The notation
 is similar to the modifiers like `glob:` allowed before [string
 patterns](#string-patterns).
 
-For example, `jj rebase -r w -d xyz+` will rebase `w` on top of the child of
+For example, `jj rebase -r w -o xyz+` will rebase `w` on top of the child of
 `xyz` as long as `xyz` has exactly one child.
 
 If `xyz` has more than one child, the `all:` modifier is *not* specified, and
-`ui.always-allow-large-revsets` is `false`, `jj rebase -r w -d xyz+` will return
+`ui.always-allow-large-revsets` is `false`, `jj rebase -r w -o xyz+` will return
 an error.
 
 If `ui.always-allow-large-revsets` was `true` (the default), the above command
 would act as if `all:` was set (see the next paragraph).
 
-With the `all:` modifier, `jj rebase -r w -d all:xyz+` will make `w` into a merge
+With the `all:` modifier, `jj rebase -r w -o all:xyz+` will make `w` into a merge
 commit if `xyz` has more than one child. The `all:` modifier confirms that the
 user expected `xyz` to have more than one child.
 
-A more useful example: if `w` is a merge commit, `jj rebase -s w -d all:w- -d
+A more useful example: if `w` is a merge commit, `jj rebase -s w -o all:w- -d
 xyz` will add `xyz` to the list of `w`'s parents.
 
 ## Examples
@@ -642,7 +643,7 @@ Show the initial commits in the repo (the ones Git calls "root commits"):
 jj log -r 'root()+'
 ```
 
-Show some important commits (like `git --simplify-by-decoration`):
+Show some important commits (like `git log --simplify-by-decoration`):
 
 ```shell
 jj log -r 'tags() | bookmarks()'

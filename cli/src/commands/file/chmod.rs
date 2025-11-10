@@ -76,7 +76,7 @@ pub(crate) fn cmd_file_chmod(
     let mut workspace_command = command.workspace_helper(ui)?;
     let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
     workspace_command.check_rewritable([commit.id()])?;
-    let tree = commit.tree()?;
+    let tree = commit.tree();
     // TODO: No need to add special case for empty paths when switching to
     // parse_union_filesets(). paths = [] should be "none()" if supported.
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
@@ -84,8 +84,8 @@ pub(crate) fn cmd_file_chmod(
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
 
     let mut tx = workspace_command.start_transaction();
-    let store = tree.store();
-    let mut tree_builder = MergedTreeBuilder::new(commit.tree_id().clone());
+
+    let mut tree_builder = MergedTreeBuilder::new(commit.tree());
     for (repo_path, result) in tree.entries_matching(matcher.as_ref()) {
         let mut tree_value = result?;
         let user_error_with_path = |msg: &str| {
@@ -119,10 +119,10 @@ pub(crate) fn cmd_file_chmod(
         tree_builder.set_or_remove(repo_path, tree_value);
     }
 
-    let new_tree_id = tree_builder.write_tree(store)?;
+    let new_tree = tree_builder.write_tree()?;
     tx.repo_mut()
         .rewrite_commit(&commit)
-        .set_tree_id(new_tree_id)
+        .set_tree(new_tree)
         .write()?;
     tx.finish(
         ui,

@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use futures::StreamExt as _;
-use jj_lib::backend::MergedTreeId;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
@@ -17,6 +16,7 @@ use jj_lib::local_working_copy::TreeStateError;
 use jj_lib::local_working_copy::TreeStateSettings;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::Matcher;
+use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::TreeDiffEntry;
 use jj_lib::working_copy::CheckoutError;
@@ -128,14 +128,15 @@ pub(crate) enum DiffType {
 /// Check out the two trees in temporary directories. Only include changed files
 /// in the sparse checkout patterns.
 pub(crate) fn check_out_trees(
-    [left_tree, right_tree]: [&MergedTree; 2],
+    trees: Diff<&MergedTree>,
     matcher: &dyn Matcher,
     diff_type: DiffType,
     conflict_marker_style: ConflictMarkerStyle,
 ) -> Result<DiffWorkingCopies, DiffCheckoutError> {
-    let store = left_tree.store();
-    let changed_files: Vec<_> = left_tree
-        .diff_stream(right_tree, matcher)
+    let store = trees.before.store();
+    let changed_files: Vec<_> = trees
+        .before
+        .diff_stream(trees.after, matcher)
         .map(|TreeDiffEntry { path, .. }| path)
         .collect()
         .block_on();
@@ -160,11 +161,11 @@ pub(crate) fn check_out_trees(
         Ok(state)
     };
 
-    let left = check_out("left", left_tree)?;
-    let right = check_out("right", right_tree)?;
+    let left = check_out("left", trees.before)?;
+    let right = check_out("right", trees.after)?;
     let output = match diff_type {
         DiffType::TwoWay => None,
-        DiffType::ThreeWay => Some(check_out("output", right_tree)?),
+        DiffType::ThreeWay => Some(check_out("output", trees.after)?),
     };
     Ok(DiffWorkingCopies {
         _temp_dir: temp_dir,
@@ -183,7 +184,7 @@ impl DiffEditWorkingCopies {
     /// Checks out the trees, populates JJ_INSTRUCTIONS, and makes appropriate
     /// sides readonly.
     pub fn check_out(
-        trees: [&MergedTree; 2],
+        trees: Diff<&MergedTree>,
         matcher: &dyn Matcher,
         diff_type: DiffType,
         instructions: Option<&str>,
@@ -270,7 +271,7 @@ diff editing in mind and be a little inaccurate.
     pub fn snapshot_results(
         self,
         base_ignores: Arc<GitIgnoreFile>,
-    ) -> Result<MergedTreeId, DiffEditError> {
+    ) -> Result<MergedTree, DiffEditError> {
         if let Some(path) = self.instructions_path_to_cleanup {
             std::fs::remove_file(path).ok();
         }
@@ -284,6 +285,6 @@ diff editing in mind and be a little inaccurate.
             start_tracking_matcher: &EverythingMatcher,
             max_new_file_size: u64::MAX,
         })?;
-        Ok(output_tree_state.current_tree_id().clone())
+        Ok(output_tree_state.current_tree().clone())
     }
 }

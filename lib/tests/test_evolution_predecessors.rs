@@ -507,7 +507,7 @@ fn test_accumulate_predecessors() {
     fn new_commit(repo: &mut MutableRepo, desc: &str) -> Commit {
         repo.new_commit(
             vec![repo.store().root_commit_id().clone()],
-            repo.store().empty_merged_tree_id(),
+            repo.store().empty_merged_tree(),
         )
         .set_description(desc)
         .write()

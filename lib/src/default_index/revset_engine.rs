@@ -1335,7 +1335,7 @@ async fn has_diff_from_parent(
     let parents: Vec<_> = commit.parents_async().await?;
     if let [parent] = parents.as_slice() {
         // Fast path: no need to load the root tree
-        let unchanged = commit.tree_id() == parent.tree_id();
+        let unchanged = commit.tree_ids() == parent.tree_ids();
         if matcher.visit(RepoPath::root()) == Visit::AllRecursively {
             return Ok(!unchanged);
         } else if unchanged {
@@ -1346,7 +1346,7 @@ async fn has_diff_from_parent(
     // Conflict resolution is expensive, try that only for matched files.
     let from_tree =
         rewrite::merge_commit_trees_no_resolve_without_repo(store, index, &parents).await?;
-    let to_tree = commit.tree_async().await?;
+    let to_tree = commit.tree();
     // TODO: handle copy tracking
     let mut tree_diff = from_tree.diff_stream(&to_tree, matcher);
     // TODO: Resolve values concurrently
@@ -1372,7 +1372,7 @@ async fn matches_diff_from_parent(
     // Conflict resolution is expensive, try that only for matched files.
     let from_tree =
         rewrite::merge_commit_trees_no_resolve_without_repo(store, index, &parents).await?;
-    let to_tree = commit.tree_async().await?;
+    let to_tree = commit.tree();
     // TODO: handle copy tracking
     let mut tree_diff = from_tree.diff_stream(&to_tree, files_matcher);
     // TODO: Resolve values concurrently

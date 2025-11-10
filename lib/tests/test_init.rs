@@ -25,6 +25,7 @@ use jj_lib::workspace::Workspace;
 use test_case::test_case;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
+use testutils::assert_tree_eq;
 use testutils::git;
 use testutils::write_random_commit;
 
@@ -153,7 +154,7 @@ fn test_init_checkout(backend: TestRepoBackend) {
         .get_wc_commit_id(WorkspaceName::DEFAULT)
         .unwrap();
     let wc_commit = repo.store().get_commit(wc_commit_id).unwrap();
-    assert_eq!(*wc_commit.tree_id(), repo.store().empty_merged_tree_id());
+    assert_tree_eq!(wc_commit.tree(), repo.store().empty_merged_tree());
     assert_eq!(
         wc_commit.store_commit().parents,
         vec![repo.store().root_commit_id().clone()]

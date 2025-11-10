@@ -53,10 +53,10 @@ pub(crate) struct NewArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions: Option<Vec<RevisionArg>>,
-    /// Ignored (but lets you pass `-d`/`-r` for consistency with other
+    /// Ignored (but lets you pass `-o/-d`/`-r` for consistency with other
     /// commands)
-    #[arg(short = 'd', hide = true, short_alias = 'r',  action = clap::ArgAction::Count)]
-    unused_destination: u8,
+    #[arg(short = 'o', hide = true, short_aliases = ['d', 'r'],  action = clap::ArgAction::Count)]
+    unused_onto: u8,
     /// The change description to use
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Vec<String>,
@@ -190,7 +190,7 @@ pub(crate) fn cmd_new(
     let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).block_on()?;
     let mut commit_builder = tx
         .repo_mut()
-        .new_commit(parent_commit_ids, merged_tree.id())
+        .new_commit(parent_commit_ids, merged_tree)
         .detach();
     let mut description = join_message_paragraphs(&args.message_paragraphs);
     if !description.is_empty() {
