@@ -2615,7 +2615,7 @@ xyz</code> will add <code>xyz</code> to the list of <code>w</code>'s parents.</p
 <p>Show the initial commits in the repo (the ones Git calls "root commits"):</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;root()+&#39;</span>
 </code></pre></div>
-<p>Show some important commits (like <code>git --simplify-by-decoration</code>):</p>
+<p>Show some important commits (like <code>git log --simplify-by-decoration</code>):</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;tags() | bookmarks()&#39;</span>
 </code></pre></div>
 <p>Show local commits leading up to the working copy, as well as descendants of
