@@ -6104,9 +6104,15 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </ul>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>jj commit</code>, <code>jj describe</code>, <code>jj squash</code>, and <code>jj split</code> now accept
+<li>
+<p><code>jj commit</code>, <code>jj describe</code>, <code>jj squash</code>, and <code>jj split</code> now accept
   <code>--editor</code>, which ensures an editor will be opened with the commit
-  description even if one was provided via <code>--message</code>/<code>-m</code>.</li>
+  description even if one was provided via <code>--message</code>/<code>-m</code>.</p>
+</li>
+<li>
+<p>All <code>jj</code> commands show a warning when the provided <code>fileset</code> expression 
+  doesn't match any files.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
