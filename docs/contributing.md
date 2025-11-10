@@ -53,6 +53,15 @@ use GitHub pull requests for this purpose. Consult
 [GitHub Help](https://help.github.com/articles/about-pull-requests/) for more
 information on using pull requests.
 
+The project unfortunately has a shortage of reviewers (a common problem in
+open-source projects). To maximize the chances of getting a timely review, do
+what you can to provide reviewers (and other future readers) with the necessary
+context. For example, if you're adding a new feature, explain why that feature
+is useful, how it works from the user's point of view, how it's designed, and
+what the limitations of your design are. If you have considered other designs,
+it may be useful to mention them. Another way of speeding up reviews is to
+review others' PRs so the maintainers don't need to spend as much time on them.
+
 When you address comments on a PR, don't make the changes in a commit on top (as
 is typical on GitHub). Instead, please make the changes in the appropriate
 commit. You can do that by creating a new commit on top of the initial commit
