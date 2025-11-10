@@ -123,6 +123,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Revsets now support logical operators in string patterns.
 
+* `jj prev/next --no-edit` now generates an error if the working-copy has some
+  children.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
