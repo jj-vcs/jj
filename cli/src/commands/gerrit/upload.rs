@@ -41,6 +41,8 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
 use crate::git_util::with_remote_git_callbacks;
+use crate::hooks::apply_rewrites;
+use crate::hooks::run_pre_upload_hooks;
 use crate::ui::Ui;
 
 /// Upload changes to Gerrit for code review, or update existing changes.
@@ -171,7 +173,7 @@ pub fn cmd_gerrit_upload(
         .parse_union_revsets(ui, &args.revisions)?
         .resolve()?;
     workspace_command.check_rewritable_expr(&target_expr)?;
-    let revisions: Vec<_> = target_expr
+    let mut revisions: Vec<_> = target_expr
         .evaluate(workspace_command.repo().as_ref())?
         .iter()
         .try_collect()?;
@@ -185,7 +187,7 @@ pub fn cmd_gerrit_upload(
     // has a Change-ID.
     // We make an assumption here that all immutable commits already have a
     // Change-ID.
-    let to_upload: Vec<Commit> = workspace_command
+    let mut to_upload: Vec<_> = workspace_command
         .attach_revset_evaluator(
             workspace_command
                 .env()
@@ -194,6 +196,20 @@ pub fn cmd_gerrit_upload(
         )
         .evaluate_to_commits()?
         .try_collect()?;
+
+    {
+        let ids: Vec<_> = to_upload.iter().map(|c| c.id().clone()).collect();
+        let rewrites = run_pre_upload_hooks(ui, command, &mut workspace_command, &ids)?;
+        // Apply rewrites to all variables containing commit IDs.
+        if !rewrites.is_empty() {
+            revisions = apply_rewrites(&rewrites, revisions);
+            let store = workspace_command.repo().store();
+            to_upload = apply_rewrites(&rewrites, ids)
+                .into_iter()
+                .map(|id| store.get_commit(&id))
+                .try_collect()?;
+        }
+    }
 
     // Note: This transaction is intentionally never finished. This way, the
     // Change-Id is never part of the commit description in jj.

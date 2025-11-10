@@ -14,6 +14,7 @@
 
 use crate::common::TestEnvironment;
 use crate::common::create_commit;
+use crate::common::to_toml_value;
 
 #[test]
 fn test_gerrit_upload_dryrun() {
@@ -167,6 +168,81 @@ fn test_gerrit_upload_local() {
     Date:   Sat Feb 3 04:05:08 2001 +0700
 
         a
+    [EOF]
+    "###);
+}
+
+#[test]
+fn test_pre_upload_fix_hook() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "a", &[]);
+
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    local_dir.write_file("file.txt", "content\n");
+    local_dir.run_jj(["commit", "-m", "a"]).success();
+    local_dir.write_file("file.txt", "new content\n");
+    local_dir.run_jj(["describe", "-m", "b"]).success();
+
+    let formatter_path = assert_cmd::cargo::cargo_bin("fake-formatter");
+    assert!(formatter_path.is_file());
+    let formatter = to_toml_value(formatter_path.to_str().unwrap());
+
+    test_env.add_config(format!(
+        r###"
+        hooks.pre-upload.fix.enabled = true
+
+        [fix.tools.my-tool]
+        command = [{formatter}, "--uppercase"]
+        patterns = ["file.txt"]
+        "###
+    ));
+
+    let output = local_dir.run_jj(["gerrit", "upload", "--remote-branch=main", "-r", "@"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Fixed 2 commits of 2 checked.
+    Working copy  (@) now at: mzvwutvl ed78d33d b
+    Parent commit (@-)      : zsuskuln 531e34f0 a
+    Added 0 files, modified 1 files, removed 0 files
+
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+
+    Pushing mzvwutvl ed78d33d b
+    [EOF]
+    "###);
+
+    assert_eq!(local_dir.read_file("file.txt"), "NEW CONTENT\n");
+    let output = local_dir.run_jj(["file", "show", "file.txt", "-r", "@"]);
+    insta::assert_snapshot!(output, @r###"
+    NEW CONTENT
+    [EOF]
+    "###);
+    let output = local_dir.run_jj(["file", "show", "file.txt", "-r", "@-"]);
+    insta::assert_snapshot!(output, @r###"
+    CONTENT
+    [EOF]
+    "###);
+
+    // The revision doesn't show up on the remote in jj.
+    // Not sure why, but it doesn't really matter.
+    let output = remote_dir.run_jj([
+        "util",
+        "exec",
+        "--",
+        "git",
+        "cat-file",
+        "-p",
+        "refs/for/main:file.txt",
+    ]);
+    insta::assert_snapshot!(output, @r###"
+    NEW CONTENT
     [EOF]
     "###);
 }

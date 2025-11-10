@@ -123,6 +123,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Revsets now support logical operators in string patterns.
 
+* Added pre-upload hooks to jj. For now, this is limited in scope to a hook
+  named fix, and only works for `jj gerrit upload`. 
+  Toggled via the config flag `hooks.pre-upload.fix.enabled`.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer

@@ -26,6 +26,7 @@ use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
 use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
+use jj_lib::fix::FixSummary;
 use jj_lib::fix::ParallelFileFixer;
 use jj_lib::fix::fix_files;
 use jj_lib::matchers::Matcher;
@@ -38,6 +39,7 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::print_parse_diagnostics;
@@ -131,9 +133,6 @@ pub(crate) fn cmd_fix(
     args: &FixArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let workspace_root = workspace_command.workspace_root().to_owned();
-    let path_converter = workspace_command.path_converter().to_owned();
-    let tools_config = get_tools_config(ui, workspace_command.settings())?;
     let target_expr = if args.source.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.fix")?;
         workspace_command.parse_revset(ui, &RevisionArg::from(revs))?
@@ -151,6 +150,28 @@ pub(crate) fn cmd_fix(
         .to_matcher();
 
     let mut tx = workspace_command.start_transaction();
+    let summary = fix_revisions(
+        ui,
+        &mut tx,
+        &root_commits,
+        &matcher,
+        args.include_unchanged_files,
+    )?;
+    tx.finish(ui, format!("fixed {} commits", summary.num_fixed_commits))?;
+    Ok(())
+}
+
+pub(crate) fn fix_revisions(
+    ui: &mut Ui,
+    tx: &mut WorkspaceCommandTransaction,
+    root_commits: &[CommitId],
+    matcher: &dyn Matcher,
+    include_unchanged_files: bool,
+) -> Result<FixSummary, CommandError> {
+    let workspace_command = tx.base_workspace_helper();
+    let workspace_root = workspace_command.workspace_root().to_owned();
+    let path_converter = workspace_command.path_converter().to_owned();
+    let tools_config = get_tools_config(ui, workspace_command.settings())?;
     let mut parallel_fixer = ParallelFileFixer::new(|store, file_to_fix| {
         fix_one_file(
             ui,
@@ -163,9 +184,9 @@ pub(crate) fn cmd_fix(
         .block_on()
     });
     let summary = fix_files(
-        root_commits,
-        &matcher,
-        args.include_unchanged_files,
+        root_commits.to_vec(),
+        matcher,
+        include_unchanged_files,
         tx.repo_mut(),
         &mut parallel_fixer,
     )
@@ -176,7 +197,7 @@ pub(crate) fn cmd_fix(
         summary.num_fixed_commits,
         summary.num_checked_commits
     )?;
-    tx.finish(ui, format!("fixed {} commits", summary.num_fixed_commits))
+    Ok(summary)
 }
 
 /// Invokes all matching tools (if any) to file_to_fix. If the content is
