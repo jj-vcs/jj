@@ -1883,6 +1883,24 @@ fn builtin_repo_path_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, R
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<RepoPathBuf>::new();
     map.insert(
+        "absolute",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let path_converter = language.path_converter;
+            // We handle the absolute path here instead of in a wrapper in
+            // `RepoPathUiConverter` because absolute paths only make sense for
+            // filesystem paths. Other cases should fail here.
+            let out_property = self_property.and_then(move |path| match path_converter {
+                RepoPathUiConverter::Fs { cwd: _, base } => path
+                    .to_fs_path(base)?
+                    .into_os_string()
+                    .into_string()
+                    .map_err(|_| TemplatePropertyError("Invalid UTF-8 sequence in path".into())),
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "display",
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
@@ -2690,7 +2708,9 @@ fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo
 
 #[cfg(test)]
 mod tests {
+    use std::path::Component;
     use std::path::Path;
+    use std::path::PathBuf;
     use std::sync::Arc;
 
     use jj_lib::config::ConfigLayer;
@@ -2751,10 +2771,10 @@ mod tests {
             }
         }
 
-        fn set_cwd(&mut self, path: impl AsRef<Path>) {
+        fn set_base_and_cwd(&mut self, base: PathBuf, cwd: impl AsRef<Path>) {
             self.path_converter = RepoPathUiConverter::Fs {
-                cwd: self.test_workspace.workspace.workspace_root().join(path),
-                base: self.test_workspace.workspace.workspace_root().to_owned(),
+                cwd: base.join(cwd),
+                base,
             };
         }
 
@@ -2875,11 +2895,29 @@ mod tests {
     #[test]
     fn test_repo_path_type() {
         let mut env = CommitTemplateTestEnv::init();
-        env.set_cwd("dir");
+        let mut base = PathBuf::from(Component::RootDir.as_os_str());
+        base.extend(["path", "to", "repo"]);
+        env.set_base_and_cwd(base, "dir");
 
         // slash-separated by default
         insta::assert_snapshot!(
             env.render_ok("self", &repo_path_buf("dir/file")), @"dir/file");
+
+        // .absolute() to convert to absolute path.
+        if cfg!(windows) {
+            insta::assert_snapshot!(
+                env.render_ok("self.absolute()", &repo_path_buf("file")),
+                @"\\path\\to\\repo\\file");
+            insta::assert_snapshot!(
+                env.render_ok("self.absolute()", &repo_path_buf("dir/file")),
+                @"\\path\\to\\repo\\dir\\file");
+        } else {
+            insta::assert_snapshot!(
+                env.render_ok("self.absolute()", &repo_path_buf("file")), @"/path/to/repo/file");
+            insta::assert_snapshot!(
+                env.render_ok("self.absolute()", &repo_path_buf("dir/file")),
+                @"/path/to/repo/dir/file");
+        }
 
         // .display() to convert to filesystem path
         insta::assert_snapshot!(

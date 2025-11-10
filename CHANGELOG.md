@@ -25,8 +25,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--editor`, which ensures an editor will be opened with the commit
   description even if one was provided via `--message`/`-m`.
 
-* All `jj` commands show a warning when the provided `fileset` expression 
+* All `jj` commands show a warning when the provided `fileset` expression
   doesn't match any files.
+
+* `RepoPath` template type now has a `absolute() -> String` method that returns
+  the absolute path as a string.
 
 ### Fixed bugs
 
