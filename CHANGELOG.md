@@ -21,6 +21,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj squash` now accepts `--editor` / `-E` to edit the squashed commit message.
 
+* `jj squash` now accepts `--no-editor` to ensure squash is non-interactive
+  when two or more squashed commits have a non-empty description.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.

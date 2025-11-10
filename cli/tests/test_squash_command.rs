@@ -2260,8 +2260,8 @@ fn test_squash_with_editor_combine_messages() {
     work_dir.run_jj(["new", "-m", "source"]).success();
     work_dir.write_file("file1", "b\n");
 
-    // Both source and destination have descriptions, so editor will open to combine
-    // them; the --editor was superfluous.
+    // Both source and destination have descriptions, so editor would already open
+    // to combine them; the --editor was superfluous.
     std::fs::write(
         &edit_script,
         ["dump editor", "write\nfinal description from editor"].join("\0"),
@@ -2368,6 +2368,82 @@ fn test_squash_with_editor_and_empty_message() {
 
     Trailer: value
     [EOF]
+    ");
+}
+
+#[test]
+fn test_squash_with_no_editor_combine_messages() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "destination"]).success();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new", "-m", "source"]).success();
+    work_dir.write_file("file2", "b\n");
+
+    // Both source and destination have descriptions, but --no-editor prevents
+    // opening editor
+    std::fs::write(&edit_script, "dump editor").unwrap();
+    work_dir.run_jj(["squash", "--no-editor"]).success();
+
+    // Verify editor was NOT opened
+    assert!(!test_env.env_root().join("editor").exists());
+
+    // Verify the combined description includes the "JJ: " comment lines
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    JJ: Description from the destination commit:
+    destination
+
+    JJ: Description from source commit:
+    source
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_squash_with_no_editor_single_message() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "destination"]).success();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new"]).success();
+    work_dir.write_file("file1", "b\n");
+
+    // Only destination has a description, so no editor would open anyway
+    std::fs::write(&edit_script, "dump editor").unwrap();
+    work_dir.run_jj(["squash", "--no-editor"]).success();
+
+    // Verify editor was NOT opened
+    assert!(!test_env.env_root().join("editor").exists());
+
+    // Verify the destination description is preserved
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    destination
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_squash_editor_cannot_be_used_with_no_editor() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["squash", "--no-editor", "--editor"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: the argument '--no-editor' cannot be used with '--editor'
+
+    Usage: jj squash --no-editor [FILESETS]...
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
     ");
 }
 
