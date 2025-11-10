@@ -7878,6 +7878,10 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><code>-i</code>, <code>--interactive</code> — Interactively choose which changes to include in the first commit</li>
 <li><code>--tool &lt;NAME&gt;</code> — Specify diff editor to be used (implies --interactive)</li>
 <li><code>-m</code>, <code>--message &lt;MESSAGE&gt;</code> — The change description to use (don't open editor)</li>
+<li>
+<p><code>--editor</code> — Open an editor to edit the change description</p>
+<p>Forces an editor to open when using <code>--message</code> to allow the message to be edited afterwards.</p>
+</li>
 </ul>
 <h2 id="jj-config"><code>jj config</code><a class="headerlink" href="#jj-config" title="Permanent link">&para;</a></h2>
 <p>Manage config options</p>
@@ -8013,7 +8017,7 @@ Martin von Zweigbergk</p>
 <p>If multiple revisions are specified, the same description will be used for all of them.</p>
 </li>
 <li>
-<p><code>--edit</code> — Open an editor</p>
+<p><code>--editor</code> — Open an editor to edit the change description</p>
 <p>Forces an editor to open when using <code>--stdin</code> or <code>--message</code> to allow the message to be edited afterwards.</p>
 </li>
 </ul>
@@ -9643,6 +9647,10 @@ J           J
 <p>The description is used for the commit with the selected changes. The source commit description is kept unchanged.</p>
 </li>
 <li>
+<p><code>--editor</code> — Open an editor to edit the change description</p>
+<p>Forces an editor to open when using <code>--message</code> to allow the message to be edited afterwards.</p>
+</li>
+<li>
 <p><code>-p</code>, <code>--parallel</code> — Split the revision into two parallel revisions instead of a parent and child</p>
 </li>
 </ul>
@@ -9670,8 +9678,13 @@ J           J
 <li><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — (Experimental) The revision(s) to insert the new commit before (can be repeated to create a merge commit)</li>
 <li><code>-m</code>, <code>--message &lt;MESSAGE&gt;</code> — The description to use for squashed revision (don't open editor)</li>
 <li><code>-u</code>, <code>--use-destination-message</code> — Use the description of the destination revision and discard the description(s) of the source revision(s)</li>
-<li><code>-E</code>, <code>--editor</code> — Open an editor to edit the squashed commit's description</li>
-<li><code>-i</code>, <code>--interactive</code> — Interactively choose which parts to squash</li>
+<li>
+<p><code>--editor</code> — Open an editor to edit the change description</p>
+<p>Forces an editor to open when using <code>--message</code> to allow the message to be edited afterwards.</p>
+</li>
+<li>
+<p><code>-i</code>, <code>--interactive</code> — Interactively choose which parts to squash</p>
+</li>
 <li><code>--tool &lt;NAME&gt;</code> — Specify diff editor to be used (implies --interactive)</li>
 <li><code>-k</code>, <code>--keep-emptied</code> — The source revision will not be abandoned</li>
 </ul>
