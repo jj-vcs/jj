@@ -1935,7 +1935,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
             let mut_repo = tx.repo_mut();
             let commit = mut_repo
                 .rewrite_commit(&wc_commit)
-                .set_tree(new_tree)
+                .set_tree(new_tree.clone())
                 .write()
                 .map_err(snapshot_command_error)?;
             mut_repo
@@ -1967,6 +1967,30 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .map_err(snapshot_command_error)?;
             self.user_repo = ReadonlyUserRepo::new(repo);
         }
+
+        #[cfg(feature = "git")]
+        if self.working_copy_shared_with_git
+            && let Ok(resolved_tree) = new_tree
+                .trees()
+                .map_err(snapshot_command_error)?
+                .into_resolved()
+            && resolved_tree
+                .entries_non_recursive()
+                .any(|entry| entry.name().as_internal_str().starts_with(".jjconflict"))
+        {
+            writeln!(
+                ui.warning_default(),
+                "The working copy contains '.jjconflict' files, which probably means that you \
+                 used a regular `git` command to check out a conflicted commit."
+            )
+            .map_err(snapshot_command_error)?;
+            writeln!(
+                ui.hint_default(),
+                "You can use `jj abandon` to discard the working copy changes."
+            )
+            .map_err(snapshot_command_error)?;
+        }
+
         locked_ws
             .finish(self.user_repo.repo.op_id().clone())
             .map_err(snapshot_command_error)?;

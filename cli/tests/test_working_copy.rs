@@ -467,3 +467,79 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     [EOF]
     "#);
 }
+
+#[test]
+fn test_snapshot_jjconflict_trees() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "repo", "--colocate"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a conflict in the working copy
+    work_dir.write_file(
+        "file",
+        indoc! {"
+            line 1
+            line 2
+            line 3
+        "},
+    );
+    work_dir.run_jj(["new", "-m", "side-a"]).success();
+    work_dir.write_file(
+        "file",
+        indoc! {"
+            line 1
+            line 2 - left
+            line 3 - left
+        "},
+    );
+    work_dir
+        .run_jj(["new", "description(side-a)-", "-m", "side-b"])
+        .success();
+    work_dir.write_file(
+        "file",
+        indoc! {"
+            line 1
+            line 2 - right
+            line 3
+        "},
+    );
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj([
+            "rebase",
+            "-s",
+            "description(side-b)",
+            "-o",
+            "description(side-a)",
+        ])
+        .success();
+
+    // Run `git reset --hard HEAD` to simulate checking out the branch with Git.
+    let output = std::process::Command::new("git")
+        .current_dir(work_dir.root())
+        .args(["reset", "--hard", "HEAD"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    // We should see a warning regarding '.jjconflict' trees being checked out.
+    let output = work_dir.run_jj(["st"]);
+    insta::assert_snapshot!(output, @r"
+    Working copy changes:
+    A .jjconflict-base-0/file
+    A .jjconflict-readme
+    A .jjconflict-side-0/file
+    A .jjconflict-side-1/file
+    M file
+    Working copy  (@) : zsuskuln c3790891 (no description set)
+    Parent commit (@-): kkmpptxz 05b769fa (conflict) side-b
+    Hint: Conflict in parent commit has been resolved in working copy
+    [EOF]
+    ------- stderr -------
+    Warning: The working copy contains '.jjconflict' files, which probably means that you used a regular `git` command to check out a conflicted commit.
+    Hint: You can use `jj abandon` to discard the working copy changes.
+    [EOF]
+    ");
+}
