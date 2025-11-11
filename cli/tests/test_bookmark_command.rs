@@ -258,9 +258,9 @@ fn test_bookmark_move() {
     let output = work_dir.run_jj(["bookmark", "move", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No such bookmark: foo
+    Warning: No matching bookmarks for names: foo
+    No bookmarks to update.
     [EOF]
-    [exit status: 1]
     ");
 
     let output = work_dir.run_jj(["bookmark", "set", "foo"]);
@@ -439,9 +439,8 @@ fn test_bookmark_move_matching() {
     let output = work_dir.run_jj(["bookmark", "move", "--from=::@", "glob:a?"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No matching bookmarks for patterns: a?
+    No bookmarks to update.
     [EOF]
-    [exit status: 1]
     ");
 
     // Noop move
@@ -776,13 +775,12 @@ fn test_bookmark_forget_glob() {
     [exit status: 2]
     ");
 
-    // We get an error if none of the globs match anything
-    let output = work_dir.run_jj(["bookmark", "forget", "glob:bar*", "glob:baz*", "glob:boom*"]);
+    // None of the globs match anything
+    let output = work_dir.run_jj(["bookmark", "forget", "glob:baz*", "glob:boom*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No matching bookmarks for patterns: baz*, boom*
+    No bookmarks to forget.
     [EOF]
-    [exit status: 1]
     ");
 }
 
@@ -849,9 +847,8 @@ fn test_bookmark_delete_glob() {
     let output = work_dir.run_jj(["bookmark", "delete", "glob:foo-[1-3]"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No matching bookmarks for patterns: foo-[1-3]
+    No bookmarks to delete.
     [EOF]
-    [exit status: 1]
     ");
 
     // Deleting a bookmark via both explicit name and glob pattern, or with
@@ -1171,9 +1168,9 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
     let output = work_dir.run_jj(["bookmark", "forget", "i_do_not_exist"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No such bookmark: i_do_not_exist
+    Warning: No matching bookmarks for names: i_do_not_exist
+    No bookmarks to forget.
     [EOF]
-    [exit status: 1]
     ");
 }
 

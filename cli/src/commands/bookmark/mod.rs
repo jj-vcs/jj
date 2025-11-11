@@ -110,39 +110,39 @@ pub fn cmd_bookmark(
 }
 
 fn find_local_bookmarks<'a>(
+    ui: &Ui,
     view: &'a View,
     name_patterns: &[StringPattern],
 ) -> Result<Vec<(&'a RefName, &'a RefTarget)>, CommandError> {
-    find_bookmarks_with(name_patterns, |matcher| {
+    find_bookmarks_with(ui, name_patterns, |matcher| {
         Ok(view.local_bookmarks_matching(matcher).collect())
     })
 }
 
 fn find_bookmarks_with<'a, V>(
+    ui: &Ui,
     name_patterns: &[StringPattern],
     mut find_matches: impl FnMut(&StringMatcher) -> Result<Vec<(&'a RefName, V)>, CommandError>,
 ) -> Result<Vec<(&'a RefName, V)>, CommandError> {
     let mut matching_bookmarks: Vec<(&'a RefName, V)> = vec![];
-    let mut unmatched_patterns = vec![];
+    let mut unmatched_names = vec![];
     for pattern in name_patterns {
         let matches = find_matches(&pattern.to_matcher())?;
         if matches.is_empty() {
-            unmatched_patterns.push(pattern);
+            unmatched_names.extend(pattern.as_exact());
         }
         matching_bookmarks.extend(matches);
     }
-    match &unmatched_patterns[..] {
-        [] => {
-            matching_bookmarks.sort_unstable_by_key(|(name, _)| *name);
-            matching_bookmarks.dedup_by_key(|(name, _)| *name);
-            Ok(matching_bookmarks)
-        }
-        [pattern] if pattern.is_exact() => Err(user_error(format!("No such bookmark: {pattern}"))),
-        patterns => Err(user_error(format!(
-            "No matching bookmarks for patterns: {}",
-            patterns.iter().join(", ")
-        ))),
+    matching_bookmarks.sort_unstable_by_key(|(name, _)| *name);
+    matching_bookmarks.dedup_by_key(|(name, _)| *name);
+    if !unmatched_names.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "No matching bookmarks for names: {}",
+            unmatched_names.join(", ")
+        )?;
     }
+    Ok(matching_bookmarks)
 }
 
 fn find_trackable_remote_bookmarks<'a>(

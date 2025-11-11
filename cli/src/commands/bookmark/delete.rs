@@ -57,7 +57,12 @@ pub fn cmd_bookmark_delete(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
-    let matched_bookmarks = find_local_bookmarks(repo.view(), &args.names)?;
+    let matched_bookmarks = find_local_bookmarks(ui, repo.view(), &args.names)?;
+    if matched_bookmarks.is_empty() {
+        writeln!(ui.status(), "No bookmarks to delete.")?;
+        return Ok(());
+    }
+
     let mut tx = workspace_command.start_transaction();
     for (name, _) in &matched_bookmarks {
         tx.repo_mut()
