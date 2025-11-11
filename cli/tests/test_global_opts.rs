@@ -940,7 +940,6 @@ fn test_default_config() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "repo"
-    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
