@@ -68,7 +68,12 @@ pub fn cmd_bookmark_forget(
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
     let ignored_remote = default_ignored_remote_name(repo.store());
-    let matched_bookmarks = find_forgettable_bookmarks(repo.view(), &args.names)?;
+    let matched_bookmarks = find_forgettable_bookmarks(ui, repo.view(), &args.names)?;
+    if matched_bookmarks.is_empty() {
+        writeln!(ui.status(), "No bookmarks to forget.")?;
+        return Ok(());
+    }
+
     let mut tx = workspace_command.start_transaction();
     let mut forgotten_remote: usize = 0;
     for (name, bookmark_target) in &matched_bookmarks {
@@ -108,10 +113,11 @@ pub fn cmd_bookmark_forget(
 }
 
 fn find_forgettable_bookmarks<'a>(
+    ui: &Ui,
     view: &'a View,
     name_patterns: &[StringPattern],
 ) -> Result<Vec<(&'a RefName, LocalRemoteRefTarget<'a>)>, CommandError> {
-    find_bookmarks_with(name_patterns, |matcher| {
+    find_bookmarks_with(ui, name_patterns, |matcher| {
         let bookmarks = view
             .bookmarks()
             .filter(|(name, _)| matcher.is_match(name.as_str()))
