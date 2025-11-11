@@ -3046,8 +3046,11 @@ that many occurrences are replaced.</p>
 <li><code>.trim_start() -&gt; String</code>: Removes leading whitespace</li>
 <li><code>.trim_end() -&gt; String</code>: Removes trailing whitespace</li>
 <li><code>.substr(start: Integer, end: Integer) -&gt; String</code>: Extract substring. The
-  <code>start</code>/<code>end</code> indices should be specified in UTF-8 bytes. Negative values
-  count from the end of the string.</li>
+  <code>start</code>/<code>end</code> indices should be specified in UTF-8 bytes. Indices are 0-based
+  and <code>end</code> is exclusive. Negative values count from the end of the string,
+  with <code>-1</code> being the last byte. If the <code>start</code> index is in the middle of a UTF-8
+  codepoint, the codepoint is fully part of the result. If the <code>end</code> index is in
+  the middle of a UTF-8 codepoint, the codepoint is not part of the result.</li>
 <li><code>.escape_json() -&gt; String</code>: Serializes the string in JSON format. This
   function is useful for making machine-readable templates. For example, you
   can use it in a template like <code>'{ "foo": ' ++ foo.escape_json() ++ ' }'</code> to
