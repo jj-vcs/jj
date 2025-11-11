@@ -354,7 +354,6 @@ fn test_git_fetch_with_glob_with_no_matching_remotes() {
     let output = work_dir.run_jj(["git", "fetch", "--remote=glob:rem*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No git remotes matching 'rem*'
     Error: No git remotes to fetch from
     [EOF]
     [exit status: 1]
@@ -421,11 +420,21 @@ fn test_git_fetch_no_matching_remote() {
     let output = work_dir.run_jj(["git", "fetch", "--remote", "rem1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No git remotes matching 'rem1'
+    Warning: No matching remotes for names: rem1
     Error: No git remotes to fetch from
     [EOF]
     [exit status: 1]
     ");
+
+    let output = work_dir.run_jj(["git", "fetch", "--remote=rem1", "--remote=rem2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No matching remotes for names: rem1, rem2
+    Error: No git remotes to fetch from
+    [EOF]
+    [exit status: 1]
+    ");
+
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
 }
 
@@ -439,7 +448,7 @@ fn test_git_fetch_nonexistent_remote() {
     let output = work_dir.run_jj(["git", "fetch", "--remote", "rem1", "--remote", "rem2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No git remotes matching 'rem2'
+    Warning: No matching remotes for names: rem2
     bookmark: rem1@rem1 [new] untracked
     [EOF]
     ");
@@ -460,7 +469,7 @@ fn test_git_fetch_nonexistent_remote_from_config() {
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No git remotes matching 'rem2'
+    Warning: No matching remotes for names: rem2
     bookmark: rem1@rem1 [new] untracked
     [EOF]
     ");

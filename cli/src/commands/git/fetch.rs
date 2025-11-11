@@ -110,18 +110,29 @@ pub fn cmd_git_fetch(
     let all_remotes = git::get_all_remote_names(workspace_command.repo().store())?;
 
     let mut matching_remotes = HashSet::new();
-    for pattern in remote_patterns {
+    let mut unmatched_remotes = Vec::new();
+    for pattern in &remote_patterns {
         let remotes = all_remotes
             .iter()
             .filter(|r| pattern.is_match(r.as_str()))
             .collect_vec();
         if remotes.is_empty() {
-            writeln!(ui.warning_default(), "No git remotes matching '{pattern}'")?;
+            unmatched_remotes.extend(pattern.as_exact().map(RemoteName::new));
         } else {
             matching_remotes.extend(remotes);
         }
     }
 
+    if !unmatched_remotes.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "No matching remotes for names: {}",
+            unmatched_remotes
+                .iter()
+                .map(|name| name.as_symbol())
+                .join(", ")
+        )?;
+    }
     if matching_remotes.is_empty() {
         return Err(user_error("No git remotes to fetch from"));
     }
