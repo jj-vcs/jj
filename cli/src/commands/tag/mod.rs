@@ -34,7 +34,6 @@ use self::set::TagSetArgs;
 use self::set::cmd_tag_set;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
-use crate::command_error::user_error;
 use crate::ui::Ui;
 
 /// Manage tags.
@@ -61,39 +60,39 @@ pub fn cmd_tag(
 }
 
 fn find_local_tags<'a>(
+    ui: &Ui,
     view: &'a View,
     name_patterns: &[StringPattern],
 ) -> Result<Vec<(&'a RefName, &'a RefTarget)>, CommandError> {
-    find_tags_with(name_patterns, |matcher| {
+    find_tags_with(ui, name_patterns, |matcher| {
         Ok(view.local_tags_matching(matcher).collect())
     })
 }
 
 fn find_tags_with<'a, V>(
+    ui: &Ui,
     name_patterns: &[StringPattern],
     mut find_matches: impl FnMut(&StringMatcher) -> Result<Vec<(&'a RefName, V)>, CommandError>,
 ) -> Result<Vec<(&'a RefName, V)>, CommandError> {
     let mut matching_tags: Vec<(&'a RefName, V)> = vec![];
-    let mut unmatched_patterns = vec![];
+    let mut unmatched_names = vec![];
     for pattern in name_patterns {
         let matches = find_matches(&pattern.to_matcher())?;
         if matches.is_empty() {
-            unmatched_patterns.push(pattern);
+            unmatched_names.extend(pattern.as_exact());
         }
         matching_tags.extend(matches);
     }
-    match &unmatched_patterns[..] {
-        [] => {
-            matching_tags.sort_unstable_by_key(|(name, _)| *name);
-            matching_tags.dedup_by_key(|(name, _)| *name);
-            Ok(matching_tags)
-        }
-        [pattern] if pattern.is_exact() => Err(user_error(format!("No such tag: {pattern}"))),
-        patterns => Err(user_error(format!(
-            "No matching tags for patterns: {}",
-            patterns.iter().join(", ")
-        ))),
+    matching_tags.sort_unstable_by_key(|(name, _)| *name);
+    matching_tags.dedup_by_key(|(name, _)| *name);
+    if !unmatched_names.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "No matching tags for names: {}",
+            unmatched_names.join(", ")
+        )?;
     }
+    Ok(matching_tags)
 }
 
 /// Warns about exact patterns that don't match local tags.

@@ -24,9 +24,9 @@ should not be broken.
   are in revsets and can be combined with logical operators: `jj bookmark
   list`, `jj tag list`
 
-* In the following commands, unmatched bookmark names is no longer an error. A
-  warning will be printed instead: `jj bookmark
-  delete`/`forget`/`move`/`track`/`untrack`
+* In the following commands, unmatched bookmark/tag names is no longer an
+  error. A warning will be printed instead: `jj bookmark
+  delete`/`forget`/`move`/`track`/`untrack`, `jj tag delete`
 
 * The default string pattern syntax in revsets will be changed to `glob:` in a
   future release. You can opt in to the new default by setting
