@@ -80,6 +80,14 @@ Selvejj is a JetBrains plugin for integrating Jujutsu as a first-class VCS withi
 
 Find it [here][selvejj].
 
+## PSCompletions
+
+PSCompletions is a completion manager for a better and simpler tab-completion experience in PowerShell.
+
+It can provide completions via `psc add jj`, or offer a better completion menu for the official completions.
+
+Find it [here][PSCompletions].
+
 <!-- TODO: Add benbrittains/cultivate when its ready -->
 ## Finding other integrations
 
@@ -99,3 +107,4 @@ You can find other community contributed tools and integrations in our
 [Wiki]: https://github.com/jj-vcs/jj/wiki
 [jjui]: https://github.com/idursun/jjui
 [selvejj]: https://selvejj.com
+[PSCompletions]: https://github.com/abgox/PSCompletions
