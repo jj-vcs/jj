@@ -32,20 +32,20 @@ control over the project.
 * This process is used to gather feedback, approval, and acceptance from
   invested jj community members. Current members of the community should be able
   to participate in voting without hardship.
-  * Current community members include code committers, code reviewers, those
-    providing user support, those providing quality, actionable feedback, those
-    providing documentation (first-party or third-party), developers of
-    jj-compatible tools and add-ons (like GUIs or IDE extensions), and those
-    providing design input and feedback.
-    * If you feel that you are a member of the community but do not fit into one
-      of these buckets, please reach out to one of the members of the working
-      group to have this list expanded.
+    * Current community members include code committers, code reviewers, those
+      providing user support, those providing quality, actionable feedback, those
+      providing documentation (first-party or third-party), developers of
+      jj-compatible tools and add-ons (like GUIs or IDE extensions), and those
+      providing design input and feedback.
+      * If you feel that you are a member of the community but do not fit into one
+        of these buckets, please reach out to one of the members of the working
+        group to have this list expanded.
 * This process **is** the primary way for general community members to influence
   governance policies and processes. It should invite constructive feedback and
   help us form policies that are acceptable to the jj group as a whole.
-  * It's intended to meet community members where they are - on GitHub and on
-    Discord, where all development occurs and most support and technical
-    discussion occurs.
+    * It's intended to meet community members where they are - on GitHub and on
+      Discord, where all development occurs and most support and technical
+      discussion occurs.
 * This is **not** a process for gaining unanimous agreement - there are too
   many of us for that to be feasible. Instead, it is a process for gaining
   widespread community approval.
@@ -116,15 +116,15 @@ proposal.
 
 * Voting occurs on GitHub using the poll feature and is advertised heavily on
   Discord during the voting period.
-  * If community members want to vote but aren't able to use GitHub, they can
-    message nasamuffin@ (on Discord, or nasamuffin at google dot com) with their
-    vote to have it manually included. Only one working group member is listed
-    in order to avoid accidental double-counting.
-  * When voting against, community members should comment on the post explaining
-    why and describe what change would be required for them to abstain or vote
-    in favor.
-  * Generally, assume that the votes may be publicly visible or may be made
-    publicly visible at a later time.
+    * If community members want to vote but aren't able to use GitHub, they can
+      message nasamuffin@ (on Discord, or nasamuffin at google dot com) with their
+      vote to have it manually included. Only one working group member is listed
+      in order to avoid accidental double-counting.
+    * When voting against, community members should comment on the post explaining
+      why and describe what change would be required for them to abstain or vote
+      in favor.
+    * Generally, assume that the votes may be publicly visible or may be made
+      publicly visible at a later time.
 * Voting is open for at least 1 week, but may be open as long as 2 weeks when
   appropriate. After that deadline, the GitHub poll will be locked.
     * The deadline must be announced at the beginning of the voting period -
@@ -133,8 +133,8 @@ proposal.
       weekends (for more participation around day jobs), for less urgent or more
       complex proposals, or to account for holidays during the voting period.
 * Participants can vote in favor or against.
-  * "Participants" means the group of community members as enumerated at the
-    beginning of this document.
+    * "Participants" means the group of community members as enumerated at the
+      beginning of this document.
 
 **Proposals with 2/3 or more votes in favor at the end of the voting period will
 be approved.**
