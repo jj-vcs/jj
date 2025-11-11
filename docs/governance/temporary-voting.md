@@ -127,11 +127,11 @@ proposal.
     publicly visible at a later time.
 * Voting is open for at least 1 week, but may be open as long as 2 weeks when
   appropriate. After that deadline, the GitHub poll will be locked.
-    * The deadline must be announced at the beginning of the voting period -
-      once voting has begun, the deadline cannot change.
-    * The working group may set the voting period longer to encompass two
-      weekends (for more participation around day jobs), for less urgent or more
-      complex proposals, or to account for holidays during the voting period.
+  * The deadline must be announced at the beginning of the voting period -
+    once voting has begun, the deadline cannot change.
+  * The working group may set the voting period longer to encompass two
+    weekends (for more participation around day jobs), for less urgent or more
+    complex proposals, or to account for holidays during the voting period.
 * Participants can vote in favor or against.
   * "Participants" means the group of community members as enumerated at the
     beginning of this document.

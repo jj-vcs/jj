@@ -374,12 +374,12 @@ they are needed.
 Here are some of the commands you may find yourself using frequently during
 development:
 
-  * `mise test`: Runs all tests.
-  * `mise test <string>`: Runs tests that contain a specific string. For
-    example, `mise test squash` would run tests with "squash" in their name.
-  * `mise build`: Compiles `jj`.
-  * `mise build:release`: Compiles `jj` in release mode.
-  * `mise build:docs`: Builds the documentation for `jj`.
+* `mise test`: Runs all tests.
+* `mise test <string>`: Runs tests that contain a specific string. For
+  example, `mise test squash` would run tests with "squash" in their name.
+* `mise build`: Compiles `jj`.
+* `mise build:release`: Compiles `jj` in release mode.
+* `mise build:docs`: Builds the documentation for `jj`.
 
 For a complete list of all available tasks, you can run `mise tasks` or review
 the configuration file at `.config/mise.toml`.

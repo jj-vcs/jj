@@ -244,10 +244,10 @@ K add foo
 
 Assuming the new files are different in each commit, we get the following trees.
 Notation:
-  * `id`is the hash of the contents (the `FileId`)
-  * The `2:bar->1:foo` means that copy ID 2 (i.e. hash of the `CopyHistory`
-    struct) has file `bar`, which was copied from copy ID `1`, where it was
-    called `foo`.
+* `id`is the hash of the contents (the `FileId`)
+* The `2:bar->1:foo` means that copy ID 2 (i.e. hash of the `CopyHistory`
+  struct) has file `bar`, which was copied from copy ID `1`, where it was
+  called `foo`.
 ```console
 Commit K:
 name: foo, id: K, copy_id: 1:foo

@@ -1832,20 +1832,20 @@ This enables features like:
 Here are some popular editors with TOML schema validation support:
 
 - VS Code
-    - Install [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)
+  - Install [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)
 
 - Neovim/Vim
-    - Use with [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) and [taplo](https://github.com/tamasfe/taplo)
+  - Use with [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) and [taplo](https://github.com/tamasfe/taplo)
 
 - Helix
-    - Install [taplo](https://github.com/tamasfe/taplo)
+  - Install [taplo](https://github.com/tamasfe/taplo)
 
 - JetBrains IDEs (IntelliJ, PyCharm, etc)
-    - Install [TOML](https://plugins.jetbrains.com/plugin/8195-toml) plugin
+  - Install [TOML](https://plugins.jetbrains.com/plugin/8195-toml) plugin
 
 - Emacs
-    - Install [lsp-mode](https://github.com/emacs-lsp/lsp-mode) and [toml-mode](https://github.com/dryman/toml-mode.el)
-    - Configure [taplo](https://github.com/tamasfe/taplo) as the LSP server
+  - Install [lsp-mode](https://github.com/emacs-lsp/lsp-mode) and [toml-mode](https://github.com/dryman/toml-mode.el)
+  - Configure [taplo](https://github.com/tamasfe/taplo) as the LSP server
 
 ### Specifying config on the command-line
 

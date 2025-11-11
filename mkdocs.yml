@@ -109,7 +109,6 @@ markdown_extensions:
       slugify: !!python/object/apply:pymdownx.slugs.slugify
         kwds:
           case: lower
-  - sane_lists
   - toc:
       permalink: true
 

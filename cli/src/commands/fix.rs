@@ -72,12 +72,12 @@ use crate::ui::Ui;
 ///  - `command`: The arguments used to run the tool. The first argument is the
 ///    path to an executable file. Arguments can contain these variables that
 ///    will be replaced:
-///      - `$root` will be replaced with the workspace root path (the directory
-///        containing the .jj directory).
-///      - `$path` will be replaced with the repo-relative path of the file
-///        being fixed. It is useful to provide the path to tools that include
-///        the path in error messages, or behave differently based on the
-///        directory or file name.
+///    - `$root` will be replaced with the workspace root path (the directory
+///      containing the .jj directory).
+///    - `$path` will be replaced with the repo-relative path of the file being
+///      fixed. It is useful to provide the path to tools that include the path
+///      in error messages, or behave differently based on the directory or file
+///      name.
 ///  - `patterns`: Determines which files the tool will affect. If this list is
 ///    empty, no files will be affected by the tool. If there are multiple
 ///    patterns, the tool is applied only once to each file in the union of the
