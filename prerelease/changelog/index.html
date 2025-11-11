@@ -6110,8 +6110,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   description even if one was provided via <code>--message</code>/<code>-m</code>.</p>
 </li>
 <li>
-<p>All <code>jj</code> commands show a warning when the provided <code>fileset</code> expression 
+<p>All <code>jj</code> commands show a warning when the provided <code>fileset</code> expression
   doesn't match any files.</p>
+</li>
+<li>
+<p><code>RepoPath</code> template type now has a <code>absolute() -&gt; String</code> method that returns
+  the absolute path as a string.</p>
 </li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
