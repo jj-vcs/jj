@@ -18,11 +18,13 @@ use std::io::Write as _;
 use std::num::NonZeroU32;
 use std::path::Path;
 
+use itertools::Itertools as _;
 use jj_lib::git;
 use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitSettings;
 use jj_lib::git::expand_fetch_refspecs;
+use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
@@ -107,8 +109,8 @@ pub struct GitCloneArgs {
     /// By default, the specified name matches exactly. Use `glob:` prefix to
     /// expand `*` as a glob, e.g. `--branch 'glob:push-*'`. Other wildcard
     /// characters such as `?` are *not* supported. Can be repeated to specify
-    /// multiple branches, in which case the first match of the first `--branch`
-    /// argument is used as the working-copy parent.
+    /// multiple branches, in which case the first exact branch name is used as
+    /// the working-copy parent.
     #[arg(
         long, short,
         alias = "bookmark",
@@ -352,40 +354,49 @@ fn fetch_new_remote(
         (default_branch, import_stats)
     };
 
-    let working_branch = match target_branches {
-        Some(target_branches) => {
-            // Ensure that all targets match at least one branch, and record the matching
-            // branch for the first target
-            let mut first_match = None;
-            for pattern in target_branches {
-                let mut bookmarks = tx.repo().view().remote_bookmarks(remote_name);
-                let Some((bookmark, _)) =
-                    bookmarks.find(|(bookmark, _)| pattern.is_match(bookmark.as_str()))
-                else {
-                    return Err(user_error(format!(
-                        "No such branch matching pattern: {pattern}",
-                    )));
-                };
-                if first_match.is_none() {
-                    first_match = Some(bookmark.to_owned());
-                }
-            }
-            first_match
+    // Warn unmatched exact patterns, and record the first matching branch as
+    // the working branch. If there are no matching exact patterns, use the
+    // default branch of the remote.
+    let mut missing_branches = vec![];
+    let mut working_branch = None;
+    let exact_bookmarks = target_branches
+        .into_iter()
+        .flatten()
+        .filter_map(StringPattern::as_exact)
+        .map(RefName::new);
+    for name in exact_bookmarks {
+        let symbol = name.to_remote_symbol(remote_name);
+        if tx.repo().view().get_remote_bookmark(symbol).is_absent() {
+            missing_branches.push(name);
+        } else if working_branch.is_none() {
+            working_branch = Some(name);
         }
-        None => default_branch.clone(),
-    };
+    }
+    if working_branch.is_none() {
+        working_branch = default_branch.as_deref().filter(|name| {
+            let symbol = name.to_remote_symbol(remote_name);
+            tx.repo().view().get_remote_bookmark(symbol).is_present()
+        });
+    }
+    if !missing_branches.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "No matching branches found on remote: {}",
+            missing_branches
+                .iter()
+                .map(|name| name.as_symbol())
+                .join(", ")
+        )?;
+    }
 
-    let working_is_default = working_branch == default_branch;
-    if let Some(name) = &working_branch
+    let working_is_default = working_branch == default_branch.as_deref();
+    if let Some(name) = working_branch
         && working_is_default
         && should_track_default
     {
         // For convenience, create local bookmark as Git would do.
         let remote_symbol = name.to_remote_symbol(remote_name);
-        let remote_ref = tx.repo().get_remote_bookmark(remote_symbol);
-        if remote_ref.is_present() {
-            tx.repo_mut().track_remote_bookmark(remote_symbol)?;
-        }
+        tx.repo_mut().track_remote_bookmark(remote_symbol)?;
     }
     print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
     if git_settings.auto_local_bookmark && !should_track_default {
@@ -396,5 +407,5 @@ fn fetch_new_remote(
         )?;
     }
     tx.finish(ui, "fetch from git remote into empty repo")?;
-    Ok((working_branch, working_is_default))
+    Ok((working_branch.map(ToOwned::to_owned), working_is_default))
 }

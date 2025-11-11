@@ -1214,9 +1214,9 @@ fn test_git_clone_branch() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone_no_such_branch"
-    Error: No such branch matching pattern: nonexistent_branch
+    Warning: No matching branches found on remote: nonexistent_branch
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     "#);
 
     // Clone a specific, non-default branch
@@ -1246,6 +1246,20 @@ fn test_git_clone_branch() {
     Nothing changed.
     [EOF]
     ");
+
+    // Clone all branches explicitly, the default branch should be checked out
+    let output = root_dir.run_jj(["git", "clone", "source", "clone_all", "--branch=glob:*"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone_all"
+    bookmark: feature1@origin [new] tracked
+    bookmark: main@origin     [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: zxsnswpr 56139679 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
 }
 
 #[test]
