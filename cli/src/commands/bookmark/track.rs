@@ -59,7 +59,7 @@ pub fn cmd_bookmark_track(
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
     let mut symbols = Vec::new();
-    for (symbol, remote_ref) in find_trackable_remote_bookmarks(repo.view(), &args.names)? {
+    for (symbol, remote_ref) in find_trackable_remote_bookmarks(ui, repo.view(), &args.names)? {
         if remote_ref.is_tracked() {
             writeln!(
                 ui.warning_default(),

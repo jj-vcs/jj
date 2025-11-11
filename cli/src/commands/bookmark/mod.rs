@@ -58,7 +58,6 @@ use self::untrack::cmd_bookmark_untrack;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RemoteBookmarkNamePattern;
 use crate::command_error::CommandError;
-use crate::command_error::user_error;
 use crate::ui::Ui;
 
 // Unlike most other aliases, `b` is defined in the config and can be overridden
@@ -146,11 +145,12 @@ fn find_bookmarks_with<'a, V>(
 }
 
 fn find_trackable_remote_bookmarks<'a>(
+    ui: &Ui,
     view: &'a View,
     name_patterns: &[RemoteBookmarkNamePattern],
 ) -> Result<Vec<(RemoteRefSymbol<'a>, &'a RemoteRef)>, CommandError> {
     let mut matching_bookmarks = vec![];
-    let mut unmatched_patterns = vec![];
+    let mut unmatched_symbols = vec![];
     for pattern in name_patterns {
         let bookmark_matcher = pattern.bookmark.to_matcher();
         let remote_matcher = pattern.remote.to_matcher();
@@ -165,24 +165,20 @@ fn find_trackable_remote_bookmarks<'a>(
                 });
         let mut matches = itertools::chain(present_or_tracked_matches, absent_matches).peekable();
         if matches.peek().is_none() {
-            unmatched_patterns.push(pattern);
+            unmatched_symbols.extend(pattern.as_exact());
         }
         matching_bookmarks.extend(matches);
     }
-    match &unmatched_patterns[..] {
-        [] => {
-            matching_bookmarks.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
-            matching_bookmarks.dedup_by(|(sym1, _), (sym2, _)| sym1 == sym2);
-            Ok(matching_bookmarks)
-        }
-        [pattern] if pattern.is_exact() => {
-            Err(user_error(format!("No such remote bookmark: {pattern}")))
-        }
-        patterns => Err(user_error(format!(
-            "No matching remote bookmarks for patterns: {}",
-            patterns.iter().join(", ")
-        ))),
+    matching_bookmarks.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
+    matching_bookmarks.dedup_by(|(sym1, _), (sym2, _)| sym1 == sym2);
+    if !unmatched_symbols.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "No matching remote bookmarks for names: {}",
+            unmatched_symbols.iter().join(", ")
+        )?;
     }
+    Ok(matching_bookmarks)
 }
 
 fn is_fast_forward(

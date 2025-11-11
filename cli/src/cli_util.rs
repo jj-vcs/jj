@@ -86,6 +86,7 @@ use jj_lib::operation::Operation;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
+use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::CheckOutCommitError;
@@ -3137,8 +3138,10 @@ impl FromStr for RemoteBookmarkNamePattern {
 }
 
 impl RemoteBookmarkNamePattern {
-    pub fn is_exact(&self) -> bool {
-        self.bookmark.is_exact() && self.remote.is_exact()
+    pub fn as_exact(&self) -> Option<RemoteRefSymbol<'_>> {
+        let bookmark = RefName::new(self.bookmark.as_exact()?);
+        let remote = RemoteName::new(self.remote.as_exact()?);
+        Some(bookmark.to_remote_symbol(remote))
     }
 }
 

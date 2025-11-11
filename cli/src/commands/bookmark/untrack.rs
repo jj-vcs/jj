@@ -59,7 +59,7 @@ pub fn cmd_bookmark_untrack(
     let repo = workspace_command.repo().clone();
     let ignored_remote = default_ignored_remote_name(repo.store());
     let mut symbols = Vec::new();
-    for (symbol, remote_ref) in find_trackable_remote_bookmarks(repo.view(), &args.names)? {
+    for (symbol, remote_ref) in find_trackable_remote_bookmarks(ui, repo.view(), &args.names)? {
         if ignored_remote.is_some_and(|ignored| symbol.remote == ignored) {
             // This restriction can be lifted if we want to support untracked @git
             // bookmarks.
