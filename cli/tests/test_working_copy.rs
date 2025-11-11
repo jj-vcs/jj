@@ -538,3 +538,74 @@ fn test_submodule_ignored() {
     let output = work_dir.run_jj(["diff", "--summary"]);
     insta::assert_snapshot!(output, @"");
 }
+
+#[test]
+fn test_snapshot_jjconflict_trees() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "repo", "--colocate"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a conflict in the working copy
+    work_dir.write_file(
+        "file",
+        indoc! {"
+            line 1
+            line 2
+            line 3
+        "},
+    );
+    work_dir.run_jj(["new", "-m", "side-a"]).success();
+    work_dir.write_file(
+        "file",
+        indoc! {"
+            line 1
+            line 2 - left
+            line 3 - left
+        "},
+    );
+    work_dir
+        .run_jj(["new", "subject(side-a)-", "-m", "side-b"])
+        .success();
+    work_dir.write_file(
+        "file",
+        indoc! {"
+            line 1
+            line 2 - right
+            line 3
+        "},
+    );
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj(["rebase", "-s", "subject(side-b)", "-o", "subject(side-a)"])
+        .success();
+
+    // Run `git reset --hard HEAD` to simulate checking out the branch with Git.
+    let output = std::process::Command::new("git")
+        .current_dir(work_dir.root())
+        .args(["reset", "--hard", "HEAD"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    // We should see a warning regarding '.jjconflict' trees being checked out.
+    let output = work_dir.run_jj(["st"]);
+    insta::assert_snapshot!(output.to_string().replace('\\', "/"), @r"
+    Working copy changes:
+    A .jjconflict-base-0/file
+    A .jjconflict-side-0/file
+    A .jjconflict-side-1/file
+    A JJ-CONFLICT-README
+    M file
+    Working copy  (@) : zsuskuln 2681a418 (no description set)
+    Parent commit (@-): kkmpptxz aadeb8eb (conflict) side-b
+    Hint: Conflict in parent commit has been resolved in working copy
+    [EOF]
+    ------- stderr -------
+    Warning: The working copy contains '.jjconflict' files. These files are used by `jj` internally and should not be present in the working copy.
+    Hint: You may have used a regular `git` command to check out a conflicted commit.
+    Hint: You can use `jj abandon` to discard the working copy changes.
+    [EOF]
+    ");
+}
