@@ -19,6 +19,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Debug;
+use std::iter;
 use std::ops::Deref;
 
 use bstr::ByteSlice as _;
@@ -424,6 +425,35 @@ impl StringExpression {
     /// Expression that matches both `self` and `other`.
     pub fn intersection(self, other: Self) -> Self {
         Self::Intersection(Box::new(self), Box::new(other))
+    }
+
+    fn dfs_pre(&self) -> impl Iterator<Item = &Self> {
+        let mut stack: Vec<&Self> = vec![self];
+        iter::from_fn(move || {
+            let expr = stack.pop()?;
+            match expr {
+                Self::Pattern(_) => {}
+                Self::NotIn(expr) => stack.push(expr),
+                Self::Union(expr1, expr2) | Self::Intersection(expr1, expr2) => {
+                    stack.push(expr2);
+                    stack.push(expr1);
+                }
+            }
+            Some(expr)
+        })
+    }
+
+    /// Iterates exact string patterns recursively from this expression.
+    ///
+    /// For example, `"a", "b", "c"` will be yielded in that order for
+    /// expression `"a" | glob:"?" & "b" | ~"c"`.
+    pub fn exact_strings(&self) -> impl Iterator<Item = &str> {
+        // pre/post-ordering doesn't matter so long as children are visited from
+        // left to right.
+        self.dfs_pre().filter_map(|expr| match expr {
+            Self::Pattern(pattern) => pattern.as_exact(),
+            _ => None,
+        })
     }
 
     /// Transforms the expression tree to matcher object.
@@ -920,6 +950,27 @@ mod tests {
             ),
         )
         "#);
+    }
+
+    #[test]
+    fn test_exact_strings_in_expression() {
+        assert_eq!(
+            StringExpression::all().exact_strings().collect_vec(),
+            [""; 0]
+        );
+        assert_eq!(
+            StringExpression::union_all(vec![
+                StringExpression::exact("a"),
+                StringExpression::substring("b"),
+                StringExpression::intersection(
+                    StringExpression::exact("c"),
+                    StringExpression::exact("d").negated(),
+                ),
+            ])
+            .exact_strings()
+            .collect_vec(),
+            ["a", "c", "d"]
+        );
     }
 
     #[test]
