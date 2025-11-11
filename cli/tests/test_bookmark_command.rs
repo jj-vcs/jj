@@ -1239,9 +1239,9 @@ fn test_bookmark_track_untrack() {
     let output = work_dir.run_jj(["bookmark", "track", "feature3@origin"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No such remote bookmark: feature3@origin
+    Warning: No matching remote bookmarks for names: feature3@origin
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
 
     // Track existing bookmark. Local bookmark should result in conflict.
@@ -1521,16 +1521,15 @@ fn test_bookmark_track_untrack_patterns() {
     // Track/untrack unknown bookmark
     insta::assert_snapshot!(work_dir.run_jj(["bookmark", "track", "glob:maine@*"]), @r"
     ------- stderr -------
-    Error: No matching remote bookmarks for patterns: maine@*
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
     insta::assert_snapshot!(
         work_dir.run_jj(["bookmark", "untrack", "maine@origin", "glob:maine@o*"]), @r"
     ------- stderr -------
-    Error: No matching remote bookmarks for patterns: maine@origin, maine@o*
+    Warning: No matching remote bookmarks for names: maine@origin
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
 
     // Track already tracked bookmark
