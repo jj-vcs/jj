@@ -1185,7 +1185,7 @@ fn test_git_clone_branch() {
         "refs/heads/feature1",
         "file",
         b"content",
-        "message",
+        "feature1 message",
         &[],
     );
 
@@ -1232,8 +1232,8 @@ fn test_git_clone_branch() {
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone_non_default"
     bookmark: feature1@origin [new] tracked
-    Working copy  (@) now at: pmmvwywv ea9c2659 (empty) (no description set)
-    Parent commit (@-)      : qomsplrm ebeb70d8 feature1 | message
+    Working copy  (@) now at: pmmvwywv d16a31e5 (empty) (no description set)
+    Parent commit (@-)      : yxwyzxtq 14835edf feature1 | feature1 message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
