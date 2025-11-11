@@ -731,20 +731,20 @@ fn test_git_push_multiple() {
     [EOF]
     ");
 
-    // Unmatched bookmark name is error
+    // Unmatched bookmark name
     let output = work_dir.run_jj(["git", "push", "-b=foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No such bookmark: foo
+    Warning: No matching bookmarks for names: foo
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
     let output = work_dir.run_jj(["git", "push", "-b=foo", "-b=glob:?bookmark"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No matching bookmarks for patterns: foo, ?bookmark
+    Warning: No matching bookmarks for names: foo
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
 
     // --deleted is required to push deleted bookmarks even with --all
@@ -1825,9 +1825,9 @@ fn test_git_push_deleted_untracked() {
     let output = work_dir.run_jj(["git", "push", "--bookmark=bookmark1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No such bookmark: bookmark1
+    Warning: No matching bookmarks for names: bookmark1
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
 }
 

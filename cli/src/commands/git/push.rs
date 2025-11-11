@@ -344,7 +344,7 @@ pub fn cmd_git_push(
         let view = tx.repo().view();
         // TODO: Delete in jj 0.42.0+
         let allow_new = args.allow_new || tx.settings().get("git.push-new-bookmarks")?;
-        let bookmarks_by_name = find_bookmarks_to_push(view, &args.bookmark, remote)?;
+        let bookmarks_by_name = find_bookmarks_to_push(ui, view, &args.bookmark, remote)?;
         for &(name, targets) in &bookmarks_by_name {
             if !seen_bookmarks.insert(name) {
                 continue;
@@ -937,12 +937,13 @@ fn create_change_bookmarks(
 }
 
 fn find_bookmarks_to_push<'a>(
+    ui: &Ui,
     view: &'a View,
     bookmark_patterns: &[StringPattern],
     remote: &RemoteName,
 ) -> Result<Vec<(&'a RefName, LocalAndRemoteRef<'a>)>, CommandError> {
     let mut matching_bookmarks = vec![];
-    let mut unmatched_patterns = vec![];
+    let mut unmatched_names = vec![];
     for pattern in bookmark_patterns {
         let matcher = pattern.to_matcher();
         let mut matches = view
@@ -954,18 +955,18 @@ fn find_bookmarks_to_push<'a>(
             })
             .peekable();
         if matches.peek().is_none() {
-            unmatched_patterns.push(pattern);
+            unmatched_names.extend(pattern.as_exact());
         }
         matching_bookmarks.extend(matches);
     }
-    match &unmatched_patterns[..] {
-        [] => Ok(matching_bookmarks),
-        [pattern] if pattern.is_exact() => Err(user_error(format!("No such bookmark: {pattern}"))),
-        patterns => Err(user_error(format!(
-            "No matching bookmarks for patterns: {}",
-            patterns.iter().join(", ")
-        ))),
+    if !unmatched_names.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "No matching bookmarks for names: {}",
+            unmatched_names.join(", ")
+        )?;
     }
+    Ok(matching_bookmarks)
 }
 
 fn find_bookmarks_targeted_by_revisions<'a>(
