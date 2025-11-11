@@ -1100,7 +1100,7 @@ fn test_git_fetch_bookmarks_some_missing() {
     let output = work_dir.run_jj(["git", "fetch", "--branch", "noexist"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No branch matching `noexist` found on any specified/configured remote
+    Warning: No matching branches found on any specified/configured remote: noexist
     Nothing changed.
     [EOF]
     ");
@@ -1112,7 +1112,7 @@ fn test_git_fetch_bookmarks_some_missing() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No branch matching `noexist1`, `noexist2` found on any specified/configured remote
+    Warning: No matching branches found on any specified/configured remote: noexist1, noexist2
     Nothing changed.
     [EOF]
     ");
@@ -1162,7 +1162,7 @@ fn test_git_fetch_bookmarks_some_missing() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No branch matching `notexist` found on any specified/configured remote
+    Warning: No matching branches found on any specified/configured remote: notexist
     Nothing changed.
     [EOF]
     ");
@@ -1200,7 +1200,7 @@ fn test_git_fetch_bookmarks_missing_with_subprocess_localized_message() {
     });
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No branch matching `unknown` found on any specified/configured remote
+    Warning: No matching branches found on any specified/configured remote: unknown
     Nothing changed.
     [EOF]
     ");
@@ -1662,7 +1662,7 @@ fn test_git_fetch_removed_parent_bookmark() {
     bookmark: a1@origin     [deleted] untracked
     bookmark: trunk1@origin [deleted] untracked
     Abandoned 1 commits that are no longer reachable.
-    Warning: No branch matching `master` found on any specified/configured remote
+    Warning: No matching branches found on any specified/configured remote: master
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"

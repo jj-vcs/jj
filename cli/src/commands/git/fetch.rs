@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::collections::HashSet;
+use std::io;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
@@ -25,9 +26,9 @@ use jj_lib::git::IgnoredRefspecs;
 use jj_lib::git::expand_default_fetch_refspecs;
 use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::git::get_git_backend;
+use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
-use jj_lib::str_util::StringMatcher;
 use jj_lib::str_util::StringPattern;
 
 use crate::cli_util::CommandHelper;
@@ -220,38 +221,29 @@ fn warn_if_branches_not_found(
     tx: &WorkspaceCommandTransaction,
     branches: &[StringPattern],
     remotes: &[&RemoteName],
-) -> Result<(), CommandError> {
-    let mut missing_branches = vec![];
-    for branch in branches {
-        let branch_matcher = branch.to_matcher();
-        let matches = remotes.iter().any(|&remote| {
-            let remote_matcher = StringMatcher::exact(remote);
-            tx.repo()
-                .view()
-                .remote_bookmarks_matching(&branch_matcher, &remote_matcher)
-                .next()
-                .is_some()
-                || tx
-                    .base_repo()
-                    .view()
-                    .remote_bookmarks_matching(&branch_matcher, &remote_matcher)
-                    .next()
-                    .is_some()
-        });
-        if !matches {
-            missing_branches.push(branch);
-        }
+) -> io::Result<()> {
+    let mut missing_branches = branches
+        .iter()
+        .filter_map(StringPattern::as_exact)
+        .map(RefName::new)
+        .filter(|name| {
+            remotes.iter().all(|&remote| {
+                let symbol = name.to_remote_symbol(remote);
+                let view = tx.repo().view();
+                let base_view = tx.base_repo().view();
+                view.get_remote_bookmark(symbol).is_absent()
+                    && base_view.get_remote_bookmark(symbol).is_absent()
+            })
+        })
+        .peekable();
+    if missing_branches.peek().is_none() {
+        return Ok(());
     }
-
-    if !missing_branches.is_empty() {
-        writeln!(
-            ui.warning_default(),
-            "No branch matching {} found on any specified/configured remote",
-            missing_branches.iter().map(|b| format!("`{b}`")).join(", ")
-        )?;
-    }
-
-    Ok(())
+    writeln!(
+        ui.warning_default(),
+        "No matching branches found on any specified/configured remote: {}",
+        missing_branches.map(|name| name.as_symbol()).join(", ")
+    )
 }
 
 fn warn_ignored_refspecs(
