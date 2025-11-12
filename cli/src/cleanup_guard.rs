@@ -88,8 +88,8 @@ mod platform {
             });
 
             SIGNAL_SEND = send.into_raw_fd();
-            libc::signal(SIGINT, handler as libc::sighandler_t);
-            libc::signal(SIGTERM, handler as libc::sighandler_t);
+            libc::signal(SIGINT, handler as *const () as libc::sighandler_t);
+            libc::signal(SIGTERM, handler as *const () as libc::sighandler_t);
             Ok(())
         }
     }
