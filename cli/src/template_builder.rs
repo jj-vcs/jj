@@ -1894,8 +1894,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
                             TemplateParseError::expression("Invalid time format", node.span)
                         })
                     },
-                )?
-                .into_owned();
+                )?;
                 let out_property = self_property.and_then(move |timestamp| {
                     Ok(time_util::format_absolute_timestamp_with(
                         &timestamp, &format,
@@ -1936,7 +1935,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             let tz_offset = std::env::var("JJ_TZ_OFFSET_MINS")
                 .ok()
                 .and_then(|tz_string| tz_string.parse::<i32>().ok())
-                .unwrap_or_else(|| chrono::Local::now().offset().local_minus_utc() / 60);
+                .unwrap_or_else(|| jiff::Zoned::now().offset().seconds() / 60);
             let out_property = self_property.map(move |mut timestamp| {
                 timestamp.tz_offset = tz_offset;
                 timestamp
@@ -1948,7 +1947,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         "after",
         |_language, diagnostics, _build_ctx, self_property, function| {
             let [date_pattern_node] = function.expect_exact_arguments()?;
-            let now = chrono::Local::now();
+            let now = jiff::Zoned::now();
             let date_pattern = template_parser::catch_aliases(
                 diagnostics,
                 date_pattern_node,
@@ -5418,6 +5417,12 @@ mod tests {
                 },
             })
         });
+        env.add_keyword("timestamp_millis", || {
+            literal(Timestamp {
+                timestamp: MillisSinceEpoch(1_234),
+                tz_offset: 90,
+            })
+        });
 
         insta::assert_snapshot!(env.render_ok(r#"json(ascii_bstr)"#), @"[102,111,111]");
         insta::assert_snapshot!(env.render_ok(r#"json('"quoted"')"#), @r#""\"quoted\"""#);
@@ -5436,6 +5441,9 @@ mod tests {
             @r#"{"name":"Test User","email":"test.user@example.com","timestamp":"1970-01-01T00:00:00Z"}"#);
         insta::assert_snapshot!(env.render_ok("json(size_hint)"), @"[5,null]");
         insta::assert_snapshot!(env.render_ok("json(timestamp)"), @r#""1970-01-01T00:00:00Z""#);
+        insta::assert_snapshot!(
+            env.render_ok("json(timestamp_millis)"),
+            @r#""1970-01-01T01:30:01.234+01:30""#);
         insta::assert_snapshot!(
             env.render_ok("json(timestamp_range)"),
             @r#"{"start":"1970-01-01T00:00:00Z","end":"1970-01-01T23:00:00-01:00"}"#);

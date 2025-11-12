@@ -28,7 +28,6 @@ name = "runner"
 async-trait = { workspace = true }
 blake2 = { workspace = true }
 bstr = { workspace = true }
-chrono = { workspace = true }
 clru = { workspace = true }
 digest = { workspace = true }
 dunce = { workspace = true }
@@ -40,6 +39,7 @@ globset = { workspace = true }
 indexmap = { workspace = true }
 interim = { workspace = true }
 itertools = { workspace = true }
+jiff = { workspace = true }
 jj-core = { workspace = true }
 maplit = { workspace = true }
 memchr = { workspace = true }

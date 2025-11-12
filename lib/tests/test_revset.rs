@@ -18,9 +18,10 @@ use std::iter;
 use std::path::Path;
 use std::sync::Arc;
 
-use chrono::DateTime;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
+use jiff::Zoned;
+use jiff::tz;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::MillisSinceEpoch;
@@ -65,6 +66,7 @@ use jj_lib::revset::parse;
 use jj_lib::settings::SignBehavior;
 use jj_lib::signing::Signer;
 use jj_lib::test_signing_backend::TestSigningBackend;
+use jj_lib::time_util;
 use jj_lib::ui_path::RepoPathUiConverter;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
@@ -101,7 +103,7 @@ fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, Revset
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: "",
-        date_pattern_context: chrono::Local::now().into(),
+        current_time: Zoned::now(),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         fileset_aliases_map: &FilesetAliasesMap::new(),
         extensions: &RevsetExtensions::default(),
@@ -235,7 +237,7 @@ fn test_resolve_symbol_commit_id() -> TestResult {
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
-        date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+        current_time: jiff::Timestamp::now().to_zoned(tz::TimeZone::UTC),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         fileset_aliases_map: &FilesetAliasesMap::new(),
         extensions: &RevsetExtensions::default(),
@@ -1064,7 +1066,7 @@ fn try_resolve_expression<'a>(
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
-        date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+        current_time: jiff::Timestamp::UNIX_EPOCH.to_zoned(tz::TimeZone::UTC),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         fileset_aliases_map: &FilesetAliasesMap::new(),
         extensions: &RevsetExtensions::default(),
@@ -1114,7 +1116,7 @@ fn resolve_commit_ids_in_workspace(
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
-        date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+        current_time: jiff::Timestamp::now().to_zoned(tz::TimeZone::UTC),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         fileset_aliases_map: &FilesetAliasesMap::new(),
         extensions: &RevsetExtensions::default(),
@@ -3842,7 +3844,7 @@ fn test_evaluate_expression_author() {
 }
 
 fn parse_timestamp(s: &str) -> Timestamp {
-    Timestamp::from_datetime(s.parse::<DateTime<chrono::FixedOffset>>().unwrap())
+    time_util::parse_datetime(s).unwrap()
 }
 
 #[test]

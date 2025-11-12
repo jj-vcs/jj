@@ -30,11 +30,6 @@ assert_cmd = "2.2.2"
 async-trait = "0.1.89"
 blake2 = "0.11.0"
 bstr = { version = "1.12.1", features = ["serde"] }
-chrono = { version = "0.4.44", default-features = false, features = [
-    "std",
-    "clock",
-    "serde",
-] }
 clap = { version = "4.6.1", features = [
     "derive",
     "deprecated",
@@ -73,8 +68,9 @@ hashbrown = { version = "0.17.1", default-features = false, features = ["inline-
 indexmap = { version = "2.14.0", features = ["serde"] }
 indoc = "2.0.7"
 insta = { version = "1.47.2", features = ["filters"] }
-interim = { version = "0.2.1", features = ["chrono_0_4"] }
+interim = { version = "0.2.1", features = ["jiff_0_2"] }
 itertools = "0.15.0"
+jiff = { version = "0.2", features = ["serde"] }
 jsonschema = { version = "0.56.0", default-features = false }
 libc = { version = "0.2.186" }
 maplit = "1.0.2"

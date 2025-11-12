@@ -20,7 +20,6 @@ harness = false
 async-trait = { workspace = true }
 blake2 = { workspace = true }
 bstr = { workspace = true }
-chrono = { workspace = true }
 clru = { workspace = true }
 digest = { workspace = true }
 either = { workspace = true }
@@ -29,6 +28,7 @@ globset = { workspace = true }
 hashbrown = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
+jiff = { workspace = true }
 jj-core-proc-macros = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }
