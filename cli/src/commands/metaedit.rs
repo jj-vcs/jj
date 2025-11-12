@@ -19,7 +19,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::Timestamp;
 use jj_lib::commit::Commit;
 use jj_lib::object_id::ObjectId as _;
-use jj_lib::time_util::parse_datetime;
+use jj_lib::time_util;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -109,7 +109,7 @@ pub(crate) struct MetaeditArgs {
     #[arg(
         long,
         conflicts_with = "update_author_timestamp",
-        value_parser = parse_datetime
+        value_parser = time_util::parse_datetime
     )]
     author_timestamp: Option<Timestamp>,
 

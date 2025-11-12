@@ -33,7 +33,6 @@ harness = false
 async-trait = { workspace = true }
 blake2 = { workspace = true }
 bstr = { workspace = true }
-chrono = { workspace = true }
 clru = { workspace = true }
 digest = { workspace = true }
 dunce = { workspace = true }
@@ -47,6 +46,7 @@ ignore = { workspace = true }
 indexmap = { workspace = true }
 interim = { workspace = true }
 itertools = { workspace = true }
+jiff = { workspace = true }
 jj-lib-proc-macros = { workspace = true }
 maplit = { workspace = true }
 once_cell = { workspace = true }
