@@ -24,9 +24,11 @@ use std::pin::Pin;
 use std::slice;
 
 use async_trait::async_trait;
-use chrono::TimeZone as _;
 use futures::AsyncRead;
 use futures::stream::BoxStream;
+use jiff::Zoned;
+use jiff::tz::Offset;
+use jiff::tz::TimeZone;
 use smallvec::SmallVec;
 use thiserror::Error;
 
@@ -91,7 +93,7 @@ impl CopyId {
     }
 }
 
-/// Error that may occur when converting a `Timestamp` to a `Datetime``.
+/// Error that may occur when converting a `Timestamp` to a `Zoned`.
 #[derive(Debug, Error)]
 #[error("Out-of-range date")]
 pub struct TimestampOutOfRange;
@@ -112,38 +114,25 @@ pub struct Timestamp {
 impl Timestamp {
     /// Returns the current local time as a `Timestamp`.
     pub fn now() -> Self {
-        Self::from_datetime(chrono::offset::Local::now())
+        Self::from_zoned(Zoned::now())
     }
 
-    /// Creates a `Timestamp` from the given `DateTime`.
-    pub fn from_datetime<Tz: chrono::TimeZone<Offset = chrono::offset::FixedOffset>>(
-        datetime: chrono::DateTime<Tz>,
-    ) -> Self {
+    /// Creates a `Timestamp` from the given `Zoned`.
+    pub fn from_zoned(zoned: Zoned) -> Self {
         Self {
-            timestamp: MillisSinceEpoch(datetime.timestamp_millis()),
-            tz_offset: datetime.offset().local_minus_utc() / 60,
+            timestamp: MillisSinceEpoch(zoned.timestamp().as_millisecond()),
+            tz_offset: zoned.offset().seconds() / 60,
         }
     }
 
-    /// Converts this `Timestamp` to a `DateTime`.
-    pub fn to_datetime(
-        &self,
-    ) -> Result<chrono::DateTime<chrono::FixedOffset>, TimestampOutOfRange> {
-        let utc = match chrono::Utc.timestamp_opt(
-            self.timestamp.0.div_euclid(1000),
-            (self.timestamp.0.rem_euclid(1000)) as u32 * 1000000,
-        ) {
-            chrono::LocalResult::None => {
-                return Err(TimestampOutOfRange);
-            }
-            chrono::LocalResult::Single(x) => x,
-            chrono::LocalResult::Ambiguous(y, _z) => y,
-        };
-
-        Ok(utc.with_timezone(
-            &chrono::FixedOffset::east_opt(self.tz_offset * 60)
-                .unwrap_or_else(|| chrono::FixedOffset::east_opt(0).unwrap()),
-        ))
+    /// Converts this `Timestamp` to a `Zoned`.
+    pub fn to_zoned(&self) -> Result<Zoned, TimestampOutOfRange> {
+        let timestamp =
+            jiff::Timestamp::from_millisecond(self.timestamp.0).map_err(|_| TimestampOutOfRange)?;
+        let offset = Offset::from_seconds(self.tz_offset * 60)
+            .unwrap_or_else(|_| Offset::from_seconds(0).unwrap());
+        let tz = TimeZone::fixed(offset);
+        Ok(timestamp.to_zoned(tz))
     }
 }
 
@@ -153,8 +142,23 @@ impl serde::Serialize for Timestamp {
         S: serde::Serializer,
     {
         // TODO: test is_human_readable() to use raw format?
-        let t = self.to_datetime().map_err(serde::ser::Error::custom)?;
-        t.serialize(serializer)
+        let t = self.to_zoned().map_err(serde::ser::Error::custom)?;
+        let fraction = if t.subsec_nanosecond() == 0 {
+            ""
+        } else {
+            "%.3f"
+        };
+        // Format as RFC 3339 without the timezone annotation in square brackets
+        // to maintain backward compatibility with chrono's format
+        let rfc3339 = if t.offset().seconds() == 0 {
+            // Use "Z" for UTC to match chrono's behavior
+            t.strftime(&format!("%Y-%m-%dT%H:%M:%S{fraction}Z"))
+                .to_string()
+        } else {
+            t.strftime(&format!("%Y-%m-%dT%H:%M:%S{fraction}%:z"))
+                .to_string()
+        };
+        rfc3339.serialize(serializer)
     }
 }
 
