@@ -171,10 +171,14 @@ impl TestEnvironment {
         let mut command_number = self.command_number.borrow_mut();
         *command_number += 1;
         cmd.env("JJ_RANDOMNESS_SEED", command_number.to_string());
-        let timestamp = chrono::DateTime::parse_from_rfc3339("2001-02-03T04:05:06+07:00").unwrap();
-        let timestamp = timestamp + chrono::Duration::try_seconds(*command_number).unwrap();
-        cmd.env("JJ_TIMESTAMP", timestamp.to_rfc3339());
-        cmd.env("JJ_OP_TIMESTAMP", timestamp.to_rfc3339());
+        let base_ts: jiff::Timestamp = "2001-02-03T04:05:06+07:00".parse().unwrap();
+        let zoned = base_ts
+            .checked_add(jiff::SignedDuration::from_secs(*command_number))
+            .unwrap()
+            .to_zoned(jiff::tz::TimeZone::fixed(jiff::tz::offset(7)));
+        let timestamp_str = zoned.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string();
+        cmd.env("JJ_TIMESTAMP", &timestamp_str);
+        cmd.env("JJ_OP_TIMESTAMP", &timestamp_str);
         for (key, value) in &self.env_vars {
             cmd.env(key, value);
         }

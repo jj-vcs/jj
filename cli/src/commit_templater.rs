@@ -3232,6 +3232,7 @@ mod tests {
     use std::path::Component;
     use std::path::PathBuf;
 
+    use jiff::tz::TimeZone;
     use jj_lib::backend::CopyId;
     use jj_lib::backend::FileId;
     use jj_lib::backend::SymlinkId;
@@ -3312,7 +3313,7 @@ mod tests {
                 aliases_map: &self.revset_aliases_map,
                 local_variables: HashMap::new(),
                 user_email: "test.user@example.com",
-                date_pattern_context: chrono::DateTime::UNIX_EPOCH.fixed_offset().into(),
+                current_time: jiff::Timestamp::UNIX_EPOCH.to_zoned(TimeZone::UTC),
                 default_ignored_remote: None,
                 fileset_aliases_map: &self.fileset_aliases_map,
                 extensions: &self.revset_extensions,
