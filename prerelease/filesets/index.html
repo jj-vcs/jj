@@ -1882,23 +1882,28 @@ required:</p>
 <p>The following patterns are supported. In all cases, we do not mention any shell
 quoting that might be necessary, and the quotes around <code>"path"</code> are optional if
 the path <a href="#quoting-file-names">has no special characters</a>.</p>
+<p>By default, <code>"path"</code> is parsed as a <code>prefix-glob:</code> pattern, which matches
+cwd-relative path prefix.</p>
 <ul>
-<li><code>"path"</code> or <code>cwd:"path"</code>: Matches cwd-relative path prefix (file or files
-  under directory recursively.)</li>
+<li><code>cwd:"path"</code>: Matches cwd-relative path prefix (file or files under directory
+  recursively.)</li>
 <li><code>file:"path"</code> or <code>cwd-file:"path"</code>: Matches cwd-relative file (or exact) path.</li>
 <li><code>glob:"pattern"</code> or <code>cwd-glob:"pattern"</code>: Matches file paths with cwd-relative
   Unix-style shell <a href="https://docs.rs/globset/latest/globset/#syntax">wildcard <code>pattern</code></a>. For example, <code>glob:"*.c"</code> will
   match all <code>.c</code> files in the current working directory non-recursively.</li>
-<li><code>glob-i:"pattern"</code> or <code>cwd-glob-i:"pattern"</code>: Like <code>glob:</code> but
-  case-insensitive. For example, <code>glob-i:"*.TXT"</code> will match both <code>file.txt</code>
-  and <code>FILE.TXT</code>.</li>
+<li><code>prefix-glob:"pattern"</code> or <code>cwd-prefix-glob:"pattern"</code>: Like <code>glob:</code>, but also
+  matches path prefix (file or files under directory recursively.) For example,
+  <code>prefix-glob:"*.d"</code> is equivalent to <code>glob:"*.d" | glob:"*.d/**"</code>.</li>
 <li><code>root:"path"</code>: Matches workspace-relative path prefix (file or files under
   directory recursively.)</li>
 <li><code>root-file:"path"</code>: Matches workspace-relative file (or exact) path.</li>
 <li><code>root-glob:"pattern"</code>: Matches file paths with workspace-relative Unix-style
   shell <a href="https://docs.rs/globset/latest/globset/#syntax">wildcard <code>pattern</code></a>.</li>
-<li><code>root-glob-i:"pattern"</code>: Like <code>root-glob:</code> but case-insensitive.</li>
+<li><code>root-prefix-glob:"pattern"</code>: Like <code>root-glob:</code>, but also matches path prefix
+  (file or files under directory recursively.)</li>
 </ul>
+<p>Glob patterns support case-insensitive matching by appending <code>-i</code> to the pattern
+name. For example, <code>glob-i:"*.TXT"</code> will match both <code>file.txt</code> and <code>FILE.TXT</code>.</p>
 <h2 id="operators">Operators<a class="headerlink" href="#operators" title="Permanent link">&para;</a></h2>
 <p>The following operators are supported. <code>x</code> and <code>y</code> below can be any fileset
 expressions.</p>
