@@ -249,6 +249,55 @@ to use" instructions](https://github.com/rui314/mold#how-to-use).
 On recent versions of MacOS, the default linker Rust uses is already
 multi-threaded. It should use all the CPU cores without any configuration.
 
+### Set up a RAM disk for faster tests on macOS
+
+`jj` tests can be sped up significantly on macOS by using a RAM disk instead of
+the usual `/tmp` directory (on one Mac, the tests sped up ~3 times from 180
+seconds to 55 seconds). You can set this up as follows:
+
+```sh
+sudo mkdir -p /Volumes/RAMDisk
+sudo chmod a+wx /Volumes/RAMDisk
+sudo mount_tmpfs /Volumes/RAMDisk  # Add `-e` to make it case-sensitive
+                      # Add `-o nobrowse` to hide the tmpfs from Finder
+```
+
+You will need to re-run this after a reboot. Consider making it a script you can
+run with `sudo`. (The first two commands don't need sudo if you change the dir
+to somewhere in your HOME, the last one always does.)
+
+Then, you can rust tests as, for example,
+
+```sh
+TMPDIR=/Volumes/RAMDisk cargo insta test --workspace --test-runner nextest
+```
+
+You can double-check whether or not the RAM disk is mounted with
+
+```sh
+mount | grep tmpfs
+```
+
+<details> <summary> Some details and speculation </summary>
+
+<!-- MkDocs doesn't support Markdown markup inside `details` :( -->
+
+Hard drive speed is not the issue here. Experimentally, when <code>/tmp</code>
+is physical, Ilya experienced the tests doing writes at 60MB/s (as reported by
+the Activity Monitor) on an SSD that should be many times as fast.
+
+Instead, it seems to have something to do with file locking and
+<code>fdatasync</code>. A likely curlprit is the presence of <a
+href="https://gregoryszorc.com/blog/2018/10/29/global-kernel-locks-in-apfs/">
+global kernel locks in APFS</a>. There are some benchmarks in
+<a href="https://github.com/jj-vcs/jj/pull/7493#issuecomment-3289020874">this
+PR</a>.
+
+It might be possible to add an entry to `/etc/fstab` to mount tmpfs
+automatically. If you succeed with this, let us (and Ilya in particular) know!
+
+</details>
+
 ### Editor setup
 
 #### Visual Studio Code
