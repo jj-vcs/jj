@@ -34,11 +34,6 @@ clap_complete_nushell = "4.5.10"
 # will need regenerating.
 clap-markdown = "=0.1.5"
 clap_mangen = "0.2.25"
-chrono = { version = "0.4.42", default-features = false, features = [
-    "std",
-    "clock",
-    "serde",
-] }
 clru = "0.6.2"
 criterion = "0.7.0"
 crossterm = { version = "0.29", default-features = false, features = ["windows"] }
@@ -62,8 +57,12 @@ ignore = "0.4.25"
 indexmap = { version = "2.12.0", features = ["serde"] }
 indoc = "2.0.7"
 insta = { version = "1.43.2", features = ["filters"] }
-interim = { version = "0.2.1", features = ["chrono_0_4"] }
+interim = { version = "0.2.1", features = ["jiff_0_2"] }
 itertools = "0.14.0"
+jiff = { version = "0.2", default-features = false, features = [
+    "std",
+    "serde",
+] }
 jsonschema = { version = "0.33.0", default-features = false }
 libc = { version = "0.2.177" }
 maplit = "1.0.2"

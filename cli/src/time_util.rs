@@ -1,44 +1,31 @@
+use std::fmt::Write as _;
 use std::sync::LazyLock;
 
-use chrono::format::StrftimeItems;
 use jj_lib::backend::Timestamp;
 use jj_lib::backend::TimestampOutOfRange;
 
 /// Parsed formatting items which should never contain an error.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FormattingItems<'a> {
-    items: Vec<chrono::format::Item<'a>>,
+pub struct FormattingItems {
+    format: String,
 }
 
-impl<'a> FormattingItems<'a> {
-    /// Parses strftime-like format string.
-    pub fn parse(format: &'a str) -> Option<Self> {
-        // If the parsed format contained an error, format().to_string() would panic.
-        let items = StrftimeItems::new(format)
-            .map(|item| match item {
-                chrono::format::Item::Error => None,
-                _ => Some(item),
-            })
-            .collect::<Option<_>>()?;
-        Some(FormattingItems { items })
+impl FormattingItems {
+    /// parses strftime-like format string.
+    pub fn parse(format: &str) -> Option<Self> {
+        // validate the format string by trying to format a dummy timestamp
+        let dummy_ts = jiff::Timestamp::from_second(0).ok()?;
+        let dummy_zoned = dummy_ts.to_zoned(jiff::tz::TimeZone::UTC);
+        let mut buf = String::new();
+        write!(&mut buf, "{}", dummy_zoned.strftime(format)).ok()?;
+
+        Some(Self {
+            format: format.to_owned(),
+        })
     }
 
-    pub fn into_owned(self) -> FormattingItems<'static> {
-        use chrono::format::Item;
-        let items = self
-            .items
-            .into_iter()
-            .map(|item| match item {
-                Item::Literal(s) => Item::OwnedLiteral(s.into()),
-                Item::OwnedLiteral(s) => Item::OwnedLiteral(s),
-                Item::Space(s) => Item::OwnedSpace(s.into()),
-                Item::OwnedSpace(s) => Item::OwnedSpace(s),
-                Item::Numeric(spec, pad) => Item::Numeric(spec, pad),
-                Item::Fixed(spec) => Item::Fixed(spec),
-                Item::Error => Item::Error, // shouldn't exist, but just copy
-            })
-            .collect();
-        FormattingItems { items }
+    pub fn into_owned(self) -> Self {
+        self
     }
 }
 
@@ -52,8 +39,8 @@ pub fn format_absolute_timestamp_with(
     timestamp: &Timestamp,
     format: &FormattingItems,
 ) -> Result<String, TimestampOutOfRange> {
-    let datetime = timestamp.to_datetime()?;
-    Ok(datetime.format_with_items(format.items.iter()).to_string())
+    let zoned = timestamp.to_zoned()?;
+    Ok(zoned.strftime(&format.format).to_string())
 }
 
 pub fn format_duration(
@@ -61,10 +48,17 @@ pub fn format_duration(
     to: &Timestamp,
     format: &timeago::Formatter,
 ) -> Result<String, TimestampOutOfRange> {
-    let duration = to
-        .to_datetime()?
-        .signed_duration_since(from.to_datetime()?)
-        .to_std()
-        .map_err(|_: chrono::OutOfRangeError| TimestampOutOfRange)?;
+    let from_zoned = from.to_zoned()?;
+    let to_zoned = to.to_zoned()?;
+    let span = to_zoned
+        .since(&from_zoned)
+        .map_err(|_| TimestampOutOfRange)?;
+    // convert jiff::Span to std::time::Duration via jiff::SignedDuration
+    let signed_duration = span
+        .to_duration(&to_zoned)
+        .map_err(|_| TimestampOutOfRange)?;
+    let duration: std::time::Duration = signed_duration
+        .try_into()
+        .map_err(|_| TimestampOutOfRange)?;
     Ok(format.convert(duration))
 }
