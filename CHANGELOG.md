@@ -13,6 +13,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * In [filesets or path patterns](docs/filesets.md#file-patterns), glob matching
   is enabled by default. You can use `cwd:"path"` to match literal paths.
 
+* Upgraded `scm-record` from v0.8.0 to v0.9.0. See release notes at
+  <https://github.com/arxanas/scm-record/releases/tag/v0.9.0>.
+
 * `jj` now ignores `$PAGER` set in the environment and uses `less -FRX` on most
   platforms (`:builtin` on Windows). See [the docs](docs/config.md#pager) for
   more information, and [#3502](https://github.com/jj-vcs/jj/issues/3502) for
