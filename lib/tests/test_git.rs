@@ -3517,10 +3517,8 @@ fn test_expand_default_fetch_refspecs() {
                     "foo*",
                 ),
             ),
-            Glob(
-                GlobPattern(
-                    "main",
-                ),
+            Exact(
+                "main",
             ),
         ],
         refspecs: [

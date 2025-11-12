@@ -91,6 +91,12 @@ fn parse_glob(src: &str, icase: bool) -> Result<GlobPattern, StringPatternParseE
     Ok(GlobPattern { glob, regex })
 }
 
+fn is_glob_char(c: char) -> bool {
+    // See globset::escape(). In addition to that, backslash is parsed as an
+    // escape sequence on all platforms.
+    matches!(c, '?' | '*' | '[' | ']' | '{' | '}' | '\\')
+}
+
 /// Pattern to be tested against string property like commit description or
 /// bookmark name.
 #[derive(Clone, Debug)]
@@ -155,12 +161,17 @@ impl StringPattern {
 
     /// Parses the given string as a glob pattern.
     pub fn glob(src: &str) -> Result<Self, StringPatternParseError> {
-        // TODO: if no meta character found, it can be mapped to Exact.
+        if !src.contains(is_glob_char) {
+            return Ok(Self::exact(src));
+        }
         Ok(Self::Glob(Box::new(parse_glob(src, false)?)))
     }
 
     /// Parses the given string as a case‐insensitive glob pattern.
     pub fn glob_i(src: &str) -> Result<Self, StringPatternParseError> {
+        // No special case for !src.contains(is_glob_char) because it's unclear
+        // whether we'll use unicode case comparison for "exact-i" patterns.
+        // "glob-i" should always be ASCII-based.
         Ok(Self::GlobI(Box::new(parse_glob(src, true)?)))
     }
 
@@ -787,11 +798,11 @@ mod tests {
     fn test_glob_pattern_to_matcher() {
         assert_matches!(
             StringPattern::glob("").unwrap().to_matcher(),
-            StringMatcher::Fn(_) // or Exact
+            StringMatcher::Exact(_)
         );
         assert_matches!(
             StringPattern::glob("x").unwrap().to_matcher(),
-            StringMatcher::Fn(_) // or Exact
+            StringMatcher::Exact(_)
         );
         assert_matches!(
             StringPattern::glob("x?").unwrap().to_matcher(),
@@ -800,6 +811,10 @@ mod tests {
         assert_matches!(
             StringPattern::glob("*").unwrap().to_matcher(),
             StringMatcher::All
+        );
+        assert_matches!(
+            StringPattern::glob(r"\\").unwrap().to_matcher(),
+            StringMatcher::Fn(_) // or Exact(r"\")
         );
 
         assert_matches!(
