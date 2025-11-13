@@ -63,6 +63,7 @@ pub struct GitSettings {
     pub executable_path: PathBuf,
     pub write_change_id_header: bool,
     pub colocate: bool,
+    pub ignore_filters: Vec<String>,
 }
 
 impl GitSettings {
@@ -73,6 +74,10 @@ impl GitSettings {
             executable_path: settings.get("git.executable-path")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
             colocate: settings.get("git.colocate")?,
+            ignore_filters: settings
+                .get("git.ignore-filters")
+                .optional()?
+                .unwrap_or_else(|| vec!["lfs".to_string()]),
         })
     }
 }

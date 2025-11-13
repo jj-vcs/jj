@@ -585,6 +585,10 @@ Thanks to the people who made this release happen!
 * `jj fix` commands now replace `$root` with the workspace's root path. This is
   useful for tools stored inside the workspace.
 
+* Added `git.ignore-filters` setting to specify what filtered files in
+  `.gitattributes` are ignored by `jj`. Defaults to `["lfs"]`.
+
+
 ### Fixed bugs
 
 * Fixed an error in `jj util gc` caused by the empty blob being missing from

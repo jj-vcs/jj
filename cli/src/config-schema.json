@@ -488,6 +488,14 @@
                     "type": "boolean",
                     "description": "Whether to colocate the working copy with the git repository",
                     "default": true
+                },
+                "ignore-filters": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Whether to ignore filters set in git attributes files",
+                    "default": ["lfs"]
                 }
             }
         },

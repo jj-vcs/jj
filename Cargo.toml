@@ -50,12 +50,12 @@ erased-serde = "0.4.9"
 etcetera = "0.11.0"
 futures = "0.3.31"
 gix = { version = "0.74.1", default-features = false, features = [
-    "attributes",
     "blob-diff",
     "index",
     "max-performance-safe",
     "zlib-rs",
 ] }
+gix-attributes = "0.28.1"
 globset = "0.4.18"
 hashbrown = { version = "0.16.0", default-features = false, features = ["inline-more"] }
 ignore = "0.4.25"
@@ -109,7 +109,7 @@ test-case = "3.3.1"
 textwrap = "0.16.2"
 thiserror = "2.0.17"
 timeago = { version = "0.5.0", default-features = false }
-tokio = { version = "1.48.0", features = ["io-util"] }
+tokio = { version = "1.48.0", features = ["io-util", "sync"] }
 toml = "0.9.8"
 toml_edit = { version = "0.23.7", features = ["serde"] }
 tracing = "0.1.41"
