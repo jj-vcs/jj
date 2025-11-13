@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use itertools::Itertools as _;
+
 use crate::common::TestEnvironment;
 
 #[test]
@@ -100,11 +102,11 @@ fn test_help() {
     ");
 
     let output = test_env.run_jj_in(".", ["help", "log", "--", "-r"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Error: Unknown command: log -r
-    [EOF]
-    [exit status: 2]
+    let stdout = output.stdout.normalized();
+    insta::assert_snapshot!(stdout.lines().take(3).join("\n"), @r"
+    Show revision history
+
+    Renders a graphical view of the project's history, ordered with children before parents. By default,
     ");
 }
 
@@ -176,5 +178,53 @@ fn test_help_keyword() {
     For more information, try '--help'.
     [EOF]
     [exit status: 2]
+    ");
+}
+
+#[test]
+fn test_help_alias_recursive() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+
+    test_env.add_config(
+        r#"[aliases]
+    foo = ["foo"]
+    bar = ["baz"]
+    baz = ["bar"]
+    "#,
+    );
+
+    let output = test_env.run_jj_in(&repo_path, ["help", "foo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Recursive alias definition involving `foo`
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = test_env.run_jj_in(&repo_path, ["help", "bar"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Recursive alias definition involving `bar`
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_help_alias_no_extra_args() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+
+    test_env.add_config(r#"aliases.st = ["status"]"#);
+
+    let output = test_env.run_jj_in(&repo_path, ["help", "st", "extra"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Invalid arguments following alias 'st'
+    [EOF]
+    [exit status: 1]
     ");
 }

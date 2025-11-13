@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use itertools::Itertools as _;
+
 use crate::common::TestEnvironment;
 
 #[test]
@@ -462,4 +464,96 @@ fn test_aliases_overriding_friendly_errors() {
     Test User
     [EOF]
     ");
+}
+
+#[test]
+fn test_alias_help() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let repo_path = test_env.env_root().join("repo");
+
+    test_env.add_config(r#"aliases.b = ["log", "-r", "@", "-T", "bookmarks"]"#);
+    test_env.add_config(r#"aliases.s = ["status"]"#);
+    test_env.add_config(r#"aliases.f = ["git", "fetch"]"#); // test nested subcommand
+    test_env.add_config(r#"aliases.b2 = ["b", "--no-graph"]"#); // test recursive subcommand
+    test_env.add_config(r#"aliases.empty = []"#);
+    test_env.add_config(r#"aliases.option-only = ["--no-pager"]"#);
+    test_env.add_config(r#"aliases.bad = ["this-command-does-not-exist"]"#);
+
+    let output = test_env.run_jj_in(&repo_path, ["help", "b"]);
+    let stdout = output.stdout.normalized();
+    insta::assert_snapshot!(stdout.lines().take(3).join("\n"), @r#"
+    Alias for "log -r @ -T bookmarks"
+
+    Show revision history
+    "#);
+    let output = test_env.run_jj_in(&repo_path, ["b", "-h"]);
+    let stdout = output.stdout.normalized();
+    insta::assert_snapshot!(stdout.lines().next().unwrap(), @"Show revision history");
+
+    let output = test_env.run_jj_in(&repo_path, ["help", "s"]);
+    let stdout = output.stdout.normalized();
+    insta::assert_snapshot!(stdout.lines().take(3).join("\n"), @r#"
+    Alias for "status"
+
+    Show high-level repo status [default alias: st]
+    "#);
+    let output = test_env.run_jj_in(&repo_path, ["s", "-h"]);
+    let stdout = output.stdout.normalized();
+    insta::assert_snapshot!(stdout.lines().next().unwrap(), @"Show high-level repo status [default alias: st]");
+
+    let output = test_env.run_jj_in(&repo_path, ["help", "f"]);
+    let stdout = output.stdout.normalized();
+    insta::assert_snapshot!(stdout.lines().take(3).join("\n"), @r###"
+    Alias for "git fetch"
+
+    Fetch from a Git remote
+    "###);
+    let output = test_env.run_jj_in(&repo_path, ["f", "-h"]);
+    let stdout = output.stdout.normalized();
+    insta::assert_snapshot!(stdout.lines().next().unwrap(), @"Fetch from a Git remote");
+
+    let output = test_env.run_jj_in(&repo_path, ["help", "b2"]);
+    let stdout = output.stdout.normalized();
+    insta::assert_snapshot!(stdout.lines().take(3).join("\n"), @r###"
+    Alias for "b --no-graph"
+
+    Show revision history
+    "###);
+    let output = test_env.run_jj_in(&repo_path, ["b2", "-h"]);
+    let stdout = output.stdout.normalized();
+    insta::assert_snapshot!(stdout.lines().next().unwrap(), @"Show revision history");
+
+    let output = test_env.run_jj_in(&repo_path, ["help", "empty"]);
+    let stdout = output.stdout.normalized();
+    insta::assert_snapshot!(stdout.lines().take(3).join("\n"), @r#"
+    Alias for ""
+
+    Jujutsu (An experimental VCS)
+    "#);
+    let output = test_env.run_jj_in(&repo_path, ["empty", "-h"]);
+    let stdout = output.stdout.normalized();
+    insta::assert_snapshot!(stdout.lines().next().unwrap(), @"Jujutsu (An experimental VCS)");
+
+    let output = test_env.run_jj_in(&repo_path, ["help", "option-only"]);
+    let stdout = output.stdout.normalized();
+    insta::assert_snapshot!(stdout.lines().take(3).join("\n"), @r#"
+    Alias for "--no-pager"
+
+    Jujutsu (An experimental VCS)
+    "#);
+
+    let output = test_env.run_jj_in(&repo_path, ["help", "bad"]);
+    let stdout = output.stdout.normalized();
+    insta::assert_snapshot!(stdout, @"");
+
+    let output = test_env.run_jj_in(&repo_path, ["bad", "-h"]);
+    let stderr = output.stderr.normalized();
+    insta::assert_snapshot!(stderr, @r###"
+    error: unrecognized subcommand 'this-command-does-not-exist'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    "###);
 }

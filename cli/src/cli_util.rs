@@ -3437,6 +3437,41 @@ fn resolve_default_command(
     Ok(string_args)
 }
 
+/// Recursively expands a single alias, detecting circular references.
+///
+/// Returns the fully expanded alias definition, with all nested aliases
+/// resolved. For example, if `b = ["log"]` and `b2 = ["b", "--no-graph"]`, then
+/// expanding `b2` returns `["log", "--no-graph"]`.
+///
+/// Returns an error if a circular reference is detected (e.g., `a = ["b"]` and
+/// `b = ["a"]`, or `a = ["a"]`).
+pub(crate) fn expand_alias_recursively(
+    config: &StackedConfig,
+    alias_name: &str,
+    defined_aliases: &HashSet<&str>,
+    seen_aliases: &mut HashSet<String>,
+) -> Result<Vec<String>, CommandError> {
+    if !seen_aliases.insert(alias_name.to_string()) {
+        return Err(user_error(format!(
+            "Recursive alias definition involving `{alias_name}`"
+        )));
+    }
+
+    let alias_definition: Vec<String> = config.get(["aliases", alias_name])?;
+
+    // Recursively expand if the first element is also an alias
+    let mut result = alias_definition;
+    if let Some(first) = result.first()
+        && defined_aliases.contains(first.as_str())
+    {
+        let expanded_first =
+            expand_alias_recursively(config, first, defined_aliases, seen_aliases)?;
+        result.splice(0..1, expanded_first);
+    }
+
+    Ok(result)
+}
+
 fn resolve_aliases(
     ui: &Ui,
     config: &StackedConfig,
@@ -3444,7 +3479,6 @@ fn resolve_aliases(
     mut string_args: Vec<String>,
 ) -> Result<Vec<String>, CommandError> {
     let defined_aliases: HashSet<_> = config.table_keys("aliases").collect();
-    let mut resolved_aliases = HashSet::new();
     let mut real_commands = HashSet::new();
     for command in app.get_subcommands() {
         real_commands.insert(command.get_name());
@@ -3471,18 +3505,18 @@ fn resolve_aliases(
                 .unwrap_or_default()
                 .map(|arg| arg.to_str().unwrap().to_string())
                 .collect_vec();
-            if resolved_aliases.contains(&*alias_name) {
-                return Err(user_error(format!(
-                    "Recursive alias definition involving `{alias_name}`"
-                )));
-            }
             if let Some(&alias_name) = defined_aliases.get(&*alias_name) {
-                let alias_definition: Vec<String> = config.get(["aliases", alias_name])?;
+                let mut seen_aliases = HashSet::new();
+                let alias_definition = expand_alias_recursively(
+                    config,
+                    alias_name,
+                    &defined_aliases,
+                    &mut seen_aliases,
+                )?;
                 assert!(string_args.ends_with(&alias_args));
                 string_args.truncate(string_args.len() - 1 - alias_args.len());
                 string_args.extend(alias_definition);
                 string_args.extend_from_slice(&alias_args);
-                resolved_aliases.insert(alias_name);
                 continue;
             } else {
                 // Not a real command and not an alias, so return what we've resolved so far

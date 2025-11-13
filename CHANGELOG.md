@@ -152,6 +152,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Revsets now support logical operators in string patterns.
 
+* `jj help` now supports aliases.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
