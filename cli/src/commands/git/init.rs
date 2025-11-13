@@ -198,7 +198,13 @@ fn do_init(
             // chronological order.
             let colocated = is_colocated_git_workspace(&workspace, &repo);
             let repo = init_git_refs(ui, repo, command.string_args(), colocated)?;
+            let new_repo_op_id = repo.op_id().clone();
             let mut workspace_command = command.for_workable_repo(ui, workspace, repo)?;
+            // Update WC operation id if init_git_refs created a new operation
+            if workspace_command.workspace().working_copy().operation_id() != &new_repo_op_id {
+                let (locked_ws, _wc_commit) = workspace_command.start_working_copy_mutation()?;
+                locked_ws.finish(new_repo_op_id)?;
+            }
             maybe_add_gitignore(&workspace_command)?;
             workspace_command.maybe_snapshot(ui)?;
             maybe_set_repository_level_trunk_alias(ui, &workspace_command)?;

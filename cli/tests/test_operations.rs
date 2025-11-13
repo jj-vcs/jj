@@ -1000,10 +1000,8 @@ fn test_op_recover_from_bad_gc() {
     // The repo should no longer be corrupt.
     let output = work_dir.run_jj(["log"]);
     insta::assert_snapshot!(output, @r"
-    @  mzvwutvl?? test.user@example.com 2001-02-03 08:05:12 29d07a2d
-    │  (empty) 4
-    │ ○  mzvwutvl?? test.user@example.com 2001-02-03 08:05:15 bc027e2c
-    ├─╯  (empty) 4.1
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:15 bc027e2c
+    │  (empty) 4.1
     ○  zsuskuln test.user@example.com 2001-02-03 08:05:10 git_head() c2934cfb
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000

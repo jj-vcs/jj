@@ -52,6 +52,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Windows. This renders completion results viable when using jj in Git Bash.
   [#7024](https://github.com/jj-vcs/jj/issues/7024)
 
+* Fixed race condition that could cause divergent operations when multiple jj
+  processes concurrently import/export Git HEAD in colocated repositories.
+  [#6830](https://github.com/jj-vcs/jj/issues/6830)
+
 ## [0.35.0] - 2025-11-05
 
 ### Release highlights
