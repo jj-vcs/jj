@@ -301,13 +301,15 @@ issues with dynamic completions.
 === "Standard"
 
     ```powershell
-    Invoke-Expression (& { (jj util completion power-shell | Out-String) })
+    jj util completion power-shell | Out-String | Invoke-Expression
     ```
 
 === "Dynamic"
 
     ```powershell
-    $env:COMPLETE = "powershell"; jj | Out-String | Invoke-Expression; Remove-Item Env:\COMPLETE
+    $env:COMPLETE = "powershell"
+    jj | Out-String | Invoke-Expression
+    Remove-Item Env:\COMPLETE
     ```
 
 Insert the above into your `$PROFILE` file
