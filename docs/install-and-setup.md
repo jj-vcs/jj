@@ -303,8 +303,14 @@ issues with dynamic completions.
     Insert this line in your `$PROFILE` file
     (usually `$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`):
 
-    ```shell
+    ```powershell
     Invoke-Expression (& { (jj util completion power-shell | Out-String) })
+    ```
+
+=== "Dynamic"
+
+    ```powershell
+    $env:COMPLETE = "powershell"; jj | Out-String | Invoke-Expression; Remove-Item Env:\COMPLETE
     ```
 
 [cargo-binstall]: https://github.com/cargo-bins/cargo-binstall
