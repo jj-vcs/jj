@@ -3265,9 +3265,13 @@ Renames the current workspace
 
 ## `jj workspace root`
 
-Show the current workspace root directory
+Show the workspace root directory
 
-**Usage:** `jj workspace root`
+**Usage:** `jj workspace root [OPTIONS]`
+
+###### **Options:**
+
+* `--workspace <WORKSPACE>` — Name of the workspace (defaults to the current)
 
 
 

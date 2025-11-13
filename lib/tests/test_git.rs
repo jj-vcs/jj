@@ -1600,6 +1600,7 @@ impl GitRepoData {
         std::fs::create_dir(&jj_repo_dir).unwrap();
         let repo = ReadonlyRepo::init(
             &settings,
+            temp_dir.path(),
             &jj_repo_dir,
             &|settings, store_path| {
                 Ok(Box::new(GitBackend::init_external(
@@ -3119,6 +3120,7 @@ fn test_init() {
     std::fs::create_dir(&jj_repo_dir).unwrap();
     let repo = &ReadonlyRepo::init(
         &settings,
+        temp_dir.path(),
         &jj_repo_dir,
         &|settings, store_path| {
             Ok(Box::new(GitBackend::init_external(
@@ -3883,6 +3885,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
     std::fs::create_dir(&jj_repo_dir).unwrap();
     let jj_repo = ReadonlyRepo::init(
         settings,
+        &source_repo_dir,
         &jj_repo_dir,
         &|settings, store_path| {
             Ok(Box::new(GitBackend::init_external(
