@@ -300,9 +300,6 @@ issues with dynamic completions.
 
 === "Standard"
 
-    Insert this line in your `$PROFILE` file
-    (usually `$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`):
-
     ```powershell
     Invoke-Expression (& { (jj util completion power-shell | Out-String) })
     ```
@@ -313,8 +310,19 @@ issues with dynamic completions.
     $env:COMPLETE = "powershell"; jj | Out-String | Invoke-Expression; Remove-Item Env:\COMPLETE
     ```
 
+Insert the above into your `$PROFILE` file
+(usually `$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`).
+
+!!! note
+
+    Note that to execute scripts in PowerShell on Windows, including `$PROFILE`,
+    the [execution policy][ExecutionPolicies] needs to be set to `RemoteSigned`
+    at minimum.
+
+
 [cargo-binstall]: https://github.com/cargo-bins/cargo-binstall
 [clap]: https://github.com/clap-rs/clap/issues/3166
 [Homebrew]: https://brew.sh/
 [macports]: https://ports.macports.org/port/jujutsu/
 [pre-built binaries]: https://github.com/jj-vcs/jj/releases/latest
+[ExecutionPolicies]: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies
