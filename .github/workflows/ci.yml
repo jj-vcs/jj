@@ -108,8 +108,14 @@ jobs:
       uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
       with:
         toolchain: 1.88
-    - name: Build
+    # NOTE/TODO: Neither `jj-cli` nor `testutils` build or run in the
+    # test config (e.g.  `cargo test --no-run`). This is because `jj-lib`
+    # tests depend on Git. It's unclear what the easiest way would be
+    # to improve the situation.
+    - name: Build cli
       run: cargo build -p jj-cli --no-default-features --verbose
+    - name: Build testutils
+      run: cargo build -p testutils --no-default-features --verbose
 
   build-nix:
     name: nix flake
