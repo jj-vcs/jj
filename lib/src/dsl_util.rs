@@ -148,6 +148,14 @@ impl<'i, T> FunctionCallNode<'i, T> {
     }
 
     /// Extracts N required arguments and remainders.
+    ///
+    /// This can be used to get all the positional arguments without requiring
+    /// any (N = 0):
+    /// ```ignore
+    /// let ([], content_nodes) = function.expect_some_arguments()?;
+    /// ```
+    /// Avoid accessing `function.args` directly, as that may allow keyword
+    /// arguments to be silently ignored.
     #[expect(clippy::type_complexity)]
     pub fn expect_some_arguments<const N: usize>(
         &self,

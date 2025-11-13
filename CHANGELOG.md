@@ -52,6 +52,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Windows. This renders completion results viable when using jj in Git Bash.
   [#7024](https://github.com/jj-vcs/jj/issues/7024)
 
+* Unexpected keyword arguments now return a parse failure for the `coalesce()`
+  and `concat()` templating functions.
+
 ## [0.35.0] - 2025-11-05
 
 ### Release highlights

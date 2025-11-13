@@ -1873,8 +1873,8 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         Ok(L::Property::wrap_template(Box::new(template)))
     });
     map.insert("coalesce", |language, diagnostics, build_ctx, function| {
-        let contents = function
-            .args
+        let ([], content_nodes) = function.expect_some_arguments()?;
+        let contents = content_nodes
             .iter()
             .map(|node| expect_template_expression(language, diagnostics, build_ctx, node))
             .try_collect()?;
@@ -1883,8 +1883,8 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         ))))
     });
     map.insert("concat", |language, diagnostics, build_ctx, function| {
-        let contents = function
-            .args
+        let ([], content_nodes) = function.expect_some_arguments()?;
+        let contents = content_nodes
             .iter()
             .map(|node| expect_template_expression(language, diagnostics, build_ctx, node))
             .try_collect()?;
@@ -3763,6 +3763,16 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"coalesce(bad_string, "a")"#), @"<Error: Bad>");
         // but can be short-circuited
         insta::assert_snapshot!(env.render_ok(r#"coalesce("a", bad_string)"#), @"a");
+
+        // Keyword arguments are rejected.
+        insta::assert_snapshot!(env.parse_err(r#"coalesce("a", value2="b")"#), @r#"
+         --> 1:15
+          |
+        1 | coalesce("a", value2="b")
+          |               ^--------^
+          |
+          = Function `coalesce`: Unexpected keyword arguments
+        "#);
     }
 
     #[test]
@@ -3781,6 +3791,16 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r#"concat(label("error", ""), label("warning", "a"), "b")"#),
             @"[38;5;3ma[39mb");
+
+        // Keyword arguments are rejected.
+        insta::assert_snapshot!(env.parse_err(r#"concat("a", value2="b")"#), @r#"
+         --> 1:13
+          |
+        1 | concat("a", value2="b")
+          |             ^--------^
+          |
+          = Function `concat`: Unexpected keyword arguments
+        "#);
     }
 
     #[test]
@@ -3837,6 +3857,16 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r#"separate(hidden, "X", "Y", "Z")"#),
             @"XfalseYfalseZ");
+
+        // Keyword arguments are rejected.
+        insta::assert_snapshot!(env.parse_err(r#"separate(" ", "a", value2="b")"#), @r#"
+         --> 1:20
+          |
+        1 | separate(" ", "a", value2="b")
+          |                    ^--------^
+          |
+          = Function `separate`: Unexpected keyword arguments
+        "#);
     }
 
     #[test]
