@@ -109,7 +109,7 @@ fn test_git_private_commits_block_pushing() {
       Move forward bookmark main from 95cc152cd086 to 7f665ca27d4e
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
     Working copy  (@) now at: znkkpsqq 8227d51b (empty) (no description set)
-    Parent commit (@-)      : yqosqzyt 7f665ca2 main | (empty) private 1
+    Parent revision (@-)    : yqosqzyt 7f665ca2 main | (empty) private 1
     [EOF]
     ");
 }
@@ -145,7 +145,7 @@ fn test_git_private_commits_can_be_overridden() {
       Move forward bookmark main from 95cc152cd086 to 7f665ca27d4e
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
     Working copy  (@) now at: znkkpsqq 8227d51b (empty) (no description set)
-    Parent commit (@-)      : yqosqzyt 7f665ca2 main | (empty) private 1
+    Parent revision (@-)    : yqosqzyt 7f665ca2 main | (empty) private 1
     [EOF]
     ");
 }
@@ -170,7 +170,7 @@ fn test_git_private_commits_are_not_checked_if_immutable() {
       Move forward bookmark main from 95cc152cd086 to 7f665ca27d4e
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
     Working copy  (@) now at: yostqsxw 17947f20 (empty) (no description set)
-    Parent commit (@-)      : yqosqzyt 7f665ca2 main | (empty) private 1
+    Parent revision (@-)    : yqosqzyt 7f665ca2 main | (empty) private 1
     [EOF]
     ");
 }
@@ -251,7 +251,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
       Add bookmark bookmark1 to 95cc152cd086
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
     Working copy  (@) now at: kpqxywon 5308110d (empty) (no description set)
-    Parent commit (@-)      : yostqsxw 03bc2bf2 main | (empty) public 3
+    Parent revision (@-)    : yostqsxw 03bc2bf2 main | (empty) public 3
     [EOF]
     ");
 
