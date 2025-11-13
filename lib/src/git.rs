@@ -1888,6 +1888,25 @@ fn remove_remote_git_config_sections(
     Ok(())
 }
 
+/// Checks if configuration for a remote exists in the local .git/config file
+fn remote_exists_in_local_config(
+    git_repo: &gix::Repository,
+    remote_name: &RemoteName,
+) -> bool {
+    let config = git_repo.config_snapshot();
+    let repo_config_path = git_repo.git_dir().join("config");
+    config
+        .sections_by_name("remote")
+        .into_iter()
+        .flatten()
+        .filter(|section| 
+            section.header().subsection_name() == Some(BStr::new(remote_name.as_str()))
+        )
+        .any(|section| {
+            section.meta().path.as_deref() == Some(&repo_config_path)
+        })
+}
+
 /// Returns a sorted list of configured remote names.
 pub fn get_all_remote_names(
     store: &Store,
@@ -1918,7 +1937,7 @@ pub fn add_remote(
 
     validate_remote_name(remote_name)?;
 
-    if git_repo.try_find_remote(remote_name.as_str()).is_some() {
+    if remote_exists_in_local_config(&git_repo, remote_name) {
         return Err(GitRemoteManagementError::RemoteAlreadyExists(
             remote_name.to_owned(),
         ));
@@ -2012,6 +2031,13 @@ pub fn rename_remote(
 
     validate_remote_name(new_remote_name)?;
 
+    if !remote_exists_in_local_config(&git_repo, old_remote_name) {
+        return Err(GitRemoteManagementError::NoSuchRemote(
+            old_remote_name.to_owned(),
+        ));
+    }
+
+    // We still need to load the remote to validate its configuration
     let Some(result) = git_repo.try_find_remote(old_remote_name.as_str()) else {
         return Err(GitRemoteManagementError::NoSuchRemote(
             old_remote_name.to_owned(),
@@ -2019,7 +2045,7 @@ pub fn rename_remote(
     };
     let mut remote = result.map_err(GitRemoteManagementError::from_git)?;
 
-    if git_repo.try_find_remote(new_remote_name.as_str()).is_some() {
+    if remote_exists_in_local_config(&git_repo, new_remote_name) {
         return Err(GitRemoteManagementError::RemoteAlreadyExists(
             new_remote_name.to_owned(),
         ));
