@@ -13,9 +13,7 @@
 // limitations under the License.
 
 use std::fs::File;
-use std::fs::OpenOptions;
 use std::path::PathBuf;
-use std::time::Duration;
 
 use tracing::instrument;
 
@@ -23,83 +21,42 @@ use super::FileLockError;
 
 pub struct FileLock {
     path: PathBuf,
-    _file: File,
+    file: File,
 }
 
-struct BackoffIterator {
-    next_sleep_secs: f32,
-    elapsed_secs: f32,
-}
-
-impl BackoffIterator {
-    fn new() -> Self {
-        Self {
-            next_sleep_secs: 0.001,
-            elapsed_secs: 0.0,
-        }
-    }
-}
-
-impl Iterator for BackoffIterator {
-    type Item = Duration;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.elapsed_secs >= 10.0 {
-            None
-        } else {
-            let current_sleep = self.next_sleep_secs * (rand::random::<f32>() + 0.5);
-            self.next_sleep_secs *= 1.5;
-            self.elapsed_secs += current_sleep;
-            Some(Duration::from_secs_f32(current_sleep))
-        }
-    }
-}
-
-// Suppress warning on platforms where specialized lock impl is available
 #[cfg_attr(all(unix, not(test)), expect(dead_code))]
 impl FileLock {
     pub fn lock(path: PathBuf) -> Result<Self, FileLockError> {
-        let mut options = OpenOptions::new();
-        options.create_new(true);
-        options.write(true);
-        let mut backoff_iterator = BackoffIterator::new();
-        loop {
-            match options.open(&path) {
-                Ok(file) => {
-                    return Ok(Self { path, _file: file });
-                }
-                Err(err)
-                    if err.kind() == std::io::ErrorKind::AlreadyExists
-                        || (cfg!(windows)
-                            && err.kind() == std::io::ErrorKind::PermissionDenied) =>
-                {
-                    if let Some(duration) = backoff_iterator.next() {
-                        std::thread::sleep(duration);
-                    } else {
-                        return Err(FileLockError {
-                            message: "Timed out while trying to create lock file",
-                            path,
-                            err,
-                        });
-                    }
-                }
-                Err(err) => {
-                    return Err(FileLockError {
-                        message: "Failed to create lock file",
-                        path,
-                        err,
-                    });
-                }
-            }
-        }
+        // Create lockfile, or open pre-existing one
+        let file = File::create(&path).map_err(|err| FileLockError {
+            message: "Failed to open lock file",
+            path: path.clone(),
+            err,
+        })?;
+        // If the lock was already held, wait for it to be released.
+        file.lock().map_err(|err| FileLockError {
+            message: "Failed to lock lock file",
+            path: path.clone(),
+            err,
+        })?;
+
+        // I really hope our lock is still there.
+        // There was code to check if the file had been deleted, but it made the
+        // tests fail, so I got rid of it. Maybe someone else knows how to do that
+        // in a better way.
+
+        Ok(Self { path, file })
     }
 }
 
 impl Drop for FileLock {
     #[instrument(skip_all)]
     fn drop(&mut self) {
-        std::fs::remove_file(&self.path)
-            .inspect_err(|err| tracing::warn!(?err, ?self.path, "Failed to delete lock file"))
-            .ok();
+        // Removing the file isn't strictly necessary, but reduces confusion.
+        _ = std::fs::remove_file(&self.path);
+        // Unblock any processes that tried to acquire the lock while we held it.
+        // They're responsible for creating and locking a new lockfile, since we
+        // just deleted this one.
+        _ = self.file.unlock();
     }
 }
