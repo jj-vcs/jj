@@ -1768,7 +1768,12 @@ pub async fn show_diff_summary(
         } else {
             path_formatter.format_file_path(path.target())
         };
-        writeln!(formatter.labeled(label), "{sigil} {path}")?;
+        {
+            let mut labeled_formatter = formatter.labeled(label);
+            write!(&mut labeled_formatter, "{sigil} ")?;
+            labeled_formatter.raw()?.write_all(path.as_bytes())?;
+            writeln!(&mut labeled_formatter)?;
+        }
     }
     Ok(())
 }
@@ -1984,11 +1989,8 @@ pub fn show_diff_stats(
         // replace start of path with ellipsis if the path is too long
         let (path, path_width) = text_util::elide_start(ui_path, "...", max_path_width);
         let path_pad_width = max_path_width - path_width;
-        write!(
-            formatter,
-            "{path}{:path_pad_width$} | ",
-            "", // pad to max_path_width
-        )?;
+        formatter.raw()?.write_all(path.as_bytes())?;
+        write!(formatter, "{:path_pad_width$} | ", "")?;
         if let Some((added, removed)) = stat.added_removed {
             let bar_length = ((added + removed) as f64 * factor) as usize;
             // If neither adds nor removes are present, bar length should be zero.
@@ -2051,13 +2053,22 @@ pub async fn show_types(
 ) -> Result<(), DiffRenderError> {
     while let Some(CopiesTreeDiffEntry { path, values }) = tree_diff.next().await {
         let values = values?;
-        writeln!(
-            formatter.labeled("modified"),
-            "{}{} {}",
-            diff_summary_char(&values.before),
-            diff_summary_char(&values.after),
+        let formatted_path = if path.copy_operation().is_some() {
             path_formatter.format_copied_path(path.source(), path.target())
-        )?;
+        } else {
+            path_formatter.format_file_path(path.target())
+        };
+        {
+            let mut labeled_formatter = formatter.labeled("modified");
+            write!(
+                &mut labeled_formatter,
+                "{}{} ",
+                diff_summary_char(&values.before),
+                diff_summary_char(&values.after),
+            )?;
+            labeled_formatter.raw()?.write_all(formatted_path.as_bytes())?;
+            writeln!(&mut labeled_formatter)?;
+        }
     }
     Ok(())
 }
@@ -2081,11 +2092,9 @@ pub async fn show_names(
     path_formatter: &dyn FormatRepoPath,
 ) -> io::Result<()> {
     while let Some(CopiesTreeDiffEntry { path, .. }) = tree_diff.next().await {
-        writeln!(
-            formatter,
-            "{}",
-            path_formatter.format_file_path(path.target())
-        )?;
+        let formatted_path = path_formatter.format_file_path(path.target());
+        formatter.raw()?.write_all(formatted_path.as_bytes())?;
+        writeln!(formatter)?;
     }
     Ok(())
 }

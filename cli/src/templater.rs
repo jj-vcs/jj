@@ -22,6 +22,7 @@ use std::io;
 use std::io::Write;
 use std::iter;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use bstr::BStr;
 use bstr::BString;
@@ -30,6 +31,7 @@ use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigValue;
 use jj_lib::op_store::TimestampRange;
 
+use crate::formatter::ColorFormatter;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
@@ -756,6 +758,25 @@ impl<'a, C: Clone> TemplateRenderer<'a, C> {
         let mut output = Vec::new();
         self.format(context, &mut PlainTextFormatter::new(&mut output))
             .expect("write() to vec backed formatter should never fail");
+        output
+    }
+
+    /// Renders template into buffer, preserving raw ANSI escape sequences.
+    ///
+    /// Unlike `format_plain_text()`, this preserves ANSI escape sequences
+    /// (such as hyperlinks or colors) that are emitted by the template. Use
+    /// this when you need a String that should contain ANSI codes but don't
+    /// have a Formatter available.
+    ///
+    /// The output is usually UTF-8, but it can contain arbitrary bytes such as
+    /// file content.
+    pub fn format_raw_ansi(&self, context: &C) -> Vec<u8> {
+        let mut output = Vec::new();
+        {
+            let mut formatter = ColorFormatter::new(&mut output, Arc::new(Vec::new()), false);
+            self.format(context, &mut formatter)
+                .expect("write() to vec backed formatter should never fail");
+        }
         output
     }
 }

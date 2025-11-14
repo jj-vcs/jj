@@ -156,6 +156,7 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
 use crate::commit_templater::CommitTemplateLanguage;
 use crate::commit_templater::CommitTemplateLanguageExtension;
+use crate::commit_templater::TreeEntry;
 use crate::complete;
 use crate::config::ConfigArgKind;
 use crate::config::ConfigEnv;
@@ -188,6 +189,7 @@ use crate::ui::ColorChoice;
 use crate::ui::Ui;
 
 const SHORT_CHANGE_ID_TEMPLATE_TEXT: &str = "format_short_change_id(self.change_id())";
+const FORMAT_PATH_TEMPLATE_TEXT: &str = "format_path(self.path())";
 
 #[derive(Clone)]
 struct ChromeTracingFlushGuard {
@@ -1003,24 +1005,34 @@ impl WorkspaceCommandEnvironment {
 }
 
 /// CLI-specific path formatter that can customize path display.
+///
+/// Regular file paths use the customizable `format_path()` template, while
+/// rename/copy operations use the traditional `{old => new}` format.
 pub struct CliPathFormatter<'a> {
-    inner: &'a RepoPathUiConverter,
+    format_file_path_fn: Box<dyn Fn(&RepoPath) -> String + 'a>,
+    path_converter: &'a RepoPathUiConverter,
 }
 
 impl<'a> CliPathFormatter<'a> {
-    pub fn new(inner: &'a RepoPathUiConverter) -> Self {
-        Self { inner }
+    pub fn new(
+        format_file_path_fn: Box<dyn Fn(&RepoPath) -> String + 'a>,
+        path_converter: &'a RepoPathUiConverter,
+    ) -> Self {
+        Self {
+            format_file_path_fn,
+            path_converter,
+        }
     }
 }
 
 impl jj_lib::repo_path::FormatRepoPath for CliPathFormatter<'_> {
     fn format_file_path(&self, file: &RepoPath) -> String {
-        // TODO: use format_path template here
-        self.inner.format_file_path(file)
+        (self.format_file_path_fn)(file)
     }
 
     fn format_copied_path(&self, source: &RepoPath, target: &RepoPath) -> String {
-        self.inner.format_copied_path(source, target)
+        // Future enhancement: support using a template for rendering copy output.
+        self.path_converter.format_copied_path(source, target)
     }
 }
 
@@ -1346,11 +1358,6 @@ to the current parents may contain changes from multiple commits.
         self.path_converter().parse_file_path(input)
     }
 
-    /// Formats a RepoPath for display to the user.
-    pub fn format_file_path(&self, file: &RepoPath) -> String {
-        self.path_converter().format_file_path(file)
-    }
-
     /// Parses the given strings as file patterns.
     pub fn parse_file_patterns(
         &self,
@@ -1471,7 +1478,10 @@ to the current parents may contain changes from multiple commits.
 
     /// Creates textual diff renderer of the specified `formats`.
     pub fn diff_renderer(&self, formats: Vec<DiffFormat>) -> DiffRenderer<'_> {
-        let formatter = Box::new(CliPathFormatter::new(self.path_converter()));
+        let formatter = Box::new(CliPathFormatter::new(
+            Box::new(|path| self.format_file_path(path)),
+            self.path_converter(),
+        ));
         DiffRenderer::new(
             self.repo().as_ref(),
             formatter,
@@ -1801,6 +1811,32 @@ to the current parents may contain changes from multiple commits.
         commit: &Commit,
     ) -> std::io::Result<()> {
         self.commit_summary_template().format(commit, formatter)
+    }
+
+    /// Returns a template for formatting file paths.
+    ///
+    /// This parses the `format_path()` template function, which can be customized
+    /// by users via config. The template is re-parsed on each call (following the
+    /// same pattern as `commit_summary_template()`).
+    pub fn format_path_template(&self) -> TemplateRenderer<'_, TreeEntry> {
+        let language = self.commit_template_language();
+        self.reparse_valid_template(&language, FORMAT_PATH_TEMPLATE_TEXT)
+            .labeled(["path"])
+    }
+
+    /// Formats a file path using the customizable `format_path()` template.
+    ///
+    /// This uses the `format_path()` template function, which allows users to
+    /// customize path formatting globally via config (e.g., to add hyperlinks,
+    /// custom colors, or path transformations).
+    pub fn format_file_path(&self, file: &RepoPath) -> String {
+        let entry = TreeEntry {
+            path: file.to_owned(),
+            value: MergedTreeValue::absent(),
+        };
+
+        let output = self.format_path_template().format_raw_ansi(&entry);
+        output.into_string_lossy()
     }
 
     pub fn check_rewritable<'a>(
