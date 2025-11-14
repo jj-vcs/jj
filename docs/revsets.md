@@ -268,11 +268,9 @@ revsets (expressions) as arguments.
   commit is conventionally the branch into which changes are being merged, so
   `first_ancestors()` can be used to exclude changes made on other branches.
 
-* `reachable(srcs, domain)`: All commits reachable from `srcs` within
-  `domain`, traversing all parent and child edges. `srcs` outside `domain` are
-  not considered even if a parent or child edge would reach into `domain`.
-
-  This is useful for finding all related commits in a branch or feature without
+* `reachable(srcs, domain)`: All commits reachable from `srcs`, traversing all
+  parent and child edges, such that the entire path is within `domain`. This is
+  useful for finding all related commits in a branch or feature without
   traversing outside a defined scope. For example, `reachable(@, mutable())`
   returns the stack of commits you are working on.
 
