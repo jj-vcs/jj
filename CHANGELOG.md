@@ -47,6 +47,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `format_path(path)` template that controls how file paths are printed
   with `jj file list`.
 
+* New built-in revset aliases `visible()` and `hidden()`.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.

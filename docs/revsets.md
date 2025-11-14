@@ -578,6 +578,15 @@ for a comprehensive list.
   Note that modifying this will *not* change whether a commit is immutable.
   To do that, edit `immutable_heads()`.
 
+* `visible()`: The set of visible commits. Resolves to `::visible_heads()`.
+  This is equal to `all()` unless your revset includes
+  [hidden revisions](#hidden-revisions).
+
+* `hidden()`: The set of hidden commits. Resolves to `~visible()`. This is empty
+  unless your revset includes [hidden revisions](#hidden-revisions). Note that
+  this is *not* [the set of all previously visible
+  commits](https://github.com/jj-vcs/jj/issues/2623).
+
 ## Examples
 
 Show the parent(s) of the working-copy commit (like `git log -1 HEAD`):
