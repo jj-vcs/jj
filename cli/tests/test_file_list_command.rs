@@ -46,4 +46,14 @@ fn test_file_list() {
     dir/file2
     [EOF]
     ");
+
+    // Warning if path doesn't exist
+    let output = work_dir.run_jj(["file", "list", "dir", "file3"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    dir/file2
+    [EOF]
+    ------- stderr -------
+    Warning: No matching entries for paths: file3
+    [EOF]
+    ");
 }

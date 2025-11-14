@@ -18,6 +18,7 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::commit_templater::TreeEntry;
 use crate::complete;
@@ -68,9 +69,8 @@ pub(crate) fn cmd_file_list(
     let workspace_command = command.workspace_helper(ui)?;
     let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
     let tree = commit.tree();
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
     let template: TemplateRenderer<TreeEntry> = {
         let language = workspace_command.commit_template_language();
         let text = match &args.template {
@@ -91,5 +91,6 @@ pub(crate) fn cmd_file_list(
         };
         template.format(&entry, formatter.as_mut())?;
     }
+    print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
     Ok(())
 }
