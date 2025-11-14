@@ -2486,16 +2486,24 @@ use completions-jj.nu *  # Or `source completions-jj.nu`
 <div class="tabbed-set tabbed-alternate" data-tabs="6:2"><input checked="checked" id="standard_5" name="__tabbed_6" type="radio" /><input id="dynamic_3" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="standard_5">Standard</label><label for="dynamic_3">Dynamic</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<p>Insert this line in your <code>$PROFILE</code> file
-(usually <code>$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1</code>):</p>
-<div class="highlight"><pre><span></span><code><span class="nb">Invoke-Expression</span> <span class="p">(&amp;</span> <span class="p">{</span> <span class="p">(</span><span class="n">jj</span> <span class="n">util</span> <span class="n">completion</span> <span class="n">power-shell</span> <span class="p">|</span> <span class="nb">Out-String</span><span class="p">)</span> <span class="p">})</span>
+<div class="highlight"><pre><span></span><code><span class="n">jj</span> <span class="n">util</span> <span class="n">completion</span> <span class="n">power-shell</span> <span class="p">|</span> <span class="nb">Out-String</span> <span class="p">|</span> <span class="nb">Invoke-Expression</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><span class="nv">$env:COMPLETE</span> <span class="p">=</span> <span class="s2">&quot;powershell&quot;</span><span class="p">;</span> <span class="n">jj</span> <span class="p">|</span> <span class="nb">Out-String</span> <span class="p">|</span> <span class="nb">Invoke-Expression</span><span class="p">;</span> <span class="nb">Remove-Item</span> <span class="n">Env</span><span class="p">:\</span><span class="n">COMPLETE</span>
+<div class="highlight"><pre><span></span><code><span class="nv">$env:COMPLETE</span> <span class="p">=</span> <span class="s2">&quot;powershell&quot;</span>
+<span class="n">jj</span> <span class="p">|</span> <span class="nb">Out-String</span> <span class="p">|</span> <span class="nb">Invoke-Expression</span>
+<span class="nb">Remove-Item</span> <span class="n">Env</span><span class="p">:\</span><span class="n">COMPLETE</span>
 </code></pre></div>
 </div>
 </div>
+</div>
+<p>Insert the above into your <code>$PROFILE</code> file
+(usually <code>$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1</code>).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Note that to execute scripts in PowerShell on Windows, including <code>$PROFILE</code>,
+the <a href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies">execution policy</a> needs to be set to <code>RemoteSigned</code>
+at minimum.</p>
 </div>
 
 
