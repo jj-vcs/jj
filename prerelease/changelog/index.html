@@ -6286,6 +6286,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <li>
 <p>Revsets now support logical operators in string patterns.</p>
 </li>
+<li>
+<p><code>jj file track</code> now accepts an <code>--include-ignored</code> flag to track files that
+  are ignored by <code>.gitignore</code> or exceed the <code>snapshot.max-new-file-size</code> limit.
+  <a href="https://github.com/jj-vcs/jj/issues/2837">#2837</a></p>
+</li>
 </ul>
 <h3 id="fixed-bugs_1">Fixed bugs<a class="headerlink" href="#fixed-bugs_1" title="Permanent link">&para;</a></h3>
 <ul>
