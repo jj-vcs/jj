@@ -17,6 +17,7 @@ use jj_lib::copies::CopyRecords;
 use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo_path::FormatRepoPath as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset::RevsetExpression;

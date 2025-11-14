@@ -168,7 +168,7 @@ fn do_op_log(
             let diff_renderer = (!diff_formats.is_empty()).then(|| {
                 DiffRenderer::new(
                     repo.as_ref(),
-                    path_converter,
+                    Box::new(path_converter),
                     conflict_marker_style,
                     diff_formats.clone(),
                 )

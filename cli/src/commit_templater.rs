@@ -61,6 +61,7 @@ use jj_lib::ref_name::WorkspaceName;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo;
 use jj_lib::repo::RepoLoader;
+use jj_lib::repo_path::FormatRepoPath as _;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset;

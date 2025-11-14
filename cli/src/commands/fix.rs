@@ -30,6 +30,7 @@ use jj_lib::fix::ParallelFileFixer;
 use jj_lib::fix::fix_files;
 use jj_lib::matchers::Matcher;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo_path::FormatRepoPath as _;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::settings::UserSettings;

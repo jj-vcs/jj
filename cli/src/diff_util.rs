@@ -70,9 +70,9 @@ use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo;
+use jj_lib::repo_path::FormatRepoPath;
 use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPath;
-use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
@@ -418,7 +418,7 @@ impl From<UnifiedDiffError> for DiffRenderError {
 /// Configuration and environment to render textual diff.
 pub struct DiffRenderer<'a> {
     repo: &'a dyn Repo,
-    path_converter: &'a RepoPathUiConverter,
+    path_formatter: Box<dyn FormatRepoPath + 'a>,
     conflict_marker_style: ConflictMarkerStyle,
     formats: Vec<DiffFormat>,
 }
@@ -426,13 +426,13 @@ pub struct DiffRenderer<'a> {
 impl<'a> DiffRenderer<'a> {
     pub fn new(
         repo: &'a dyn Repo,
-        path_converter: &'a RepoPathUiConverter,
+        path_formatter: Box<dyn FormatRepoPath + 'a>,
         conflict_marker_style: ConflictMarkerStyle,
         formats: Vec<DiffFormat>,
     ) -> Self {
         Self {
             repo,
-            path_converter,
+            path_formatter,
             conflict_marker_style,
             formats,
         }
@@ -469,27 +469,27 @@ impl<'a> DiffRenderer<'a> {
         };
 
         let store = self.repo.store();
-        let path_converter = self.path_converter;
+        let path_formatter = self.path_formatter.as_ref();
         for format in &self.formats {
             match format {
                 DiffFormat::Summary => {
                     let tree_diff = diff_stream();
-                    show_diff_summary(formatter, tree_diff, path_converter).await?;
+                    show_diff_summary(formatter, tree_diff, path_formatter).await?;
                 }
                 DiffFormat::Stat(options) => {
                     let tree_diff = diff_stream();
                     let stats =
                         DiffStats::calculate(store, tree_diff, options, self.conflict_marker_style)
                             .block_on()?;
-                    show_diff_stats(formatter, &stats, path_converter, width)?;
+                    show_diff_stats(formatter, &stats, path_formatter, width)?;
                 }
                 DiffFormat::Types => {
                     let tree_diff = diff_stream();
-                    show_types(formatter, tree_diff, path_converter).await?;
+                    show_types(formatter, tree_diff, path_formatter).await?;
                 }
                 DiffFormat::NameOnly => {
                     let tree_diff = diff_stream();
-                    show_names(formatter, tree_diff, path_converter).await?;
+                    show_names(formatter, tree_diff, path_formatter).await?;
                 }
                 DiffFormat::Git(options) => {
                     let tree_diff = diff_stream();
@@ -508,7 +508,7 @@ impl<'a> DiffRenderer<'a> {
                         formatter,
                         store,
                         tree_diff,
-                        path_converter,
+                        path_formatter,
                         options,
                         self.conflict_marker_style,
                     )
@@ -523,7 +523,7 @@ impl<'a> DiffRenderer<'a> {
                                 formatter,
                                 store,
                                 tree_diff,
-                                path_converter,
+                                path_formatter,
                                 tool,
                                 self.conflict_marker_style,
                                 width,
@@ -1319,7 +1319,7 @@ pub async fn show_color_words_diff(
     formatter: &mut dyn Formatter,
     store: &Store,
     tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
-    path_converter: &RepoPathUiConverter,
+    path_formatter: &dyn FormatRepoPath,
     options: &ColorWordsDiffOptions,
     marker_style: ConflictMarkerStyle,
 ) -> Result<(), DiffRenderError> {
@@ -1333,8 +1333,8 @@ pub async fn show_color_words_diff(
     while let Some(MaterializedTreeDiffEntry { path, values }) = diff_stream.next().await {
         let left_path = path.source();
         let right_path = path.target();
-        let left_ui_path = path_converter.format_file_path(left_path);
-        let right_ui_path = path_converter.format_file_path(right_path);
+        let left_ui_path = path_formatter.format_file_path(left_path);
+        let right_ui_path = path_formatter.format_file_path(right_path);
         let (left_value, right_value) = values?;
 
         match (&left_value, &right_value) {
@@ -1472,7 +1472,7 @@ pub async fn show_file_by_file_diff(
     formatter: &mut dyn Formatter,
     store: &Store,
     tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
-    path_converter: &RepoPathUiConverter,
+    path_formatter: &dyn FormatRepoPath,
     tool: &ExternalMergeTool,
     marker_style: ConflictMarkerStyle,
     width: usize,
@@ -1501,8 +1501,8 @@ pub async fn show_file_by_file_diff(
         let (left_value, right_value) = values?;
         let left_path = path.source();
         let right_path = path.target();
-        let left_ui_path = path_converter.format_file_path(left_path);
-        let right_ui_path = path_converter.format_file_path(right_path);
+        let left_ui_path = path_formatter.format_file_path(left_path);
+        let right_ui_path = path_formatter.format_file_path(right_path);
 
         match (&left_value, &right_value) {
             (_, MaterializedTreeValue::AccessDenied(source)) => {
@@ -1758,15 +1758,15 @@ fn show_git_diff_texts<T: AsRef<[u8]>>(
 pub async fn show_diff_summary(
     formatter: &mut dyn Formatter,
     mut tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
-    path_converter: &RepoPathUiConverter,
+    path_formatter: &dyn FormatRepoPath,
 ) -> Result<(), DiffRenderError> {
     while let Some(CopiesTreeDiffEntry { path, values }) = tree_diff.next().await {
         let values = values?;
         let (label, sigil) = diff_status_label_and_char(&path, &values);
         let path = if path.copy_operation().is_some() {
-            path_converter.format_copied_path(path.source(), path.target())
+            path_formatter.format_copied_path(path.source(), path.target())
         } else {
-            path_converter.format_file_path(path.target())
+            path_formatter.format_file_path(path.target())
         };
         writeln!(formatter.labeled(label), "{sigil} {path}")?;
     }
@@ -1905,7 +1905,7 @@ fn get_diff_stat_entry(
 pub fn show_diff_stats(
     formatter: &mut dyn Formatter,
     stats: &DiffStats,
-    path_converter: &RepoPathUiConverter,
+    path_formatter: &dyn FormatRepoPath,
     display_width: usize,
 ) -> io::Result<()> {
     let ui_paths = stats
@@ -1913,9 +1913,9 @@ pub fn show_diff_stats(
         .iter()
         .map(|stat| {
             if stat.path.copy_operation().is_some() {
-                path_converter.format_copied_path(stat.path.source(), stat.path.target())
+                path_formatter.format_copied_path(stat.path.source(), stat.path.target())
             } else {
-                path_converter.format_file_path(stat.path.target())
+                path_formatter.format_file_path(stat.path.target())
             }
         })
         .collect_vec();
@@ -2047,7 +2047,7 @@ pub fn show_diff_stats(
 pub async fn show_types(
     formatter: &mut dyn Formatter,
     mut tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
-    path_converter: &RepoPathUiConverter,
+    path_formatter: &dyn FormatRepoPath,
 ) -> Result<(), DiffRenderError> {
     while let Some(CopiesTreeDiffEntry { path, values }) = tree_diff.next().await {
         let values = values?;
@@ -2056,7 +2056,7 @@ pub async fn show_types(
             "{}{} {}",
             diff_summary_char(&values.before),
             diff_summary_char(&values.after),
-            path_converter.format_copied_path(path.source(), path.target())
+            path_formatter.format_copied_path(path.source(), path.target())
         )?;
     }
     Ok(())
@@ -2078,13 +2078,13 @@ fn diff_summary_char(value: &MergedTreeValue) -> char {
 pub async fn show_names(
     formatter: &mut dyn Formatter,
     mut tree_diff: BoxStream<'_, CopiesTreeDiffEntry>,
-    path_converter: &RepoPathUiConverter,
+    path_formatter: &dyn FormatRepoPath,
 ) -> io::Result<()> {
     while let Some(CopiesTreeDiffEntry { path, .. }) = tree_diff.next().await {
         writeln!(
             formatter,
             "{}",
-            path_converter.format_file_path(path.target())
+            path_formatter.format_file_path(path.target())
         )?;
     }
     Ok(())

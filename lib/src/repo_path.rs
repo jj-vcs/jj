@@ -584,6 +584,19 @@ pub enum UiPathParseError {
     Fs(FsPathParseError),
 }
 
+/// Trait for formatting repository paths for display.
+pub trait FormatRepoPath {
+    /// Format a path for display in the UI.
+    fn format_file_path(&self, file: &RepoPath) -> String;
+
+    /// Format a copy from `source` to `target` for display in the UI by
+    /// extracting common components and producing something like
+    /// "common/prefix/{source => target}/common/suffix".
+    ///
+    /// If `source == target`, returns `format_file_path(source)`.
+    fn format_copied_path(&self, source: &RepoPath, target: &RepoPath) -> String;
+}
+
 /// Converts `RepoPath`s to and from plain strings as displayed to the user
 /// (e.g. relative to CWD).
 #[derive(Debug, Clone)]
@@ -598,9 +611,9 @@ pub enum RepoPathUiConverter {
     // on a server.
 }
 
-impl RepoPathUiConverter {
+impl FormatRepoPath for RepoPathUiConverter {
     /// Format a path for display in the UI.
-    pub fn format_file_path(&self, file: &RepoPath) -> String {
+    fn format_file_path(&self, file: &RepoPath) -> String {
         match self {
             Self::Fs { cwd, base } => {
                 file_util::relative_path(cwd, &file.to_fs_path_unchecked(base))
@@ -615,7 +628,7 @@ impl RepoPathUiConverter {
     /// "common/prefix/{source => target}/common/suffix".
     ///
     /// If `source == target`, returns `format_file_path(source)`.
-    pub fn format_copied_path(&self, source: &RepoPath, target: &RepoPath) -> String {
+    fn format_copied_path(&self, source: &RepoPath, target: &RepoPath) -> String {
         if source == target {
             return self.format_file_path(source);
         }
@@ -679,7 +692,20 @@ impl RepoPathUiConverter {
         }
         formatted
     }
+}
 
+// Blanket implementation for references to any FormatRepoPath
+impl<T: FormatRepoPath + ?Sized> FormatRepoPath for &T {
+    fn format_file_path(&self, file: &RepoPath) -> String {
+        (*self).format_file_path(file)
+    }
+
+    fn format_copied_path(&self, source: &RepoPath, target: &RepoPath) -> String {
+        (*self).format_copied_path(source, target)
+    }
+}
+
+impl RepoPathUiConverter {
     /// Parses a path from the UI.
     ///
     /// It's up to the implementation whether absolute paths are allowed, and

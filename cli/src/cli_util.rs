@@ -96,6 +96,7 @@ use jj_lib::repo::RepoLoader;
 use jj_lib::repo::StoreFactories;
 use jj_lib::repo::StoreLoadError;
 use jj_lib::repo::merge_factories_map;
+use jj_lib::repo_path::FormatRepoPath;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
@@ -1001,6 +1002,28 @@ impl WorkspaceCommandEnvironment {
     }
 }
 
+/// CLI-specific path formatter that can customize path display.
+pub struct CliPathFormatter<'a> {
+    inner: &'a RepoPathUiConverter,
+}
+
+impl<'a> CliPathFormatter<'a> {
+    pub fn new(inner: &'a RepoPathUiConverter) -> Self {
+        Self { inner }
+    }
+}
+
+impl jj_lib::repo_path::FormatRepoPath for CliPathFormatter<'_> {
+    fn format_file_path(&self, file: &RepoPath) -> String {
+        // TODO: use format_path template here
+        self.inner.format_file_path(file)
+    }
+
+    fn format_copied_path(&self, source: &RepoPath, target: &RepoPath) -> String {
+        self.inner.format_copied_path(source, target)
+    }
+}
+
 /// Provides utilities for writing a command that works on a [`Workspace`]
 /// (which most commands do).
 pub struct WorkspaceCommandHelper {
@@ -1317,14 +1340,15 @@ to the current parents may contain changes from multiple commits.
         self.working_copy_shared_with_git
     }
 
-    pub fn format_file_path(&self, file: &RepoPath) -> String {
-        self.path_converter().format_file_path(file)
-    }
-
     /// Parses a path relative to cwd into a RepoPath, which is relative to the
     /// workspace root.
     pub fn parse_file_path(&self, input: &str) -> Result<RepoPathBuf, UiPathParseError> {
         self.path_converter().parse_file_path(input)
+    }
+
+    /// Formats a RepoPath for display to the user.
+    pub fn format_file_path(&self, file: &RepoPath) -> String {
+        self.path_converter().format_file_path(file)
     }
 
     /// Parses the given strings as file patterns.
@@ -1447,9 +1471,10 @@ to the current parents may contain changes from multiple commits.
 
     /// Creates textual diff renderer of the specified `formats`.
     pub fn diff_renderer(&self, formats: Vec<DiffFormat>) -> DiffRenderer<'_> {
+        let formatter = Box::new(CliPathFormatter::new(self.path_converter()));
         DiffRenderer::new(
             self.repo().as_ref(),
-            self.path_converter(),
+            formatter,
             self.env.conflict_marker_style(),
             formats,
         )

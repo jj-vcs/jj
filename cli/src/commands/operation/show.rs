@@ -97,7 +97,7 @@ pub fn cmd_op_show(
         (!formats.is_empty()).then(|| {
             DiffRenderer::new(
                 repo.as_ref(),
-                path_converter,
+                Box::new(path_converter),
                 conflict_marker_style,
                 formats,
             )

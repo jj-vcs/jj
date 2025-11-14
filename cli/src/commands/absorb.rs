@@ -17,6 +17,7 @@ use jj_lib::absorb::AbsorbSource;
 use jj_lib::absorb::absorb_hunks;
 use jj_lib::absorb::split_hunks_to_trees;
 use jj_lib::matchers::EverythingMatcher;
+use jj_lib::repo_path::FormatRepoPath as _;
 use pollster::FutureExt as _;
 use tracing::instrument;
 
