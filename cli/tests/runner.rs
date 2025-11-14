@@ -33,6 +33,7 @@ mod test_edit_command;
 mod test_evolog_command;
 mod test_file_annotate_command;
 mod test_file_chmod_command;
+mod test_file_list_command;
 mod test_file_show_command;
 mod test_file_track_untrack_commands;
 mod test_fix_command;
