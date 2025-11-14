@@ -50,8 +50,9 @@ the user about the conflict.
 
 Note that, for now, there are known bugs in this area. Most notably, with the
 Git backend, [repository corruption is possible because the backend is not
-entirely lock-free](https://github.com/jj-vcs/jj/issues/2193). If you know
-about the bug, it is relatively easy to recover from.
+entirely lock-free](https://github.com/jj-vcs/jj/issues/2193). If that
+corruption occurs, there is an easy recovery path: `jj debug reindex`
+(documented in the linked issue).
 
 Moreover, such use of Jujutsu is not currently thoroughly tested,
 especially in the context of [colocated
