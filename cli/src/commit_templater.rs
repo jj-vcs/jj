@@ -94,6 +94,7 @@ use crate::operation_templater::OperationTemplateEnvironment;
 use crate::operation_templater::OperationTemplatePropertyKind;
 use crate::operation_templater::OperationTemplatePropertyVar;
 use crate::revset_util;
+use crate::status_util::RepoStatus;
 use crate::template_builder;
 use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
@@ -304,6 +305,11 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let inner_property = property.try_unwrap(type_name).into_dyn();
                 build(self, diagnostics, build_ctx, inner_property, function)
             }
+            CommitTemplatePropertyKind::RepoPathList(property) => {
+                let table = &self.build_fn_table.repo_path_list_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
             CommitTemplatePropertyKind::ChangeId(property) => {
                 let table = &self.build_fn_table.change_id_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
@@ -385,6 +391,11 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::Status(property) => {
+                let table = &self.build_fn_table.repo_status_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
         }
     }
 }
@@ -437,6 +448,7 @@ pub enum CommitTemplatePropertyKind<'repo> {
     RefSymbolOpt(BoxedTemplateProperty<'repo, Option<RefSymbolBuf>>),
     RepoPath(BoxedTemplateProperty<'repo, RepoPathBuf>),
     RepoPathOpt(BoxedTemplateProperty<'repo, Option<RepoPathBuf>>),
+    RepoPathList(BoxedTemplateProperty<'repo, Vec<RepoPathBuf>>),
     ChangeId(BoxedTemplateProperty<'repo, ChangeId>),
     CommitId(BoxedTemplateProperty<'repo, CommitId>),
     ShortestIdPrefix(BoxedTemplateProperty<'repo, ShortestIdPrefix>),
@@ -452,6 +464,7 @@ pub enum CommitTemplatePropertyKind<'repo> {
     AnnotationLine(BoxedTemplateProperty<'repo, AnnotationLine>),
     Trailer(BoxedTemplateProperty<'repo, Trailer>),
     TrailerList(BoxedTemplateProperty<'repo, Vec<Trailer>>),
+    Status(BoxedTemplateProperty<'repo, RepoStatus>),
 }
 
 template_builder::impl_core_property_wrappers!(<'repo> CommitTemplatePropertyKind<'repo> => Core);
@@ -471,6 +484,7 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
     RefSymbolOpt(Option<RefSymbolBuf>),
     RepoPath(RepoPathBuf),
     RepoPathOpt(Option<RepoPathBuf>),
+    RepoPathList(Vec<RepoPathBuf>),
     ChangeId(ChangeId),
     CommitId(CommitId),
     ShortestIdPrefix(ShortestIdPrefix),
@@ -486,6 +500,7 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
     AnnotationLine(AnnotationLine),
     Trailer(Trailer),
     TrailerList(Vec<Trailer>),
+    Status(RepoStatus),
 });
 
 impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo> {
@@ -515,6 +530,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::RefSymbolOpt(_) => "Option<RefSymbol>",
             Self::RepoPath(_) => "RepoPath",
             Self::RepoPathOpt(_) => "Option<RepoPath>",
+            Self::RepoPathList(_) => "List<RepoPath>",
             Self::ChangeId(_) => "ChangeId",
             Self::CommitId(_) => "CommitId",
             Self::ShortestIdPrefix(_) => "ShortestIdPrefix",
@@ -530,6 +546,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::AnnotationLine(_) => "AnnotationLine",
             Self::Trailer(_) => "Trailer",
             Self::TrailerList(_) => "List<Trailer>",
+            Self::Status(_) => "List<Status>",
         }
     }
 
@@ -551,6 +568,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::RefSymbolOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
             Self::RepoPath(_) => None,
             Self::RepoPathOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
+            Self::RepoPathList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
             Self::ChangeId(_) => None,
             Self::CommitId(_) => None,
             Self::ShortestIdPrefix(_) => None,
@@ -570,6 +588,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::AnnotationLine(_) => None,
             Self::Trailer(_) => None,
             Self::TrailerList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
+            Self::Status(_) => None,
         }
     }
 
@@ -616,9 +635,11 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::RefSymbolOpt(property) => Some(property.into_serialize()),
             Self::RepoPath(property) => Some(property.into_serialize()),
             Self::RepoPathOpt(property) => Some(property.into_serialize()),
+            Self::RepoPathList(property) => Some(property.into_serialize()),
             Self::ChangeId(property) => Some(property.into_serialize()),
             Self::CommitId(property) => Some(property.into_serialize()),
             Self::ShortestIdPrefix(property) => Some(property.into_serialize()),
+            Self::Status(property) => Some(property.into_serialize()),
             Self::TreeDiff(_) => None,
             Self::TreeDiffEntry(_) => None,
             Self::TreeDiffEntryList(_) => None,
@@ -652,6 +673,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::RefSymbolOpt(property) => Some(property.into_template()),
             Self::RepoPath(property) => Some(property.into_template()),
             Self::RepoPathOpt(property) => Some(property.into_template()),
+            Self::RepoPathList(_) => None,
             Self::ChangeId(property) => Some(property.into_template()),
             Self::CommitId(property) => Some(property.into_template()),
             Self::ShortestIdPrefix(property) => Some(property.into_template()),
@@ -667,6 +689,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::AnnotationLine(_) => None,
             Self::Trailer(property) => Some(property.into_template()),
             Self::TrailerList(property) => Some(property.into_template()),
+            Self::Status(_) => None,
         }
     }
 
@@ -721,6 +744,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::RefSymbolOpt(_), _) => None,
             (Self::RepoPath(_), _) => None,
             (Self::RepoPathOpt(_), _) => None,
+            (Self::RepoPathList(_), _) => None,
             (Self::ChangeId(_), _) => None,
             (Self::CommitId(_), _) => None,
             (Self::ShortestIdPrefix(_), _) => None,
@@ -736,6 +760,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::AnnotationLine(_), _) => None,
             (Self::Trailer(_), _) => None,
             (Self::TrailerList(_), _) => None,
+            (Self::Status(_), _) => None,
         }
     }
 
@@ -763,6 +788,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::RefSymbolOpt(_), _) => None,
             (Self::RepoPath(_), _) => None,
             (Self::RepoPathOpt(_), _) => None,
+            (Self::RepoPathList(_), _) => None,
             (Self::ChangeId(_), _) => None,
             (Self::CommitId(_), _) => None,
             (Self::ShortestIdPrefix(_), _) => None,
@@ -778,6 +804,7 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::AnnotationLine(_), _) => None,
             (Self::Trailer(_), _) => None,
             (Self::TrailerList(_), _) => None,
+            (Self::Status(_), _) => None,
         }
     }
 }
@@ -800,6 +827,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub workspace_ref_methods: CommitTemplateBuildMethodFnMap<'repo, WorkspaceRef>,
     pub workspace_ref_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<WorkspaceRef>>,
     pub repo_path_methods: CommitTemplateBuildMethodFnMap<'repo, RepoPathBuf>,
+    pub repo_path_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<RepoPathBuf>>,
     pub change_id_methods: CommitTemplateBuildMethodFnMap<'repo, ChangeId>,
     pub commit_id_methods: CommitTemplateBuildMethodFnMap<'repo, CommitId>,
     pub shortest_id_prefix_methods: CommitTemplateBuildMethodFnMap<'repo, ShortestIdPrefix>,
@@ -816,6 +844,7 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub annotation_line_methods: CommitTemplateBuildMethodFnMap<'repo, AnnotationLine>,
     pub trailer_methods: CommitTemplateBuildMethodFnMap<'repo, Trailer>,
     pub trailer_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<Trailer>>,
+    pub repo_status_methods: CommitTemplateBuildMethodFnMap<'repo, RepoStatus>,
 }
 
 impl CommitTemplateBuildFnTable<'_> {
@@ -831,6 +860,7 @@ impl CommitTemplateBuildFnTable<'_> {
             workspace_ref_methods: HashMap::new(),
             workspace_ref_list_methods: HashMap::new(),
             repo_path_methods: HashMap::new(),
+            repo_path_list_methods: HashMap::new(),
             change_id_methods: HashMap::new(),
             commit_id_methods: HashMap::new(),
             shortest_id_prefix_methods: HashMap::new(),
@@ -846,6 +876,7 @@ impl CommitTemplateBuildFnTable<'_> {
             annotation_line_methods: HashMap::new(),
             trailer_methods: HashMap::new(),
             trailer_list_methods: HashMap::new(),
+            repo_status_methods: HashMap::new(),
         }
     }
 
@@ -861,6 +892,7 @@ impl CommitTemplateBuildFnTable<'_> {
             workspace_ref_methods,
             workspace_ref_list_methods,
             repo_path_methods,
+            repo_path_list_methods,
             change_id_methods,
             commit_id_methods,
             shortest_id_prefix_methods,
@@ -876,6 +908,7 @@ impl CommitTemplateBuildFnTable<'_> {
             annotation_line_methods,
             trailer_methods,
             trailer_list_methods,
+            repo_status_methods,
         } = other;
 
         self.core.merge(core);
@@ -894,6 +927,7 @@ impl CommitTemplateBuildFnTable<'_> {
             workspace_ref_list_methods,
         );
         merge_fn_map(&mut self.repo_path_methods, repo_path_methods);
+        merge_fn_map(&mut self.repo_path_list_methods, repo_path_list_methods);
         merge_fn_map(&mut self.change_id_methods, change_id_methods);
         merge_fn_map(&mut self.commit_id_methods, commit_id_methods);
         merge_fn_map(
@@ -921,6 +955,7 @@ impl CommitTemplateBuildFnTable<'_> {
         merge_fn_map(&mut self.annotation_line_methods, annotation_line_methods);
         merge_fn_map(&mut self.trailer_methods, trailer_methods);
         merge_fn_map(&mut self.trailer_list_methods, trailer_list_methods);
+        merge_fn_map(&mut self.repo_status_methods, repo_status_methods);
     }
 
     /// Creates new symbol table containing the builtin methods.
@@ -938,6 +973,7 @@ impl CommitTemplateBuildFnTable<'_> {
             workspace_ref_methods: builtin_workspace_ref_methods(),
             workspace_ref_list_methods: template_builder::builtin_formattable_list_methods(),
             repo_path_methods: builtin_repo_path_methods(),
+            repo_path_list_methods: template_builder::builtin_unformattable_list_methods(),
             change_id_methods: builtin_change_id_methods(),
             commit_id_methods: builtin_commit_id_methods(),
             shortest_id_prefix_methods: builtin_shortest_id_prefix_methods(),
@@ -953,6 +989,7 @@ impl CommitTemplateBuildFnTable<'_> {
             annotation_line_methods: builtin_annotation_line_methods(),
             trailer_methods: builtin_trailer_methods(),
             trailer_list_methods: builtin_trailer_list_methods(),
+            repo_status_methods: builtin_repo_status_methods(),
         }
     }
 }
@@ -2962,6 +2999,27 @@ fn builtin_trailer_list_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo
                 expect_stringify_expression(language, diagnostics, build_ctx, key_node)?;
             let out_property = (self_property, key_property)
                 .map(|(trailers, key)| trailers.iter().any(|t| t.key == key));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map
+}
+
+fn builtin_repo_status_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, RepoStatus> {
+    let mut map = CommitTemplateBuildMethodFnMap::<RepoStatus>::new();
+    map.insert(
+        "the_working_copy",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|status| status.working_copy);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "untracked_paths",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|status| status.untracked_paths);
             Ok(out_property.into_dyn_wrapped())
         },
     );

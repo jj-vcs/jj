@@ -27,6 +27,7 @@ file_show = ''
 
 git_push_bookmark = '"push-" ++ change_id.short()'
 
+status = 'builtin_status'
 log = 'builtin_log_compact'
 show = 'builtin_log_detailed'
 op_log = 'builtin_op_log_compact'
@@ -289,6 +290,34 @@ label(if(op.current_operation(), "current_operation"),
     if(op.root(), format_root_operation(op)),
     format_operation_redacted(op),
   )
+)
+'''
+
+builtin_status = 'builtin_status(the_working_copy, untracked_paths)'
+'builtin_status(commit, untracked_paths)' = '''
+concat(
+  if(commit,
+    concat(
+      if(commit.diff().files() || untracked_paths,
+        concat(
+          if(commit.diff().files(),
+            "Working copy changes:\n" ++ commit.diff().summary()),
+          if(untracked_paths,
+            "Untracked paths:\n" ++ untracked_paths.map(|path|
+              label("diff untracked", "? " ++ path)).join("\n") ++ "\n"),
+        ),
+        "The working copy has no changes.\n",
+      ),
+      "Working copy  (@) : " ++ format_commit_summary_with_refs(commit, commit.bookmarks()) ++ "\n",
+      commit.parents().map(|parent|
+        "Parent commit (@-): " ++ format_commit_summary_with_refs(parent, parent.bookmarks())).join("\n") ++ "\n",
+      if(commit.conflicted_files(), concat(
+        "Warning: There are unresolved conflicts at these paths:\n",
+        
+      ))
+    ),
+    "No working copy\n",
+  ),
 )
 '''
 
