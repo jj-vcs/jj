@@ -216,8 +216,8 @@ updated both locally and on a remote.
 
 To resolve a conflicted state in a local bookmark (e.g. `main`), you can move the
 bookmark to the desired target with `jj bookmark move`. You may want to first either
-merge the conflicted targets with `jj new` (e.g. `jj new 'all:main'`), or you may
-want to rebase one side on top of the other with `jj rebase`.
+merge the conflicted targets with `jj new` (e.g. `jj new main`), or you may want to
+rebase one side on top of the other with `jj rebase`.
 
 To resolve a conflicted state in a remote bookmark (e.g. `main@origin`), simply
 pull from the remote (e.g. `jj git fetch`). The conflict resolution will also
