@@ -82,6 +82,14 @@ fn test_track_untrack() {
     assert!(work_dir.root().join("file1.bak").exists());
     assert!(work_dir.root().join("file2.bak").exists());
 
+    // Warns if path doesn't exist
+    let output = work_dir.run_jj(["file", "untrack", "nonexistent"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    ------- stderr -------
+    Warning: No matching entries for paths: nonexistent
+    [EOF]
+    ");
+
     // Errors out when multiple specified files are not ignored
     let output = work_dir.run_jj(["file", "untrack", "target"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"

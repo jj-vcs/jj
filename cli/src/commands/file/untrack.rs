@@ -24,6 +24,7 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::export_working_copy_changes_to_git;
 use crate::cli_util::print_snapshot_stats;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::user_error_with_hint;
 use crate::complete;
@@ -52,9 +53,8 @@ pub(crate) fn cmd_file_untrack(
     args: &FileUntrackArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let matcher = workspace_command
-        .parse_file_patterns(ui, &args.paths)?
-        .to_matcher();
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
     let auto_tracking_matcher = workspace_command.auto_tracking_matcher(ui)?;
     let options =
         workspace_command.snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)?;
@@ -115,6 +115,7 @@ Make sure they're ignored, then try again.",
     }
     let repo = tx.commit("untrack paths")?;
     locked_ws.finish(repo.op_id().clone())?;
+    print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&wc_tree])?;
     print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
     Ok(())
 }
