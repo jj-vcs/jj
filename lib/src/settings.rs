@@ -19,7 +19,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use chrono::DateTime;
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
 use serde::Deserialize;
@@ -36,6 +35,7 @@ use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
 use crate::fmt_util::binary_prefix;
 use crate::signing::SignBehavior;
+use crate::time_util::TimestampExt as _;
 
 #[derive(Debug, Clone)]
 pub struct UserSettings {
@@ -105,14 +105,14 @@ impl SignSettings {
 }
 
 fn to_timestamp(value: ConfigValue) -> Result<Timestamp, Box<dyn std::error::Error + Send + Sync>> {
-    // Since toml_edit::Datetime isn't the date-time type used across our code
-    // base, we accept both string and date-time types.
+    fn parse_literal(literal: &str) -> Result<Timestamp, Box<dyn std::error::Error + Send + Sync>> {
+        Timestamp::parse_datetime(literal).map_err(|err| err.into())
+    }
+
     if let Some(s) = value.as_str() {
-        Ok(Timestamp::from_datetime(DateTime::parse_from_rfc3339(s)?))
+        parse_literal(s)
     } else if let Some(d) = value.as_datetime() {
-        // It's easier to re-parse the TOML date-time expression.
-        let s = d.to_string();
-        Ok(Timestamp::from_datetime(DateTime::parse_from_rfc3339(&s)?))
+        parse_literal(&d.to_string())
     } else {
         let ty = value.type_name();
         Err(format!("invalid type: {ty}, expected a date-time").into())
@@ -383,6 +383,22 @@ mod tests {
     use assert_matches::assert_matches;
 
     use super::*;
+    use crate::backend::MillisSinceEpoch;
+
+    #[test]
+    fn parse_timestamp_with_numeric_offset() {
+        let value = ConfigValue::from("2001-02-03T04:05:06+07:00");
+        let ts = to_timestamp(value).unwrap();
+        assert_eq!(ts.timestamp, MillisSinceEpoch(981147906000));
+        assert_eq!(ts.tz_offset, 7 * 60);
+    }
+
+    #[test]
+    fn parse_timestamp_with_z_suffix() {
+        let value = ConfigValue::from("2001-02-03T04:05:06Z");
+        let ts = to_timestamp(value).unwrap();
+        assert_eq!(ts.tz_offset, 0);
+    }
 
     #[test]
     fn byte_size_parse() {

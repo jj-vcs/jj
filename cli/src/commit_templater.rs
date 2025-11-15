@@ -2713,6 +2713,8 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
+    use jiff::Zoned;
+    use jiff::tz::TimeZone;
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;
     use jj_lib::revset::RevsetAliasesMap;
@@ -2787,7 +2789,7 @@ mod tests {
                 aliases_map: &self.revset_aliases_map,
                 local_variables: HashMap::new(),
                 user_email: "test.user@example.com",
-                date_pattern_context: chrono::DateTime::UNIX_EPOCH.fixed_offset().into(),
+                zoned: Zoned::now().with_time_zone(TimeZone::UTC),
                 default_ignored_remote: None,
                 extensions: &self.revset_extensions,
                 workspace: Some(RevsetWorkspaceContext {
