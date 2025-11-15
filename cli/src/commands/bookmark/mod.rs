@@ -33,8 +33,6 @@ use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo;
 use jj_lib::str_util::StringExpression;
-use jj_lib::str_util::StringMatcher;
-use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
 use self::create::BookmarkCreateArgs;
@@ -108,42 +106,6 @@ pub fn cmd_bookmark(
     }
 }
 
-fn find_local_bookmarks<'a>(
-    ui: &Ui,
-    view: &'a View,
-    name_patterns: &[StringPattern],
-) -> Result<Vec<(&'a RefName, &'a RefTarget)>, CommandError> {
-    find_bookmarks_with(ui, name_patterns, |matcher| {
-        Ok(view.local_bookmarks_matching(matcher).collect())
-    })
-}
-
-fn find_bookmarks_with<'a, V>(
-    ui: &Ui,
-    name_patterns: &[StringPattern],
-    mut find_matches: impl FnMut(&StringMatcher) -> Result<Vec<(&'a RefName, V)>, CommandError>,
-) -> Result<Vec<(&'a RefName, V)>, CommandError> {
-    let mut matching_bookmarks: Vec<(&'a RefName, V)> = vec![];
-    let mut unmatched_names = vec![];
-    for pattern in name_patterns {
-        let matches = find_matches(&pattern.to_matcher())?;
-        if matches.is_empty() {
-            unmatched_names.extend(pattern.as_exact());
-        }
-        matching_bookmarks.extend(matches);
-    }
-    matching_bookmarks.sort_unstable_by_key(|(name, _)| *name);
-    matching_bookmarks.dedup_by_key(|(name, _)| *name);
-    if !unmatched_names.is_empty() {
-        writeln!(
-            ui.warning_default(),
-            "No matching bookmarks for names: {}",
-            unmatched_names.join(", ")
-        )?;
-    }
-    Ok(matching_bookmarks)
-}
-
 fn find_trackable_remote_bookmarks<'a>(
     ui: &Ui,
     view: &'a View,
@@ -197,6 +159,27 @@ fn is_fast_forward(
     } else {
         Ok(true)
     }
+}
+
+/// Warns about exact patterns that don't match local bookmarks.
+fn warn_unmatched_local_bookmarks(
+    ui: &Ui,
+    view: &View,
+    name_expr: &StringExpression,
+) -> io::Result<()> {
+    let mut names = name_expr
+        .exact_strings()
+        .map(RefName::new)
+        .filter(|name| view.get_local_bookmark(name).is_absent())
+        .peekable();
+    if names.peek().is_none() {
+        return Ok(());
+    }
+    writeln!(
+        ui.warning_default(),
+        "No matching bookmarks for names: {}",
+        names.map(|name| name.as_symbol()).join(", ")
+    )
 }
 
 /// Warns about exact patterns that don't match local or remote bookmarks.

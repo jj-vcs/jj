@@ -15,12 +15,12 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::op_store::RefTarget;
-use jj_lib::str_util::StringPattern;
 
-use super::find_local_tags;
+use super::warn_unmatched_local_tags;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
 /// Delete existing tags
@@ -37,10 +37,9 @@ pub struct TagDeleteArgs {
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(
         required = true,
-        value_parser = StringPattern::parse,
         add = ArgValueCandidates::new(complete::local_tags),
     )]
-    names: Vec<StringPattern>,
+    names: Vec<String>,
 }
 
 pub fn cmd_tag_delete(
@@ -50,7 +49,10 @@ pub fn cmd_tag_delete(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
-    let matched_tags = find_local_tags(ui, repo.view(), &args.names)?;
+    let name_expr = parse_union_name_patterns(ui, &args.names)?;
+    let name_matcher = name_expr.to_matcher();
+    let matched_tags = repo.view().local_tags_matching(&name_matcher).collect_vec();
+    warn_unmatched_local_tags(ui, repo.view(), &name_expr)?;
     if matched_tags.is_empty() {
         writeln!(ui.status(), "No tags to delete.")?;
         return Ok(());

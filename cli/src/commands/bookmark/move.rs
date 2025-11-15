@@ -19,15 +19,16 @@ use jj_lib::iter_util::fallible_any;
 use jj_lib::iter_util::fallible_find;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
-use jj_lib::str_util::StringPattern;
+use jj_lib::str_util::StringExpression;
 
-use super::find_bookmarks_with;
 use super::is_fast_forward;
+use super::warn_unmatched_local_bookmarks;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::command_error::user_error_with_hint;
 use crate::complete;
+use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
 /// Move existing bookmarks to target revision
@@ -54,10 +55,9 @@ pub struct BookmarkMoveArgs {
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(
         group = "source",
-        value_parser = StringPattern::parse,
         add = ArgValueCandidates::new(complete::local_bookmarks),
     )]
-    names: Vec<StringPattern>,
+    names: Option<Vec<String>>,
 
     /// Move bookmarks from the given revisions
     #[arg(
@@ -100,28 +100,21 @@ pub fn cmd_bookmark_move(
         } else {
             Box::new(|_| Ok(true))
         };
-        let mut bookmarks = if !args.names.is_empty() {
-            find_bookmarks_with(ui, &args.names, |matcher| {
-                repo.view()
-                    .local_bookmarks_matching(matcher)
-                    .filter_map(|(name, target)| {
-                        is_source_ref(target)
-                            .map(|matched| matched.then_some((name, target)))
-                            .transpose()
-                    })
-                    .try_collect()
-                    .map_err(Into::into)
-            })?
-        } else {
-            repo.view()
-                .local_bookmarks()
-                .filter_map(|(name, target)| {
-                    is_source_ref(target)
-                        .map(|matched| matched.then_some((name, target)))
-                        .transpose()
-                })
-                .try_collect()?
+        let name_expr = match &args.names {
+            Some(texts) => parse_union_name_patterns(ui, texts)?,
+            None => StringExpression::all(),
         };
+        let name_matcher = name_expr.to_matcher();
+        let mut bookmarks: Vec<_> = repo
+            .view()
+            .local_bookmarks_matching(&name_matcher)
+            .filter_map(|(name, target)| {
+                is_source_ref(target)
+                    .map(|matched| matched.then_some((name, target)))
+                    .transpose()
+            })
+            .try_collect()?;
+        warn_unmatched_local_bookmarks(ui, repo.view(), &name_expr)?;
         // Noop matches aren't error, but should be excluded from stats.
         bookmarks.retain(|(_, old_target)| old_target.as_normal() != Some(target_commit.id()));
         bookmarks
@@ -164,7 +157,7 @@ pub fn cmd_bookmark_move(
         tx.write_commit_summary(formatter.as_mut(), &target_commit)?;
         writeln!(formatter)?;
     }
-    if matched_bookmarks.len() > 1 && args.names.is_empty() {
+    if matched_bookmarks.len() > 1 && args.names.is_none() {
         writeln!(
             ui.hint_default(),
             "Specify bookmark by name to update just one of the bookmarks."

@@ -22,7 +22,7 @@ should not be broken.
 * In the following commands, [string pattern
   arguments](docs/revsets.md#string-patterns) are now parsed the same way they
   are in revsets and can be combined with logical operators: `jj bookmark
-  list`, `jj tag list`
+  delete`/`forget`/`list`/`move`, `jj tag delete`/`list`
 
 * In the following commands, unmatched bookmark/tag names is no longer an
   error. A warning will be printed instead: `jj bookmark
