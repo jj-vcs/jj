@@ -223,14 +223,14 @@ fn test_import_refs() {
         view.get_remote_bookmark(remote_symbol("main", "git")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit2)),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::Tracked
         },
     );
     assert_eq!(
         view.get_remote_bookmark(remote_symbol("main", "origin")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit1)),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::Tracked
         },
     );
     assert_eq!(
@@ -241,7 +241,7 @@ fn test_import_refs() {
         view.get_remote_bookmark(remote_symbol("feature1", "git")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit3)),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::Tracked
         },
     );
     assert_eq!(
@@ -256,7 +256,7 @@ fn test_import_refs() {
         view.get_remote_bookmark(remote_symbol("feature2", "git")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit4)),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::Tracked
         },
     );
     assert_eq!(
@@ -275,7 +275,7 @@ fn test_import_refs() {
         view.get_remote_bookmark(remote_symbol("feature3", "origin")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit6)),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::Tracked
         },
     );
 
@@ -287,7 +287,7 @@ fn test_import_refs() {
         view.get_remote_tag(remote_symbol("v1.0", "git")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit5)),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::Tracked
         },
     );
 
@@ -403,14 +403,14 @@ fn test_import_refs_reimport() {
         view.get_remote_bookmark(remote_symbol("main", "git")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit2)),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::Tracked
         },
     );
     assert_eq!(
         view.get_remote_bookmark(remote_symbol("main", "origin")),
         &RemoteRef {
             target: commit1_target.clone(),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::Tracked
         },
     );
     assert_eq!(
@@ -421,7 +421,7 @@ fn test_import_refs_reimport() {
         view.get_remote_bookmark(remote_symbol("feature2", "git")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit5)),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::Tracked
         },
     );
     assert_eq!(
@@ -1359,7 +1359,7 @@ fn test_import_refs_reimport_conflicted_remote_bookmark() {
             .get_remote_bookmark(remote_symbol("main", "origin")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit2)),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::Tracked
         },
     );
 }
@@ -2106,7 +2106,7 @@ fn test_import_export_non_tracking_bookmark() {
             .get_remote_bookmark(remote_symbol("main", "origin")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit_main_t0)),
-            state: RemoteRefState::New,
+            state: RemoteRefState::New
         },
     );
     assert_eq!(
@@ -2145,7 +2145,7 @@ fn test_import_export_non_tracking_bookmark() {
             .get_remote_bookmark(remote_symbol("main", "origin")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit_main_t1)),
-            state: RemoteRefState::New,
+            state: RemoteRefState::New
         },
     );
     assert_eq!(
@@ -2179,7 +2179,7 @@ fn test_import_export_non_tracking_bookmark() {
             .get_remote_bookmark(remote_symbol("main", "origin")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit_main_t2)),
-            state: RemoteRefState::New,
+            state: RemoteRefState::New
         },
     );
     assert_eq!(
@@ -2381,7 +2381,7 @@ fn test_export_partial_failure() {
         mut_repo.get_remote_bookmark(remote_symbol("main", "git")),
         RemoteRef {
             target: target.clone(),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::Tracked
         },
     );
     assert_eq!(
@@ -2450,7 +2450,7 @@ fn test_export_partial_failure() {
         mut_repo.get_remote_bookmark(remote_symbol("main/sub", "git")),
         RemoteRef {
             target: target.clone(),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::Tracked
         },
     );
     assert_eq!(
@@ -5027,4 +5027,42 @@ fn test_remote_add_with_tags_specification() {
                 .fetch_tags()
         );
     }
+}
+
+#[test]
+fn test_list_remote() {
+    let test_data = GitRepoData::create();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
+    let commit_main = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    let commit_feat1 = empty_git_commit(
+        &test_data.origin_repo,
+        "refs/remotes/origin/feature1",
+        &[commit_main],
+    );
+
+    let mut tx = test_data.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    let patterns: Vec<String> = Vec::new();
+
+    let result = git::list_remote(mut_repo, &git_settings, "origin".as_ref(), &patterns).unwrap();
+
+    let expected = [
+        (jj_id(commit_main), GitRefNameBuf::from("refs/heads/main")),
+        (
+            jj_id(commit_feat1),
+            GitRefNameBuf::from("refs/remotes/origin/feature1"),
+        ),
+    ];
+    assert_eq!(result, expected);
+
+    let patterns = vec!["feature1".to_string()];
+
+    let result = git::list_remote(mut_repo, &git_settings, "origin".as_ref(), &patterns).unwrap();
+
+    let expected = [(
+        jj_id(commit_feat1),
+        GitRefNameBuf::from("refs/remotes/origin/feature1"),
+    )];
+    assert_eq!(result, expected);
 }

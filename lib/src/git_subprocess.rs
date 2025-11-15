@@ -39,6 +39,7 @@ use crate::git_backend::GitBackend;
 use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
+use jj_lib::backend::CommitId;
 
 // This is not the minimum required version, that would be 2.29.0, which
 // introduced the `--no-write-fetch-head` option. However, that by itself
@@ -293,6 +294,30 @@ impl<'a> GitSubprocessContext<'a> {
 
         parse_git_push_output(output)
     }
+
+    /// List references in a remote repository
+    ///
+    /// `git ls-remote <remote_name> [<patterns>​]`
+    ///
+    /// A vector of unique Git reference names
+    /// matching the patterns found on the remote.
+    pub(crate) fn spawn_list_references_in_remote(
+        &self,
+        remote_name: &RemoteName,
+        patterns: &[String],
+    ) -> Result<Vec<(CommitId, GitRefNameBuf)>, GitSubprocessError> {
+        let mut command = self.create_command();
+        command.stdout(Stdio::piped());
+
+        command.args(["ls-remote", remote_name.as_str()]);
+        command.args(patterns);
+
+        let output = wait_with_output(self.spawn_cmd(command)?)?;
+
+        let references = parse_git_list_remote_output(output)?;
+
+        Ok(references)
+    }
 }
 
 /// Generate a GitSubprocessError::ExternalGitError if the stderr output was not
@@ -433,6 +458,25 @@ fn parse_git_remote_show_output(output: Output) -> Result<Output, GitSubprocessE
     }
 
     // There are some git errors we want to parse out
+    if let Some(option) = parse_unknown_option(&output.stderr) {
+        return Err(GitSubprocessError::UnsupportedGitOption(option));
+    }
+
+    if let Some(remote) = parse_no_such_remote(&output.stderr) {
+        return Err(GitSubprocessError::NoSuchRepository(remote));
+    }
+
+    Err(external_git_error(&output.stderr))
+}
+
+fn parse_git_list_remote_output(
+    output: Output,
+) -> Result<Vec<(CommitId, GitRefNameBuf)>, GitSubprocessError> {
+    if output.status.success() {
+        let ref_names = parse_ref_names(&output.stdout)?;
+        return Ok(ref_names);
+    }
+
     if let Some(option) = parse_unknown_option(&output.stderr) {
         return Err(GitSubprocessError::UnsupportedGitOption(option));
     }
@@ -585,6 +629,43 @@ fn parse_git_push_output(output: Output) -> Result<GitPushStats, GitSubprocessEr
     } else {
         Err(external_git_error(&output.stderr))
     }
+}
+
+/// On Ok, returns a vector of unique Git reference names
+/// matching the patterns found on the remote.
+fn parse_ref_names(stdout: &[u8]) -> Result<Vec<(CommitId, GitRefNameBuf)>, GitSubprocessError> {
+    let mut ref_names = Vec::new();
+
+    for (idx, line) in stdout.lines().enumerate() {
+        if line.is_empty() {
+            continue;
+        }
+
+        let Some((commit_hex, reference)) = line.split_once_str("\t") else {
+            return Err(GitSubprocessError::External(format!(
+                "Line #{idx} of git ls-remote has unknown format: {}",
+                line.to_str_lossy()
+            )));
+        };
+
+        let Some(commit_id) = CommitId::try_from_hex(commit_hex) else {
+            return Err(GitSubprocessError::External(format!(
+                "Line #{idx} of git ls-remote has unknown commit hex: {}",
+                commit_hex.to_str_lossy()
+            )));
+        };
+
+        let Some(ref_name) = reference.to_str().ok() else {
+            return Err(GitSubprocessError::External(format!(
+                "Line #{idx} of git-push has non-utf8 refspec: {}",
+                reference.to_str_lossy()
+            )));
+        };
+
+        ref_names.push((commit_id, ref_name.into()));
+    }
+
+    Ok(ref_names)
 }
 
 fn wait_with_output(child: Child) -> Result<Output, GitSubprocessError> {
@@ -807,6 +888,11 @@ and the repository exists. "###;
 !\tdeadbeef:refs/heads/bookmark8\t[remote rejected] (hook failure)
 !\tdeadbeef:refs/heads/bookmark9\t[remote rejected]
 Done";
+    const SAMPLE_LIST_REMOTE_OUTPUT: &[u8] = b"
+deadbeef1234\trefs/heads/main
+cafebabe5678\trefs/tags/v1.0
+babadada9012\trefs/remotes/origin/dev
+";
     const SAMPLE_OK_STDERR: &[u8] = b"";
 
     #[test]
@@ -1004,5 +1090,27 @@ Done";
     #[test]
     fn test_initial_overall_progress_is_zero() {
         assert_eq!(GitProgress::default().to_progress().overall, 0.0);
+    }
+
+    #[test]
+    fn test_parse_ref_names() {
+        let expected = [
+            (
+                CommitId::from_hex("deadbeef1234"),
+                GitRefNameBuf::from("refs/heads/main"),
+            ),
+            (
+                CommitId::from_hex("cafebabe5678"),
+                GitRefNameBuf::from("refs/tags/v1.0"),
+            ),
+            (
+                CommitId::from_hex("babadada9012"),
+                GitRefNameBuf::from("refs/remotes/origin/dev"),
+            ),
+        ];
+        assert_eq!(
+            parse_ref_names(SAMPLE_LIST_REMOTE_OUTPUT).unwrap(),
+            expected
+        );
     }
 }
