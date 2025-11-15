@@ -127,28 +127,32 @@
     `jj commit`
   Notes: ''
 
-- Use case: See log of ancestors of the current commit
+- Use case: See compact log graph of ancestors of the current commit
   Git command: >
-    `git log --oneline --graph --decorate`
+    `git log --oneline --graph`
   Jujutsu command: >
     `jj log -r ::@`
   Notes: ''
 
-- Use case: See log of all reachable commits
+- Use case: See compact log graph of all reachable commits
   Git command: >
-    `git log --oneline --graph --decorate --branches`
+    `git log --oneline --graph --all`
   Jujutsu command: >
     `jj log -r 'all()'`
     or `jj log -r ::`
-  Notes: ''
+  Notes: >
+    In a Git-backed Jujutsu repository the Git command will also show all commits preserved by Jujutsu,
+    including hidden commits. To exclude all commits only preserved by Jujutsu, replace `--all` by `--exclude refs/jj/* --all`.
+    This will also exclude the Jujutsu-reachable commits though, if they are not Git-reachable.
 
-- Use case: Show log of commits not on the main branch
-  Git command: (TODO)
+- Use case: Show compact log graph of commits not on the main branch
+  Git command: >
+    `git log --oneline --graph --branches --not upstream/main`
   Jujutsu command: >
     `jj log`
   Notes: ''
 
-- Use case: Show log of commits adding/removing the string "stuff"
+- Use case: Show log of commits that have the string "stuff" in the changed lines
   Git command: >
     `git log -G stuff`
   Jujutsu command: >
@@ -212,6 +216,13 @@
     `git commit --amend --only`
   Jujutsu command: >
     `jj describe @-`
+  Notes: ''
+
+- Use case: Edit description (commit message) of any change
+  Git command: >
+    `git commit --fixup=reword:X; git rebase --autosquash X^`
+  Jujutsu command: >
+    `jj describe X`
   Notes: ''
 
 - Use case: Temporarily put away the current change
@@ -285,7 +296,7 @@
 
 - Use case: Move the diff in the working copy into an ancestor
   Git command: >
-    `git commit --fixup=X; git rebase -i --autosquash X^`
+    `git commit --fixup=X; git rebase --autosquash X^`
   Jujutsu command: >
     `jj squash --into X`
   Notes: ''
@@ -363,7 +374,7 @@
     `git branch -f <name> <revision>`
   Jujutsu command: >
     `jj bookmark move <name> --to <revision>`
-    or `jj b m <name> --to <revision>` for short
+    or `jj b m <name> -t <revision>` for short
   Notes: ''
 
 - Use case: Move a bookmark/branch backward or sideways
