@@ -15,6 +15,7 @@
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
+use jj_lib::iter_util::fallible_any;
 use jj_lib::iter_util::fallible_find;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::RefTarget;
@@ -95,14 +96,7 @@ pub fn cmd_bookmark_move(
                 .parse_union_revsets(ui, &args.from)?
                 .evaluate()?
                 .containing_fn();
-            Box::new(move |target: &RefTarget| {
-                for id in target.added_ids() {
-                    if is_source_commit(id)? {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            })
+            Box::new(move |target| fallible_any(target.added_ids(), &is_source_commit))
         } else {
             Box::new(|_| Ok(true))
         };
@@ -115,7 +109,8 @@ pub fn cmd_bookmark_move(
                             .map(|matched| matched.then_some((name, target)))
                             .transpose()
                     })
-                    .collect()
+                    .try_collect()
+                    .map_err(Into::into)
             })?
         } else {
             repo.view()
