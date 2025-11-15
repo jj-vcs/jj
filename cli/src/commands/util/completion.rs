@@ -30,7 +30,7 @@ Apply it by running one of these:
 - Fish: `jj util completion fish | source`
 - Nushell:
      ```nu
-     jj util completion nushell | save "completions-jj.nu"
+     jj util completion nushell | save -f "completions-jj.nu"
      use "completions-jj.nu" *  # Or `source "completions-jj.nu"`
      ```
 - Zsh:
