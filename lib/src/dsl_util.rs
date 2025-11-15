@@ -528,12 +528,49 @@ impl<R: RuleType> FunctionCallParser<R> {
     }
 }
 
+/// Opaque handle to track which layer of an alias definition is being used.
+/// This allows super() to reference previous layers without exposing
+/// implementation details.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct AliasDefnIndex(usize);
+
+/// Stores multiple definitions of function aliases with different arities,
+/// where each arity can have multiple definitions (for super() support).
+#[derive(Clone, Debug)]
+struct FunctionOverloads<V>(Vec<(Vec<String>, Vec<V>)>);
+
+impl<V> Default for FunctionOverloads<V> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+impl<V> FunctionOverloads<V> {
+    fn binary_search_by_arity(&self, arity: usize) -> Result<usize, usize> {
+        self.0
+            .binary_search_by_key(&arity, |(params, _)| params.len())
+    }
+
+    fn get(&self, index: usize) -> Option<&(Vec<String>, Vec<V>)> {
+        self.0.get(index)
+    }
+
+    fn insert(&mut self, index: usize, params: Vec<String>, defn: V) {
+        self.0.insert(index, (params, vec![defn]));
+    }
+
+    fn iter(&self) -> std::slice::Iter<'_, (Vec<String>, Vec<V>)> {
+        self.0.iter()
+    }
+}
+
 /// Map of symbol and function aliases.
 #[derive(Clone, Debug, Default)]
 pub struct AliasesMap<P, V> {
-    symbol_aliases: HashMap<String, V>,
-    // name: [(params, defn)] (sorted by arity)
-    function_aliases: HashMap<String, Vec<(Vec<String>, V)>>,
+    // name: [defn, ...] (ordered by precedence, last = highest)
+    symbol_aliases: HashMap<String, Vec<V>>,
+    // name: overloads (sorted by arity, defns ordered by precedence)
+    function_aliases: HashMap<String, FunctionOverloads<V>>,
     // Parser type P helps prevent misuse of AliasesMap of different language.
     parser: P,
 }
@@ -555,19 +592,30 @@ impl<P, V> AliasesMap<P, V> {
     ///
     /// Returns error if `decl` is invalid. The `defn` part isn't checked. A bad
     /// `defn` will be reported when the alias is substituted.
+    ///
+    /// This appends to any existing definitions, creating a chain that can be
+    /// accessed via `super()`.
     pub fn insert(&mut self, decl: impl AsRef<str>, defn: impl Into<V>) -> Result<(), P::Error>
     where
         P: AliasDeclarationParser,
     {
         match self.parser.parse_declaration(decl.as_ref())? {
             AliasDeclaration::Symbol(name) => {
-                self.symbol_aliases.insert(name, defn.into());
+                self.symbol_aliases
+                    .entry(name)
+                    .or_default()
+                    .push(defn.into());
             }
             AliasDeclaration::Function(name, params) => {
                 let overloads = self.function_aliases.entry(name).or_default();
-                match overloads.binary_search_by_key(&params.len(), |(params, _)| params.len()) {
-                    Ok(i) => overloads[i] = (params, defn.into()),
-                    Err(i) => overloads.insert(i, (params, defn.into())),
+                match overloads.binary_search_by_arity(params.len()) {
+                    Ok(i) => {
+                        // Update params to match the most recent definition.
+                        let (stored_params, defns) = &mut overloads.0[i];
+                        *stored_params = params;
+                        defns.push(defn.into());
+                    }
+                    Err(i) => overloads.insert(i, params, defn.into()),
                 }
             }
         }
@@ -585,17 +633,56 @@ impl<P, V> AliasesMap<P, V> {
     }
 
     /// Looks up symbol alias by name. Returns identifier and definition text.
-    pub fn get_symbol(&self, name: &str) -> Option<(AliasId<'_>, &V)> {
-        self.symbol_aliases
-            .get_key_value(name)
-            .map(|(name, defn)| (AliasId::Symbol(name), defn))
+    pub fn get_symbol<'a>(&'a self, name: &'a str) -> Option<(AliasId<'a>, &'a V)> {
+        let defns = self.symbol_aliases.get(name)?;
+        let defn = defns.last()?;
+        Some((AliasId::Symbol(name), defn))
     }
 
     /// Looks up function alias by name and arity. Returns identifier, list of
     /// parameter names, and definition text.
     pub fn get_function(&self, name: &str, arity: usize) -> Option<(AliasId<'_>, &[String], &V)> {
         let overloads = self.get_function_overloads(name)?;
-        overloads.find_by_arity(arity)
+        overloads
+            .find_by_arity(arity)
+            .map(|(id, params, defn, _)| (id, params, defn))
+    }
+
+    /// Internal: Looks up symbol alias with definition index for super()
+    /// support.
+    fn get_symbol_with_index<'a>(
+        &'a self,
+        name: &'a str,
+    ) -> Option<(AliasId<'a>, &'a V, AliasDefnIndex)> {
+        let defns = self.symbol_aliases.get(name)?;
+        let index = defns.len() - 1;
+        let defn = defns.last()?;
+        Some((AliasId::Symbol(name), defn, AliasDefnIndex(index)))
+    }
+
+    /// Internal: Looks up the previous definition (super) for a symbol alias by
+    /// index.
+    fn get_symbol_at_index<'a>(
+        &'a self,
+        name: &'a str,
+        prev_index: AliasDefnIndex,
+    ) -> Option<(AliasId<'a>, &'a V, AliasDefnIndex)> {
+        let defns = self.symbol_aliases.get(name)?;
+        let defn = defns.get(prev_index.0)?;
+        Some((AliasId::Symbol(name), defn, prev_index))
+    }
+
+    /// Internal: Looks up the previous definition (super) for a function alias
+    /// by index.
+    fn get_function_at_index(
+        &self,
+        name: &str,
+        arity: usize,
+        prev_index: AliasDefnIndex,
+    ) -> Option<(AliasId<'_>, &[String], &V, AliasDefnIndex)> {
+        let overloads = self.get_function_overloads(name)?;
+        let (id, params, defn, _) = overloads.find_at_index(arity, prev_index.0)?;
+        Some((id, params, defn, prev_index))
     }
 
     /// Looks up function aliases by name.
@@ -608,7 +695,7 @@ impl<P, V> AliasesMap<P, V> {
 #[derive(Clone, Debug)]
 struct AliasFunctionOverloads<'a, V> {
     name: &'a String,
-    overloads: &'a Vec<(Vec<String>, V)>,
+    overloads: &'a FunctionOverloads<V>,
 }
 
 impl<'a, V> AliasFunctionOverloads<'a, V> {
@@ -624,16 +711,36 @@ impl<'a, V> AliasFunctionOverloads<'a, V> {
         self.arities().next_back().unwrap()
     }
 
-    fn find_by_arity(&self, arity: usize) -> Option<(AliasId<'a>, &'a [String], &'a V)> {
-        let index = self
-            .overloads
-            .binary_search_by_key(&arity, |(params, _)| params.len())
-            .ok()?;
-        let (params, defn) = &self.overloads[index];
+    fn find_by_arity(&self, arity: usize) -> Option<(AliasId<'a>, &'a [String], &'a V, usize)> {
+        let index = self.overloads.binary_search_by_arity(arity).ok()?;
+        let (params, defns) = self.overloads.get(index)?;
+        let defn_index = defns.len() - 1;
+        let defn = defns.last()?;
         // Exact parameter names aren't needed to identify a function, but they
         // provide a better error indication. (e.g. "foo(x, y)" is easier to
         // follow than "foo/2".)
-        Some((AliasId::Function(self.name, params), params, defn))
+        Some((
+            AliasId::Function(self.name, params),
+            params,
+            defn,
+            defn_index,
+        ))
+    }
+
+    fn find_at_index(
+        &self,
+        arity: usize,
+        prev_index: usize,
+    ) -> Option<(AliasId<'a>, &'a [String], &'a V, usize)> {
+        let overload_index = self.overloads.binary_search_by_arity(arity).ok()?;
+        let (params, defns) = self.overloads.get(overload_index)?;
+        let defn = defns.get(prev_index)?;
+        Some((
+            AliasId::Function(self.name, params),
+            params,
+            defn,
+            prev_index,
+        ))
     }
 }
 
@@ -729,6 +836,9 @@ struct AliasExpander<'i, 'a, T, P> {
 #[derive(Debug)]
 struct AliasExpandingState<'i, T> {
     id: AliasId<'i>,
+    /// For aliases with multiple layers (super chain), tracks which definition
+    /// index we're expanding. None means this is not a layered expansion.
+    definition_index: Option<AliasDefnIndex>,
     locals: HashMap<&'i str, ExpressionNode<'i, T>>,
 }
 
@@ -743,18 +853,28 @@ where
         self.states.last().map_or(self.locals, |s| &s.locals)
     }
 
-    fn expand_defn(
+    fn expand_defn_with_index(
         &mut self,
         id: AliasId<'i>,
         defn: &'i str,
         locals: HashMap<&'i str, ExpressionNode<'i, T>>,
         span: pest::Span<'i>,
+        definition_index: Option<AliasDefnIndex>,
     ) -> Result<T, E> {
         // The stack should be short, so let's simply do linear search.
-        if self.states.iter().any(|s| s.id == id) {
+        // Check if we're already expanding this exact definition (same ID and index).
+        if self
+            .states
+            .iter()
+            .any(|s| s.id == id && s.definition_index == definition_index)
+        {
             return Err(E::recursive_expansion(id, span));
         }
-        self.states.push(AliasExpandingState { id, locals });
+        self.states.push(AliasExpandingState {
+            id,
+            definition_index,
+            locals,
+        });
         // Parsed defn could be cached if needed.
         let result = self
             .aliases_map
@@ -765,6 +885,155 @@ where
             .map_err(|e| e.within_alias_expansion(id, span));
         self.states.pop();
         result
+    }
+
+    /// Helper to get the context needed for super expansion.
+    /// Returns the current state and previous definition index.
+    fn get_super_context(
+        &self,
+        span: pest::Span<'i>,
+    ) -> Result<(&AliasExpandingState<'i, T>, AliasDefnIndex), E> {
+        // Check if we're currently expanding an alias.
+        let Some(current_state) = self.states.last() else {
+            return Err(E::invalid_arguments(InvalidArguments {
+                name: "super",
+                message: "super can only be used within an alias definition".to_owned(),
+                span,
+            }));
+        };
+
+        // Get the current definition index.
+        let Some(current_index) = current_state.definition_index else {
+            return Err(E::invalid_arguments(InvalidArguments {
+                name: "super",
+                message: "super can only be used in layered alias definitions".to_owned(),
+                span,
+            }));
+        };
+
+        // Check that there's a previous layer to reference.
+        if current_index.0 == 0 {
+            return Err(E::invalid_arguments(InvalidArguments {
+                name: "super",
+                message: "No previous definition (already at base layer)".to_owned(),
+                span,
+            }));
+        }
+
+        let prev_index = AliasDefnIndex(current_index.0 - 1);
+        Ok((current_state, prev_index))
+    }
+
+    fn expand_super(&mut self, span: pest::Span<'i>) -> Result<T, E> {
+        // Get the previous definition index.
+        let (current_state, prev_index) = self.get_super_context(span)?;
+
+        // `super` as identifier only works for symbol aliases.
+        match current_state.id {
+            AliasId::Symbol(symbol_name) => {
+                let Some((id, defn, prev_index)) = self
+                    .aliases_map
+                    .get_symbol_at_index(symbol_name, prev_index)
+                else {
+                    return Err(E::invalid_arguments(InvalidArguments {
+                        name: "super",
+                        message: format!("No previous definition for symbol '{symbol_name}'"),
+                        span,
+                    }));
+                };
+                let locals = HashMap::new();
+                self.expand_defn_with_index(id, defn, locals, span, Some(prev_index))
+            }
+            AliasId::Function(name, params) => {
+                let arity = params.len();
+                Err(E::invalid_arguments(InvalidArguments {
+                    name: "super",
+                    message: format!(
+                        "super (without parentheses) cannot be used in function alias '{name}' \
+                         with {arity} parameter(s); use super(...) instead"
+                    ),
+                    span,
+                }))
+            }
+            AliasId::Parameter(_) => Err(E::invalid_arguments(InvalidArguments {
+                name: "super",
+                message: "super cannot be used within parameter expansion".to_owned(),
+                span,
+            })),
+        }
+    }
+
+    fn expand_super_function(
+        &mut self,
+        function: FunctionCallNode<'i, T>,
+        span: pest::Span<'i>,
+    ) -> Result<T, E> {
+        function
+            .ensure_no_keyword_arguments()
+            .map_err(E::invalid_arguments)?;
+
+        // Get the previous definition index.
+        let (current_state, prev_index) = self.get_super_context(function.name_span)?;
+
+        // Look up the previous definition based on the current alias type.
+        let (id, params_opt, defn, prev_index) = match current_state.id {
+            AliasId::Function(name, params) => {
+                let arity = params.len();
+                let Some((id, params, defn, prev_index)) = self
+                    .aliases_map
+                    .get_function_at_index(name, arity, prev_index)
+                else {
+                    return Err(E::invalid_arguments(InvalidArguments {
+                        name: "super",
+                        message: format!(
+                            "No previous definition for function '{name}' with {arity} \
+                             parameter(s)"
+                        ),
+                        span: function.name_span,
+                    }));
+                };
+                (id, Some(params), defn, prev_index)
+            }
+            AliasId::Symbol(_name) => {
+                // super() with parentheses should not be used in symbol aliases.
+                return Err(E::invalid_arguments(InvalidArguments {
+                    name: "super",
+                    message: "super cannot be used in symbol alias (use `super` without \
+                              parentheses)"
+                        .to_owned(),
+                    span: function.name_span,
+                }));
+            }
+            AliasId::Parameter(_) => {
+                return Err(E::invalid_arguments(InvalidArguments {
+                    name: "super",
+                    message: "super cannot be used within parameter expansion".to_owned(),
+                    span: function.name_span,
+                }));
+            }
+        };
+
+        // Handle function arguments if this is a function alias.
+        let locals = if let Some(params) = params_opt {
+            // Ensure the number of arguments matches
+            if function.args.len() != params.len() {
+                return Err(E::invalid_arguments(
+                    function.invalid_arguments_count(params.len(), Some(params.len())),
+                ));
+            }
+            // Resolve arguments in the current scope.
+            let args = fold_expression_nodes(self, function.args)?;
+            params.iter().map(|s| s.as_str()).zip(args).collect()
+        } else {
+            // Symbol alias - no arguments expected.
+            function
+                .expect_no_arguments()
+                .map_err(E::invalid_arguments)?;
+            HashMap::new()
+        };
+
+        // Expand the previous definition with its proper index.
+        self.expand_defn_with_index(id, defn, locals, span, Some(prev_index))
     }
 }
 
@@ -777,12 +1046,15 @@ where
     type Error = E;
 
     fn fold_identifier(&mut self, name: &'i str, span: pest::Span<'i>) -> Result<T, Self::Error> {
-        if let Some(subst) = self.current_locals().get(name) {
+        // Handle 'super' specially - it refers to the previous definition.
+        if name == "super" {
+            self.expand_super(span)
+        } else if let Some(subst) = self.current_locals().get(name) {
             let id = AliasId::Parameter(name);
             Ok(T::alias_expanded(id, Box::new(subst.clone())))
-        } else if let Some((id, defn)) = self.aliases_map.get_symbol(name) {
+        } else if let Some((id, defn, index)) = self.aliases_map.get_symbol_with_index(name) {
             let locals = HashMap::new(); // Don't spill out the current scope
-            self.expand_defn(id, defn, locals, span)
+            self.expand_defn_with_index(id, defn, locals, span, Some(index))
         } else {
             Ok(T::identifier(name))
         }
@@ -793,14 +1065,15 @@ where
         function: Box<FunctionCallNode<'i, T>>,
         span: pest::Span<'i>,
     ) -> Result<T, Self::Error> {
-        // For better error indication, builtin functions are shadowed by name,
-        // not by (name, arity).
-        if let Some(overloads) = self.aliases_map.get_function_overloads(function.name) {
+        // Handle super() specially - it refers to the previous definition.
+        if function.name == "super" {
+            self.expand_super_function(*function, span)
+        } else if let Some(overloads) = self.aliases_map.get_function_overloads(function.name) {
             // TODO: add support for keyword arguments
             function
                 .ensure_no_keyword_arguments()
                 .map_err(E::invalid_arguments)?;
-            let Some((id, params, defn)) = overloads.find_by_arity(function.arity()) else {
+            let Some((id, params, defn, index)) = overloads.find_by_arity(function.arity()) else {
                 let min = overloads.min_arity();
                 let max = overloads.max_arity();
                 let err = if max - min + 1 == overloads.arities().len() {
@@ -814,7 +1087,7 @@ where
             // expansion scope.
             let args = fold_expression_nodes(self, function.args)?;
             let locals = params.iter().map(|s| s.as_str()).zip(args).collect();
-            self.expand_defn(id, defn, locals, span)
+            self.expand_defn_with_index(id, defn, locals, span, Some(AliasDefnIndex(index)))
         } else {
             let function = Box::new(fold_function_call_args(self, *function)?);
             Ok(T::function_call(function))
