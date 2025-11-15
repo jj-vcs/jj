@@ -61,8 +61,10 @@ pub fn cmd_debug_watchman(
                     writeln!(ui.stdout(), "Watchman is enabled via `fsmonitor.backend`.")?;
                     writeln!(
                         ui.stdout(),
-                        r"Background snapshotting is {}. Use \
-                          `fsmonitor.watchman.register-snapshot-trigger` to control it.",
+                        concat!(
+                            "Background snapshotting is {}. Use\n",
+                            "  `fsmonitor.watchman.register-snapshot-trigger` to control it."
+                        ),
                         if config.register_trigger {
                             "enabled"
                         } else {
