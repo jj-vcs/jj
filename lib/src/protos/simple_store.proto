@@ -44,6 +44,8 @@ message Commit {
   repeated bytes predecessors = 2;
   // Alternating positive and negative terms
   repeated bytes root_tree = 3;
+  // Labels for the terms of a conflict.
+  repeated string conflict_labels = 10;
   bytes change_id = 4;
   string description = 5;
 

@@ -464,6 +464,7 @@ mod tests {
     use jj_lib::backend::Signature;
     use jj_lib::backend::Timestamp;
     use jj_lib::backend::TreeId;
+    use jj_lib::conflict_labels::ConflictLabels;
     use jj_lib::merge::Merge;
     use jj_lib::op_store::RefTarget;
 
@@ -474,6 +475,7 @@ mod tests {
             parents: vec![],
             predecessors: vec![],
             root_tree: Merge::resolved(TreeId::new(vec![])),
+            conflict_labels: ConflictLabels::unlabeled(),
             change_id: ChangeId::new(vec![]),
             description: String::new(),
             author,
