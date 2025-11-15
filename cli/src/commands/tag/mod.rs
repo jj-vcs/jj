@@ -19,11 +19,8 @@ mod set;
 use std::io;
 
 use itertools::Itertools as _;
-use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefName;
 use jj_lib::str_util::StringExpression;
-use jj_lib::str_util::StringMatcher;
-use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
 use self::delete::TagDeleteArgs;
@@ -57,42 +54,6 @@ pub fn cmd_tag(
         TagCommand::List(args) => cmd_tag_list(ui, command, args),
         TagCommand::Set(args) => cmd_tag_set(ui, command, args),
     }
-}
-
-fn find_local_tags<'a>(
-    ui: &Ui,
-    view: &'a View,
-    name_patterns: &[StringPattern],
-) -> Result<Vec<(&'a RefName, &'a RefTarget)>, CommandError> {
-    find_tags_with(ui, name_patterns, |matcher| {
-        Ok(view.local_tags_matching(matcher).collect())
-    })
-}
-
-fn find_tags_with<'a, V>(
-    ui: &Ui,
-    name_patterns: &[StringPattern],
-    mut find_matches: impl FnMut(&StringMatcher) -> Result<Vec<(&'a RefName, V)>, CommandError>,
-) -> Result<Vec<(&'a RefName, V)>, CommandError> {
-    let mut matching_tags: Vec<(&'a RefName, V)> = vec![];
-    let mut unmatched_names = vec![];
-    for pattern in name_patterns {
-        let matches = find_matches(&pattern.to_matcher())?;
-        if matches.is_empty() {
-            unmatched_names.extend(pattern.as_exact());
-        }
-        matching_tags.extend(matches);
-    }
-    matching_tags.sort_unstable_by_key(|(name, _)| *name);
-    matching_tags.dedup_by_key(|(name, _)| *name);
-    if !unmatched_names.is_empty() {
-        writeln!(
-            ui.warning_default(),
-            "No matching tags for names: {}",
-            unmatched_names.join(", ")
-        )?;
-    }
-    Ok(matching_tags)
 }
 
 /// Warns about exact patterns that don't match local tags.

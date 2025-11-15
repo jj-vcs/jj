@@ -436,7 +436,7 @@ fn test_bookmark_move_matching() {
     ");
 
     // No matching bookmarks within the source revisions
-    let output = work_dir.run_jj(["bookmark", "move", "--from=::@", "glob:a?"]);
+    let output = work_dir.run_jj(["bookmark", "move", "--from=::@", "glob:'a?'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No bookmarks to update.
@@ -491,7 +491,7 @@ fn test_bookmark_move_matching() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Try to move multiple bookmarks, but one of them isn't fast-forward
-    let output = work_dir.run_jj(["bookmark", "move", "glob:?1"]);
+    let output = work_dir.run_jj(["bookmark", "move", "glob:'?1'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: a1
@@ -511,7 +511,7 @@ fn test_bookmark_move_matching() {
     ");
 
     // Select by revision and name
-    let output = work_dir.run_jj(["bookmark", "move", "--from=::a1+", "--to=a1+", "glob:?1"]);
+    let output = work_dir.run_jj(["bookmark", "move", "--from=::a1+", "--to=a1+", "glob:'?1'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Moved 1 bookmarks to kkmpptxz 9328ecc5 a1 | (empty) head1
@@ -731,14 +731,14 @@ fn test_bookmark_forget_glob() {
     ◆   000000000000
     [EOF]
     ");
-    let output = work_dir.run_jj(["bookmark", "forget", "glob:foo-[1-3]"]);
+    let output = work_dir.run_jj(["bookmark", "forget", "glob:'foo-[1-3]'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Forgot 2 local bookmarks.
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let output = work_dir.run_jj(["bookmark", "forget", "glob:foo-[1-3]"]);
+    let output = work_dir.run_jj(["bookmark", "forget", "glob:'foo-[1-3]'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Forgot 2 local bookmarks.
@@ -765,14 +765,20 @@ fn test_bookmark_forget_glob() {
     ");
 
     // Malformed glob
-    let output = work_dir.run_jj(["bookmark", "forget", "glob:foo-[1-3"]);
+    let output = work_dir.run_jj(["bookmark", "forget", "glob:'foo-[1-3'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: invalid value 'glob:foo-[1-3' for '<NAMES>...': error parsing glob 'foo-[1-3': unclosed character class; missing ']'
-
-    For more information, try '--help'.
+    Error: Failed to parse name pattern: Invalid string pattern
+    Caused by:
+    1:  --> 1:1
+      |
+    1 | glob:'foo-[1-3'
+      | ^-------------^
+      |
+      = Invalid string pattern
+    2: error parsing glob 'foo-[1-3': unclosed character class; missing ']'
     [EOF]
-    [exit status: 2]
+    [exit status: 1]
     ");
 
     // None of the globs match anything
@@ -823,14 +829,14 @@ fn test_bookmark_delete_glob() {
     ◆   000000000000
     [EOF]
     ");
-    let output = work_dir.run_jj(["bookmark", "delete", "glob:foo-[1-3]"]);
+    let output = work_dir.run_jj(["bookmark", "delete", "glob:'foo-[1-3]'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Deleted 2 bookmarks.
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let output = work_dir.run_jj(["bookmark", "delete", "glob:foo-[1-3]"]);
+    let output = work_dir.run_jj(["bookmark", "delete", "glob:'foo-[1-3]'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Deleted 2 bookmarks.
@@ -844,7 +850,7 @@ fn test_bookmark_delete_glob() {
 
     // We get an error if none of the globs match live bookmarks. Unlike `jj
     // bookmark forget`, it's not allowed to delete already deleted bookmarks.
-    let output = work_dir.run_jj(["bookmark", "delete", "glob:foo-[1-3]"]);
+    let output = work_dir.run_jj(["bookmark", "delete", "glob:'foo-[1-3]'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No bookmarks to delete.
@@ -880,26 +886,38 @@ fn test_bookmark_delete_glob() {
     ");
 
     // Malformed glob
-    let output = work_dir.run_jj(["bookmark", "delete", "glob:foo-[1-3"]);
+    let output = work_dir.run_jj(["bookmark", "delete", "glob:'foo-[1-3'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: invalid value 'glob:foo-[1-3' for '<NAMES>...': error parsing glob 'foo-[1-3': unclosed character class; missing ']'
-
-    For more information, try '--help'.
+    Error: Failed to parse name pattern: Invalid string pattern
+    Caused by:
+    1:  --> 1:1
+      |
+    1 | glob:'foo-[1-3'
+      | ^-------------^
+      |
+      = Invalid string pattern
+    2: error parsing glob 'foo-[1-3': unclosed character class; missing ']'
     [EOF]
-    [exit status: 2]
+    [exit status: 1]
     ");
 
     // Unknown pattern kind
     let output = work_dir.run_jj(["bookmark", "forget", "whatever:bookmark"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: invalid value 'whatever:bookmark' for '<NAMES>...': Invalid string pattern kind `whatever:`
-
-    For more information, try '--help'.
+    Error: Failed to parse name pattern: Invalid string pattern
+    Caused by:
+    1:  --> 1:1
+      |
+    1 | whatever:bookmark
+      | ^---------------^
+      |
+      = Invalid string pattern
+    2: Invalid string pattern kind `whatever:`
     Hint: Try prefixing with one of `exact:`, `glob:`, `regex:`, `substring:`, or one of these with `-i` suffix added (e.g. `glob-i:`) for case-insensitive matching
     [EOF]
-    [exit status: 2]
+    [exit status: 1]
     ");
 }
 
@@ -1159,9 +1177,13 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
     // ============ End of test setup ============
 
     // We can forget a deleted bookmark
-    work_dir
-        .run_jj(["bookmark", "forget", "--include-remotes", "feature1"])
-        .success();
+    let output = work_dir.run_jj(["bookmark", "forget", "--include-remotes", "feature1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Forgot 1 local bookmarks.
+    Forgot 1 remote bookmarks.
+    [EOF]
+    ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
 
     // Can't forget a non-existent bookmark
