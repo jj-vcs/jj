@@ -136,6 +136,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj metaedit` now accepts `-m`/`--message` option to non-interactively update
   the change description.
 
+* `jj log` now supports a `--count` flag to print the number of commits instead
+  of displaying them.
+
 * The `CryptographicSignature.key()` template method now also works for SSH
   signatures and returns the corresponding public key fingerprint.
 
