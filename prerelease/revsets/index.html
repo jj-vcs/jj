@@ -2558,6 +2558,17 @@ always resolves to exactly one commit. For example:</p>
   Note that modifying this will <em>not</em> change whether a commit is immutable.
   To do that, edit <code>immutable_heads()</code>.</p>
 </li>
+<li>
+<p><code>visible()</code>: The set of visible commits. Resolves to <code>::visible_heads()</code>.
+  This is equal to <code>all()</code> unless your revset includes
+  <a href="#hidden-revisions">hidden revisions</a>.</p>
+</li>
+<li>
+<p><code>hidden()</code>: The set of hidden commits. Resolves to <code>~visible()</code>. This is empty
+  unless your revset includes <a href="#hidden-revisions">hidden revisions</a>. Note that
+  this is <em>not</em> <a href="https://github.com/jj-vcs/jj/issues/2623">the set of all previously visible
+  commits</a>.</p>
+</li>
 </ul>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
 <p>Show the parent(s) of the working-copy commit (like <code>git log -1 HEAD</code>):</p>
