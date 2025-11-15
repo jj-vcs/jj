@@ -472,6 +472,25 @@ fn test_bookmark_move_matching() {
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
+    // Move multiple bookmarks by name
+    let output = work_dir.run_jj(["bookmark", "move", "b1", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Moved 2 bookmarks to vruxwmqv 0dd9a4b1 b1 c1 | (empty) head2
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  b1 c1 0dd9a4b12283
+    ○   2cbf65662e56
+    ○   c2934cfbfb19
+    │ ○   9328ecc52471
+    │ ○  a1 a2 e8849ae12c70
+    ├─╯
+    ◆   000000000000
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
     // Try to move multiple bookmarks, but one of them isn't fast-forward
     let output = work_dir.run_jj(["bookmark", "move", "glob:?1"]);
     insta::assert_snapshot!(output, @r"
@@ -628,6 +647,7 @@ fn test_bookmark_rename() {
     work_dir
         .run_jj(["git", "push", "--allow-new", "-b=bremote"])
         .success();
+
     let output = work_dir.run_jj(["bookmark", "rename", "bremote", "bremote2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -668,6 +688,19 @@ fn test_bookmark_rename() {
     Hint: To rename the bookmark on the remote, you can `jj git push --bookmark bremote2` first (to delete it on the remote), and then `jj git push --bookmark bremote-untracked`. `jj git push --all --deleted` would also be sufficient.
     [EOF]
     ");
+
+    // rename an untracked bookmark
+    work_dir
+        .run_jj(["bookmark", "create", "buntracked", "-r=@-"])
+        .success();
+    work_dir
+        .run_jj(["git", "push", "--allow-new", "-b=buntracked"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "untrack", "buntracked@origin"])
+        .success();
+    let output = work_dir.run_jj(["bookmark", "rename", "buntracked", "buntracked2"]);
+    insta::assert_snapshot!(output, @"");
 }
 
 #[test]
@@ -1209,6 +1242,15 @@ fn test_bookmark_track_untrack() {
     [EOF]
     ");
 
+    // Track non-existent remote bookmark
+    let output = work_dir.run_jj(["bookmark", "track", "feature3@origin"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: No such remote bookmark: feature3@origin
+    [EOF]
+    [exit status: 1]
+    ");
+
     // Track existing bookmark. Local bookmark should result in conflict.
     work_dir
         .run_jj(["bookmark", "create", "-r@", "feature2"])
@@ -1340,30 +1382,84 @@ fn test_bookmark_track_conflict() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
+    // add three remotes
     let git_repo_path = test_env.env_root().join("git-repo");
     git::init_bare(git_repo_path);
     work_dir
         .run_jj(["git", "remote", "add", "origin", "../git-repo"])
         .success();
+    let git_repo_path = test_env.env_root().join("git-repo2");
+    git::init_bare(git_repo_path);
+    work_dir
+        .run_jj(["git", "remote", "add", "origin2", "../git-repo2"])
+        .success();
+    let git_repo_path = test_env.env_root().join("git-repo3");
+    git::init_bare(git_repo_path);
+    work_dir
+        .run_jj(["git", "remote", "add", "origin3", "../git-repo3"])
+        .success();
+
+    // create bookmark and push to origin
     work_dir.run_jj(["bookmark", "create", "main"]).success();
     work_dir.run_jj(["describe", "-m", "a"]).success();
     work_dir
         .run_jj(["git", "push", "--allow-new", "-b", "main"])
         .success();
-    work_dir
-        .run_jj(["bookmark", "untrack", "main@origin"])
-        .success();
+
+    // adjust main and push to origin2, again for origin3
     work_dir
         .run_jj(["describe", "-m", "b", "-r", "main", "--ignore-immutable"])
+        .success();
+    work_dir
+        .run_jj(["git", "push", "-N", "-b", "main", "--remote", "origin2"])
+        .success();
+    work_dir
+        .run_jj(["describe", "-m", "c", "-r", "main", "--ignore-immutable"])
+        .success();
+    work_dir
+        .run_jj(["git", "push", "-N", "-b", "main", "--remote", "origin3"])
+        .success();
+
+    // stop and retrack origin; creates conflict
+    // origin2 and origin3 are not shown
+    work_dir
+        .run_jj(["bookmark", "untrack", "main@origin"])
         .success();
     let output = work_dir.run_jj(["bookmark", "track", "main@origin"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     main (conflicted):
-      + qpvuntsm?? 56b9f16b (empty) b
-      + qpvuntsm?? 7d5ca8e4 (empty) a
-      @origin (behind by 1 commits): qpvuntsm?? 7d5ca8e4 (empty) a
+      + qpvuntsm?? 467e027c (empty) c
+      + qpvuntsm?? 48ded843 (empty) a
+      @origin (behind by 1 commits): qpvuntsm?? 48ded843 (empty) a
+    [EOF]
+    ");
+
+    // origin2 differs but is not in conflict
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    main (conflicted):
+      + qpvuntsm?? 467e027c (empty) c
+      + qpvuntsm?? 48ded843 (empty) a
+      @origin (behind by 1 commits): qpvuntsm?? 48ded843 (empty) a
+      @origin2 (ahead by 1 commits, behind by 2 commits): qpvuntsm hidden 579e0acd (empty) b
+      @origin3 (behind by 1 commits): qpvuntsm?? 467e027c (empty) c
+    [EOF]
+    ");
+
+    // retracking origin2 adds to the conflict
+    work_dir
+        .run_jj(["bookmark", "untrack", "main@origin2"])
+        .success();
+    let output = work_dir.run_jj(["bookmark", "track", "main@origin2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Started tracking 1 remote bookmarks.
+    main (conflicted):
+      + qpvuntsm?? 467e027c (empty) c
+      + qpvuntsm?? 48ded843 (empty) a
+      + qpvuntsm?? 579e0acd (empty) b
+      @origin2 (behind by 2 commits): qpvuntsm?? 579e0acd (empty) b
     [EOF]
     ");
 }
