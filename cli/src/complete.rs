@@ -511,13 +511,20 @@ pub fn operations() -> Vec<CompletionCandidate> {
 }
 
 pub fn workspaces() -> Vec<CompletionCandidate> {
+    let template = indoc! {r#"
+        name ++ "\t" ++ if(
+            target.description(),
+            target.description().first_line(),
+            "(no description set)"
+        ) ++ "\n"
+    "#};
     with_jj(|jj, _| {
         let output = jj
             .build()
             .arg("workspace")
             .arg("list")
             .arg("--template")
-            .arg(r#"name ++ "\t" ++ if(target.description(), target.description().first_line(), "(no description set)") ++ "\n""#)
+            .arg(template)
             .output()
             .map_err(user_error)?;
         let stdout = String::from_utf8_lossy(&output.stdout);
