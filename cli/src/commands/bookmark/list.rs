@@ -24,7 +24,6 @@ use itertools::Itertools as _;
 use jj_lib::backend;
 use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigValue;
-use jj_lib::ref_name::RefName;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::str_util::StringExpression;
@@ -144,34 +143,15 @@ pub fn cmd_bookmark_list(
         (None, None) => StringExpression::all(),
     };
     let name_matcher = name_expr.to_matcher();
-    let bookmark_names_to_list = if args.names.is_some() || args.revisions.is_some() {
-        let mut bookmark_names: HashSet<&RefName> = HashSet::new();
-        if args.names.is_some() {
-            bookmark_names.extend(
-                view.bookmarks()
-                    .filter(|(name, _)| name_matcher.is_match(name.as_str()))
-                    .map(|(name, _)| name),
-            );
-        }
-        if let Some(revisions) = &args.revisions {
-            // Match against local targets only, which is consistent with "jj git push".
-            let mut expression = workspace_command.parse_union_revsets(ui, revisions)?;
-            // Intersects with the set of local bookmark targets to minimize the lookup
-            // space.
-            expression.intersect_with(&RevsetExpression::bookmarks(StringExpression::all()));
-            let filtered_targets: HashSet<_> =
-                expression.evaluate_to_commit_ids()?.try_collect()?;
-            bookmark_names.extend(
-                view.local_bookmarks()
-                    .filter(|(_, target)| {
-                        target.added_ids().any(|id| filtered_targets.contains(id))
-                    })
-                    .map(|(name, _)| name),
-            );
-        }
-        Some(bookmark_names)
+    let matched_local_targets: HashSet<_> = if let Some(revisions) = &args.revisions {
+        // Match against local targets only, which is consistent with "jj git push".
+        let mut expression = workspace_command.parse_union_revsets(ui, revisions)?;
+        // Intersects with the set of local bookmark targets to minimize the lookup
+        // space.
+        expression.intersect_with(&RevsetExpression::bookmarks(StringExpression::all()));
+        expression.evaluate_to_commit_ids()?.try_collect()?
     } else {
-        None
+        HashSet::new()
     };
 
     let template: TemplateRenderer<Rc<CommitRef>> = {
@@ -194,12 +174,16 @@ pub fn cmd_bookmark_list(
     };
     let remote_matcher = remote_expr.to_matcher();
     let mut bookmark_list_items: Vec<RefListItem> = Vec::new();
-    let bookmarks_to_list = view.bookmarks().filter(|(name, target)| {
-        bookmark_names_to_list
-            .as_ref()
-            .is_none_or(|bookmark_names| bookmark_names.contains(name))
-            && (!args.conflicted || target.local_target.has_conflict())
-    });
+    let bookmarks_to_list = view
+        .bookmarks()
+        .filter(|(name, target)| {
+            name_matcher.is_match(name.as_str())
+                || target
+                    .local_target
+                    .added_ids()
+                    .any(|id| matched_local_targets.contains(id))
+        })
+        .filter(|(_, target)| !args.conflicted || target.local_target.has_conflict());
     let mut any_conflicts = false;
     for (name, bookmark_target) in bookmarks_to_list {
         let local_target = bookmark_target.local_target;
