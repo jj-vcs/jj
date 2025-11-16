@@ -52,6 +52,8 @@ name = ""
 [working-copy]
 eol-conversion = "none"
 exec-bit-change = "auto"
+eol-conversion-use-gitattributes = false
+gitattributes-default-eol = "none"
 
 [experimental]
 record-predecessors-in-commit = true
