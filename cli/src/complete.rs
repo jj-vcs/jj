@@ -516,7 +516,7 @@ pub fn workspaces() -> Vec<CompletionCandidate> {
             .build()
             .arg("workspace")
             .arg("list")
-            .arg("-T")
+            .arg("--template")
             .arg(r#"name ++ "\t" ++ if(target.description(), target.description().first_line(), "(no description set)") ++ "\n""#)
             .output()
             .map_err(user_error)?;
