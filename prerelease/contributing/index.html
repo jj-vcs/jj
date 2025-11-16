@@ -1448,6 +1448,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#set-up-a-ram-disk-for-faster-tests-on-macos" class="md-nav__link">
+    <span class="md-ellipsis">
+      Set up a RAM disk for faster tests on macOS
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#editor-setup" class="md-nav__link">
     <span class="md-ellipsis">
       Editor setup
@@ -2166,6 +2175,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#set-up-a-ram-disk-for-faster-tests-on-macos" class="md-nav__link">
+    <span class="md-ellipsis">
+      Set up a RAM disk for faster tests on macOS
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#editor-setup" class="md-nav__link">
     <span class="md-ellipsis">
       Editor setup
@@ -2551,6 +2569,44 @@ can verify that <code>mold</code> was indeed used by running
 to use" instructions</a>.</p>
 <p>On recent versions of MacOS, the default linker Rust uses is already
 multi-threaded. It should use all the CPU cores without any configuration.</p>
+<h3 id="set-up-a-ram-disk-for-faster-tests-on-macos">Set up a RAM disk for faster tests on macOS<a class="headerlink" href="#set-up-a-ram-disk-for-faster-tests-on-macos" title="Permanent link">&para;</a></h3>
+<p><code>jj</code> tests can be sped up significantly on macOS by using a RAM disk instead of
+the usual <code>/tmp</code> directory (on one Mac, the tests sped up ~3 times from 180
+seconds to 55 seconds). You can set this up as follows:</p>
+<div class="highlight"><pre><span></span><code>sudo<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>/Volumes/RAMDisk
+sudo<span class="w"> </span>chmod<span class="w"> </span>a+wx<span class="w"> </span>/Volumes/RAMDisk
+sudo<span class="w"> </span>mount_tmpfs<span class="w"> </span>/Volumes/RAMDisk<span class="w">  </span><span class="c1"># Add `-e` to make it case-sensitive</span>
+<span class="w">                      </span><span class="c1"># Add `-o nobrowse` to hide the tmpfs from Finder</span>
+</code></pre></div>
+<p>You will need to re-run this after a reboot. Consider making it a script you can
+run with <code>sudo</code>. (The first two commands don't need sudo if you change the dir
+to somewhere in your HOME, the last one always does.)</p>
+<p>Then, you can rust tests as, for example,</p>
+<div class="highlight"><pre><span></span><code><span class="nv">TMPDIR</span><span class="o">=</span>/Volumes/RAMDisk<span class="w"> </span>cargo<span class="w"> </span>insta<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--workspace<span class="w"> </span>--test-runner<span class="w"> </span>nextest
+</code></pre></div>
+<p>You can double-check whether or not the RAM disk is mounted with</p>
+<div class="highlight"><pre><span></span><code>mount<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>tmpfs
+</code></pre></div>
+<details> <summary> Some details and speculation </summary>
+
+<!-- MkDocs doesn't support Markdown markup inside `details` :( -->
+
+Hard drive speed is not the issue here. Experimentally, when <code>/tmp</code>
+is physical, Ilya experienced the tests doing writes at 60MB/s (as reported by
+the Activity Monitor) on an SSD that should be many times as fast.
+
+Instead, it seems to have something to do with file locking and
+<code>fdatasync</code>. A likely curlprit is the presence of <a
+href="https://gregoryszorc.com/blog/2018/10/29/global-kernel-locks-in-apfs/">
+global kernel locks in APFS</a>. There are some benchmarks in
+<a href="https://github.com/jj-vcs/jj/pull/7493#issuecomment-3289020874">this
+PR</a>.
+
+It might be possible to add an entry to `/etc/fstab` to mount tmpfs
+automatically. If you succeed with this, let us (and Ilya in particular) know!
+
+</details>
+
 <h3 id="editor-setup">Editor setup<a class="headerlink" href="#editor-setup" title="Permanent link">&para;</a></h3>
 <h4 id="visual-studio-code">Visual Studio Code<a class="headerlink" href="#visual-studio-code" title="Permanent link">&para;</a></h4>
 <p>We recommend at least these settings:</p>
