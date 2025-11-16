@@ -78,6 +78,8 @@ use crate::conflicts::choose_materialized_conflict_marker_len;
 use crate::conflicts::materialize_merge_result_to_bytes;
 use crate::conflicts::materialize_tree_value;
 pub use crate::eol::EolConversionMode;
+pub use crate::eol::EolConversionSettings;
+use crate::eol::GitAttributesExt as _;
 use crate::eol::TargetEolStrategy;
 use crate::file_util::BlockingAsyncReader;
 use crate::file_util::FileIdentity;
@@ -90,6 +92,9 @@ use crate::fsmonitor::FsmonitorSettings;
 use crate::fsmonitor::WatchmanConfig;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::watchman;
+use crate::gitattributes::DiskFileLoader;
+use crate::gitattributes::GitAttributes;
+use crate::gitattributes::TreeFileLoader;
 use crate::gitignore::GitIgnoreFile;
 use crate::lock::FileLock;
 use crate::matchers::DifferenceMatcher;
@@ -947,7 +952,7 @@ pub struct TreeStateSettings {
     /// Configuring auto-converting CRLF line endings into LF when you add a
     /// file to the backend, and vice versa when it checks out code onto your
     /// filesystem.
-    pub eol_conversion_mode: EolConversionMode,
+    pub eol_conversion_settings: EolConversionSettings,
     /// Whether to ignore changes to the executable bit for files on Unix.
     pub exec_change_setting: ExecChangeSetting,
     /// The fsmonitor (e.g. Watchman) to use, if any.
@@ -959,7 +964,7 @@ impl TreeStateSettings {
     pub fn try_from_user_settings(user_settings: &UserSettings) -> Result<Self, ConfigGetError> {
         Ok(Self {
             conflict_marker_style: user_settings.get("ui.conflict-marker-style")?,
-            eol_conversion_mode: EolConversionMode::try_from_settings(user_settings)?,
+            eol_conversion_settings: EolConversionSettings::try_from_settings(user_settings)?,
             exec_change_setting: user_settings.get("working-copy.exec-bit-change")?,
             fsmonitor_settings: FsmonitorSettings::from_settings(user_settings)?,
         })
@@ -1043,7 +1048,7 @@ impl TreeState {
         state_path: PathBuf,
         &TreeStateSettings {
             conflict_marker_style,
-            eol_conversion_mode,
+            eol_conversion_settings,
             exec_change_setting,
             ref fsmonitor_settings,
         }: &TreeStateSettings,
@@ -1062,7 +1067,7 @@ impl TreeState {
             conflict_marker_style,
             exec_policy,
             fsmonitor_settings: fsmonitor_settings.clone(),
-            target_eol_strategy: TargetEolStrategy::new(eol_conversion_mode),
+            target_eol_strategy: TargetEolStrategy::new(eol_conversion_settings),
         }
     }
 
@@ -1295,6 +1300,10 @@ impl TreeState {
         let (file_states_tx, file_states_rx) = channel();
         let (untracked_paths_tx, untracked_paths_rx) = channel();
         let (deleted_files_tx, deleted_files_rx) = channel();
+        let git_attributes = GitAttributes::new(vec![
+            Arc::new(DiskFileLoader::new(self.working_copy_path.clone())),
+            Arc::new(TreeFileLoader::new(self.tree.clone())),
+        ]);
 
         trace_span!("traverse filesystem").in_scope(|| -> Result<(), SnapshotError> {
             let snapshotter = FileSnapshotter {
@@ -1311,6 +1320,7 @@ impl TreeState {
                 error: OnceLock::new(),
                 progress,
                 max_new_file_size,
+                git_attributes: &git_attributes,
             };
             let directory_to_visit = DirectoryToVisit {
                 dir: RepoPathBuf::root(),
@@ -1480,6 +1490,7 @@ struct FileSnapshotter<'a> {
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
     max_new_file_size: u64,
+    git_attributes: &'a GitAttributes,
 }
 
 impl FileSnapshotter<'_> {
@@ -1888,11 +1899,13 @@ impl FileSnapshotter<'_> {
             })?;
             self.tree_state
                 .target_eol_strategy
-                .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
+                .convert_eol_for_snapshot(BlockingAsyncReader::new(file), || {
+                    self.git_attributes.search_eol(repo_path)
+                })
                 .await
                 .map_err(|err| SnapshotError::Other {
                     message: "Failed to convert the EOL".to_string(),
-                    err: err.into(),
+                    err,
                 })?
                 .read_to_end(&mut contents)
                 .await
@@ -1953,11 +1966,13 @@ impl FileSnapshotter<'_> {
         let mut contents = self
             .tree_state
             .target_eol_strategy
-            .convert_eol_for_snapshot(BlockingAsyncReader::new(file))
+            .convert_eol_for_snapshot(BlockingAsyncReader::new(file), || {
+                self.git_attributes.search_eol(path)
+            })
             .await
             .map_err(|err| SnapshotError::Other {
                 message: "Failed to convert the EOL".to_string(),
-                err: err.into(),
+                err,
             })?;
         Ok(self.store().write_file(path, &mut contents).await?)
     }
@@ -2003,10 +2018,12 @@ fn snapshot_error_for_mtime_out_of_range(err: MtimeOutOfRange, path: &Path) -> S
 impl TreeState {
     async fn write_file(
         &self,
+        repo_path: &RepoPath,
         disk_path: &Path,
         contents: impl AsyncRead + Send + Unpin,
         exec_bit: ExecBit,
         apply_eol_conversion: bool,
+        git_attributes: &GitAttributes,
     ) -> Result<FileState, CheckoutError> {
         let mut file = File::options()
             .write(true)
@@ -2018,11 +2035,11 @@ impl TreeState {
             })?;
         let contents = if apply_eol_conversion {
             self.target_eol_strategy
-                .convert_eol_for_update(contents)
+                .convert_eol_for_update(contents, || git_attributes.search_eol(repo_path))
                 .await
                 .map_err(|err| CheckoutError::Other {
                     message: "Failed to convert the EOL for the content".to_string(),
-                    err: err.into(),
+                    err,
                 })?
         } else {
             Box::new(contents)
@@ -2089,17 +2106,19 @@ impl TreeState {
 
     async fn write_conflict(
         &self,
+        repo_path: &RepoPath,
         disk_path: &Path,
         contents: &[u8],
         exec_bit: ExecBit,
+        git_attributes: &GitAttributes,
     ) -> Result<FileState, CheckoutError> {
         let contents = self
             .target_eol_strategy
-            .convert_eol_for_update(contents)
+            .convert_eol_for_update(contents, || git_attributes.search_eol(repo_path))
             .await
             .map_err(|err| CheckoutError::Other {
                 message: "Failed to convert the EOL when writing a merge conflict".to_string(),
-                err: err.into(),
+                err,
             })?;
         let mut file = OpenOptions::new()
             .write(true)
@@ -2177,6 +2196,10 @@ impl TreeState {
         };
         let mut changed_file_states = Vec::new();
         let mut deleted_files = HashSet::new();
+        let git_attributes = GitAttributes::new(vec![
+            Arc::new(TreeFileLoader::new(new_tree.clone())),
+            Arc::new(TreeFileLoader::new(old_tree.clone())),
+        ]);
         let mut prev_created_path: RepoPathBuf = RepoPathBuf::root();
 
         let mut process_diff_entry = async |path: RepoPathBuf,
@@ -2292,16 +2315,29 @@ impl TreeState {
                 MaterializedTreeValue::File(file) => {
                     let exec_bit =
                         ExecBit::new_from_repo(file.executable, self.exec_policy, get_prev_exec);
-                    self.write_file(&disk_path, file.reader, exec_bit, true)
-                        .await?
+                    self.write_file(
+                        &path,
+                        &disk_path,
+                        file.reader,
+                        exec_bit,
+                        true,
+                        &git_attributes,
+                    )
+                    .await?
                 }
                 MaterializedTreeValue::Symlink { id: _, target } => {
                     if self.symlink_support {
                         self.write_symlink(&disk_path, target)?
                     } else {
-                        // The fake symlink file shouldn't be executable.
-                        self.write_file(&disk_path, target.as_bytes(), ExecBit(false), false)
-                            .await?
+                        self.write_file(
+                            &path,
+                            &disk_path,
+                            target.as_bytes(),
+                            ExecBit(false),
+                            false,
+                            &git_attributes,
+                        )
+                        .await?
                     }
                 }
                 MaterializedTreeValue::GitSubmodule(_) => {
@@ -2326,8 +2362,9 @@ impl TreeState {
                     );
                     let contents =
                         materialize_merge_result_to_bytes(&file.contents, &file.labels, &options);
-                    let mut file_state =
-                        self.write_conflict(&disk_path, &contents, exec_bit).await?;
+                    let mut file_state = self
+                        .write_conflict(&path, &disk_path, &contents, exec_bit, &git_attributes)
+                        .await?;
                     file_state.materialized_conflict_data = Some(MaterializedConflictData {
                         conflict_marker_len: conflict_marker_len.try_into().unwrap_or(u32::MAX),
                     });
@@ -2338,8 +2375,14 @@ impl TreeState {
                     // better than trying to describe the merge.
                     let contents = id.describe(&labels);
                     // Since this is a dummy file, it shouldn't be executable.
-                    self.write_conflict(&disk_path, contents.as_bytes(), ExecBit(false))
-                        .await?
+                    self.write_conflict(
+                        &path,
+                        &disk_path,
+                        contents.as_bytes(),
+                        ExecBit(false),
+                        &git_attributes,
+                    )
+                    .await?
                 }
             };
             changed_file_states.push((path, file_state));

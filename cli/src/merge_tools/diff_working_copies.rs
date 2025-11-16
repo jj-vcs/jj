@@ -11,6 +11,7 @@ use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::EolConversionMode;
+use jj_lib::local_working_copy::EolConversionSettings;
 use jj_lib::local_working_copy::ExecChangeSetting;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateError;
@@ -154,7 +155,11 @@ pub(crate) fn check_out_trees(
         std::fs::create_dir(&state_dir).map_err(DiffCheckoutError::SetUpDir)?;
         let tree_state_settings = TreeStateSettings {
             conflict_marker_style,
-            eol_conversion_mode: EolConversionMode::None,
+            eol_conversion_settings: EolConversionSettings {
+                use_git_attributes: false,
+                default_eol_attributes: EolConversionMode::None,
+                eol_conversion_mode: EolConversionMode::None,
+            },
             exec_change_setting: ExecChangeSetting::Auto,
             fsmonitor_settings: FsmonitorSettings::None,
         };
