@@ -1069,8 +1069,8 @@ fn test_workspaces() {
 
     let output = main_dir.complete_fish(["workspace", "forget", "def"]);
     insta::assert_snapshot!(output, @r"
-    def-second	(no description set)	
-    default	initial	
+    def-second	(no description set)
+    default	initial
     [EOF]
     ");
 }

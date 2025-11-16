@@ -532,7 +532,7 @@ pub fn workspaces() -> Vec<CompletionCandidate> {
         Ok(stdout
             .lines()
             .map(|line| {
-                let (name, desc) = line.split_once(": ").unwrap_or((line, ""));
+                let (name, desc) = line.split_once("\t").unwrap_or((line, ""));
                 CompletionCandidate::new(name).help(Some(desc.to_string().into()))
             })
             .collect())
