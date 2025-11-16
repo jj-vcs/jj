@@ -1753,13 +1753,52 @@ fn test_config_author_change_warning() {
         })
         .success();
 
-    let output = work_dir.run_jj(["log"]);
+    let output = work_dir.run_jj(["show"]);
     insta::assert_snapshot!(output, @r"
-    @  qpvuntsm Foo 2001-02-03 08:05:09 c2090b51
-    │  (empty) (no description set)
-    ◆  zzzzzzzz root() 00000000
+    Commit ID: c2090b51d7ecd861e83a677fdf5e9d855efd14fa
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author   : Test User <Foo> (2001-02-03 08:05:07)
+    Committer: Test User <Foo> (2001-02-03 08:05:09)
+
+        (no description set)
+
     [EOF]
     ");
+
+    let output = work_dir.run_jj(["config", "set", "--repo", "user.name", "'Bar'"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: This setting will only impact future commits.
+    The author of the working copy will stay "Test User <Foo>".
+    To change the working copy author, use "jj metaedit --update-author"
+    [EOF]
+    "#);
+
+    // test_env.run_jj*() resets state for every invocation
+    // for this test, both user.name and user.email are needed
+    work_dir
+        .run_jj_with(|cmd| {
+            cmd.args(["metaedit", "--update-author"])
+                .env_remove("JJ_EMAIL")
+                .env_remove("JJ_USER")
+        })
+        .success();
+
+    let output = work_dir.run_jj(["show"]);
+    insta::assert_snapshot!(output, @r"
+    Commit ID: cab1afa907c193ca2db14f6bc971fde030e3970a
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author   : Bar <Foo> (2001-02-03 08:05:07)
+    Committer: Bar <Foo> (2001-02-03 08:05:12)
+
+        (no description set)
+
+    [EOF]
+    ");
+
+    // no warnings if no change
+    let output = work_dir.run_jj(["config", "set", "--repo", "user.name", "'Bar'"]);
+    insta::assert_snapshot!(output, @"");
 }
 
 #[test]
