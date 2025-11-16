@@ -319,6 +319,14 @@ impl View {
     }
 
     /// Iterates remote `(name, view)`s in lexicographical order.
+    pub fn remote_views(&self) -> impl Iterator<Item = (&RemoteName, &RemoteView)> {
+        self.data
+            .remote_views
+            .iter()
+            .map(|(name, view)| (name.as_ref(), view))
+    }
+
+    /// Iterates matching remote `(name, view)`s in lexicographical order.
     pub fn remote_views_matching(
         &self,
         matcher: &StringMatcher,

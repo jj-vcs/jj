@@ -22,6 +22,8 @@ mod set;
 mod track;
 mod untrack;
 
+use std::io;
+
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::iter_util::fallible_any;
@@ -30,6 +32,7 @@ use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo;
+use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
@@ -198,4 +201,30 @@ fn is_fast_forward(
     } else {
         Ok(true)
     }
+}
+
+/// Warns about exact patterns that don't match local or remote bookmarks.
+fn warn_unmatched_local_or_remote_bookmarks(
+    ui: &Ui,
+    view: &View,
+    name_expr: &StringExpression,
+) -> io::Result<()> {
+    let mut names = name_expr
+        .exact_strings()
+        .map(RefName::new)
+        .filter(|&name| {
+            view.get_local_bookmark(name).is_absent()
+                && view
+                    .remote_views()
+                    .all(|(_, remote_view)| !remote_view.bookmarks.contains_key(name))
+        })
+        .peekable();
+    if names.peek().is_none() {
+        return Ok(());
+    }
+    writeln!(
+        ui.warning_default(),
+        "No matching bookmarks for names: {}",
+        names.map(|name| name.as_symbol()).join(", ")
+    )
 }

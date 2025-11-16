@@ -2073,9 +2073,17 @@ fn test_bookmark_list_filtered() {
     [EOF]
     ");
 
-    // Unmatched name pattern shouldn't be an error. A warning can be added later.
-    insta::assert_snapshot!(query(&["local-keep", "glob:push-*"]), @r"
+    // Unmatched exact name pattern should be warned. "remote-delete" exists in
+    // remote. "remote-rewrite" exists, but isn't included in the match.
+    insta::assert_snapshot!(
+        query(&["local-keep", "glob:push-*", "unknown | remote-delete ~ remote-rewrite"]), @r"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
+    remote-delete (deleted)
+      @origin: zsuskuln 0e6b7968 (empty) remote-delete
+    [EOF]
+    ------- stderr -------
+    Warning: No matching bookmarks for names: unknown
+    Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
     [EOF]
     ");
 

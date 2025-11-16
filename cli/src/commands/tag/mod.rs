@@ -16,9 +16,12 @@ mod delete;
 mod list;
 mod set;
 
+use std::io;
+
 use itertools::Itertools as _;
 use jj_lib::op_store::RefTarget;
 use jj_lib::ref_name::RefName;
+use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
 use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
@@ -91,4 +94,21 @@ fn find_tags_with<'a, V>(
             patterns.iter().join(", ")
         ))),
     }
+}
+
+/// Warns about exact patterns that don't match local tags.
+fn warn_unmatched_local_tags(ui: &Ui, view: &View, name_expr: &StringExpression) -> io::Result<()> {
+    let mut names = name_expr
+        .exact_strings()
+        .map(RefName::new)
+        .filter(|name| view.get_local_tag(name).is_absent())
+        .peekable();
+    if names.peek().is_none() {
+        return Ok(());
+    }
+    writeln!(
+        ui.warning_default(),
+        "No matching tags for names: {}",
+        names.map(|name| name.as_symbol()).join(", ")
+    )
 }

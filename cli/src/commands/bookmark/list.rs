@@ -28,6 +28,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::str_util::StringExpression;
 
+use super::warn_unmatched_local_or_remote_bookmarks;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::default_ignored_remote_name;
@@ -258,6 +259,8 @@ pub fn cmd_bookmark_list(
         .flat_map(|item| itertools::chain([&item.primary], &item.tracked))
         .try_for_each(|commit_ref| template.format(commit_ref, formatter.as_mut()))?;
     drop(formatter);
+
+    warn_unmatched_local_or_remote_bookmarks(ui, view, &name_expr)?;
 
     if any_conflicts {
         writeln!(

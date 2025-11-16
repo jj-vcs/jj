@@ -1218,7 +1218,11 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     let output = work_dir
         .run_jj(["bookmark", "list", "--all", "b1"])
         .success();
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No matching bookmarks for names: b1
+    [EOF]
+    ");
 
     // Make sure push still errors if we try to push a bookmark with the same name
     // to a different location.
@@ -1237,7 +1241,11 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
 
     // The bookmark is still forgotten
     let output = work_dir.run_jj(["bookmark", "list", "--all", "b1"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No matching bookmarks for names: b1
+    [EOF]
+    ");
     let output = work_dir.run_jj(["git", "push", "--named", "b1=@+"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------

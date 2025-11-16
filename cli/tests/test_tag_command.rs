@@ -283,8 +283,14 @@ fn test_tag_list() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "glob:test* & ~glob:*2"]), @r"
+    // Unmatched exact name pattern should be warned. "test_tag2" exists, but
+    // isn't included in the match.
+    insta::assert_snapshot!(
+        work_dir.run_jj(["tag", "list", "glob:test* & ~glob:*2", "unknown ~ test_tag2"]), @r"
     test_tag: rlvkpnrz 893e67dc (empty) commit1
+    [EOF]
+    ------- stderr -------
+    Warning: No matching tags for names: unknown
     [EOF]
     ");
 

@@ -17,6 +17,7 @@ use std::rc::Rc;
 use clap_complete::ArgValueCandidates;
 use jj_lib::str_util::StringExpression;
 
+use super::warn_unmatched_local_tags;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::commit_templater::CommitRef;
@@ -87,5 +88,6 @@ pub fn cmd_tag_list(
         template.format(&commit_ref, formatter.as_mut())?;
     }
 
+    warn_unmatched_local_tags(ui, view, &name_expr)?;
     Ok(())
 }
