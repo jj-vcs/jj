@@ -60,6 +60,13 @@ fn test_config_list_nonexistent() {
     Warning: No matching config key for nonexistent-test-key
     [EOF]
     ");
+
+    let output = test_env.run_jj_in(".", ["config", "list", "--repo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No config to list
+    [EOF]
+    ");
 }
 
 #[test]
