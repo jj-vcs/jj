@@ -531,9 +531,14 @@ pub fn workspaces() -> Vec<CompletionCandidate> {
 
         Ok(stdout
             .lines()
-            .map(|line| {
-                let (name, desc) = line.split_once("\t").unwrap_or((line, ""));
-                CompletionCandidate::new(name).help(Some(desc.to_string().into()))
+            .filter_map(|line| {
+                let res = line.split_once("\t").map(|(name, desc)| {
+                    CompletionCandidate::new(name).help(Some(desc.to_string().into()))
+                });
+                if res.is_none() {
+                    eprintln!("Error parsing line {line}");
+                }
+                res
             })
             .collect())
     })
