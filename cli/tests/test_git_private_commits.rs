@@ -257,7 +257,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     [EOF]
     ");
 
-    test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
+    test_env.add_config(r#"git.private-commits = "subject(glob:'private*')""#);
 
     // Since "private 1" is already on the remote, pushing it should be allowed
     work_dir
@@ -274,7 +274,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     // Ensure that the already-pushed commit doesn't block a new bookmark from
     // being pushed
     work_dir
-        .run_jj(["new", "description('private 1')", "-m=public 4"])
+        .run_jj(["new", "subject(glob:'private 1')", "-m=public 4"])
         .success();
     work_dir
         .run_jj(["bookmark", "create", "-r@", "bookmark2"])

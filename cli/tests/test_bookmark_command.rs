@@ -544,19 +544,19 @@ fn test_bookmark_move_conflicting() {
     work_dir.run_jj(["new", "root()", "-mB0"]).success();
     work_dir.run_jj(["new", "root()", "-mC0"]).success();
     work_dir
-        .run_jj(["new", "description(A0)", "-mA1"])
+        .run_jj(["new", "subject(glob:A0)", "-mA1"])
         .success();
 
     // Set up conflicting bookmark.
     work_dir
-        .run_jj(["bookmark", "create", "-rdescription(A0)", "foo"])
+        .run_jj(["bookmark", "create", "-rsubject(glob:A0)", "foo"])
         .success();
     work_dir
         .run_jj([
             "bookmark",
             "create",
             "--at-op=@-",
-            "-rdescription(B0)",
+            "-rsubject(glob:B0)",
             "foo",
         ])
         .success();
@@ -575,7 +575,7 @@ fn test_bookmark_move_conflicting() {
     ");
 
     // Can't move the bookmark to C0 since it's sibling.
-    let output = work_dir.run_jj(["bookmark", "set", "-rdescription(C0)", "foo"]);
+    let output = work_dir.run_jj(["bookmark", "set", "-rsubject(glob:C0)", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: foo
@@ -586,7 +586,7 @@ fn test_bookmark_move_conflicting() {
 
     // Can move the bookmark to A1 since it's descendant of A0. It's not
     // descendant of B0, though.
-    let output = work_dir.run_jj(["bookmark", "set", "-rdescription(A1)", "foo"]);
+    let output = work_dir.run_jj(["bookmark", "set", "-rsubject(glob:A1)", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Moved 1 bookmarks to mzvwutvl 0f5f3e2c foo | (empty) A1
@@ -1983,7 +1983,7 @@ fn test_bookmark_list_filtered() {
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
     [EOF]
     ");
-    insta::assert_snapshot!(query(&["-rbookmarks(remote-rewrite)"]), @r"
+    insta::assert_snapshot!(query(&["-rbookmarks(glob:remote-rewrite)"]), @r"
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
     [EOF]
@@ -1997,7 +1997,7 @@ fn test_bookmark_list_filtered() {
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
     [EOF]
     ");
-    insta::assert_snapshot!(query(&["--all-remotes", "-rbookmarks(remote-rewrite)"]), @r"
+    insta::assert_snapshot!(query(&["--all-remotes", "-rbookmarks(glob:remote-rewrite)"]), @r"
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @git: royxmykx e6970e0e (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
@@ -2052,7 +2052,7 @@ fn test_bookmark_list_filtered() {
     Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
     [EOF]
     ");
-    insta::assert_snapshot!(query(&["-rbookmarks(remote-delete)"]), @"");
+    insta::assert_snapshot!(query(&["-rbookmarks(glob:remote-delete)"]), @"");
     insta::assert_snapshot!(query(&["-rremote-delete"]), @r"
     ------- stderr -------
     Error: Revision `remote-delete` doesn't exist
@@ -2080,7 +2080,7 @@ fn test_bookmark_list_filtered() {
     ");
 
     // Name pattern and revset are OR-ed.
-    insta::assert_snapshot!(query(&["local-keep", "-rbookmarks(remote-rewrite)"]), @r"
+    insta::assert_snapshot!(query(&["local-keep", "-rbookmarks(glob:remote-rewrite)"]), @r"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
@@ -2090,7 +2090,7 @@ fn test_bookmark_list_filtered() {
     // … but still filtered by --remote
     insta::assert_snapshot!(query(&[
         "local-keep",
-        "-rbookmarks(remote-rewrite)",
+        "-rbookmarks(glob:remote-rewrite)",
         "--remote",
         "git",
     ]), @r"
@@ -2408,15 +2408,14 @@ fn test_bookmark_list_conflicted() {
     work_dir.run_jj(["new", "root()", "-m", "b"]).success();
     work_dir.run_jj(["bookmark", "create", "bar"]).success();
     work_dir
-        .run_jj(["bookmark", "create", "foo", "-r", "description(a)"])
+        .run_jj(["bookmark", "create", "foo", "-rsubject(glob:a)"])
         .success();
     work_dir
         .run_jj([
             "bookmark",
             "create",
             "foo",
-            "-r",
-            "description(b)",
+            "-rsubject(glob:b)",
             "--at-op=@-",
         ])
         .success();

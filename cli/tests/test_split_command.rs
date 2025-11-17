@@ -460,7 +460,7 @@ fn test_split_with_merge_child() {
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
     work_dir
-        .run_jj(["new", "description(1)", "description(a)", "-m=2"])
+        .run_jj(["new", "subject(glob:1)", "subject(glob:a)", "-m=2"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    zsuskulnrvyr true 2
@@ -478,7 +478,7 @@ fn test_split_with_merge_child() {
         ["write\nAdd file1", "next invocation\n", "write\nAdd file2"].join("\0"),
     )
     .unwrap();
-    let output = work_dir.run_jj(["split", "-r", "description(a)", "file1"]);
+    let output = work_dir.run_jj(["split", "-rsubject(glob:a)", "file1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
@@ -716,7 +716,7 @@ fn test_split_parallel_with_merge_child() {
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
     work_dir
-        .run_jj(["new", "description(1)", "description(a)", "-m=2"])
+        .run_jj(["new", "subject(glob:1)", "subject(glob:a)", "-m=2"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @    zsuskulnrvyr true 2
@@ -734,7 +734,7 @@ fn test_split_parallel_with_merge_child() {
         ["write\nAdd file1", "next invocation\n", "write\nAdd file2"].join("\0"),
     )
     .unwrap();
-    let output = work_dir.run_jj(["split", "-r", "description(a)", "--parallel", "file1"]);
+    let output = work_dir.run_jj(["split", "-rsubject(glob:a)", "--parallel", "file1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
@@ -954,7 +954,7 @@ fn test_split_with_multiple_workspaces_same_working_copy() {
         .success();
     // Change the working copy in the second workspace.
     secondary_dir
-        .run_jj(["edit", "-r", "description(first-commit)"])
+        .run_jj(["edit", "-r", "subject(glob:first-commit)"])
         .success();
     // Check the working-copy commit in each workspace in the log output. The "@"
     // node in the graph indicates the current workspace's working-copy commit.

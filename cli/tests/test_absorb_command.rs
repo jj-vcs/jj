@@ -126,7 +126,7 @@ fn test_absorb_simple() {
        index 0000000000..e69de29bb2
     [EOF]
     ");
-    insta::assert_snapshot!(get_evolog(&work_dir, "description(1)"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "subject(glob:1)"), @r"
     ○    kkmpptxz 5810eb0f 1
     ├─╮
     │ ○  yqosqzyt hidden 39b42898 (no description set)
@@ -139,7 +139,7 @@ fn test_absorb_simple() {
     ○  kkmpptxz hidden eb943711 (empty) 1
     [EOF]
     ");
-    insta::assert_snapshot!(get_evolog(&work_dir, "description(2)"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "subject(glob:2)"), @r"
     ○    zsuskuln dd109863 2
     ├─╮
     │ ○  vruxwmqv hidden 761492a8 (no description set)
@@ -242,10 +242,10 @@ fn test_absorb_merge() {
     work_dir.run_jj(["new", "-m1"]).success();
     work_dir.write_file("file1", "1a\n1b\n0a\n");
 
-    work_dir.run_jj(["new", "-m2", "description(0)"]).success();
+    work_dir.run_jj(["new", "-m2", "subject(glob:0)"]).success();
     work_dir.write_file("file1", "0a\n2a\n2b\n");
 
-    let output = work_dir.run_jj(["new", "-m3", "description(1)", "description(2)"]);
+    let output = work_dir.run_jj(["new", "-m3", "subject(glob:1)", "subject(glob:2)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl 42875bf7 (empty) 3
@@ -338,10 +338,10 @@ fn test_absorb_discardable_merge_with_descendant() {
     work_dir.run_jj(["new", "-m1"]).success();
     work_dir.write_file("file1", "1a\n1b\n0a\n");
 
-    work_dir.run_jj(["new", "-m2", "description(0)"]).success();
+    work_dir.run_jj(["new", "-m2", "subject(glob:0)"]).success();
     work_dir.write_file("file1", "0a\n2a\n2b\n");
 
-    let output = work_dir.run_jj(["new", "description(1)", "description(2)"]);
+    let output = work_dir.run_jj(["new", "subject(glob:1)", "subject(glob:2)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl ad00b91a (empty) (no description set)
@@ -420,7 +420,7 @@ fn test_absorb_conflict() {
 
     work_dir.run_jj(["new", "root()"]).success();
     work_dir.write_file("file1", "2a\n2b\n");
-    let output = work_dir.run_jj(["rebase", "-r@", "-ddescription(1)"]);
+    let output = work_dir.run_jj(["rebase", "-r@", "-dsubject(glob:1)"]);
     insta::assert_snapshot!(output, @r###"
     ------- stderr -------
     Rebased 1 commits to destination

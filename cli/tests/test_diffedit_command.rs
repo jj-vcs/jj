@@ -334,7 +334,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     );
     work_dir.run_jj(["describe", "-m", "side-a"]).success();
     work_dir
-        .run_jj(["new", "description(base)", "-m", "side-b"])
+        .run_jj(["new", "subject(glob:base)", "-m", "side-b"])
         .success();
     work_dir.write_file(
         file_path,
@@ -350,7 +350,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
 
     // Resolve one of the conflicts in the working copy
     work_dir
-        .run_jj(["new", "description(side-a)", "description(side-b)"])
+        .run_jj(["new", "subject(glob:side-a)", "subject(glob:side-b)"])
         .success();
     work_dir.write_file(
         file_path,
@@ -896,7 +896,7 @@ fn test_diffedit_external_tool_eol_conversion() {
     work_dir
         .run_jj([
             "new",
-            "description(2)",
+            "subject(glob:2)",
             "--config",
             eol_conversion_none_config,
         ])

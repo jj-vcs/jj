@@ -745,8 +745,7 @@ fn test_new_conflicting_bookmarks() {
             "bookmark",
             "create",
             "foo",
-            "-r",
-            r#"description("one")"#,
+            "-rsubject(glob:one)",
         ])
         .success();
 

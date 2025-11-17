@@ -3869,15 +3869,15 @@ fn test_evaluate_expression_at_operation() {
     // Filter should be evaluated within the at-op repo. Note that this can
     // populate hidden commits without explicitly referring them by commit refs.
     assert_eq!(
-        resolve_commit_ids(repo2.as_ref(), "at_operation(@-, description('commit'))"),
+        resolve_commit_ids(repo2.as_ref(), "at_operation(@-, subject(glob:'commit*'))"),
         vec![commit2_op1.id().clone(), commit1_op1.id().clone()]
     );
     // For the same reason, commit1_op1 isn't filtered out. The following query
-    // is effectively evaluated as "description('commit1') & commit1_op1".
+    // is effectively evaluated as "subject(glob:'commit1*') & commit1_op1".
     assert_eq!(
         resolve_commit_ids(
             repo2.as_ref(),
-            "description('commit1') & at_operation(@-, description('commit'))"
+            "subject(glob:'commit1*') & at_operation(@-, subject(glob:'commit*'))"
         ),
         vec![commit1_op1.id().clone()]
     );
@@ -3885,7 +3885,8 @@ fn test_evaluate_expression_at_operation() {
     assert_eq!(
         resolve_commit_ids(
             repo2.as_ref(),
-            "::visible_heads() & description('commit1') & at_operation(@-, description('commit'))"
+            "::visible_heads() & subject(glob:'commit1*') & at_operation(@-, \
+             subject(glob:'commit*'))"
         ),
         vec![]
     );
@@ -4203,7 +4204,7 @@ fn test_evaluate_expression_filter_combinator() {
 
     // Not intersected with a set node
     assert_eq!(
-        resolve_commit_ids(mut_repo, "~description(1)"),
+        resolve_commit_ids(mut_repo, "~subject(glob:*1)"),
         vec![
             commit3.id().clone(),
             commit2.id().clone(),
@@ -4211,40 +4212,40 @@ fn test_evaluate_expression_filter_combinator() {
         ],
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "description(1) | description(2)"),
+        resolve_commit_ids(mut_repo, "subject(glob:*1) | subject(glob:*2)"),
         vec![commit2.id().clone(), commit1.id().clone()],
     );
     assert_eq!(
         resolve_commit_ids(
             mut_repo,
-            "description(commit) ~ (description(2) | description(3))",
+            "subject(glob:commit*) ~ (subject(glob:*2) | subject(glob:*3))",
         ),
         vec![commit1.id().clone()],
     );
 
     // Intersected with a set node
     assert_eq!(
-        resolve_commit_ids(mut_repo, "root().. & ~description(1)"),
+        resolve_commit_ids(mut_repo, "root().. & ~subject(glob:*1)"),
         vec![commit3.id().clone(), commit2.id().clone()],
     );
     assert_eq!(
         resolve_commit_ids(
             mut_repo,
-            ".. & (description(1) & description(commit) | description(2))"
+            ".. & (subject(glob:*1) & subject(glob:commit*) | subject(glob:*2))"
         ),
         vec![commit2.id().clone(), commit1.id().clone()],
     );
     assert_eq!(
         resolve_commit_ids(
             mut_repo,
-            ".. & (description(1) ~ description(commit) | description(2))"
+            ".. & (subject(glob:*1) ~ subject(glob:commit*) | subject(glob:*2))"
         ),
         vec![commit2.id().clone()],
     );
     assert_eq!(
         resolve_commit_ids(
             mut_repo,
-            &format!("{}.. & (description(1) | description(2))", commit1.id()),
+            &format!("{}.. & (subject(glob:*1) | subject(glob:*2))", commit1.id()),
         ),
         vec![commit2.id().clone()],
     );
