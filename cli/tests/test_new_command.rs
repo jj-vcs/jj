@@ -776,6 +776,60 @@ fn test_new_insert_after_before_no_loop() {
 }
 
 #[test]
+fn test_new_insert_after_empty_before() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    setup_before_insertion(&work_dir);
+    let template = r#"commit_id.short() ++ " " ++ if(description, description, "root")"#;
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    @    a8176a8a5348 F
+    ├─╮
+    │ ○  56a33cd09d90 E
+    ○ │  521674f591a6 D
+    ├─╯
+    │ ○  d32ebe56a293 C
+    │ ○  bb98b0102ef5 B
+    │ ○  515354d01f1b A
+    ├─╯
+    ◆  000000000000 root
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["new", "-mG", "--insert-before=none()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: No revisions found to use as parent
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["new", "-mG", "--insert-before=none()", "--insert-after=B"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: nkmrtpmo d7088f92 (empty) G
+    Parent commit (@-)      : kkmpptxz bb98b010 B | (empty) B
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    @  G
+    │ ○  C
+    ├─╯
+    ○  B
+    ○  A
+    │ ○    F
+    │ ├─╮
+    │ │ ○  E
+    ├───╯
+    │ ○  D
+    ├─╯
+    ◆  root
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_new_conflicting_bookmarks() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
