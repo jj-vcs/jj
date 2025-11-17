@@ -1616,9 +1616,9 @@ to the current parents may contain changes from multiple commits.
         })
     }
 
-    /// Evaluates revset expressions to non-empty set of commit IDs. The
+    /// Evaluates revset expressions to set of commit IDs. The
     /// returned set preserves the order of the input expressions.
-    pub fn resolve_some_revsets(
+    pub fn resolve_revsets(
         &self,
         ui: &Ui,
         revision_args: &[RevisionArg],
@@ -1648,6 +1648,17 @@ to the current parents may contain changes from multiple commits.
                 }
             }
         }
+        Ok(all_commits)
+    }
+
+    /// Evaluates revset expressions to non-empty set of commit IDs. The
+    /// returned set preserves the order of the input expressions.
+    pub fn resolve_some_revsets(
+        &self,
+        ui: &Ui,
+        revision_args: &[RevisionArg],
+    ) -> Result<IndexSet<CommitId>, CommandError> {
+        let all_commits = self.resolve_revsets(ui, revision_args)?;
         if all_commits.is_empty() {
             Err(user_error("Empty revision set"))
         } else {
@@ -3172,7 +3183,7 @@ pub fn compute_commit_location(
             if let Some(revisions) = revisions {
                 Ok(Some(
                     workspace_command
-                        .resolve_some_revsets(ui, revisions)?
+                        .resolve_revsets(ui, revisions)?
                         .into_iter()
                         .collect_vec(),
                 ))
@@ -3231,6 +3242,10 @@ pub fn compute_commit_location(
             &RevsetExpression::commits(new_parent_ids.clone()),
             commit_type,
         )?;
+    }
+
+    if new_parent_ids.is_empty() {
+        return Err(user_error("Empty revision set"));
     }
 
     Ok((new_parent_ids, new_child_ids))
