@@ -935,7 +935,7 @@ fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
             targets,
         } => vec![
             multiple_targets_hint(targets),
-            format!("Use `bookmarks(exact:{symbol})` to select all revisions"),
+            format!("Use `bookmarks({symbol})` to select all revisions"),
             format!(
                 "To set which revision the bookmark points to, run `jj bookmark set {symbol} -r \
                  <REVISION>`"

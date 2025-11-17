@@ -269,8 +269,8 @@ revsets (expressions) as arguments.
   `main@origin` or `main@upstream`. If a bookmark is in a conflicted state, all
   its possible targets are included.
 
-  Git-tracking bookmarks are excluded by default. Use `remote=exact:"git"` or
-  `remote=glob:"*"` to select bookmarks including `@git` ones.
+  Git-tracking bookmarks are excluded by default. Use `remote="git"` or
+  `remote="*"` to select bookmarks including `@git` ones.
 
 * `tracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`: All
   targets of tracked remote bookmarks. Supports the same optional arguments as
@@ -324,8 +324,8 @@ revsets (expressions) as arguments.
   [string pattern](#string-patterns).
 
   A non-empty description is usually terminated with newline character. For
-  example, `description(exact:"")` matches commits without description, and
-  `description(exact:"foo\n")` matches commits with description `"foo\n"`.
+  example, `description("")` matches commits without description, and
+  `description("foo\n")` matches commits with description `"foo\n"`.
 
 * `subject(pattern)`: Commits that have a subject matching the given [string
   pattern](#string-patterns). A subject is the first line of the description
@@ -473,9 +473,7 @@ revsets (expressions) as arguments.
 Functions that perform string matching support the following pattern syntax (the
 quotes are optional).
 
-By default, `"string"` is parsed as a `substring:` pattern in revsets. The
-default will be changed to `glob:` in a future release. The new behavior can be
-enabled by: `ui.revsets-use-glob-by-default=true`.
+By default, `"string"` is parsed as a `glob:` pattern in revsets.
 
 * `exact:"string"`: Matches strings exactly equal to `string`.
 * `glob:"pattern"`: Matches strings with Unix-style shell [wildcard
@@ -635,5 +633,5 @@ Show commits authored by "martinvonz" and containing the word "reset" in the
 description:
 
 ```shell
-jj log -r 'author(martinvonz) & description(reset)'
+jj log -r 'author(*martinvonz*) & description(*reset*)'
 ```

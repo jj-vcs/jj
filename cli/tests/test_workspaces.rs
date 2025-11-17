@@ -363,9 +363,9 @@ fn test_workspaces_add_workspace_multiple_revisions() {
         "add",
         "--name=merge",
         "../merged",
-        "-r=subject(glob:third)",
-        "-r=subject(glob:second)",
-        "-r=subject(glob:first)",
+        "-r=subject(third)",
+        "-r=subject(second)",
+        "-r=subject(first)",
     ]);
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
@@ -1048,7 +1048,7 @@ fn test_colocated_workspace_update_stale() {
         .run_jj(["new", "--no-edit", "root()", "-mold book1"])
         .success();
     main_dir
-        .run_jj(["bookmark", "set", "-rsubject(glob:'old book1')", "book1"])
+        .run_jj(["bookmark", "set", "-rsubject('old book1')", "book1"])
         .success();
 
     main_dir
@@ -1068,7 +1068,7 @@ fn test_colocated_workspace_update_stale() {
         .run_jj([
             "bookmark",
             "set",
-            "-rsubject(glob:'new book1')",
+            "-rsubject('new book1')",
             "--allow-backwards",
             "book1",
         ])
@@ -1096,7 +1096,7 @@ fn test_colocated_workspace_update_stale() {
     let output = main_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation a3fbf68cb3f8).
+    Error: The working copy is stale (not updated since operation b0dfa4a0da08).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]

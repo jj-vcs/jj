@@ -123,7 +123,7 @@ fn test_builtin_alias_trunk_override_alias() {
     let work_dir = test_env.work_dir("local");
 
     test_env.add_config(
-        r#"revset-aliases.'trunk()' = 'latest(remote_bookmarks(exact:"override-trunk", exact:"origin"))'"#,
+        r#"revset-aliases.'trunk()' = 'latest(remote_bookmarks("override-trunk", "origin"))'"#,
     );
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);

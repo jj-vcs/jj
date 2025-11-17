@@ -89,13 +89,13 @@ fn test_git_private_commits_block_pushing() {
         .success();
 
     // Will not push when a pushed commit is contained in git.private-commits
-    test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
+    test_env.add_config(r#"git.private-commits = "description('private*')""#);
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 7f665ca27d4e since it is private
     Hint: Rejected commit: yqosqzyt 7f665ca2 main* | (empty) private 1
-    Hint: Configured git.private-commits: 'description(glob:'private*')'
+    Hint: Configured git.private-commits: 'description('private*')'
     [EOF]
     [exit status: 1]
     ");
@@ -126,13 +126,13 @@ fn test_git_private_commits_can_be_overridden() {
         .success();
 
     // Will not push when a pushed commit is contained in git.private-commits
-    test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
+    test_env.add_config(r#"git.private-commits = "description('private*')""#);
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 7f665ca27d4e since it is private
     Hint: Rejected commit: yqosqzyt 7f665ca2 main* | (empty) private 1
-    Hint: Configured git.private-commits: 'description(glob:'private*')'
+    Hint: Configured git.private-commits: 'description('private*')'
     [EOF]
     [exit status: 1]
     ");
@@ -161,7 +161,7 @@ fn test_git_private_commits_are_not_checked_if_immutable() {
         .run_jj(["bookmark", "set", "main", "-r@"])
         .success();
 
-    test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
+    test_env.add_config(r#"git.private-commits = "description('private*')""#);
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "all()""#);
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @r"
@@ -192,13 +192,13 @@ fn test_git_private_commits_not_directly_in_line_block_pushing() {
         .run_jj(["bookmark", "create", "-r@", "bookmark1"])
         .success();
 
-    test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
+    test_env.add_config(r#"git.private-commits = "description('private*')""#);
     let output = work_dir.run_jj(["git", "push", "-b=bookmark1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 613114f44bdd since it is private
     Hint: Rejected commit: yqosqzyt 613114f4 (empty) private 1
-    Hint: Configured git.private-commits: 'description(glob:'private*')'
+    Hint: Configured git.private-commits: 'description('private*')'
     [EOF]
     [exit status: 1]
     ");
@@ -216,7 +216,7 @@ fn test_git_private_commits_descending_from_commits_pushed_do_not_block_pushing(
         .success();
     work_dir.run_jj(["new", "-m=private 1"]).success();
 
-    test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
+    test_env.add_config(r#"git.private-commits = "description('private*')""#);
     let output = work_dir.run_jj(["git", "push", "-b=main"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -257,7 +257,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     [EOF]
     ");
 
-    test_env.add_config(r#"git.private-commits = "subject(glob:'private*')""#);
+    test_env.add_config(r#"git.private-commits = "subject('private*')""#);
 
     // Since "private 1" is already on the remote, pushing it should be allowed
     work_dir
@@ -274,7 +274,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     // Ensure that the already-pushed commit doesn't block a new bookmark from
     // being pushed
     work_dir
-        .run_jj(["new", "subject(glob:'private 1')", "-m=public 4"])
+        .run_jj(["new", "subject('private 1')", "-m=public 4"])
         .success();
     work_dir
         .run_jj(["bookmark", "create", "-r@", "bookmark2"])
@@ -311,7 +311,7 @@ fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
     [EOF]
     ");
 
-    test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
+    test_env.add_config(r#"git.private-commits = "description('private*')""#);
 
     // But pushing to a repo that doesn't have the private commit yet is still
     // blocked
@@ -320,7 +320,7 @@ fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
     ------- stderr -------
     Error: Won't push commit 469f044473ed since it is private
     Hint: Rejected commit: znkkpsqq 469f0444 (empty) private 1
-    Hint: Configured git.private-commits: 'description(glob:'private*')'
+    Hint: Configured git.private-commits: 'description('private*')'
     [EOF]
     [exit status: 1]
     ");

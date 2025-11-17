@@ -2118,7 +2118,7 @@ fn test_git_push_sign_on_push() {
         "bookmark",
         "create",
         "bookmark3",
-        "-rsubject(glob:'commit which should not be signed 1')",
+        "-rsubject('commit which should not be signed 1')",
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
