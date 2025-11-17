@@ -239,7 +239,7 @@
                 },
                 "revsets-use-glob-by-default": {
                     "type": "boolean",
-                    "default": false,
+                    "default": true,
                     "description": "Whether to use glob string patterns in revsets by default"
                 },
                 "show-cryptographic-signatures": {

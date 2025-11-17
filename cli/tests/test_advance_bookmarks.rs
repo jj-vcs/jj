@@ -437,11 +437,9 @@ fn test_new_advance_bookmarks_merge_children() {
     set_advance_bookmarks(&test_env, true);
     work_dir.run_jj(["desc", "-m", "0"]).success();
     work_dir.run_jj(["new", "-m", "1"]).success();
+    work_dir.run_jj(["new", "subject(0)", "-m", "2"]).success();
     work_dir
-        .run_jj(["new", "subject(glob:0)", "-m", "2"])
-        .success();
-    work_dir
-        .run_jj(["bookmark", "create", "test_bookmark", "-rsubject(glob:0)"])
+        .run_jj(["bookmark", "create", "test_bookmark", "-rsubject(0)"])
         .success();
 
     // Check the initial state of the repo.
@@ -456,7 +454,7 @@ fn test_new_advance_bookmarks_merge_children() {
 
     // The bookmark won't advance because `jj  new` had multiple targets.
     work_dir
-        .run_jj(["new", "subject(glob:1)", "subject(glob:2)"])
+        .run_jj(["new", "subject(1)", "subject(2)"])
         .success();
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @    bookmarks{} desc:

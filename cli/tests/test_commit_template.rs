@@ -945,12 +945,7 @@ fn test_log_contained_in() {
         )
     };
 
-    let output = work_dir.run_jj([
-        "log",
-        "-r::",
-        "-T",
-        &template_for_revset("subject(glob:A)::"),
-    ]);
+    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("subject(A)::")]);
     insta::assert_snapshot!(output, @r"
     @  D
     │ ○  C [contained_in]
@@ -1048,7 +1043,7 @@ fn test_short_prefix_in_transaction() {
 
     test_env.add_config(r#"
         [revsets]
-        log = '::subject(glob:test)'
+        log = '::subject(test)'
 
         [templates]
         log = 'summary ++ "\n"'
@@ -1071,9 +1066,7 @@ fn test_short_prefix_in_transaction() {
     }
     // Create 2^4 duplicates of the chain
     for _ in 0..4 {
-        work_dir
-            .run_jj(["duplicate", "subject(glob:commit*)"])
-            .success();
+        work_dir.run_jj(["duplicate", "subject(commit*)"]).success();
     }
 
     // Short prefix should be used for commit summary inside the transaction
@@ -1530,14 +1523,14 @@ fn test_conflicted_files() {
     work_dir.write_file("conflict-file2", "left content");
     work_dir.run_jj(["commit", "-m", "left"]).success();
 
-    work_dir.run_jj(["new", "subject(glob:base)"]).success();
+    work_dir.run_jj(["new", "subject(base)"]).success();
     work_dir.write_file("conflict-file1", "right content");
     work_dir.write_file("conflict-file2", "right content");
     work_dir.run_jj(["commit", "-m", "right"]).success();
 
     // Merge with conflicts.
     work_dir
-        .run_jj(["new", "subject(glob:left)", "subject(glob:right)"])
+        .run_jj(["new", "subject(left)", "subject(right)"])
         .success();
 
     // Test basic conflicted_files() listing.
@@ -1550,14 +1543,7 @@ fn test_conflicted_files() {
 
     // Test that non-conflicted commit returns empty list.
     let template = r#"self.conflicted_files().len() ++ "\n""#;
-    let output = work_dir.run_jj([
-        "log",
-        "-r",
-        "subject(glob:left)",
-        "-T",
-        template,
-        "--no-graph",
-    ]);
+    let output = work_dir.run_jj(["log", "-r", "subject(left)", "-T", template, "--no-graph"]);
     insta::assert_snapshot!(output, @r"
     0
     [EOF]

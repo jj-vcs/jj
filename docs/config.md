@@ -1647,7 +1647,7 @@ unset, all commits are eligible to be pushed.
 ```toml
 [git]
 # Prevent pushing work in progress or anything explicitly labeled "private"
-private-commits = "description(glob:'wip:*') | description(glob:'private:*')"
+private-commits = "description('wip:*') | description('private:*')"
 ```
 
 If a commit is in `git.private-commits` but is already on the remote, then it is
@@ -2028,7 +2028,7 @@ email = "YOUR_DEFAULT_EMAIL@example.com"
 email = "YOUR_WORK_EMAIL@workplace.com"
 
 [revset-aliases]
-work = "heads(::@ ~ description(exact:''))::"
+work = "heads(::@ ~ description(''))::"
 
 [aliases]
 wip = ["log", "-r", "work"]

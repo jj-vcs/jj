@@ -58,7 +58,7 @@ fn test_resolution_of_git_tracking_bookmarks() {
     a7f9930bb6d54ba39e6c254135b9bfe32041fea4 old_message
     [EOF]
     ");
-    insta::assert_snapshot!(query(r#"remote_bookmarks(exact:"main", exact:"git")"#), @r"
+    insta::assert_snapshot!(query(r#"remote_bookmarks("main", "git")"#), @r"
     a7f9930bb6d54ba39e6c254135b9bfe32041fea4 old_message
     [EOF]
     ");

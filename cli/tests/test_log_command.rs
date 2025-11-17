@@ -480,9 +480,7 @@ fn test_log_shortest_accessors() {
     }
     // Create 2^3 duplicates of the chain
     for _ in 0..3 {
-        work_dir
-            .run_jj(["duplicate", "subject(glob:commit*)"])
-            .success();
+        work_dir.run_jj(["duplicate", "subject(commit*)"]).success();
     }
 
     insta::assert_snapshot!(
@@ -669,9 +667,7 @@ fn test_log_prefix_highlight_styled() {
     }
     // Create 2^3 duplicates of the chain
     for _ in 0..3 {
-        work_dir
-            .run_jj(["duplicate", "subject(glob:commit*)"])
-            .success();
+        work_dir.run_jj(["duplicate", "subject(commit*)"]).success();
     }
 
     insta::assert_snapshot!(
@@ -787,13 +783,9 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
     // Create 2^7 hidden commits
     work_dir.run_jj(["new", "root()", "-m", "extra"]).success();
     for _ in 0..7 {
-        work_dir
-            .run_jj(["duplicate", "subject(glob:extra)"])
-            .success();
+        work_dir.run_jj(["duplicate", "subject(extra)"]).success();
     }
-    work_dir
-        .run_jj(["abandon", "subject(glob:extra)"])
-        .success();
+    work_dir.run_jj(["abandon", "subject(extra)"]).success();
 
     // The unique prefixes became longer.
     insta::assert_snapshot!(work_dir.run_jj(["log", "-T", prefix_format]), @r"
@@ -1029,12 +1021,10 @@ fn test_log_limit() {
     work_dir.write_file("a", "");
     work_dir.run_jj(["new", "-m", "b"]).success();
     work_dir.write_file("b", "");
-    work_dir
-        .run_jj(["new", "-m", "c", "subject(glob:a)"])
-        .success();
+    work_dir.run_jj(["new", "-m", "c", "subject(a)"]).success();
     work_dir.write_file("c", "");
     work_dir
-        .run_jj(["new", "-m", "d", "subject(glob:c)", "subject(glob:b)"])
+        .run_jj(["new", "-m", "d", "subject(c)", "subject(b)"])
         .success();
 
     let output = work_dir.run_jj(["log", "-T", "description", "--limit=3"]);
@@ -1323,7 +1313,7 @@ fn test_graph_styles() {
         .run_jj(["new", "-m", "side bookmark\nwith\nlong\ndescription"])
         .success();
     work_dir
-        .run_jj(["new", "-m", "merge", "subject(glob:'main bookmark 1')", "@"])
+        .run_jj(["new", "-m", "merge", "subject('main bookmark 1')", "@"])
         .success();
 
     // Default (curved) style
@@ -1593,7 +1583,7 @@ fn test_elided() {
         .success();
     work_dir.run_jj(["new", "-m", "side bookmark 2"]).success();
     work_dir
-        .run_jj(["new", "-m", "merge", "subject(glob:'main bookmark 2')", "@"])
+        .run_jj(["new", "-m", "merge", "subject('main bookmark 2')", "@"])
         .success();
 
     let get_log = |revs: &str| work_dir.run_jj(["log", "-T", r#"description ++ "\n""#, "-r", revs]);
@@ -1619,7 +1609,7 @@ fn test_elided() {
     // Elide some commits from each side of the merge. It's unclear that a revision
     // was skipped on the left side.
     test_env.add_config("ui.log-synthetic-elided-nodes = false");
-    insta::assert_snapshot!(get_log("@ | @- | subject(glob:initial)"), @r"
+    insta::assert_snapshot!(get_log("@ | @- | subject(initial)"), @r"
     @    merge
     ├─╮
     │ ○  side bookmark 2
@@ -1647,7 +1637,7 @@ fn test_elided() {
 
     // Elide some commits from each side of the merge
     test_env.add_config("ui.log-synthetic-elided-nodes = true");
-    insta::assert_snapshot!(get_log("@ | @- | subject(glob:initial)"), @r"
+    insta::assert_snapshot!(get_log("@ | @- | subject(initial)"), @r"
     @    merge
     ├─╮
     │ ○  side bookmark 2
@@ -1693,7 +1683,7 @@ fn test_log_with_custom_symbols() {
         .success();
     work_dir.run_jj(["new", "-m", "side bookmark 2"]).success();
     work_dir
-        .run_jj(["new", "-m", "merge", "subject(glob:'main bookmark 2')", "@"])
+        .run_jj(["new", "-m", "merge", "subject('main bookmark 2')", "@"])
         .success();
 
     let get_log = |revs: &str| work_dir.run_jj(["log", "-T", r#"description ++ "\n""#, "-r", revs]);
@@ -1705,7 +1695,7 @@ fn test_log_with_custom_symbols() {
         templates.log_node = 'if(self, if(current_working_copy, "$", if(root, "┴", "┝")), "🮀")'
         "###,
     );
-    insta::assert_snapshot!(get_log("@ | @- | subject(glob:initial) | root()"), @r"
+    insta::assert_snapshot!(get_log("@ | @- | subject(initial) | root()"), @r"
     $    merge
     ├─╮
     │ ┝  side bookmark 2
@@ -1729,7 +1719,7 @@ fn test_log_with_custom_symbols() {
         templates.log_node = 'if(self, if(current_working_copy, "$", if(root, "^", "*")), ":")'
         "###,
     );
-    insta::assert_snapshot!(get_log("@ | @- | subject(glob:initial) | root()"), @r"
+    insta::assert_snapshot!(get_log("@ | @- | subject(initial) | root()"), @r"
     $    merge
     |\
     | *  side bookmark 2

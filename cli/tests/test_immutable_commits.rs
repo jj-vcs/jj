@@ -237,7 +237,7 @@ fn test_rewrite_immutable_commands() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "main"])
         .success();
-    work_dir.run_jj(["new", "subject(glob:b)"]).success();
+    work_dir.run_jj(["new", "subject(b)"]).success();
     work_dir.write_file("file", "w");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
     test_env.add_config(r#"revset-aliases."trunk()" = "main""#);
@@ -371,7 +371,7 @@ fn test_rewrite_immutable_commands() {
     [exit status: 1]
     "#);
     // new --insert-after parent_of_main
-    let output = work_dir.run_jj(["new", "--insert-after", "subject(glob:b)"]);
+    let output = work_dir.run_jj(["new", "--insert-after", "subject(b)"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Commit e44592029478 is immutable
@@ -385,7 +385,7 @@ fn test_rewrite_immutable_commands() {
     [exit status: 1]
     "#);
     // parallelize
-    let output = work_dir.run_jj(["parallelize", "subject(glob:b)", "main"]);
+    let output = work_dir.run_jj(["parallelize", "subject(b)", "main"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Commit e44592029478 is immutable
@@ -441,7 +441,7 @@ fn test_rewrite_immutable_commands() {
     [exit status: 1]
     "#);
     // resolve
-    let output = work_dir.run_jj(["resolve", "-r=subject(glob:merge)", "file"]);
+    let output = work_dir.run_jj(["resolve", "-r=subject(merge)", "file"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Commit e44592029478 is immutable
@@ -511,7 +511,7 @@ fn test_rewrite_immutable_commands() {
     [exit status: 1]
     "#);
     // squash -r
-    let output = work_dir.run_jj(["squash", "-r=subject(glob:b)"]);
+    let output = work_dir.run_jj(["squash", "-r=subject(b)"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: Commit 9d190342454d is immutable

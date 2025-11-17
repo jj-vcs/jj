@@ -740,13 +740,7 @@ fn test_new_conflicting_bookmarks() {
         .run_jj(["bookmark", "create", "-r@", "foo"])
         .success();
     work_dir
-        .run_jj([
-            "--at-op=@-",
-            "bookmark",
-            "create",
-            "foo",
-            "-rsubject(glob:one)",
-        ])
+        .run_jj(["--at-op=@-", "bookmark", "create", "foo", "-rsubject(one)"])
         .success();
 
     // Trigger resolution of divergent operations
@@ -757,7 +751,7 @@ fn test_new_conflicting_bookmarks() {
     ------- stderr -------
     Error: Name `foo` is conflicted
     Hint: Use commit ID to select single revision from: 96948328bc42, 401ea16fc3fe
-    Hint: Use `bookmarks(exact:foo)` to select all revisions
+    Hint: Use `bookmarks(foo)` to select all revisions
     Hint: To set which revision the bookmark points to, run `jj bookmark set foo -r <REVISION>`
     [EOF]
     [exit status: 1]

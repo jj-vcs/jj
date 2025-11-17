@@ -1620,8 +1620,8 @@ fn test_squash_use_destination_message() {
         .run_jj([
             "squash",
             "--use-destination-message",
-            "--from=subject(glob:b)::",
-            "--into=subject(glob:a)",
+            "--from=subject(b)::",
+            "--into=subject(a)",
         ])
         .success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"

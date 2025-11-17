@@ -517,8 +517,21 @@ fn test_default_string_pattern() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    // substring match by default as of jj 0.35
-    let output = work_dir.run_jj(["log", "-rauthor('test.user')"]);
+    // glob match by default
+    let output = work_dir.run_jj(["log", "-rauthor('*test.user*')"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    │  (empty) (no description set)
+    ~
+    [EOF]
+    ");
+
+    // with default flipped
+    let output = work_dir.run_jj([
+        "log",
+        "-rauthor('test.user')",
+        "--config=ui.revsets-use-glob-by-default=false",
+    ]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
@@ -531,20 +544,7 @@ fn test_default_string_pattern() {
     1 | author('test.user')
       |        ^---------^
       |
-      = Default pattern syntax will be changed to `glob:` / `exact:` (depending on whether it looks like a glob) in a future release; use `substring:` prefix or set ui.revsets-use-glob-by-default=true to suppress this warning
-    [EOF]
-    ");
-
-    // with default flipped
-    let output = work_dir.run_jj([
-        "log",
-        "-rauthor('*test.user*')",
-        "--config=ui.revsets-use-glob-by-default=true",
-    ]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
-    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
-    │  (empty) (no description set)
-    ~
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
     [EOF]
     ");
 }

@@ -238,7 +238,7 @@ fn test_next_parent_has_multiple_descendants() {
     work_dir.run_jj(["new", "-m", "2"]).success();
     work_dir.run_jj(["new", "root()", "-m", "3"]).success();
     work_dir.run_jj(["new", "-m", "4"]).success();
-    work_dir.run_jj(["edit", "subject(glob:3)"]).success();
+    work_dir.run_jj(["edit", "subject(3)"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  mzvwutvlkqwt 4
     @  zsuskulnrvyr 3
@@ -276,7 +276,7 @@ fn test_next_with_merge_commit_parent() {
     work_dir.run_jj(["desc", "-m", "1"]).success();
     work_dir.run_jj(["new", "root()", "-m", "2"]).success();
     work_dir
-        .run_jj(["new", "subject(glob:1)", "subject(glob:2)", "-m", "3"])
+        .run_jj(["new", "subject(1)", "subject(2)", "-m", "3"])
         .success();
     work_dir.run_jj(["new", "-m", "4"]).success();
     work_dir.run_jj(["prev", "0"]).success();
@@ -322,10 +322,10 @@ fn test_next_on_merge_commit() {
     work_dir.run_jj(["desc", "-m", "1"]).success();
     work_dir.run_jj(["new", "root()", "-m", "2"]).success();
     work_dir
-        .run_jj(["new", "subject(glob:1)", "subject(glob:2)", "-m", "3"])
+        .run_jj(["new", "subject(1)", "subject(2)", "-m", "3"])
         .success();
     work_dir.run_jj(["new", "-m", "4"]).success();
-    work_dir.run_jj(["edit", "subject(glob:3)"]).success();
+    work_dir.run_jj(["edit", "subject(3)"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  mzvwutvlkqwt 4
     @    zsuskulnrvyr 3
@@ -512,11 +512,11 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     work_dir.run_jj(["desc", "-m", "x"]).success();
     work_dir.run_jj(["new", "root()", "-m", "y"]).success();
     work_dir
-        .run_jj(["new", "subject(glob:x)", "subject(glob:y)", "-m", "z"])
+        .run_jj(["new", "subject(x)", "subject(y)", "-m", "z"])
         .success();
     work_dir.run_jj(["new", "root()", "-m", "1"]).success();
     work_dir
-        .run_jj(["new", "subject(glob:z)", "subject(glob:1)", "-m", "M"])
+        .run_jj(["new", "subject(z)", "subject(1)", "-m", "M"])
         .success();
 
     // Check that the graph looks the way we expect.
@@ -766,9 +766,9 @@ fn test_prev_conflict() {
     work_dir.run_jj(["commit", "-m", "second"]).success();
     work_dir.run_jj(["commit", "-m", "third"]).success();
     // Create a conflict in the first commit, where we'll jump to.
-    work_dir.run_jj(["edit", "subject(glob:first)"]).success();
+    work_dir.run_jj(["edit", "subject(first)"]).success();
     work_dir.write_file("content.txt", "first+1");
-    work_dir.run_jj(["new", "subject(glob:third)"]).success();
+    work_dir.run_jj(["new", "subject(third)"]).success();
     work_dir.run_jj(["commit", "-m", "fourth"]).success();
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -804,9 +804,9 @@ fn test_prev_conflict_editing() {
     work_dir.write_file("content.txt", "second");
     work_dir.run_jj(["commit", "-m", "third"]).success();
     // Create a conflict in the third commit, where we'll jump to.
-    work_dir.run_jj(["edit", "subject(glob:first)"]).success();
+    work_dir.run_jj(["edit", "subject(first)"]).success();
     work_dir.write_file("content.txt", "first text");
-    work_dir.run_jj(["new", "subject(glob:third)"]).success();
+    work_dir.run_jj(["new", "subject(third)"]).success();
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  royxmykxtrkr conflict
@@ -840,10 +840,10 @@ fn test_next_conflict() {
     // Create a conflict in the third commit.
     work_dir.write_file("content.txt", "third");
     work_dir.run_jj(["commit", "-m", "third"]).success();
-    work_dir.run_jj(["new", "subject(glob:first)"]).success();
+    work_dir.run_jj(["new", "subject(first)"]).success();
     work_dir.write_file("content.txt", "first v2");
     work_dir
-        .run_jj(["squash", "--into", "subject(glob:third)"])
+        .run_jj(["squash", "--into", "subject(third)"])
         .success();
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -878,7 +878,7 @@ fn test_next_conflict_editing() {
     work_dir.run_jj(["commit", "-m", "second"]).success();
     // Create a conflict in the third commit.
     work_dir.write_file("content.txt", "third");
-    work_dir.run_jj(["edit", "subject(glob:second)"]).success();
+    work_dir.run_jj(["edit", "subject(second)"]).success();
     work_dir.write_file("content.txt", "modified second");
     work_dir.run_jj(["edit", "@-"]).success();
     // Test the setup
@@ -1213,9 +1213,7 @@ fn test_next_when_wc_has_descendants() {
     work_dir.run_jj(["commit", "-m", "right-wc"]).success();
     work_dir.run_jj(["commit", "-m", "right-1"]).success();
     work_dir.run_jj(["commit", "-m", "right-2"]).success();
-    work_dir
-        .run_jj(["edit", "subject(glob:right-wc)"])
-        .success();
+    work_dir.run_jj(["edit", "subject(right-wc)"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  zsuskulnrvyr right-2

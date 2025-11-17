@@ -97,7 +97,7 @@ fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, Revset
         user_email: "",
         date_pattern_context: chrono::Local::now().into(),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
-        use_glob_by_default: false,
+        use_glob_by_default: true,
         extensions: &RevsetExtensions::default(),
         workspace: None,
     };
@@ -231,7 +231,7 @@ fn test_resolve_symbol_commit_id() {
         user_email: settings.user_email(),
         date_pattern_context: chrono::Utc::now().fixed_offset().into(),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
-        use_glob_by_default: false,
+        use_glob_by_default: true,
         extensions: &RevsetExtensions::default(),
         workspace: None,
     };
@@ -733,15 +733,11 @@ fn test_resolve_symbol_bookmarks() {
                 && targets == vec![commit5.id().clone(), commit4.id().clone()]
     );
     assert_eq!(
-        resolve_symbol(mut_repo, "bookmarks(exact:local-conflicted)").unwrap(),
+        resolve_symbol(mut_repo, "bookmarks(local-conflicted)").unwrap(),
         vec![commit3.id().clone(), commit2.id().clone()],
     );
     assert_eq!(
-        resolve_symbol(
-            mut_repo,
-            "remote_bookmarks(exact:remote-conflicted, exact:origin)"
-        )
-        .unwrap(),
+        resolve_symbol(mut_repo, "remote_bookmarks(remote-conflicted, origin)").unwrap(),
         vec![commit5.id().clone(), commit4.id().clone()],
     );
 
@@ -1022,7 +1018,7 @@ fn try_resolve_expression(
         user_email: settings.user_email(),
         date_pattern_context: chrono::Utc::now().fixed_offset().into(),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
-        use_glob_by_default: false,
+        use_glob_by_default: true,
         extensions: &RevsetExtensions::default(),
         workspace: None,
     };
@@ -1073,7 +1069,7 @@ fn resolve_commit_ids_in_workspace(
         user_email: settings.user_email(),
         date_pattern_context: chrono::Utc::now().fixed_offset().into(),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
-        use_glob_by_default: false,
+        use_glob_by_default: true,
         extensions: &RevsetExtensions::default(),
         workspace: Some(workspace_ctx),
     };
@@ -2475,7 +2471,7 @@ fn test_evaluate_expression_bookmarks() {
         vec![commit1.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "bookmarks(bookmark)"),
+        resolve_commit_ids(mut_repo, "bookmarks(substring:bookmark)"),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
     assert_eq!(
@@ -2483,7 +2479,7 @@ fn test_evaluate_expression_bookmarks() {
         vec![commit1.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "bookmarks(bookmark & ~exact:bookmark1)"),
+        resolve_commit_ids(mut_repo, "bookmarks(bookmark* & ~bookmark1)"),
         vec![commit2.id().clone()]
     );
     assert_eq!(
@@ -2507,11 +2503,11 @@ fn test_evaluate_expression_bookmarks() {
         vec![commit2.id().clone(), commit1.id().clone()]
     );
     // Can silently resolve to an empty set if there's no matches
-    assert_eq!(resolve_commit_ids(mut_repo, "bookmarks(bookmark3)"), vec![]);
     assert_eq!(
-        resolve_commit_ids(mut_repo, "bookmarks(exact:ookmark1)"),
+        resolve_commit_ids(mut_repo, "bookmarks(substring:bookmark3)"),
         vec![]
     );
+    assert_eq!(resolve_commit_ids(mut_repo, "bookmarks(ookmark1)"), vec![]);
     // Two bookmarks pointing to the same commit does not result in a duplicate in
     // the revset
     mut_repo.set_local_bookmark_target(
@@ -2599,7 +2595,7 @@ fn test_evaluate_expression_remote_bookmarks() {
         vec![commit1.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "remote_bookmarks(bookmark)"),
+        resolve_commit_ids(mut_repo, "remote_bookmarks(substring:bookmark)"),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
     assert_eq!(
@@ -2608,40 +2604,37 @@ fn test_evaluate_expression_remote_bookmarks() {
     );
     // Can get bookmarks from matching remotes
     assert_eq!(
-        resolve_commit_ids(mut_repo, r#"remote_bookmarks("", origin)"#),
+        resolve_commit_ids(mut_repo, r#"remote_bookmarks(*, origin)"#),
         vec![commit1.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, r#"remote_bookmarks("", ri)"#),
+        resolve_commit_ids(mut_repo, r#"remote_bookmarks(*, *ri*)"#),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, r#"remote_bookmarks("", exact:origin)"#),
+        resolve_commit_ids(mut_repo, r#"remote_bookmarks(*, origin)"#),
         vec![commit1.id().clone()]
     );
     // Can get bookmarks with matching names from matching remotes
     assert_eq!(
-        resolve_commit_ids(mut_repo, "remote_bookmarks(bookmark1, ri)"),
+        resolve_commit_ids(mut_repo, "remote_bookmarks(bookmark1, *ri*)"),
         vec![commit1.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, r#"remote_bookmarks(bookmark, private)"#),
+        resolve_commit_ids(mut_repo, "remote_bookmarks(bookmark*, private)"),
         vec![commit2.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(
-            mut_repo,
-            r#"remote_bookmarks(exact:bookmark1, exact:origin)"#
-        ),
+        resolve_commit_ids(mut_repo, "remote_bookmarks(bookmark1, origin)"),
         vec![commit1.id().clone()]
     );
     // Can get Git-tracking bookmarks by specifying the remote
     assert_eq!(
-        resolve_commit_ids(mut_repo, "remote_bookmarks(remote=exact:'git')"),
+        resolve_commit_ids(mut_repo, "remote_bookmarks(remote=git)"),
         vec![commit_git_remote.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "remote_bookmarks(remote=glob:'*')"),
+        resolve_commit_ids(mut_repo, "remote_bookmarks(remote=*)"),
         vec![
             commit_git_remote.id().clone(),
             commit2.id().clone(),
@@ -2667,7 +2660,7 @@ fn test_evaluate_expression_remote_bookmarks() {
     );
     // Can silently resolve to an empty set if there's no matches
     assert_eq!(
-        resolve_commit_ids(mut_repo, "remote_bookmarks(bookmark3)"),
+        resolve_commit_ids(mut_repo, "remote_bookmarks(substring:bookmark3)"),
         vec![]
     );
     assert_eq!(
@@ -2679,11 +2672,11 @@ fn test_evaluate_expression_remote_bookmarks() {
         vec![]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, r#"remote_bookmarks(exact:ranch1, exact:origin)"#),
+        resolve_commit_ids(mut_repo, r#"remote_bookmarks(ranch1, origin)"#),
         vec![]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, r#"remote_bookmarks(exact:bookmark1, exact:orig)"#),
+        resolve_commit_ids(mut_repo, r#"remote_bookmarks(bookmark1, orig)"#),
         vec![]
     );
     assert_eq!(
@@ -2764,7 +2757,7 @@ fn test_evaluate_expression_tags() {
         vec![commit1.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "tags(tag)"),
+        resolve_commit_ids(mut_repo, "tags(substring:tag)"),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
     assert_eq!(
@@ -2785,8 +2778,8 @@ fn test_evaluate_expression_tags() {
         vec![commit1.id().clone()]
     );
     // Can silently resolve to an empty set if there's no matches
-    assert_eq!(resolve_commit_ids(mut_repo, "tags(tag3)"), vec![]);
-    assert_eq!(resolve_commit_ids(mut_repo, "tags(exact:ag1)"), vec![]);
+    assert_eq!(resolve_commit_ids(mut_repo, "tags(substring:tag3)"), vec![]);
+    assert_eq!(resolve_commit_ids(mut_repo, "tags(ag1)"), vec![]);
     // Two tags pointing to the same commit does not result in a duplicate in
     // the revset
     mut_repo.set_local_tag_target("tag3".as_ref(), RefTarget::normal(commit2.id().clone()));
@@ -3262,7 +3255,7 @@ fn test_evaluate_expression_description() {
 
     // Can find multiple matches
     assert_eq!(
-        resolve_commit_ids(mut_repo, "description(commit)"),
+        resolve_commit_ids(mut_repo, "description(substring:commit)"),
         vec![
             commit3.id().clone(),
             commit2.id().clone(),
@@ -3271,12 +3264,12 @@ fn test_evaluate_expression_description() {
     );
     // Can find a unique match
     assert_eq!(
-        resolve_commit_ids(mut_repo, "description(\"commit 2\")"),
+        resolve_commit_ids(mut_repo, "description('*commit 2*')"),
         vec![commit2.id().clone()]
     );
     // Searches only among candidates if specified
     assert_eq!(
-        resolve_commit_ids(mut_repo, "visible_heads() & description(\"commit 2\")"),
+        resolve_commit_ids(mut_repo, "visible_heads() & description('*commit 2*')"),
         vec![]
     );
 
@@ -3290,13 +3283,13 @@ fn test_evaluate_expression_description() {
         vec![]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "description(exact:'')"),
+        resolve_commit_ids(mut_repo, "description('')"),
         vec![mut_repo.store().root_commit_id().clone()]
     );
 
     // Negative predicate
     assert_eq!(
-        resolve_commit_ids(mut_repo, "description(~exact:'')"),
+        resolve_commit_ids(mut_repo, "description(~'')"),
         vec![
             commit3.id().clone(),
             commit2.id().clone(),
@@ -3306,21 +3299,24 @@ fn test_evaluate_expression_description() {
 
     // Match subject line
     assert_eq!(
-        resolve_commit_ids(mut_repo, "subject(glob:'commit ?')"),
+        resolve_commit_ids(mut_repo, "subject('commit ?')"),
         vec![
             commit3.id().clone(),
             commit2.id().clone(),
             commit1.id().clone(),
         ]
     );
-    assert_eq!(resolve_commit_ids(mut_repo, "subject('blah')"), vec![]);
     assert_eq!(
-        resolve_commit_ids(mut_repo, "subject(exact:'commit 2')"),
+        resolve_commit_ids(mut_repo, "subject(substring:blah)"),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "subject('commit 2')"),
         vec![commit2.id().clone()]
     );
     // Empty description should have empty subject line
     assert_eq!(
-        resolve_commit_ids(mut_repo, "subject(exact:'')"),
+        resolve_commit_ids(mut_repo, "subject('')"),
         vec![mut_repo.store().root_commit_id().clone()]
     );
 }
@@ -3366,7 +3362,7 @@ fn test_evaluate_expression_author() {
 
     // Can find multiple matches
     assert_eq!(
-        resolve_commit_ids(mut_repo, "author(name)"),
+        resolve_commit_ids(mut_repo, "author(substring:name)"),
         vec![
             commit3.id().clone(),
             commit2.id().clone(),
@@ -3375,11 +3371,11 @@ fn test_evaluate_expression_author() {
     );
     // Can find a unique match by either name or email
     assert_eq!(
-        resolve_commit_ids(mut_repo, "author(\"name2\")"),
+        resolve_commit_ids(mut_repo, "author(*name2*)"),
         vec![commit2.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "author(\"email3\")"),
+        resolve_commit_ids(mut_repo, "author(*email3*)"),
         vec![commit3.id().clone()]
     );
     // Can match case‐insensitively
@@ -3394,32 +3390,32 @@ fn test_evaluate_expression_author() {
 
     // Can match name or email explicitly
     assert_eq!(
-        resolve_commit_ids(mut_repo, "author_name('name2')"),
+        resolve_commit_ids(mut_repo, "author_name(*name2*)"),
         vec![commit2.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "author_email('name2')"),
+        resolve_commit_ids(mut_repo, "author_email(*name2*)"),
         vec![]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "author_name('email2')"),
+        resolve_commit_ids(mut_repo, "author_name(*email2*)"),
         vec![]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "author_email('email2')"),
+        resolve_commit_ids(mut_repo, "author_email(*email2*)"),
         vec![commit2.id().clone()]
     );
 
     // Searches only among candidates if specified
     assert_eq!(
-        resolve_commit_ids(mut_repo, "visible_heads() & author(\"name2\")"),
+        resolve_commit_ids(mut_repo, "visible_heads() & author(*name2*)"),
         vec![]
     );
     // Filter by union of pure predicate and set
     assert_eq!(
         resolve_commit_ids(
             mut_repo,
-            &format!("root().. & (author(name1) | {})", commit3.id())
+            &format!("root().. & (author(*name1*) | {})", commit3.id())
         ),
         vec![commit3.id().clone(), commit1.id().clone()]
     );
@@ -3717,7 +3713,7 @@ fn test_evaluate_expression_committer() {
 
     // Can find multiple matches
     assert_eq!(
-        resolve_commit_ids(mut_repo, "committer(name)"),
+        resolve_commit_ids(mut_repo, "committer(substring:name)"),
         vec![
             commit3.id().clone(),
             commit2.id().clone(),
@@ -3726,11 +3722,11 @@ fn test_evaluate_expression_committer() {
     );
     // Can find a unique match by either name or email
     assert_eq!(
-        resolve_commit_ids(mut_repo, "committer(\"name2\")"),
+        resolve_commit_ids(mut_repo, "committer(*name2*)"),
         vec![commit2.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "committer(\"email3\")"),
+        resolve_commit_ids(mut_repo, "committer(*email3*)"),
         vec![commit3.id().clone()]
     );
     // Can match case‐insensitively
@@ -3745,25 +3741,25 @@ fn test_evaluate_expression_committer() {
 
     // Can match name or email explicitly
     assert_eq!(
-        resolve_commit_ids(mut_repo, "committer_name('name2')"),
+        resolve_commit_ids(mut_repo, "committer_name(*name2*)"),
         vec![commit2.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "committer_email('name2')"),
+        resolve_commit_ids(mut_repo, "committer_email(*name2*)"),
         vec![]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "committer_name('email2')"),
+        resolve_commit_ids(mut_repo, "committer_name(*email2*)"),
         vec![]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "committer_email('email2')"),
+        resolve_commit_ids(mut_repo, "committer_email(*email2*)"),
         vec![commit2.id().clone()]
     );
 
     // Searches only among candidates if specified
     assert_eq!(
-        resolve_commit_ids(mut_repo, "visible_heads() & committer(\"name2\")"),
+        resolve_commit_ids(mut_repo, "visible_heads() & committer(*name2*)"),
         vec![]
     );
 }
@@ -3873,15 +3869,15 @@ fn test_evaluate_expression_at_operation() {
     // Filter should be evaluated within the at-op repo. Note that this can
     // populate hidden commits without explicitly referring them by commit refs.
     assert_eq!(
-        resolve_commit_ids(repo2.as_ref(), "at_operation(@-, subject(glob:'commit*'))"),
+        resolve_commit_ids(repo2.as_ref(), "at_operation(@-, subject('commit*'))"),
         vec![commit2_op1.id().clone(), commit1_op1.id().clone()]
     );
     // For the same reason, commit1_op1 isn't filtered out. The following query
-    // is effectively evaluated as "subject(glob:'commit1*') & commit1_op1".
+    // is effectively evaluated as "subject('commit1*') & commit1_op1".
     assert_eq!(
         resolve_commit_ids(
             repo2.as_ref(),
-            "subject(glob:'commit1*') & at_operation(@-, subject(glob:'commit*'))"
+            "subject('commit1*') & at_operation(@-, subject('commit*'))"
         ),
         vec![commit1_op1.id().clone()]
     );
@@ -3889,8 +3885,7 @@ fn test_evaluate_expression_at_operation() {
     assert_eq!(
         resolve_commit_ids(
             repo2.as_ref(),
-            "::visible_heads() & subject(glob:'commit1*') & at_operation(@-, \
-             subject(glob:'commit*'))"
+            "::visible_heads() & subject('commit1*') & at_operation(@-, subject('commit*'))"
         ),
         vec![]
     );
@@ -4208,7 +4203,7 @@ fn test_evaluate_expression_filter_combinator() {
 
     // Not intersected with a set node
     assert_eq!(
-        resolve_commit_ids(mut_repo, "~subject(glob:*1)"),
+        resolve_commit_ids(mut_repo, "~subject(*1)"),
         vec![
             commit3.id().clone(),
             commit2.id().clone(),
@@ -4216,40 +4211,37 @@ fn test_evaluate_expression_filter_combinator() {
         ],
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "subject(glob:*1) | subject(glob:*2)"),
+        resolve_commit_ids(mut_repo, "subject(*1) | subject(*2)"),
         vec![commit2.id().clone(), commit1.id().clone()],
     );
     assert_eq!(
-        resolve_commit_ids(
-            mut_repo,
-            "subject(glob:commit*) ~ (subject(glob:*2) | subject(glob:*3))",
-        ),
+        resolve_commit_ids(mut_repo, "subject(commit*) ~ (subject(*2) | subject(*3))",),
         vec![commit1.id().clone()],
     );
 
     // Intersected with a set node
     assert_eq!(
-        resolve_commit_ids(mut_repo, "root().. & ~subject(glob:*1)"),
+        resolve_commit_ids(mut_repo, "root().. & ~subject(*1)"),
         vec![commit3.id().clone(), commit2.id().clone()],
     );
     assert_eq!(
         resolve_commit_ids(
             mut_repo,
-            ".. & (subject(glob:*1) & subject(glob:commit*) | subject(glob:*2))"
+            ".. & (subject(*1) & subject(commit*) | subject(*2))"
         ),
         vec![commit2.id().clone(), commit1.id().clone()],
     );
     assert_eq!(
         resolve_commit_ids(
             mut_repo,
-            ".. & (subject(glob:*1) ~ subject(glob:commit*) | subject(glob:*2))"
+            ".. & (subject(*1) ~ subject(commit*) | subject(*2))"
         ),
         vec![commit2.id().clone()],
     );
     assert_eq!(
         resolve_commit_ids(
             mut_repo,
-            &format!("{}.. & (subject(glob:*1) | subject(glob:*2))", commit1.id()),
+            &format!("{}.. & (subject(*1) | subject(*2))", commit1.id()),
         ),
         vec![commit2.id().clone()],
     );
@@ -4452,7 +4444,7 @@ fn test_evaluate_expression_diff_contains(indexed: bool) {
 
     // should match both inserted and deleted lines
     assert_eq!(
-        query("diff_contains('2')"),
+        query("diff_contains(*2*)"),
         vec![
             commit4.id().clone(),
             commit3.id().clone(),
@@ -4460,19 +4452,19 @@ fn test_evaluate_expression_diff_contains(indexed: bool) {
         ]
     );
     assert_eq!(
-        query("diff_contains('3')"),
+        query("diff_contains(*3*)"),
         vec![commit4.id().clone(), commit3.id().clone()]
     );
-    assert_eq!(query("diff_contains('2 3')"), vec![commit3.id().clone()]);
+    assert_eq!(query("diff_contains('*2 3*')"), vec![commit3.id().clone()]);
     assert_eq!(
-        query("diff_contains('1 3')"),
+        query("diff_contains('*1 3*')"),
         vec![commit4.id().clone(), commit3.id().clone()]
     );
 
     // should match line with eol
     assert_eq!(
         query(&format!(
-            "diff_contains(exact:'1', {normal_inserted_modified_removed:?})",
+            "diff_contains('1', {normal_inserted_modified_removed:?})",
         )),
         vec![commit3.id().clone(), commit1.id().clone()]
     );
@@ -4480,7 +4472,7 @@ fn test_evaluate_expression_diff_contains(indexed: bool) {
     // should match line without eol
     assert_eq!(
         query(&format!(
-            "diff_contains(exact:'1', {noeol_modified_modified_clean:?})",
+            "diff_contains('1', {noeol_modified_modified_clean:?})",
         )),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
@@ -4499,16 +4491,16 @@ fn test_evaluate_expression_diff_contains(indexed: bool) {
         vec![commit1.id().clone()]
     );
 
-    // '' should match anything but clean
+    // substring:'' should match anything but clean
     assert_eq!(
         query(&format!(
-            "diff_contains('', {empty_clean_inserted_deleted:?})",
+            "diff_contains(substring:'', {empty_clean_inserted_deleted:?})",
         )),
         vec![commit4.id().clone(), commit3.id().clone()]
     );
     assert_eq!(
         query(&format!(
-            "diff_contains('', {blank_clean_inserted_clean:?})",
+            "diff_contains(substring:'', {blank_clean_inserted_clean:?})",
         )),
         vec![commit3.id().clone(), commit1.id().clone()]
     );

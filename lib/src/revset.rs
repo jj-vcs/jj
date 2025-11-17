@@ -1177,9 +1177,7 @@ fn expect_string_expression_inner(
         let default_pattern = |diagnostics: &mut RevsetDiagnostics, value: &str| {
             if default_kind == "substring" {
                 diagnostics.add_warning(RevsetParseError::expression(
-                    "Default pattern syntax will be changed to `glob:` / `exact:` (depending on \
-                     whether it looks like a glob) in a future release; use `substring:` prefix \
-                     or set ui.revsets-use-glob-by-default=true to suppress this warning",
+                    "ui.revsets-use-glob-by-default=false will be removed in a future release",
                     node.span,
                 ));
             }
@@ -3566,7 +3564,7 @@ mod tests {
             user_email: "test.user@example.com",
             date_pattern_context: chrono::Utc::now().fixed_offset().into(),
             default_ignored_remote: Some("ignored".as_ref()),
-            use_glob_by_default: false,
+            use_glob_by_default: true,
             extensions: &RevsetExtensions::default(),
             workspace: None,
         };
@@ -3597,7 +3595,7 @@ mod tests {
             user_email: "test.user@example.com",
             date_pattern_context: chrono::Utc::now().fixed_offset().into(),
             default_ignored_remote: Some("ignored".as_ref()),
-            use_glob_by_default: false,
+            use_glob_by_default: true,
             extensions: &RevsetExtensions::default(),
             workspace: Some(workspace_ctx),
         };
@@ -3624,7 +3622,7 @@ mod tests {
             user_email: "test.user@example.com",
             date_pattern_context: chrono::Utc::now().fixed_offset().into(),
             default_ignored_remote: Some("ignored".as_ref()),
-            use_glob_by_default: false,
+            use_glob_by_default: true,
             extensions: &RevsetExtensions::default(),
             workspace: None,
         };
@@ -3848,7 +3846,7 @@ mod tests {
             @r#"Expression("Invalid string expression")"#);
         insta::assert_debug_snapshot!(
             parse(r#"author_name("foo@")"#).unwrap(),
-            @r#"Filter(AuthorName(Pattern(Substring("foo@"))))"#);
+            @r#"Filter(AuthorName(Pattern(Exact("foo@"))))"#);
         // Parse a single symbol
         insta::assert_debug_snapshot!(
             parse("foo").unwrap(),
@@ -4012,7 +4010,7 @@ mod tests {
 
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks("foo")"#).unwrap(),
-            @r#"CommitRef(Bookmarks(Pattern(Substring("foo"))))"#);
+            @r#"CommitRef(Bookmarks(Pattern(Exact("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks(exact:"foo")"#).unwrap(),
             @r#"CommitRef(Bookmarks(Pattern(Exact("foo"))))"#);
@@ -4031,7 +4029,7 @@ mod tests {
 
         insta::assert_debug_snapshot!(
             parse(r#"tags("foo")"#).unwrap(),
-            @r#"CommitRef(Tags(Pattern(Substring("foo"))))"#);
+            @r#"CommitRef(Tags(Pattern(Exact("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse(r#"tags(exact:"foo")"#).unwrap(),
             @r#"CommitRef(Tags(Pattern(Exact("foo"))))"#);
@@ -4064,7 +4062,7 @@ mod tests {
             parse(r#"tags(~a)"#).unwrap(),
             @r#"
         CommitRef(
-            Tags(NotIn(Pattern(Substring("a")))),
+            Tags(NotIn(Pattern(Exact("a")))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -4073,10 +4071,10 @@ mod tests {
         CommitRef(
             Tags(
                 Union(
-                    Pattern(Substring("a")),
+                    Pattern(Exact("a")),
                     Intersection(
-                        Pattern(Substring("b")),
-                        Pattern(Substring("c")),
+                        Pattern(Exact("b")),
+                        Pattern(Exact("c")),
                     ),
                 ),
             ),
@@ -4088,10 +4086,10 @@ mod tests {
         CommitRef(
             Tags(
                 Union(
-                    Pattern(Substring("a")),
+                    Pattern(Exact("a")),
                     Union(
-                        Pattern(Substring("b")),
-                        Pattern(Substring("c")),
+                        Pattern(Exact("b")),
+                        Pattern(Exact("c")),
                     ),
                 ),
             ),
@@ -4103,11 +4101,11 @@ mod tests {
         CommitRef(
             Tags(
                 Intersection(
-                    Pattern(Substring("a")),
+                    Pattern(Exact("a")),
                     NotIn(
                         Union(
-                            Pattern(Substring("b")),
-                            Pattern(Substring("c")),
+                            Pattern(Exact("b")),
+                            Pattern(Exact("c")),
                         ),
                     ),
                 ),
@@ -4170,16 +4168,16 @@ mod tests {
         assert!(parse("root(a)").is_err());
         insta::assert_debug_snapshot!(
             parse(r#"description("")"#).unwrap(),
-            @r#"Filter(Description(Pattern(Substring(""))))"#);
+            @r#"Filter(Description(Pattern(Exact(""))))"#);
         insta::assert_debug_snapshot!(
             parse("description(foo)").unwrap(),
-            @r#"Filter(Description(Pattern(Substring("foo"))))"#);
+            @r#"Filter(Description(Pattern(Exact("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse("description(visible_heads())").unwrap_err().kind(),
             @r#"Expression("Invalid string expression")"#);
         insta::assert_debug_snapshot!(
             parse("description(\"(foo)\")").unwrap(),
-            @r#"Filter(Description(Pattern(Substring("(foo)"))))"#);
+            @r#"Filter(Description(Pattern(Exact("(foo)"))))"#);
         assert!(parse("mine(foo)").is_err());
         insta::assert_debug_snapshot!(
             parse_with_workspace("empty()", WorkspaceName::DEFAULT).unwrap(),
@@ -4260,30 +4258,30 @@ mod tests {
         insta::assert_debug_snapshot!(
             parse("author(foo)").unwrap(), @r#"
         Union(
-            Filter(AuthorName(Pattern(Substring("foo")))),
-            Filter(AuthorEmail(Pattern(Substring("foo")))),
+            Filter(AuthorName(Pattern(Exact("foo")))),
+            Filter(AuthorEmail(Pattern(Exact("foo")))),
         )
         "#);
         insta::assert_debug_snapshot!(
             parse("author_name(foo)").unwrap(),
-            @r#"Filter(AuthorName(Pattern(Substring("foo"))))"#);
+            @r#"Filter(AuthorName(Pattern(Exact("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse("author_email(foo)").unwrap(),
-            @r#"Filter(AuthorEmail(Pattern(Substring("foo"))))"#);
+            @r#"Filter(AuthorEmail(Pattern(Exact("foo"))))"#);
 
         insta::assert_debug_snapshot!(
             parse("committer(foo)").unwrap(), @r#"
         Union(
-            Filter(CommitterName(Pattern(Substring("foo")))),
-            Filter(CommitterEmail(Pattern(Substring("foo")))),
+            Filter(CommitterName(Pattern(Exact("foo")))),
+            Filter(CommitterEmail(Pattern(Exact("foo")))),
         )
         "#);
         insta::assert_debug_snapshot!(
             parse("committer_name(foo)").unwrap(),
-            @r#"Filter(CommitterName(Pattern(Substring("foo"))))"#);
+            @r#"Filter(CommitterName(Pattern(Exact("foo"))))"#);
         insta::assert_debug_snapshot!(
             parse("committer_email(foo)").unwrap(),
-            @r#"Filter(CommitterEmail(Pattern(Substring("foo"))))"#);
+            @r#"Filter(CommitterEmail(Pattern(Exact("foo"))))"#);
 
         insta::assert_debug_snapshot!(
             parse("mine()").unwrap(),
@@ -4300,7 +4298,7 @@ mod tests {
         CommitRef(
             RemoteBookmarks {
                 bookmark: Pattern(Substring("")),
-                remote: Pattern(Substring("foo")),
+                remote: Pattern(Exact("foo")),
                 remote_ref_state: None,
             },
         )
@@ -4309,8 +4307,8 @@ mod tests {
             parse("remote_bookmarks(foo, remote=bar)").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark: Pattern(Substring("foo")),
-                remote: Pattern(Substring("bar")),
+                bookmark: Pattern(Exact("foo")),
+                remote: Pattern(Exact("bar")),
                 remote_ref_state: None,
             },
         )
@@ -4319,8 +4317,8 @@ mod tests {
             parse("tracked_remote_bookmarks(foo, remote=bar)").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark: Pattern(Substring("foo")),
-                remote: Pattern(Substring("bar")),
+                bookmark: Pattern(Exact("foo")),
+                remote: Pattern(Exact("bar")),
                 remote_ref_state: Some(Tracked),
             },
         )
@@ -4329,8 +4327,8 @@ mod tests {
             parse("untracked_remote_bookmarks(foo, remote=bar)").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark: Pattern(Substring("foo")),
-                remote: Pattern(Substring("bar")),
+                bookmark: Pattern(Exact("foo")),
+                remote: Pattern(Exact("bar")),
                 remote_ref_state: Some(New),
             },
         )
@@ -4394,7 +4392,7 @@ mod tests {
         // Alias can be substituted to string pattern.
         insta::assert_debug_snapshot!(
             parse_with_aliases("author_name(A)", [("A", "a")]).unwrap(),
-            @r#"Filter(AuthorName(Pattern(Substring("a"))))"#);
+            @r#"Filter(AuthorName(Pattern(Exact("a"))))"#);
         // However, parentheses are required because top-level x:y is parsed as
         // program modifier.
         insta::assert_debug_snapshot!(
@@ -4417,8 +4415,8 @@ mod tests {
             parse_with_aliases("F(a)", [("F(x)", "author_name(x)|committer_name(x)")]).unwrap(),
             @r#"
         Union(
-            Filter(AuthorName(Pattern(Substring("a")))),
-            Filter(CommitterName(Pattern(Substring("a")))),
+            Filter(AuthorName(Pattern(Exact("a")))),
+            Filter(CommitterName(Pattern(Exact("a")))),
         )
         "#);
     }
@@ -5208,7 +5206,7 @@ mod tests {
                 CommitRef(Symbol("baz")),
                 CommitRef(Symbol("bar")),
             ),
-            Filter(AuthorName(Pattern(Substring("foo")))),
+            Filter(AuthorName(Pattern(Exact("foo")))),
         )
         "#);
 
@@ -5217,7 +5215,7 @@ mod tests {
             optimize(parse("~foo & author_name(bar)").unwrap()), @r#"
         Intersection(
             NotIn(CommitRef(Symbol("foo"))),
-            Filter(AuthorName(Pattern(Substring("bar")))),
+            Filter(AuthorName(Pattern(Exact("bar")))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -5226,7 +5224,7 @@ mod tests {
             NotIn(CommitRef(Symbol("foo"))),
             AsFilter(
                 Union(
-                    Filter(AuthorName(Pattern(Substring("bar")))),
+                    Filter(AuthorName(Pattern(Exact("bar")))),
                     CommitRef(Symbol("baz")),
                 ),
             ),
@@ -5238,7 +5236,7 @@ mod tests {
             optimize(parse("author_name(foo) ~ bar").unwrap()), @r#"
         Intersection(
             NotIn(CommitRef(Symbol("bar"))),
-            Filter(AuthorName(Pattern(Substring("foo")))),
+            Filter(AuthorName(Pattern(Exact("foo")))),
         )
         "#);
     }
@@ -5250,26 +5248,26 @@ mod tests {
 
         insta::assert_debug_snapshot!(
             optimize(parse("author_name(foo)").unwrap()),
-            @r#"Filter(AuthorName(Pattern(Substring("foo"))))"#);
+            @r#"Filter(AuthorName(Pattern(Exact("foo"))))"#);
 
         insta::assert_debug_snapshot!(optimize(parse("foo & description(bar)").unwrap()), @r#"
         Intersection(
             CommitRef(Symbol("foo")),
-            Filter(Description(Pattern(Substring("bar")))),
+            Filter(Description(Pattern(Exact("bar")))),
         )
         "#);
         insta::assert_debug_snapshot!(optimize(parse("author_name(foo) & bar").unwrap()), @r#"
         Intersection(
             CommitRef(Symbol("bar")),
-            Filter(AuthorName(Pattern(Substring("foo")))),
+            Filter(AuthorName(Pattern(Exact("foo")))),
         )
         "#);
         insta::assert_debug_snapshot!(
             optimize(parse("author_name(foo) & committer_name(bar)").unwrap()), @r#"
         AsFilter(
             Intersection(
-                Filter(AuthorName(Pattern(Substring("foo")))),
-                Filter(CommitterName(Pattern(Substring("bar")))),
+                Filter(AuthorName(Pattern(Exact("foo")))),
+                Filter(CommitterName(Pattern(Exact("bar")))),
             ),
         )
         "#);
@@ -5280,8 +5278,8 @@ mod tests {
             CommitRef(Symbol("foo")),
             AsFilter(
                 Intersection(
-                    Filter(Description(Pattern(Substring("bar")))),
-                    Filter(AuthorName(Pattern(Substring("baz")))),
+                    Filter(Description(Pattern(Exact("bar")))),
+                    Filter(AuthorName(Pattern(Exact("baz")))),
                 ),
             ),
         )
@@ -5292,8 +5290,8 @@ mod tests {
             CommitRef(Symbol("bar")),
             AsFilter(
                 Intersection(
-                    Filter(CommitterName(Pattern(Substring("foo")))),
-                    Filter(AuthorName(Pattern(Substring("baz")))),
+                    Filter(CommitterName(Pattern(Exact("foo")))),
+                    Filter(AuthorName(Pattern(Exact("baz")))),
                 ),
             ),
         )
@@ -5307,7 +5305,7 @@ mod tests {
             CommitRef(Symbol("baz")),
             AsFilter(
                 Intersection(
-                    Filter(CommitterName(Pattern(Substring("foo")))),
+                    Filter(CommitterName(Pattern(Exact("foo")))),
                     Filter(File(Pattern(PrefixPath("bar")))),
                 ),
             ),
@@ -5321,10 +5319,10 @@ mod tests {
         AsFilter(
             Intersection(
                 Intersection(
-                    Filter(CommitterName(Pattern(Substring("foo")))),
+                    Filter(CommitterName(Pattern(Exact("foo")))),
                     Filter(File(Pattern(PrefixPath("bar")))),
                 ),
-                Filter(AuthorName(Pattern(Substring("baz")))),
+                Filter(AuthorName(Pattern(Exact("baz")))),
             ),
         )
         "#);
@@ -5351,8 +5349,8 @@ mod tests {
             ),
             AsFilter(
                 Intersection(
-                    Filter(Description(Pattern(Substring("bar")))),
-                    Filter(AuthorName(Pattern(Substring("baz")))),
+                    Filter(Description(Pattern(Exact("bar")))),
+                    Filter(AuthorName(Pattern(Exact("baz")))),
                 ),
             ),
         )
@@ -5365,14 +5363,14 @@ mod tests {
                 Intersection(
                     CommitRef(Symbol("foo")),
                     Ancestors {
-                        heads: Filter(AuthorName(Pattern(Substring("baz")))),
+                        heads: Filter(AuthorName(Pattern(Exact("baz")))),
                         generation: 1..2,
                         parents_range: 0..4294967295,
                     },
                 ),
                 CommitRef(Symbol("qux")),
             ),
-            Filter(Description(Pattern(Substring("bar")))),
+            Filter(Description(Pattern(Exact("bar")))),
         )
         "#);
         insta::assert_debug_snapshot!(
@@ -5384,13 +5382,13 @@ mod tests {
                 Ancestors {
                     heads: Intersection(
                         CommitRef(Symbol("qux")),
-                        Filter(AuthorName(Pattern(Substring("baz")))),
+                        Filter(AuthorName(Pattern(Exact("baz")))),
                     ),
                     generation: 1..2,
                     parents_range: 0..4294967295,
                 },
             ),
-            Filter(Description(Pattern(Substring("bar")))),
+            Filter(Description(Pattern(Exact("bar")))),
         )
         "#);
 
@@ -5409,10 +5407,10 @@ mod tests {
             AsFilter(
                 Intersection(
                     Intersection(
-                        Filter(AuthorName(Pattern(Substring("A")))),
-                        Filter(AuthorName(Pattern(Substring("B")))),
+                        Filter(AuthorName(Pattern(Exact("A")))),
+                        Filter(AuthorName(Pattern(Exact("B")))),
                     ),
-                    Filter(AuthorName(Pattern(Substring("C")))),
+                    Filter(AuthorName(Pattern(Exact("C")))),
                 ),
             ),
         )
@@ -5434,10 +5432,10 @@ mod tests {
             AsFilter(
                 Intersection(
                     Intersection(
-                        Filter(AuthorName(Pattern(Substring("A")))),
-                        Filter(AuthorName(Pattern(Substring("B")))),
+                        Filter(AuthorName(Pattern(Exact("A")))),
+                        Filter(AuthorName(Pattern(Exact("B")))),
                     ),
-                    Filter(AuthorName(Pattern(Substring("C")))),
+                    Filter(AuthorName(Pattern(Exact("C")))),
                 ),
             ),
         )
@@ -5451,8 +5449,8 @@ mod tests {
             CommitRef(Symbol("foo")),
             AsFilter(
                 Intersection(
-                    Filter(Description(Pattern(Substring("bar")))),
-                    Filter(AuthorName(Pattern(Substring("baz")))),
+                    Filter(Description(Pattern(Exact("bar")))),
+                    Filter(AuthorName(Pattern(Exact("baz")))),
                 ),
             ),
         )
@@ -5467,10 +5465,10 @@ mod tests {
                 CommitRef(Symbol("bar")),
                 AtOperation {
                     operation: "@-",
-                    candidates: Filter(CommitterName(Pattern(Substring("baz")))),
+                    candidates: Filter(CommitterName(Pattern(Exact("baz")))),
                 },
             ),
-            Filter(AuthorName(Pattern(Substring("foo")))),
+            Filter(AuthorName(Pattern(Exact("foo")))),
         )
         "#);
     }
@@ -5486,7 +5484,7 @@ mod tests {
             CommitRef(Symbol("baz")),
             AsFilter(
                 Union(
-                    Filter(AuthorName(Pattern(Substring("foo")))),
+                    Filter(AuthorName(Pattern(Exact("foo")))),
                     CommitRef(Symbol("bar")),
                 ),
             ),
@@ -5545,9 +5543,9 @@ mod tests {
                 Intersection(
                     Union(
                         CommitRef(Symbol("foo")),
-                        Filter(CommitterName(Pattern(Substring("bar")))),
+                        Filter(CommitterName(Pattern(Exact("bar")))),
                     ),
-                    Filter(Description(Pattern(Substring("baz")))),
+                    Filter(Description(Pattern(Exact("baz")))),
                 ),
             ),
         )
@@ -5563,8 +5561,8 @@ mod tests {
                     NotIn(
                         Present(
                             Intersection(
-                                Filter(AuthorName(Pattern(Substring("foo")))),
-                                Filter(Description(Pattern(Substring("bar")))),
+                                Filter(AuthorName(Pattern(Exact("foo")))),
+                                Filter(Description(Pattern(Exact("bar")))),
                             ),
                         ),
                     ),
@@ -5591,16 +5589,16 @@ mod tests {
                 Intersection(
                     Intersection(
                         Union(
-                            Filter(AuthorName(Pattern(Substring("A")))),
+                            Filter(AuthorName(Pattern(Exact("A")))),
                             CommitRef(Symbol("0")),
                         ),
                         Union(
-                            Filter(AuthorName(Pattern(Substring("B")))),
+                            Filter(AuthorName(Pattern(Exact("B")))),
                             CommitRef(Symbol("1")),
                         ),
                     ),
                     Union(
-                        Filter(AuthorName(Pattern(Substring("C")))),
+                        Filter(AuthorName(Pattern(Exact("C")))),
                         CommitRef(Symbol("2")),
                     ),
                 ),
@@ -5618,7 +5616,7 @@ mod tests {
                 filter: AsFilter(
                     Union(
                         CommitRef(Symbol("foo")),
-                        Filter(AuthorName(Pattern(Substring("bar")))),
+                        Filter(AuthorName(Pattern(Exact("bar")))),
                     ),
                 ),
             },
@@ -6179,8 +6177,8 @@ mod tests {
             parents_range: 0..4294967295,
             filter: AsFilter(
                 Union(
-                    Filter(AuthorName(Pattern(Substring("A")))),
-                    Filter(AuthorName(Pattern(Substring("B")))),
+                    Filter(AuthorName(Pattern(Exact("A")))),
+                    Filter(AuthorName(Pattern(Exact("B")))),
                 ),
             ),
         }
@@ -6192,7 +6190,7 @@ mod tests {
             parents_range: 0..4294967295,
             filter: AsFilter(
                 NotIn(
-                    Filter(AuthorName(Pattern(Substring("A")))),
+                    Filter(AuthorName(Pattern(Exact("A")))),
                 ),
             ),
         }
@@ -6214,8 +6212,8 @@ mod tests {
             parents_range: 0..4294967295,
             filter: AsFilter(
                 Difference(
-                    Filter(AuthorName(Pattern(Substring("A")))),
-                    Filter(AuthorName(Pattern(Substring("B")))),
+                    Filter(AuthorName(Pattern(Exact("A")))),
+                    Filter(AuthorName(Pattern(Exact("B")))),
                 ),
             ),
         }
@@ -6247,7 +6245,7 @@ mod tests {
                 filter: Filter(
                     Description(
                         Pattern(
-                            Substring(
+                            Exact(
                                 "bar",
                             ),
                         ),
@@ -6267,7 +6265,7 @@ mod tests {
                 filter: Filter(
                     AuthorName(
                         Pattern(
-                            Substring(
+                            Exact(
                                 "foo",
                             ),
                         ),
@@ -6308,7 +6306,7 @@ mod tests {
             heads: Filter(
                 AuthorName(
                     Pattern(
-                        Substring(
+                        Exact(
                             "foo",
                         ),
                     ),
@@ -6323,7 +6321,7 @@ mod tests {
             heads: Filter(
                 AuthorName(
                     Pattern(
-                        Substring(
+                        Exact(
                             "foo",
                         ),
                     ),

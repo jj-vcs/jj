@@ -79,7 +79,7 @@ unpredictable.
 
 **Large scale changes across repositories, local and remote:**
 
-- `jj run 'sed /some/test/' -r 'mine() & ~remote_bookmarks(exact:"origin")'`
+- `jj run 'sed /some/test/' -r 'mine() & ~remote_bookmarks("origin")'`
 - `jj run '$rewrite-tool' -r '$revset'`
 
 **Build systems:**
