@@ -2764,7 +2764,7 @@ fn test_rebase_skip_emptied() {
 
     let output = work_dir.run_jj([
         "rebase",
-        "-r=description('will become empty')",
+        "-r=subject(glob:'will become empty')",
         "-d=b",
         "--skip-emptied",
     ]);

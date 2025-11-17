@@ -350,9 +350,9 @@ fn test_workspaces_add_workspace_multiple_revisions() {
         "add",
         "--name=merge",
         "../merged",
-        "-r=description(third)",
-        "-r=description(second)",
-        "-r=description(first)",
+        "-r=subject(glob:third)",
+        "-r=subject(glob:second)",
+        "-r=subject(glob:first)",
     ]);
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------

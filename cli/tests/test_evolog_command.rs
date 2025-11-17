@@ -407,16 +407,16 @@ fn test_evolog_squash() {
         .run_jj([
             "squash",
             "-msquashed 3",
-            "--from=description('fourth')|description('fifth')",
-            "--into=description('squash')",
+            "--from=subject(glob:fourth)|subject(glob:fifth)",
+            "--into=subject(glob:squash*)",
         ])
         .success();
 
-    let output = work_dir.run_jj(["evolog", "-p", "-r", "description('squash')"]);
+    let output = work_dir.run_jj(["evolog", "-p", "-rsubject(glob:squash*)"]);
     insta::assert_snapshot!(output, @r"
     ○      qpvuntsm test.user@example.com 2001-02-03 08:05:15 5f3281c6
     ├─┬─╮  squashed 3
-    │ │ │  -- operation 838e6d867fda squash commits into 5ec0619af5cb4f7707a556a71a6f96af0bc294d2
+    │ │ │  -- operation 3049d8383eb2 squash commits into 5ec0619af5cb4f7707a556a71a6f96af0bc294d2
     │ │ │  Modified commit description:
     │ │ │     1     : <<<<<<< Conflict 1 of 1
     │ │ │     2     : +++++++ Contents of side #1
@@ -428,7 +428,7 @@ fn test_evolog_squash() {
     │ │ │     8     : >>>>>>> Conflict 1 of 1 ends
     │ │ ○  vruxwmqv hidden test.user@example.com 2001-02-03 08:05:15 770795d0
     │ │ │  fifth
-    │ │ │  -- operation 1d38c000b52d snapshot working copy
+    │ │ │  -- operation 904e204f4bb0 snapshot working copy
     │ │ │  Added regular file file5:
     │ │ │          1: foo5
     │ │ ○  vruxwmqv hidden test.user@example.com 2001-02-03 08:05:14 2e0123d1
@@ -658,23 +658,21 @@ fn test_evolog_reverse_with_graph() {
     work_dir.run_jj(["describe", "-m", "b"]).success();
     work_dir.run_jj(["describe", "-m", "c"]).success();
     work_dir
-        .run_jj(["new", "-r", "description(c)", "-m", "d"])
+        .run_jj(["new", "-r", "subject(glob:c)", "-m", "d"])
         .success();
     work_dir
-        .run_jj(["new", "-r", "description(c)", "-m", "e"])
+        .run_jj(["new", "-r", "subject(glob:c)", "-m", "e"])
         .success();
     work_dir
         .run_jj([
             "squash",
-            "--from",
-            "description(d)|description(e)",
-            "--to",
-            "description(c)",
+            "--from=subject(glob:d)|subject(glob:e)",
+            "--to=subject(glob:c)",
             "-m",
             "c+d+e",
         ])
         .success();
-    let output = work_dir.run_jj(["evolog", "-r", "description(c+d+e)", "--reversed"]);
+    let output = work_dir.run_jj(["evolog", "-r", "subject(glob:c+d+e)", "--reversed"]);
     insta::assert_snapshot!(output, @r"
     ○  qpvuntsm hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
@@ -690,27 +688,27 @@ fn test_evolog_reverse_with_graph() {
     │  -- operation 5f4c7b5cb177 describe commit 9f43967b1cdbce4ab322cb7b4636fc0362c38373
     │ ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 6a4ff8aa
     ├─╯  (empty) d
-    │    -- operation 774accf68695 new empty commit
+    │    -- operation d7ad62552658 new empty commit
     │ ○  royxmykx hidden test.user@example.com 2001-02-03 08:05:12 7dea2d1d
     ├─╯  (empty) e
-    │    -- operation 4c2c3012e2c3 new empty commit
+    │    -- operation e5c6f290120f new empty commit
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 78fdd026
        (empty) c+d+e
-       -- operation 2c736b66cd16 squash commits into b28cda4b118fc50495ca34a24f030abc078d032e
+       -- operation b391c05c22de squash commits into b28cda4b118fc50495ca34a24f030abc078d032e
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["evolog", "-rdescription(c+d+e)", "--limit=3", "--reversed"]);
+    let output = work_dir.run_jj(["evolog", "-rsubject(glob:c+d+e)", "--limit=3", "--reversed"]);
     insta::assert_snapshot!(output, @r"
     ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 6a4ff8aa
     │  (empty) d
-    │  -- operation 774accf68695 new empty commit
+    │  -- operation d7ad62552658 new empty commit
     │ ○  royxmykx hidden test.user@example.com 2001-02-03 08:05:12 7dea2d1d
     ├─╯  (empty) e
-    │    -- operation 4c2c3012e2c3 new empty commit
+    │    -- operation e5c6f290120f new empty commit
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 78fdd026
        (empty) c+d+e
-       -- operation 2c736b66cd16 squash commits into b28cda4b118fc50495ca34a24f030abc078d032e
+       -- operation b391c05c22de squash commits into b28cda4b118fc50495ca34a24f030abc078d032e
     [EOF]
     ");
 }
