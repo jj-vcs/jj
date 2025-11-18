@@ -1852,25 +1852,25 @@ parent.</p>
 <td style="text-align: left;"></td>
 </tr>
 <tr>
-<td style="text-align: left;">See log of ancestors of the current commit</td>
-<td style="text-align: left;"><code>git log --oneline --graph --decorate</code></td>
+<td style="text-align: left;">See compact log graph of ancestors of the current commit</td>
+<td style="text-align: left;"><code>git log --oneline --graph</code></td>
 <td style="text-align: left;"><code>jj log -r ::@</code></td>
 <td style="text-align: left;"></td>
 </tr>
 <tr>
-<td style="text-align: left;">See log of all reachable commits</td>
-<td style="text-align: left;"><code>git log --oneline --graph --decorate --branches</code></td>
+<td style="text-align: left;">See compact log graph of all reachable commits</td>
+<td style="text-align: left;"><code>git log --oneline --graph --all</code></td>
 <td style="text-align: left;"><code>jj log -r 'all()'</code> or <code>jj log -r ::</code></td>
-<td style="text-align: left;"></td>
+<td style="text-align: left;">In a Git-backed Jujutsu repository the Git command will also show all commits preserved by Jujutsu, including hidden commits. To exclude all commits only preserved by Jujutsu, replace <code>--all</code> by <code>--exclude refs/jj/* --all</code>. This will also exclude the Jujutsu-reachable commits though, if they are not Git-reachable.</td>
 </tr>
 <tr>
-<td style="text-align: left;">Show log of commits not on the main branch</td>
-<td style="text-align: left;">(TODO)</td>
+<td style="text-align: left;">Show compact log graph of commits not on the main branch</td>
+<td style="text-align: left;"><code>git log --oneline --graph --branches --not upstream/main</code></td>
 <td style="text-align: left;"><code>jj log</code></td>
 <td style="text-align: left;"></td>
 </tr>
 <tr>
-<td style="text-align: left;">Show log of commits adding/removing the string "stuff"</td>
+<td style="text-align: left;">Show log of commits that have the string "stuff" in the changed lines</td>
 <td style="text-align: left;"><code>git log -G stuff</code></td>
 <td style="text-align: left;"><code>jj log -r 'diff_contains(stuff)'</code></td>
 <td style="text-align: left;"></td>
@@ -1921,6 +1921,12 @@ parent.</p>
 <td style="text-align: left;">Edit description (commit message) of the previous change</td>
 <td style="text-align: left;"><code>git commit --amend --only</code></td>
 <td style="text-align: left;"><code>jj describe @-</code></td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: left;">Edit description (commit message) of any change</td>
+<td style="text-align: left;"><code>git commit --fixup=reword:X; git rebase --autosquash X^</code></td>
+<td style="text-align: left;"><code>jj describe X</code></td>
 <td style="text-align: left;"></td>
 </tr>
 <tr>
@@ -1979,7 +1985,7 @@ parent.</p>
 </tr>
 <tr>
 <td style="text-align: left;">Move the diff in the working copy into an ancestor</td>
-<td style="text-align: left;"><code>git commit --fixup=X; git rebase -i --autosquash X^</code></td>
+<td style="text-align: left;"><code>git commit --fixup=X; git rebase --autosquash X^</code></td>
 <td style="text-align: left;"><code>jj squash --into X</code></td>
 <td style="text-align: left;"></td>
 </tr>
@@ -2040,7 +2046,7 @@ parent.</p>
 <tr>
 <td style="text-align: left;">Move a bookmark/branch forward</td>
 <td style="text-align: left;"><code>git branch -f &lt;name&gt; &lt;revision&gt;</code></td>
-<td style="text-align: left;"><code>jj bookmark move &lt;name&gt; --to &lt;revision&gt;</code> or <code>jj b m &lt;name&gt; --to &lt;revision&gt;</code> for short</td>
+<td style="text-align: left;"><code>jj bookmark move &lt;name&gt; --to &lt;revision&gt;</code> or <code>jj b m &lt;name&gt; -t &lt;revision&gt;</code> for short</td>
 <td style="text-align: left;"></td>
 </tr>
 <tr>
