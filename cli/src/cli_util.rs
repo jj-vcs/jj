@@ -178,6 +178,7 @@ use crate::operation_templater::OperationTemplateLanguage;
 use crate::operation_templater::OperationTemplateLanguageExtension;
 use crate::revset_util;
 use crate::revset_util::RevsetExpressionEvaluator;
+use crate::revset_util::parse_union_name_patterns;
 use crate::template_builder;
 use crate::template_builder::TemplateLanguage;
 use crate::template_parser::TemplateAliasesMap;
@@ -723,61 +724,35 @@ pub struct AdvanceableBookmark {
     old_commit_id: CommitId,
 }
 
-/// Helper for parsing and evaluating settings for the advance-bookmarks
-/// feature. Settings are configured in the jj config.toml as lists of
-/// [`StringPattern`]s for enabled and disabled bookmarks. Example:
+/// Parses advance-bookmarks settings into matcher.
+///
+/// Settings are configured in the jj config.toml as lists of string matcher
+/// expressions for enabled and disabled bookmarks. Example:
 /// ```toml
 /// [experimental-advance-branches]
 /// # Enable the feature for all branches except "main".
 /// enabled-branches = ["glob:*"]
 /// disabled-branches = ["main"]
 /// ```
-struct AdvanceBookmarksSettings {
-    enabled_bookmarks: Vec<StringPattern>,
-    disabled_bookmarks: Vec<StringPattern>,
-}
-
-impl AdvanceBookmarksSettings {
-    fn from_settings(settings: &UserSettings) -> Result<Self, CommandError> {
-        let get_setting = |setting_key| {
-            let name = ConfigNamePathBuf::from_iter(["experimental-advance-branches", setting_key]);
-            match settings.get::<Vec<String>>(&name).optional()? {
-                Some(patterns) => patterns
-                    .into_iter()
-                    .map(|s| {
-                        StringPattern::parse(&s).map_err(|e| {
-                            config_error_with_message(format!("Error parsing `{s}` for {name}"), e)
-                        })
-                    })
-                    .collect(),
-                None => Ok(Vec::new()),
-            }
-        };
-        Ok(Self {
-            enabled_bookmarks: get_setting("enabled-branches")?,
-            disabled_bookmarks: get_setting("disabled-branches")?,
-        })
-    }
-
-    /// Returns true if the advance-bookmarks feature is enabled for
-    /// `bookmark_name`.
-    fn bookmark_is_eligible(&self, bookmark_name: &RefName) -> bool {
-        if self
-            .disabled_bookmarks
-            .iter()
-            .any(|d| d.is_match(bookmark_name.as_str()))
-        {
-            return false;
-        }
-        self.enabled_bookmarks
-            .iter()
-            .any(|e| e.is_match(bookmark_name.as_str()))
-    }
-
-    /// Returns true if the config includes at least one "enabled-branches"
-    /// pattern.
-    fn feature_enabled(&self) -> bool {
-        !self.enabled_bookmarks.is_empty()
+fn load_advance_bookmarks_matcher(
+    ui: &Ui,
+    settings: &UserSettings,
+) -> Result<Option<StringMatcher>, CommandError> {
+    let get_setting = |setting_key: &str| -> Result<Vec<String>, _> {
+        let name = ConfigNamePathBuf::from_iter(["experimental-advance-branches", setting_key]);
+        settings.get(&name)
+    };
+    // TODO: When we stabilize this feature, enabled/disabled patterns can be
+    // combined into a single matcher expression.
+    let enabled_names = get_setting("enabled-branches")?;
+    let disabled_names = get_setting("disabled-branches")?;
+    let enabled_expr = parse_union_name_patterns(ui, &enabled_names)?;
+    let disabled_expr = parse_union_name_patterns(ui, &disabled_names)?;
+    if enabled_names.is_empty() {
+        Ok(None)
+    } else {
+        let expr = enabled_expr.intersection(disabled_expr.negated());
+        Ok(Some(expr.to_matcher()))
     }
 }
 
@@ -2394,18 +2369,18 @@ See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
     /// Returns an empty `std::Vec` if no bookmarks are eligible to advance.
     pub fn get_advanceable_bookmarks<'a>(
         &self,
+        ui: &Ui,
         from: impl IntoIterator<Item = &'a CommitId>,
     ) -> Result<Vec<AdvanceableBookmark>, CommandError> {
-        let ab_settings = AdvanceBookmarksSettings::from_settings(self.settings())?;
-        if !ab_settings.feature_enabled() {
+        let Some(ab_matcher) = load_advance_bookmarks_matcher(ui, self.settings())? else {
             // Return early if we know that there's no work to do.
             return Ok(Vec::new());
-        }
+        };
 
         let mut advanceable_bookmarks = Vec::new();
         for from_commit in from {
             for (name, _) in self.repo().view().local_bookmarks_for_commit(from_commit) {
-                if ab_settings.bookmark_is_eligible(name) {
+                if ab_matcher.is_match(name.as_str()) {
                     advanceable_bookmarks.push(AdvanceableBookmark {
                         name: name.to_owned(),
                         old_commit_id: from_commit.clone(),

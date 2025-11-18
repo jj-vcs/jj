@@ -225,7 +225,7 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     // precedence over enabling.
     test_env.add_config(
         r#"[experimental-advance-branches]
-    enabled-branches = ["test_bookmark", "second_bookmark"]
+    enabled-branches = ["test_bookmark | second_bookmark"]
     disabled-branches = ["test_bookmark"]
     "#,
     );

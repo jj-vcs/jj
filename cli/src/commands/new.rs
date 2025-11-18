@@ -180,7 +180,7 @@ pub(crate) fn cmd_new(
         if should_advance_bookmarks {
             advance_bookmarks_target = Some(parent_commit_ids[0].clone());
             advanceable_bookmarks =
-                workspace_command.get_advanceable_bookmarks(parent_commits[0].parent_ids())?;
+                workspace_command.get_advanceable_bookmarks(ui, parent_commits[0].parent_ids())?;
         }
     };
 

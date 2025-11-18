@@ -129,7 +129,8 @@ pub(crate) fn cmd_commit(
     let matcher = workspace_command
         .parse_file_patterns(ui, &args.paths)?
         .to_matcher();
-    let advanceable_bookmarks = workspace_command.get_advanceable_bookmarks(commit.parent_ids())?;
+    let advanceable_bookmarks =
+        workspace_command.get_advanceable_bookmarks(ui, commit.parent_ids())?;
     let diff_selector =
         workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
     let text_editor = workspace_command.text_editor()?;

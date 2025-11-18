@@ -16,6 +16,10 @@ context = 3
 [diff.git]
 context = 3
 
+[experimental-advance-branches]
+enabled-branches = []
+disabled-branches = []
+
 [git]
 colocate = true
 private-commits = "none()"
