@@ -69,6 +69,7 @@ use jj_lib::fileset::FilesetExpression;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::id_prefix::IdPrefixContext;
+use jj_lib::lock::FileLock;
 use jj_lib::matchers::Matcher;
 use jj_lib::matchers::NothingMatcher;
 use jj_lib::merge::Diff;
@@ -153,6 +154,7 @@ use crate::command_error::internal_error_with_message;
 use crate::command_error::print_parse_diagnostics;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
+use crate::command_error::user_error_with_message;
 use crate::commit_templater::CommitTemplateLanguage;
 use crate::commit_templater::CommitTemplateLanguageExtension;
 use crate::complete;
@@ -1004,6 +1006,13 @@ impl WorkspaceCommandEnvironment {
     }
 }
 
+/// A token that holds a lock for git import/export operations in colocated
+/// repositories. For non-colocated repos, this is an empty token (no actual
+/// lock held). The lock is automatically released when this token is dropped.
+pub struct GitImportExportLock {
+    _lock: Option<FileLock>,
+}
+
 /// Provides utilities for writing a command that works on a [`Workspace`]
 /// (which most commands do).
 pub struct WorkspaceCommandHelper {
@@ -1093,6 +1102,22 @@ impl WorkspaceCommandHelper {
         }
     }
 
+    /// Acquires a lock for git import/export operations if the workspace is
+    /// colocated with Git. Returns a token that can be passed to functions
+    /// that need to import from or export to Git. For non-colocated repos,
+    /// returns a token with no lock inside.
+    fn lock_git_import_export(&self) -> Result<GitImportExportLock, CommandError> {
+        let lock = if self.working_copy_shared_with_git {
+            let lock_path = self.workspace.repo_path().join("git_import_export.lock");
+            Some(FileLock::lock(lock_path.clone()).map_err(|err| {
+                user_error_with_message("Failed to take lock for Git import/export", err)
+            })?)
+        } else {
+            None
+        };
+        Ok(GitImportExportLock { _lock: lock })
+    }
+
     /// Note that unless you have a good reason not to do so, you should always
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
     /// this function to present possible untracked files to the user.
@@ -1102,9 +1127,37 @@ impl WorkspaceCommandHelper {
             return Ok(SnapshotStats::default());
         }
 
+        // Acquire git import/export lock once for the entire import/snapshot/export
+        // cycle. This prevents races with other processes during Git HEAD and
+        // refs import/export.
+        let git_import_export_lock = self
+            .lock_git_import_export()
+            .map_err(snapshot_command_error)?;
+
+        // Reload at current head to avoid creating divergent operations if another
+        // process committed an operation while we were waiting for the lock.
+        if self.working_copy_shared_with_git {
+            let repo = self.repo().clone();
+            let op_heads_store = repo.loader().op_heads_store();
+            let op_heads = op_heads_store
+                .get_op_heads()
+                .block_on()
+                .map_err(snapshot_command_error)?;
+            if std::slice::from_ref(repo.op_id()) != op_heads {
+                let op = self
+                    .env
+                    .command
+                    .resolve_operation(ui, repo.loader())
+                    .map_err(snapshot_command_error)?;
+                let current_repo = repo.loader().load_at(&op).map_err(snapshot_command_error)?;
+                self.user_repo = ReadonlyUserRepo::new(current_repo);
+            }
+        }
+
         #[cfg(feature = "git")]
         if self.working_copy_shared_with_git {
-            self.import_git_head(ui).map_err(snapshot_command_error)?;
+            self.import_git_head(ui, &git_import_export_lock)
+                .map_err(snapshot_command_error)?;
         }
         // Because the Git refs (except HEAD) aren't imported yet, the ref
         // pointing to the new working-copy commit might not be exported.
@@ -1115,7 +1168,8 @@ impl WorkspaceCommandHelper {
         // import_git_refs() can rebase the working-copy commit.
         #[cfg(feature = "git")]
         if self.working_copy_shared_with_git {
-            self.import_git_refs(ui).map_err(snapshot_command_error)?;
+            self.import_git_refs(ui, &git_import_export_lock)
+                .map_err(snapshot_command_error)?;
         }
         Ok(stats)
     }
@@ -1139,23 +1193,17 @@ impl WorkspaceCommandHelper {
     /// working-copy contents won't be updated.
     #[cfg(feature = "git")]
     #[instrument(skip_all)]
-    fn import_git_head(&mut self, ui: &Ui) -> Result<(), CommandError> {
+    fn import_git_head(
+        &mut self,
+        ui: &Ui,
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
         let mut tx = self.start_transaction();
         jj_lib::git::import_head(tx.repo_mut())?;
         if !tx.repo().has_changes() {
             return Ok(());
         }
-
-        // TODO: There are various ways to get duplicated working-copy
-        // commits. Some of them could be mitigated by checking the working-copy
-        // operation id after acquiring the lock, but that isn't enough.
-        //
-        // - moved HEAD was observed by multiple jj processes, and new working-copy
-        //   commits are created concurrently.
-        // - new HEAD was exported by jj, but the operation isn't committed yet.
-        // - new HEAD was exported by jj, but the new working-copy commit isn't checked
-        //   out yet.
 
         let mut tx = tx.into_inner();
         let old_git_head = self.repo().view().git_head().clone();
@@ -1184,7 +1232,7 @@ impl WorkspaceCommandHelper {
             }
         } else {
             // Unlikely, but the HEAD ref got deleted by git?
-            self.finish_transaction(ui, tx, "import git head")?;
+            self.finish_transaction(ui, tx, "import git head", git_import_export_lock)?;
         }
         Ok(())
     }
@@ -1199,7 +1247,11 @@ impl WorkspaceCommandHelper {
     /// the working copy parent if the repository is colocated.
     #[cfg(feature = "git")]
     #[instrument(skip_all)]
-    fn import_git_refs(&mut self, ui: &Ui) -> Result<(), CommandError> {
+    fn import_git_refs(
+        &mut self,
+        ui: &Ui,
+        git_import_export_lock: &GitImportExportLock,
+    ) -> Result<(), CommandError> {
         use jj_lib::git;
         let git_settings = git::GitSettings::from_settings(self.settings())?;
         let mut tx = self.start_transaction();
@@ -1218,7 +1270,7 @@ impl WorkspaceCommandHelper {
                 "Rebased {num_rebased} descendant commits off of commits rewritten from git"
             )?;
         }
-        self.finish_transaction(ui, tx, "import git refs")?;
+        self.finish_transaction(ui, tx, "import git refs", git_import_export_lock)?;
         writeln!(
             ui.status(),
             "Done importing changes from the underlying Git repo."
@@ -2047,6 +2099,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         ui: &Ui,
         mut tx: Transaction,
         description: impl Into<String>,
+        _git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), CommandError> {
         if !tx.repo().has_changes() {
             writeln!(ui.status(), "Nothing changed.")?;
@@ -2092,8 +2145,12 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         if self.working_copy_shared_with_git {
             use std::error::Error as _;
             if let Some(wc_commit) = &maybe_new_wc_commit {
-                // This can fail if HEAD was updated concurrently. In that case,
-                // the actual state will be imported on the next snapshot.
+                // Export Git HEAD while holding the git-head lock to prevent races:
+                // - Between two finish_transaction calls updating HEAD
+                // - With import_git_head importing HEAD concurrently
+                // This can still fail if HEAD was updated concurrently by another JJ process
+                // (overlapping transaction) or a non-JJ process (e.g., git checkout). In that
+                // case, the actual state will be imported on the next snapshot.
                 match jj_lib::git::reset_head(tx.repo_mut(), wc_commit) {
                     Ok(()) => {}
                     Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
@@ -2482,7 +2539,11 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
-        self.helper.finish_transaction(ui, self.tx, description)
+        // Acquire git import/export lock before finishing the transaction to ensure
+        // Git HEAD export happens atomically with the transaction commit.
+        let git_import_export_lock = self.helper.lock_git_import_export()?;
+        self.helper
+            .finish_transaction(ui, self.tx, description, &git_import_export_lock)
     }
 
     /// Returns the wrapped [`Transaction`] for circumstances where

@@ -228,7 +228,6 @@ fn test_concurrent_snapshot_wc_reloadable() {
 }
 
 #[test]
-#[should_panic(expected = "Race condition detected")]
 fn test_git_head_race_condition() {
     // Test for race condition where concurrent jj processes create divergent
     // operations when importing/exporting Git HEAD. This test spawns two
@@ -287,7 +286,8 @@ fn test_git_head_race_condition() {
                 for (key, value) in &base_env {
                     cmd.env(key, value);
                 }
-                let _ = cmd.output();
+                let output = cmd.output().expect("Failed to spawn jj");
+                assert!(output.status.success(), "jj debug snapshot failed");
             }
         });
 
@@ -302,7 +302,8 @@ fn test_git_head_race_condition() {
                 for (key, value) in &base_env {
                     cmd.env(key, value);
                 }
-                let _ = cmd.output();
+                let output = cmd.output().expect("Failed to spawn jj");
+                assert!(output.status.success(), "jj {direction} failed");
                 count += 1;
             }
         });
