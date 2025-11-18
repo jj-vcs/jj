@@ -1711,6 +1711,24 @@ Files that already exist in the working copy are not subject to this limit.
 
 Setting this value to zero will disable the limit entirely.
 
+### Automatic update of stale working copies
+
+When a working copy becomes stale (meaning the working copy's recorded commit is
+no longer the current commit for that workspace), `jj` will normally prompt you
+to update it with `jj workspace update-stale`. You can configure `jj` to
+automatically update stale working copies by setting:
+
+```toml
+[snapshot]
+auto-update-stale = true
+```
+
+This is particularly useful if you have [multiple workspaces](working-copy.md#workspaces)
+and want to avoid manually updating each one.
+
+For more information on stale working copies, see the [working copy
+documentation](working-copy.md#stale-working-copy).
+
 ## Working copy settings
 
 ### EOL conversion settings
