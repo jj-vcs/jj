@@ -43,7 +43,7 @@ fn set_up_git_repo_with_file(git_repo: &gix::Repository, filename: &str) {
 fn test_git_clone() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
-    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
 
@@ -187,7 +187,7 @@ fn test_git_clone_bad_source() {
 fn test_git_clone_colocate() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
-    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
 
@@ -561,8 +561,8 @@ fn test_git_clone_remote_default_bookmark() {
         )
         .unwrap();
 
-    // All fetched bookmarks will be imported if auto-local-bookmark is on
-    test_env.add_config("git.auto-local-bookmark = true");
+    // All fetched bookmarks will be imported if auto-track-bookmarks = 'glob:*'
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     let output = root_dir.run_jj(["git", "clone", "source", "clone1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -591,8 +591,8 @@ fn test_git_clone_remote_default_bookmark() {
     [EOF]
     "#);
 
-    // Only the default bookmark will be imported if auto-local-bookmark is off
-    test_env.add_config("git.auto-local-bookmark = false");
+    // Only the default bookmark will be imported if auto-track-bookmarks = ''
+    test_env.add_config("remotes.origin.auto-track-bookmarks = ''");
     let output = root_dir.run_jj(["git", "clone", "source", "clone2"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -642,7 +642,7 @@ fn test_git_clone_remote_default_bookmark() {
     [EOF]
     "#);
 
-    // No bookmarks should be imported if both auto-local-bookmark and
+    // No bookmarks should be imported if both auto-track-bookmarks and
     // track-default-bookmark-on-clone are turned off
     let output = root_dir.run_jj([
         "git",
@@ -802,7 +802,7 @@ fn test_git_clone_at_operation() {
 fn test_git_clone_with_remote_name() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
-    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
     set_up_non_empty_git_repo(&git_repo);
@@ -988,7 +988,7 @@ fn test_git_clone_conditional_config() {
 fn test_git_clone_with_depth() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
-    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     let clone_dir = test_env.work_dir("clone");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
@@ -1173,7 +1173,7 @@ fn test_git_clone_no_git_executable_with_path() {
 fn test_git_clone_branch() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
-    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(&git_repo_path);
     set_up_non_empty_git_repo(&git_repo);

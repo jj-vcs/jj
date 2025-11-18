@@ -952,7 +952,7 @@ fn test_bookmark_forget_fetched_bookmark() {
 
     // Set up a git repo with a bookmark and a jj repo that has it as a remote.
     let test_env = TestEnvironment::default();
-    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     let git_repo_path = test_env.env_root().join("git-repo");
@@ -1099,7 +1099,7 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
     // ======== Beginning of test setup ========
     // Set up a git repo with a bookmark and a jj repo that has it as a remote.
     let test_env = TestEnvironment::default();
-    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     let git_repo_path = test_env.env_root().join("git-repo");
@@ -1173,7 +1173,7 @@ fn test_bookmark_track_untrack() {
             "refs/heads/feature2",
         ],
     );
-    test_env.add_config("git.auto-local-bookmark = false");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = ''");
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1302,7 +1302,7 @@ fn test_bookmark_track_untrack() {
             "refs/heads/feature3",
         ],
     );
-    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1390,7 +1390,7 @@ fn test_bookmark_track_untrack_patterns() {
     );
 
     // Fetch new commit without auto tracking
-    test_env.add_config("git.auto-local-bookmark = false");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = ''");
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1527,7 +1527,7 @@ fn test_bookmark_track_untrack_patterns() {
 #[test]
 fn test_bookmark_list() {
     let test_env = TestEnvironment::default();
-    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
 
     // Initialize remote refs
     test_env.run_jj_in(".", ["git", "init", "remote"]).success();
@@ -1562,7 +1562,13 @@ fn test_bookmark_list() {
         .run_jj(["new", "root()", "-m", "local-only"])
         .success();
     local_dir
-        .run_jj(["bookmark", "create", "local-only", "absent-tracked"])
+        .run_jj([
+            "--config=remotes.origin.auto-track-bookmarks=''",
+            "bookmark",
+            "create",
+            "local-only",
+            "absent-tracked",
+        ])
         .success();
 
     // Mutate refs in local repository
@@ -1778,7 +1784,7 @@ fn test_bookmark_list() {
 #[test]
 fn test_bookmark_list_filtered() {
     let test_env = TestEnvironment::default();
-    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
 
     // Initialize remote refs
@@ -1809,7 +1815,12 @@ fn test_bookmark_list_filtered() {
         .run_jj(["new", "root()", "-m", "local-keep"])
         .success();
     local_dir
-        .run_jj(["bookmark", "create", "local-keep"])
+        .run_jj([
+            "--config=remotes.origin.auto-track-bookmarks=''",
+            "bookmark",
+            "create",
+            "local-keep",
+        ])
         .success();
 
     // Mutate refs in local repository
@@ -2034,7 +2045,7 @@ fn test_bookmark_list_quoted_name() {
 #[test]
 fn test_bookmark_list_much_remote_divergence() {
     let test_env = TestEnvironment::default();
-    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
 
     // Initialize remote refs
     test_env.run_jj_in(".", ["git", "init", "remote"]).success();
@@ -2068,7 +2079,12 @@ fn test_bookmark_list_much_remote_divergence() {
         local_dir.run_jj(["new", "-m", "local-only"]).success();
     }
     local_dir
-        .run_jj(["bookmark", "create", "local-only"])
+        .run_jj([
+            "--config=remotes.origin.auto-track-bookmarks=''",
+            "bookmark",
+            "create",
+            "local-only",
+        ])
         .success();
 
     // Mutate refs in local repository
@@ -2088,7 +2104,8 @@ fn test_bookmark_list_much_remote_divergence() {
 #[test]
 fn test_bookmark_list_tracked() {
     let test_env = TestEnvironment::default();
-    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.upstream.auto-track-bookmarks = 'glob:*'");
 
     // Initialize remote refs
     test_env.run_jj_in(".", ["git", "init", "remote"]).success();
@@ -2162,7 +2179,13 @@ fn test_bookmark_list_tracked() {
         .run_jj(["new", "root()", "-m", "local-only"])
         .success();
     local_dir
-        .run_jj(["bookmark", "create", "local-only"])
+        .run_jj([
+            "--config=remotes.origin.auto-track-bookmarks=''",
+            "--config=remotes.upstream.auto-track-bookmarks=''",
+            "bookmark",
+            "create",
+            "local-only",
+        ])
         .success();
 
     // Mutate refs in local repository

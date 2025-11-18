@@ -53,7 +53,7 @@ fn set_up(test_env: &TestEnvironment) {
             [
                 "git",
                 "clone",
-                "--config=git.auto-local-bookmark=true",
+                "--config=remotes.origin.auto-track-bookmarks='glob:*'",
                 origin_git_repo_path.to_str().unwrap(),
                 "local",
             ],
@@ -574,7 +574,7 @@ fn test_git_push_locally_created_and_rewritten() {
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     // Ensure that remote bookmarks aren't tracked automatically
-    test_env.add_config("git.auto-local-bookmark = false");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = ''");
 
     // Push locally-created bookmark
     work_dir.run_jj(["new", "root()", "-mlocal 1"]).success();
@@ -1735,7 +1735,7 @@ fn test_git_push_conflicting_bookmarks() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
-    test_env.add_config("git.auto-local-bookmark = true");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     let git_repo = {
         let mut git_repo_path = work_dir.root().to_owned();
         git_repo_path.extend([".jj", "repo", "store", "git"]);
