@@ -6108,6 +6108,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <li>
 <p>The minimum supported Rust version (MSRV) is now 1.89.</p>
 </li>
+<li>
+<p>On macOS, the deprecated config directory <code>~/Library/Application Support/jj</code>
+  is not read anymore. Use <code>$XDG_CONFIG_HOME/jj</code> instead (defaults to
+  <code>~/.config/jj</code>).</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <ul>
