@@ -1939,22 +1939,21 @@ a comparison with Git, including how workflows are different, see the
 <li><strong>Configuration: Partial.</strong> The only configuration from Git (e.g. in
   <code>~/.gitconfig</code>) that's respected is the following. Feel free to file a bug if
   you miss any particular configuration options.</li>
-<li>The configuration of remotes (<code>[remote "&lt;name&gt;"]</code>). Only the names and URLs
-    are respected (simple fetch refspecs are respected when branches are not
-    explicitly specified on the CLI, and <a href="https://github.com/jj-vcs/jj/issues/4889">only the last
-    pushurl</a> is respected).</li>
+<li>The configuration of remotes (<code>[remote "&lt;name&gt;"]</code>). Simple fetch refspecs
+    are respected when branches are not explicitly specified on the CLI.
+    (<code>git</code> is used for remote operations)</li>
 <li><code>core.excludesFile</code></li>
 <li><strong>Authentication: Yes.</strong> <code>git</code> is used for remote operations under the hood.</li>
 <li><strong>Branches: Yes.</strong> You can read more about
   <a href="../bookmarks/">how branches work in Jujutsu</a>
   and <a href="#branches">how they interoperate with Git</a>.</li>
-<li><strong>Tags: Partial.</strong> You can check out tagged commits by name (pointed to be
-  either annotated or lightweight tags.) You can also create lightweight tags,
+<li><strong>Tags: Partial.</strong> You can check out tagged commits by name (pointed to by
+  either annotated or lightweight tags). You can also create lightweight tags,
   but you cannot create annotated tags.</li>
 <li><strong>.gitignore: Yes.</strong> Patterns in <code>.gitignore</code> files are supported. So are
-  ignores in <code>.git/info/exclude</code> or configured via Git's <code>core.excludesfile</code>
-  config. Since working-copy files are snapshotted by every <code>jj</code> command, you
-  might need to run <code>jj file untrack</code> to exclude newly ignored files from the
+  ignores in <code>.git/info/exclude</code> or configured via Git's <code>core.excludesFile</code>
+  config. Since working-copy files are snapshotted by almost every <code>jj</code> command,
+  you might need to run <code>jj file untrack</code> to exclude newly ignored files from the
   working-copy commit. It's recommended to set up the ignore patterns earlier.
   The <code>.gitignore</code> support uses a native implementation, so please report a bug
   if you notice any difference compared to <code>git</code>.</li>
@@ -2129,7 +2128,7 @@ other encodings.</p>
 ID and information about conflicts) is stored outside of the Git repo (currently
 in <code>.jj/store/extra/</code>).</p>
 <p>Commits with conflicts cannot be represented in Git. They appear in the Git
-commit as as root directories called<code>.jjconflict-base-*/</code> and
+commit as root directories called<code>.jjconflict-base-*/</code> and
 <code>.jjconflict-side-*/</code>. Note that the purpose of this representation is only to
 prevent GC of the relevant trees; the authoritative information is in the
 Git-external storage mentioned in the paragraph above. As long as you use <code>jj</code>
@@ -2139,7 +2138,7 @@ directories in your working copy. If you then run e.g. <code>jj status</code>, t
 resulting snapshot will contain those directories, making it look like they
 replaced all the other paths in your repo. You will probably want to run
 <code>jj abandon</code> to get back to the state with the unresolved conflicts.</p>
-<p>Change IDs are stored in git commit headers as reverse hex encodings. These is
+<p>Change IDs are stored in git commit headers as reverse hex encodings. This is
 a non-standard header and is not preserved by all <code>git</code> tooling. For example,
 the header is preserved by a <code>git commit --amend</code>, but is not preserved through
 a rebase operation. GitHub and other major forges seem to preserve them for the
