@@ -1607,6 +1607,189 @@ fn test_squash_use_destination_message() {
 }
 
 #[test]
+fn test_squash_co_authors() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["commit", "-m", "a"]).success();
+    work_dir.write_file("file2", "b\n");
+    work_dir
+        .run_jj(["commit", "-m", "b", "--author", "Alice <alice@example.com>"])
+        .success();
+    work_dir.run_jj(["desc", "-m", "c"]).success();
+    work_dir.write_file("file3", "c\n");
+
+    // squash by current author in someone else commit
+    let output = work_dir.run_jj(["squash", "-u", "--co-authors"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: mzvwutvl bfc6ab84 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 402546dd b
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["show", "--stat", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    Commit ID: 402546dd09ea38e744d61fbebcca5b15dafe5a21
+    Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Author   : Alice <alice@example.com> (2001-02-03 08:05:09)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:11)
+
+        b
+
+        Co-authored-by: Test User <test.user@example.com>
+
+    file2 | 1 +
+    file3 | 1 +
+    2 files changed, 2 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // squash someone else commit in a commit of the current author
+    work_dir.run_jj(["undo"]).success();
+    work_dir
+        .run_jj(["desc", "--reset-author", "--no-edit", "@-"])
+        .success();
+    work_dir
+        .run_jj(["desc", "--no-edit", "--author", "Alice <alice@example.com>"])
+        .success();
+    let output = work_dir.run_jj(["squash", "-u", "--co-authors"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: znkkpsqq e4883251 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 2b909a51 b
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["show", "--stat", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    Commit ID: 2b909a513f5c18a38163e246d1bd6698278dabca
+    Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:14)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:16)
+
+        b
+
+        Co-authored-by: Alice <alice@example.com>
+
+    file2 | 1 +
+    file3 | 1 +
+    2 files changed, 2 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // squash two commits of the same author
+    work_dir.run_jj(["undo"]).success();
+    work_dir
+        .run_jj([
+            "desc",
+            "--no-edit",
+            "--author",
+            "Alice <alice@example.com>",
+            "@-",
+        ])
+        .success();
+    let output = work_dir.run_jj(["squash", "-u", "--co-authors"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: lylxulpl 301e1cc5 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 0a7b5e36 b
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["show", "--stat", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    Commit ID: 0a7b5e36a13aef69be518f271cc1dec314c70d43
+    Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Author   : Alice <alice@example.com> (2001-02-03 08:05:14)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:20)
+
+        b
+
+    file2 | 1 +
+    file3 | 1 +
+    2 files changed, 2 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // check without config option or command line flag
+    work_dir.run_jj(["op", "restore", "@--"]).success();
+    let output = work_dir.run_jj(["squash", "-u"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: uyznsvlq 3e97c578 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 36f0a2c5 b
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["show", "--stat", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    Commit ID: 36f0a2c5683c28ad5ef295e0c7f65b8a0ee2bf22
+    Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:14)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:23)
+
+        b
+
+    file2 | 1 +
+    file3 | 1 +
+    2 files changed, 2 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // check with the config option
+    work_dir.run_jj(["undo"]).success();
+    test_env.add_config("squash.co-authors = true");
+    let output = work_dir.run_jj(["squash", "-u"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: nmzmmopx 8a094cb7 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 991b5ae0 b
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["show", "--stat", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    Commit ID: 991b5ae0c853998084170db1054cb8cf5596261c
+    Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:14)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:26)
+
+        b
+
+        Co-authored-by: Alice <alice@example.com>
+
+    file2 | 1 +
+    file3 | 1 +
+    2 files changed, 2 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+
+    // check with the config option and the command line flag
+    work_dir.run_jj(["undo"]).success();
+    test_env.add_config("squash.co-authors = true");
+    let output = work_dir.run_jj(["squash", "-u", "--no-co-authors"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: nlrtlrxv bfd04f91 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz dabc835d b
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["show", "--stat", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    Commit ID: dabc835d2d6f7efcaee2d769cc7e6d9eebbe2659
+    Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:14)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:29)
+
+        b
+
+    file2 | 1 +
+    file3 | 1 +
+    2 files changed, 2 insertions(+), 0 deletions(-)
+    [EOF]
+    ");
+}
+
+// The --use-destination-message and --message options are incompatible.
+#[test]
 fn test_squash_option_exclusion() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

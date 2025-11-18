@@ -52,6 +52,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Unquoted `*` is now allowed in revsets. `bookmarks(glob:foo*)` no longer
   needs quoting.
 
+* `jj squash` stores the co-authors of the squashed commits in the destination
+  commit when using the `--co-authors` command line option or the
+  `squash.co-authors = true` configuration.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.

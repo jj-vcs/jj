@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs;
 use std::io;
 use std::io::Write as _;
@@ -18,6 +19,7 @@ use jj_lib::config::ConfigGetError;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::file_util::PathError;
 use jj_lib::settings::UserSettings;
+use jj_lib::trailer::Trailer;
 use jj_lib::trailer::parse_description_trailers;
 use jj_lib::trailer::parse_trailers;
 use thiserror::Error;
@@ -325,6 +327,7 @@ pub fn combine_messages_for_editing(
     sources: &[Commit],
     destination: Option<&Commit>,
     commit_builder: &DetachedCommitBuilder,
+    co_author_trailers: &[Trailer],
 ) -> Result<String, CommandError> {
     let mut combined = String::new();
     if let Some(destination) = destination {
@@ -336,28 +339,35 @@ pub fn combine_messages_for_editing(
         combined.push_str(commit.description());
     }
 
-    if let Some(template) = parse_trailers_template(ui, tx)? {
-        // show the user only trailers that were not in one of the squashed commits
-        let old_trailers: Vec<_> = sources
-            .iter()
-            .chain(destination)
-            .flat_map(|commit| parse_description_trailers(commit.description()))
-            .collect();
+    // show the user only trailers that were not in one of the squashed commits
+    let old_trailers: Vec<_> = sources
+        .iter()
+        .chain(destination)
+        .flat_map(|commit| parse_description_trailers(commit.description()))
+        .collect();
+    let new_trailers = if let Some(template) = parse_trailers_template(ui, tx)? {
         let commit = commit_builder.write_hidden()?;
         let trailer_lines = template
             .format_plain_text(&commit)
             .into_string()
             .map_err(|_| user_error("Trailers should be valid utf-8"))?;
-        let new_trailers = parse_trailers(&trailer_lines)?;
-        let trailers: String = new_trailers
-            .iter()
-            .filter(|trailer| !old_trailers.contains(trailer))
-            .map(|trailer| format!("{}: {}\n", trailer.key, trailer.value))
-            .collect();
-        if !trailers.is_empty() {
-            combined.push_str("\nJJ: Trailers not found in the squashed commits:\n");
-            combined.push_str(&trailers);
-        }
+        parse_trailers(&trailer_lines)?
+    } else {
+        vec![]
+    };
+    let trailers: String = new_trailers
+        .iter()
+        .chain(
+            co_author_trailers
+                .iter()
+                .filter(|trailer| !new_trailers.contains(trailer)),
+        )
+        .filter(|trailer| !old_trailers.contains(trailer))
+        .map(|trailer| format!("{}: {}\n", trailer.key, trailer.value))
+        .collect();
+    if !trailers.is_empty() {
+        combined.push_str("\nJJ: Trailers not found in the squashed commits:\n");
+        combined.push_str(&trailers);
     }
 
     Ok(combined)
@@ -398,14 +408,26 @@ pub fn parse_trailers_template<'a>(
 pub fn add_trailers_with_template(
     template: &TemplateRenderer<'_, Commit>,
     commit: &Commit,
+    extra_trailers: &[Trailer],
 ) -> Result<String, CommandError> {
-    let trailers = parse_description_trailers(commit.description());
     let trailer_lines = template
         .format_plain_text(commit)
         .into_string()
         .map_err(|_| user_error("Trailers should be valid utf-8"))?;
-    let new_trailers = parse_trailers(&trailer_lines)?;
+    let mut new_trailers = parse_trailers(&trailer_lines)?;
+    let new_trailers_set: HashSet<_> = new_trailers.iter().cloned().collect();
+    new_trailers.extend(
+        extra_trailers
+            .iter()
+            .filter(|t| !new_trailers_set.contains(t))
+            .cloned(),
+    );
+    add_trailers(commit, &new_trailers)
+}
+
+pub fn add_trailers(commit: &Commit, new_trailers: &[Trailer]) -> Result<String, CommandError> {
     let mut description = commit.description().to_owned();
+    let trailers = parse_description_trailers(commit.description());
     if trailers.is_empty() && !new_trailers.is_empty() {
         if description.is_empty() {
             // a first empty line where the user will edit the commit summary
@@ -415,7 +437,7 @@ pub fn add_trailers_with_template(
         description.push('\n');
     }
     for new_trailer in new_trailers {
-        if !trailers.contains(&new_trailer) {
+        if !trailers.contains(new_trailer) {
             description.push_str(&format!("{}: {}\n", new_trailer.key, new_trailer.value));
         }
     }
@@ -426,14 +448,30 @@ pub fn add_trailers_with_template(
 /// the description
 ///
 /// It just lets the description untouched if the trailers are already there.
-pub fn add_trailers(
+pub fn add_config_trailers(
     ui: &Ui,
     tx: &WorkspaceCommandTransaction,
     commit_builder: &DetachedCommitBuilder,
 ) -> Result<String, CommandError> {
+    add_config_trailers_with_extras(ui, tx, commit_builder, &[])
+}
+
+/// Add the trailers from `templates.commit_trailers` in the last paragraph of
+/// the description
+///
+/// It just lets the description untouched if the trailers are already there.
+pub fn add_config_trailers_with_extras(
+    ui: &Ui,
+    tx: &WorkspaceCommandTransaction,
+    commit_builder: &DetachedCommitBuilder,
+    extras: &[Trailer],
+) -> Result<String, CommandError> {
     if let Some(renderer) = parse_trailers_template(ui, tx)? {
         let commit = commit_builder.write_hidden()?;
-        add_trailers_with_template(&renderer, &commit)
+        add_trailers_with_template(&renderer, &commit, extras)
+    } else if !extras.is_empty() {
+        let commit = commit_builder.write_hidden()?;
+        add_trailers(&commit, extras)
     } else {
         Ok(commit_builder.description().to_owned())
     }
