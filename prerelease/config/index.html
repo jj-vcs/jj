@@ -1706,6 +1706,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#automatic-update-of-stale-working-copies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Automatic update of stale working copies
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3509,6 +3518,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#automatic-update-of-stale-working-copies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Automatic update of stale working copies
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4962,6 +4980,18 @@ example:</p>
 raw integer literal, the value is interpreted as if it were specified in bytes.</p>
 <p>Files that already exist in the working copy are not subject to this limit.</p>
 <p>Setting this value to zero will disable the limit entirely.</p>
+<h3 id="automatic-update-of-stale-working-copies">Automatic update of stale working copies<a class="headerlink" href="#automatic-update-of-stale-working-copies" title="Permanent link">&para;</a></h3>
+<p>When a working copy becomes stale (meaning the working copy's recorded commit is
+no longer the current commit for that workspace), <code>jj</code> will normally prompt you
+to update it with <code>jj workspace update-stale</code>. You can configure <code>jj</code> to
+automatically update stale working copies by setting:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[snapshot]</span>
+<span class="n">auto-update-stale</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</code></pre></div>
+<p>This is particularly useful if you have <a href="../working-copy/#workspaces">multiple workspaces</a>
+and want to avoid manually updating each one.</p>
+<p>For more information on stale working copies, see the <a href="../working-copy/#stale-working-copy">working copy
+documentation</a>.</p>
 <h2 id="working-copy-settings">Working copy settings<a class="headerlink" href="#working-copy-settings" title="Permanent link">&para;</a></h2>
 <h3 id="eol-conversion-settings">EOL conversion settings<a class="headerlink" href="#eol-conversion-settings" title="Permanent link">&para;</a></h3>
 <p>This settings serves the same purpose as the <a href="https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf"><code>core.autocrlf</code></a> git
