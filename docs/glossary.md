@@ -32,7 +32,7 @@ commit if it gets [rewritten](#rewrite).
 
 ## Branch
 
-In the context of `jj`, the work "branch" usually refers to an [anonymous
+In the context of `jj`, the word "branch" usually refers to an [anonymous
 branch](#anonymous-branch) or, less formally, a branch of the commit "tree"
 (which is itself an informal way to refer to the commit graph, parts of which
 might resemble a tree even when it's not mathematically a tree).
