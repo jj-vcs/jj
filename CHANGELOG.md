@@ -23,6 +23,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The minimum supported Rust version (MSRV) is now 1.89.
 
+* On macOS, the deprecated config directory `~/Library/Application Support/jj`
+  is not read anymore. Use `$XDG_CONFIG_HOME/jj` instead (defaults to
+  `~/.config/jj`).
+
 ### Deprecations
 
 * The `--destination`/`-d` arguments for `jj rebase`, `jj split`, `jj revert`,

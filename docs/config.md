@@ -1847,11 +1847,6 @@ with [Conditional Variables](#conditional-variables).
 | Linux and macOS | `$XDG_CONFIG_HOME` or `$HOME/.config` | `/home/alice/.config/jj/config.toml`                      |
 | Windows         | `{FOLDERID_RoamingAppData}`           | `C:\Users\Alice\AppData\Roaming\jj\config.toml`           |
 
-On macOS, jj used to put the user config in `~/Library/Application Support`,
-and jj will still look there for backwards compatibility purposes; this is
-considered a deprecated location, and you should use the new default
-`XDG_CONFIG_HOME`.
-
 The location of the `jj` user config files/directories can also be overridden with the
 `JJ_CONFIG` environment variable. If it is not empty, it will be used instead
 of any configuration files in the default locations. If it is a path to a TOML
