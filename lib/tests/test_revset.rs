@@ -18,8 +18,9 @@ use std::path::Path;
 use std::sync::Arc;
 
 use assert_matches::assert_matches;
-use chrono::DateTime;
 use itertools::Itertools as _;
+use jiff::Zoned;
+use jiff::tz;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::MillisSinceEpoch;
@@ -62,6 +63,7 @@ use jj_lib::revset::parse;
 use jj_lib::signing::SignBehavior;
 use jj_lib::signing::Signer;
 use jj_lib::test_signing_backend::TestSigningBackend;
+use jj_lib::time_util;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
 use test_case::test_case;
@@ -95,7 +97,7 @@ fn resolve_symbol(repo: &dyn Repo, symbol: &str) -> Result<Vec<CommitId>, Revset
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: "",
-        date_pattern_context: chrono::Local::now().into(),
+        current_time: Zoned::now(),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         extensions: &RevsetExtensions::default(),
         workspace: None,
@@ -228,7 +230,7 @@ fn test_resolve_symbol_commit_id() {
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
-        date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+        current_time: Zoned::now(),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         extensions: &RevsetExtensions::default(),
         workspace: None,
@@ -1014,11 +1016,14 @@ fn try_resolve_expression(
     revset_str: &str,
 ) -> Result<Arc<ResolvedRevsetExpression>, RevsetResolutionError> {
     let settings = testutils::user_settings();
+    let utc_context = jiff::Timestamp::from_second(0)
+        .unwrap()
+        .to_zoned(tz::TimeZone::UTC);
     let context = RevsetParseContext {
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
-        date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+        current_time: utc_context,
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         extensions: &RevsetExtensions::default(),
         workspace: None,
@@ -1068,7 +1073,7 @@ fn resolve_commit_ids_in_workspace(
         aliases_map: &RevsetAliasesMap::default(),
         local_variables: HashMap::new(),
         user_email: settings.user_email(),
-        date_pattern_context: chrono::Utc::now().fixed_offset().into(),
+        current_time: Zoned::now(),
         default_ignored_remote: Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
         extensions: &RevsetExtensions::default(),
         workspace: Some(workspace_ctx),
@@ -3422,7 +3427,7 @@ fn test_evaluate_expression_author() {
 }
 
 fn parse_timestamp(s: &str) -> Timestamp {
-    Timestamp::from_datetime(s.parse::<DateTime<chrono::FixedOffset>>().unwrap())
+    time_util::parse_datetime(s).unwrap()
 }
 
 #[test]
