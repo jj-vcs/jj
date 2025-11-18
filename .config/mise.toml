@@ -6,7 +6,7 @@
 [vars]
 bacon_version = "3.16.0"
 cargo_insta_version = "1.43.1"
-cargo_nextest_version = "0.9.103"
+cargo_nextest_version = "0.9.113"
 rust_version = "1.89"
 uv_version = "0.8.13"
 
@@ -68,6 +68,8 @@ description = "Run the tests"
 tools.rust = "{{vars.rust_version}}"
 tools."cargo:cargo-insta" = "{{vars.cargo_insta_version}}"
 tools."cargo:cargo-nextest" = "{{vars.cargo_nextest_version}}"
+env.NEXTEST_STATUS_LEVEL = "slow"
+env.NEXTEST_FINAL_STATUS_LEVEL = "none"
 run = "cargo insta test --workspace --test-runner nextest --"
 
 [tasks."check:zizmor"]
