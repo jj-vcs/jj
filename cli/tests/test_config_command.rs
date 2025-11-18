@@ -1149,6 +1149,9 @@ fn test_config_path() {
     let repo_config_path = work_dir
         .root()
         .join(PathBuf::from_iter([".jj", "repo", "config.toml"]));
+    let ws_config_path = work_dir
+        .root()
+        .join(PathBuf::from_iter([".jj", "workspace-config.toml"]));
     test_env.set_config_path(&user_config_path);
     let work_dir = test_env.work_dir("repo");
 
@@ -1173,6 +1176,22 @@ fn test_config_path() {
     insta::assert_snapshot!(test_env.run_jj_in(".", ["config", "path", "--repo"]), @r"
     ------- stderr -------
     Error: No repo config path found
+    [EOF]
+    [exit status: 1]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj(["config", "path", "--workspace"]), @r"
+    $TEST_ENV/repo/.jj/workspace-config.toml
+    [EOF]
+    ");
+    assert!(
+        !ws_config_path.exists(),
+        "jj config path shouldn't create new file"
+    );
+
+    insta::assert_snapshot!(test_env.run_jj_in(".", ["config", "path", "--workspace"]), @r"
+    ------- stderr -------
+    Error: No workspace config path found
     [EOF]
     [exit status: 1]
     ");
