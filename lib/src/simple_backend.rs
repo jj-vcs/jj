@@ -56,6 +56,7 @@ use crate::backend::Tree;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::backend::make_root_commit;
+use crate::conflict_labels::ConflictLabels;
 use crate::content_hash::blake2b_hash;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::index::Index;
@@ -359,6 +360,7 @@ pub fn commit_to_proto(commit: &Commit) -> crate::protos::simple_store::Commit {
         proto.predecessors.push(predecessor.to_bytes());
     }
     proto.root_tree = commit.root_tree.iter().map(|id| id.to_bytes()).collect();
+    proto.conflict_labels = commit.conflict_labels.as_slice().to_owned();
     proto.change_id = commit.change_id.to_bytes();
     proto.description = commit.description.clone();
     proto.author = Some(signature_to_proto(&commit.author));
@@ -378,11 +380,13 @@ fn commit_from_proto(mut proto: crate::protos::simple_store::Commit) -> Commit {
     let predecessors = proto.predecessors.into_iter().map(CommitId::new).collect();
     let merge_builder: MergeBuilder<_> = proto.root_tree.into_iter().map(TreeId::new).collect();
     let root_tree = merge_builder.build();
+    let conflict_labels = ConflictLabels::from_vec(proto.conflict_labels);
     let change_id = ChangeId::new(proto.change_id);
     Commit {
         parents,
         predecessors,
         root_tree,
+        conflict_labels,
         change_id,
         description: proto.description,
         author: signature_from_proto(proto.author.unwrap_or_default()),
@@ -515,6 +519,7 @@ mod tests {
             parents: vec![],
             predecessors: vec![],
             root_tree: Merge::resolved(backend.empty_tree_id().clone()),
+            conflict_labels: ConflictLabels::unlabeled(),
             change_id: ChangeId::from_hex("abc123"),
             description: "".to_string(),
             author: create_signature(),

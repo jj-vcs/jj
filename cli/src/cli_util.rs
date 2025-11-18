@@ -1261,7 +1261,9 @@ impl WorkspaceCommandHelper {
         &mut self,
     ) -> Result<(LockedWorkspace<'_>, Commit), CommandError> {
         let (mut locked_ws, wc_commit) = self.unchecked_start_working_copy_mutation()?;
-        if wc_commit.tree_ids() != locked_ws.locked_wc().old_tree().tree_ids() {
+        if wc_commit.tree().tree_ids_and_labels()
+            != locked_ws.locked_wc().old_tree().tree_ids_and_labels()
+        {
             return Err(user_error("Concurrent working copy operation. Try again."));
         }
         Ok((locked_ws, wc_commit))
@@ -1930,7 +1932,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                 .block_on()
                 .map_err(snapshot_command_error)?
         };
-        if new_tree.tree_ids() != wc_commit.tree_ids() {
+        if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
             let mut tx =
                 start_repo_transaction(&self.user_repo.repo, self.env.command.string_args());
             tx.set_is_snapshot(true);
