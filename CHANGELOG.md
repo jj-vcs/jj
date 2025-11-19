@@ -65,6 +65,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed failure on exporting moved/deleted annotated tags to Git. Moved tags are
   exported as lightweight tags.
 
+* `jj gerrit upload` now correctly handles mixed explicit and implicit
+  Change-Ids in chains of commits ([#8219](https://github.com/jj-vcs/jj/pull/8219))
+
 ## [0.36.0] - 2025-12-03
 
 ### Release highlights

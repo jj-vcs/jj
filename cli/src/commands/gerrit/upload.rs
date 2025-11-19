@@ -261,7 +261,7 @@ pub fn cmd_gerrit_upload(
 
         // The user can choose to explicitly set their own change-ID to
         // override the default change-ID based on the jj change-ID.
-        if let Some(trailer) = change_id_trailers.first() {
+        let new_description = if let Some(trailer) = change_id_trailers.first() {
             // Check the change-id format is correct.
             if trailer.value.len() != 41 || !trailer.value.starts_with('I') {
                 // Intentionally leave the invalid change IDs as-is.
@@ -272,22 +272,20 @@ pub fn cmd_gerrit_upload(
                 )?;
             }
 
-            // map the old commit to itself
-            old_to_new.insert(original_commit.id().clone(), original_commit);
-            continue;
-        }
+            original_commit.description().to_owned()
+        } else {
+            // Gerrit change id is 40 chars, jj change id is 32, so we need padding.
+            // To be consistent with `format_gerrit_change_id_trailer``, we pad with
+            // 6a6a6964 (hex of "jjid").
+            let gerrit_change_id = format!("I{}6a6a6964", original_commit.change_id().hex());
 
-        // Gerrit change id is 40 chars, jj change id is 32, so we need padding.
-        // To be consistent with `format_gerrit_change_id_trailer``, we pad with
-        // 6a6a6964 (hex of "jjid").
-        let gerrit_change_id = format!("I{}6a6a6964", original_commit.change_id().hex());
-
-        let new_description = format!(
-            "{}{}Change-Id: {}\n",
-            original_commit.description().trim(),
-            if trailers.is_empty() { "\n\n" } else { "\n" },
-            gerrit_change_id
-        );
+            format!(
+                "{}{}Change-Id: {}\n",
+                original_commit.description().trim(),
+                if trailers.is_empty() { "\n\n" } else { "\n" },
+                gerrit_change_id
+            )
+        };
 
         let new_parents = original_commit
             .parents()
@@ -296,6 +294,14 @@ pub fn cmd_gerrit_upload(
                 Ok(old_to_new.get(p.id()).unwrap_or(&p).id().clone())
             })
             .try_collect()?;
+
+        if new_description == original_commit.description()
+            && new_parents == original_commit.parent_ids()
+        {
+            // map the old commit to itself
+            old_to_new.insert(original_commit.id().clone(), original_commit);
+            continue;
+        }
 
         // rewrite the set of parents to point to the commits that were
         // previously rewritten in toposort order
