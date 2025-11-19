@@ -1938,11 +1938,13 @@ a comparison with Git, including how workflows are different, see the
 <ul>
 <li><strong>Configuration: Partial.</strong> The only configuration from Git (e.g. in
   <code>~/.gitconfig</code>) that's respected is the following. Feel free to file a bug if
-  you miss any particular configuration options.</li>
+  you miss any particular configuration options.<ul>
 <li>The configuration of remotes (<code>[remote "&lt;name&gt;"]</code>). Simple fetch refspecs
-    are respected when branches are not explicitly specified on the CLI.
-    (<code>git</code> is used for remote operations)</li>
+  are respected when branches are not explicitly specified on the CLI.
+  (<code>git</code> is used for remote operations)</li>
 <li><code>core.excludesFile</code></li>
+</ul>
+</li>
 <li><strong>Authentication: Yes.</strong> <code>git</code> is used for remote operations under the hood.</li>
 <li><strong>Branches: Yes.</strong> You can read more about
   <a href="../bookmarks/">how branches work in Jujutsu</a>

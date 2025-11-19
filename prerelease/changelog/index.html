@@ -6216,10 +6216,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </li>
 <li>
 <p>The following deprecated config options have been removed:</p>
-</li>
+<ul>
 <li><code>signing.sign-all</code></li>
 <li><code>core.watchman.register_snapshot_trigger</code></li>
 <li><code>diff.format</code></li>
+</ul>
+</li>
 </ul>
 <h3 id="deprecations_1">Deprecations<a class="headerlink" href="#deprecations_1" title="Permanent link">&para;</a></h3>
 <ul>
@@ -6405,11 +6407,13 @@ edits the change twice in some cases.</p>
 </ul>
 <h3 id="deprecations_2">Deprecations<a class="headerlink" href="#deprecations_2" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Various flags on <code>jj describe</code> and <code>jj commit</code> have been deprecated in favor
-  of <code>jj metaedit</code>. They are:</li>
-<li><code>describe</code>: <code>--author</code>, <code>--reset-author</code>, <code>--no-edit</code></li>
 <li>
-<p><code>commit</code>:   <code>--author</code>, <code>--reset-author</code></p>
+<p>Various flags on <code>jj describe</code> and <code>jj commit</code> have been deprecated in favor
+  of <code>jj metaedit</code>. They are:</p>
+<ul>
+<li><code>describe</code>: <code>--author</code>, <code>--reset-author</code>, <code>--no-edit</code></li>
+<li><code>commit</code>:   <code>--author</code>, <code>--reset-author</code></li>
+</ul>
 </li>
 <li>
 <p>The storage format of remote bookmarks and tags has changed. Remote bookmarks
@@ -7357,19 +7361,19 @@ edits the change twice in some cases.</p>
 </li>
 <li>
 <p>The following deprecated revset functions have been removed:</p>
-</li>
+<ul>
 <li><code>branches()</code>, <code>remote_branches()</code>, <code>tracked_remote_branches()</code>, and
-    <code>untracked_remote_branches()</code>, which were renamed to "bookmarks".</li>
+  <code>untracked_remote_branches()</code>, which were renamed to "bookmarks".</li>
 <li><code>file()</code> and <code>conflict()</code>, which were renamed to plural forms.</li>
-<li>
-<p><code>files(x, y, ..)</code> with multiple patterns. Use <code>files(x|y|..)</code> instead.</p>
+<li><code>files(x, y, ..)</code> with multiple patterns. Use <code>files(x|y|..)</code> instead.</li>
+</ul>
 </li>
 <li>
 <p>The following deprecated template functions have been removed:</p>
-</li>
-<li>
-<p><code>branches()</code>, <code>local_branches()</code>, and <code>remote_branches()</code>, which were
-    renamed to "bookmarks".</p>
+<ul>
+<li><code>branches()</code>, <code>local_branches()</code>, and <code>remote_branches()</code>, which were
+  renamed to "bookmarks".</li>
+</ul>
 </li>
 <li>
 <p>The flags <code>--all</code> and <code>--tracked</code> on <code>jj git push</code> by themself do not cause
@@ -7397,11 +7401,11 @@ edits the change twice in some cases.</p>
 </li>
 <li>
 <p>Multiple user configs are now supported and are loaded in the following precedence order:</p>
-</li>
+<ul>
 <li><code>$HOME/.jjconfig.toml</code></li>
 <li><code>$XDG_CONFIG_HOME/jj/config.toml</code></li>
-<li>
-<p><code>$XDG_CONFIG_HOME/jj/conf.d/*.toml</code></p>
+<li><code>$XDG_CONFIG_HOME/jj/conf.d/*.toml</code></li>
+</ul>
 </li>
 <li>
 <p>The <code>JJ_CONFIG</code> environment variable can now contain multiple paths separated
@@ -7727,11 +7731,11 @@ edits the change twice in some cases.</p>
 </li>
 <li>
 <p>The following deprecated commands have been removed:</p>
-</li>
+<ul>
 <li><code>jj cat</code> is replaced by <code>jj file show</code>.</li>
 <li><code>jj chmod</code> is replaced by <code>jj file chmod</code>.</li>
-<li>
-<p><code>jj files</code> is replaced by <code>jj file list</code>.</p>
+<li><code>jj files</code> is replaced by <code>jj file list</code>.</li>
+</ul>
 </li>
 <li>
 <p>The deprecated <code>-l</code> short alias for <code>--limit</code> in <code>jj log</code>, <code>jj op log</code>
@@ -7752,11 +7756,11 @@ edits the change twice in some cases.</p>
 </li>
 <li>
 <p>The following change introduced in 0.25.0 is reverted:</p>
-</li>
-<li>
-<p><code>jj config list</code> now prints inline tables <code>{ key = value, .. }</code> literally.
-    Inner items of inline tables are no longer merged across configuration
-    files.</p>
+<ul>
+<li><code>jj config list</code> now prints inline tables <code>{ key = value, .. }</code> literally.
+  Inner items of inline tables are no longer merged across configuration
+  files.</li>
+</ul>
 </li>
 <li>
 <p><code>jj resolve</code> will now attempt to resolve all conflicted files instead of
@@ -8210,13 +8214,13 @@ changes. Two select improvements:</p>
 </li>
 <li>
 <p>Several commands now support <code>-f/-t</code> shorthands for <code>--from/--to</code>:</p>
-</li>
+<ul>
 <li><code>diff</code></li>
 <li><code>diffedit</code></li>
 <li><code>interdiff</code></li>
 <li><code>op diff</code></li>
-<li>
-<p><code>restore</code></p>
+<li><code>restore</code></li>
+</ul>
 </li>
 <li>
 <p>New <code>ui.conflict-marker-style</code> config option to change how conflicts are
@@ -8868,10 +8872,12 @@ content of the child commit.</p>
 <li>
 <p>A new <code>jj file</code> subcommand now replaces several existing uncategorized
   commands, which are deprecated.</p>
-</li>
+<ul>
 <li><code>jj file show</code> replaces <code>jj cat</code>.</li>
 <li><code>jj file chmod</code> replaces <code>jj chmod</code>.</li>
 <li><code>jj file list</code> replaces <code>jj files</code>.</li>
+</ul>
+</li>
 </ul>
 <h3 id="new-features_17">New features<a class="headerlink" href="#new-features_17" title="Permanent link">&para;</a></h3>
 <ul>
@@ -8899,11 +8905,11 @@ content of the child commit.</p>
 </li>
 <li>
 <p>The <code>jj file</code> subcommand now contains several existing file utilities.</p>
-</li>
+<ul>
 <li><code>jj file show</code>, replacing <code>jj cat</code>.</li>
 <li><code>jj file chmod</code> replacing <code>jj chmod</code>.</li>
-<li>
-<p><code>jj file list</code> replacing <code>jj files</code>.</p>
+<li><code>jj file list</code> replacing <code>jj files</code>.</li>
+</ul>
 </li>
 <li>
 <p>New command <code>jj branch move</code> let you update branches by name pattern or source
@@ -9136,14 +9142,16 @@ fetch</code> works, <code>jj</code> does not suffer from the same problems as Gi
 <h2 id="0170-2024-05-01"><a href="https://github.com/jj-vcs/jj/compare/v0.16.0...v0.17.0">0.17.0</a> - 2024-05-01<a class="headerlink" href="#0170-2024-05-01" title="Permanent link">&para;</a></h2>
 <h3 id="breaking-changes_19">Breaking changes<a class="headerlink" href="#breaking-changes_19" title="Permanent link">&para;</a></h3>
 <ul>
-<li>The default template aliases were replaced as follows:</li>
-<li><code>builtin_op_log_root(op_id: OperationId)</code> -&gt;
-    <code>format_root_operation(root: Operation)</code></li>
-<li><code>builtin_log_root(change_id: ChangeId, commit_id: CommitId)</code> -&gt;
-    <code>format_root_commit(root: Commit)</code></li>
 <li>
-<p><code>builtin_change_id_with_hidden_and_divergent_info</code> -&gt;
-    <code>format_short_change_id_with_hidden_and_divergent_info(commit: Commit)</code></p>
+<p>The default template aliases were replaced as follows:</p>
+<ul>
+<li><code>builtin_op_log_root(op_id: OperationId)</code> -&gt;
+  <code>format_root_operation(root: Operation)</code></li>
+<li><code>builtin_log_root(change_id: ChangeId, commit_id: CommitId)</code> -&gt;
+  <code>format_root_commit(root: Commit)</code></li>
+<li><code>builtin_change_id_with_hidden_and_divergent_info</code> -&gt;
+  <code>format_short_change_id_with_hidden_and_divergent_info(commit: Commit)</code></li>
+</ul>
 </li>
 <li>
 <p>The <code>--revision</code> option of <code>jj rebase</code> is renamed to <code>--revisions</code>. The short
@@ -9297,10 +9305,10 @@ fetch</code> works, <code>jj</code> does not suffer from the same problems as Gi
 </li>
 <li>
 <p>Graph node symbols are now configurable via templates</p>
-</li>
+<ul>
 <li><code>templates.log_node</code></li>
-<li>
-<p><code>templates.op_log_node</code></p>
+<li><code>templates.op_log_node</code></li>
+</ul>
 </li>
 <li>
 <p><code>jj log</code> now includes synthetic nodes in the graph where some revisions were

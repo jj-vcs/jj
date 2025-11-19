@@ -2188,8 +2188,10 @@ serialization. In this case, <code>Set 1</code> will be the canonical set. The c
 form of a <code>WorkingCopyPatterns</code> is defined as the form such that:</p>
 <ul>
 <li>Every rule affects the functionality (there are no redundant rules)</li>
-<li>Rules are sorted lexicographically, but with '/' sorted before all else</li>
+<li>Rules are sorted lexicographically, but with '/' sorted before all else<ul>
 <li>This special sorting order is useful for constructing path tries</li>
+</ul>
+</li>
 </ul>
 <h3 id="working-copy-map">Working Copy Map<a class="headerlink" href="#working-copy-map" title="Permanent link">&para;</a></h3>
 <div class="admonition warning">
