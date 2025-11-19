@@ -24,6 +24,16 @@ tools.rust = "{{vars.rust_version}}"
 tools."cargo:cargo-insta" = "{{vars.cargo_insta_version}}"
 run = "cargo insta test --review --workspace -- test_generate_md_cli_help"
 
+[tasks."review:test"]
+alias = "test:review"
+description = "Run the tests and review changes to snapshots"
+tools.rust = "{{vars.rust_version}}"
+tools."cargo:cargo-insta" = "{{vars.cargo_insta_version}}"
+tools."cargo:cargo-nextest" = "{{vars.cargo_nextest_version}}"
+env.NEXTEST_STATUS_LEVEL = "slow"
+env.NEXTEST_FINAL_STATUS_LEVEL = "none"
+run = "cargo insta test --review --workspace --test-runner nextest --"
+
 [tasks."build:cli-reference"]
 description = "Build the command line reference (cli/tests/cli-reference@.md.snap)"
 tools.rust = "{{vars.rust_version}}"
@@ -70,7 +80,7 @@ tools."cargo:cargo-insta" = "{{vars.cargo_insta_version}}"
 tools."cargo:cargo-nextest" = "{{vars.cargo_nextest_version}}"
 env.NEXTEST_STATUS_LEVEL = "slow"
 env.NEXTEST_FINAL_STATUS_LEVEL = "none"
-run = "cargo insta test --workspace --test-runner nextest --"
+run = "cargo insta test --check --workspace --test-runner nextest --"
 
 [tasks."check:zizmor"]
 description = "Check GitHub workflows with Zizmor"
@@ -92,6 +102,16 @@ run = "uv run codespell -w $(jj file list)"
 description = "Format the code"
 tools.rust = "nightly"
 run = "cargo fmt"
+
+[tasks."fix:test"]
+alias = "test:accept"
+description = "Accept changes to snapshot tests"
+tools.rust = "{{vars.rust_version}}"
+tools."cargo:cargo-insta" = "{{vars.cargo_insta_version}}"
+tools."cargo:cargo-nextest" = "{{vars.cargo_nextest_version}}"
+env.NEXTEST_STATUS_LEVEL = "slow"
+env.NEXTEST_FINAL_STATUS_LEVEL = "none"
+run = "cargo insta test --accept --workspace --test-runner nextest --"
 
 
 [tasks."serve:docs"]
