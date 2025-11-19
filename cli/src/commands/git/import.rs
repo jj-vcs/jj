@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use jj_lib::git;
+use jj_lib::git::GitSettings;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -35,7 +36,7 @@ pub fn cmd_git_import(
     _args: &GitImportArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let git_settings = workspace_command.settings().git_settings()?;
+    let git_settings = GitSettings::from_settings(workspace_command.settings())?;
     let mut tx = workspace_command.start_transaction();
     // In non-colocated workspace, Git HEAD will never be moved internally by jj.
     // That's why cmd_git_export() doesn't export the HEAD ref.

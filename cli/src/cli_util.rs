@@ -1197,9 +1197,10 @@ impl WorkspaceCommandHelper {
     #[cfg(feature = "git")]
     #[instrument(skip_all)]
     fn import_git_refs(&mut self, ui: &Ui) -> Result<(), CommandError> {
-        let git_settings = self.settings().git_settings()?;
+        use jj_lib::git;
+        let git_settings = git::GitSettings::from_settings(self.settings())?;
         let mut tx = self.start_transaction();
-        let stats = jj_lib::git::import_refs(tx.repo_mut(), &git_settings)?;
+        let stats = git::import_refs(tx.repo_mut(), &git_settings)?;
         crate::git_util::print_git_import_stats(ui, tx.repo(), &stats, false)?;
         if !tx.repo().has_changes() {
             return Ok(());

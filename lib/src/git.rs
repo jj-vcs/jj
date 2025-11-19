@@ -37,6 +37,7 @@ use crate::backend::BackendResult;
 use crate::backend::CommitId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
+use crate::config::ConfigGetError;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::git_backend::GitBackend;
@@ -64,7 +65,8 @@ use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
 use crate::revset::RevsetExpression;
-use crate::settings::GitSettings;
+use crate::settings::RemoteSettings;
+use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::str_util::StringPattern;
 use crate::view::View;
@@ -78,6 +80,28 @@ const UNBORN_ROOT_REF_NAME: &str = "refs/jj/root";
 /// Dummy file to be added to the index to indicate that the user is editing a
 /// commit with a conflict that isn't represented in the Git index.
 const INDEX_DUMMY_CONFLICT_FILE: &str = ".jj-do-not-resolve-this-conflict";
+
+#[derive(Clone, Debug)]
+pub struct GitSettings {
+    // TODO: Delete in jj 0.42.0+
+    pub auto_local_bookmark: bool,
+    pub abandon_unreachable_commits: bool,
+    pub executable_path: PathBuf,
+    pub write_change_id_header: bool,
+    pub remotes: HashMap<RemoteNameBuf, RemoteSettings>,
+}
+
+impl GitSettings {
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(Self {
+            auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
+            abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
+            executable_path: settings.get("git.executable-path")?,
+            write_change_id_header: settings.get("git.write-change-id-header")?,
+            remotes: RemoteSettings::table_from_settings(settings)?,
+        })
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum GitRemoteNameError {

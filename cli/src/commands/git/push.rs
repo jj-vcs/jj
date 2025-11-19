@@ -31,6 +31,7 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitPushStats;
+use jj_lib::git::GitSettings;
 use jj_lib::index::IndexResult;
 use jj_lib::op_store::RefTarget;
 use jj_lib::operation::Operation;
@@ -445,7 +446,7 @@ pub fn cmd_git_push(
     let targets = GitBranchPushTargets {
         branch_updates: bookmark_updates,
     };
-    let git_settings = tx.settings().git_settings()?;
+    let git_settings = GitSettings::from_settings(tx.settings())?;
     let push_stats = with_remote_git_callbacks(ui, |cb| {
         git::push_branches(tx.repo_mut(), &git_settings, remote, &targets, cb)
     })?;

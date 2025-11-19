@@ -23,6 +23,7 @@ use itertools::Itertools as _;
 use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::GitRefKind;
+use jj_lib::git::GitSettings;
 use jj_lib::git::parse_git_ref;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
@@ -233,7 +234,7 @@ fn init_git_refs(
     string_args: &[String],
     colocated: bool,
 ) -> Result<Arc<ReadonlyRepo>, CommandError> {
-    let mut git_settings = repo.settings().git_settings()?;
+    let mut git_settings = GitSettings::from_settings(repo.settings())?;
     let mut tx = start_repo_transaction(&repo, string_args);
     // There should be no old refs to abandon, but enforce it.
     git_settings.abandon_unreachable_commits = false;

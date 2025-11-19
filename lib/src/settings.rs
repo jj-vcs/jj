@@ -15,7 +15,6 @@
 #![expect(missing_docs)]
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -58,28 +57,6 @@ struct UserSettingsData {
     operation_username: String,
     signing_behavior: SignBehavior,
     signing_key: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct GitSettings {
-    // TODO: Delete in jj 0.42.0+
-    pub auto_local_bookmark: bool,
-    pub abandon_unreachable_commits: bool,
-    pub executable_path: PathBuf,
-    pub write_change_id_header: bool,
-    pub remotes: HashMap<RemoteNameBuf, RemoteSettings>,
-}
-
-impl GitSettings {
-    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        Ok(Self {
-            auto_local_bookmark: settings.get_bool("git.auto-local-bookmark")?,
-            abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
-            executable_path: settings.get("git.executable-path")?,
-            write_change_id_header: settings.get("git.write-change-id-header")?,
-            remotes: RemoteSettings::table_from_settings(settings)?,
-        })
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -249,10 +226,6 @@ impl UserSettings {
     /// You should typically use `settings.get_<type>()` methods instead.
     pub fn config(&self) -> &StackedConfig {
         &self.config
-    }
-
-    pub fn git_settings(&self) -> Result<GitSettings, ConfigGetError> {
-        GitSettings::from_settings(self)
     }
 
     pub fn remote_settings(

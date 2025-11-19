@@ -75,6 +75,7 @@ use crate::file_util;
 use crate::file_util::BadPathEncoding;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::git::GitSettings;
 use crate::index::Index;
 use crate::lock::FileLock;
 use crate::merge::Merge;
@@ -83,7 +84,6 @@ use crate::object_id::ObjectId;
 use crate::repo_path::RepoPath;
 use crate::repo_path::RepoPathBuf;
 use crate::repo_path::RepoPathComponentBuf;
-use crate::settings::GitSettings;
 use crate::settings::UserSettings;
 use crate::stacked_table::MutableTable;
 use crate::stacked_table::ReadonlyTable;
@@ -217,9 +217,8 @@ impl GitBackend {
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::InitRepository)?;
-        let git_settings = settings
-            .git_settings()
-            .map_err(GitBackendInitError::Config)?;
+        let git_settings =
+            GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
         Self::init_with_repo(store_path, git_repo_path, git_repo, git_settings)
     }
 
@@ -244,9 +243,8 @@ impl GitBackend {
         )
         .map_err(GitBackendInitError::InitRepository)?;
         let git_repo_path = workspace_root.join(".git");
-        let git_settings = settings
-            .git_settings()
-            .map_err(GitBackendInitError::Config)?;
+        let git_settings =
+            GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
         Self::init_with_repo(store_path, &git_repo_path, git_repo, git_settings)
     }
 
@@ -267,9 +265,8 @@ impl GitBackend {
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::OpenRepository)?;
-        let git_settings = settings
-            .git_settings()
-            .map_err(GitBackendInitError::Config)?;
+        let git_settings =
+            GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
         Self::init_with_repo(store_path, git_repo_path, git_repo, git_settings)
     }
 
@@ -326,9 +323,8 @@ impl GitBackend {
         )
         .map_err(GitBackendLoadError::OpenRepository)?;
         let extra_metadata_store = TableStore::load(store_path.join("extra"), HASH_LENGTH);
-        let git_settings = settings
-            .git_settings()
-            .map_err(GitBackendLoadError::Config)?;
+        let git_settings =
+            GitSettings::from_settings(settings).map_err(GitBackendLoadError::Config)?;
         Ok(Self::new(repo, extra_metadata_store, git_settings))
     }
 

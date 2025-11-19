@@ -21,6 +21,7 @@ use std::path::Path;
 use jj_lib::git;
 use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
+use jj_lib::git::GitSettings;
 use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
@@ -311,7 +312,7 @@ fn fetch_new_remote(
         workspace_command.workspace_root().display()
     )?;
     let settings = workspace_command.settings();
-    let git_settings = settings.git_settings()?;
+    let git_settings = GitSettings::from_settings(settings)?;
     let should_track_default = settings.get_bool("git.track-default-bookmark-on-clone")?;
     let mut tx = workspace_command.start_transaction();
     let (default_branch, import_stats) = {

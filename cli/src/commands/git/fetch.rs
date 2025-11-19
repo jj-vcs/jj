@@ -19,6 +19,7 @@ use itertools::Itertools as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitFetch;
+use jj_lib::git::GitSettings;
 use jj_lib::git::IgnoredRefspec;
 use jj_lib::git::IgnoredRefspecs;
 use jj_lib::git::expand_default_fetch_refspecs;
@@ -158,7 +159,7 @@ pub fn cmd_git_fetch(
         }
     };
 
-    let git_settings = tx.settings().git_settings()?;
+    let git_settings = GitSettings::from_settings(tx.settings())?;
     let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
 
     for (remote, expanded) in expansions {

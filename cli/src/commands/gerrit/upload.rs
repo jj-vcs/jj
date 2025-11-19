@@ -22,8 +22,9 @@ use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::git;
 use jj_lib::git::GitRefUpdate;
-use jj_lib::git::{self};
+use jj_lib::git::GitSettings;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
@@ -213,7 +214,7 @@ pub fn cmd_gerrit_upload(
         .heads(&mut revisions.iter())
         .map_err(internal_error)?;
 
-    let git_settings = command.settings().git_settings()?;
+    let git_settings = GitSettings::from_settings(command.settings())?;
     let remote = calculate_push_remote(&store, command.settings(), args.remote.as_deref())?;
     let remote_branch = calculate_push_ref(command.settings(), args.remote_branch.clone())?;
 
