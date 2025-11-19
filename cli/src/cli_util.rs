@@ -2101,10 +2101,6 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
         description: impl Into<String>,
         _git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), CommandError> {
-        if !tx.repo().has_changes() {
-            writeln!(ui.status(), "Nothing changed.")?;
-            return Ok(());
-        }
         let num_rebased = tx.repo_mut().rebase_descendants()?;
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
@@ -2539,6 +2535,10 @@ impl WorkspaceCommandTransaction<'_> {
     }
 
     pub fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {
+        if !self.tx.repo().has_changes() {
+            writeln!(ui.status(), "Nothing changed.")?;
+            return Ok(());
+        }
         // Acquire git import/export lock before finishing the transaction to ensure
         // Git HEAD export happens atomically with the transaction commit.
         let git_import_export_lock = self.helper.lock_git_import_export()?;
