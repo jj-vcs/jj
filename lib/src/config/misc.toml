@@ -14,7 +14,6 @@ abandon-unreachable-commits = true
 auto-local-bookmark = false
 executable-path = "git"
 write-change-id-header = true
-colocate = true
 
 [merge]
 hunk-level = "line"

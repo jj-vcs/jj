@@ -118,7 +118,7 @@ pub fn cmd_git_init(
         .and_then(|_| dunce::canonicalize(wc_path))
         .map_err(|e| user_error_with_message("Failed to create workspace", e))?;
 
-    let colocate = if command.settings().git_settings()?.colocate {
+    let colocate = if command.settings().get_bool("git.colocate")? {
         !args.no_colocate
     } else {
         args.colocate

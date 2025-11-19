@@ -17,6 +17,7 @@ context = 3
 context = 3
 
 [git]
+colocate = true
 private-commits = "none()"
 push-new-bookmarks = false
 sign-on-push = false

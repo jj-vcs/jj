@@ -67,7 +67,6 @@ pub struct GitSettings {
     pub abandon_unreachable_commits: bool,
     pub executable_path: PathBuf,
     pub write_change_id_header: bool,
-    pub colocate: bool,
     pub remotes: HashMap<RemoteNameBuf, RemoteSettings>,
 }
 
@@ -78,7 +77,6 @@ impl GitSettings {
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             executable_path: settings.get("git.executable-path")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
-            colocate: settings.get("git.colocate")?,
             remotes: RemoteSettings::table_from_settings(settings)?,
         })
     }

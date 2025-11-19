@@ -160,7 +160,7 @@ pub fn cmd_git_clone(
     fs::create_dir_all(&wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
-    let colocate = if command.settings().git_settings()?.colocate {
+    let colocate = if command.settings().get_bool("git.colocate")? {
         !args.no_colocate
     } else {
         args.colocate
