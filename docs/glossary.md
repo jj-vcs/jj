@@ -49,10 +49,16 @@ ID is a property of a commit.
 
 ## Change ID
 
-A change ID is a unique identifier for a [change](#change). They are typically
-16 bytes long and are often randomly generated. By default, `jj log` presents
-them as a sequence of 12 letters in the k-z range, at the beginning of a line.
-These are actually hexadecimal numbers that use "digits" z-k instead of 0-9a-f.
+A change ID is a unique identifier for a [change](#change).
+
+A change id typically consists of 16 bytes of information, usually
+randomly generated when a change is created. A full change id, as shown
+by e.g. `jj show`, is displayed to the user as a sequence of 32 letters
+in the `k-z` range. These are actually hexadecimal numbers that use
+"digits" z-k instead of 0-9a-f.
+
+By default, `jj log` presents a 12-letter prefix of the 32-letter change
+id, at the beginning of a line.
 
 ## Commit
 
