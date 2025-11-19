@@ -128,8 +128,8 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     [EOF]
     "###);
 
-    // The output should be unchanged because we only add Change-Id trailers
-    // transiently
+    // The output should be unchanged because commits created within 'upload'
+    // should all be temporary
     let output = local_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r###"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:14 c 9590bf26
@@ -240,8 +240,8 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     [EOF]
     "###);
 
-    // The output should be unchanged because no temporary commits should have
-    // been created
+    // The output should be unchanged because commits created within 'upload'
+    // should all be temporary
     let output = local_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @r###"
     @  vruxwmqv test.user@example.com 2001-02-03 08:05:16 c 27c0bdd0
@@ -258,7 +258,7 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     // the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
     insta::assert_snapshot!(output, @r###"
-    commit 27c0bdd070a0dd4aec5a22bd3ea454cd2502f430
+    commit ab2262125f7e2db50ec2646e949beba54219d345
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:14 2001 +0700
 
@@ -266,13 +266,110 @@ fn test_gerrit_upload_local_explicit_change_ids() {
         
         Change-Id: Idfac1e8c149efddf5c7a286f787b43886a6a6964
 
-    commit 887a7016ec03a904835da1059543d8cc34b6ba76
+    commit 22bbfff17a982c9b8f18cc8cbcd59ec833827c41
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:11 2001 +0700
 
         b
         
         Change-Id: Id39b308212fe7e0b746d16c13355f3a90712d7f9
+
+    commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Author: Test User <test.user@example.com>
+    Date:   Sat Feb 3 04:05:08 2001 +0700
+
+        a
+    [EOF]
+    "###);
+}
+
+#[test]
+fn test_gerrit_upload_local_mixed_change_ids() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "a", &[]);
+
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    create_commit(&local_dir, "b", &["a@origin"]);
+    create_commit(&local_dir, "c", &["b"]);
+
+    // Add an explicit Change-Id footer to c but not b
+    let output = local_dir.run_jj([
+        "describe",
+        "c",
+        "-m",
+        "c\n\nChange-Id: Id39b308212fe7e0b746d16c13355f3a90712d7f9\n",
+    ]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Working copy  (@) now at: yqosqzyt 8d46d915 c | c
+    Parent commit (@-)      : mzvwutvl 3bcb28c4 b | b
+    [EOF]
+    "###);
+
+    // The output should only mention commit IDs from the log output above (no
+    // temporary commits)
+    let output = local_dir.run_jj(["log", "-r", "all()"]);
+    insta::assert_snapshot!(output, @r###"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c 8d46d915
+    │  c
+    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
+    │  b
+    ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
+    │  a
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    "###);
+
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+
+    Pushing yqosqzyt 8d46d915 c | c
+    [EOF]
+    "###);
+
+    // The output should be unchanged because commits created within 'upload'
+    // should all be temporary
+    let output = local_dir.run_jj(["log", "-r", "all()"]);
+    insta::assert_snapshot!(output, @r###"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c 8d46d915
+    │  c
+    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
+    │  b
+    ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
+    │  a
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    "###);
+
+    // There's no particular reason to run this with jj util exec, it's just that
+    // the infra makes it easier to run this way.
+    let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
+    insta::assert_snapshot!(output, @r###"
+    commit 015df2b1d38bdc71ae7ef24c2889100e39d34ef8
+    Author: Test User <test.user@example.com>
+    Date:   Sat Feb 3 04:05:13 2001 +0700
+
+        c
+        
+        Change-Id: Id39b308212fe7e0b746d16c13355f3a90712d7f9
+
+    commit 81b723522d1c1a583a045eab5bfb323e45e6198d
+    Author: Test User <test.user@example.com>
+    Date:   Sat Feb 3 04:05:11 2001 +0700
+
+        b
+        
+        Change-Id: Id043564ef93650b06a70f92f9d91912b6a6a6964
 
     commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     Author: Test User <test.user@example.com>
