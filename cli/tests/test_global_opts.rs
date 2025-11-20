@@ -600,8 +600,8 @@ fn test_color_ui_messages() {
     let output = work_dir.run_jj(["st", "--color", "debug"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : [1m[38;5;13m<<commit working_copy change_id shortest prefix::m>>[38;5;8m<<commit working_copy change_id shortest rest::zvwutvl>>[39m<<commit working_copy:: >>[38;5;12m<<commit working_copy commit_id shortest prefix::8>>[38;5;8m<<commit working_copy commit_id shortest rest::afc18ff>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty::(empty)>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty description placeholder::(no description set)>>[0m
-    Parent commit (@-): [1m[38;5;5m<<commit change_id shortest prefix::q>>[0m[38;5;8m<<commit change_id shortest rest::pvuntsm>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::e>>[0m[38;5;8m<<commit commit_id shortest rest::8849ae1>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >>[38;5;2m<<commit empty description placeholder::(no description set)>>[39m
+    Working copy  (@) : [1m[38;5;13m<<commit working_copy change_id shortest prefix::m>>[38;5;8m<<commit working_copy change_id shortest rest::zvwutvl>>[39m<<commit working_copy:: >>[38;5;12m<<commit working_copy revision_id shortest prefix::8>>[38;5;8m<<commit working_copy revision_id shortest rest::afc18ff>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty::(empty)>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty description placeholder::(no description set)>>[0m
+    Parent commit (@-): [1m[38;5;5m<<commit change_id shortest prefix::q>>[0m[38;5;8m<<commit change_id shortest rest::pvuntsm>>[39m<<commit:: >>[1m[38;5;4m<<commit revision_id shortest prefix::e>>[0m[38;5;8m<<commit revision_id shortest rest::8849ae1>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >>[38;5;2m<<commit empty description placeholder::(no description set)>>[39m
     [EOF]
     ");
 
@@ -610,7 +610,7 @@ fn test_color_ui_messages() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 1 commits as follows:
-      [1m[38;5;5m<<commit change_id shortest prefix::y>>[0m[38;5;8m<<commit change_id shortest rest::ostqsxw>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::8b>>[0m[38;5;8m<<commit commit_id shortest rest::f82eec>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >><<commit description first_line::Revert "">>
+      [1m[38;5;5m<<commit change_id shortest prefix::y>>[0m[38;5;8m<<commit change_id shortest rest::ostqsxw>>[39m<<commit:: >>[1m[38;5;4m<<commit revision_id shortest prefix::ed>>[0m[38;5;8m<<commit revision_id shortest rest::f58be3>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >><<commit description first_line::Revert "">>
     [EOF]
     "#);
 }
@@ -930,11 +930,21 @@ fn test_default_config() {
         &test_env.work_dir(""),
         &["config", "list", r#"-Tname ++ "\n""#],
     );
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r#"
     operation.hostname
     operation.username
+    template-aliases.builtin_draft_commit_description
+    template-aliases.commit_summary_separator
+    template-aliases."commit_timestamp(commit)"
+    template-aliases.default_commit_description
+    template-aliases."format_commit_summary_with_refs(commit, refs)"
+    template-aliases."format_root_commit(root)"
+    template-aliases."format_short_commit_header_redacted(commit)"
+    template-aliases."format_short_commit_header(commit)"
+    template-aliases."format_short_commit_id(id)"
+    template-aliases.empty_commit_marker
     [EOF]
-    ");
+    "#);
 
     let output = run_jj(&test_env.work_dir(""), &["git", "init", "repo"]);
     insta::assert_snapshot!(output, @r#"

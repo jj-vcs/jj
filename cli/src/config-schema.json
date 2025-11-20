@@ -865,11 +865,11 @@
                     "type": "string",
                     "description": "`jj bookmark list`'s output"
                 },
-                "commit_summary": {
+                "revision_summary": {
                     "type": "string",
-                    "description": "The short commit summary used by many commands"
+                    "description": "The short revision summary used by many commands"
                 },
-                "commit_trailers": {
+                "revision_trailers": {
                     "type": "string",
                     "description": "Trailers that will be appended to a commit's description"
                 },
@@ -881,7 +881,7 @@
                     "type": "string",
                     "description": "`jj config list`'s output"
                 },
-                "draft_commit_description": {
+                "draft_revision_description": {
                     "type": "string",
                     "description": "The draft commit description opened in an editor"
                 },

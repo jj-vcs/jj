@@ -72,7 +72,7 @@ fn test_commit_with_editor() {
     add files
 
     JJ: Change ID: kkmpptxz
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:     A file2
     JJ:
@@ -187,7 +187,7 @@ fn test_commit_interactive() {
     add files
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -208,7 +208,7 @@ fn test_commit_interactive() {
     add files
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -265,7 +265,7 @@ fn test_commit_interactive_with_paths() {
     edit
 
     JJ: Change ID: rlvkpnrz
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -308,7 +308,7 @@ fn test_commit_with_default_description() {
     ◆  000000000000
     [EOF]
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     [EOF]
     "#);
     insta::assert_snapshot!(
@@ -316,7 +316,7 @@ fn test_commit_with_default_description() {
     TESTED=TODO
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:     A file2
     JJ:
@@ -332,7 +332,7 @@ fn test_commit_with_description_template() {
     test_env.add_config(
         r#"
         [templates]
-        draft_commit_description = '''
+        draft_revision_description = '''
         concat(
           description,
           "\n",
@@ -513,14 +513,14 @@ fn test_commit_reset_author() {
 }
 
 #[test]
-fn test_commit_trailers() {
+fn test_revision_trailers() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     test_env.add_config(
         r#"[templates]
-        commit_trailers = '''"Reviewed-by: " ++ self.committer().email()'''"#,
+        revision_trailers = '''"Reviewed-by: " ++ self.committer().email()'''"#,
     );
     work_dir.write_file("file1", "foo\n");
 
@@ -607,7 +607,7 @@ fn test_commit_with_editor_and_message_args() {
     message from command line
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -646,11 +646,10 @@ fn test_commit_with_editor_and_empty_message() {
     // Verify editor was opened with trailers added to the empty message
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
-
     Trailer: value
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -674,7 +673,7 @@ fn test_commit_with_editor_without_message() {
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.

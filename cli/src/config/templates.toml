@@ -12,24 +12,24 @@ if(remote,
 ) ++ "\n"
 '''
 
-commit_summary = 'format_commit_summary_with_refs(self, bookmarks)'
+revision_summary = 'format_revision_summary_with_refs(self, bookmarks)'
 
 file_annotate = '''
 separate(" ",
   commit.change_id().shortest(8),
   pad_end(8, truncate_end(8, commit.author().email().local())),
-  commit_timestamp(commit).local().format('%Y-%m-%d %H:%M:%S'),
+  revision_timestamp(commit).local().format('%Y-%m-%d %H:%M:%S'),
   pad_start(4, line_number),
 ) ++ ": " ++ content
 '''
 
 config_list = 'builtin_config_list'
 
-draft_commit_description = 'builtin_draft_commit_description'
+draft_revision_description = 'builtin_draft_revision_description'
 
 duplicate_description = 'description'
 
-commit_trailers = ''
+revision_trailers = ''
 
 evolog = 'builtin_evolog_compact'
 
@@ -49,7 +49,7 @@ revert_description = '''
 concat(
   'Revert "' ++ description.first_line() ++ '"' ++ "\n",
   "\n",
-  "This reverts commit " ++ commit_id ++ ".\n",
+  "This reverts revision " ++ revision_id ++ ".\n",
 )
 '''
 
@@ -58,7 +58,7 @@ label("tag", name) ++ format_ref_targets(self) ++ "\n"
 '''
 
 workspace_list = '''
-name ++ ": " ++ format_commit_summary_with_refs(target, target.bookmarks()) ++ "\n"
+name ++ ": " ++ format_revision_summary_with_refs(target, target.bookmarks()) ++ "\n"
 '''
 
 op_summary = '''
@@ -114,13 +114,13 @@ label(if(overridden, "overridden"),
   format_config_item(self) ++ " # " ++ separate(" ", source, path) ++ "\n")
 '''
 
-builtin_draft_commit_description = '''
+builtin_draft_revision_description = '''
 concat(
-  coalesce(description, default_commit_description, "\n"),
+  coalesce(description, default_revision_description, "\n"),
   "\n",
   "JJ: Change ID: " ++ format_short_change_id(change_id) ++ "\n",
   surround(
-    "JJ: This commit contains the following changes:\n", "",
+    "JJ: This revision contains the following changes:\n", "",
     indent("JJ:     ", diff.summary()),
   ),
 )
@@ -141,32 +141,32 @@ concat(
 '''
 
 builtin_log_oneline = 'builtin_log_oneline(self)'
-'builtin_log_oneline(commit)' = '''
-if(commit.root(),
-  format_root_commit(commit),
+'builtin_log_oneline(revision)' = '''
+if(revision.root(),
+  format_root_revision(revision),
   label(
     separate(" ",
-      if(commit.current_working_copy(), "working_copy"),
-      if(commit.immutable(), "immutable", "mutable"),
-      if(commit.conflict(), "conflicted"),
+      if(revision.current_working_copy(), "working_copy"),
+      if(revision.immutable(), "immutable", "mutable"),
+      if(revision.conflict(), "conflicted"),
     ),
     concat(
       separate(" ",
-        format_short_change_id_with_hidden_and_divergent_info(commit),
-        format_short_signature_oneline(commit.author()),
-        format_timestamp(commit_timestamp(commit)),
-        commit.bookmarks(),
-        commit.tags(),
-        commit.working_copies(),
-        if(commit.git_head(), label("git_head", "git_head()")),
-        format_short_commit_id(commit.commit_id()),
-        if(commit.conflict(), label("conflict", "conflict")),
+        format_short_change_id_with_hidden_and_divergent_info(revision),
+        format_short_signature_oneline(revision.author()),
+        format_timestamp(revision_timestamp(revision)),
+        revision.bookmarks(),
+        revision.tags(),
+        revision.working_copies(),
+        if(revision.git_head(), label("git_head", "git_head()")),
+        format_short_revision_id(revision.revision_id()),
+        if(revision.conflict(), label("conflict", "conflict")),
         if(config("ui.show-cryptographic-signatures").as_boolean(),
-          format_short_cryptographic_signature(commit.signature())),
-        if(commit.empty(), empty_commit_marker),
-        if(commit.description(),
-          commit.description().first_line(),
-          label(if(commit.empty(), "empty"), description_placeholder),
+          format_short_cryptographic_signature(revision.signature())),
+        if(revision.empty(), empty_revision_marker),
+        if(revision.description(),
+          revision.description().first_line(),
+          label(if(revision.empty(), "empty"), description_placeholder),
         ),
       ) ++ "\n",
     ),
@@ -175,22 +175,22 @@ if(commit.root(),
 '''
 
 builtin_log_compact = 'builtin_log_compact(self)'
-'builtin_log_compact(commit)' = '''
-if(commit.root(),
-  format_root_commit(commit),
+'builtin_log_compact(revision)' = '''
+if(revision.root(),
+  format_root_revision(revision),
   label(
     separate(" ",
-      if(commit.current_working_copy(), "working_copy"),
-      if(commit.immutable(), "immutable", "mutable"),
-      if(commit.conflict(), "conflicted"),
+      if(revision.current_working_copy(), "working_copy"),
+      if(revision.immutable(), "immutable", "mutable"),
+      if(revision.conflict(), "conflicted"),
     ),
     concat(
-      format_short_commit_header(commit) ++ "\n",
+      format_short_revision_header(revision) ++ "\n",
       separate(" ",
-        if(commit.empty(), empty_commit_marker),
-        if(commit.description(),
-          commit.description().first_line(),
-          label(if(commit.empty(), "empty"), description_placeholder),
+        if(revision.empty(), empty_revision_marker),
+        if(revision.description(),
+          revision.description().first_line(),
+          label(if(revision.empty(), "empty"), description_placeholder),
         ),
       ) ++ "\n",
     ),
@@ -199,19 +199,19 @@ if(commit.root(),
 '''
 
 builtin_log_redacted = 'builtin_log_redacted(self)'
-'builtin_log_redacted(commit)' = '''
-if(commit.root(),
-  format_root_commit(commit),
+'builtin_log_redacted(revision)' = '''
+if(revision.root(),
+  format_root_revision(revision),
   label(
     separate(" ",
-      if(commit.current_working_copy(), "working_copy"),
-      if(commit.immutable(), "immutable", "mutable"),
-      if(commit.conflict(), "conflicted"),
+      if(revision.current_working_copy(), "working_copy"),
+      if(revision.immutable(), "immutable", "mutable"),
+      if(revision.conflict(), "conflicted"),
     ),
     concat(
-      format_short_commit_header_redacted(commit) ++ "\n",
+      format_short_revision_header_redacted(revision) ++ "\n",
       separate(" ",
-        if(commit.empty(), empty_commit_marker),
+        if(revision.empty(), empty_revision_marker),
         label("description", "(redacted)"),
       ) ++ "\n",
     ),
@@ -220,22 +220,22 @@ if(commit.root(),
 '''
 
 builtin_log_compact_full_description = 'builtin_log_compact_full_description(self)'
-'builtin_log_compact_full_description(commit)' = '''
-if(commit.root(),
-  format_root_commit(commit),
+'builtin_log_compact_full_description(revision)' = '''
+if(revision.root(),
+  format_root_revision(revision),
   label(
     separate(" ",
-      if(commit.current_working_copy(), "working_copy"),
-      if(commit.immutable(), "immutable", "mutable"),
-      if(commit.conflict(), "conflicted"),
+      if(revision.current_working_copy(), "working_copy"),
+      if(revision.immutable(), "immutable", "mutable"),
+      if(revision.conflict(), "conflicted"),
     ),
     concat(
-      format_short_commit_header(commit) ++ "\n",
+      format_short_revision_header(revision) ++ "\n",
       separate(" ",
-        if(commit.empty(), empty_commit_marker),
-        if(commit.description(),
-          commit.description().trim_end() ++ "\n",
-          label(if(commit.empty(), "empty"), description_placeholder),
+        if(revision.empty(), empty_revision_marker),
+        if(revision.description(),
+          revision.description().trim_end() ++ "\n",
+          label(if(revision.empty(), "empty"), description_placeholder),
         ),
       ) ++ "\n",
     ),
@@ -245,21 +245,21 @@ if(commit.root(),
 
 builtin_log_comfortable = 'builtin_log_compact ++ "\n"'
 builtin_log_detailed = 'builtin_log_detailed(self)'
-'builtin_log_detailed(commit)' = '''
+'builtin_log_detailed(revision)' = '''
 concat(
-  "Commit ID: " ++ commit.commit_id() ++ "\n",
-  "Change ID: " ++ commit.change_id() ++ "\n",
-  surround("Bookmarks: ", "\n", separate(" ", commit.local_bookmarks(), commit.remote_bookmarks())),
-  surround("Tags     : ", "\n", commit.tags()),
-  "Author   : " ++ format_detailed_signature(commit.author()) ++ "\n",
-  "Committer: " ++ format_detailed_signature(commit.committer())  ++ "\n",
+  "Revision ID: " ++ revision.revision_id() ++ "\n",
+  "Change ID  : " ++ revision.change_id() ++ "\n",
+  surround("Bookmarks  : ", "\n", separate(" ", revision.local_bookmarks(), revision.remote_bookmarks())),
+  surround("Tags       : ", "\n", revision.tags()),
+  "Author     : " ++ format_detailed_signature(revision.author()) ++ "\n",
+  "Committer  : " ++ format_detailed_signature(revision.committer())  ++ "\n",
   if(config("ui.show-cryptographic-signatures").as_boolean(),
-    "Signature: " ++ format_detailed_cryptographic_signature(commit.signature()) ++ "\n"),
+    "Signature  : " ++ format_detailed_cryptographic_signature(revision.signature()) ++ "\n"),
   "\n",
   indent("    ",
-    if(commit.description(),
-      commit.description().trim_end(),
-      label(if(commit.empty(), "empty"), description_placeholder)) ++ "\n"),
+    if(revision.description(),
+      revision.description().trim_end(),
+      label(if(revision.empty(), "empty"), description_placeholder)) ++ "\n"),
   "\n",
 )
 '''
@@ -297,18 +297,18 @@ label(if(op.current_operation(), "current_operation"),
 )
 '''
 
-default_commit_description = '""'
-empty_commit_marker = 'label("empty", "(empty)")'
+default_revision_description = '""'
+empty_revision_marker = 'label("empty", "(empty)")'
 description_placeholder = 'label("description placeholder", "(no description set)")'
 email_placeholder = 'label("email placeholder", "(no email set)")'
 name_placeholder = 'label("name placeholder", "(no name set)")'
-commit_summary_separator = 'label("separator", " | ")'
+revision_summary_separator = 'label("separator", " | ")'
 
 # Hook points for users to customize the default templates:
-'commit_timestamp(commit)' = 'commit.committer().timestamp()'
+'revision_timestamp(revision)' = 'revision.committer().timestamp()'
 'format_short_id(id)' = 'id.shortest(8)'
 'format_short_change_id(id)' = 'format_short_id(id)'
-'format_short_commit_id(id)' = 'format_short_id(id)'
+'format_short_revision_id(id)' = 'format_short_id(id)'
 'format_short_operation_id(id)' = 'id.short()'
 'format_path(path)' = 'path.display()'
 'format_short_signature(signature)' = '''
@@ -328,19 +328,19 @@ commit_summary_separator = 'label("separator", " | ")'
   time_range.end().ago() ++ label("time", ", lasted ") ++ time_range.duration()'''
 'format_timestamp(timestamp)' = 'timestamp.local().format("%Y-%m-%d %H:%M:%S")'
 
-'format_commit_summary_with_refs(commit, refs)' = '''
-label(if(commit.current_working_copy(), "working_copy"),
+'format_revision_summary_with_refs(revision, refs)' = '''
+label(if(revision.current_working_copy(), "working_copy"),
   separate(" ",
-    format_short_change_id_with_hidden_and_divergent_info(commit),
-    format_short_commit_id(commit.commit_id()),
-    separate(commit_summary_separator,
+    format_short_change_id_with_hidden_and_divergent_info(revision),
+    format_short_revision_id(revision.revision_id()),
+    separate(revision_summary_separator,
       refs,
       separate(" ",
-        if(commit.conflict(), label("conflict", "(conflict)")),
-        if(commit.empty(), empty_commit_marker),
-        if(commit.description(),
-          commit.description().first_line(),
-          label(if(commit.empty(), "empty"), description_placeholder),
+        if(revision.conflict(), label("conflict", "(conflict)")),
+        if(revision.empty(), empty_revision_marker),
+        if(revision.description(),
+          revision.description().first_line(),
+          label(if(revision.empty(), "empty"), description_placeholder),
         ),
       ),
     ),
@@ -348,12 +348,12 @@ label(if(commit.current_working_copy(), "working_copy"),
 )
 '''
 
-'format_root_commit(root)' = '''
+'format_root_revision(root)' = '''
 label("immutable",
   separate(" ",
     format_short_change_id(root.change_id()),
     label("root", "root()"),
-    format_short_commit_id(root.commit_id()),
+    format_short_revision_id(root.revision_id()),
     root.bookmarks(),
   ) ++ "\n"
 )
@@ -363,10 +363,10 @@ label("immutable",
 if(ref.conflict(),
   separate("\n",
     " " ++ label("conflict", "(conflicted)") ++ ":",
-    ref.removed_targets().map(|c| "  - " ++ format_commit_summary_with_refs(c, "")).join("\n"),
-    ref.added_targets().map(|c| "  + " ++ format_commit_summary_with_refs(c, "")).join("\n"),
+    ref.removed_targets().map(|c| "  - " ++ format_revision_summary_with_refs(c, "")).join("\n"),
+    ref.added_targets().map(|c| "  + " ++ format_revision_summary_with_refs(c, "")).join("\n"),
   ),
-  ": " ++ format_commit_summary_with_refs(ref.normal_target(), ""),
+  ": " ++ format_revision_summary_with_refs(ref.normal_target(), ""),
 )
 '''
 
@@ -374,12 +374,12 @@ if(ref.conflict(),
 if(ref.tracking_present(), surround("(", ")", separate(", ",
   if(!ref.tracking_ahead_count().zero(),
     if(ref.tracking_ahead_count().exact(),
-      "ahead by " ++ ref.tracking_ahead_count().exact() ++ " commits",
-      "ahead by at least " ++ ref.tracking_ahead_count().lower() ++ " commits")),
+      "ahead by " ++ ref.tracking_ahead_count().exact() ++ " revisions",
+      "ahead by at least " ++ ref.tracking_ahead_count().lower() ++ " revisions")),
   if(!ref.tracking_behind_count().zero(),
     if(ref.tracking_behind_count().exact(),
-      "behind by " ++ ref.tracking_behind_count().exact() ++ " commits",
-      "behind by at least " ++ ref.tracking_behind_count().lower() ++ " commits")),
+      "behind by " ++ ref.tracking_behind_count().exact() ++ " revisions",
+      "behind by at least " ++ ref.tracking_behind_count().lower() ++ " revisions")),
 )))
 '''
 
@@ -413,53 +413,53 @@ separate(" ",
 
 # We have "hidden" override "divergent", since a hidden revision does not cause
 # change id conflicts and is not affected by such conflicts; you have to use the
-# commit id to refer to a hidden revision regardless.
-'format_short_change_id_with_hidden_and_divergent_info(commit)' = '''
-if(commit.hidden(),
+# revision id to refer to a hidden revision regardless.
+'format_short_change_id_with_hidden_and_divergent_info(revision)' = '''
+if(revision.hidden(),
   label("hidden",
-    format_short_change_id(commit.change_id()) ++ " hidden"
+    format_short_change_id(revision.change_id()) ++ " hidden"
   ),
-  label(if(commit.divergent(), "divergent"),
-    format_short_change_id(commit.change_id()) ++ if(commit.divergent(), "??")
+  label(if(revision.divergent(), "divergent"),
+    format_short_change_id(revision.change_id()) ++ if(revision.divergent(), "??")
   )
 )
 '''
 
-'format_short_commit_header(commit)' = '''
+'format_short_revision_header(revision)' = '''
 separate(" ",
-  format_short_change_id_with_hidden_and_divergent_info(commit),
-  format_short_signature(commit.author()),
-  format_timestamp(commit_timestamp(commit)),
-  commit.bookmarks(),
-  commit.tags(),
-  commit.working_copies(),
-  if(commit.git_head(), label("git_head", "git_head()")),
-  format_short_commit_id(commit.commit_id()),
-  if(commit.conflict(), label("conflict", "conflict")),
+  format_short_change_id_with_hidden_and_divergent_info(revision),
+  format_short_signature(revision.author()),
+  format_timestamp(revision_timestamp(revision)),
+  revision.bookmarks(),
+  revision.tags(),
+  revision.working_copies(),
+  if(revision.git_head(), label("git_head", "git_head()")),
+  format_short_revision_id(revision.revision_id()),
+  if(revision.conflict(), label("conflict", "conflict")),
   if(config("ui.show-cryptographic-signatures").as_boolean(),
-    format_short_cryptographic_signature(commit.signature())),
+    format_short_cryptographic_signature(revision.signature())),
 )
 '''
 
-'format_short_commit_header_redacted(commit)' = '''
+'format_short_revision_header_redacted(revision)' = '''
 separate(" ",
-  format_short_change_id_with_hidden_and_divergent_info(commit),
-  label("author", format_user_redacted(commit.author())),
-  format_timestamp(commit_timestamp(commit)),
-  commit.bookmarks().map(|bookmark| concat(
+  format_short_change_id_with_hidden_and_divergent_info(revision),
+  label("author", format_user_redacted(revision.author())),
+  format_timestamp(revision_timestamp(revision)),
+  revision.bookmarks().map(|bookmark| concat(
     "bookmark-", hash(bookmark.name()).substr(0, 4),
     if(bookmark.remote(),
       "@remote-" ++ hash(bookmark.remote()).substr(0, 4),
       if(!bookmark.synced(), "*")
     )
   )),
-  commit.tags().map(|tag| concat("tag-", hash(tag.name()).substr(0, 4))),
-  commit.working_copies(),
-  if(commit.git_head(), label("git_head", "git_head()")),
-  format_short_commit_id(commit.commit_id()),
-  if(commit.conflict(), label("conflict", "conflict")),
+  revision.tags().map(|tag| concat("tag-", hash(tag.name()).substr(0, 4))),
+  revision.working_copies(),
+  if(revision.git_head(), label("git_head", "git_head()")),
+  format_short_revision_id(revision.revision_id()),
+  if(revision.conflict(), label("conflict", "conflict")),
   if(config("ui.show-cryptographic-signatures").as_boolean(),
-    format_short_cryptographic_signature(commit.signature())),
+    format_short_cryptographic_signature(revision.signature())),
 )
 ''' # TODO: Possibly add some kind of repo-unique salt to the hash methods, if it makes users feel more secure (right now, `main` will always be `branch-c8c7a` for every repo)
 
@@ -548,7 +548,7 @@ coalesce(
 # See https://git-scm.com/docs/git-format-patch#_description
 git_format_patch_email_headers = '''
   concat(
-    "From " ++ commit_id ++ " Mon Sep 17 00:00:00 2001\n",
+    "From " ++ revision_id ++ " Mon Sep 17 00:00:00 2001\n",
     "From: " ++ author ++ "\n",
     "Date: " ++ author.timestamp().format("%a, %-e %b %Y %T %z") ++ "\n",
     "Subject: [PATCH] " ++ description.first_line() ++ "\n",
@@ -560,8 +560,8 @@ git_format_patch_email_headers = '''
   )
 '''
 
-"format_signed_off_by_trailer(commit)" = '"Signed-off-by: " ++ commit.committer() ++ "\n"'
+"format_signed_off_by_trailer(revision)" = '"Signed-off-by: " ++ revision.committer() ++ "\n"'
 
 # Gerrit change id is 40 chars, jj change id is 32, so we need some padding.
 # `6a6a6964` is the hexadecimal of `jjid` in ASCII, just to not pad with zeros.
-"format_gerrit_change_id_trailer(commit)" = '"Change-Id: I" ++ commit.change_id().normal_hex() ++ "6a6a6964\n"'
+"format_gerrit_change_id_trailer(revision)" = '"Change-Id: I" ++ revision.change_id().normal_hex() ++ "6a6a6964\n"'

@@ -105,9 +105,9 @@ fn test_git_push_current_bookmark() {
     // Check the setup
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     bookmark1: qpvuntsm e5ce6d9a (empty) modified bookmark1 commit
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 9b2e76de (empty) description 1
+      @origin (ahead by 1 revisions, behind by 1 revisions): qpvuntsm hidden 9b2e76de (empty) description 1
     bookmark2: yostqsxw 88ca14a7 (empty) foo
-      @origin (behind by 1 commits): zsuskuln 38a20473 (empty) description 2
+      @origin (behind by 1 revisions): zsuskuln 38a20473 (empty) description 2
     my-bookmark: yostqsxw 88ca14a7 (empty) foo
     [EOF]
     ");
@@ -131,7 +131,7 @@ fn test_git_push_current_bookmark() {
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     bookmark1: qpvuntsm e5ce6d9a (empty) modified bookmark1 commit
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 9b2e76de (empty) description 1
+      @origin (ahead by 1 revisions, behind by 1 revisions): qpvuntsm hidden 9b2e76de (empty) description 1
     bookmark2: yostqsxw 88ca14a7 (empty) foo
       @origin: yostqsxw 88ca14a7 (empty) foo
     my-bookmark: yostqsxw 88ca14a7 (empty) foo
@@ -352,7 +352,7 @@ fn test_git_push_sideways_unexpectedly_moved() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&origin_dir), @r"
     bookmark1: vruxwmqv 7ce4029e remote
-      @git (behind by 1 commits): qpvuntsm 9b2e76de (empty) description 1
+      @git (behind by 1 revisions): qpvuntsm 9b2e76de (empty) description 1
     bookmark2: zsuskuln 38a20473 (empty) description 2
       @git: zsuskuln 38a20473 (empty) description 2
     [EOF]
@@ -367,7 +367,7 @@ fn test_git_push_sideways_unexpectedly_moved() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     bookmark1: kmkuslsw 827b8a38 local
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm 9b2e76de (empty) description 1
+      @origin (ahead by 1 revisions, behind by 1 revisions): qpvuntsm 9b2e76de (empty) description 1
     bookmark2: zsuskuln 38a20473 (empty) description 2
       @origin: zsuskuln 38a20473 (empty) description 2
     [EOF]
@@ -420,7 +420,7 @@ fn test_git_push_deletion_unexpectedly_moved() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&origin_dir), @r"
     bookmark1: vruxwmqv 7ce4029e remote
-      @git (behind by 1 commits): qpvuntsm 9b2e76de (empty) description 1
+      @git (behind by 1 revisions): qpvuntsm 9b2e76de (empty) description 1
     bookmark2: zsuskuln 38a20473 (empty) description 2
       @git: zsuskuln 38a20473 (empty) description 2
     [EOF]
@@ -481,7 +481,7 @@ fn test_git_push_unexpectedly_deleted() {
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     bookmark1: kpqxywon 09919fb0 local
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm 9b2e76de (empty) description 1
+      @origin (ahead by 1 revisions, behind by 1 revisions): qpvuntsm 9b2e76de (empty) description 1
     bookmark2: zsuskuln 38a20473 (empty) description 2
       @origin: zsuskuln 38a20473 (empty) description 2
     [EOF]
@@ -632,7 +632,7 @@ fn test_git_push_locally_created_and_rewritten() {
     bookmark2: zsuskuln 38a20473 (empty) description 2
       @origin: zsuskuln 38a20473 (empty) description 2
     my: vruxwmqv 9ebc3217 (empty) local 2
-      @origin (ahead by 1 commits, behind by 1 commits): vruxwmqv hidden e0cba5e4 (empty) local 1
+      @origin (ahead by 1 revisions, behind by 1 revisions): vruxwmqv hidden e0cba5e4 (empty) local 1
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "push"]);
@@ -664,7 +664,7 @@ fn test_git_push_multiple() {
     bookmark1 (deleted)
       @origin: qpvuntsm 9b2e76de (empty) description 1
     bookmark2: yqosqzyt 352fa187 (empty) foo
-      @origin (ahead by 1 commits, behind by 1 commits): zsuskuln 38a20473 (empty) description 2
+      @origin (ahead by 1 revisions, behind by 1 revisions): zsuskuln 38a20473 (empty) description 2
     my-bookmark: yqosqzyt 352fa187 (empty) foo
     [EOF]
     ");
@@ -1762,7 +1762,7 @@ fn test_git_push_conflicting_bookmarks() {
     bookmark2 (conflicted):
       + yostqsxw ebedbe63 (empty) description 3
       + zsuskuln 38a20473 (empty) description 2
-      @origin (behind by 1 commits): zsuskuln 38a20473 (empty) description 2
+      @origin (behind by 1 revisions): zsuskuln 38a20473 (empty) description 2
     [EOF]
     ");
 

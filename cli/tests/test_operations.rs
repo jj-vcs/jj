@@ -193,6 +193,7 @@ fn test_op_log_with_no_template() {
     - builtin_config_list
     - builtin_config_list_detailed
     - builtin_draft_commit_description
+    - builtin_draft_revision_description
     - builtin_evolog_compact
     - builtin_log_comfortable
     - builtin_log_compact
@@ -210,11 +211,14 @@ fn test_op_log_with_no_template() {
     - builtin_op_log_redacted
     - commit_summary_separator
     - default_commit_description
+    - default_revision_description
     - description_placeholder
     - email_placeholder
     - empty_commit_marker
+    - empty_revision_marker
     - git_format_patch_email_headers
     - name_placeholder
+    - revision_summary_separator
     [EOF]
     [exit status: 2]
     ");
@@ -597,7 +601,7 @@ fn test_op_log_word_wrap() {
     ");
 
     // Nested graph widths should be subtracted from the term width
-    let config = r#"templates.commit_summary='"0 1 2 3 4 5 6 7 8 9"'"#;
+    let config = r#"templates.revision_summary='"0 1 2 3 4 5 6 7 8 9"'"#;
     insta::assert_snapshot!(
         render(&["op", "log", "-T''", "--op-diff", "-n1", "--config", config], 15, true), @r"
     @
@@ -1118,10 +1122,10 @@ fn test_op_summary_diff_template() {
       To operation: [38;5;4m<<op_diff operation id short::f8b6a7ee554b>>[39m<<op_diff operation:: (>>[38;5;6m<<op_diff operation time end local format::2001-02-03 08:05:12>>[39m<<op_diff operation::) >><<op_diff operation description first_line::revert operation c5c76cab7d34a454ae4edcf362f6cc7387c87cb20b328e6d50cbcb6c893c6ea9bf76ff792c34e75f1259a33b066fed38df2561e880661d2b35db1bd65e95b877>>
 
     Changed commits:
-    ○  [38;5;2m<<diff added::+>>[39m [1m[38;5;13m<<op_diff commit working_copy change_id shortest prefix::q>>[38;5;8m<<op_diff commit working_copy change_id shortest rest::pvuntsm>>[39m<<op_diff commit working_copy:: >>[38;5;12m<<op_diff commit working_copy commit_id shortest prefix::e>>[38;5;8m<<op_diff commit working_copy commit_id shortest rest::8849ae1>>[39m<<op_diff commit working_copy:: >>[38;5;10m<<op_diff commit working_copy empty::(empty)>>[39m<<op_diff commit working_copy:: >>[38;5;10m<<op_diff commit working_copy empty description placeholder::(no description set)>>[0m
+    ○  [38;5;2m<<diff added::+>>[39m [1m[38;5;13m<<op_diff commit working_copy change_id shortest prefix::q>>[38;5;8m<<op_diff commit working_copy change_id shortest rest::pvuntsm>>[39m<<op_diff commit working_copy:: >>[38;5;12m<<op_diff commit working_copy revision_id shortest prefix::e>>[38;5;8m<<op_diff commit working_copy revision_id shortest rest::8849ae1>>[39m<<op_diff commit working_copy:: >>[38;5;10m<<op_diff commit working_copy empty::(empty)>>[39m<<op_diff commit working_copy:: >>[38;5;10m<<op_diff commit working_copy empty description placeholder::(no description set)>>[0m
 
     Changed working copy [38;5;2m<<working_copies::default@>>[39m:
-    [38;5;2m<<diff added::+>>[39m [1m[38;5;13m<<op_diff commit working_copy change_id shortest prefix::q>>[38;5;8m<<op_diff commit working_copy change_id shortest rest::pvuntsm>>[39m<<op_diff commit working_copy:: >>[38;5;12m<<op_diff commit working_copy commit_id shortest prefix::e>>[38;5;8m<<op_diff commit working_copy commit_id shortest rest::8849ae1>>[39m<<op_diff commit working_copy:: >>[38;5;10m<<op_diff commit working_copy empty::(empty)>>[39m<<op_diff commit working_copy:: >>[38;5;10m<<op_diff commit working_copy empty description placeholder::(no description set)>>[0m
+    [38;5;2m<<diff added::+>>[39m [1m[38;5;13m<<op_diff commit working_copy change_id shortest prefix::q>>[38;5;8m<<op_diff commit working_copy change_id shortest rest::pvuntsm>>[39m<<op_diff commit working_copy:: >>[38;5;12m<<op_diff commit working_copy revision_id shortest prefix::e>>[38;5;8m<<op_diff commit working_copy revision_id shortest rest::8849ae1>>[39m<<op_diff commit working_copy:: >>[38;5;10m<<op_diff commit working_copy empty::(empty)>>[39m<<op_diff commit working_copy:: >>[38;5;10m<<op_diff commit working_copy empty description placeholder::(no description set)>>[0m
     [38;5;1m<<diff removed::->>[39m (absent)
     [EOF]
     ");
@@ -2198,7 +2202,7 @@ fn test_op_diff_word_wrap() {
     ");
 
     // Graph width should be subtracted from the term width
-    let config = r#"templates.commit_summary='"0 1 2 3 4 5 6 7 8 9"'"#;
+    let config = r#"templates.revision_summary='"0 1 2 3 4 5 6 7 8 9"'"#;
     insta::assert_snapshot!(
         render(&["op", "diff", "--from=@---", "--config", config], 10, true), @r"
     From operation: f7178a5c02a1 (2001-02-03 08:05:07) add git remote origin

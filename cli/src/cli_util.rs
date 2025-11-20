@@ -1045,7 +1045,7 @@ impl WorkspaceCommandHelper {
         loaded_at_head: bool,
     ) -> Result<Self, CommandError> {
         let settings = workspace.settings();
-        let commit_summary_template_text = settings.get_string("templates.commit_summary")?;
+        let commit_summary_template_text = settings.get_string("templates.revision_summary")?;
         let op_summary_template_text = settings.get_string("templates.op_summary")?;
         let may_update_working_copy =
             loaded_at_head && !env.command.global_args().ignore_working_copy;

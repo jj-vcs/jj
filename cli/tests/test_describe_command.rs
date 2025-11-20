@@ -662,7 +662,7 @@ fn test_describe_default_description() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     Working copy  (@) now at: qpvuntsm 7276dfff TESTED=TODO
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -672,7 +672,7 @@ fn test_describe_default_description() {
     TESTED=TODO
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:     A file2
     JJ:
@@ -684,7 +684,7 @@ fn test_describe_default_description() {
     let output = work_dir.run_jj(["describe", "--no-edit", "--reset-author"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
+    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_revision_description = '"\n\nTESTED=TODO\n"'
     Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Warning: `jj describe --reset-author` is deprecated; use `jj metaedit --update-author` instead
     Working copy  (@) now at: kkmpptxz 7118bcb8 (empty) (no description set)
@@ -707,7 +707,7 @@ fn test_describe_author() {
         'format_signature(signature)' = 'signature.name() ++ " " ++ signature.email() ++ " " ++ signature.timestamp()'
 
         [templates]
-        draft_commit_description = '''
+        draft_revision_description = '''
         concat(
           description,
           "\n",
@@ -991,7 +991,7 @@ fn test_add_trailer() {
         "-m",
         "Message from CLI",
         "--config",
-        r#"templates.commit_trailers='"Signed-off-by: " ++ committer'"#,
+        r#"templates.revision_trailers='"Signed-off-by: " ++ committer'"#,
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1013,7 +1013,7 @@ fn test_add_trailer() {
         "describe",
         "--no-edit",
         "--config",
-        r#"templates.commit_trailers='"CC: alice@example.com\nChange-Id: I6a6a6964" ++ self.change_id().normal_hex()'"#,
+        r#"templates.revision_trailers='"CC: alice@example.com\nChange-Id: I6a6a6964" ++ self.change_id().normal_hex()'"#,
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1038,7 +1038,7 @@ fn test_add_trailer() {
         "describe",
         "--no-edit",
         "--config",
-        r#"templates.commit_trailers='"CC: alice@example.com"'"#,
+        r#"templates.revision_trailers='"CC: alice@example.com"'"#,
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1062,7 +1062,7 @@ fn test_add_trailer() {
         "describe",
         "--no-edit",
         "--config",
-        r#"templates.commit_trailers='"this is an invalid trailer"'"#,
+        r#"templates.revision_trailers='"this is an invalid trailer"'"#,
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1084,7 +1084,7 @@ fn test_add_trailer() {
         "describe",
         "--no-edit",
         "--config",
-        r#"templates.commit_trailers='"CC: alice@example.com"'"#,
+        r#"templates.revision_trailers='"CC: alice@example.com"'"#,
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1102,7 +1102,7 @@ fn test_add_trailer_committer() {
     let work_dir = test_env.work_dir("repo");
     test_env.add_config(
         r#"[templates]
-        commit_trailers = '''"Signed-off-by: " ++ committer.email()'''"#,
+        revision_trailers = '''"Signed-off-by: " ++ committer.email()'''"#,
     );
 
     let output = work_dir.run_jj(["describe", "-m", "Message from CLI"]);

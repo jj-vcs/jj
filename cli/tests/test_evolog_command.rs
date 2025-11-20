@@ -231,7 +231,7 @@ fn test_evolog_template() {
     ");
     let output = work_dir.run_jj(["evolog", "-r@", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
-    [1m[38;5;2m<<evolog commit node working_copy mutable::@>>[0m  [1m[38;5;13m<<evolog working_copy mutable commit change_id shortest prefix::k>>[38;5;8m<<evolog working_copy mutable commit change_id shortest rest::kmpptxz>>[39m<<evolog working_copy mutable:: >>[38;5;3m<<evolog working_copy mutable commit author email local::test.user>><<evolog working_copy mutable commit author email::@>><<evolog working_copy mutable commit author email domain::example.com>>[39m<<evolog working_copy mutable:: >>[38;5;14m<<evolog working_copy mutable commit committer timestamp local format::2001-02-03 08:05:09>>[39m<<evolog working_copy mutable:: >>[38;5;12m<<evolog working_copy mutable commit commit_id shortest prefix::2>>[38;5;8m<<evolog working_copy mutable commit commit_id shortest rest::b17ac71>>[39m<<evolog working_copy mutable::>>[0m
+    [1m[38;5;2m<<evolog commit node working_copy mutable::@>>[0m  [1m[38;5;13m<<evolog working_copy mutable commit change_id shortest prefix::k>>[38;5;8m<<evolog working_copy mutable commit change_id shortest rest::kmpptxz>>[39m<<evolog working_copy mutable:: >>[38;5;3m<<evolog working_copy mutable commit author email local::test.user>><<evolog working_copy mutable commit author email::@>><<evolog working_copy mutable commit author email domain::example.com>>[39m<<evolog working_copy mutable:: >>[38;5;14m<<evolog working_copy mutable commit committer timestamp local format::2001-02-03 08:05:09>>[39m<<evolog working_copy mutable:: >>[38;5;12m<<evolog working_copy mutable commit revision_id shortest prefix::2>>[38;5;8m<<evolog working_copy mutable commit revision_id shortest rest::b17ac71>>[39m<<evolog working_copy mutable::>>[0m
        [1m[38;5;10m<<evolog working_copy mutable empty::(empty)>>[39m<<evolog working_copy mutable:: >>[38;5;10m<<evolog working_copy mutable empty description placeholder::(no description set)>>[39m<<evolog working_copy mutable::>>[0m
        [38;5;8m<<evolog separator::-->>[39m<<evolog:: operation >>[38;5;4m<<evolog operation id short::2931515731a6>>[39m<<evolog:: >><<evolog operation description first_line::add workspace 'default'>><<evolog::>>
     [EOF]
@@ -246,7 +246,7 @@ fn test_evolog_template() {
     ");
     let output = work_dir.run_jj(["evolog", "-rmain@origin", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
-    [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog immutable commit change_id shortest prefix::q>>[0m[38;5;8m<<evolog immutable commit change_id shortest rest::pvuntsm>>[39m<<evolog immutable:: >>[38;5;3m<<evolog immutable commit author email local::test.user>><<evolog immutable commit author email::@>><<evolog immutable commit author email domain::example.com>>[39m<<evolog immutable:: >>[38;5;6m<<evolog immutable commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<evolog immutable:: >>[38;5;5m<<evolog immutable commit bookmarks name::main>><<evolog immutable commit bookmarks::@>><<evolog immutable commit bookmarks remote::origin>>[39m<<evolog immutable:: >>[1m[38;5;4m<<evolog immutable commit commit_id shortest prefix::e>>[0m[38;5;8m<<evolog immutable commit commit_id shortest rest::8849ae1>>[39m<<evolog immutable::>>
+    [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog immutable commit change_id shortest prefix::q>>[0m[38;5;8m<<evolog immutable commit change_id shortest rest::pvuntsm>>[39m<<evolog immutable:: >>[38;5;3m<<evolog immutable commit author email local::test.user>><<evolog immutable commit author email::@>><<evolog immutable commit author email domain::example.com>>[39m<<evolog immutable:: >>[38;5;6m<<evolog immutable commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<evolog immutable:: >>[38;5;5m<<evolog immutable commit bookmarks name::main>><<evolog immutable commit bookmarks::@>><<evolog immutable commit bookmarks remote::origin>>[39m<<evolog immutable:: >>[1m[38;5;4m<<evolog immutable commit revision_id shortest prefix::e>>[0m[38;5;8m<<evolog immutable commit revision_id shortest rest::8849ae1>>[39m<<evolog immutable::>>
        [38;5;2m<<evolog immutable empty::(empty)>>[39m<<evolog immutable:: >>[38;5;2m<<evolog immutable empty description placeholder::(no description set)>>[39m<<evolog immutable::>>
     [EOF]
     ");
@@ -259,7 +259,7 @@ fn test_evolog_template() {
     ");
     let output = work_dir.run_jj(["evolog", "-rroot()", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
-    [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog immutable commit change_id shortest prefix::z>>[0m[38;5;8m<<evolog immutable commit change_id shortest rest::zzzzzzz>>[39m<<evolog immutable:: >>[38;5;2m<<evolog immutable root::root()>>[39m<<evolog immutable:: >>[1m[38;5;4m<<evolog immutable commit commit_id shortest prefix::0>>[0m[38;5;8m<<evolog immutable commit commit_id shortest rest::0000000>>[39m<<evolog immutable::>>
+    [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog immutable commit change_id shortest prefix::z>>[0m[38;5;8m<<evolog immutable commit change_id shortest rest::zzzzzzz>>[39m<<evolog immutable:: >>[38;5;2m<<evolog immutable root::root()>>[39m<<evolog immutable:: >>[1m[38;5;4m<<evolog immutable commit revision_id shortest prefix::0>>[0m[38;5;8m<<evolog immutable commit revision_id shortest rest::0000000>>[39m<<evolog immutable::>>
     [EOF]
     ");
 
@@ -583,6 +583,7 @@ fn test_evolog_with_no_template() {
     - builtin_config_list
     - builtin_config_list_detailed
     - builtin_draft_commit_description
+    - builtin_draft_revision_description
     - builtin_evolog_compact
     - builtin_log_comfortable
     - builtin_log_compact
@@ -600,11 +601,14 @@ fn test_evolog_with_no_template() {
     - builtin_op_log_redacted
     - commit_summary_separator
     - default_commit_description
+    - default_revision_description
     - description_placeholder
     - email_placeholder
     - empty_commit_marker
+    - empty_revision_marker
     - git_format_patch_email_headers
     - name_placeholder
+    - revision_summary_separator
     [EOF]
     [exit status: 2]
     ");

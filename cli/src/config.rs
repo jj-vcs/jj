@@ -728,7 +728,7 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
         // TODO: Delete in jj 0.35.0+
         ConfigMigrationRule::rename_update_value(
             "ui.default-description",
-            "template-aliases.default_commit_description",
+            "template-aliases.default_revision_description",
             |old_value| {
                 let value = old_value.as_str().ok_or("expected a string")?;
                 // Trailing newline would be padded by templater (in jj < 0.31)
@@ -764,6 +764,78 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
         ConfigMigrationRule::rename_value(
             "core.watchman.register-snapshot-trigger",
             "fsmonitor.watchman.register-snapshot-trigger",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_value("templates.commit_summary", "templates.revision_summary"),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_value(
+            "templates.commit_trailers",
+            "templates.revision_trailers",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_value(
+            "templates.draft_commit_description",
+            "templates.draft_revision_description",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.builtin_draft_commit_description",
+            "template-aliases.builtin_draft_revision_description",
+            "template-aliases.builtin_draft_revision_description",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.commit_summary_separator",
+            "template-aliases.revision_summary_separator",
+            "template-aliases.revision_summary_separator",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.\"commit_timestamp(commit)\"",
+            "template-aliases.\"revision_timestamp(revision)\"",
+            "template-aliases.\"revision_timestamp(commit)\"",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.default_commit_description",
+            "template-aliases.default_revision_description",
+            "template-aliases.default_revision_description",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.\"format_commit_summary_with_refs(commit, refs)\"",
+            "template-aliases.\"format_revision_summary_with_refs(revision, refs)\"",
+            "template-aliases.\"format_revision_summary_with_refs(commit, refs)\"",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.\"format_root_commit(root)\"",
+            "template-aliases.\"format_root_revision(root)\"",
+            "template-aliases.\"format_root_revision(root)\"",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.\"format_short_commit_header_redacted(commit)\"",
+            "template-aliases.\"format_short_revision_header_redacted(revision)\"",
+            "template-aliases.\"format_short_revision_header_redacted(commit)\"",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.\"format_short_commit_header(commit)\"",
+            "template-aliases.\"format_short_revision_header(revision)\"",
+            "template-aliases.\"format_short_revision_header(commit)\"",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.\"format_short_commit_id(id)\"",
+            "template-aliases.\"format_short_revision_id(id)\"",
+            "template-aliases.\"format_short_revision_id(id)\"",
+        ),
+        // TODO: Delete in jj 0.39.0+
+        ConfigMigrationRule::rename_template_alias(
+            "template-aliases.empty_commit_marker",
+            "template-aliases.empty_revision_marker",
+            "template-aliases.empty_revision_marker",
         ),
     ]
 }

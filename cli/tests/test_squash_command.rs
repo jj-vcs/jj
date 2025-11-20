@@ -1299,7 +1299,7 @@ fn test_squash_description() {
     source
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:     A file2
     JJ:
@@ -1316,13 +1316,13 @@ fn test_squash_description() {
     ");
 
     // An explicit description on the command-line includes the trailers when
-    // templates.commit_trailers is configured
+    // templates.revision_trailers is configured
     work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir
         .run_jj([
             "squash",
             "--config",
-            r#"templates.commit_trailers='"CC: " ++ committer.email()'"#,
+            r#"templates.revision_trailers='"CC: " ++ committer.email()'"#,
             "-m",
             "custom",
         ])
@@ -1348,7 +1348,7 @@ fn test_squash_description() {
     ");
 
     // A combined description should only contain the trailers from the
-    // commit_trailers template that were not in the squashed commits
+    // revision_trailers template that were not in the squashed commits
     work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir
         .run_jj(["describe", "-m", "source\n\nfoo: bar"])
@@ -1358,7 +1358,7 @@ fn test_squash_description() {
         .run_jj([
             "squash",
             "--config",
-            r#"templates.commit_trailers='"CC: alice@example.com\nfoo: bar"'"#,
+            r#"templates.revision_trailers='"CC: alice@example.com\nfoo: bar"'"#,
         ])
         .success();
     insta::assert_snapshot!(
@@ -1376,7 +1376,7 @@ fn test_squash_description() {
     CC: alice@example.com
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:     A file2
     JJ:
@@ -1385,7 +1385,7 @@ fn test_squash_description() {
 
     // If the destination description is non-empty and the source's description is
     // empty, the resulting description is from the destination, with additional
-    // trailers if defined in the commit_trailers template
+    // trailers if defined in the revision_trailers template
     work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir.run_jj(["describe", "-m", ""]).success();
     insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
@@ -1398,7 +1398,7 @@ fn test_squash_description() {
         .run_jj([
             "squash",
             "--config",
-            r#"templates.commit_trailers='"CC: alice@example.com"'"#,
+            r#"templates.revision_trailers='"CC: alice@example.com"'"#,
         ])
         .success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
@@ -1410,7 +1410,7 @@ fn test_squash_description() {
 
     // If a single description is non-empty, the resulting description is
     // from the destination, with additional trailers if defined in the
-    // commit_trailers template
+    // revision_trailers template
     work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir
         .run_jj(["describe", "-r", "@-", "-m", ""])
@@ -1425,7 +1425,7 @@ fn test_squash_description() {
         .run_jj([
             "squash",
             "--config",
-            r#"templates.commit_trailers='"CC: alice@example.com"'"#,
+            r#"templates.revision_trailers='"CC: alice@example.com"'"#,
         ])
         .success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
@@ -1450,7 +1450,7 @@ fn test_squash_description() {
         .run_jj([
             "squash",
             "--config",
-            r#"templates.commit_trailers='"CC: bob@example.com"'"#,
+            r#"templates.revision_trailers='"CC: bob@example.com"'"#,
         ])
         .success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @"");
@@ -1472,7 +1472,7 @@ fn test_squash_description() {
             "squash",
             "--use-destination-message",
             "--config",
-            r#"templates.commit_trailers='"CC: bob@example.com"'"#,
+            r#"templates.revision_trailers='"CC: bob@example.com"'"#,
         ])
         .success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @"");
@@ -1492,7 +1492,7 @@ fn test_squash_description() {
             "--message",
             "",
             "--config",
-            r#"templates.commit_trailers='"CC: bob@example.com"'"#,
+            r#"templates.revision_trailers='"CC: bob@example.com"'"#,
         ])
         .success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @"");
@@ -1995,7 +1995,7 @@ fn test_squash_to_new_commit() {
     file4
 
     JJ: Change ID: xlzxqlsl
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file3
     JJ:     A file4
     JJ:
@@ -2284,7 +2284,7 @@ fn test_squash_with_editor_combine_messages() {
     source
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -2319,7 +2319,7 @@ fn test_squash_with_editor_and_message_args() {
     message from command line
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -2359,11 +2359,10 @@ fn test_squash_with_editor_and_empty_message() {
     // Verify editor was opened with trailers added to the empty message
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
-
     Trailer: value
 
     JJ: Change ID: qpvuntsm
-    JJ: This commit contains the following changes:
+    JJ: This revision contains the following changes:
     JJ:     A file1
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.

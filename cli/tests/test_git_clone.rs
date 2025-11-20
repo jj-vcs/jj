@@ -1265,11 +1265,11 @@ fn test_git_clone_auto_track_bookmarks() {
     origin_dir.run_jj(["commit", "-mfoo"]).success();
     let output = origin_dir.run_jj(["show", "@-"]);
     insta::assert_snapshot!(output, @r"
-    Commit ID: d7828da83253475bf10c2ae6bd3f0f84bf4604c1
-    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
-    Bookmarks: mine/foo not-mine/foo mine/foo@git not-mine/foo@git
-    Author   : Test User <test.user@example.com> (2001-02-03 08:05:10)
-    Committer: Test User <test.user@example.com> (2001-02-03 08:05:10)
+    Revision ID: d7828da83253475bf10c2ae6bd3f0f84bf4604c1
+    Change ID  : qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Bookmarks  : mine/foo not-mine/foo mine/foo@git not-mine/foo@git
+    Author     : Test User <test.user@example.com> (2001-02-03 08:05:10)
+    Committer  : Test User <test.user@example.com> (2001-02-03 08:05:10)
 
         foo
 

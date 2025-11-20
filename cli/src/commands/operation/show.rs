@@ -82,7 +82,7 @@ pub fn cmd_op_show(
     let id_prefix_context = workspace_env.new_id_prefix_context();
     let commit_summary_template = {
         let language = workspace_env.commit_template_language(repo.as_ref(), &id_prefix_context);
-        let text = settings.get_string("templates.commit_summary")?;
+        let text = settings.get_string("templates.revision_summary")?;
         workspace_env
             .parse_template(ui, &language, &text)?
             .labeled(["op_show", "commit"])
