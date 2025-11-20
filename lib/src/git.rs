@@ -2310,6 +2310,110 @@ pub fn expand_fetch_refspecs(
     })
 }
 
+#[derive(Debug, Error)]
+pub enum GitRefExpressionError {
+    #[error("Cannot use `~` in sub expression")]
+    NestedNotIn,
+    #[error("Cannot use `&` in sub expression")]
+    NestedIntersection,
+    #[error("Cannot use `&` for positive expressions")]
+    PositiveIntersection,
+}
+
+/// Splits string matcher expression into Git-compatible `(positive | ...) &
+/// ~(negative | ...)` form.
+#[cfg_attr(not(test), expect(dead_code))] // TODO
+fn split_into_positive_negative_patterns(
+    expr: &StringExpression,
+) -> Result<(Vec<&StringPattern>, Vec<&StringPattern>), GitRefExpressionError> {
+    static ALL: StringPattern = StringPattern::all();
+
+    // Outer expression is considered an intersection of
+    // - zero or one union of positive expressions
+    // - zero or more unions of negative expressions
+    // e.g.
+    // - `a`                (1+)
+    // - `~a&~b`            (1-, 1-)
+    // - `(a|b)&~(c|d)&~e`  (2+, 2-, 1-)
+    //
+    // No negation nor intersection is allowed under union or not-in nodes.
+    // - `a|~b`             (incompatible with Git refspecs)
+    // - `~(~a&~b)`         (equivalent to `a|b`, but unsupported)
+    // - `(a&~b)&(~c&~d)`   (equivalent to `a&~b&~c&~d`, but unsupported)
+
+    fn visit_positive<'a>(
+        expr: &'a StringExpression,
+        positives: &mut Vec<&'a StringPattern>,
+        negatives: &mut Vec<&'a StringPattern>,
+    ) -> Result<(), GitRefExpressionError> {
+        match expr {
+            StringExpression::Pattern(pattern) => {
+                positives.push(pattern);
+                Ok(())
+            }
+            StringExpression::NotIn(complement) => {
+                positives.push(&ALL);
+                visit_negative(complement, negatives)
+            }
+            StringExpression::Union(expr1, expr2) => visit_union(expr1, expr2, positives),
+            StringExpression::Intersection(expr1, expr2) => {
+                match (expr1.as_ref(), expr2.as_ref()) {
+                    (other, StringExpression::NotIn(complement))
+                    | (StringExpression::NotIn(complement), other) => {
+                        visit_positive(other, positives, negatives)?;
+                        visit_negative(complement, negatives)
+                    }
+                    _ => Err(GitRefExpressionError::PositiveIntersection),
+                }
+            }
+        }
+    }
+
+    fn visit_negative<'a>(
+        expr: &'a StringExpression,
+        negatives: &mut Vec<&'a StringPattern>,
+    ) -> Result<(), GitRefExpressionError> {
+        match expr {
+            StringExpression::Pattern(pattern) => {
+                negatives.push(pattern);
+                Ok(())
+            }
+            StringExpression::NotIn(_) => Err(GitRefExpressionError::NestedNotIn),
+            StringExpression::Union(expr1, expr2) => visit_union(expr1, expr2, negatives),
+            StringExpression::Intersection(_, _) => Err(GitRefExpressionError::NestedIntersection),
+        }
+    }
+
+    fn visit_union<'a>(
+        expr1: &'a StringExpression,
+        expr2: &'a StringExpression,
+        patterns: &mut Vec<&'a StringPattern>,
+    ) -> Result<(), GitRefExpressionError> {
+        visit_union_sub(expr1, patterns)?;
+        visit_union_sub(expr2, patterns)
+    }
+
+    fn visit_union_sub<'a>(
+        expr: &'a StringExpression,
+        patterns: &mut Vec<&'a StringPattern>,
+    ) -> Result<(), GitRefExpressionError> {
+        match expr {
+            StringExpression::Pattern(pattern) => {
+                patterns.push(pattern);
+                Ok(())
+            }
+            StringExpression::NotIn(_) => Err(GitRefExpressionError::NestedNotIn),
+            StringExpression::Union(expr1, expr2) => visit_union(expr1, expr2, patterns),
+            StringExpression::Intersection(_, _) => Err(GitRefExpressionError::NestedIntersection),
+        }
+    }
+
+    let mut positives = Vec::new();
+    let mut negatives = Vec::new();
+    visit_positive(expr, &mut positives, &mut negatives)?;
+    Ok((positives, negatives))
+}
+
 /// A list of fetch refspecs configured within a remote that were ignored during
 /// a expansion. Callers should consider displaying these in the UI as
 /// appropriate.
@@ -2728,4 +2832,88 @@ pub enum FetchTagsOverride {
     /// For this one fetch attempt, fetch no tags regardless of what the
     /// remote's `tagOpt` is configured to
     NoTags,
+}
+
+#[cfg(test)]
+mod tests {
+    use assert_matches::assert_matches;
+
+    use super::*;
+    use crate::revset;
+    use crate::revset::RevsetDiagnostics;
+
+    #[test]
+    fn test_split_positive_negative_patterns() {
+        fn split(text: &str) -> (Vec<StringPattern>, Vec<StringPattern>) {
+            try_split(text).unwrap()
+        }
+
+        fn try_split(
+            text: &str,
+        ) -> Result<(Vec<StringPattern>, Vec<StringPattern>), GitRefExpressionError> {
+            let mut diagnostics = RevsetDiagnostics::new();
+            let expr = revset::parse_string_expression(&mut diagnostics, text).unwrap();
+            let (positives, negatives) = split_into_positive_negative_patterns(&expr)?;
+            Ok((
+                positives.into_iter().cloned().collect(),
+                negatives.into_iter().cloned().collect(),
+            ))
+        }
+
+        insta::assert_compact_debug_snapshot!(
+            split("a"),
+            @r#"([Exact("a")], [])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("~a"),
+            @r#"([Substring("")], [Exact("a")])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("~a~b"),
+            @r#"([Substring("")], [Exact("a"), Exact("b")])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("~(a|b)"),
+            @r#"([Substring("")], [Exact("a"), Exact("b")])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("a|b"),
+            @r#"([Exact("a"), Exact("b")], [])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("(a|b)&~c"),
+            @r#"([Exact("a"), Exact("b")], [Exact("c")])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("~a&b"),
+            @r#"([Exact("b")], [Exact("a")])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("a&~b&~c"),
+            @r#"([Exact("a")], [Exact("b"), Exact("c")])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("~a&b&~c"),
+            @r#"([Exact("b")], [Exact("a"), Exact("c")])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("a&~(b|c)"),
+            @r#"([Exact("a")], [Exact("b"), Exact("c")])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("((a|b)|c)&~(d|(e|f))"),
+            @r#"([Exact("a"), Exact("b"), Exact("c")], [Exact("d"), Exact("e"), Exact("f")])"#);
+        assert_matches!(
+            try_split("a&b"),
+            Err(GitRefExpressionError::PositiveIntersection)
+        );
+        assert_matches!(try_split("a|~b"), Err(GitRefExpressionError::NestedNotIn));
+        assert_matches!(
+            try_split("a&~(b&~c)"),
+            Err(GitRefExpressionError::NestedIntersection)
+        );
+        assert_matches!(
+            try_split("(a|b)&c"),
+            Err(GitRefExpressionError::PositiveIntersection)
+        );
+        assert_matches!(
+            try_split("(a&~b)&(~c&~d)"),
+            Err(GitRefExpressionError::PositiveIntersection)
+        );
+        assert_matches!(try_split("a&~~b"), Err(GitRefExpressionError::NestedNotIn));
+        assert_matches!(
+            try_split("a&~b|c&~d"),
+            Err(GitRefExpressionError::NestedIntersection)
+        );
+    }
 }
