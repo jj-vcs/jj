@@ -908,7 +908,7 @@ fn create_change_bookmarks(
 
     let all_commits: Vec<_> = tx
         .base_workspace_helper()
-        .resolve_some_revsets_default_single(ui, changes)?
+        .resolve_some_revsets(ui, changes)?
         .iter()
         .map(|id| tx.repo().store().get_commit(id))
         .try_collect()?;

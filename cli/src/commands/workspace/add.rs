@@ -183,7 +183,7 @@ pub fn cmd_workspace_add(
         }
     } else {
         old_workspace_command
-            .resolve_some_revsets_default_single(ui, &args.revision)?
+            .resolve_some_revsets(ui, &args.revision)?
             .iter()
             .map(|id| tx.repo().store().get_commit(id))
             .try_collect()?

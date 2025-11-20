@@ -1624,7 +1624,7 @@ to the current parents may contain changes from multiple commits.
 
     /// Evaluates revset expressions to non-empty set of commit IDs. The
     /// returned set preserves the order of the input expressions.
-    pub fn resolve_some_revsets_default_single(
+    pub fn resolve_some_revsets(
         &self,
         ui: &Ui,
         revision_args: &[RevisionArg],
@@ -3181,7 +3181,7 @@ pub fn compute_commit_location(
             if let Some(revisions) = revisions {
                 Ok(Some(
                     workspace_command
-                        .resolve_some_revsets_default_single(ui, revisions)?
+                        .resolve_some_revsets(ui, revisions)?
                         .into_iter()
                         .collect_vec(),
                 ))
