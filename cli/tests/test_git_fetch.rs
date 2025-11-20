@@ -940,7 +940,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     "#);
 
     // Test an error message
-    let output = target_dir.run_jj(["git", "fetch", "--branch", "glob:^:a*"]);
+    let output = target_dir.run_jj(["git", "fetch", "--branch", "glob:'^:a*'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Invalid branch pattern provided. When fetching, branch names and globs may not contain the characters `:`, `^`, `?`, `[`, `]`
@@ -1056,7 +1056,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     ◆  000000000000 ""
     [EOF]
     "#);
-    let output = target_dir.run_jj(["git", "fetch", "--branch", "b", "--branch", "a1"]);
+    let output = target_dir.run_jj(["git", "fetch", "--branch=~(a2 | glob:trunk*)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     bookmark: a1@origin [updated] tracked
@@ -1252,6 +1252,32 @@ fn test_git_fetch_bookmarks_missing_with_subprocess_localized_message() {
     Warning: No matching branches found on any specified/configured remote: unknown
     Nothing changed.
     [EOF]
+    ");
+}
+
+#[test]
+fn test_git_fetch_unsupported_branch_patterns() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    add_git_remote(&test_env, &work_dir, "origin");
+
+    let output = work_dir.run_jj(["git", "fetch", "--branch=x&y|z"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Cannot use `&` in sub expression
+    Hint: Specify patterns in `(positive | ...) & ~(negative | ...)` form.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Unsupported glob pattern in negative refspecs
+    let output = work_dir.run_jj(["git", "fetch", "--branch=~glob:'[xy]'"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Invalid branch pattern provided. When fetching, branch names and globs may not contain the characters `:`, `^`, `?`, `[`, `]`
+    [EOF]
+    [exit status: 1]
     ");
 }
 

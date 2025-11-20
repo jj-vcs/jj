@@ -1948,7 +1948,7 @@ pub fn add_remote(
     remote_name: &RemoteName,
     url: &str,
     fetch_tags: gix::remote::fetch::Tags,
-    branch_patterns: Option<&[StringPattern]>,
+    bookmark_expr: &StringExpression,
 ) -> Result<(), GitRemoteManagementError> {
     let git_repo = get_git_repo(mut_repo.store())?;
 
@@ -1960,13 +1960,16 @@ pub fn add_remote(
         ));
     }
 
-    let fetch_refspecs = expand_fetch_refspecs(
-        remote_name,
-        branch_patterns.unwrap_or(&[StringPattern::all()]).to_vec(),
-    )?
-    .refspecs
-    .into_iter()
-    .map(|spec| BString::from(spec.to_git_format()));
+    let ExpandedFetchRefSpecs {
+        bookmark_expr: _,
+        refspecs,
+        negative_refspecs,
+    } = expand_fetch_refspecs(remote_name, bookmark_expr.clone())?;
+    let fetch_refspecs = itertools::chain(
+        refspecs.iter().map(|spec| spec.to_git_format()),
+        negative_refspecs.iter().map(|spec| spec.to_git_format()),
+    )
+    .map(BString::from);
 
     let mut remote = git_repo
         .remote_at(url)
@@ -2264,6 +2267,8 @@ pub struct ExpandedFetchRefSpecs {
 
 #[derive(Error, Debug)]
 pub enum GitRefExpansionError {
+    #[error(transparent)]
+    Expression(#[from] GitRefExpressionError),
     #[error(
         "Invalid branch pattern provided. When fetching, branch names and globs may not contain the characters `{chars}`",
         chars = INVALID_REFSPEC_CHARS.iter().join("`, `")
@@ -2274,11 +2279,14 @@ pub enum GitRefExpansionError {
 /// Expand a list of branch string patterns to refspecs to fetch
 pub fn expand_fetch_refspecs(
     remote: &RemoteName,
-    branch_names: Vec<StringPattern>,
+    bookmark_expr: StringExpression,
 ) -> Result<ExpandedFetchRefSpecs, GitRefExpansionError> {
-    let refspecs = branch_names
+    let (positive_bookmarks, negative_bookmarks) =
+        split_into_positive_negative_patterns(&bookmark_expr)?;
+
+    let refspecs = positive_bookmarks
         .iter()
-        .map(|pattern| {
+        .map(|&pattern| {
             pattern
                 .to_glob()
                 .filter(
@@ -2296,17 +2304,21 @@ pub fn expand_fetch_refspecs(
         })
         .try_collect()?;
 
-    let bookmark_expr = StringExpression::union_all(
-        branch_names
-            .into_iter()
-            .map(StringExpression::pattern)
-            .collect(),
-    );
+    let negative_refspecs = negative_bookmarks
+        .iter()
+        .map(|&pattern| {
+            pattern
+                .to_glob()
+                .filter(|glob| !glob.contains(INVALID_REFSPEC_CHARS))
+                .map(|glob| NegativeRefSpec::new(format!("refs/heads/{glob}")))
+                .ok_or_else(|| GitRefExpansionError::InvalidBranchPattern(pattern.clone()))
+        })
+        .try_collect()?;
 
     Ok(ExpandedFetchRefSpecs {
         bookmark_expr,
         refspecs,
-        negative_refspecs: Vec::new(),
+        negative_refspecs,
     })
 }
 
@@ -2322,7 +2334,6 @@ pub enum GitRefExpressionError {
 
 /// Splits string matcher expression into Git-compatible `(positive | ...) &
 /// ~(negative | ...)` form.
-#[cfg_attr(not(test), expect(dead_code))] // TODO
 fn split_into_positive_negative_patterns(
     expr: &StringExpression,
 ) -> Result<(Vec<&StringPattern>, Vec<&StringPattern>), GitRefExpressionError> {

@@ -29,7 +29,7 @@ use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::repo::Repo as _;
-use jj_lib::str_util::StringPattern;
+use jj_lib::str_util::StringExpression;
 use jj_lib::workspace::Workspace;
 
 use super::write_repository_level_trunk_alias;
@@ -44,6 +44,7 @@ use crate::commands::git::maybe_add_gitignore;
 use crate::git_util::absolute_git_url;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
+use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
 /// Create a new repo backed by a clone of a Git repo
@@ -111,12 +112,8 @@ pub struct GitCloneArgs {
     /// characters such as `?` are *not* supported. Can be repeated to specify
     /// multiple branches, in which case the first exact branch name is used as
     /// the working-copy parent.
-    #[arg(
-        long, short,
-        alias = "bookmark",
-        value_parser = StringPattern::parse,
-    )]
-    branch: Option<Vec<StringPattern>>,
+    #[arg(long, short, alias = "bookmark")]
+    branch: Option<Vec<String>>,
 }
 
 fn clone_destination_for_source(source: &str) -> Option<&str> {
@@ -168,6 +165,10 @@ pub fn cmd_git_clone(
     } else {
         args.colocate
     };
+    let bookmark_expr = match &args.branch {
+        Some(texts) => parse_union_name_patterns(ui, texts)?,
+        None => StringExpression::all(),
+    };
 
     // Canonicalize because fs::remove_dir_all() doesn't seem to like e.g.
     // `/some/path/.`
@@ -185,13 +186,15 @@ pub fn cmd_git_clone(
             // If not explicitly specified on the CLI, configure the remote for only fetching
             // included tags for future fetches.
             args.fetch_tags.unwrap_or(FetchTagsMode::Included),
-            args.branch.as_deref(),
+            &bookmark_expr,
         )?;
         let default_branch = fetch_new_remote(
             ui,
             &mut workspace_command,
             remote_name,
-            args.branch.as_deref(),
+            // If we add default fetch patterns to jj's config, these patterns
+            // will be loaded here?
+            &bookmark_expr,
             args.depth,
             args.fetch_tags,
         )?;
@@ -276,7 +279,7 @@ fn configure_remote(
     remote_name: &RemoteName,
     source: &str,
     fetch_tags: FetchTagsMode,
-    branch_patterns: Option<&[StringPattern]>,
+    bookmark_expr: &StringExpression,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
     let mut tx = workspace_command.start_transaction();
     git::add_remote(
@@ -284,7 +287,7 @@ fn configure_remote(
         remote_name,
         source,
         fetch_tags.as_fetch_tags(),
-        branch_patterns,
+        bookmark_expr,
     )?;
     tx.finish(ui, format!("add git remote {}", remote_name.as_symbol()))?;
     // Reload workspace to apply new remote configuration to
@@ -304,7 +307,7 @@ fn fetch_new_remote(
     ui: &Ui,
     workspace_command: &mut WorkspaceCommandHelper,
     remote_name: &RemoteName,
-    target_branches: Option<&[StringPattern]>,
+    bookmark_expr: &StringExpression,
     depth: Option<NonZeroU32>,
     fetch_tags: Option<FetchTagsMode>,
 ) -> Result<(Option<RefNameBuf>, bool), CommandError> {
@@ -320,10 +323,7 @@ fn fetch_new_remote(
     let (default_branch, import_stats) = {
         let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
 
-        let fetch_refspecs = expand_fetch_refspecs(
-            remote_name,
-            target_branches.unwrap_or(&[StringPattern::all()]).to_vec(),
-        )?;
+        let fetch_refspecs = expand_fetch_refspecs(remote_name, bookmark_expr.clone())?;
 
         with_remote_git_callbacks(ui, |cb| {
             git_fetch.fetch(
@@ -359,10 +359,10 @@ fn fetch_new_remote(
     // default branch of the remote.
     let mut missing_branches = vec![];
     let mut working_branch = None;
-    let exact_bookmarks = target_branches
-        .into_iter()
-        .flatten()
-        .filter_map(StringPattern::as_exact)
+    let bookmark_matcher = bookmark_expr.to_matcher();
+    let exact_bookmarks = bookmark_expr
+        .exact_strings()
+        .filter(|name| bookmark_matcher.is_match(name)) // exclude negative patterns
         .map(RefName::new);
     for name in exact_bookmarks {
         let symbol = name.to_remote_symbol(remote_name);

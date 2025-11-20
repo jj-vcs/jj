@@ -75,6 +75,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::settings::RemoteSettings;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
+use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringPattern;
 use jj_lib::workspace::Workspace;
 use maplit::btreemap;
@@ -144,13 +145,13 @@ fn get_git_repo(repo: &Arc<ReadonlyRepo>) -> gix::Repository {
 fn git_fetch(
     mut_repo: &mut MutableRepo,
     remote_name: &RemoteName,
-    branch_names: Vec<StringPattern>,
+    bookmark_expr: StringExpression,
     git_settings: &GitSettings,
     fetch_tags_override: Option<FetchTagsOverride>,
 ) -> Result<GitFetchStats, GitFetchError> {
     let mut git_fetch = GitFetch::new(mut_repo, git_settings).unwrap();
     let fetch_refspecs =
-        expand_fetch_refspecs(remote_name, branch_names).expect("Valid refspecs to fetch");
+        expand_fetch_refspecs(remote_name, bookmark_expr).expect("Valid refspecs to fetch");
     git_fetch.fetch(
         remote_name,
         fetch_refspecs,
@@ -3139,7 +3140,7 @@ fn test_fetch_empty_repo() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         None,
     )
@@ -3164,7 +3165,7 @@ fn test_fetch_initial_commit_head_is_not_set() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         None,
     )
@@ -3228,7 +3229,7 @@ fn test_fetch_initial_commit_head_is_set() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         None,
     )
@@ -3251,7 +3252,7 @@ fn test_fetch_success() {
     git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         None,
     )
@@ -3278,7 +3279,7 @@ fn test_fetch_success() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         None,
     )
@@ -3336,7 +3337,7 @@ fn test_fetch_prune_deleted_ref() {
     git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         None,
     )
@@ -3359,7 +3360,7 @@ fn test_fetch_prune_deleted_ref() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         None,
     )
@@ -3386,7 +3387,7 @@ fn test_fetch_no_default_branch() {
     git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         None,
     )
@@ -3405,7 +3406,7 @@ fn test_fetch_no_default_branch() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         None,
     )
@@ -3425,7 +3426,7 @@ fn test_fetch_empty_refspecs() {
     git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![],
+        StringExpression::none(),
         &git_settings,
         None,
     )
@@ -3697,7 +3698,7 @@ fn test_fetch_no_such_remote() {
     let result = git_fetch(
         tx.repo_mut(),
         "invalid-remote".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         None,
     );
@@ -3717,11 +3718,11 @@ fn test_fetch_multiple_branches() {
     let fetch_stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![
-            StringPattern::Exact("main".to_string()),
-            StringPattern::Exact("noexist1".to_string()),
-            StringPattern::Exact("noexist2".to_string()),
-        ],
+        StringExpression::union_all(vec![
+            StringExpression::exact("main"),
+            StringExpression::exact("noexist1"),
+            StringExpression::exact("noexist2"),
+        ]),
         &git_settings,
         None,
     )
@@ -3784,7 +3785,7 @@ fn test_fetch_with_fetch_tags_override() {
         "origin".as_ref(),
         &source_git_repo.path().display().to_string(),
         gix::remote::fetch::Tags::None,
-        None,
+        &StringExpression::all(),
     )
     .unwrap();
     let _repo = tx.commit("test").unwrap();
@@ -3797,7 +3798,7 @@ fn test_fetch_with_fetch_tags_override() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         None,
     )
@@ -3809,7 +3810,7 @@ fn test_fetch_with_fetch_tags_override() {
     let stats = git_fetch(
         tx.repo_mut(),
         "origin".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         Some(FetchTagsOverride::AllTags),
     )
@@ -3824,7 +3825,7 @@ fn test_fetch_with_fetch_tags_override() {
         "originAllTags".as_ref(),
         &source_git_repo.path().display().to_string(),
         gix::remote::fetch::Tags::All,
-        None,
+        &StringExpression::all(),
     )
     .unwrap();
     let _repo = tx.commit("test").unwrap();
@@ -3837,7 +3838,7 @@ fn test_fetch_with_fetch_tags_override() {
     let stats = git_fetch(
         tx.repo_mut(),
         "originAllTags".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         Some(FetchTagsOverride::NoTags),
     )
@@ -3849,7 +3850,7 @@ fn test_fetch_with_fetch_tags_override() {
     let stats = git_fetch(
         tx.repo_mut(),
         "originAllTags".as_ref(),
-        vec![StringPattern::all()],
+        StringExpression::all(),
         &git_settings,
         None,
     )
@@ -4892,7 +4893,7 @@ fn test_remote_remove_refs() {
         "foo".as_ref(),
         "https://example.com/",
         Default::default(),
-        None,
+        &StringExpression::all(),
     )
     .unwrap();
     let _repo = tx.commit("test").unwrap();
@@ -4942,7 +4943,7 @@ fn test_remote_rename_refs() {
         "foo".as_ref(),
         "https://example.com/",
         Default::default(),
-        None,
+        &StringExpression::all(),
     )
     .unwrap();
     let _repo = tx.commit("test").unwrap();
@@ -5019,7 +5020,7 @@ fn test_remote_add_with_tags_specification() {
             remote_name.as_ref(),
             "https://example.com/",
             fetch_tags,
-            None,
+            &StringExpression::all(),
         )
         .unwrap();
         let _repo = tx.commit("test").unwrap();
@@ -5038,6 +5039,66 @@ fn test_remote_add_with_tags_specification() {
                 .fetch_tags()
         );
     }
+}
+
+#[test]
+fn test_remote_add_with_refspecs() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+
+    let mut tx = test_repo.repo.start_transaction();
+    let bookmark_expr = StringExpression::union_all(vec![
+        StringExpression::exact("bar"),
+        StringExpression::pattern(StringPattern::glob("foo*").unwrap()),
+    ])
+    .intersection(StringExpression::exact("foobar").negated());
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        "https://example.com/",
+        gix::remote::fetch::Tags::default(),
+        &bookmark_expr,
+    )
+    .unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    // Reload after Git configuration change.
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(repo.settings(), test_repo.repo_path());
+    let git_repo = get_git_repo(repo);
+    let remote = git_repo.find_remote("origin").unwrap();
+    insta::assert_debug_snapshot!(remote.refspecs(gix::remote::Direction::Fetch), @r#"
+    [
+        RefSpec {
+            mode: Negative,
+            op: Fetch,
+            src: Some(
+                "refs/heads/foobar",
+            ),
+            dst: None,
+        },
+        RefSpec {
+            mode: Force,
+            op: Fetch,
+            src: Some(
+                "refs/heads/bar",
+            ),
+            dst: Some(
+                "refs/remotes/origin/bar",
+            ),
+        },
+        RefSpec {
+            mode: Force,
+            op: Fetch,
+            src: Some(
+                "refs/heads/foo*",
+            ),
+            dst: Some(
+                "refs/remotes/origin/foo*",
+            ),
+        },
+    ]
+    "#);
 }
 
 fn auto_track_all() -> HashMap<RemoteNameBuf, RemoteSettings> {

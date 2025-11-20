@@ -1208,13 +1208,12 @@ fn test_git_clone_branch() {
         "clone",
         "source",
         "clone_no_such_branch",
-        "--branch",
-        "nonexistent_branch",
+        "--branch=(nonexistent1 | glob:nonexistent*) & ~nonexistent2",
     ]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone_no_such_branch"
-    Warning: No matching branches found on remote: nonexistent_branch
+    Warning: No matching branches found on remote: nonexistent1
     Nothing changed.
     [EOF]
     "#);
@@ -1260,6 +1259,34 @@ fn test_git_clone_branch() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
+
+    // Clone all but feature1
+    let output = root_dir.run_jj([
+        "git",
+        "clone",
+        "source",
+        "clone_all_but_feature1",
+        "--branch=~feature1",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone_all_but_feature1"
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: nppvrztz b16020e9 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+
+    // Perform a fetch in that same repo
+    let repo_dir = test_env.work_dir("clone_all_but_feature1");
+    let output = repo_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
 }
 
 #[test]

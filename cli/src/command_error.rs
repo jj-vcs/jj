@@ -594,6 +594,10 @@ jj currently does not support partial clones. To use jj with this repository, tr
     impl From<GitRefExpansionError> for CommandError {
         fn from(err: GitRefExpansionError) -> Self {
             match &err {
+                GitRefExpansionError::Expression(_) => user_error_with_hint(
+                    err,
+                    "Specify patterns in `(positive | ...) & ~(negative | ...)` form.",
+                ),
                 GitRefExpansionError::InvalidBranchPattern(pattern) => {
                     if pattern.as_exact().is_some_and(|s| s.contains('*')) {
                         user_error_with_hint(

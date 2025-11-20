@@ -29,6 +29,7 @@ use jj_lib::git::get_git_backend;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
+use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringPattern;
 
 use crate::cli_util::CommandHelper;
@@ -41,6 +42,7 @@ use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
+use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
 /// Fetch from a Git remote
@@ -58,10 +60,9 @@ pub struct GitFetchArgs {
     #[arg(
         long, short,
         alias = "bookmark",
-        value_parser = StringPattern::parse,
         add = ArgValueCandidates::new(complete::bookmarks),
     )]
-    branch: Option<Vec<StringPattern>>,
+    branch: Option<Vec<String>>,
     /// Fetch only tracked bookmarks
     ///
     /// This fetches only bookmarks that are already tracked from the specified
@@ -145,21 +146,26 @@ pub fn cmd_git_fetch(
 
     let mut tx = workspace_command.start_transaction();
 
+    let common_bookmark_expr = match &args.branch {
+        Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
+        None => None,
+    };
     let mut expansions = Vec::with_capacity(remotes.len());
     if args.tracked {
         for remote in &remotes {
-            let tracked_branches = tx
-                .repo()
-                .view()
-                .local_remote_bookmarks(remote)
-                .filter(|(_, targets)| targets.remote_ref.is_tracked())
-                .map(|(name, _)| StringPattern::exact(name))
-                .collect_vec();
-            expansions.push((remote, expand_fetch_refspecs(remote, tracked_branches)?));
+            let bookmark_expr = StringExpression::union_all(
+                tx.repo()
+                    .view()
+                    .local_remote_bookmarks(remote)
+                    .filter(|(_, targets)| targets.remote_ref.is_tracked())
+                    .map(|(name, _)| StringExpression::exact(name))
+                    .collect(),
+            );
+            expansions.push((remote, expand_fetch_refspecs(remote, bookmark_expr)?));
         }
-    } else if let Some(branches) = &args.branch {
+    } else if let Some(bookmark_expr) = &common_bookmark_expr {
         for remote in &remotes {
-            let expanded = expand_fetch_refspecs(remote, branches.clone())?;
+            let expanded = expand_fetch_refspecs(remote, bookmark_expr.clone())?;
             expansions.push((remote, expanded));
         }
     } else {
@@ -182,8 +188,8 @@ pub fn cmd_git_fetch(
 
     let import_stats = git_fetch.import_refs()?;
     print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
-    if let Some(branches) = &args.branch {
-        warn_if_branches_not_found(ui, &tx, branches, &remotes)?;
+    if let Some(bookmark_expr) = &common_bookmark_expr {
+        warn_if_branches_not_found(ui, &tx, bookmark_expr, &remotes)?;
     }
     tx.finish(
         ui,
@@ -232,12 +238,13 @@ fn parse_remote_pattern(remote: &str) -> Result<StringPattern, CommandError> {
 fn warn_if_branches_not_found(
     ui: &mut Ui,
     tx: &WorkspaceCommandTransaction,
-    branches: &[StringPattern],
+    bookmark_expr: &StringExpression,
     remotes: &[&RemoteName],
 ) -> io::Result<()> {
-    let mut missing_branches = branches
-        .iter()
-        .filter_map(StringPattern::as_exact)
+    let bookmark_matcher = bookmark_expr.to_matcher();
+    let mut missing_branches = bookmark_expr
+        .exact_strings()
+        .filter(|name| bookmark_matcher.is_match(name)) // exclude negative patterns
         .map(RefName::new)
         .filter(|name| {
             remotes.iter().all(|&remote| {
