@@ -1711,7 +1711,7 @@ fn test_log_full_description_template() {
 
     work_dir
         .run_jj([
-            "describe",
+            "commit",
             "-m",
             "this is commit with a multiline description\n\n<full description>",
         ])
@@ -1719,12 +1719,16 @@ fn test_log_full_description_template() {
 
     let output = work_dir.run_jj(["log", "-T", "builtin_log_compact_full_description"]);
     insta::assert_snapshot!(output, @r"
-    @  qpvuntsm test.user@example.com 2001-02-03 08:05:08 37b69cda
+    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 3a70504b
+    │  (empty) (no description set)
+    │
+    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 37b69cda
     │  (empty) this is commit with a multiline description
     │
     │  <full description>
     │
     ◆  zzzzzzzz root() 00000000
+
     [EOF]
     ");
 }

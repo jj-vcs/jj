@@ -234,13 +234,13 @@ if(commit.root(),
       separate(" ",
         if(commit.empty(), empty_commit_marker),
         if(commit.description(),
-          commit.description().trim_end() ++ "\n",
+          commit.description().trim_end(),
           label(if(commit.empty(), "empty"), description_placeholder),
         ),
       ) ++ "\n",
     ),
   )
-)
+) ++ "\n"
 '''
 
 builtin_log_comfortable = 'builtin_log_compact ++ "\n"'
