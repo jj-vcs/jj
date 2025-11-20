@@ -467,8 +467,7 @@ fn plan_rebase_source(
     source: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
 ) -> Result<MoveCommitsLocation, CommandError> {
-    let source_commit_ids =
-        Vec::from_iter(workspace_command.resolve_some_revsets_default_single(ui, source)?);
+    let source_commit_ids = Vec::from_iter(workspace_command.resolve_some_revsets(ui, source)?);
     workspace_command.check_rewritable(&source_commit_ids)?;
 
     let (new_parent_ids, new_child_ids) = compute_commit_location(
@@ -508,7 +507,7 @@ fn plan_rebase_branch(
         ]
     } else {
         workspace_command
-            .resolve_some_revsets_default_single(ui, branch)?
+            .resolve_some_revsets(ui, branch)?
             .into_iter()
             .collect()
     };
