@@ -132,8 +132,11 @@ fn write_repository_level_trunk_alias(
     symbol: RemoteRefSymbol<'_>,
 ) -> Result<(), CommandError> {
     let mut file = ConfigFile::load_or_empty(ConfigSource::Repo, repo_path.join("config.toml"))?;
-    file.set_value(["revset-aliases", "trunk()"], symbol.to_string())
-        .expect("initial repo config shouldn't have invalid values");
+    file.set_value(
+        ["revset-aliases", "trunk()"],
+        format!("present({})", symbol.to_string()),
+    )
+    .expect("initial repo config shouldn't have invalid values");
     file.save()?;
     writeln!(
         ui.status(),
