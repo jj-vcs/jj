@@ -2704,6 +2704,35 @@ pub fn push_updates(
     Ok(push_stats)
 }
 
+#[derive(Error, Debug)]
+pub enum GitListRemoteError {
+    #[error("No git remote named '{}'", .0.as_symbol())]
+    NoSuchRemote(RemoteNameBuf),
+    #[error(transparent)]
+    RemoteName(#[from] GitRemoteNameError),
+    #[error(transparent)]
+    Subprocess(#[from] GitSubprocessError),
+    #[error(transparent)]
+    UnexpectedBackend(#[from] UnexpectedGitBackendError),
+}
+
+/// List references in a remote repository.
+pub fn list_remote(
+    repo: &dyn Repo,
+    git_settings: &GitSettings,
+    remote_name: &RemoteName,
+    patterns: &[String],
+) -> Result<Vec<(CommitId, GitRefNameBuf)>, GitListRemoteError> {
+    let git_backend = crate::git::get_git_backend(repo.store())?;
+
+    let git_ctx =
+        GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
+
+    let references = git_ctx.spawn_list_references_in_remote(remote_name, patterns)?;
+
+    Ok(references)
+}
+
 #[non_exhaustive]
 #[derive(Default)]
 #[expect(clippy::type_complexity)]

@@ -180,6 +180,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   are ignored by `.gitignore` or exceed the `snapshot.max-new-file-size` limit.
   [#2837](https://github.com/jj-vcs/jj/issues/2837)
 
+* Added the **`git ls-remote`** method to list references in a remote repository.
+The references returned by `git ls-remote` can be used to **parse patch set numbers**
+from a reference name. For example, in the Gerrit reference `refs/changes/74/67374/3`, 
+the patch set number **3** can be easily parsed. This method will be useful when
+calling a command like **`gerrit patch`**.
+
 ### Fixed bugs
 
 * `jj metaedit --author-timestamp` twice with the same value no longer
