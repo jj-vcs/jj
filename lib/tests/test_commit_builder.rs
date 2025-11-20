@@ -416,6 +416,48 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
 }
 
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
+#[test_case(TestRepoBackend::Git ; "git backend")]
+fn test_commit_builder_metadata(backend: TestRepoBackend) {
+    let test_repo = TestRepo::init_with_backend(backend);
+    let repo = &test_repo.repo;
+    let store = repo.store().clone();
+
+    let mut tx = repo.start_transaction();
+    let commit = tx
+        .repo_mut()
+        .new_commit(
+            vec![store.root_commit_id().clone()],
+            store.empty_merged_tree(),
+        )
+        .insert_metadata("custom".to_owned(), b"value".to_vec())
+        .write()
+        .unwrap();
+    assert_eq!(
+        commit.metadata().get("custom").map(Vec::as_slice),
+        Some(&b"value"[..])
+    );
+    let repo = tx.commit("test").unwrap();
+
+    let mut tx = repo.start_transaction();
+    let updated_commit = tx
+        .repo_mut()
+        .rewrite_commit(&commit)
+        .insert_metadata("second".to_owned(), b"next".to_vec())
+        .write()
+        .unwrap();
+    assert_eq!(
+        updated_commit.metadata().get("custom").map(Vec::as_slice),
+        Some(&b"value"[..])
+    );
+    assert_eq!(
+        updated_commit.metadata().get("second").map(Vec::as_slice),
+        Some(&b"next"[..])
+    );
+    tx.repo_mut().rebase_descendants().unwrap();
+    tx.commit("test").unwrap();
+}
+
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
 // #[test_case(TestRepoBackend::Git ; "git backend")]
 fn test_commit_builder_descendants(backend: TestRepoBackend) {
     let test_repo = TestRepo::init_with_backend(backend);

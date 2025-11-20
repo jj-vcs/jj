@@ -479,6 +479,7 @@ mod tests {
             author,
             committer,
             secure_sig: None,
+            metadata: HashMap::new(),
         })
     }
 

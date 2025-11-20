@@ -59,4 +59,6 @@ message Commit {
   Signature author = 6;
   Signature committer = 7;
   optional bytes secure_sig = 9;
+
+  map<string, bytes> metadata = 10;
 }

@@ -2481,6 +2481,18 @@ impl WorkspaceCommandTransaction<'_> {
         self.helper.finish_transaction(ui, self.tx, description)
     }
 
+    pub fn set_commit_metadata(
+        &mut self,
+        commit: &Commit,
+        key: impl Into<String>,
+        value: impl Into<Vec<u8>>,
+    ) -> BackendResult<Commit> {
+        self.repo_mut()
+            .rewrite_commit(commit)
+            .insert_metadata(key.into(), value.into())
+            .write()
+    }
+
     /// Returns the wrapped [`Transaction`] for circumstances where
     /// finer-grained control is needed. The caller becomes responsible for
     /// finishing the `Transaction`, including rebasing descendants and updating

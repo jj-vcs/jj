@@ -40,7 +40,7 @@ pub mod tree {
         pub value: ::core::option::Option<super::TreeValue>,
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Commit {
     #[prost(bytes = "vec", repeated, tag = "1")]
     pub parents: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
@@ -59,6 +59,11 @@ pub struct Commit {
     pub committer: ::core::option::Option<commit::Signature>,
     #[prost(bytes = "vec", optional, tag = "9")]
     pub secure_sig: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    #[prost(map = "string, bytes", tag = "10")]
+    pub metadata: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        ::prost::alloc::vec::Vec<u8>,
+    >,
 }
 /// Nested message and enum types in `Commit`.
 pub mod commit {

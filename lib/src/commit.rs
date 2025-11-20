@@ -15,6 +15,7 @@
 #![expect(missing_docs)]
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -176,6 +177,10 @@ impl Commit {
 
     pub fn committer(&self) -> &Signature {
         &self.data.committer
+    }
+
+    pub fn metadata(&self) -> &HashMap<String, Vec<u8>> {
+        &self.data.metadata
     }
 
     ///  A commit is hidden if its commit id is not in the change id index.

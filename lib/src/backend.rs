@@ -15,6 +15,7 @@
 #![expect(missing_docs)]
 
 use std::any::Any;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::pin::Pin;
 use std::slice;
@@ -167,6 +168,7 @@ pub struct Commit {
     pub committer: Signature,
     #[serde(skip)] // raw data wouldn't be useful
     pub secure_sig: Option<SecureSig>,
+    pub metadata: HashMap<String, Vec<u8>>,
 }
 
 /// An individual copy event, from file A -> B.
@@ -402,6 +404,7 @@ pub fn make_root_commit(root_change_id: ChangeId, empty_tree_id: TreeId) -> Comm
         author: signature.clone(),
         committer: signature,
         secure_sig: None,
+        metadata: HashMap::new(),
     }
 }
 

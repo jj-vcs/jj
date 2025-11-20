@@ -363,6 +363,7 @@ pub fn commit_to_proto(commit: &Commit) -> crate::protos::simple_store::Commit {
     proto.description = commit.description.clone();
     proto.author = Some(signature_to_proto(&commit.author));
     proto.committer = Some(signature_to_proto(&commit.committer));
+    proto.metadata = commit.metadata.clone();
     proto
 }
 
@@ -388,6 +389,7 @@ fn commit_from_proto(mut proto: crate::protos::simple_store::Commit) -> Commit {
         author: signature_from_proto(proto.author.unwrap_or_default()),
         committer: signature_from_proto(proto.committer.unwrap_or_default()),
         secure_sig,
+        metadata: proto.metadata,
     }
 }
 
@@ -520,6 +522,7 @@ mod tests {
             author: create_signature(),
             committer: create_signature(),
             secure_sig: None,
+            metadata: std::collections::HashMap::new(),
         };
 
         let write_commit = |commit: Commit| -> BackendResult<(CommitId, Commit)> {

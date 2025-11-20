@@ -14,6 +14,7 @@
 
 #![expect(missing_docs)]
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Debug;
@@ -632,6 +633,7 @@ fn commit_from_git_without_root_parent(
         author,
         committer,
         secure_sig,
+        metadata: HashMap::new(),
     })
 }
 
@@ -729,6 +731,7 @@ fn serialize_extras(commit: &Commit) -> Vec<u8> {
     for predecessor in &commit.predecessors {
         proto.predecessors.push(predecessor.to_bytes());
     }
+    proto.metadata = commit.metadata.clone();
     proto.encode_to_vec()
 }
 
@@ -751,6 +754,7 @@ fn deserialize_extras(commit: &mut Commit, bytes: &[u8]) {
     for predecessor in &proto.predecessors {
         commit.predecessors.push(CommitId::from_bytes(predecessor));
     }
+    commit.metadata.extend(proto.metadata);
 }
 
 /// Returns `RefEdit` that will create a ref in `refs/jj/keep` if not exist.
@@ -1907,6 +1911,7 @@ mod tests {
             author: create_signature(),
             committer: create_signature(),
             secure_sig: None,
+            metadata: HashMap::new(),
         };
 
         let (initial_commit_id, _init_commit) =
@@ -1998,6 +2003,7 @@ mod tests {
             author: create_signature(),
             committer: create_signature(),
             secure_sig: None,
+            metadata: HashMap::new(),
         };
 
         let write_commit = |commit: Commit| -> BackendResult<(CommitId, Commit)> {
@@ -2084,6 +2090,7 @@ mod tests {
             author: create_signature(),
             committer: create_signature(),
             secure_sig: None,
+            metadata: HashMap::new(),
         };
 
         let write_commit = |commit: Commit| -> BackendResult<(CommitId, Commit)> {
@@ -2184,6 +2191,7 @@ mod tests {
             author: signature.clone(),
             committer: signature,
             secure_sig: None,
+            metadata: HashMap::new(),
         };
         let commit_id = backend.write_commit(commit, None).block_on().unwrap().0;
         let git_refs = git_repo.references().unwrap();
@@ -2264,6 +2272,7 @@ mod tests {
             author: create_signature(),
             committer: create_signature(),
             secure_sig: None,
+            metadata: HashMap::new(),
         };
 
         let write_commit = |commit: Commit| -> BackendResult<(CommitId, Commit)> {
@@ -2306,6 +2315,7 @@ mod tests {
             author: create_signature(),
             committer: create_signature(),
             secure_sig: None,
+            metadata: HashMap::new(),
         };
 
         let mut signer = |data: &_| {
