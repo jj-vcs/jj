@@ -250,6 +250,14 @@ fn test_git_head_race_condition() {
     }
     work_dir.run_jj(["commit", "-m", "initial"]).success();
 
+    // Remember the initial commit for later verification
+    let initial_commit = work_dir
+        .run_jj(["log", "--no-graph", "-T=commit_id", "-r=@-"])
+        .success()
+        .stdout
+        .into_raw();
+    let initial_commit = initial_commit.trim().to_owned();
+
     // Create additional commits to iterate through with jj next/prev
     for i in 0..10 {
         for j in 0..50 {
@@ -309,13 +317,15 @@ fn test_git_head_race_condition() {
         });
     });
 
+    const IMPORT_GIT_HEAD: &str = "import git head";
+
     // Check for concurrent operations
     let output = work_dir.run_jj(["op", "log", "-T", "description", "--ignore-working-copy"]);
     let concurrent_count = output
         .stdout
         .raw()
         .lines()
-        .filter(|line| line.contains("import git head"))
+        .filter(|line| line.contains(IMPORT_GIT_HEAD))
         .count();
 
     if concurrent_count > 0 {
@@ -323,6 +333,28 @@ fn test_git_head_race_condition() {
         eprintln!("{}", output.stdout.raw());
         panic!("Race condition detected: {concurrent_count} concurrent operations found");
     }
+
+    // Verify the operation description for importing Git HEAD hasn't changed
+    // First ensure we're not already on the initial commit (prev/next loop may have
+    // ended there)
+    work_dir.run_jj(["new"]).success();
+    // Use git to checkout the initial commit, then trigger import
+    std::process::Command::new("git")
+        .current_dir(work_dir.root())
+        .args(["checkout", "-q", &initial_commit])
+        .status()
+        .unwrap();
+
+    let last_op = work_dir
+        .run_jj(["op", "log", "-T", "description", "--limit=1"])
+        .success()
+        .stdout
+        .into_raw();
+
+    assert!(
+        last_op.contains(IMPORT_GIT_HEAD),
+        "Expected last operation to contain '{IMPORT_GIT_HEAD}', got: {last_op:?}"
+    );
 }
 
 #[must_use]
