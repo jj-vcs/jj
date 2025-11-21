@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::collections::HashMap;
+use std::io::Read as _;
 use std::io::Write as _;
 use std::path::Path;
 use std::process::Stdio;
@@ -44,6 +45,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
+use crate::command_error::CommandErrorKind;
 use crate::command_error::config_error;
 use crate::command_error::print_parse_diagnostics;
 use crate::complete;
@@ -127,6 +129,25 @@ pub(crate) struct FixArgs {
     /// specified, all files in the repo will be fixed.
     #[arg(long)]
     include_unchanged_files: bool,
+
+    /// Operate on files read directly from stdin or from disk, and write to
+    /// stdout. You must provide a filepath, either one path on disk like
+    /// `jj fix --no-index src/main.rs`, or use `jj fix --no-index
+    /// --stdin-filepath=...` and supply the file content on stdin.
+    ///
+    /// This makes `jj fix` behave as a code formatter itself, and with it, you
+    /// can configure a text editor's auto-format to do exactly what `jj fix`
+    /// would.
+    ///
+    /// You can also use it to simulate a `jj fix` configuration without writing
+    /// anything to disk.
+    #[arg(long)]
+    no_index: bool,
+
+    /// When using --no-index, read the file content from stdin but match the
+    /// `fix.tools` configurations using this path. Relative to CWD.
+    #[arg(long)]
+    stdin_filepath: Option<String>,
 }
 
 #[instrument(skip_all)]
@@ -135,6 +156,10 @@ pub(crate) fn cmd_fix(
     command: &CommandHelper,
     args: &FixArgs,
 ) -> Result<(), CommandError> {
+    if args.no_index {
+        // Entirely separate codepath. We do not want to snapshot in --no-index mode.
+        return fix_no_index(ui, command, args);
+    }
     let mut workspace_command = command.workspace_helper(ui)?;
     let workspace_root = workspace_command.workspace_root().to_owned();
     let path_converter = workspace_command.path_converter().to_owned();
@@ -249,6 +274,93 @@ async fn fix_one_file(
         return Ok(Some(new_file_id));
     }
     Ok(None)
+}
+
+/// Entirely separate code path for --no-index
+fn fix_no_index(ui: &mut Ui, command: &CommandHelper, args: &FixArgs) -> Result<(), CommandError> {
+    let workspace_command = command.workspace_helper_no_snapshot(ui)?;
+    let workspace_root = workspace_command.workspace_root();
+    let path_converter = workspace_command.path_converter();
+    let tools_config = get_tools_config(ui, workspace_command.settings(), false)?;
+
+    let repo_path;
+    let mut read_file: Box<dyn FnMut() -> _>;
+
+    if let Some(stdin_filepath) = args.stdin_filepath.as_deref() {
+        repo_path = path_converter.parse_file_path(stdin_filepath)?;
+        read_file = Box::new(|| {
+            // This is blocking io in async. But it's fine.
+            let mut stdin = std::io::stdin();
+            let mut old_content = vec![];
+            stdin.read_to_end(&mut old_content)?;
+            Ok(old_content)
+        });
+    } else {
+        let path = args
+            .paths
+            .iter()
+            .exactly_one()
+            .cloned()
+            .map_err(|_not_one| {
+                CommandError::new(
+                    CommandErrorKind::User,
+                    "--no-index without --stdin-filepath requires exactly one path argument, and \
+                     it cannot be be a fileset"
+                        .to_string(),
+                )
+            })?;
+        repo_path = path_converter.parse_file_path(&path)?;
+        read_file = Box::new(move || {
+            let path = Path::new(&path);
+            let mut file = std::fs::File::open(path).context(path)?;
+            let mut old_content = vec![];
+            file.read_to_end(&mut old_content)?;
+            Ok(old_content)
+        });
+    }
+
+    let run_output = run_tools_one_file(
+        ui,
+        workspace_root,
+        path_converter,
+        &tools_config,
+        &repo_path,
+        || async { read_file() },
+    )
+    .block_on()?;
+
+    let stdout = std::io::stdout();
+    let mut stdout_locked = stdout.lock();
+
+    match run_output {
+        ToolsRunOutput::Ran {
+            new_content,
+            different: _,
+        } => {
+            // always print
+            stdout_locked.write_all(&new_content)?;
+        }
+        ToolsRunOutput::NoMatchingTools => {
+            // We already warned about empty/disabled tools when reading config
+            if !tools_config.tools.is_empty() {
+                writeln!(
+                    ui.warning_default(),
+                    "No `fix.tools` matched {}",
+                    path_converter.format_file_path(&repo_path)
+                )?;
+            }
+            if args.stdin_filepath.is_some() {
+                // just copy stdin to stdout, we haven't read stdin yet
+                let stdin = std::io::stdin();
+                std::io::copy(&mut stdin.lock(), &mut stdout_locked)?;
+            } else {
+                // reading from file
+                let old_content = read_file()?;
+                stdout_locked.write_all(&old_content)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 enum ToolsRunOutput {
