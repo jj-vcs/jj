@@ -3511,20 +3511,44 @@ fn test_expand_default_fetch_refspecs() {
     only refs/heads/ is supported for refspec sources: +refs/tags/wrong-src:refs/remotes/origin/wrong-src
     ");
 
-    insta::assert_snapshot!(format!("{expanded:#?}"), @r#"
+    insta::assert_debug_snapshot!(expanded, @r#"
     ExpandedFetchRefSpecs {
-        expected_branch_names: [
-            Glob(
-                GlobPattern(
-                    "foo*",
+        bookmark_expr: Intersection(
+            Union(
+                Pattern(
+                    Glob(
+                        GlobPattern(
+                            "foo*",
+                        ),
+                    ),
+                ),
+                Pattern(
+                    Glob(
+                        GlobPattern(
+                            "main",
+                        ),
+                    ),
                 ),
             ),
-            Glob(
-                GlobPattern(
-                    "main",
+            NotIn(
+                Union(
+                    Pattern(
+                        Glob(
+                            GlobPattern(
+                                "excluded",
+                            ),
+                        ),
+                    ),
+                    Pattern(
+                        Glob(
+                            GlobPattern(
+                                "fooqux",
+                            ),
+                        ),
+                    ),
                 ),
             ),
-        ],
+        ),
         refspecs: [
             RefSpec {
                 forced: true,

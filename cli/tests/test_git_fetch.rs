@@ -310,19 +310,18 @@ fn test_git_fetch_with_ignored_refspecs() {
     [EOF]
     ");
 
-    // FIXME: Should not import "sub/no" because it is ignored by default
+    // Should not import "sub/no" because it is ignored by default
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Ignored refspec `refs/heads/bar` from `origin`: fetch-only refspecs are not supported
     Warning: Ignored refspec `+refs/heads/bar*:refs/tags/bar*` from `origin`: only refs/remotes/ is supported for fetch destinations
     Warning: Ignored refspec `+refs/heads/foo*:refs/remotes/origin/baz*` from `origin`: renaming is not supported
-    bookmark: sub/no@origin [new] untracked
+    Nothing changed.
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main@origin: wlltxvop a437242b main
-    sub/no@origin: tknwmolt f7d8b914 sub/no
     sub/yes@origin: xwxtqxvy 6b64b005 sub/yes
     [EOF]
     ");

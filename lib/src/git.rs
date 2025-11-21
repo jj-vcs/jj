@@ -68,6 +68,8 @@ use crate::revset::RevsetExpression;
 use crate::settings::RemoteSettings;
 use crate::settings::UserSettings;
 use crate::store::Store;
+use crate::str_util::StringExpression;
+use crate::str_util::StringMatcher;
 use crate::str_util::StringPattern;
 use crate::view::View;
 
@@ -2248,16 +2250,14 @@ pub enum GitDefaultRefspecError {
 
 struct FetchedBranches {
     remote: RemoteNameBuf,
-    branches: Vec<StringPattern>,
+    bookmark_matcher: StringMatcher,
 }
 
 /// Represents the refspecs to fetch from a remote
 #[derive(Debug)]
 pub struct ExpandedFetchRefSpecs {
-    // NB: branch names need not necessarily map 1:1 with refspecs below:
-    // for example, we can have negative refspecs in which case there will not
-    // be an expected_branch_name entry here
-    expected_branch_names: Vec<StringPattern>,
+    /// Matches (positive) `refspecs`, but not `negative_refspecs`.
+    bookmark_expr: StringExpression,
     refspecs: Vec<RefSpec>,
     negative_refspecs: Vec<NegativeRefSpec>,
 }
@@ -2296,8 +2296,15 @@ pub fn expand_fetch_refspecs(
         })
         .try_collect()?;
 
+    let bookmark_expr = StringExpression::union_all(
+        branch_names
+            .into_iter()
+            .map(StringExpression::pattern)
+            .collect(),
+    );
+
     Ok(ExpandedFetchRefSpecs {
-        expected_branch_names: branch_names,
+        bookmark_expr,
         refspecs,
         negative_refspecs: Vec::new(),
     })
@@ -2341,17 +2348,19 @@ pub fn expand_default_fetch_refspecs(
     let remote_refspecs = remote.refspecs(gix::remote::Direction::Fetch);
     let mut refspecs = Vec::with_capacity(remote_refspecs.len());
     let mut ignored_refspecs = Vec::with_capacity(remote_refspecs.len());
-    let mut expected_branch_names = Vec::with_capacity(remote_refspecs.len());
+    let mut positive_bookmarks = Vec::with_capacity(remote_refspecs.len());
     let mut negative_refspecs = Vec::new();
+    let mut negative_bookmarks = Vec::new();
     for refspec in remote_refspecs {
         let refspec = refspec.to_ref();
         match parse_fetch_refspec(remote_name, refspec) {
-            Ok((FetchRefSpec::Positive(refspec), branch)) => {
+            Ok((FetchRefSpec::Positive(refspec), bookmark)) => {
                 refspecs.push(refspec);
-                expected_branch_names.push(branch);
+                positive_bookmarks.push(StringExpression::pattern(bookmark));
             }
-            Ok((FetchRefSpec::Negative(refspec), _branch)) => {
+            Ok((FetchRefSpec::Negative(refspec), bookmark)) => {
                 negative_refspecs.push(refspec);
+                negative_bookmarks.push(StringExpression::pattern(bookmark));
             }
             Err(reason) => {
                 let refspec = refspec.to_bstring();
@@ -2360,10 +2369,13 @@ pub fn expand_default_fetch_refspecs(
         }
     }
 
+    let bookmark_expr = StringExpression::union_all(positive_bookmarks)
+        .intersection(StringExpression::union_all(negative_bookmarks).negated());
+
     Ok((
         IgnoredRefspecs(ignored_refspecs),
         ExpandedFetchRefSpecs {
-            expected_branch_names,
+            bookmark_expr,
             refspecs,
             negative_refspecs,
         },
@@ -2455,7 +2467,7 @@ impl<'a> GitFetch<'a> {
         &mut self,
         remote_name: &RemoteName,
         ExpandedFetchRefSpecs {
-            expected_branch_names,
+            bookmark_expr,
             refspecs: mut remaining_refspecs,
             negative_refspecs,
         }: ExpandedFetchRefSpecs,
@@ -2512,7 +2524,7 @@ impl<'a> GitFetch<'a> {
 
         self.fetched.push(FetchedBranches {
             remote: remote_name.to_owned(),
-            branches: expected_branch_names,
+            bookmark_matcher: bookmark_expr.to_matcher(),
         });
         Ok(())
     }
@@ -2554,12 +2566,7 @@ impl<'a> GitFetch<'a> {
                         .fetched
                         .iter()
                         .filter(|fetched| fetched.remote == symbol.remote)
-                        .any(|fetched| {
-                            fetched
-                                .branches
-                                .iter()
-                                .any(|pattern| pattern.is_match(symbol.name.as_str()))
-                        }),
+                        .any(|fetched| fetched.bookmark_matcher.is_match(symbol.name.as_str())),
                     GitRefKind::Tag => true,
                 },
             )?;
