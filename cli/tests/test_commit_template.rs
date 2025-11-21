@@ -610,7 +610,6 @@ fn test_log_evolog_divergence() {
 #[test]
 fn test_log_bookmarks() {
     let test_env = TestEnvironment::default();
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
 
     test_env.run_jj_in(".", ["git", "init", "origin"]).success();
@@ -655,8 +654,11 @@ fn test_log_bookmarks() {
         .success();
     let work_dir = test_env.work_dir("local");
 
-    // Rewrite bookmark1, move bookmark2 forward, create conflict in bookmark3, add
-    // new-bookmark
+    // Track all remote bookmarks, rewrite bookmark1, move bookmark2 forward,
+    // create conflict in bookmark3, add new-bookmark
+    work_dir
+        .run_jj(["bookmark", "track", "glob:*@origin"])
+        .success();
     work_dir
         .run_jj(["describe", "bookmark1", "-m", "modified bookmark1 commit"])
         .success();
@@ -679,13 +681,13 @@ fn test_log_bookmarks() {
     let template = r#"commit_id.short() ++ " " ++ if(bookmarks, bookmarks, "(no bookmarks)")"#;
     let output = work_dir.run_jj(["log", "-T", template]);
     insta::assert_snapshot!(output, @r"
-    @  5987a4a000d5 bookmark2* new-bookmark*
+    @  4bc3723efff8 bookmark2* new-bookmark
     ○  38a204733702 bookmark2@origin unchanged
-    │ ○  999cf949d279 bookmark3?? bookmark3@origin
+    │ ○  1c14797dac42 bookmark3?? bookmark3@origin
     ├─╯
-    │ ○  d30139075fb1 bookmark3??
+    │ ○  8223b15ac1f1 bookmark3??
     ├─╯
-    │ ○  c7f578d6e544 bookmark1*
+    │ ○  a156ef717a61 bookmark1*
     ├─╯
     ◆  000000000000 (no bookmarks)
     [EOF]
@@ -709,7 +711,7 @@ fn test_log_bookmarks() {
     let template = r#"separate(" ", "L:", local_bookmarks, "R:", remote_bookmarks)"#;
     let output = work_dir.run_jj(["log", "-T", template]);
     insta::assert_snapshot!(output, @r"
-    @  L: bookmark2* new-bookmark* R:
+    @  L: bookmark2* new-bookmark R:
     ○  L: unchanged R: bookmark2@origin unchanged@origin
     │ ○  L: bookmark3?? R: bookmark3@origin
     ├─╯
