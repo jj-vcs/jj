@@ -2328,15 +2328,14 @@ enum FetchRefSpec {
 
 /// Expand the remote's configured fetch refspecs
 pub fn expand_default_fetch_refspecs(
-    remote: &RemoteName,
+    remote_name: &RemoteName,
     git_repo: &gix::Repository,
 ) -> Result<(IgnoredRefspecs, ExpandedFetchRefSpecs), GitDefaultRefspecError> {
-    let remote_name = remote.as_str();
     let remote = git_repo
-        .try_find_remote(remote_name)
-        .ok_or_else(|| GitDefaultRefspecError::NoSuchRemote(remote.to_owned()))?
+        .try_find_remote(remote_name.as_str())
+        .ok_or_else(|| GitDefaultRefspecError::NoSuchRemote(remote_name.to_owned()))?
         .map_err(|e| {
-            GitDefaultRefspecError::InvalidRemoteConfiguration(remote.to_owned(), Box::new(e))
+            GitDefaultRefspecError::InvalidRemoteConfiguration(remote_name.to_owned(), Box::new(e))
         })?;
 
     let remote_refspecs = remote.refspecs(gix::remote::Direction::Fetch);
@@ -2371,7 +2370,7 @@ pub fn expand_default_fetch_refspecs(
 }
 
 fn parse_fetch_refspec(
-    remote_name: &str,
+    remote_name: &RemoteName,
     refspec: &gix::refspec::RefSpec,
 ) -> Result<FetchRefSpec, &'static str> {
     let forced = refspec.allow_non_fast_forward();
@@ -2410,7 +2409,7 @@ fn parse_fetch_refspec(
             .strip_prefix("refs/remotes/")
             .ok_or("only refs/remotes/ is supported for fetch destinations")?;
         let dst_branch = dst_without_prefix
-            .strip_prefix(remote_name)
+            .strip_prefix(remote_name.as_str())
             .and_then(|d| d.strip_prefix("/"))
             .ok_or("remote renaming not supported")?;
         if src_branch != dst_branch {
