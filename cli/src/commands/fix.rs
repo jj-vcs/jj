@@ -188,6 +188,7 @@ pub(crate) async fn cmd_fix(
         ui,
         workspace_command.settings(),
         &workspace_command.env().fileset_parse_context_for_config(),
+        true,
     )?;
     let target_expr = if args.source.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.fix")?;
@@ -473,6 +474,7 @@ fn get_tools_config(
     ui: &mut Ui,
     settings: &UserSettings,
     fileset_context: &FilesetParseContext,
+    require_nonempty: bool,
 ) -> Result<ToolsConfig, CommandError> {
     let mut tools: Vec<ToolConfig> = settings
         .table_keys("fix.tools")
@@ -496,14 +498,22 @@ fn get_tools_config(
         })
         .try_collect()?;
     if tools.is_empty() {
-        return Err(config_error("No `fix.tools` are configured"));
+        if require_nonempty {
+            return Err(config_error("No `fix.tools` are configured."));
+        } else {
+            writeln!(ui.warning_default(), "No `fix.tools` are configured.")?;
+            return Ok(ToolsConfig { tools });
+        }
     }
     tools.retain(|t| t.enabled);
     if tools.is_empty() {
-        Err(config_error(
-            "At least one entry of `fix.tools` must be enabled.".to_string(),
-        ))
-    } else {
-        Ok(ToolsConfig { tools })
+        if require_nonempty {
+            return Err(config_error(
+                "At least one entry of `fix.tools` must be enabled.".to_string(),
+            ));
+        } else {
+            writeln!(ui.warning_default(), "No `fix.tools` are enabled.")?;
+        }
     }
+    Ok(ToolsConfig { tools })
 }
