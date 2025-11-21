@@ -242,6 +242,8 @@ pub struct SnapshotStats {
     /// List of ignored paths, the boolean representing if the path is a
     /// directory.
     pub ignored_paths: BTreeMap<RepoPathBuf, bool>,
+    /// List of new tracked files.
+    pub newly_tracked_paths: Vec<RepoPathBuf>,
 }
 
 /// Reason why the new path isn't tracked.
