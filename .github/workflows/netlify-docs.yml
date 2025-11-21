@@ -1,0 +1,50 @@
+name: netlify-website
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+jobs:
+  prerelease-docs-netlify-deploy:
+    # Mirrors the GitHub Pages deployment but deploys to Netlify instead
+    permissions:
+      contents: read
+    if: github.repository_owner == 'jj-vcs' # Stops this job from running on forks
+    strategy:
+      matrix:
+        os: [ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - run: "git fetch origin gh-pages --depth=1"
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: 3.11
+      - name: Install uv
+        uses: astral-sh/setup-uv@5a7eac68fb9809dea845d802897dc5c723910fa3
+        with:
+          version: "0.5.1"
+      - name: Install dependencies and compile docs
+        run: |
+          export MKDOCS_SITE_NAME="Jujutsu docs (prerelease)"
+          export MKDOCS_PRIMARY_COLOR="blue grey"
+          # Build docs without pushing to gh-pages
+          .github/scripts/docs-build-deploy prerelease
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@4cbaf4c08f1a7bfa537d6113472ef4424e4eb654
+        with:
+          publish-dir: './rendered-docs'
+          production-deploy: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          enable-pull-request-comment: false
+          enable-commit-comment: false
+          enable-commit-status: false
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
