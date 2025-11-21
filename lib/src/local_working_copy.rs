@@ -1329,10 +1329,6 @@ impl TreeState {
             snapshotter.into_result()
         })?;
 
-        let stats = SnapshotStats {
-            untracked_paths: untracked_paths_rx.into_iter().collect(),
-            ignored_paths: ignored_paths_rx.into_iter().collect(),
-        };
         let mut tree_builder = MergedTreeBuilder::new(self.tree.clone());
         trace_span!("process tree entries").in_scope(|| {
             for (path, tree_values) in &tree_entries_rx {
@@ -1347,15 +1343,30 @@ impl TreeState {
             }
             deleted_files
         });
+        let mut newly_tracked_paths = Vec::new();
         trace_span!("process file states").in_scope(|| {
             let changed_file_states = file_states_rx
                 .iter()
-                .sorted_unstable_by(|(path1, _), (path2, _)| path1.cmp(path2))
+                .sorted_unstable_by(|(path1, _, _), (path2, _, _)| path1.cmp(path2))
                 .collect_vec();
             is_dirty |= !changed_file_states.is_empty();
-            self.file_states
-                .merge_in(changed_file_states, &deleted_files);
+            newly_tracked_paths = changed_file_states
+                .iter()
+                .filter_map(|(path, _, newly_tracked)| newly_tracked.then_some(path.clone()))
+                .collect_vec();
+            self.file_states.merge_in(
+                changed_file_states
+                    .into_iter()
+                    .map(|(path, state, _)| (path, state))
+                    .collect_vec(),
+                &deleted_files,
+            );
         });
+        let stats = SnapshotStats {
+            newly_tracked_paths,
+            ignored_paths: ignored_paths_rx.into_iter().collect(),
+            untracked_paths: untracked_paths_rx.into_iter().collect(),
+        };
         trace_span!("write tree").in_scope(|| -> Result<(), BackendError> {
             let new_tree = tree_builder.write_tree()?;
             is_dirty |= new_tree.tree_ids_and_labels() != self.tree.tree_ids_and_labels();
@@ -1477,7 +1488,7 @@ struct FileSnapshotter<'a> {
     start_tracking_matcher: &'a dyn Matcher,
     force_tracking_matcher: &'a dyn Matcher,
     tree_entries_tx: Sender<(RepoPathBuf, MergedTreeValue)>,
-    file_states_tx: Sender<(RepoPathBuf, FileState)>,
+    file_states_tx: Sender<(RepoPathBuf, FileState, bool)>,
     untracked_paths_tx: Sender<(RepoPathBuf, UntrackedReason)>,
     ignored_paths_tx: Sender<(RepoPathBuf, bool)>,
     deleted_files_tx: Sender<RepoPathBuf>,
@@ -1731,11 +1742,18 @@ impl FileSnapshotter<'_> {
             new_file_state.materialized_conflict_data =
                 maybe_current_file_state.and_then(|state| state.materialized_conflict_data);
         }
+
+        // If this path was previously untracked and we decided to emit a tree value,
+        // mark the entry as being newly tracked.
+        let newly_tracked = maybe_current_file_state.is_none() && update.is_some();
+
         if let Some(tree_value) = update {
             self.tree_entries_tx.send((path.clone(), tree_value)).ok();
         }
         if Some(&new_file_state) != maybe_current_file_state {
-            self.file_states_tx.send((path, new_file_state)).ok();
+            self.file_states_tx
+                .send((path, new_file_state, newly_tracked))
+                .ok();
         }
         Ok(())
     }
