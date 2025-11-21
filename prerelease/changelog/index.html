@@ -6125,6 +6125,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <li>
 <p><code>jj describe --edit</code> is deprecated in favor of <code>--editor</code>.</p>
 </li>
+<li>
+<p>The config option <code>git.auto-local-bookmark</code> is deprecated
+  in favor of <code>remotes.&lt;name&gt;.auto-track-bookmarks</code>. See
+  <a href="https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks">https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks</a>.</p>
+</li>
 </ul>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
@@ -9836,8 +9841,6 @@ become a <strong>hard error later in 2024</strong>.</p>
 </ul>
 <p>If the deduced tracking flags are wrong, use <code>jj branch track</code>/<code>untrack</code>
 commands to fix them up.</p>
-<p>See <a href="../config/#automatic-local-bookmark-creation">automatic local branch creation</a>
-for details.</p>
 </li>
 <li>
 <p>Non-tracking remote branches aren't listed by default. Use <code>jj branch list

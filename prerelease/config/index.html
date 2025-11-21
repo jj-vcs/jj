@@ -1554,15 +1554,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#automatic-local-bookmark-creation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Automatic local bookmark creation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#automatic-tracking-of-bookmarks" class="md-nav__link">
     <span class="md-ellipsis">
       Automatic tracking of bookmarks
@@ -3375,15 +3366,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#automatic-local-bookmark-creation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Automatic local bookmark creation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#automatic-tracking-of-bookmarks" class="md-nav__link">
     <span class="md-ellipsis">
       Automatic tracking of bookmarks
@@ -4850,28 +4832,6 @@ push to a different remote:</p>
 <p>Note that unlike <code>git.fetch</code>, <code>git.push</code> can currently only be a single remote.
 This is not a hard limitation, and could be changed in the future if there is
 demand.</p>
-<h3 id="automatic-local-bookmark-creation">Automatic local bookmark creation<a class="headerlink" href="#automatic-local-bookmark-creation" title="Permanent link">&para;</a></h3>
-<p>When <code>jj</code> imports a new remote-tracking bookmark from Git, it can also create a
-local bookmark with the same name. This feature is disabled by default because it
-may be undesirable in some repositories, e.g.:</p>
-<ul>
-<li>There is a remote with a lot of historical bookmarks that you don't
-  want to be exported to the colocated Git workspace.</li>
-<li>There are multiple remotes with conflicting views of that bookmark,
-  resulting in an unhelpful conflicted state.</li>
-</ul>
-<p>You can enable this behavior by setting <code>git.auto-local-bookmark</code> like so,</p>
-<div class="highlight"><pre><span></span><code><span class="k">[git]</span>
-<span class="n">auto-local-bookmark</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
-</code></pre></div>
-<p>This setting is applied only to new remote bookmarks. Existing remote bookmarks
-can be tracked individually by using <code>jj bookmark track</code>/<code>untrack</code> commands.</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># import feature1 bookmark and start tracking it</span>
-jj<span class="w"> </span>bookmark<span class="w"> </span>track<span class="w"> </span>feature1@origin
-<span class="c1"># delete local gh-pages bookmark and stop tracking it</span>
-jj<span class="w"> </span>bookmark<span class="w"> </span>delete<span class="w"> </span>gh-pages
-jj<span class="w"> </span>bookmark<span class="w"> </span>untrack<span class="w"> </span>gh-pages@upstream
-</code></pre></div>
 <h3 id="automatic-tracking-of-bookmarks">Automatic tracking of bookmarks<a class="headerlink" href="#automatic-tracking-of-bookmarks" title="Permanent link">&para;</a></h3>
 <p>You can configure which bookmarks to track automatically per remote, using the
 key <code>auto-track-bookmarks</code> under a section <code>[remotes.&lt;name&gt;]</code>. The value is a

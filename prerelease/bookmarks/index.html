@@ -717,9 +717,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#automatic-tracking-of-bookmarks-gitauto-local-bookmark-option" class="md-nav__link">
+  <a href="#automatic-tracking-of-bookmarks-auto-track-bookmarks-option" class="md-nav__link">
     <span class="md-ellipsis">
-      Automatic tracking of bookmarks &amp; git.auto-local-bookmark option
+      Automatic tracking of bookmarks &amp; auto-track-bookmarks option
     </span>
   </a>
   
@@ -1923,9 +1923,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#automatic-tracking-of-bookmarks-gitauto-local-bookmark-option" class="md-nav__link">
+  <a href="#automatic-tracking-of-bookmarks-auto-track-bookmarks-option" class="md-nav__link">
     <span class="md-ellipsis">
-      Automatic tracking of bookmarks &amp; git.auto-local-bookmark option
+      Automatic tracking of bookmarks &amp; auto-track-bookmarks option
     </span>
   </a>
   
@@ -2103,7 +2103,7 @@ $<span class="w"> </span><span class="c1"># be tracking bookmarks on other remot
 <p>To list tracked bookmarks, you can <code>jj bookmark list --tracked</code> or <code>jj bookmark list -t</code>.
 This command omits local Git-tracking bookmarks by default.</p>
 <p>You can see if a specific bookmark is tracked with <code>jj bookmark list --tracked &lt;bookmark name&gt;</code>.</p>
-<h3 id="automatic-tracking-of-bookmarks-gitauto-local-bookmark-option">Automatic tracking of bookmarks &amp; <code>git.auto-local-bookmark</code> option<a class="headerlink" href="#automatic-tracking-of-bookmarks-gitauto-local-bookmark-option" title="Permanent link">&para;</a></h3>
+<h3 id="automatic-tracking-of-bookmarks-auto-track-bookmarks-option">Automatic tracking of bookmarks &amp; <code>auto-track-bookmarks</code> option<a class="headerlink" href="#automatic-tracking-of-bookmarks-auto-track-bookmarks-option" title="Permanent link">&para;</a></h3>
 <p>There are two situations where <code>jj</code> tracks bookmarks automatically. <code>jj git
 clone</code> automatically sets up the default remote bookmark (e.g. <code>main@origin</code>) as
 tracked. When you push a local bookmark, the newly created bookmark on the remote is
@@ -2111,11 +2111,14 @@ marked as tracked.</p>
 <p>By default, every other remote bookmark is marked as "not tracked" when it's
 fetched. If desired, you need to manually <code>jj bookmark track</code> them. This works
 well for repositories where multiple people work on a large number of bookmarks.</p>
-<p>The default can be changed by setting the config <code>git.auto-local-bookmark = true</code>.
+<p>The default can be changed by setting the config <code>remotes.&lt;name&gt;.auto-track-bookmarks = "glob:*"</code>.
 Then, <code>jj git fetch</code> tracks every <em>newly fetched</em> bookmark with a local bookmark.
 Branches that already existed before the <code>jj git fetch</code> are not affected. This
 is similar to Mercurial, which fetches all its bookmarks (equivalent to Git's
-branches) by default.</p>
+branches) by default. Similarly, all newly created local bookmarks
+will be marked as "tracked", preparing them to be pushed with
+the next <code>jj git push</code> command. See <a href="../config/#automatic-tracking-of-bookmarks">"Automatic tracking of
+bookmarks"</a> for details.</p>
 <h2 id="bookmark-updates">Bookmark updates<a class="headerlink" href="#bookmark-updates" title="Permanent link">&para;</a></h2>
 <p>Currently Jujutsu automatically updates local bookmarks when these conditions are
 met:</p>
