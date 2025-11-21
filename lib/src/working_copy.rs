@@ -367,7 +367,7 @@ impl WorkingCopyFreshness {
     ) -> Result<Self, OpStoreError> {
         // Check if the working copy's tree matches the repo's view
         let wc_tree = locked_wc.old_tree();
-        if wc_commit.tree_ids() == wc_tree.tree_ids() {
+        if wc_commit.tree().tree_ids_and_labels() == wc_tree.tree_ids_and_labels() {
             // The working copy isn't stale, and no need to reload the repo.
             Ok(Self::Fresh)
         } else {
