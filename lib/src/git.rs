@@ -2322,7 +2322,7 @@ pub struct IgnoredRefspec {
 
 #[derive(Debug)]
 enum FetchRefSpec {
-    Positive(RefSpec, StringPattern),
+    Positive(RefSpec),
     Negative(NegativeRefSpec),
 }
 
@@ -2346,11 +2346,11 @@ pub fn expand_default_fetch_refspecs(
     for refspec in remote_refspecs {
         let refspec = refspec.to_ref();
         match parse_fetch_refspec(remote_name, refspec) {
-            Ok(FetchRefSpec::Positive(refspec, branch)) => {
+            Ok((FetchRefSpec::Positive(refspec), branch)) => {
                 refspecs.push(refspec);
                 expected_branch_names.push(branch);
             }
-            Ok(FetchRefSpec::Negative(refspec)) => {
+            Ok((FetchRefSpec::Negative(refspec), _branch)) => {
                 negative_refspecs.push(refspec);
             }
             Err(reason) => {
@@ -2373,10 +2373,10 @@ pub fn expand_default_fetch_refspecs(
 fn parse_fetch_refspec(
     remote_name: &RemoteName,
     refspec: gix::refspec::RefSpecRef<'_>,
-) -> Result<FetchRefSpec, &'static str> {
+) -> Result<(FetchRefSpec, StringPattern), &'static str> {
     let ensure_utf8 = |s| str::from_utf8(s).map_err(|_| "invalid UTF-8");
 
-    let (src, dst) = match refspec.instruction() {
+    let (src, positive_dst) = match refspec.instruction() {
         Instruction::Push(_) => panic!("push refspec should be filtered out by caller"),
         Instruction::Fetch(fetch) => match fetch {
             gix::refspec::instruction::Fetch::Only { src: _ } => {
@@ -2390,20 +2390,18 @@ fn parse_fetch_refspec(
                 if !allow_non_fast_forward {
                     return Err("non-forced refspecs are not supported");
                 }
-                (ensure_utf8(src)?, ensure_utf8(dst)?)
+                (ensure_utf8(src)?, Some(ensure_utf8(dst)?))
             }
-            gix::refspec::instruction::Fetch::Exclude { src } => {
-                let src = ensure_utf8(src)?;
-                return Ok(FetchRefSpec::Negative(NegativeRefSpec::new(src)));
-            }
+            gix::refspec::instruction::Fetch::Exclude { src } => (ensure_utf8(src)?, None),
         },
     };
 
     let src_branch = src
         .strip_prefix("refs/heads/")
         .ok_or("only refs/heads/ is supported for refspec sources")?;
+    let branch = StringPattern::glob(src_branch).map_err(|_| "invalid pattern")?;
 
-    let dst = {
+    if let Some(dst) = positive_dst {
         let dst_without_prefix = dst
             .strip_prefix("refs/remotes/")
             .ok_or("only refs/remotes/ is supported for fetch destinations")?;
@@ -2414,13 +2412,10 @@ fn parse_fetch_refspec(
         if src_branch != dst_branch {
             return Err("renaming is not supported");
         }
-        dst.to_owned()
-    };
-
-    // At this point src_branch and dst_branch match
-    let branch = StringPattern::glob(src_branch).map_err(|_| "invalid pattern")?;
-
-    Ok(FetchRefSpec::Positive(RefSpec::forced(src, dst), branch))
+        Ok((FetchRefSpec::Positive(RefSpec::forced(src, dst)), branch))
+    } else {
+        Ok((FetchRefSpec::Negative(NegativeRefSpec::new(src)), branch))
+    }
 }
 
 /// Helper struct to execute multiple `git fetch` operations
