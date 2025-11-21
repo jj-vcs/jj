@@ -30,6 +30,7 @@ use jj_lib::fix::ParallelFileFixer;
 use jj_lib::fix::fix_files;
 use jj_lib::matchers::Matcher;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::settings::UserSettings;
@@ -217,27 +218,74 @@ async fn fix_one_file(
     store: &Store,
     file_to_fix: &FileToFix,
 ) -> Result<Option<FileId>, FixError> {
-    let mut matching_tools = tools_config
-        .tools
-        .iter()
-        .filter(|tool_config| tool_config.matcher.matches(&file_to_fix.repo_path))
-        .peekable();
-    if matching_tools.peek().is_some() {
-        // The first matching tool gets its input from the committed file, and any
-        // subsequent matching tool gets its input from the previous matching tool's
-        // output.
+    let read_file = || async {
         let mut old_content = vec![];
         let mut read = store
             .read_file(&file_to_fix.repo_path, &file_to_fix.file_id)
             .await?;
         read.read_to_end(&mut old_content).await?;
+        Ok(old_content)
+    };
+    let maybe_new_content = run_tools_one_file(
+        ui,
+        workspace_root,
+        path_converter,
+        tools_config,
+        &file_to_fix.repo_path,
+        read_file,
+    )
+    .await?;
+
+    if let ToolsRunOutput::Ran {
+        new_content,
+        different: true,
+    } = maybe_new_content
+    {
+        // TODO: send futures back over channel
+        let new_file_id = store
+            .write_file(&file_to_fix.repo_path, &mut new_content.as_slice())
+            .await?;
+        return Ok(Some(new_file_id));
+    }
+    Ok(None)
+}
+
+enum ToolsRunOutput {
+    NoMatchingTools,
+    Ran {
+        new_content: Vec<u8>,
+        different: bool,
+    },
+}
+
+async fn run_tools_one_file<F>(
+    ui: &Ui,
+    workspace_root: &Path,
+    path_converter: &RepoPathUiConverter,
+    tools_config: &ToolsConfig,
+    repo_path: &RepoPath,
+    read_file: impl FnOnce() -> F,
+) -> Result<ToolsRunOutput, FixError>
+where
+    F: Future<Output = Result<Vec<u8>, FixError>>,
+{
+    let mut matching_tools = tools_config
+        .tools
+        .iter()
+        .filter(|tool_config| tool_config.matcher.matches(repo_path))
+        .peekable();
+    if matching_tools.peek().is_some() {
+        // The first matching tool gets its input from the committed file, and any
+        // subsequent matching tool gets its input from the previous matching tool's
+        // output.
+        let old_content = read_file().await?;
         let new_content = matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
             match run_tool(
                 ui,
                 workspace_root,
                 path_converter,
                 &tool_config.command,
-                file_to_fix,
+                repo_path,
                 &prev_content,
             ) {
                 Ok(next_content) => next_content,
@@ -247,15 +295,13 @@ async fn fix_one_file(
                 Err(()) => prev_content,
             }
         });
-        if new_content != old_content {
-            // TODO: send futures back over channel
-            let new_file_id = store
-                .write_file(&file_to_fix.repo_path, &mut new_content.as_slice())
-                .await?;
-            return Ok(Some(new_file_id));
-        }
+        Ok(ToolsRunOutput::Ran {
+            different: new_content != old_content,
+            new_content,
+        })
+    } else {
+        Ok(ToolsRunOutput::NoMatchingTools)
     }
-    Ok(None)
 }
 
 /// Runs the `tool_command` to fix the given file content.
@@ -271,11 +317,11 @@ fn run_tool(
     workspace_root: &Path,
     path_converter: &RepoPathUiConverter,
     tool_command: &CommandNameAndArgs,
-    file_to_fix: &FileToFix,
+    repo_path: &RepoPath,
     old_content: &[u8],
 ) -> Result<Vec<u8>, ()> {
     let mut vars: HashMap<&str, &str> = HashMap::new();
-    vars.insert("path", file_to_fix.repo_path.as_internal_file_string());
+    vars.insert("path", repo_path.as_internal_file_string());
     // TODO: workspace_root.to_str() returns None if the workspace path is not
     // UTF-8, but we ignore that failure so `jj fix` still runs in that
     // situation. Maybe we should do something like substituting bytes instead
@@ -284,7 +330,7 @@ fn run_tool(
         vars.insert("root", root);
     }
     let mut command = tool_command.to_command_with_variables(&vars);
-    tracing::debug!(?command, ?file_to_fix.repo_path, "spawning fix tool");
+    tracing::debug!(?command, ?repo_path, "spawning fix tool");
     let mut child = match command
         .current_dir(workspace_root)
         .stdin(Stdio::piped())
@@ -314,12 +360,7 @@ fn run_tool(
     tracing::debug!(?command, ?output.status, "fix tool exited:");
     if !output.stderr.is_empty() {
         let mut stderr = ui.stderr();
-        writeln!(
-            stderr,
-            "{}:",
-            path_converter.format_file_path(&file_to_fix.repo_path)
-        )
-        .ok();
+        writeln!(stderr, "{}:", path_converter.format_file_path(repo_path)).ok();
         stderr.write_all(&output.stderr).ok();
         writeln!(stderr).ok();
     }
@@ -330,7 +371,7 @@ fn run_tool(
             ui.warning_default(),
             "Fix tool `{}` exited with non-zero exit code for `{}`",
             tool_command.split_name(),
-            path_converter.format_file_path(&file_to_fix.repo_path)
+            path_converter.format_file_path(repo_path)
         )
         .ok();
         Err(())
