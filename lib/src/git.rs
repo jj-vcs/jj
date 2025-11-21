@@ -2320,6 +2320,12 @@ pub struct IgnoredRefspec {
     pub reason: &'static str,
 }
 
+#[derive(Debug)]
+enum FetchRefSpec {
+    Positive(RefSpec, StringPattern),
+    Negative(NegativeRefSpec),
+}
+
 /// Expand the remote's configured fetch refspecs
 pub fn expand_default_fetch_refspecs(
     remote: &RemoteName,
@@ -2334,114 +2340,25 @@ pub fn expand_default_fetch_refspecs(
         })?;
 
     let remote_refspecs = remote.refspecs(gix::remote::Direction::Fetch);
-
+    let mut refspecs = Vec::with_capacity(remote_refspecs.len());
     let mut ignored_refspecs = Vec::with_capacity(remote_refspecs.len());
     let mut expected_branch_names = Vec::with_capacity(remote_refspecs.len());
     let mut negative_refspecs = Vec::new();
-
-    let refspecs = remote_refspecs
-        .iter()
-        .filter_map(|refspec| {
-            let forced = refspec.allow_non_fast_forward();
-            let refspec = refspec.to_ref();
-
-            let mut ensure_utf8 = |s| match str::from_utf8(s) {
-                Ok(s) => Some(s),
-                Err(_) => {
-                    ignored_refspecs.push(IgnoredRefspec {
-                        refspec: refspec.to_bstring(),
-                        reason: "invalid UTF-8",
-                    });
-                    None
-                }
-            };
-
-            let (src, dst) = match refspec.instruction() {
-                // Already filtered out above
-                Instruction::Push(_) => unreachable!(),
-                Instruction::Fetch(fetch) => match fetch {
-                    gix::refspec::instruction::Fetch::Only { src: _ } => {
-                        ignored_refspecs.push(IgnoredRefspec {
-                            refspec: refspec.to_bstring(),
-                            reason: "fetch-only refspecs are not supported",
-                        });
-                        return None;
-                    }
-
-                    gix::refspec::instruction::Fetch::AndUpdate {
-                        src,
-                        dst,
-                        allow_non_fast_forward: _, // Already captured above
-                    } => (ensure_utf8(src)?, ensure_utf8(dst)?),
-
-                    gix::refspec::instruction::Fetch::Exclude { src } => {
-                        let src = ensure_utf8(src)?;
-                        negative_refspecs.push(NegativeRefSpec::new(src));
-                        return None;
-                    }
-                },
-            };
-
-            if !forced {
-                ignored_refspecs.push(IgnoredRefspec {
-                    refspec: refspec.to_bstring(),
-                    reason: "non-forced refspecs are not supported",
-                });
-                return None;
+    for refspec in remote_refspecs {
+        match parse_fetch_refspec(remote_name, refspec) {
+            Ok(FetchRefSpec::Positive(refspec, branch)) => {
+                refspecs.push(refspec);
+                expected_branch_names.push(branch);
             }
-
-            let Some(src_branch) = src.strip_prefix("refs/heads/") else {
-                ignored_refspecs.push(IgnoredRefspec {
-                    refspec: refspec.to_bstring(),
-                    reason: "only refs/heads/ is supported for refspec sources",
-                });
-                return None;
-            };
-
-            let dst = {
-                let Some(dst_without_prefix) = dst.strip_prefix("refs/remotes/") else {
-                    ignored_refspecs.push(IgnoredRefspec {
-                        refspec: refspec.to_bstring(),
-                        reason: "only refs/remotes/ is supported for fetch destinations",
-                    });
-                    return None;
-                };
-
-                let Some(dst_branch) = dst_without_prefix
-                    .strip_prefix(remote_name)
-                    .and_then(|d| d.strip_prefix("/"))
-                else {
-                    ignored_refspecs.push(IgnoredRefspec {
-                        refspec: refspec.to_bstring(),
-                        reason: "remote renaming not supported",
-                    });
-                    return None;
-                };
-
-                if src_branch == dst_branch {
-                    dst.to_owned()
-                } else {
-                    ignored_refspecs.push(IgnoredRefspec {
-                        refspec: refspec.to_bstring(),
-                        reason: "renaming is not supported",
-                    });
-                    return None;
-                }
-            };
-
-            // At this point src_branch and dst_branch match
-            let Ok(branch) = StringPattern::glob(src_branch) else {
-                ignored_refspecs.push(IgnoredRefspec {
-                    refspec: refspec.to_bstring(),
-                    reason: "invalid pattern",
-                });
-                return None;
-            };
-            expected_branch_names.push(branch);
-
-            Some(RefSpec::forced(src, dst))
-        })
-        .collect();
+            Ok(FetchRefSpec::Negative(refspec)) => {
+                negative_refspecs.push(refspec);
+            }
+            Err(reason) => {
+                let refspec = refspec.to_ref().to_bstring();
+                ignored_refspecs.push(IgnoredRefspec { refspec, reason });
+            }
+        }
+    }
 
     Ok((
         IgnoredRefspecs(ignored_refspecs),
@@ -2451,6 +2368,61 @@ pub fn expand_default_fetch_refspecs(
             negative_refspecs,
         },
     ))
+}
+
+fn parse_fetch_refspec(
+    remote_name: &str,
+    refspec: &gix::refspec::RefSpec,
+) -> Result<FetchRefSpec, &'static str> {
+    let forced = refspec.allow_non_fast_forward();
+    let refspec = refspec.to_ref();
+
+    let ensure_utf8 = |s| str::from_utf8(s).map_err(|_| "invalid UTF-8");
+
+    let (src, dst) = match refspec.instruction() {
+        Instruction::Push(_) => panic!("push refspec should be filtered out by caller"),
+        Instruction::Fetch(fetch) => match fetch {
+            gix::refspec::instruction::Fetch::Only { src: _ } => {
+                return Err("fetch-only refspecs are not supported");
+            }
+            gix::refspec::instruction::Fetch::AndUpdate {
+                src,
+                dst,
+                allow_non_fast_forward: _, // Already captured above
+            } => (ensure_utf8(src)?, ensure_utf8(dst)?),
+            gix::refspec::instruction::Fetch::Exclude { src } => {
+                let src = ensure_utf8(src)?;
+                return Ok(FetchRefSpec::Negative(NegativeRefSpec::new(src)));
+            }
+        },
+    };
+
+    if !forced {
+        return Err("non-forced refspecs are not supported");
+    }
+
+    let src_branch = src
+        .strip_prefix("refs/heads/")
+        .ok_or("only refs/heads/ is supported for refspec sources")?;
+
+    let dst = {
+        let dst_without_prefix = dst
+            .strip_prefix("refs/remotes/")
+            .ok_or("only refs/remotes/ is supported for fetch destinations")?;
+        let dst_branch = dst_without_prefix
+            .strip_prefix(remote_name)
+            .and_then(|d| d.strip_prefix("/"))
+            .ok_or("remote renaming not supported")?;
+        if src_branch != dst_branch {
+            return Err("renaming is not supported");
+        }
+        dst.to_owned()
+    };
+
+    // At this point src_branch and dst_branch match
+    let branch = StringPattern::glob(src_branch).map_err(|_| "invalid pattern")?;
+
+    Ok(FetchRefSpec::Positive(RefSpec::forced(src, dst), branch))
 }
 
 /// Helper struct to execute multiple `git fetch` operations
