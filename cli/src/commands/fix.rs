@@ -138,7 +138,7 @@ pub(crate) fn cmd_fix(
     let mut workspace_command = command.workspace_helper(ui)?;
     let workspace_root = workspace_command.workspace_root().to_owned();
     let path_converter = workspace_command.path_converter().to_owned();
-    let tools_config = get_tools_config(ui, workspace_command.settings())?;
+    let tools_config = get_tools_config(ui, workspace_command.settings(), true)?;
     let target_expr = if args.source.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.fix")?;
         workspace_command.parse_revset(ui, &RevisionArg::from(revs))?
@@ -417,7 +417,11 @@ fn default_tool_enabled() -> bool {
 /// Fails if any of the commands or patterns are obviously unusable, but does
 /// not check for issues that might still occur later like missing executables.
 /// This is a place where we could fail earlier in some cases, though.
-fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig, CommandError> {
+fn get_tools_config(
+    ui: &mut Ui,
+    settings: &UserSettings,
+    require_nonempty: bool,
+) -> Result<ToolsConfig, CommandError> {
     let mut tools: Vec<ToolConfig> = settings
         .table_keys("fix.tools")
         // Sort keys early so errors are deterministic.
@@ -449,14 +453,22 @@ fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig,
         })
         .try_collect()?;
     if tools.is_empty() {
-        return Err(config_error("No `fix.tools` are configured"));
+        if require_nonempty {
+            return Err(config_error("No `fix.tools` are configured."));
+        } else {
+            writeln!(ui.warning_default(), "No `fix.tools` are configured.")?;
+            return Ok(ToolsConfig { tools });
+        }
     }
     tools.retain(|t| t.enabled);
     if tools.is_empty() {
-        Err(config_error(
-            "At least one entry of `fix.tools` must be enabled.".to_string(),
-        ))
-    } else {
-        Ok(ToolsConfig { tools })
+        if require_nonempty {
+            return Err(config_error(
+                "At least one entry of `fix.tools` must be enabled.".to_string(),
+            ));
+        } else {
+            writeln!(ui.warning_default(), "No `fix.tools` are enabled.")?;
+        }
     }
+    Ok(ToolsConfig { tools })
 }
