@@ -2344,6 +2344,7 @@ pub fn expand_default_fetch_refspecs(
     let mut expected_branch_names = Vec::with_capacity(remote_refspecs.len());
     let mut negative_refspecs = Vec::new();
     for refspec in remote_refspecs {
+        let refspec = refspec.to_ref();
         match parse_fetch_refspec(remote_name, refspec) {
             Ok(FetchRefSpec::Positive(refspec, branch)) => {
                 refspecs.push(refspec);
@@ -2353,7 +2354,7 @@ pub fn expand_default_fetch_refspecs(
                 negative_refspecs.push(refspec);
             }
             Err(reason) => {
-                let refspec = refspec.to_ref().to_bstring();
+                let refspec = refspec.to_bstring();
                 ignored_refspecs.push(IgnoredRefspec { refspec, reason });
             }
         }
@@ -2371,11 +2372,8 @@ pub fn expand_default_fetch_refspecs(
 
 fn parse_fetch_refspec(
     remote_name: &RemoteName,
-    refspec: &gix::refspec::RefSpec,
+    refspec: gix::refspec::RefSpecRef<'_>,
 ) -> Result<FetchRefSpec, &'static str> {
-    let forced = refspec.allow_non_fast_forward();
-    let refspec = refspec.to_ref();
-
     let ensure_utf8 = |s| str::from_utf8(s).map_err(|_| "invalid UTF-8");
 
     let (src, dst) = match refspec.instruction() {
@@ -2387,18 +2385,19 @@ fn parse_fetch_refspec(
             gix::refspec::instruction::Fetch::AndUpdate {
                 src,
                 dst,
-                allow_non_fast_forward: _, // Already captured above
-            } => (ensure_utf8(src)?, ensure_utf8(dst)?),
+                allow_non_fast_forward,
+            } => {
+                if !allow_non_fast_forward {
+                    return Err("non-forced refspecs are not supported");
+                }
+                (ensure_utf8(src)?, ensure_utf8(dst)?)
+            }
             gix::refspec::instruction::Fetch::Exclude { src } => {
                 let src = ensure_utf8(src)?;
                 return Ok(FetchRefSpec::Negative(NegativeRefSpec::new(src)));
             }
         },
     };
-
-    if !forced {
-        return Err("non-forced refspecs are not supported");
-    }
 
     let src_branch = src
         .strip_prefix("refs/heads/")
