@@ -179,6 +179,7 @@ fn test_git_private_commits_are_not_checked_if_immutable() {
 fn test_git_private_commits_not_directly_in_line_block_pushing() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     let work_dir = test_env.work_dir("local");
 
     // New private commit descended from root()
@@ -192,7 +193,7 @@ fn test_git_private_commits_not_directly_in_line_block_pushing() {
         .success();
 
     test_env.add_config(r#"git.private-commits = "description(glob:'private*')""#);
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "-b=bookmark1"]);
+    let output = work_dir.run_jj(["git", "push", "-b=bookmark1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Won't push commit 613114f44bdd since it is private
@@ -229,6 +230,7 @@ fn test_git_private_commits_descending_from_commits_pushed_do_not_block_pushing(
 fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
+    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
     let work_dir = test_env.work_dir("local");
 
     // Start a bookmark before a "private" commit lands in main
@@ -243,7 +245,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     work_dir
         .run_jj(["bookmark", "set", "main", "-r@"])
         .success();
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "-b=main", "-b=bookmark1"]);
+    let output = work_dir.run_jj(["git", "push", "-b=main", "-b=bookmark1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -277,7 +279,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "bookmark2"])
         .success();
-    let output = work_dir.run_jj(["git", "push", "--allow-new", "-b=bookmark2"]);
+    let output = work_dir.run_jj(["git", "push", "-b=bookmark2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
