@@ -660,11 +660,14 @@ impl CommandHelper {
                     let SnapshotStats {
                         mut untracked_paths,
                         ignored_paths,
+                        mut newly_tracked_paths,
                     } = stale_stats;
                     untracked_paths.extend(fresh_stats.untracked_paths);
+                    newly_tracked_paths.extend(fresh_stats.newly_tracked_paths);
                     SnapshotStats {
                         untracked_paths,
                         ignored_paths,
+                        newly_tracked_paths,
                     }
                 };
                 Ok((workspace_command, merged_stats))
@@ -4951,7 +4954,7 @@ mod tests {
         };
 
         let tracked_files = files
-            .into_iter()
+            .iter()
             .filter_map(|(repo_path, file_state)| {
                 matches!(file_state, FileState::Tracked).then_some(*repo_path)
             })
