@@ -67,6 +67,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj util gc` now prunes unreachable files in `.jj/repo/store/extra` to save
   disk space.
 
+* Print a message to indicate to the user when files starts to be tracked by
+  the auto-tracking system.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

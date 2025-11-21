@@ -781,6 +781,7 @@ fn test_git_init_colocated_dirty_working_copy() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Done importing changes from the underlying Git repo.
+    Tracking new-staged-file, unstaged-file
     Initialized repo in "."
     [EOF]
     "#);

@@ -2845,11 +2845,105 @@ pub fn print_untracked_files(
     Ok(())
 }
 
+pub fn print_new_tracked_files(
+    ui: &Ui,
+    new_tracked_paths: &[RepoPathBuf],
+    path_converter: &RepoPathUiConverter,
+) -> io::Result<()> {
+    // TODO:
+    // - s/new_tracked_files/newly_tracked_files
+    // - collapse the list of files when they belong to a same directory, see
+    //   to implement something similar to / or reuse
+    //   commands::status::visit_collapsed_untracked_files()
+    // - With the collapsed output, we can fall back to a message displayed
+    // which mimicks the status command output.
+    //  proposed format:
+    // ```
+    // Auto-tracking {nb_total} new files:
+    //     {file_path}
+    //     {dir_path} ({nb_files_in_dir)
+    //     ... and {remaining} other files.
+    //
+    // ```
+    // Last line appearing only when the message starts to be too long (~10
+    // lines maximum). Path and numbers of file printed with the diff-added
+    // color (green by default).
+    if new_tracked_paths.is_empty() {
+        return Ok(());
+    }
+    let Some(mut formatter) = ui.status_formatter() else {
+        return Ok(());
+    };
+
+    // For tests we need to have the output being consistent, so sort the paths
+    // list.
+    let mut paths = new_tracked_paths
+        .iter()
+        .map(|p| path_converter.format_file_path(p))
+        .sorted();
+
+    // Avoid spamming the screen with the information. Make so the message does
+    // not use more than one line.
+    let tracking_str = "Tracking ";
+    let separator = ", ";
+    let and_str = " and ";
+    let other_str = " other";
+    let file_str = " file";
+    let term_width = ui.term_width();
+    let mut remaining = 0;
+    let to_print: Vec<String> = {
+        let mut available_width = term_width.saturating_sub(tracking_str.len());
+        // Worst suffix length.
+        let suffix_len = and_str.len()
+            + 4 // 9999 files max is enough for this estimation.
+            + other_str.len()
+            + file_str.len()
+            + 1; // Plural.
+        paths
+            .by_ref()
+            .take_while(|path| {
+                available_width = available_width.saturating_sub(separator.len() + path.len());
+                if available_width > suffix_len {
+                    true
+                } else {
+                    remaining = 1;
+                    false
+                }
+            })
+            .collect()
+    };
+    remaining += paths.count();
+    let plural = if remaining > 1 { "s" } else { "" };
+
+    write!(formatter, "{tracking_str}")?;
+
+    if to_print.is_empty() {
+        write!(formatter.labeled("diff").labeled("added"), "{remaining}")?;
+        write!(formatter, "{file_str}{plural}")?;
+    } else {
+        for (i, path) in to_print.iter().enumerate() {
+            if i != 0 {
+                write!(formatter, "{separator}")?;
+            }
+            write!(formatter.labeled("diff").labeled("added"), "{path}")?;
+        }
+        if remaining != 0 {
+            write!(formatter, "{and_str}")?;
+            write!(formatter.labeled("diff").labeled("added"), "{remaining}")?;
+            write!(formatter, "{other_str}{file_str}{plural}")?;
+        }
+    }
+    writeln!(formatter)?;
+
+    Ok(())
+}
+
 pub fn print_snapshot_stats(
     ui: &Ui,
     stats: &SnapshotStats,
     path_converter: &RepoPathUiConverter,
 ) -> io::Result<()> {
+    print_new_tracked_files(ui, &stats.new_tracked_paths, path_converter)?;
     print_untracked_files(ui, &stats.untracked_paths, path_converter)?;
 
     let large_files_sizes = stats
