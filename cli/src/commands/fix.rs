@@ -21,6 +21,7 @@ use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::FileId;
 use jj_lib::commit::Commit;
+use jj_lib::file_util::IoResultExt as _;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
