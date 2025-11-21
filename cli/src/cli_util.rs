@@ -605,9 +605,13 @@ impl CommandHelper {
                 let merged_stats = {
                     let SnapshotStats {
                         mut untracked_paths,
+                        new_tracked_paths,
                     } = stale_stats;
                     untracked_paths.extend(fresh_stats.untracked_paths);
-                    SnapshotStats { untracked_paths }
+                    SnapshotStats {
+                        untracked_paths,
+                        new_tracked_paths,
+                    }
                 };
                 Ok((workspace_command, merged_stats))
             }
