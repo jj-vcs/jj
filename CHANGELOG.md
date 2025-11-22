@@ -99,6 +99,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Unexpected keyword arguments now return a parse failure for the `coalesce()`
   and `concat()` templating functions.
 
+* Nushell completion script documentation add `-f` option, to keep it up to
+  date.
+  [#8007](https://github.com/jj-vcs/jj/issues/8007)
+
 ## [0.35.0] - 2025-11-05
 
 ### Release highlights
