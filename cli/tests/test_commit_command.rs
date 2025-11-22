@@ -114,7 +114,7 @@ fn test_commit_with_empty_description_from_cli() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 51b556e2 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm cc8ff228 (empty) (no description set)
+    Parent revision (@-)    : qpvuntsm cc8ff228 (empty) (no description set)
     [EOF]
     ");
 }
@@ -148,7 +148,7 @@ fn test_commit_with_empty_description_from_editor() {
     If this was not intentional, run `jj undo` to restore the previous state.
     Or run `jj desc @-` to add a description to the parent commit.
     Working copy  (@) now at: rlvkpnrz 51b556e2 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm cc8ff228 (empty) (no description set)
+    Parent revision (@-)    : qpvuntsm cc8ff228 (empty) (no description set)
     [EOF]
     ");
 }
@@ -256,7 +256,7 @@ fn test_commit_interactive_with_paths() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 50f426df (no description set)
-    Parent commit (@-)      : rlvkpnrz eb640375 edit
+    Parent revision (@-)    : rlvkpnrz eb640375 edit
     [EOF]
     ");
 
@@ -459,7 +459,7 @@ fn test_commit_paths_warning() {
     ------- stderr -------
     Warning: The given paths do not match any file: file3
     Working copy  (@) now at: rlvkpnrz 4c6f0146 (no description set)
-    Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
+    Parent revision (@-)    : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");
 
@@ -528,7 +528,7 @@ fn test_commit_trailers() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 0c0495f3 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm ae86ffd4 first
+    Parent revision (@-)    : qpvuntsm ae86ffd4 first
     [EOF]
     ");
 
@@ -545,7 +545,7 @@ fn test_commit_trailers() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: zsuskuln fd73eac2 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 6e69e833 (empty) second
+    Parent revision (@-)    : rlvkpnrz 6e69e833 (empty) second
     [EOF]
     ");
 
@@ -563,7 +563,7 @@ fn test_commit_trailers() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: royxmykx dac9709c (empty) (no description set)
-    Parent commit (@-)      : zsuskuln d9ced309 (empty) Reviewed-by: foo@bar.org
+    Parent revision (@-)    : zsuskuln d9ced309 (empty) Reviewed-by: foo@bar.org
     [EOF]
     ");
 
@@ -691,7 +691,7 @@ fn test_commit_with_editor_without_message() {
     If this was not intentional, run `jj undo` to restore the previous state.
     Or run `jj desc @-` to add a description to the parent commit.
     Working copy  (@) now at: rlvkpnrz f5a89f0f (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 38f3e84b (no description set)
+    Parent revision (@-)    : qpvuntsm 38f3e84b (no description set)
     [EOF]
     ");
 }

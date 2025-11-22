@@ -134,7 +134,7 @@ fn test_gitignores_ignored_file_in_target_commit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 3cf51c1a with-file | (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 1 files, modified 0 files, removed 0 files
     Warning: 1 of those updates were skipped because there were conflicting changes in the working copy.
     Hint: Inspect the changes compared to the intended target with `jj diff --from 3cf51c1acf24`.

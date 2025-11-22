@@ -107,8 +107,8 @@ fn test_chmod_regular_conflict() {
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Working copy  (@) now at: yostqsxw df2619be conflict | (conflict) conflict
-    Parent commit (@-)      : royxmykx 02247291 x | x
-    Parent commit (@-)      : zsuskuln eb0ba805 n | n
+    Parent revision (@-)    : royxmykx 02247291 x | x
+    Parent revision (@-)    : zsuskuln eb0ba805 n | n
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including an executable
@@ -194,15 +194,15 @@ fn test_chmod_file_dir_deletion_conflicts() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_deletion"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw dc89f9e7 file_deletion | (conflict) file_deletion
-    Parent commit (@-)      : zsuskuln bc9cdea1 file | file
-    Parent commit (@-)      : royxmykx d7d39332 deletion | deletion
+    Parent revision (@-)    : zsuskuln bc9cdea1 file | file
+    Parent revision (@-)    : royxmykx d7d39332 deletion | deletion
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion and an executable
-    New conflicts appeared in 1 commits:
+    New conflicts appeared in 1 revisions:
       kmkuslsw dc89f9e7 file_deletion | (conflict) file_deletion
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
@@ -211,7 +211,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
     let output = work_dir.run_jj(["debug", "tree", "-r=file_deletion"]);
     insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: true, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: true, copy_id: CopyId("") }), None]))

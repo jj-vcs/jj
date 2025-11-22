@@ -143,7 +143,7 @@ fn test_snapshot_large_file_restore() {
       - Run `jj --config snapshot.max-new-file-size=13 st`
         This will increase the maximum file size allowed for new files, for this command only.
     Working copy  (@) now at: kkmpptxz 119f5156 (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 1 files, modified 0 files, removed 0 files
     Warning: 1 of those updates were skipped because there were conflicting changes in the working copy.
     Hint: Inspect the changes compared to the intended target with `jj diff --from 119f5156d330`.

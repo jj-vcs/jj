@@ -135,7 +135,7 @@ fn test_no_subcommand() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kxryzmor 8db1ba9a (empty) (no description set)
-    Parent commit (@-)      : lylxulpl 19f3adb2 foo
+    Parent revision (@-)    : lylxulpl 19f3adb2 foo
     [EOF]
     ");
 }
@@ -860,14 +860,14 @@ fn test_conditional_config() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: royxmykx 7c486962 (empty) repo1
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = test_env.run_jj_in(&test_env.home_dir().join("repo2"), ["foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: yqosqzyt 072741b8 (empty) home
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 }
@@ -949,7 +949,7 @@ fn test_default_config() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Working copy  (@) now at: <change-id> <id> (empty) (no description set)
-    Parent commit (@-)      : <change-id> <id> (empty) (no description set)
+    Parent revision (@-)    : <change-id> <id> (empty) (no description set)
     Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
     Hint: To configure, run:
       jj config set --user user.name "Some One"
@@ -997,7 +997,7 @@ fn test_no_user_configured() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 7e7014c2 (empty) without name
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Name not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
     Hint: To configure, run:
       jj config set --user user.name "Some One"
@@ -1010,7 +1010,7 @@ fn test_no_user_configured() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 876580e3 (empty) without email
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
     Hint: To configure, run:
       jj config set --user user.email "someone@example.com"
@@ -1024,7 +1024,7 @@ fn test_no_user_configured() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm f87356a1 (empty) without name and email
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Name and email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
     Hint: To configure, run:
       jj config set --user user.name "Some One"
