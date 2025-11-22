@@ -274,7 +274,44 @@ where
     }
 }
 
-/// Like `ConcatTemplate`, but inserts a separator between non-empty templates.
+/// Like `ConcatTemplate`, but inserts a separator between contents.
+pub struct JoinTemplate<S, T> {
+    separator: S,
+    contents: Vec<T>,
+}
+
+impl<S, T> JoinTemplate<S, T> {
+    pub fn new(separator: S, contents: Vec<T>) -> Self
+    where
+        S: Template,
+        T: Template,
+    {
+        Self {
+            separator,
+            contents,
+        }
+    }
+}
+
+impl<S, T> Template for JoinTemplate<S, T>
+where
+    S: Template,
+    T: Template,
+{
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        let mut first = true;
+        for template in &self.contents {
+            if !first {
+                self.separator.format(formatter)?;
+            }
+            template.format(formatter)?;
+            first = false;
+        }
+        Ok(())
+    }
+}
+
+/// Like `JoinTemplate`, but ignores empty contents.
 pub struct SeparateTemplate<S, T> {
     separator: S,
     contents: Vec<T>,
