@@ -2,8 +2,8 @@
 
 Jujutsu's core tenets are:
 
- * Separation of logic and UI: It should be as easy to create new UIs (CLIs,
-   GUIs, TUIs, servers) without having to duplicate logic.
+ * Separation of logic and UI: It should be easy to create new UIs (CLIs, GUIs,
+   TUIs, servers) without having to duplicate logic.
  * Easy-to-use APIs: It should be easy to create new commands. For example,
    each command should not have to worry about concurrency, working-copy state,
    and rebasing descendants of rewritten commits.
