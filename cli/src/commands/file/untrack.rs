@@ -26,14 +26,14 @@ use crate::cli_util::export_working_copy_changes_to_git;
 use crate::cli_util::print_snapshot_stats;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
-use crate::command_error::user_error_with_hint;
 use crate::complete;
 use crate::ui::Ui;
 
 /// Stop tracking specified paths in the working copy
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct FileUntrackArgs {
-    /// Paths to untrack. They must already be ignored.
+    /// Paths to untrack. They must be ignored to be untracked; any paths that
+    /// are not ignored will remain tracked.
     ///
     /// The paths could be ignored via a .gitignore or .git/info/exclude (in
     /// colocated workspaces).
@@ -62,6 +62,7 @@ pub(crate) fn cmd_file_untrack(
     let working_copy_shared_with_git = workspace_command.working_copy_shared_with_git();
 
     let mut tx = workspace_command.start_transaction().into_inner();
+    let path_converter = workspace_command.path_converter().to_owned();
     let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation()?;
     // Create a new tree without the unwanted files
     let mut tree_builder = MergedTreeBuilder::new(wc_commit.tree());
@@ -69,41 +70,57 @@ pub(crate) fn cmd_file_untrack(
     for (path, _value) in wc_tree.entries_matching(matcher.as_ref()) {
         tree_builder.set_or_remove(path, Merge::absent());
     }
-    let new_tree = tree_builder.write_tree()?;
-    let new_commit = tx
+    let tree_after_untracking = tree_builder.write_tree()?;
+    let commit_after_untracking = tx
         .repo_mut()
         .rewrite_commit(&wc_commit)
-        .set_tree(new_tree)
+        .set_tree(tree_after_untracking.clone())
         .write()?;
-    // Reset the working copy to the new commit
-    locked_ws.locked_wc().reset(&new_commit).block_on()?;
-    // Commit the working copy again so we can inform the user if paths couldn't be
+    // Reset the working copy, to save the untracked status
+    locked_ws
+        .locked_wc()
+        .reset(&commit_after_untracking)
+        .block_on()?;
+    // Snapshot and commit the working copy again, so any untracked files that
+    // aren't ignored are added back immediately.
+    // Save the intermediate tree so we can inform the user if paths couldn't be
     // untracked because they're not ignored.
     let (new_wc_tree, stats) = locked_ws.locked_wc().snapshot(&options).block_on()?;
-    if new_wc_tree.tree_ids() != new_commit.tree_ids() {
-        let added_back = new_wc_tree.entries_matching(matcher.as_ref()).collect_vec();
+    let new_wc_commit = if new_wc_tree.tree_ids() == tree_after_untracking.tree_ids() {
+        commit_after_untracking.clone()
+    } else {
+        tx.repo_mut()
+            .rewrite_commit(&wc_commit)
+            .set_tree(new_wc_tree)
+            .write()?
+    };
+    // Reset the working copy to the new commit
+    locked_ws.locked_wc().reset(&new_wc_commit).block_on()?;
+    if new_wc_commit.tree_ids() != commit_after_untracking.tree_ids() {
+        let added_back = new_wc_commit
+            .tree()
+            .entries_matching(matcher.as_ref())
+            .collect_vec();
         if !added_back.is_empty() {
-            drop(locked_ws);
             let path = &added_back[0].0;
-            let ui_path = workspace_command.format_file_path(path);
+            let ui_path = path_converter.format_file_path(path);
             let message = if added_back.len() > 1 {
                 format!(
-                    "'{}' and {} other files are not ignored.",
+                    "'{}' and {} other files are not ignored and will not be untracked.",
                     ui_path,
                     added_back.len() - 1
                 )
             } else {
-                format!("'{ui_path}' is not ignored.")
+                format!("'{ui_path}' is not ignored and so will not be untracked.")
             };
-            return Err(user_error_with_hint(
-                message,
-                "Files that are not ignored will be added back by the next command.
-Make sure they're ignored, then try again.",
-            ));
+            writeln!(ui.warning_default(), "{message}")?;
         } else {
             // This means there were some concurrent changes made in the working copy. We
             // don't want to mix those in, so reset the working copy again.
-            locked_ws.locked_wc().reset(&new_commit).block_on()?;
+            locked_ws
+                .locked_wc()
+                .reset(&commit_after_untracking)
+                .block_on()?;
         }
     }
     let num_rebased = tx.repo_mut().rebase_descendants()?;
@@ -111,7 +128,7 @@ Make sure they're ignored, then try again.",
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
     }
     if working_copy_shared_with_git {
-        export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_commit.tree())?;
+        export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_wc_commit.tree())?;
     }
     let repo = tx.commit("untrack paths")?;
     locked_ws.finish(repo.op_id().clone())?;
