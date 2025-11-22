@@ -88,6 +88,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   pattern. New bookmarks matching it will automatically track that remote.
   See <https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks>.
 
+* Added `join()` template function. This is different from `separate()` in that
+  it adds a separator between all arguments, even if empty.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.

@@ -89,8 +89,10 @@ The following functions are defined.
   content.
 * `concat(content: Template...) -> Template`:
   Same as `content_1 ++ ... ++ content_n`.
-* `separate(separator: Template, content: Template...) -> Template`:
-  Insert separator between **non-empty** contents.
+* `join(separator: Template, content: Template...) -> Template`: Insert
+  `separator` between `content`s.
+* `separate(separator: Template, content: Template...) -> Template`: Insert
+  `separator` between **non-empty** `content`s.
 * `surround(prefix: Template, suffix: Template, content: Template) -> Template`:
   Surround **non-empty** content with texts such as parentheses.
 * `config(name: String) -> ConfigValue`: Look up configuration value by `name`.

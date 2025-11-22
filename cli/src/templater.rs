@@ -274,7 +274,36 @@ where
     }
 }
 
-/// Like `ConcatTemplate`, but inserts a separator between non-empty templates.
+/// Like `ConcatTemplate`, but inserts a separator between contents.
+pub struct JoinTemplate<S, T> {
+    separator: S,
+    contents: Vec<T>,
+}
+
+impl<S, T> JoinTemplate<S, T> {
+    pub fn new(separator: S, contents: Vec<T>) -> Self
+    where
+        S: Template,
+        T: Template,
+    {
+        Self {
+            separator,
+            contents,
+        }
+    }
+}
+
+impl<S, T> Template for JoinTemplate<S, T>
+where
+    S: Template,
+    T: Template,
+{
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        format_joined(formatter, &self.contents, &self.separator)
+    }
+}
+
+/// Like `JoinTemplate`, but ignores empty contents.
 pub struct SeparateTemplate<S, T> {
     separator: S,
     contents: Vec<T>,
@@ -300,15 +329,13 @@ where
 {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         let record_non_empty = record_non_empty_fn(formatter);
-        let mut content_recorders = self.contents.iter().filter_map(record_non_empty).fuse();
-        if let Some(recorder) = content_recorders.next() {
-            recorder?.replay(formatter.as_mut())?;
-        }
-        for recorder in content_recorders {
-            self.separator.format(formatter)?;
-            recorder?.replay(formatter.as_mut())?;
-        }
-        Ok(())
+        let content_recorders = self.contents.iter().filter_map(record_non_empty);
+        format_joined_with(
+            formatter,
+            content_recorders,
+            &self.separator,
+            |formatter, recorder| recorder?.replay(formatter.as_mut()),
+        )
     }
 }
 

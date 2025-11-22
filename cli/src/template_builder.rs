@@ -51,6 +51,7 @@ use crate::templater::CoalesceTemplate;
 use crate::templater::ConcatTemplate;
 use crate::templater::ConditionalTemplate;
 use crate::templater::Email;
+use crate::templater::JoinTemplate;
 use crate::templater::LabelTemplate;
 use crate::templater::ListPropertyTemplate;
 use crate::templater::ListTemplate;
@@ -1890,6 +1891,18 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             .try_collect()?;
         Ok(L::Property::wrap_template(Box::new(ConcatTemplate(
             contents,
+        ))))
+    });
+    map.insert("join", |language, diagnostics, build_ctx, function| {
+        let ([separator_node], content_nodes) = function.expect_some_arguments()?;
+        let separator =
+            expect_template_expression(language, diagnostics, build_ctx, separator_node)?;
+        let contents = content_nodes
+            .iter()
+            .map(|node| expect_template_expression(language, diagnostics, build_ctx, node))
+            .try_collect()?;
+        Ok(L::Property::wrap_template(Box::new(JoinTemplate::new(
+            separator, contents,
         ))))
     });
     map.insert("separate", |language, diagnostics, build_ctx, function| {
@@ -3800,6 +3813,81 @@ mod tests {
           |             ^--------^
           |
           = Function `concat`: Unexpected keyword arguments
+        "#);
+    }
+
+    #[test]
+    fn test_join_function() {
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("description", || literal("".to_owned()));
+        env.add_keyword("empty", || literal(true));
+        env.add_keyword("hidden", || literal(false));
+        env.add_color("empty", crossterm::style::Color::DarkGreen);
+        env.add_color("error", crossterm::style::Color::DarkRed);
+        env.add_color("warning", crossterm::style::Color::DarkYellow);
+
+        // Template literals.
+        insta::assert_snapshot!(env.render_ok(r#"join(",")"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#"join(",", "")"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#"join(",", "a")"#), @"a");
+        insta::assert_snapshot!(env.render_ok(r#"join(",", "a", "b")"#), @"a,b");
+        insta::assert_snapshot!(env.render_ok(r#"join(",", "a", "", "b")"#), @"a,,b");
+        insta::assert_snapshot!(env.render_ok(r#"join(",", "a", "b", "")"#), @"a,b,");
+        insta::assert_snapshot!(env.render_ok(r#"join(",", "", "a", "b")"#), @",a,b");
+        insta::assert_snapshot!(
+            env.render_ok(r#"join("--", 1, "", true, "test", "")"#),
+            @"1----true--test--");
+
+        // Separator is required.
+        insta::assert_snapshot!(env.parse_err(r#"join()"#), @r#"
+         --> 1:6
+          |
+        1 | join()
+          |      ^
+          |
+          = Function `join`: Expected at least 1 arguments
+        "#);
+
+        // Labeled.
+        insta::assert_snapshot!(
+            env.render_ok(r#"join(",", label("error", ""), label("warning", "a"), "b")"#),
+            @",[38;5;3ma[39m,b");
+        insta::assert_snapshot!(
+            env.render_ok(
+                r#"join(label("empty", "<>"), label("error", "a"), label("warning", ""), "b")"#),
+            @"[38;5;1ma[38;5;2m<><>[39mb");
+
+        // List template.
+        insta::assert_snapshot!(env.render_ok(r#"join(",", "a", ("" ++ ""))"#), @"a,");
+        insta::assert_snapshot!(env.render_ok(r#"join(",", "a", ("" ++ "b"))"#), @"a,b");
+
+        // Nested.
+        insta::assert_snapshot!(
+            env.render_ok(r#"join(",", "a", join("|", "", ""))"#), @"a,|");
+        insta::assert_snapshot!(
+            env.render_ok(r#"join(",", "a", join("|", "b", ""))"#), @"a,b|");
+        insta::assert_snapshot!(
+            env.render_ok(r#"join(",", "a", join("|", "b", "c"))"#), @"a,b|c");
+
+        // Keywords.
+        insta::assert_snapshot!(
+            env.render_ok(r#"join(",", hidden, description, empty)"#),
+            @"false,,[38;5;2mtrue[39m");
+        insta::assert_snapshot!(
+            env.render_ok(r#"join(hidden, "X", "Y", "Z")"#),
+            @"XfalseYfalseZ");
+        insta::assert_snapshot!(
+            env.render_ok(r#"join(hidden, empty)"#),
+            @"[38;5;2mtrue[39m");
+
+        // Keyword arguments are rejected.
+        insta::assert_snapshot!(env.parse_err(r#"join(",", "a", arg="b")"#), @r#"
+         --> 1:16
+          |
+        1 | join(",", "a", arg="b")
+          |                ^-----^
+          |
+          = Function `join`: Unexpected keyword arguments
         "#);
     }
 
