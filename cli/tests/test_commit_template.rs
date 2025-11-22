@@ -942,7 +942,7 @@ fn test_log_contained_in() {
         "log",
         "-r::",
         "-T",
-        &template_for_revset(r#"description(A)::"#),
+        &template_for_revset("subject(glob:A)::"),
     ]);
     insta::assert_snapshot!(output, @r"
     @  D
@@ -1041,7 +1041,7 @@ fn test_short_prefix_in_transaction() {
 
     test_env.add_config(r#"
         [revsets]
-        log = '::description(test)'
+        log = '::subject(glob:test)'
 
         [templates]
         log = 'summary ++ "\n"'
@@ -1065,7 +1065,7 @@ fn test_short_prefix_in_transaction() {
     // Create 2^4 duplicates of the chain
     for _ in 0..4 {
         work_dir
-            .run_jj(["duplicate", "description(commit)"])
+            .run_jj(["duplicate", "subject(glob:commit*)"])
             .success();
     }
 

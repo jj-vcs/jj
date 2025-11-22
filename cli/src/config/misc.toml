@@ -39,6 +39,9 @@ conflict-marker-style = "diff"
 # signature verification is slow, disable by default
 show-cryptographic-signatures = false
 bookmark-list-sort-keys = ["name"]
+# TODO: enable glob by default in jj 0.37+ or so, and deprecate this option
+# https://github.com/jj-vcs/jj/issues/6971#issuecomment-3067038313
+revsets-use-glob-by-default = false
 
 [ui.movement]
 edit = false

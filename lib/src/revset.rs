@@ -889,22 +889,17 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         })?;
         Ok(RevsetExpression::commit_id_prefix(prefix))
     });
-    map.insert("bookmarks", |diagnostics, function, _context| {
+    map.insert("bookmarks", |diagnostics, function, context| {
         let ([], [opt_arg]) = function.expect_arguments()?;
         let expr = if let Some(arg) = opt_arg {
-            expect_string_expression(diagnostics, arg)?
+            expect_string_expression(diagnostics, arg, context)?
         } else {
             StringExpression::all()
         };
         Ok(RevsetExpression::bookmarks(expr))
     });
     map.insert("remote_bookmarks", |diagnostics, function, context| {
-        parse_remote_bookmarks_arguments(
-            diagnostics,
-            function,
-            None,
-            context.default_ignored_remote,
-        )
+        parse_remote_bookmarks_arguments(diagnostics, function, None, context)
     });
     map.insert(
         "tracked_remote_bookmarks",
@@ -913,7 +908,7 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
                 diagnostics,
                 function,
                 Some(RemoteRefState::Tracked),
-                context.default_ignored_remote,
+                context,
             )
         },
     );
@@ -924,14 +919,14 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
                 diagnostics,
                 function,
                 Some(RemoteRefState::New),
-                context.default_ignored_remote,
+                context,
             )
         },
     );
-    map.insert("tags", |diagnostics, function, _context| {
+    map.insert("tags", |diagnostics, function, context| {
         let ([], [opt_arg]) = function.expect_arguments()?;
         let expr = if let Some(arg) = opt_arg {
-            expect_string_expression(diagnostics, arg)?
+            expect_string_expression(diagnostics, arg, context)?
         } else {
             StringExpression::all()
         };
@@ -977,35 +972,35 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             RevsetFilterPredicate::ParentCount(2..u32::MAX),
         ))
     });
-    map.insert("description", |diagnostics, function, _context| {
+    map.insert("description", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg)?;
+        let expr = expect_string_expression(diagnostics, arg, context)?;
         let predicate = RevsetFilterPredicate::Description(expr);
         Ok(RevsetExpression::filter(predicate))
     });
-    map.insert("subject", |diagnostics, function, _context| {
+    map.insert("subject", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg)?;
+        let expr = expect_string_expression(diagnostics, arg, context)?;
         let predicate = RevsetFilterPredicate::Subject(expr);
         Ok(RevsetExpression::filter(predicate))
     });
-    map.insert("author", |diagnostics, function, _context| {
+    map.insert("author", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg)?;
+        let expr = expect_string_expression(diagnostics, arg, context)?;
         let name_predicate = RevsetFilterPredicate::AuthorName(expr.clone());
         let email_predicate = RevsetFilterPredicate::AuthorEmail(expr);
         Ok(RevsetExpression::filter(name_predicate)
             .union(&RevsetExpression::filter(email_predicate)))
     });
-    map.insert("author_name", |diagnostics, function, _context| {
+    map.insert("author_name", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg)?;
+        let expr = expect_string_expression(diagnostics, arg, context)?;
         let predicate = RevsetFilterPredicate::AuthorName(expr);
         Ok(RevsetExpression::filter(predicate))
     });
-    map.insert("author_email", |diagnostics, function, _context| {
+    map.insert("author_email", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg)?;
+        let expr = expect_string_expression(diagnostics, arg, context)?;
         let predicate = RevsetFilterPredicate::AuthorEmail(expr);
         Ok(RevsetExpression::filter(predicate))
     });
@@ -1030,23 +1025,23 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let predicate = RevsetFilterPredicate::AuthorEmail(StringExpression::pattern(pattern));
         Ok(RevsetExpression::filter(predicate))
     });
-    map.insert("committer", |diagnostics, function, _context| {
+    map.insert("committer", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg)?;
+        let expr = expect_string_expression(diagnostics, arg, context)?;
         let name_predicate = RevsetFilterPredicate::CommitterName(expr.clone());
         let email_predicate = RevsetFilterPredicate::CommitterEmail(expr);
         Ok(RevsetExpression::filter(name_predicate)
             .union(&RevsetExpression::filter(email_predicate)))
     });
-    map.insert("committer_name", |diagnostics, function, _context| {
+    map.insert("committer_name", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg)?;
+        let expr = expect_string_expression(diagnostics, arg, context)?;
         let predicate = RevsetFilterPredicate::CommitterName(expr);
         Ok(RevsetExpression::filter(predicate))
     });
-    map.insert("committer_email", |diagnostics, function, _context| {
+    map.insert("committer_email", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_string_expression(diagnostics, arg)?;
+        let expr = expect_string_expression(diagnostics, arg, context)?;
         let predicate = RevsetFilterPredicate::CommitterEmail(expr);
         Ok(RevsetExpression::filter(predicate))
     });
@@ -1074,7 +1069,7 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
     });
     map.insert("diff_contains", |diagnostics, function, context| {
         let ([text_arg], [files_opt_arg]) = function.expect_arguments()?;
-        let text = expect_string_expression(diagnostics, text_arg)?;
+        let text = expect_string_expression(diagnostics, text_arg, context)?;
         let files = if let Some(files_arg) = files_opt_arg {
             let ctx = context.workspace.as_ref().ok_or_else(|| {
                 RevsetParseError::with_span(
@@ -1150,8 +1145,13 @@ pub fn expect_fileset_expression(
 pub fn expect_string_expression(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
+    context: &LoweringContext,
 ) -> Result<StringExpression, RevsetParseError> {
-    let default_kind = "substring";
+    let default_kind = if context.use_glob_by_default {
+        "glob"
+    } else {
+        "substring"
+    };
     expect_string_expression_inner(diagnostics, node, default_kind)
 }
 
@@ -1164,14 +1164,22 @@ fn expect_string_expression_inner(
     revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
         let expr_error = || RevsetParseError::expression("Invalid string expression", node.span);
         let pattern_error = || RevsetParseError::expression("Invalid string pattern", node.span);
-        let default_pattern = |value: &str| {
+        let default_pattern = |diagnostics: &mut RevsetDiagnostics, value: &str| {
+            if default_kind == "substring" {
+                diagnostics.add_warning(RevsetParseError::expression(
+                    "Default pattern syntax will be changed to `glob:` in a future release; use \
+                     `substring:` prefix or set ui.revsets-use-glob-by-default=true to suppress \
+                     this warning",
+                    node.span,
+                ));
+            }
             let pattern = StringPattern::from_str_kind(value, default_kind)
                 .map_err(|err| pattern_error().with_source(err))?;
             Ok(StringExpression::pattern(pattern))
         };
         match &node.kind {
-            ExpressionKind::Identifier(value) => default_pattern(value),
-            ExpressionKind::String(value) => default_pattern(value),
+            ExpressionKind::Identifier(value) => default_pattern(diagnostics, value),
+            ExpressionKind::String(value) => default_pattern(diagnostics, value),
             ExpressionKind::StringPattern { kind, value } => {
                 let pattern = StringPattern::from_str_kind(value, kind)
                     .map_err(|err| pattern_error().with_source(err))?;
@@ -1236,18 +1244,18 @@ fn parse_remote_bookmarks_arguments(
     diagnostics: &mut RevsetDiagnostics,
     function: &FunctionCallNode,
     remote_ref_state: Option<RemoteRefState>,
-    default_ignored_remote: Option<&RemoteName>,
+    context: &LoweringContext,
 ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
     let ([], [bookmark_opt_arg, remote_opt_arg]) =
         function.expect_named_arguments(&["", "remote"])?;
     let bookmark_expr = if let Some(bookmark_arg) = bookmark_opt_arg {
-        expect_string_expression(diagnostics, bookmark_arg)?
+        expect_string_expression(diagnostics, bookmark_arg, context)?
     } else {
         StringExpression::all()
     };
     let remote_expr = if let Some(remote_arg) = remote_opt_arg {
-        expect_string_expression(diagnostics, remote_arg)?
-    } else if let Some(remote) = default_ignored_remote {
+        expect_string_expression(diagnostics, remote_arg, context)?
+    } else if let Some(remote) = context.default_ignored_remote {
         StringExpression::exact(remote).negated()
     } else {
         StringExpression::all()
@@ -3426,6 +3434,7 @@ pub struct RevsetParseContext<'a> {
     pub date_pattern_context: DatePatternContext,
     /// Special remote that should be ignored by default. (e.g. "git")
     pub default_ignored_remote: Option<&'a RemoteName>,
+    pub use_glob_by_default: bool,
     pub extensions: &'a RevsetExtensions,
     pub workspace: Option<RevsetWorkspaceContext<'a>>,
 }
@@ -3438,6 +3447,7 @@ impl<'a> RevsetParseContext<'a> {
             user_email,
             date_pattern_context,
             default_ignored_remote,
+            use_glob_by_default,
             extensions,
             workspace,
         } = *self;
@@ -3445,6 +3455,7 @@ impl<'a> RevsetParseContext<'a> {
             user_email,
             date_pattern_context,
             default_ignored_remote,
+            use_glob_by_default,
             extensions,
             workspace,
         }
@@ -3457,6 +3468,7 @@ pub struct LoweringContext<'a> {
     user_email: &'a str,
     date_pattern_context: DatePatternContext,
     default_ignored_remote: Option<&'a RemoteName>,
+    use_glob_by_default: bool,
     extensions: &'a RevsetExtensions,
     workspace: Option<RevsetWorkspaceContext<'a>>,
 }
@@ -3544,6 +3556,7 @@ mod tests {
             user_email: "test.user@example.com",
             date_pattern_context: chrono::Utc::now().fixed_offset().into(),
             default_ignored_remote: Some("ignored".as_ref()),
+            use_glob_by_default: false,
             extensions: &RevsetExtensions::default(),
             workspace: None,
         };
@@ -3574,6 +3587,7 @@ mod tests {
             user_email: "test.user@example.com",
             date_pattern_context: chrono::Utc::now().fixed_offset().into(),
             default_ignored_remote: Some("ignored".as_ref()),
+            use_glob_by_default: false,
             extensions: &RevsetExtensions::default(),
             workspace: Some(workspace_ctx),
         };
@@ -3600,6 +3614,7 @@ mod tests {
             user_email: "test.user@example.com",
             date_pattern_context: chrono::Utc::now().fixed_offset().into(),
             default_ignored_remote: Some("ignored".as_ref()),
+            use_glob_by_default: false,
             extensions: &RevsetExtensions::default(),
             workspace: None,
         };
