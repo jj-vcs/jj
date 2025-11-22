@@ -84,7 +84,7 @@ use crate::ui::Ui;
 ///    patterns.
 ///  - `enabled`: Enables or disables the tool. If omitted, the tool is enabled.
 ///    This is useful for defining disabled tools in user configuration that can
-///    be enabled in individual repositories with one config setting.
+///    be enabled in individual repositories with one configuration setting.
 ///
 /// For example, the following configuration defines how two code formatters
 /// (`clang-format` and `black`) will apply to three different file extensions
