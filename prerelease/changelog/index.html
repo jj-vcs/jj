@@ -6126,9 +6126,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p><code>jj describe --edit</code> is deprecated in favor of <code>--editor</code>.</p>
 </li>
 <li>
-<p>The config option <code>git.auto-local-bookmark</code> is deprecated
-  in favor of <code>remotes.&lt;name&gt;.auto-track-bookmarks</code>. See
-  <a href="https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks">https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks</a>.</p>
+<p>The config options <code>git.auto-local-bookmark</code> and <code>git.push-new-bookmarks</code> are
+  deprecated in favor of <code>remotes.&lt;name&gt;.auto-track-bookmarks</code>. For example:
+  <div class="highlight"><pre><span></span><code><span class="k">[remote.origin]</span>
+<span class="n">auto-track-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;glob:*&quot;</span>
+</code></pre></div>
+  For more details, refer to <a href="config/#automatic-tracking-of-bookmarks">the docs</a>.</p>
 </li>
 </ul>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>

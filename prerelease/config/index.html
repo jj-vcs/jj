@@ -1581,15 +1581,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#allow-pushing-new-bookmarks" class="md-nav__link">
-    <span class="md-ellipsis">
-      Allow pushing new bookmarks
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#generated-bookmark-names-on-push" class="md-nav__link">
     <span class="md-ellipsis">
       Generated bookmark names on push
@@ -3393,15 +3384,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#allow-pushing-new-bookmarks" class="md-nav__link">
-    <span class="md-ellipsis">
-      Allow pushing new bookmarks
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#generated-bookmark-names-on-push" class="md-nav__link">
     <span class="md-ellipsis">
       Generated bookmark names on push
@@ -4890,13 +4872,6 @@ usual when commits are abandoned). You can disable this behavior and instead
 leave the Git-unreachable commits in your repo by setting:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[git]</span>
 <span class="n">abandon-unreachable-commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
-</code></pre></div>
-<h3 id="allow-pushing-new-bookmarks">Allow pushing new bookmarks<a class="headerlink" href="#allow-pushing-new-bookmarks" title="Permanent link">&para;</a></h3>
-<p><code>jj git push</code> does not push newly-created bookmarks by default.
-If you do not want to specify <code>--allow-new</code> every time you have created a new
-bookmark, you may want to allow new bookmarks to be pushed by default:</p>
-<div class="highlight"><pre><span></span><code><span class="k">[git]</span>
-<span class="n">push-new-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 </code></pre></div>
 <h3 id="generated-bookmark-names-on-push">Generated bookmark names on push<a class="headerlink" href="#generated-bookmark-names-on-push" title="Permanent link">&para;</a></h3>
 <p><code>jj git push --change</code> generates bookmark names with a prefix of "push-" by
