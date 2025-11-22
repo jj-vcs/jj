@@ -1785,23 +1785,24 @@
 <h2 id="jujutsus-core-tenets">Jujutsu's Core Tenets<a class="headerlink" href="#jujutsus-core-tenets" title="Permanent link">&para;</a></h2>
 <p>Jujutsu's core tenets are:</p>
 <ul>
-<li>Separation of logic and UI: It should be as easy to create new UIs (CLIs,
-   GUIs, TUIs, servers) without having to duplicate logic.</li>
+<li>Separation of logic and UI: It should be easy to create new UIs (CLIs, GUIs,
+   TUIs, servers) without having to duplicate logic.</li>
 <li>Easy-to-use APIs: It should be easy to create new commands. For example,
    each command should not have to worry about concurrency, working-copy state,
    and rebasing descendants of rewritten commits.</li>
 <li>User-friendliness: Making the working copy a commit is simpler. This is
    how the project started.</li>
-<li>The repository is the source of truth: Most commands should operate on the
-   commit graph. The working copy is just one way of editing commits.</li>
+<li>The repo is the source of truth: Most commands should operate on the commit
+   graph. The working copy is just one way of editing commits.</li>
 <li>Pluggable storage: Must be easy to integrate with different commit storage,
    virtual file systems and more.</li>
-<li>Git-interop: Git is everywhere. We need to have good interop to be adopted.</li>
+<li>Git-interoperability: Git is everywhere. We need to have good
+   interoperability to be adopted.</li>
 <li>All operations must be able to scale to Google-scale repos (lots of commits,
    lots of files): Laziness is important, must avoid accessing data
    unnecessarily.</li>
 <li>Having as few states as possible.</li>
-<li>Make it incredibly hard to lose work in your repository.</li>
+<li>Make it incredibly hard to lose work in your repo.</li>
 <li>Concurrent modifications to the repo should be safe.</li>
 <li>Allow concurrent edits on any commit, pending or finished.</li>
 <li>Make a "stacked diffs" workflow as easy as possible.</li>
