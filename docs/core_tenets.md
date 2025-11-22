@@ -9,8 +9,8 @@ Jujutsu's core tenets are:
    and rebasing descendants of rewritten commits.
  * User-friendliness: Making the working copy a commit is simpler. This is
    how the project started.
- * The repository is the source of truth: Most commands should operate on the
-   commit graph. The working copy is just one way of editing commits.
+ * The repo is the source of truth: Most commands should operate on the commit
+   graph. The working copy is just one way of editing commits.
  * Pluggable storage: Must be easy to integrate with different commit storage,
    virtual file systems and more.
  * Git-interop: Git is everywhere. We need to have good interop to be adopted.
@@ -18,7 +18,7 @@ Jujutsu's core tenets are:
    lots of files): Laziness is important, must avoid accessing data
    unnecessarily.
  * Having as few states as possible.
- * Make it incredibly hard to lose work in your repository.
+ * Make it incredibly hard to lose work in your repo.
  * Concurrent modifications to the repo should be safe.
  * Allow concurrent edits on any commit, pending or finished.
  * Make a "stacked diffs" workflow as easy as possible.
