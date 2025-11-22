@@ -74,8 +74,9 @@ use crate::ui::Ui;
 /// EXPERIMENTAL FEATURES
 ///
 /// An alternative squashing UI is available via the `-o`, `-A`, and `-B`
-/// options. They can be used together with one or more `--from` options
-/// (if no `--from` is specified, `--from @` is assumed).
+/// options. Using any of these options creates a new commit. They can be used
+/// together with one or more `--from` options (if no `--from` is specified,
+/// `--from @` is assumed).
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct SquashArgs {
     /// Revision to squash into its parent (default: @). Incompatible with the
