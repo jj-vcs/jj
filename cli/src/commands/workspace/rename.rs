@@ -13,6 +13,8 @@
 // limitations under the License.
 
 use jj_lib::ref_name::WorkspaceNameBuf;
+use jj_lib::workspace_store::SimpleWorkspaceStore;
+use jj_lib::workspace_store::WorkspaceStore as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -38,6 +40,7 @@ pub fn cmd_workspace_rename(
     }
 
     let mut workspace_command = command.workspace_helper(ui)?;
+    let repo_path = workspace_command.repo_path().to_path_buf();
 
     let old_name = workspace_command.working_copy().workspace_name().to_owned();
     let new_name = &*args.new_workspace_name;
@@ -65,6 +68,22 @@ pub fn cmd_workspace_rename(
 
     tx.repo_mut()
         .rename_workspace(&old_name, new_name.to_owned())?;
+
+    let workspace_store = SimpleWorkspaceStore::load(&repo_path)?;
+
+    // This is to make sure not to throw error for workspaces created before
+    // this change.
+    if workspace_store.exists(&old_name) {
+        let workspace_proto = workspace_store.get_path(&old_name)?;
+
+        workspace_store.remove_path(&old_name)?;
+
+        workspace_store.set_path(
+            &new_name.to_owned(),
+            &dunce::canonicalize(workspace_proto.path)?,
+        )?;
+    }
+
     let repo = tx.commit(format!(
         "Renamed workspace '{old}' to '{new}'",
         old = old_name.as_symbol(),

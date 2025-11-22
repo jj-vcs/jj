@@ -111,6 +111,9 @@ use crate::transaction::TransactionCommitError;
 use crate::tree_merge::MergeOptions;
 use crate::view::RenameWorkspaceError;
 use crate::view::View;
+use crate::workspace_store::SimpleWorkspaceStore;
+use crate::workspace_store::WorkspaceStore as _;
+use crate::workspace_store::WorkspaceStoreError;
 
 pub trait Repo {
     /// Base repository that contains all committed data. Returns `self` if this
@@ -172,6 +175,8 @@ pub enum RepoInitError {
     #[error(transparent)]
     OpHeadsStore(#[from] OpHeadsStoreError),
     #[error(transparent)]
+    WorkspaceStore(#[from] WorkspaceStoreError),
+    #[error(transparent)]
     Path(#[from] PathError),
 }
 
@@ -197,6 +202,7 @@ impl ReadonlyRepo {
     #[expect(clippy::too_many_arguments)]
     pub fn init(
         settings: &UserSettings,
+        workspace_root: &Path,
         repo_path: &Path,
         backend_initializer: &BackendInitializer,
         signer: Signer,
@@ -250,6 +256,10 @@ impl ReadonlyRepo {
         fs::write(&submodule_store_type_path, submodule_store.name())
             .context(&submodule_store_type_path)?;
         let submodule_store = Arc::from(submodule_store);
+
+        // We dont have an initializer for this
+        SimpleWorkspaceStore::load(&repo_path)?
+            .set_path(&WorkspaceNameBuf::from("default"), workspace_root)?;
 
         let loader = RepoLoader {
             settings: settings.clone(),
