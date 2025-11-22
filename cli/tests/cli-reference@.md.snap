@@ -2824,7 +2824,7 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
 EXPERIMENTAL FEATURES
 
-An alternative squashing UI is available via the `-o`, `-A`, and `-B` options. They can be used together with one or more `--from` options (if no `--from` is specified, `--from @` is assumed).
+An alternative squashing UI is available via the `-o`, `-A`, and `-B` options. Using any of these options creates a new commit. They can be used together with one or more `--from` options (if no `--from` is specified, `--from @` is assumed).
 
 **Usage:** `jj squash [OPTIONS] [FILESETS]...`
 
