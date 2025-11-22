@@ -1201,7 +1201,8 @@ the values have the following properties:
      fixed. It is useful to provide the path to tools that include the path
      in error messages, or behave differently based on the directory or file
      name.
- - `patterns`: Determines which files the tool will affect. If this list is
+ - `patterns`: List of filesets (see: `jj help -k filesets`), determining
+   which files the tool will affect based on their path. If this list is
    empty, no files will be affected by the tool. If there are multiple
    patterns, the tool is applied only once to each file in the union of the
    patterns.
