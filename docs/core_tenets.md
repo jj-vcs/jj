@@ -13,7 +13,8 @@ Jujutsu's core tenets are:
    graph. The working copy is just one way of editing commits.
  * Pluggable storage: Must be easy to integrate with different commit storage,
    virtual file systems and more.
- * Git-interop: Git is everywhere. We need to have good interop to be adopted.
+ * Git-interoperability: Git is everywhere. We need to have good
+   interoperability to be adopted.
  * All operations must be able to scale to Google-scale repos (lots of commits,
    lots of files): Laziness is important, must avoid accessing data
    unnecessarily.
