@@ -2913,7 +2913,6 @@ fn test_op_log_anonymize() {
     │  (redacted)
     ○  8f47435a3990 user-5910 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
-    │  (redacted)
     ○  000000000000 root()
     [EOF]
     ");
