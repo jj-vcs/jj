@@ -26,6 +26,7 @@ use jj_lib::default_index::DefaultIndexStoreError;
 use jj_lib::default_index::DefaultMutableIndex;
 use jj_lib::default_index::DefaultReadonlyIndex;
 use jj_lib::index::Index;
+use jj_lib::index::ResolvedChangeTargets;
 use jj_lib::object_id::HexPrefix;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::object_id::PrefixResolution;
@@ -1210,6 +1211,7 @@ fn test_change_id_index() {
         change_id_index
             .resolve_prefix(&HexPrefix::try_from_hex(prefix).unwrap())
             .unwrap()
+            .filter_map(ResolvedChangeTargets::into_visible)
             .map(HashSet::from_iter)
     };
     // Ambiguous matches
@@ -1252,6 +1254,7 @@ fn test_change_id_index() {
         change_id_index
             .resolve_prefix(&HexPrefix::try_from_hex(prefix).unwrap())
             .unwrap()
+            .filter_map(ResolvedChangeTargets::into_visible)
             .map(HashSet::from_iter)
     };
     assert_eq!(

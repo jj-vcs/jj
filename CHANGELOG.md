@@ -83,6 +83,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   pattern. New bookmarks matching it will automatically track that remote.
   See <https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks>.
 
+* Hidden and divergent commits can now be unambiguously selected using their
+  change ID combined with a numeric suffix. For instance, if there are two
+  commits with change ID `xyz`, then one can be referred to as `xyz/0` and the
+  other can be referred to as `xyz/1`. These suffixes are shown in the log when
+  necessary to make a change ID unambiguous.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.

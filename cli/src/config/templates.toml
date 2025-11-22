@@ -160,7 +160,7 @@ if(commit.root(),
         commit.working_copies(),
         if(commit.git_head(), label("git_head", "git_head()")),
         format_short_commit_id(commit.commit_id()),
-        if(commit.conflict(), label("conflict", "conflict")),
+        format_commit_labels(commit),
         if(config("ui.show-cryptographic-signatures").as_boolean(),
           format_short_cryptographic_signature(commit.signature())),
         if(commit.empty(), empty_commit_marker),
@@ -416,14 +416,25 @@ separate(" ",
 # commit id to refer to a hidden revision regardless.
 'format_short_change_id_with_hidden_and_divergent_info(commit)' = '''
 if(commit.hidden(),
-  label("hidden",
-    format_short_change_id(commit.change_id()) ++ " hidden"
-  ),
-  label(if(commit.divergent(), "divergent"),
-    format_short_change_id(commit.change_id()) ++ if(commit.divergent(), "??")
+  label("hidden", format_short_change_id(commit.change_id()) ++ format_change_generation(commit)),
+  if(commit.divergent(),
+    label("divergent", format_short_change_id(commit.change_id()) ++ format_change_generation(commit)),
+    format_short_change_id(commit.change_id())
   )
 )
 '''
+'format_change_generation(commit)' = 'label("generation", surround("/", "", commit.change_generation()))'
+
+'format_commit_labels(commit)' = '''
+  separate(" ",
+    if(commit.conflict(), label("conflict", "conflict")),
+    coalesce(
+      if(commit.hidden(), label("hidden", "hidden")),
+      if(commit.divergent(), label("divergent", "divergent")),
+    ),
+  )
+'''
+
 
 'format_short_commit_header(commit)' = '''
 separate(" ",
@@ -435,7 +446,7 @@ separate(" ",
   commit.working_copies(),
   if(commit.git_head(), label("git_head", "git_head()")),
   format_short_commit_id(commit.commit_id()),
-  if(commit.conflict(), label("conflict", "conflict")),
+  format_commit_labels(commit),
   if(config("ui.show-cryptographic-signatures").as_boolean(),
     format_short_cryptographic_signature(commit.signature())),
 )
@@ -457,7 +468,7 @@ separate(" ",
   commit.working_copies(),
   if(commit.git_head(), label("git_head", "git_head()")),
   format_short_commit_id(commit.commit_id()),
-  if(commit.conflict(), label("conflict", "conflict")),
+  format_commit_labels(commit),
   if(config("ui.show-cryptographic-signatures").as_boolean(),
     format_short_cryptographic_signature(commit.signature())),
 )

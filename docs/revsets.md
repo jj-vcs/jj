@@ -36,6 +36,12 @@ A full change ID refers to a visible commit with that change ID. A unique prefix
 of the full change ID can also be used. It is an error to use a non-unique
 prefix or [a divergent change ID][divergent-change].
 
+To refer to a [hidden](#hidden-revisions) or [divergent][divergent-change]
+commit, a generation number suffix can be added. For instance, `xyz/0` refers to
+the most recent commit with change ID `xyz`, while `xyz/1` refers to one before
+it, and so on. These generation numbers can be found in the log next to the
+change ID when required.
+
 Use [single or double quotes][string-literals] to prevent a symbol from being
 interpreted as an expression. For example, `"x-"` is the symbol `x-`, not the
 parents of symbol `x`. Taking shell quoting into account, you may need to use

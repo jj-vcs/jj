@@ -1150,9 +1150,25 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let repo = language.repo;
             let out_property = self_property.and_then(|commit| {
                 // The given commit could be hidden in e.g. `jj evolog`.
-                let maybe_entries = repo.resolve_change_id(commit.change_id())?;
-                let divergent = maybe_entries.map_or(0, |entries| entries.len()) > 1;
+                let maybe_targets = repo.resolve_change_id(commit.change_id())?;
+                let divergent = maybe_targets.is_some_and(|targets| targets.is_divergent());
                 Ok(divergent)
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "change_generation",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let repo = language.repo;
+            let out_property = self_property.and_then(|commit| {
+                // The given commit could be hidden in e.g. `jj evolog`.
+                let maybe_targets = repo.resolve_change_id(commit.change_id())?;
+                let generation = maybe_targets
+                    .and_then(|targets| targets.find_generation(commit.id()))
+                    .map(|generation| generation as i64);
+                Ok(generation)
             });
             Ok(out_property.into_dyn_wrapped())
         },

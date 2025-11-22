@@ -2020,28 +2020,28 @@ fn test_squash_to_new_commit() {
     ○    xlzxqlsl test.user@example.com 2001-02-03 08:05:31 8ceb6c68
     ├─╮  file 3&4
     │ │  -- operation 05266483f4c2 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
-    │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:31 c7946a56
+    │ ○  zsuskuln/0 test.user@example.com 2001-02-03 08:05:31 c7946a56 hidden
     │ │  file4
     │ │  -- operation 05266483f4c2 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
-    │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:11 38778966
+    │ ○  zsuskuln/4 test.user@example.com 2001-02-03 08:05:11 38778966 hidden
     │ │  file4
     │ │  -- operation 83489d186f66 commit 89a30a7539466ed176c1ef122a020fd9cb15848e
-    │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:11 89a30a75
+    │ ○  zsuskuln/5 test.user@example.com 2001-02-03 08:05:11 89a30a75 hidden
     │ │  (no description set)
     │ │  -- operation e23fd04aab50 snapshot working copy
-    │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:10 bbf04d26
+    │ ○  zsuskuln/6 test.user@example.com 2001-02-03 08:05:10 bbf04d26 hidden
     │    (empty) (no description set)
     │    -- operation 19d57874b952 commit c23c424826221bc4fdee9487926595324e50ee95
-    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:31 3ab8a4a5
+    ○  kkmpptxz/0 test.user@example.com 2001-02-03 08:05:31 3ab8a4a5 hidden
     │  file3
     │  -- operation 05266483f4c2 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
-    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:10 0d254956
+    ○  kkmpptxz/3 test.user@example.com 2001-02-03 08:05:10 0d254956 hidden
     │  file3
     │  -- operation 19d57874b952 commit c23c424826221bc4fdee9487926595324e50ee95
-    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:10 c23c4248
+    ○  kkmpptxz/4 test.user@example.com 2001-02-03 08:05:10 c23c4248 hidden
     │  (no description set)
     │  -- operation d19ad3734aa6 snapshot working copy
-    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:09 c1272e87
+    ○  kkmpptxz/5 test.user@example.com 2001-02-03 08:05:09 c1272e87 hidden
        (empty) (no description set)
        -- operation fdee458ae5f2 commit cb58ff1c6f1af92f827661e7275941ceb4d910c5
     [EOF]
@@ -2210,7 +2210,7 @@ fn test_squash_to_new_commit() {
     ○  ukwxllxp test.user@example.com 2001-02-03 08:05:46 43a4b8e0
     │  (empty) (no description set)
     │  -- operation 05a5eef8665f squash commit 7eff41c8d17b8b4d2e7110402719e9d245dba975
-    ○  wtlqussy hidden test.user@example.com 2001-02-03 08:05:46 7eff41c8
+    ○  wtlqussy/0 test.user@example.com 2001-02-03 08:05:46 7eff41c8 hidden
        (empty) (no description set)
        -- operation 9f39ca40bedf new empty commit
     [EOF]

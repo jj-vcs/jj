@@ -47,8 +47,9 @@ When you encounter divergent changes, you have several strategies to choose
 from. The best approach depends on whether you want to keep the content from one
 commit, both commits, or merge them together.
 
-Note that revsets must refer to the divergent commit using its commit ID since
-the change ID is ambiguous.
+Note that revsets must refer to the divergent commit either using its commit ID
+or using its change ID with a numeric suffix like `/0` or `/1` as shown in the
+log, since the change ID is ambiguous by itself.
 
 ### Strategy 1: Abandon one of the commits
 
@@ -56,7 +57,7 @@ If one of the divergent commits is clearly obsolete or incorrect, simply abandon
 it:
 
 ```shell
-# Abandon the unwanted commit using its commit ID
+# Abandon the unwanted commit using its commit ID (or suffixed change ID)
 jj abandon <unwanted-commit-id>
 
 # You can abandon several at once with:
@@ -101,4 +102,4 @@ you can leave it as-is. If both commits are part of immutable history, this may
 be your only option.
 
 However, it can be inconvenient since you cannot refer to divergent changes
-unambiguously using their change ID.
+unambiguously using their change ID alone.
