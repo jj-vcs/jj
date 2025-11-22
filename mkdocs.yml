@@ -151,6 +151,7 @@ nav: # This lists all the files that become part of the documentation
       - Git comparison: 'git-comparison.md'
       - Git command table: 'git-command-table.md'
       - Git compatibility: 'git-compatibility.md'
+      - Jujutsu for Git experts: 'git-experts.md'
       - Sapling comparison: 'sapling-comparison.md'
       - Other related work: 'related-work.md'
 
