@@ -8601,10 +8601,6 @@ output of the first tool.</p>
 <p>Only tracked bookmarks can be successfully deleted on the remote. A warning will be printed if any untracked bookmarks on the remote correspond to missing local bookmarks.</p>
 </li>
 <li>
-<p><code>-N</code>, <code>--allow-new</code> — Allow pushing new bookmarks</p>
-<p>Newly-created remote bookmarks will be tracked automatically.</p>
-</li>
-<li>
 <p><code>--allow-empty-description</code> — Allow pushing commits with empty descriptions</p>
 </li>
 <li>
@@ -8620,7 +8616,7 @@ output of the first tool.</p>
 </li>
 <li>
 <p><code>--named &lt;NAME=REVISION&gt;</code> — Specify a new bookmark name and a revision to push under that name, e.g. '--named myfeature=@'</p>
-<p>Does not require --allow-new.</p>
+<p>Automatically tracks the bookmark if it is new.</p>
 </li>
 <li>
 <p><code>--dry-run</code> — Only display what will change on the remote</p>

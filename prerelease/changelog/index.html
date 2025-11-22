@@ -6133,6 +6133,16 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </code></pre></div>
   For more details, refer to <a href="config/#automatic-tracking-of-bookmarks">the docs</a>.</p>
 </li>
+<li>
+<p>The flag <code>--allow-new</code> on <code>jj git push</code> is deprecated. In order to push new
+  bookmarks, please track them with <code>jj bookmark track</code>. Alternatively, consider
+  setting up an auto-tracking configuration to avoid the chore of tracking
+  bookmarks manually. For example:
+  <div class="highlight"><pre><span></span><code><span class="k">[remote.origin]</span>
+<span class="n">auto-track-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;glob:*&quot;</span>
+</code></pre></div>
+  For more details, refer to <a href="config/#automatic-tracking-of-bookmarks">the docs</a>.</p>
+</li>
 </ul>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
