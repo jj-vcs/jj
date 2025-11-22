@@ -3478,6 +3478,7 @@ fn test_expand_default_fetch_refspecs() {
             fetch = +refs/heads/wrong-dst:refs/remotes/tags/wrong-dst
             fetch = +refs/heads/wrong-remote:refs/remotes/origin2/wrong-remote
             fetch = +refs/tags/wrong-src:refs/remotes/origin/wrong-src
+            fetch = ^refs/tags/unsupported
             "#,
         )
         .expect("failed to update config file");
@@ -3503,26 +3504,51 @@ fn test_expand_default_fetch_refspecs() {
     insta::assert_snapshot!(warnings, @r"
     fetch-only refspecs are not supported: refs/heads/non-forced
     fetch-only refspecs are not supported: refs/heads/src-only
+    only refs/heads/ is supported for refspec sources: ^refs/tags/unsupported
     non-forced refspecs are not supported: refs/heads/non-forced:refs/remotes/origin/non-forced
     remote renaming not supported: +refs/heads/wrong-dst:refs/remotes/tags/wrong-dst
     remote renaming not supported: +refs/heads/wrong-remote:refs/remotes/origin2/wrong-remote
     only refs/heads/ is supported for refspec sources: +refs/tags/wrong-src:refs/remotes/origin/wrong-src
     ");
 
-    insta::assert_snapshot!(format!("{expanded:#?}"), @r#"
+    insta::assert_debug_snapshot!(expanded, @r#"
     ExpandedFetchRefSpecs {
-        expected_branch_names: [
-            Glob(
-                GlobPattern(
-                    "foo*",
+        bookmark_expr: Intersection(
+            Union(
+                Pattern(
+                    Glob(
+                        GlobPattern(
+                            "foo*",
+                        ),
+                    ),
+                ),
+                Pattern(
+                    Glob(
+                        GlobPattern(
+                            "main",
+                        ),
+                    ),
                 ),
             ),
-            Glob(
-                GlobPattern(
-                    "main",
+            NotIn(
+                Union(
+                    Pattern(
+                        Glob(
+                            GlobPattern(
+                                "excluded",
+                            ),
+                        ),
+                    ),
+                    Pattern(
+                        Glob(
+                            GlobPattern(
+                                "fooqux",
+                            ),
+                        ),
+                    ),
                 ),
             ),
-        ],
+        ),
         refspecs: [
             RefSpec {
                 forced: true,
