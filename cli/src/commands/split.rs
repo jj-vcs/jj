@@ -483,9 +483,9 @@ You are splitting a commit into two: {}
 
 The diff initially shows the changes in the commit you're splitting.
 
-Adjust the right side until it shows the contents you want to split into the
-new commit.
-The changes that are not selected will replace the original commit.
+Adjust the right side until it shows the contents you want to keep in the
+original commit.
+The changes that are not selected will be moved to a follow-up commit.
 ",
             tx.format_commit_summary(target_commit)
         )
