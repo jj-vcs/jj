@@ -60,7 +60,7 @@ fn test_next_simple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 01f06d39 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 7576de42 (empty) third
+    Parent revision (@-)    : kkmpptxz 7576de42 (empty) third
     [EOF]
     ");
 
@@ -102,7 +102,7 @@ fn test_next_multiple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv a53dd783 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln c5025ce1 (empty) fourth
+    Parent revision (@-)    : zsuskuln c5025ce1 (empty) fourth
     [EOF]
     ");
 
@@ -139,7 +139,7 @@ fn test_prev_simple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: royxmykx 539f176b (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
+    Parent revision (@-)    : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
@@ -178,7 +178,7 @@ fn test_prev_multiple_without_root() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: yqosqzyt a4d3accb (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
+    Parent revision (@-)    : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
@@ -253,7 +253,7 @@ fn test_next_parent_has_multiple_descendants() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl e5543950 (empty) 4
-    Parent commit (@-)      : zsuskuln 83df6e43 (empty) 3
+    Parent revision (@-)    : zsuskuln 83df6e43 (empty) 3
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -297,7 +297,7 @@ fn test_next_with_merge_commit_parent() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 7a09c355 (empty) (no description set)
-    Parent commit (@-)      : mzvwutvl f02c921e (empty) 4
+    Parent revision (@-)    : mzvwutvl f02c921e (empty) 4
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -341,7 +341,7 @@ fn test_next_on_merge_commit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl f02c921e (empty) 4
-    Parent commit (@-)      : zsuskuln d2500577 (empty) 3
+    Parent revision (@-)    : zsuskuln d2500577 (empty) 3
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -450,7 +450,7 @@ fn test_next_choose_bookmarking_child() {
     3: rlvkpnrz 9439bf06 (empty) second
     q: quit the prompt
     enter the index of the commit you want to target: Working copy  (@) now at: yostqsxw 683938a4 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 6fc6af46 (empty) third
+    Parent revision (@-)    : zsuskuln 6fc6af46 (empty) third
     [EOF]
     ");
 }
@@ -482,7 +482,7 @@ fn test_prev_on_merge_commit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv b64f323d (empty) (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -499,7 +499,7 @@ fn test_prev_on_merge_commit() {
     2: qpvuntsm 68a50538 left | (empty) first
     q: quit the prompt
     enter the index of the commit you want to target: Working copy  (@) now at: qpvuntsm 68a50538 left | (empty) first
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 }
@@ -544,7 +544,7 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     3: zzzzzzzz 00000000 (empty) (no description set)
     q: quit the prompt
     enter the index of the commit you want to target: Working copy  (@) now at: vruxwmqv ff8922ba (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 007e88d2 (empty) x
+    Parent revision (@-)    : qpvuntsm 007e88d2 (empty) x
     [EOF]
     ");
 
@@ -561,8 +561,8 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     2: zsuskuln e7382ca4 (empty) z
     q: quit the prompt
     enter the index of the commit you want to target: Working copy  (@) now at: zsuskuln e7382ca4 (empty) z
-    Parent commit (@-)      : qpvuntsm 007e88d2 (empty) x
-    Parent commit (@-)      : kkmpptxz ab947132 (empty) y
+    Parent revision (@-)    : qpvuntsm 007e88d2 (empty) x
+    Parent revision (@-)    : kkmpptxz ab947132 (empty) y
     [EOF]
     ");
 }
@@ -611,7 +611,7 @@ fn test_prev_prompts_on_multiple_parents() {
     3: qpvuntsm 68a50538 (empty) first
     q: quit the prompt
     enter the index of the commit you want to target: Working copy  (@) now at: kpqxywon 5448803a (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
+    Parent revision (@-)    : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");
 
@@ -701,7 +701,7 @@ fn test_prev_editing() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 7576de42 (empty) third
-    Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
+    Parent revision (@-)    : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
@@ -740,7 +740,7 @@ fn test_next_editing() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 7576de42 (empty) third
-    Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
+    Parent revision (@-)    : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
@@ -969,7 +969,7 @@ fn test_movement_edit_mode_true() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 9439bf06 (empty) second
-    Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
+    Parent revision (@-)    : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");
 
@@ -985,7 +985,7 @@ fn test_movement_edit_mode_true() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 68a50538 (empty) first
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
@@ -1000,7 +1000,7 @@ fn test_movement_edit_mode_true() {
     let output = work_dir.run_jj(["prev"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The root commit 000000000000 is immutable
+    Error: The root revision 000000000000 is immutable
     [EOF]
     [exit status: 1]
     ");
@@ -1009,7 +1009,7 @@ fn test_movement_edit_mode_true() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 9439bf06 (empty) second
-    Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
+    Parent revision (@-)    : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");
 
@@ -1025,7 +1025,7 @@ fn test_movement_edit_mode_true() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 7576de42 (empty) third
-    Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
+    Parent revision (@-)    : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
@@ -1041,7 +1041,7 @@ fn test_movement_edit_mode_true() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: uyznsvlq 1062d305 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
+    Parent revision (@-)    : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");
 
@@ -1059,7 +1059,7 @@ fn test_movement_edit_mode_true() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: xtnwkqum ccbc5bff (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
+    Parent revision (@-)    : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
@@ -1119,7 +1119,7 @@ fn test_movement_edit_mode_false() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 1a9aa547 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
+    Parent revision (@-)    : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");
 
@@ -1146,7 +1146,7 @@ fn test_movement_edit_mode_false() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kpqxywon 97dd6a5a (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
+    Parent revision (@-)    : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
@@ -1164,7 +1164,7 @@ fn test_movement_edit_mode_false() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: wqnwkozp 525e0f84 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 7576de42 (empty) third
+    Parent revision (@-)    : kkmpptxz 7576de42 (empty) third
     [EOF]
     ");
 
@@ -1172,7 +1172,7 @@ fn test_movement_edit_mode_false() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 9439bf06 (empty) second
-    Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
+    Parent revision (@-)    : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");
 
@@ -1188,7 +1188,7 @@ fn test_movement_edit_mode_false() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 7576de42 (empty) third
-    Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
+    Parent revision (@-)    : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 

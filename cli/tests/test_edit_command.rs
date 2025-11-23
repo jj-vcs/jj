@@ -45,7 +45,7 @@ fn test_edit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 1f6994f8 first
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -67,7 +67,7 @@ fn test_edit() {
     ◆  000000000000
     [EOF]
     ------- stderr -------
-    Rebased 1 descendant commits onto updated working copy
+    Rebased 1 descendant revisions onto updated working copy
     [EOF]
     ");
 }
@@ -137,7 +137,7 @@ fn test_edit_current_wc_commit_missing() {
     let output = work_dir.run_jj(["edit", "--ignore-working-copy", &wc_child_id]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Internal error: Failed to edit a commit
+    Internal error: Failed to edit a revision
     Caused by:
     1: Current working-copy commit not found
     2: Object 68a505386f936fff6d718f55005e77ea72589bc1 of type commit not found

@@ -334,7 +334,7 @@ fn test_metaedit() {
     Modified 1 commits:
       mzvwutvl 75259df4 c | (no description set)
     Working copy  (@) now at: mzvwutvl 75259df4 c | (no description set)
-    Parent commit (@-)      : kkmpptxz 0a570dfb b | (no description set)
+    Parent revision (@-)    : kkmpptxz 0a570dfb b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["show"]), @r"
@@ -526,7 +526,7 @@ fn test_metaedit_multiple_revisions() {
       mzvwutvl 447d6d8a c | (no description set)
     Rebased 1 descendant commits
     Working copy  (@) now at: yostqsxw ebd66676 (empty) (no description set)
-    Parent commit (@-)      : mzvwutvl 447d6d8a c | (no description set)
+    Parent revision (@-)    : mzvwutvl 447d6d8a c | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log(&work_dir), @r"
@@ -600,7 +600,7 @@ fn test_new_change_id() {
       yqosqzyt 01d6741e b | (no description set)
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 0c3fe2d8 c | (no description set)
-    Parent commit (@-)      : yqosqzyt 01d6741e b | (no description set)
+    Parent revision (@-)    : yqosqzyt 01d6741e b | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log(&work_dir), @r"
@@ -750,7 +750,7 @@ fn test_update_empty_author_or_email() {
     Modified 1 commits:
       qpvuntsm 234908d4 (empty) (no description set)
     Working copy  (@) now at: qpvuntsm 234908d4 (empty) (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Email not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
     Hint: To configure, run:
       jj config set --user user.email "someone@example.com"
@@ -776,7 +776,7 @@ fn test_update_empty_author_or_email() {
     Modified 1 commits:
       qpvuntsm ac5048cf (empty) (no description set)
     Working copy  (@) now at: qpvuntsm ac5048cf (empty) (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Warning: Name not configured. Until configured, your commits will be created with the empty identity, and can't be pushed to remotes.
     Hint: To configure, run:
       jj config set --user user.name "Some One"
@@ -813,7 +813,7 @@ fn test_metaedit_set_same_timestamp_twice() {
     Modified 1 commits:
       qpvuntsm 51b97b23 (empty) (no description set)
     Working copy  (@) now at: qpvuntsm 51b97b23 (empty) (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 

@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc a6a447bf5a2ad4656d20313a20a0e203e66ccc1474fca86743e44b0fd9aa1a3f # shrinks to (initial_state, transitions, seen_counter) = (WorkingCopyWithSelectionStateMachine { working_copy: WorkingCopyReferenceStateMachine { entries: {} }, selection_mask: [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false] }, [Commit], None)

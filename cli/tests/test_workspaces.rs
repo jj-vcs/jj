@@ -40,7 +40,7 @@ fn test_workspaces_add_second_workspace() {
     ------- stderr -------
     Created workspace in "../secondary"
     Working copy  (@) now at: rzvqmyuk bcc858e1 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Parent revision (@-)    : qpvuntsm 7b22a8cb initial
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -194,7 +194,7 @@ fn test_workspaces_add_at_operation() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 59e07459 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 9e4b0b91 1
+    Parent revision (@-)    : qpvuntsm 9e4b0b91 1
     [EOF]
     ");
 
@@ -203,7 +203,7 @@ fn test_workspaces_add_at_operation() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 6e9610ac (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 8b7259b9 2
+    Parent revision (@-)    : rlvkpnrz 8b7259b9 2
     [EOF]
     ");
 
@@ -215,7 +215,7 @@ fn test_workspaces_add_at_operation() {
     ------- stderr -------
     Created workspace in "../secondary"
     Working copy  (@) now at: rzvqmyuk b8772476 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 9e4b0b91 1
+    Parent revision (@-)    : qpvuntsm 9e4b0b91 1
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -286,7 +286,7 @@ fn test_workspaces_add_workspace_at_revision() {
     ------- stderr -------
     Created workspace in "../secondary"
     Working copy  (@) now at: zxsnswpr ea5860fb (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 27473635 first
+    Parent revision (@-)    : qpvuntsm 27473635 first
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -358,9 +358,9 @@ fn test_workspaces_add_workspace_multiple_revisions() {
     ------- stderr -------
     Created workspace in "../merged"
     Working copy  (@) now at: wmwvqwsz 2d7c9a2d (empty) (no description set)
-    Parent commit (@-)      : mzvwutvl eba7f49e third
-    Parent commit (@-)      : kkmpptxz 62444a45 second
-    Parent commit (@-)      : qpvuntsm 27473635 first
+    Parent revision (@-)    : mzvwutvl eba7f49e third
+    Parent revision (@-)    : kkmpptxz 62444a45 second
+    Parent revision (@-)    : qpvuntsm 27473635 first
     Added 3 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -403,7 +403,7 @@ fn test_workspaces_add_workspace_from_subdir() {
     ------- stderr -------
     Created workspace in "../../secondary"
     Working copy  (@) now at: rzvqmyuk dea1be10 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 80b67806 initial
+    Parent revision (@-)    : qpvuntsm 80b67806 initial
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -433,7 +433,7 @@ fn test_workspaces_add_workspace_in_current_workspace() {
     Created workspace in "secondary"
     Warning: Workspace created inside current directory. If this was unintentional, delete the "secondary" directory and run `jj workspace forget secondary` to remove it.
     Working copy  (@) now at: pmmvwywv 058f604d (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Parent revision (@-)    : qpvuntsm 7b22a8cb initial
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -452,7 +452,7 @@ fn test_workspaces_add_workspace_in_current_workspace() {
     ------- stderr -------
     Created workspace in "third"
     Working copy  (@) now at: zxsnswpr 1c1effec (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Parent revision (@-)    : qpvuntsm 7b22a8cb initial
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
@@ -512,7 +512,7 @@ fn test_workspaces_conflicting_edits() {
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 3a9b690d (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
+    Parent revision (@-)    : qpvuntsm b853f7c8 (no description set)
     [EOF]
     ");
 
@@ -553,9 +553,9 @@ fn test_workspaces_conflicting_edits() {
     Concurrent modification detected, resolving automatically.
     Rebased 1 descendant commits onto commits rewritten by other operation
     Working copy  (@) now at: pmmvwywv?? 90f3d42e (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
+    Parent revision (@-)    : qpvuntsm b853f7c8 (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    Updated working copy to fresh commit 90f3d42e0bff
+    Updated working copy to fresh revision 90f3d42e0bff
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&secondary_dir),
@@ -613,7 +613,7 @@ fn test_workspaces_updated_by_other() {
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 3a9b690d (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
+    Parent revision (@-)    : qpvuntsm b853f7c8 (no description set)
     [EOF]
     ");
 
@@ -641,9 +641,9 @@ fn test_workspaces_updated_by_other() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: pmmvwywv 90f3d42e (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
+    Parent revision (@-)    : qpvuntsm b853f7c8 (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    Updated working copy to fresh commit 90f3d42e0bff
+    Updated working copy to fresh revision 90f3d42e0bff
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&secondary_dir),
@@ -690,7 +690,7 @@ fn test_workspaces_updated_by_other_automatic() {
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 3a9b690d (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
+    Parent revision (@-)    : qpvuntsm b853f7c8 (no description set)
     [EOF]
     ");
 
@@ -713,9 +713,9 @@ fn test_workspaces_updated_by_other_automatic() {
     [EOF]
     ------- stderr -------
     Working copy  (@) now at: pmmvwywv 90f3d42e (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
+    Parent revision (@-)    : qpvuntsm b853f7c8 (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    Updated working copy to fresh commit 90f3d42e0bff
+    Updated working copy to fresh revision 90f3d42e0bff
     [EOF]
     ");
 
@@ -779,7 +779,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     ]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @r"
-        @  b0789def13 abandon commit de90575a14d8b9198dc0930f9de4a69f846ded36
+        @  68081d18e8 abandon revision de90575a14d8b9198dc0930f9de4a69f846ded36
         ○  778c9aae54 create initial working-copy commit in workspace secondary
         ○  219d4aca5c add workspace 'secondary'
         ○  31ad55e98c new empty commit
@@ -822,7 +822,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         [EOF]
         ------- stderr -------
         Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 778c9aae54957e842bede2223fda227be33e08061732276a4cfb7b431a3e146e5c62187d640aa883095d3b2c6cf43d31ad5fde72076bb9a88b8594fb8b5e6606 of type operation not found
-        Created and checked out recovery commit 866928d1e0fd
+        Created and checked out recovery revision 866928d1e0fd
         [EOF]
         ");
     } else {
@@ -840,7 +840,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 778c9aae54957e842bede2223fda227be33e08061732276a4cfb7b431a3e146e5c62187d640aa883095d3b2c6cf43d31ad5fde72076bb9a88b8594fb8b5e6606 of type operation not found
-        Created and checked out recovery commit 866928d1e0fd
+        Created and checked out recovery revision 866928d1e0fd
         [EOF]
         ");
     }
@@ -890,20 +890,20 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         insta::assert_snapshot!(output, @r"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
-        │  -- operation 0a26da4b0149 snapshot working copy
+        │  -- operation 1e1bccfb7752 snapshot working copy
         ○  kmkuslsw hidden test.user@example.com 2001-02-03 08:05:18 866928d1
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
-           -- operation 83f707034db1 recovery commit
+           -- operation cb0215f90a41 recovery commit
         [EOF]
         ");
     } else {
         insta::assert_snapshot!(output, @r"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
-        │  -- operation 0f876590219e snapshot working copy
+        │  -- operation 73bd2985d466 snapshot working copy
         ○  kmkuslsw hidden test.user@example.com 2001-02-03 08:05:18 866928d1
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
-           -- operation 83f707034db1 recovery commit
+           -- operation cb0215f90a41 recovery commit
         [EOF]
         ");
     }

@@ -304,13 +304,13 @@ impl From<RewriteRootCommit> for CommandError {
 
 impl From<EditCommitError> for CommandError {
     fn from(err: EditCommitError) -> Self {
-        internal_error_with_message("Failed to edit a commit", err)
+        internal_error_with_message("Failed to edit a revision", err)
     }
 }
 
 impl From<CheckOutCommitError> for CommandError {
     fn from(err: CheckOutCommitError) -> Self {
-        internal_error_with_message("Failed to check out a commit", err)
+        internal_error_with_message("Failed to check out a revision", err)
     }
 }
 
@@ -349,7 +349,7 @@ impl From<WorkspaceInitError> for CommandError {
             }
             WorkspaceInitError::EncodeRepoPath(_) => user_error(err),
             WorkspaceInitError::CheckOutCommit(err) => {
-                internal_error_with_message("Failed to check out the initial commit", err)
+                internal_error_with_message("Failed to check out the initial revision", err)
             }
             WorkspaceInitError::Path(err) => {
                 internal_error_with_message("Failed to access the repository", err)
@@ -908,7 +908,7 @@ pub(crate) fn revset_parse_error_hint(err: &RevsetParseError) -> Option<String> 
 fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
     let multiple_targets_hint = |targets: &[CommitId]| {
         format!(
-            "Use commit ID to select single revision from: {}",
+            "Use revision ID to select single revision from: {}",
             targets.iter().map(|id| format!("{id:.12}")).join(", ")
         )
     };

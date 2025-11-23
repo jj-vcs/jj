@@ -2103,7 +2103,7 @@ fn test_git_push_sign_on_push() {
     Changes to push to origin:
       Move forward bookmark bookmark2 from 38a204733702 to d45e2adce0ad
     Working copy  (@) now at: kmkuslsw 3d5a9465 (empty) commit which should not be signed 2
-    Parent commit (@-)      : kpqxywon 48ea83e9 (empty) commit which should not be signed 1
+    Parent revision (@-)    : kpqxywon 48ea83e9 (empty) commit which should not be signed 1
     [EOF]
     ");
     // Only commits which are being pushed should be signed

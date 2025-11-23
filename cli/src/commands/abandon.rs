@@ -138,7 +138,7 @@ pub(crate) fn cmd_abandon(
     .collect_vec();
 
     if let Some(mut formatter) = ui.status_formatter() {
-        writeln!(formatter, "Abandoned {} commits:", to_abandon.len())?;
+        writeln!(formatter, "Abandoned {} revisions:", to_abandon.len())?;
         let abandoned_commits: Vec<_> = to_abandon
             .iter()
             .map(|id| tx.base_repo().store().get_commit(id))
@@ -165,17 +165,18 @@ pub(crate) fn cmd_abandon(
             } else {
                 writeln!(
                     formatter,
-                    "Rebased {num_rebased} descendant commits onto parents of abandoned commits",
+                    "Rebased {num_rebased} descendant revisions onto parents of abandoned \
+                     revisions",
                 )?;
             }
         }
     }
 
     let transaction_description = if to_abandon.len() == 1 {
-        format!("abandon commit {}", to_abandon[0])
+        format!("abandon revision {}", to_abandon[0])
     } else {
         format!(
-            "abandon commit {} and {} more",
+            "abandon revision {} and {} more",
             to_abandon[0],
             to_abandon.len() - 1
         )

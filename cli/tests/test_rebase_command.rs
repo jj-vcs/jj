@@ -106,7 +106,7 @@ fn test_rebase_invalid() {
     let output = work_dir.run_jj(["rebase", "-r", "root()", "-o", "a"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The root commit 000000000000 is immutable
+    Error: The root revision 000000000000 is immutable
     [EOF]
     [exit status: 1]
     ");
@@ -219,7 +219,7 @@ fn test_rebase_bookmark() {
     Skipped rebase of 1 commits that were already in place
     Rebased 1 commits to destination
     Working copy  (@) now at: znkkpsqq bbfb8557 e | e
-    Parent commit (@-)      : zsuskuln 123b4d91 b | b
+    Parent revision (@-)    : zsuskuln 123b4d91 b | b
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -243,7 +243,7 @@ fn test_rebase_bookmark() {
     Skipped rebase of 1 commits that were already in place
     Rebased 1 commits to destination
     Working copy  (@) now at: znkkpsqq 1ffd7890 e | e
-    Parent commit (@-)      : zsuskuln 123b4d91 b | b
+    Parent revision (@-)    : zsuskuln 123b4d91 b | b
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -291,8 +291,8 @@ fn test_rebase_bookmark_with_merge() {
     ------- stderr -------
     Rebased 3 commits to destination
     Working copy  (@) now at: znkkpsqq d5360d09 e | e
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
-    Parent commit (@-)      : vruxwmqv 85a741d7 d | d
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : vruxwmqv 85a741d7 d | d
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -314,8 +314,8 @@ fn test_rebase_bookmark_with_merge() {
     ------- stderr -------
     Rebased 3 commits to destination
     Working copy  (@) now at: znkkpsqq d3091c0f e | e
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
-    Parent commit (@-)      : vruxwmqv 485905a3 d | d
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : vruxwmqv 485905a3 d | d
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -365,7 +365,7 @@ fn test_rebase_single_revision() {
     Rebased 1 commits to destination
     Rebased 2 descendant commits
     Working copy  (@) now at: znkkpsqq 2baedee4 e | e
-    Parent commit (@-)      : vruxwmqv 45142a83 d | d
+    Parent revision (@-)    : vruxwmqv 45142a83 d | d
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -391,8 +391,8 @@ fn test_rebase_single_revision() {
     Rebased 1 commits to destination
     Rebased 1 descendant commits
     Working copy  (@) now at: znkkpsqq b981a2bc e | e
-    Parent commit (@-)      : zsuskuln 123b4d91 b | b
-    Parent commit (@-)      : royxmykx 991a7501 c | c
+    Parent revision (@-)    : zsuskuln 123b4d91 b | b
+    Parent revision (@-)    : royxmykx 991a7501 c | c
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -440,8 +440,8 @@ fn test_rebase_single_revision_merge_parent() {
     Rebased 1 commits to destination
     Rebased 1 descendant commits
     Working copy  (@) now at: vruxwmqv 0bb15a0f d | d
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
-    Parent commit (@-)      : zsuskuln d18ca3e8 b | b
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : zsuskuln d18ca3e8 b | b
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -499,7 +499,7 @@ fn test_rebase_multiple_revisions() {
     Rebased 2 commits to destination
     Rebased 4 descendant commits
     Working copy  (@) now at: xznxytkn 15078fab i | i
-    Parent commit (@-)      : kmkuslsw d8579ed7 f | f
+    Parent revision (@-)    : kmkuslsw d8579ed7 f | f
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -532,7 +532,7 @@ fn test_rebase_multiple_revisions() {
     Rebased 2 commits to destination
     Rebased 4 descendant commits
     Working copy  (@) now at: xznxytkn 4dec544d i | i
-    Parent commit (@-)      : kmkuslsw b22816c9 f | f
+    Parent revision (@-)    : kmkuslsw b22816c9 f | f
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -566,8 +566,8 @@ fn test_rebase_multiple_revisions() {
     Rebased 3 commits to destination
     Rebased 2 descendant commits
     Working copy  (@) now at: xznxytkn e73a0787 i | i
-    Parent commit (@-)      : royxmykx dffaa0d4 c | c
-    Parent commit (@-)      : vruxwmqv 6354123d d | d
+    Parent revision (@-)    : royxmykx dffaa0d4 c | c
+    Parent revision (@-)    : vruxwmqv 6354123d d | d
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -602,8 +602,8 @@ fn test_rebase_multiple_revisions() {
     Rebased 3 commits to destination
     Rebased 3 descendant commits
     Working copy  (@) now at: xznxytkn f7c62b49 i | i
-    Parent commit (@-)      : royxmykx dffaa0d4 c | c
-    Parent commit (@-)      : znkkpsqq 1c3676c4 e | e
+    Parent revision (@-)    : royxmykx dffaa0d4 c | c
+    Parent revision (@-)    : znkkpsqq 1c3676c4 e | e
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -634,7 +634,7 @@ fn test_rebase_multiple_revisions() {
     Rebased 2 commits to destination
     Rebased 4 descendant commits
     Working copy  (@) now at: xznxytkn b4ece7ad i | i
-    Parent commit (@-)      : kmkuslsw 1a05fe0d f | f
+    Parent revision (@-)    : kmkuslsw 1a05fe0d f | f
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -686,8 +686,8 @@ fn test_rebase_revision_onto_descendant() {
     Rebased 1 commits to destination
     Rebased 3 descendant commits
     Working copy  (@) now at: vruxwmqv 6a82c6c9 merge | merge
-    Parent commit (@-)      : royxmykx 934eadd8 b | b
-    Parent commit (@-)      : zsuskuln fd4e3113 a | a
+    Parent revision (@-)    : royxmykx 934eadd8 b | b
+    Parent revision (@-)    : zsuskuln fd4e3113 a | a
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -709,8 +709,8 @@ fn test_rebase_revision_onto_descendant() {
     ------- stderr -------
     Restored to operation: cb005d7a588c (2001-02-03 08:05:15) create bookmark merge pointing to commit 08c0951bf69d0362708a5223a78446d664823b50
     Working copy  (@) now at: vruxwmqv 08c0951b merge | merge
-    Parent commit (@-)      : royxmykx 6a7081ef b | b
-    Parent commit (@-)      : zsuskuln 68fbc443 a | a
+    Parent revision (@-)    : royxmykx 6a7081ef b | b
+    Parent revision (@-)    : zsuskuln 68fbc443 a | a
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -720,8 +720,8 @@ fn test_rebase_revision_onto_descendant() {
     Rebased 1 commits to destination
     Rebased 3 descendant commits
     Working copy  (@) now at: vruxwmqv 6091a06e merge | merge
-    Parent commit (@-)      : royxmykx 072bc1fa b | b
-    Parent commit (@-)      : zsuskuln afb318cf a | a
+    Parent revision (@-)    : royxmykx 072bc1fa b | b
+    Parent revision (@-)    : zsuskuln afb318cf a | a
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -890,7 +890,7 @@ fn test_rebase_with_descendants() {
     ------- stderr -------
     Rebased 3 commits to destination
     Working copy  (@) now at: vruxwmqv 7a9837e3 d | d
-    Parent commit (@-)      : royxmykx ee1edcc0 c | c
+    Parent revision (@-)    : royxmykx ee1edcc0 c | c
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -911,7 +911,7 @@ fn test_rebase_with_descendants() {
     ------- stderr -------
     Rebased 2 commits to destination
     Working copy  (@) now at: vruxwmqv e7720369 d | d
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -946,7 +946,7 @@ fn test_rebase_with_descendants() {
     ------- stderr -------
     Rebased 3 commits to destination
     Working copy  (@) now at: vruxwmqv 7186427a d | d
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -968,7 +968,7 @@ fn test_rebase_with_descendants() {
     ------- stderr -------
     Rebased 3 commits to destination
     Working copy  (@) now at: vruxwmqv f6c6224e d | d
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -1088,7 +1088,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ------- stderr -------
     Rebased 3 commits to destination
     Working copy  (@) now at: znkkpsqq b65f55fb c | c
-    Parent commit (@-)      : vruxwmqv c90d30a4 b | b
+    Parent revision (@-)    : vruxwmqv c90d30a4 b | b
     [EOF]
     ");
     // Commit "a" should be rebased onto the root commit. Commit "b" should have
@@ -1147,7 +1147,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ------- stderr -------
     Rebased 2 commits to destination
     Working copy  (@) now at: znkkpsqq 5b285fee c | c
-    Parent commit (@-)      : vruxwmqv 988d520d b | b
+    Parent revision (@-)    : vruxwmqv 988d520d b | b
     [EOF]
     ");
     // The commits in roots(a..c), i.e. commit "b" should be rebased onto "a",
@@ -1204,7 +1204,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     Rebased 1 commits to destination
     Rebased 3 descendant commits
     Working copy  (@) now at: znkkpsqq ad772a82 c | c
-    Parent commit (@-)      : vruxwmqv 79030f30 b | b
+    Parent revision (@-)    : vruxwmqv 79030f30 b | b
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -1231,7 +1231,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     Rebased 1 commits to destination
     Rebased 3 descendant commits
     Working copy  (@) now at: znkkpsqq 3cdfeb24 c | c
-    Parent commit (@-)      : vruxwmqv d77e32e7 b | b
+    Parent revision (@-)    : vruxwmqv d77e32e7 b | b
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -1257,7 +1257,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     Rebased 1 commits to destination
     Rebased 3 descendant commits
     Working copy  (@) now at: znkkpsqq afc19fe0 c | c
-    Parent commit (@-)      : vruxwmqv c319447d b | b
+    Parent revision (@-)    : vruxwmqv c319447d b | b
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -1294,7 +1294,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     Rebased 1 commits to destination
     Rebased 2 descendant commits
     Working copy  (@) now at: znkkpsqq 1cb17633 c | c
-    Parent commit (@-)      : vruxwmqv 801b1b8c b | b
+    Parent revision (@-)    : vruxwmqv 801b1b8c b | b
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -1318,8 +1318,8 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     Rebased 1 commits to destination
     Rebased 1 descendant commits
     Working copy  (@) now at: znkkpsqq f8853d0d c | c
-    Parent commit (@-)      : zsuskuln 3a2d0837 base | base
-    Parent commit (@-)      : royxmykx c7aebf99 a | a
+    Parent revision (@-)    : zsuskuln 3a2d0837 base | base
+    Parent revision (@-)    : royxmykx c7aebf99 a | a
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -1346,8 +1346,8 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     Rebased 1 commits to destination
     Rebased 1 descendant commits
     Working copy  (@) now at: znkkpsqq 6feb5c0f c | c
-    Parent commit (@-)      : zsuskuln 3a2d0837 base | base
-    Parent commit (@-)      : royxmykx c7aebf99 a | a
+    Parent revision (@-)    : zsuskuln 3a2d0837 base | base
+    Parent revision (@-)    : royxmykx c7aebf99 a | a
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -1371,7 +1371,7 @@ fn test_rebase_with_child_and_descendant_bug_2600() {
     ------- stderr -------
     Rebased 1 commits to destination
     Working copy  (@) now at: znkkpsqq a0c5ea8f c | c
-    Parent commit (@-)      : royxmykx c7aebf99 a | a
+    Parent revision (@-)    : royxmykx c7aebf99 a | a
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -1480,7 +1480,7 @@ fn test_rebase_after() {
     Rebased 1 commits to destination
     Rebased 3 descendant commits
     Working copy  (@) now at: xznxytkn 2f59b944 f | f
-    Parent commit (@-)      : kmkuslsw 88ddc78c c | c
+    Parent revision (@-)    : kmkuslsw 88ddc78c c | c
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -1508,7 +1508,7 @@ fn test_rebase_after() {
     Rebased 1 commits to destination
     Rebased 1 descendant commits
     Working copy  (@) now at: xznxytkn da215ecd f | f
-    Parent commit (@-)      : kmkuslsw ed86d82a c | c
+    Parent revision (@-)    : kmkuslsw ed86d82a c | c
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -1537,7 +1537,7 @@ fn test_rebase_after() {
     Rebased 1 commits to destination
     Rebased 4 descendant commits
     Working copy  (@) now at: xznxytkn 2c606e19 f | f
-    Parent commit (@-)      : zsuskuln 62634b59 b1 | b1
+    Parent revision (@-)    : zsuskuln 62634b59 b1 | b1
     Added 0 files, modified 0 files, removed 5 files
     [EOF]
     ");
@@ -1566,7 +1566,7 @@ fn test_rebase_after() {
     Rebased 1 commits to destination
     Rebased 3 descendant commits
     Working copy  (@) now at: xznxytkn e60a4b0c f | f
-    Parent commit (@-)      : royxmykx 40646d19 b2 | b2
+    Parent revision (@-)    : royxmykx 40646d19 b2 | b2
     Added 0 files, modified 0 files, removed 4 files
     [EOF]
     ");
@@ -1597,7 +1597,7 @@ fn test_rebase_after() {
     Rebased 1 commits to destination
     Rebased 2 descendant commits
     Working copy  (@) now at: xznxytkn 84786555 f | f
-    Parent commit (@-)      : kmkuslsw ed86d82a c | c
+    Parent revision (@-)    : kmkuslsw ed86d82a c | c
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -1625,8 +1625,8 @@ fn test_rebase_after() {
     ------- stderr -------
     Rebased 1 commits to destination
     Working copy  (@) now at: xznxytkn d5324bb4 f | f
-    Parent commit (@-)      : nkmrtpmo 50d9bd5d e | e
-    Parent commit (@-)      : lylxulpl 610f541b d | d
+    Parent revision (@-)    : nkmrtpmo 50d9bd5d e | e
+    Parent revision (@-)    : lylxulpl 610f541b d | d
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1656,7 +1656,7 @@ fn test_rebase_after() {
     Rebased 2 commits to destination
     Rebased 6 descendant commits
     Working copy  (@) now at: xznxytkn 17632090 f | f
-    Parent commit (@-)      : kmkuslsw 726c937e c | c
+    Parent revision (@-)    : kmkuslsw 726c937e c | c
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1687,7 +1687,7 @@ fn test_rebase_after() {
     Rebased 3 commits to destination
     Rebased 3 descendant commits
     Working copy  (@) now at: xznxytkn 991bd3ac f | f
-    Parent commit (@-)      : nkmrtpmo f9ecf426 e | e
+    Parent revision (@-)    : nkmrtpmo f9ecf426 e | e
     Added 0 files, modified 0 files, removed 3 files
     [EOF]
     ");
@@ -1718,7 +1718,7 @@ fn test_rebase_after() {
     Rebased 4 commits to destination
     Rebased 2 descendant commits
     Working copy  (@) now at: xznxytkn 0123019e f | f
-    Parent commit (@-)      : nkmrtpmo 903f8aa0 e | e
+    Parent revision (@-)    : nkmrtpmo 903f8aa0 e | e
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1749,7 +1749,7 @@ fn test_rebase_after() {
     Rebased 3 commits to destination
     Rebased 6 descendant commits
     Working copy  (@) now at: xznxytkn fdeb070b f | f
-    Parent commit (@-)      : nkmrtpmo f1b259b2 e | e
+    Parent revision (@-)    : nkmrtpmo f1b259b2 e | e
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -1778,7 +1778,7 @@ fn test_rebase_after() {
     Rebased 2 commits to destination
     Rebased 3 descendant commits
     Working copy  (@) now at: xznxytkn c8ba9324 f | f
-    Parent commit (@-)      : kmkuslsw 0bd3b3d1 c | c
+    Parent revision (@-)    : kmkuslsw 0bd3b3d1 c | c
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -1833,7 +1833,7 @@ fn test_rebase_after() {
     Rebased 4 commits to destination
     Rebased 2 descendant commits
     Working copy  (@) now at: xznxytkn 9ea28699 f | f
-    Parent commit (@-)      : nkmrtpmo 989281ba e | e
+    Parent revision (@-)    : nkmrtpmo 989281ba e | e
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -1866,7 +1866,7 @@ fn test_rebase_after() {
     Rebased 6 commits to destination
     Rebased 1 descendant commits
     Working copy  (@) now at: xznxytkn 63860138 f | f
-    Parent commit (@-)      : nkmrtpmo cc7e9907 e | e
+    Parent revision (@-)    : nkmrtpmo cc7e9907 e | e
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -1985,7 +1985,7 @@ fn test_rebase_before() {
     let output = work_dir.run_jj(["rebase", "-r", "c", "--before", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The root commit 000000000000 is immutable
+    Error: The root revision 000000000000 is immutable
     [EOF]
     [exit status: 1]
     ");
@@ -1998,7 +1998,7 @@ fn test_rebase_before() {
     Rebased 1 commits to destination
     Rebased 8 descendant commits
     Working copy  (@) now at: xznxytkn ff62b7d5 f | f
-    Parent commit (@-)      : nkmrtpmo b007a305 e | e
+    Parent revision (@-)    : nkmrtpmo b007a305 e | e
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -2026,7 +2026,7 @@ fn test_rebase_before() {
     Rebased 1 commits to destination
     Rebased 1 descendant commits
     Working copy  (@) now at: xznxytkn d8eb20c6 f | f
-    Parent commit (@-)      : kmkuslsw ed86d82a c | c
+    Parent revision (@-)    : kmkuslsw ed86d82a c | c
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -2055,7 +2055,7 @@ fn test_rebase_before() {
     Rebased 1 commits to destination
     Rebased 4 descendant commits
     Working copy  (@) now at: xznxytkn 5fd4cd2f f | f
-    Parent commit (@-)      : zsuskuln 62634b59 b1 | b1
+    Parent revision (@-)    : zsuskuln 62634b59 b1 | b1
     Added 0 files, modified 0 files, removed 5 files
     [EOF]
     ");
@@ -2084,7 +2084,7 @@ fn test_rebase_before() {
     Rebased 1 commits to destination
     Rebased 5 descendant commits
     Working copy  (@) now at: xznxytkn 4bb8afb7 f | f
-    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Parent revision (@-)    : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 6 files
     [EOF]
     ");
@@ -2115,8 +2115,8 @@ fn test_rebase_before() {
     Rebased 1 commits to destination
     Rebased 3 descendant commits
     Working copy  (@) now at: xznxytkn b1d5040b f | f
-    Parent commit (@-)      : royxmykx 40646d19 b2 | b2
-    Parent commit (@-)      : znkkpsqq 256ac307 b4 | b4
+    Parent revision (@-)    : royxmykx 40646d19 b2 | b2
+    Parent revision (@-)    : znkkpsqq 256ac307 b4 | b4
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -2145,7 +2145,7 @@ fn test_rebase_before() {
     Rebased 1 commits to destination
     Rebased 5 descendant commits
     Working copy  (@) now at: xznxytkn 9ce35fe1 f | f
-    Parent commit (@-)      : nkmrtpmo 95558239 e | e
+    Parent revision (@-)    : nkmrtpmo 95558239 e | e
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -2174,8 +2174,8 @@ fn test_rebase_before() {
     Rebased 1 commits to destination
     Rebased 5 descendant commits
     Working copy  (@) now at: xznxytkn b984057d f | f
-    Parent commit (@-)      : zsuskuln 62634b59 b1 | b1
-    Parent commit (@-)      : vruxwmqv a1d9eeb3 b3 | b3
+    Parent revision (@-)    : zsuskuln 62634b59 b1 | b1
+    Parent revision (@-)    : vruxwmqv a1d9eeb3 b3 | b3
     Added 0 files, modified 0 files, removed 4 files
     [EOF]
     ");
@@ -2207,7 +2207,7 @@ fn test_rebase_before() {
     Rebased 2 commits to destination
     Rebased 7 descendant commits
     Working copy  (@) now at: xznxytkn 13214a9a f | f
-    Parent commit (@-)      : nkmrtpmo 257f541d e | e
+    Parent revision (@-)    : nkmrtpmo 257f541d e | e
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -2237,7 +2237,7 @@ fn test_rebase_before() {
     Rebased 3 commits to destination
     Rebased 3 descendant commits
     Working copy  (@) now at: xznxytkn 903781e1 f | f
-    Parent commit (@-)      : nkmrtpmo 2a0542d6 e | e
+    Parent revision (@-)    : nkmrtpmo 2a0542d6 e | e
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -2268,7 +2268,7 @@ fn test_rebase_before() {
     Rebased 2 commits to destination
     Rebased 7 descendant commits
     Working copy  (@) now at: xznxytkn 9d5abf25 f | f
-    Parent commit (@-)      : kmkuslsw ecde78f5 c | c
+    Parent revision (@-)    : kmkuslsw ecde78f5 c | c
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -2298,7 +2298,7 @@ fn test_rebase_before() {
     Rebased 3 commits to destination
     Rebased 6 descendant commits
     Working copy  (@) now at: xznxytkn 912af1a2 f | f
-    Parent commit (@-)      : nkmrtpmo 4e8eabcc e | e
+    Parent revision (@-)    : nkmrtpmo 4e8eabcc e | e
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -2328,7 +2328,7 @@ fn test_rebase_before() {
     Rebased 3 commits to destination
     Rebased 6 descendant commits
     Working copy  (@) now at: xznxytkn a2ed33ff f | f
-    Parent commit (@-)      : nkmrtpmo b69d0e4b e | e
+    Parent revision (@-)    : nkmrtpmo b69d0e4b e | e
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -2383,7 +2383,7 @@ fn test_rebase_before() {
     Rebased 4 commits to destination
     Rebased 2 descendant commits
     Working copy  (@) now at: xznxytkn 5fe09799 f | f
-    Parent commit (@-)      : nkmrtpmo ee33f6f1 e | e
+    Parent revision (@-)    : nkmrtpmo ee33f6f1 e | e
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -2417,7 +2417,7 @@ fn test_rebase_before() {
     Rebased 4 commits to destination
     Rebased 2 descendant commits
     Working copy  (@) now at: xznxytkn d1c73b11 f | f
-    Parent commit (@-)      : nkmrtpmo 53fc68f7 e | e
+    Parent revision (@-)    : nkmrtpmo 53fc68f7 e | e
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
@@ -2493,7 +2493,7 @@ fn test_rebase_after_before() {
     Rebased 1 commits to destination
     Rebased 1 descendant commits
     Working copy  (@) now at: nmzmmopx 321e1d40 f | f
-    Parent commit (@-)      : nkmrtpmo 7d7b0aec d | d
+    Parent revision (@-)    : nkmrtpmo 7d7b0aec d | d
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -2524,8 +2524,8 @@ fn test_rebase_after_before() {
     Rebased 1 commits to destination
     Rebased 1 descendant commits
     Working copy  (@) now at: nmzmmopx a12b0ae1 f | f
-    Parent commit (@-)      : xznxytkn d4334f29 e | e
-    Parent commit (@-)      : nkmrtpmo a3204f2a d | d
+    Parent revision (@-)    : xznxytkn d4334f29 e | e
+    Parent revision (@-)    : nkmrtpmo a3204f2a d | d
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -2560,7 +2560,7 @@ fn test_rebase_after_before() {
     Rebased 1 commits to destination
     Rebased 3 descendant commits
     Working copy  (@) now at: nmzmmopx 97ebbe11 f | f
-    Parent commit (@-)      : xznxytkn e53a8360 e | e
+    Parent revision (@-)    : xznxytkn e53a8360 e | e
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -2596,10 +2596,10 @@ fn test_rebase_after_before() {
     Rebased 3 commits to destination
     Rebased 1 descendant commits
     Working copy  (@) now at: nmzmmopx 5a27aa46 f | f
-    Parent commit (@-)      : znkkpsqq 0780cdfa b1 | b1
-    Parent commit (@-)      : kmkuslsw 0692c8ed b2 | b2
-    Parent commit (@-)      : nkmrtpmo 07028fe4 d | d
-    Parent commit (@-)      : xznxytkn 1aa724f0 e | e
+    Parent revision (@-)    : znkkpsqq 0780cdfa b1 | b1
+    Parent revision (@-)    : kmkuslsw 0692c8ed b2 | b2
+    Parent revision (@-)    : nkmrtpmo 07028fe4 d | d
+    Parent revision (@-)    : xznxytkn 1aa724f0 e | e
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -2631,7 +2631,7 @@ fn test_rebase_after_before() {
     Rebased 4 commits to destination
     Rebased 1 descendant commits
     Working copy  (@) now at: nmzmmopx 5b68ace7 f | f
-    Parent commit (@-)      : xznxytkn 8bfa4c49 e | e
+    Parent revision (@-)    : xznxytkn 8bfa4c49 e | e
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -2664,7 +2664,7 @@ fn test_rebase_after_before() {
     Rebased 3 commits to destination
     Rebased 4 descendant commits
     Working copy  (@) now at: nmzmmopx 68713d9d f | f
-    Parent commit (@-)      : xznxytkn d4bcbcd4 e | e
+    Parent revision (@-)    : xznxytkn d4bcbcd4 e | e
     Added 3 files, modified 0 files, removed 0 files
     [EOF]
     ");
@@ -2734,7 +2734,7 @@ fn test_rebase_skip_emptied() {
     Rebased 2 commits to destination
     Abandoned 1 newly emptied commits
     Working copy  (@) now at: yostqsxw 6b46781e (empty) also already empty
-    Parent commit (@-)      : vruxwmqv 4861a0a8 (empty) already empty
+    Parent revision (@-)    : vruxwmqv 4861a0a8 (empty) already empty
     [EOF]
     ");
 
@@ -2773,7 +2773,7 @@ fn test_rebase_skip_emptied() {
     Rebased 2 descendant commits
     Abandoned 1 newly emptied commits
     Working copy  (@) now at: yostqsxw bbfc2a27 (empty) also already empty
-    Parent commit (@-)      : vruxwmqv 1b8c46b3 (empty) already empty
+    Parent revision (@-)    : vruxwmqv 1b8c46b3 (empty) already empty
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -2829,7 +2829,7 @@ fn test_rebase_skip_emptied_descendants() {
     Skipped rebase of 1 commits that were already in place
     Rebased 3 descendant commits
     Working copy  (@) now at: znkkpsqq 6d024ab4 (empty) also already empty
-    Parent commit (@-)      : yostqsxw bb87e185 (empty) already empty
+    Parent revision (@-)    : yostqsxw bb87e185 (empty) already empty
     [EOF]
     ");
 
@@ -2951,7 +2951,7 @@ fn test_rebase_skip_if_on_destination() {
     Skipped rebase of 1 commits that were already in place
     Rebased 1 descendant commits
     Working copy  (@) now at: lylxulpl f2015644 f | f
-    Parent commit (@-)      : vruxwmqv 86997ac2 c | c
+    Parent revision (@-)    : vruxwmqv 86997ac2 c | c
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
@@ -3026,7 +3026,7 @@ fn test_rebase_skip_duplicate_divergent() {
       zsuskuln?? 48bf33ab b1 | b2
     Rebased 1 commits to destination
     Working copy  (@) now at: znkkpsqq 81e83d0f d | d
-    Parent commit (@-)      : zsuskuln 3f194323 b1 b2 | b2
+    Parent revision (@-)    : zsuskuln 3f194323 b1 b2 | b2
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");

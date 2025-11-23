@@ -584,7 +584,7 @@ fn test_relative_tool_path_from_subdirectory() {
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm 57a27b36 (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
@@ -609,7 +609,7 @@ fn test_relative_tool_path_from_subdirectory() {
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm 05404d5b (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
@@ -656,7 +656,7 @@ fn test_fix_leaf_commit() {
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: rlvkpnrz 45a3ace1 (no description set)
-    Parent commit (@-)      : qpvuntsm b37955c0 (no description set)
+    Parent revision (@-)    : qpvuntsm b37955c0 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -696,7 +696,7 @@ fn test_fix_parent_commit() {
     ------- stderr -------
     Fixed 3 commits of 3 checked.
     Working copy  (@) now at: mzvwutvl 6842c630 child2 | (no description set)
-    Parent commit (@-)      : qpvuntsm e586ba6c parent | (no description set)
+    Parent revision (@-)    : qpvuntsm e586ba6c parent | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -782,7 +782,7 @@ fn test_fix_descendant_commits() {
     Warning: No matching entries for paths: nonexistent
     Fixed 2 commits of 3 checked.
     Working copy  (@) now at: mzvwutvl 48a5dc7d child2 | (no description set)
-    Parent commit (@-)      : qpvuntsm c9cb6288 parent | (no description set)
+    Parent revision (@-)    : qpvuntsm c9cb6288 parent | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -845,7 +845,7 @@ fn test_default_revset() {
     ------- stderr -------
     Fixed 3 commits of 3 checked.
     Working copy  (@) now at: yostqsxw 41903dfd bar2 | (no description set)
-    Parent commit (@-)      : yqosqzyt c2e6d322 bar1 | (no description set)
+    Parent revision (@-)    : yqosqzyt c2e6d322 bar1 | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -929,13 +929,13 @@ fn test_fix_immutable_commit() {
     let output = work_dir.run_jj(["fix", "-s", "immutable"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Commit a86b2eccaaab is immutable
-    Hint: Could not modify commit: qpvuntsm a86b2ecc immutable | (no description set)
-    Hint: Immutable commits are used to protect shared history.
+    Error: Revision a86b2eccaaab is immutable
+    Hint: Could not modify revision: qpvuntsm a86b2ecc immutable | (no description set)
+    Hint: Immutable revisions are used to protect shared history.
     Hint: For more information, see:
           - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
           - `jj help -k config`, "Set of immutable commits"
-    Hint: This operation would rewrite 1 immutable commits.
+    Hint: This operation would rewrite 1 immutable revisions.
     [EOF]
     [exit status: 1]
     "#);
@@ -978,7 +978,7 @@ fn test_fix_some_paths() {
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm b3e6840d (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -1004,7 +1004,7 @@ fn test_fix_cyclic() {
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm 087e5fb0 (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -1019,7 +1019,7 @@ fn test_fix_cyclic() {
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm 832f43c5 (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -1066,7 +1066,7 @@ fn test_deduplication() {
     ------- stderr -------
     Fixed 4 commits of 4 checked.
     Working copy  (@) now at: yqosqzyt 9849a250 d | (no description set)
-    Parent commit (@-)      : mzvwutvl 9544f381 c | (empty) (no description set)
+    Parent revision (@-)    : mzvwutvl 9544f381 c | (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -1194,7 +1194,7 @@ fn test_stderr_success() {
     error
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm cb75cbcb (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -1264,7 +1264,7 @@ fn test_fix_file_types() {
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm a600eba5 (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -1293,7 +1293,7 @@ fn test_fix_executable() {
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm ed402983 (no description set)
-    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Parent revision (@-)    : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -1372,8 +1372,8 @@ fn test_fix_adding_merge_commit() {
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: mzvwutvl c8d50db3 (no description set)
-    Parent commit (@-)      : qpvuntsm 93f04460 a | (no description set)
-    Parent commit (@-)      : kkmpptxz ad4fc36c b | (no description set)
+    Parent revision (@-)    : qpvuntsm 93f04460 a | (no description set)
+    Parent revision (@-)    : kkmpptxz ad4fc36c b | (no description set)
     Added 0 files, modified 4 files, removed 0 files
     [EOF]
     ");
@@ -1423,8 +1423,8 @@ fn test_fix_both_sides_of_conflict() {
     ------- stderr -------
     Fixed 3 commits of 3 checked.
     Working copy  (@) now at: mzvwutvl d4d02bf0 (conflict) (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 0eae0dae a | (no description set)
-    Parent commit (@-)      : kkmpptxz eb61ba8d b | (no description set)
+    Parent revision (@-)    : qpvuntsm 0eae0dae a | (no description set)
+    Parent revision (@-)    : kkmpptxz eb61ba8d b | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
@@ -1478,8 +1478,8 @@ fn test_fix_resolve_conflict() {
     ------- stderr -------
     Fixed 3 commits of 3 checked.
     Working copy  (@) now at: mzvwutvl c4e4665e (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 7a0dbb95 a | (no description set)
-    Parent commit (@-)      : kkmpptxz 5d9510ab b | (no description set)
+    Parent revision (@-)    : qpvuntsm 7a0dbb95 a | (no description set)
+    Parent revision (@-)    : kkmpptxz 5d9510ab b | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -1543,7 +1543,7 @@ fn test_all_files() {
     Warning: No matching entries for paths: does_not.exist
     Fixed 2 commits of 2 checked.
     Working copy  (@) now at: rlvkpnrz d8503fee child
-    Parent commit (@-)      : qpvuntsm 62c6ee98 parent
+    Parent revision (@-)    : qpvuntsm 62c6ee98 parent
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -1596,7 +1596,7 @@ fn test_all_files() {
     ------- stderr -------
     Fixed 2 commits of 2 checked.
     Working copy  (@) now at: rlvkpnrz 3675eae3 child
-    Parent commit (@-)      : qpvuntsm 6a0a8a6a parent
+    Parent revision (@-)    : qpvuntsm 6a0a8a6a parent
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
