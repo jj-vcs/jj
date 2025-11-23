@@ -65,6 +65,11 @@ struct Args {
     /// Duplicate stdout into this file.
     #[arg(long)]
     tee: Option<PathBuf>,
+
+    /// Read one byte at a time, and send one byte to the stdout before reading
+    /// the next byte.
+    #[arg(long, default_value_t = false)]
+    byte_mode: bool,
 }
 
 fn main() -> ExitCode {
@@ -79,7 +84,33 @@ fn main() -> ExitCode {
         assert!(!args.uppercase);
         assert!(!args.lowercase);
         assert!(args.append.is_none());
+        print!("{data}");
         data
+    } else if args.byte_mode {
+        assert!(!args.reverse);
+        assert!(args.append.is_none());
+
+        let mut stdout = vec![];
+        #[expect(clippy::unbuffered_bytes)]
+        for byte in std::io::stdin().bytes() {
+            let byte = byte.expect("Failed to read from stdin");
+            let output = if args.uppercase {
+                byte.to_ascii_uppercase()
+            } else if args.lowercase {
+                assert!(!args.uppercase);
+                byte.to_ascii_lowercase()
+            } else {
+                byte
+            };
+            stdout.push(output);
+            std::io::stdout()
+                .write_all(&[output])
+                .expect("Failed to write to stdout");
+        }
+        stdout
+            .to_str()
+            .expect("Output is not a valid UTF-8 string")
+            .to_owned()
     } else {
         let mut input = vec![];
         std::io::stdin()
@@ -111,9 +142,9 @@ fn main() -> ExitCode {
         if let Some(line) = args.append {
             stdout.push_str(&line);
         }
+        print!("{stdout}");
         stdout
     };
-    print!("{stdout}");
     if let Some(path) = args.tee {
         let mut file = OpenOptions::new()
             .create(true)

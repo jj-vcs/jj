@@ -926,6 +926,45 @@ fn test_fix_empty_file() {
 }
 
 #[test]
+fn test_fix_large_file() {
+    let mut test_env = TestEnvironment::default();
+    // Set to byte mode, so that fake-formatter doesn't read from the stdin all at
+    // once.
+    set_up_fake_formatter(&mut test_env, &["--lowercase", "--byte-mode"]);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    // 512KB should be larger than most default page size, so that the stdin pipe
+    // will be blocked if fake-formatter doesn't read, and the stdout pipe will
+    // be blocked if jj doesn't read.
+    let mut large_contents = b"A".repeat(0x800_000);
+    large_contents.push(b'\n');
+    work_dir.write_file("file", &large_contents);
+
+    work_dir
+        .run_jj([
+            "config",
+            "set",
+            "--repo",
+            "snapshot.max-new-file-size",
+            &large_contents.len().to_string(),
+        ])
+        .success();
+    let output = work_dir.run_jj(["fix", "-s", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fixed 1 commits of 1 checked.
+    Working copy  (@) now at: qpvuntsm d500c021 (no description set)
+    Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
+    let stdout_bytes = output.stdout.raw().as_bytes();
+    assert_eq!(stdout_bytes.len(), large_contents.len());
+    assert!(stdout_bytes == large_contents.to_ascii_lowercase());
+}
+
+#[test]
 fn test_fix_some_paths() {
     let mut test_env = TestEnvironment::default();
     set_up_fake_formatter(&mut test_env, &["--uppercase"]);

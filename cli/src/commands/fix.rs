@@ -303,14 +303,15 @@ fn run_tool(
             return Err(());
         }
     };
-    let mut stdin = child.stdin.take().unwrap();
+    let mut stdin = child.stdin.take().expect(
+        "The child process is created with piped stdin, and it's our first access to stdin.",
+    );
     let output = std::thread::scope(|s| {
         s.spawn(move || {
             stdin.write_all(old_content).ok();
         });
-        Some(child.wait_with_output().or(Err(())))
-    })
-    .unwrap()?;
+        child.wait_with_output().or(Err(()))
+    })?;
     tracing::debug!(?command, ?output.status, "fix tool exited:");
     if !output.stderr.is_empty() {
         let mut stderr = ui.stderr();
