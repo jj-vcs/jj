@@ -6,33 +6,31 @@ Expressions in this language are called "revsets" (the idea comes from
 consists of symbols, operators, and functions.
 
 Most `jj` commands accept a revset (or multiple). Many commands, such as
-`jj edit <revset>` expect the revset to resolve to a single commit; it is an
-error to pass a revset that resolves to more than one commit (or zero commits)
+`jj edit <revset>` expect the revset to resolve to a single revision; it is an
+error to pass a revset that resolves to more than one revision (or zero revisions)
 to such commands.
-
-The words "revisions" and "commits" are used interchangeably in this document.
 
 ## Hidden revisions
 
-Most revsets search only the [visible commits](glossary.md#visible-commits).
-Other commits are only included if you explicitly mention them (e.g. by commit
+Most revsets search only the [visible revisions](glossary.md#visible-commits).
+Other revisions are only included if you explicitly mention them (e.g. by revision
 ID, `<name>@<remote>` symbol, or `at_operation()` function).
 
-If hidden commits are specified, their ancestors also become available to the
+If hidden revisions are specified, their ancestors also become available to the
 search space. They are included in `all()`, `x..`, `~x`, etc., but not in
 `..visible_heads()`, etc. For example, `hidden_id | all()` is equivalent to
 `hidden_id | ::(hidden_id | visible_heads())`.
 
 ## Symbols
 
-The `@` expression refers to the working copy commit in the current workspace.
+The `@` expression refers to the working-copy commit in the current workspace.
 Use `<workspace name>@` to refer to the working-copy commit in another
 workspace. Use `<name>@<remote>` to refer to a remote-tracking bookmark.
 
-A full commit ID refers to a single commit. A unique prefix of the full commit
+A full revision ID refers to a single revision. A unique prefix of the full revision
 ID can also be used. It is an error to use a non-unique prefix.
 
-A full change ID refers to a visible commit with that change ID. A unique prefix
+A full change ID refers to a visible revision with that change ID. A unique prefix
 of the full change ID can also be used. It is an error to use a non-unique
 prefix or [a divergent change ID][divergent-change].
 
@@ -51,11 +49,11 @@ Jujutsu attempts to resolve a symbol in the following order:
 1. Tag name
 2. Bookmark name
 3. Git ref
-4. Commit ID or change ID
+4. Revision ID or change ID
 
 To override the priority, use the appropriate [revset function](#functions). For
-example, to resolve `abc` as a commit ID even if there happens to be a bookmark
-by the same name, use `commit_id(abc)`. This is particularly useful in scripts.
+example, to resolve `abc` as a revision ID even if there happens to be a bookmark
+by the same name, use `revision_id(abc)`. This is particularly useful in scripts.
 
 ## Operators
 
@@ -64,21 +62,21 @@ only symbols.
 
 * `x-`: Parents of `x`, can be empty.
 * `x+`: Children of `x`, can be empty.
-* `x::`: Descendants of `x`, including the commits in `x` itself. Equivalent to
+* `x::`: Descendants of `x`, including the revisions in `x` itself. Equivalent to
   `x::visible_heads()` if no hidden revisions are mentioned.
 * `x..`: Revisions that are not ancestors of `x`. Equivalent to `~::x`, and
   `x..visible_heads()` if no hidden revisions are mentioned.
-* `::x`: Ancestors of `x`, including the commits in `x` itself. Shorthand for
+* `::x`: Ancestors of `x`, including the revisions in `x` itself. Shorthand for
   `root()::x`.
-* `..x`: Ancestors of `x`, including the commits in `x` itself, but excluding
-  the root commit. Shorthand for `root()..x`. Equivalent to `::x ~ root()`.
+* `..x`: Ancestors of `x`, including the revisions in `x` itself, but excluding
+  the root revision. Shorthand for `root()..x`. Equivalent to `::x ~ root()`.
 * `x::y`: Descendants of `x` that are also ancestors of `y`. Equivalent
    to `x:: & ::y`. This is what `git log` calls `--ancestry-path x..y`.
 * `x..y`: Ancestors of `y` that are not also ancestors of `x`. Equivalent to
   `::y ~ ::x`. This is what `git log` calls `x..y` (i.e. the same as we call it).
-* `::`: All visible commits in the repo. Equivalent to `all()`, and
+* `::`: All visible revisions in the repo. Equivalent to `all()`, and
   `root()::visible_heads()` if no hidden revisions are mentioned.
-* `..`: All visible commits in the repo, but excluding the root commit.
+* `..`: All visible revisions in the repo, but excluding the root revision.
   Equivalent to `~root()`, and `root()..visible_heads()` if no hidden revisions
   are mentioned.
 * `~x`: Revisions that are not in `x`.
@@ -229,27 +227,28 @@ revsets (expressions) as arguments.
   equivalent to `first_parent(first_parent(x))`.
 
 * `first_ancestors(x, [depth])`: Similar to `ancestors(x, [depth])`, but only
-  traverses the first parent of each commit. In Git, the first parent of a merge
-  commit is conventionally the branch into which changes are being merged, so
+  traverses the first parent of each revision. In Git, the first parent of a merge
+  revision is conventionally the branch into which changes are being merged, so
   `first_ancestors()` can be used to exclude changes made on other branches.
 
-* `reachable(srcs, domain)`: All commits reachable from `srcs` within
+* `reachable(srcs, domain)`: All revisions reachable from `srcs` within
   `domain`, traversing all parent and child edges. `srcs` outside `domain` are
   not considered even if a parent or child edge would reach into `domain`.
 
-* `connected(x)`: Same as `x::x`. Useful when `x` includes several commits.
+* `connected(x)`: Same as `x::x`. Useful when `x` includes several revisions.
 
-* `all()`: All visible commits and ancestors of commits explicitly mentioned.
+* `all()`: All visible revisions and ancestors of revisions explicitly mentioned.
 
-* `none()`: No commits. This function is rarely useful; it is provided for
+* `none()`: No revisions. This function is rarely useful; it is provided for
   completeness.
 
-* `change_id(prefix)`: Commits with the given change ID prefix. If the specified
-  change is divergent, this resolves to multiple commits. It is an error to use a
+* `change_id(prefix)`: Revisions with the given change ID prefix. If the specified
+  change is divergent, this resolves to multiple revisions. It is an error to use a
   non-unique prefix. Unmatched prefix isn't an error.
 
-* `commit_id(prefix)`: Commits with the given commit ID prefix. It is an error
-  to use a non-unique prefix. Unmatched prefix isn't an error.
+* `revision_id(prefix)`: Revisions with the given revision ID prefix. It is an error
+  to use a non-unique prefix. Unmatched prefix isn't an error. It is also available
+  as `commit_id(prefix)` for backward compatibility.
 
 * `bookmarks([pattern])`: All local bookmark targets. If `pattern` is specified,
   this selects the bookmarks whose name match the given [string
@@ -294,28 +293,28 @@ revsets (expressions) as arguments.
 * `visible_heads()`: All visible heads (same as `heads(all())` if no hidden
   revisions are mentioned).
 
-* `root()`: The virtual commit that is the oldest ancestor of all other commits.
+* `root()`: The virtual revision that is the oldest ancestor of all other revisions.
 
-* `heads(x)`: Commits in `x` that are not ancestors of other commits in `x`.
+* `heads(x)`: Revisions in `x` that are not ancestors of other revisions in `x`.
   Equivalent to `x ~ ::x-`. Note that this is different from
   [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `heads(x)`
   function, which is equivalent to `x ~ x-`.
 
-* `roots(x)`: Commits in `x` that are not descendants of other commits in `x`.
+* `roots(x)`: Revisions in `x` that are not descendants of other revisions in `x`.
   Equivalent to `x ~ x+::`. Note that this is different from
   [Mercurial's](https://repo.mercurial-scm.org/hg/help/revsets) `roots(x)`
   function, which is equivalent to `x ~ x+`.
 
-* `latest(x, [count])`: Latest `count` commits in `x`, based on committer
+* `latest(x, [count])`: Latest `count` revisions in `x`, based on committer
   timestamp. The default `count` is 1.
 
-* `fork_point(x)`: The fork point of all commits in `x`. The fork point is the
-  common ancestor(s) of all commits in `x` which do not have any descendants
-  that are also common ancestors of all commits in `x`. It is equivalent to
-  the revset `heads(::x_1 & ::x_2 & ... & ::x_N)`, where `x_{1..N}` are commits
-  in `x`. If `x` resolves to a single commit, `fork_point(x)` resolves to `x`.
+* `fork_point(x)`: The fork point of all revisions in `x`. The fork point is the
+  common ancestor(s) of all revisions in `x` which do not have any descendants
+  that are also common ancestors of all revisions in `x`. It is equivalent to
+  the revset `heads(::x_1 & ::x_2 & ... & ::x_N)`, where `x_{1..N}` are revisions
+  in `x`. If `x` resolves to a single revision, `fork_point(x)` resolves to `x`.
 
-* `bisect(x)`: Finds commits in the input set for which about half of the input
+* `bisect(x)`: Finds revisions in the input set for which about half of the input
   set are descendants. The current implementation deals somewhat poorly with
   non-linear history.
 
@@ -323,54 +322,54 @@ revsets (expressions) as arguments.
   `count`. Otherwise, returns `x`. This is useful in particular with `count=1`
   when you want to ensure that some revset expression has exactly one target.
 
-* `merges()`: Merge commits.
+* `merges()`: Merge revisions.
 
-* `description(pattern)`: Commits that have a description matching the given
+* `description(pattern)`: Revisions that have a description matching the given
   [string pattern](#string-patterns).
 
   A non-empty description is usually terminated with newline character. For
-  example, `description(exact:"")` matches commits without description, and
-  `description(exact:"foo\n")` matches commits with description `"foo\n"`.
+  example, `description(exact:"")` matches revisions without description, and
+  `description(exact:"foo\n")` matches revisions with description `"foo\n"`.
 
-* `subject(pattern)`: Commits that have a subject matching the given [string
+* `subject(pattern)`: Revisions that have a subject matching the given [string
   pattern](#string-patterns). A subject is the first line of the description
   (without newline character.)
 
-* `author(pattern)`: Commits with the author's name or email matching the given
+* `author(pattern)`: Revisions with the author's name or email matching the given
   [string pattern](#string-patterns). Equivalent to `author_name(pattern) |
   author_email(pattern)`.
 
-* `author_name(pattern)`: Commits with the author's name matching the given
+* `author_name(pattern)`: Revisions with the author's name matching the given
   [string pattern](#string-patterns).
 
-* `author_email(pattern)`: Commits with the author's email matching the given
+* `author_email(pattern)`: Revisions with the author's email matching the given
   [string pattern](#string-patterns).
 
-* `author_date(pattern)`: Commits with author dates matching the specified [date
+* `author_date(pattern)`: Revisions with author dates matching the specified [date
   pattern](#date-patterns).
 
-* `mine()`: Commits where the author's email matches the email of the current
+* `mine()`: Revisions where the author's email matches the email of the current
   user. Equivalent to `author_email(exact-i:<user-email>)`
 
-* `committer(pattern)`: Commits with the committer's name or email matching the
+* `committer(pattern)`: Revisions with the committer's name or email matching the
   given [string pattern](#string-patterns). Equivalent to
   `committer_name(pattern) | committer_email(pattern)`.
 
-* `committer_name(pattern)`: Commits with the committer's name matching the
+* `committer_name(pattern)`: Revisions with the committer's name matching the
   given [string pattern](#string-patterns).
 
-* `committer_email(pattern)`: Commits with the committer's email matching the
+* `committer_email(pattern)`: Revisions with the committer's email matching the
   given [string pattern](#string-patterns).
 
-* `committer_date(pattern)`: Commits with committer dates matching the specified
+* `committer_date(pattern)`: Revisions with committer dates matching the specified
   [date pattern](#date-patterns).
 
-* `signed()`: Commits that are cryptographically signed.
+* `signed()`: Revisions that are cryptographically signed.
 
-* `empty()`: Commits modifying no files. This also includes `merges()` without
+* `empty()`: Revisions modifying no files. This also includes `merges()` without
   user modifications and `root()`.
 
-* `files(expression)`: Commits modifying paths matching the given [fileset
+* `files(expression)`: Revisions modifying paths matching the given [fileset
   expression](filesets.md).
 
   Paths are relative to the directory `jj` was invoked from. A directory name
@@ -382,7 +381,7 @@ revsets (expressions) as arguments.
   Some file patterns might need quoting because the `expression` must also be
   parsable as a revset. For example, `.` has to be quoted in `files(".")`.
 
-* `diff_contains(text, [files])`: Commits containing diffs matching the given
+* `diff_contains(text, [files])`: Revisions containing diffs matching the given
   `text` pattern line by line.
 
   The search paths can be narrowed by the `files` expression. All modified files
@@ -392,22 +391,22 @@ revsets (expressions) as arguments.
   For example, `diff_contains("TODO", "src")` will search revisions where "TODO"
   is added to or removed from files under "src".
 
-* `conflicts()`: Commits with conflicts.
+* `conflicts()`: Revisions with conflicts.
 
-* `present(x)`: Same as `x`, but evaluated to `none()` if any of the commits
+* `present(x)`: Same as `x`, but evaluated to `none()` if any of the revisions
   in `x` doesn't exist (e.g. is an unknown bookmark name.)
 
-* `coalesce(revsets...)`: Commits in the first revset in the list of `revsets`
+* `coalesce(revsets...)`: Revisions in the first revset in the list of `revsets`
   which does not evaluate to `none()`. If all revsets evaluate to `none()`, then
   the result of `coalesce` will also be `none()`.
 
-* `working_copies()`: The working copy commits across all the workspaces.
+* `working_copies()`: The working-copy commits across all the workspaces.
 
 * `at_operation(op, x)`: Evaluates `x` at the specified [operation][]. For
   example, `at_operation(@-, visible_heads())` will return all heads which were
   visible at the previous operation.
 
-  Since `at_operation(op, x)` brings all commits that were visible at the
+  Since `at_operation(op, x)` brings all revisions that were visible at the
   operation to the search space, `at_operation(op, x) | all()` is equivalent to
   `at_operation(op, x) | ::(at_operation(op, x | visible_heads()) |
   visible_heads())`.
@@ -542,18 +541,18 @@ are defined as aliases in order to allow you to overwrite them as needed.
 See [revsets.toml](https://github.com/jj-vcs/jj/blob/main/cli/src/config/revsets.toml)
 for a comprehensive list.
 
-* `trunk()`: Resolves to the head commit for the default bookmark of the default
+* `trunk()`: Resolves to the head revision for the default bookmark of the default
   remote, or the remote named `upstream` or `origin`. This is set at the
   repository level upon initialization of a Jujutsu repository.
 
   If the default bookmark cannot be resolved during initialization, the default
   global configuration tries the bookmarks `main`, `master`, and `trunk` on the
-  `upstream` and `origin` remotes. If more than one potential trunk commit
+  `upstream` and `origin` remotes. If more than one potential trunk revision
   exists, the newest one is chosen. If none of the bookmarks exist, the revset
   evaluates to `root()`.
 
   You can [override](./config.md) this as appropriate. If you do, make sure it
-  always resolves to exactly one commit. For example:
+  always resolves to exactly one revision. For example:
 
   ```toml
   [revset-aliases]
@@ -570,14 +569,14 @@ for a comprehensive list.
   actually defined as `builtin_immutable_heads()`, and can be overridden as
   required. See [here](config.md#set-of-immutable-commits) for details.
 
-* `immutable()`: The set of commits that `jj` treats as immutable. This is
+* `immutable()`: The set of revisions that `jj` treats as immutable. This is
   equivalent to `::(immutable_heads() | root())`. It is not recommended to redefine
-  this alias. Note that modifying this will *not* change whether a commit is immutable.
+  this alias. Note that modifying this will *not* change whether a revision is immutable.
   To do that, edit `immutable_heads()`.
 
-* `mutable()`: The set of commits that `jj` treats as mutable. This is
+* `mutable()`: The set of revisions that `jj` treats as mutable. This is
   equivalent to `~immutable()`. It is not recommended to redefined this alias.
-  Note that modifying this will *not* change whether a commit is immutable.
+  Note that modifying this will *not* change whether a revision is immutable.
   To do that, edit `immutable_heads()`.
 
 * `visible()`: The set of visible commits. Resolves to `::visible_heads()`.
@@ -603,39 +602,39 @@ Show all ancestors of the working copy (like plain `git log`)
 jj log -r ::@
 ```
 
-Show commits not on any remote bookmark:
+Show revisions not on any remote bookmark:
 
 ```shell
 jj log -r 'remote_bookmarks()..'
 ```
 
-Show commits not on `origin` (if you have other remotes like `fork`):
+Show revisions not on `origin` (if you have other remotes like `fork`):
 
 ```shell
 jj log -r 'remote_bookmarks(remote=origin)..'
 ```
 
-Show the initial commits in the repo (the ones Git calls "root commits"):
+Show the initial revisions in the repo (the ones Git calls "root revisions"):
 
 ```shell
 jj log -r 'root()+'
 ```
 
-Show some important commits (like `git log --simplify-by-decoration`):
+Show some important revisions (like `git log --simplify-by-decoration`):
 
 ```shell
 jj log -r 'tags() | bookmarks()'
 ```
 
-Show local commits leading up to the working copy, as well as descendants of
-those commits:
+Show local revisions leading up to the working copy, as well as descendants of
+those revisions:
 
 
 ```shell
 jj log -r '(remote_bookmarks()..@)::'
 ```
 
-Show commits authored by "martinvonz" and containing the word "reset" in the
+Show revisions authored by "martinvonz" and containing the word "reset" in the
 description:
 
 ```shell
