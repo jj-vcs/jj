@@ -915,8 +915,17 @@ fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
             name: _,
             candidates,
         } => format_similarity_hint(candidates).into_iter().collect(),
-        RevsetResolutionError::DivergentChangeId { symbol, targets } => vec![
-            multiple_targets_hint(targets),
+        RevsetResolutionError::DivergentChangeId {
+            symbol,
+            visible_targets,
+        } => vec![
+            format!(
+                "Use change offset to select single revision: {}",
+                visible_targets
+                    .iter()
+                    .map(|(offset, _)| format!("{symbol}/{offset}"))
+                    .join(", ")
+            ),
             format!("Use `change_id({symbol})` to select all revisions"),
             "To abandon unneeded revisions, run `jj abandon <commit_id>`".to_owned(),
         ],

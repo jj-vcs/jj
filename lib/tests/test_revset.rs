@@ -429,9 +429,9 @@ fn test_resolve_symbol_divergent_change_id() {
     let change_id = commit1.change_id();
     assert_matches!(
         resolve_symbol(tx.repo(), &format!("{change_id}")),
-        Err(RevsetResolutionError::DivergentChangeId { symbol, targets })
+        Err(RevsetResolutionError::DivergentChangeId { symbol, visible_targets })
             if symbol == change_id.to_string()
-                && targets == vec![commit2.id().clone(), commit1.id().clone()]
+                && visible_targets == vec![(0, commit2.id().clone()), (1, commit1.id().clone())]
     );
     assert_eq!(
         resolve_symbol(tx.repo(), &format!("{change_id}/0")).unwrap(),

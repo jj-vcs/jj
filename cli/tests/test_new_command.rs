@@ -776,7 +776,7 @@ fn test_new_conflicting_change_ids() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Change ID `qpvuntsm` is divergent
-    Hint: Use commit ID to select single revision from: 2f175dfc5e0e, 401ea16fc3fe
+    Hint: Use change offset to select single revision: qpvuntsm/0, qpvuntsm/1
     Hint: Use `change_id(qpvuntsm)` to select all revisions
     Hint: To abandon unneeded revisions, run `jj abandon <commit_id>`
     [EOF]
