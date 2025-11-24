@@ -102,10 +102,12 @@ use crate::ui::Ui;
 /// patterns = ["glob:'**/*.py'"]
 /// ```
 ///
-/// Execution order of tools that affect the same file is deterministic, but
-/// currently unspecified, and may change between releases. If two tools affect
-/// the same file, the second tool to run will receive its input from the
-/// output of the first tool.
+/// Execution order of tools that would affect a same file is deterministic. It
+/// is currently based on the ascending lexicographical order of the configured
+/// names, but could change in any future release.
+///
+/// If two tools affect the same file, the second tool to run will receive its
+/// input from the output of the first tool.
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]
 pub(crate) struct FixArgs {
