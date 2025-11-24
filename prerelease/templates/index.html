@@ -2711,8 +2711,10 @@ type</a> are available as keywords. For example,
   content.</li>
 <li><code>concat(content: Template...) -&gt; Template</code>:
   Same as <code>content_1 ++ ... ++ content_n</code>.</li>
-<li><code>separate(separator: Template, content: Template...) -&gt; Template</code>:
-  Insert separator between <strong>non-empty</strong> contents.</li>
+<li><code>join(separator: Template, content: Template...) -&gt; Template</code>: Insert
+  <code>separator</code> between <code>content</code>s.</li>
+<li><code>separate(separator: Template, content: Template...) -&gt; Template</code>: Insert
+  <code>separator</code> between <strong>non-empty</strong> <code>content</code>s.</li>
 <li><code>surround(prefix: Template, suffix: Template, content: Template) -&gt; Template</code>:
   Surround <strong>non-empty</strong> content with texts such as parentheses.</li>
 <li><code>config(name: String) -&gt; ConfigValue</code>: Look up configuration value by <code>name</code>.</li>
