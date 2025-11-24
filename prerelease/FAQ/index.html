@@ -694,10 +694,9 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="How do I revert a merge commit? jj revert -r &lt;merge&gt; does nothing">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-do-i-deal-with-divergent-changes-after-the-change-id" class="md-nav__link">
     <span class="md-ellipsis">
       How do I deal with divergent changes ('??' after the change ID)?
@@ -705,8 +704,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#how-do-i-deal-with-conflicted-bookmarks-after-bookmark-name" class="md-nav__link">
     <span class="md-ellipsis">
       How do I deal with conflicted bookmarks ('??' after bookmark name)?
@@ -714,8 +713,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#im-experiencing-jj-command-issues-in-a-vitevitest-project-how-do-i-fix-this" class="md-nav__link">
     <span class="md-ellipsis">
       I'm experiencing jj command issues in a Vite/Vitest project, how do I fix this?
@@ -723,8 +722,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#i-want-to-write-a-tool-which-integrates-with-jujutsu-should-i-use-the-library-or-parse-the-cli" class="md-nav__link">
     <span class="md-ellipsis">
       I want to write a tool which integrates with Jujutsu. Should I use the library or parse the CLI?
@@ -732,18 +731,13 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#why-is-jujutsu-a-separate-project-why-were-the-features-not-contributed-to-git-instead" class="md-nav__link">
     <span class="md-ellipsis">
       Why is Jujutsu a separate project? Why were the features not contributed to Git instead?
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -2181,10 +2175,9 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="How do I revert a merge commit? jj revert -r &lt;merge&gt; does nothing">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-do-i-deal-with-divergent-changes-after-the-change-id" class="md-nav__link">
     <span class="md-ellipsis">
       How do I deal with divergent changes ('??' after the change ID)?
@@ -2192,8 +2185,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#how-do-i-deal-with-conflicted-bookmarks-after-bookmark-name" class="md-nav__link">
     <span class="md-ellipsis">
       How do I deal with conflicted bookmarks ('??' after bookmark name)?
@@ -2201,8 +2194,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#im-experiencing-jj-command-issues-in-a-vitevitest-project-how-do-i-fix-this" class="md-nav__link">
     <span class="md-ellipsis">
       I'm experiencing jj command issues in a Vite/Vitest project, how do I fix this?
@@ -2210,8 +2203,8 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#i-want-to-write-a-tool-which-integrates-with-jujutsu-should-i-use-the-library-or-parse-the-cli" class="md-nav__link">
     <span class="md-ellipsis">
       I want to write a tool which integrates with Jujutsu. Should I use the library or parse the CLI?
@@ -2219,18 +2212,13 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
+      
+        <li class="md-nav__item">
   <a href="#why-is-jujutsu-a-separate-project-why-were-the-features-not-contributed-to-git-instead" class="md-nav__link">
     <span class="md-ellipsis">
       Why is Jujutsu a separate project? Why were the features not contributed to Git instead?
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -2664,7 +2652,7 @@ used by <code>jj diff -r</code> and <code>jj log -p</code> to show the changes i
 by <code>jj rebase</code> to rebase the changes in a commit. It's used in <code>jj log</code> to
 indicate which commits are empty. It's used in the <code>files()</code> revset function
 (and by <code>jj log &lt;path&gt;</code>) to find commits that modify a certain path. And so on.</p>
-<h2 id="how-do-i-revert-a-merge-commit-jj-revert-r-merge-does-nothing">How do I revert a merge commit? <code>jj revert -r &lt;merge&gt;</code> does nothing<a class="headerlink" href="#how-do-i-revert-a-merge-commit-jj-revert-r-merge-does-nothing" title="Permanent link">&para;</a></h2>
+<h3 id="how-do-i-revert-a-merge-commit-jj-revert-r-merge-does-nothing">How do I revert a merge commit? <code>jj revert -r &lt;merge&gt;</code> does nothing<a class="headerlink" href="#how-do-i-revert-a-merge-commit-jj-revert-r-merge-does-nothing" title="Permanent link">&para;</a></h3>
 <p>Jujutsu defines the changes in a merge commit (and non-merge commits) as the
 changes made compared to the auto-merged parents. That means that merge commits
 are often empty. As a result, <code>jj revert</code> or a merge commit often results in an
