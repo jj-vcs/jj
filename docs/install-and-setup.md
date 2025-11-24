@@ -202,7 +202,7 @@ Jujutsu provides 2 different command-line completion scripts.
 
 ### Standard completions
 
-The standard completion script provides completions for `jj` subcommmands and
+The standard completion script provides completions for `jj` subcommands and
 options.
 
 ### Dynamic completions
