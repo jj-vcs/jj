@@ -68,6 +68,80 @@ use crate::ui::Ui;
 ///
 /// See `jj help -k config` chapter `Code formatting and other file content
 /// transformations` to understand how to configure your tools.
+///
+/// ### Execution Example
+///
+/// Let's consider the following configuration is set. We have two code
+/// formatters (`clang-format` and `black`), which apply to three different
+/// file extensions (`.cc`, `.h`, and `.py`):
+///
+/// ```toml
+/// [fix.tools.clang-format]
+/// command = ["/usr/bin/clang-format", "--assume-filename=$path"]
+/// patterns = ["glob:'**/*.cc'",
+///             "glob:'**/*.h'"]
+///
+/// [fix.tools.black]
+/// command = ["/usr/bin/black", "-", "--stdin-filename=$path"]
+/// patterns = ["glob:'**/*.py'"]
+/// ```
+///
+/// Now, let's see what would happen to the following history, when executing
+/// `jj fix`.
+///
+/// ```text
+/// C (mutable)
+/// |  Modifies file: foo.py
+/// |
+/// B @ (working copy - mutable)
+/// |  Modifies file: README.md
+/// |
+/// A (mutable)
+/// |  Modifies files: src/bar.cc and src/bar.h
+/// |
+/// X (immutable)
+/// ```
+///
+/// By default, `jj fix` will modify revisions that matches the revset
+/// `reachable(@, mutable())` (see `jj help -k revsets`) which corresponds to
+/// the revisions `A`, `B` and `C` here.
+///
+/// The following operations will then happen:
+///
+/// - For revision `A`, content from this revision for files `src/bar.cc` and
+///   `src/bar.h` will each be provided to `clang-format` and the result output
+///   will be used to recreate revision `A` which we will call `A'`. All other
+///   files are untouched.
+/// - For revision `B`, same thing happen for files `src/bar.cc` and `src/bar.h`
+///   Their content from revision `B` will go through `clang-format`. The file
+///   `README.md` as any other files, are untouched as no pattern matches it. We
+///   obtain revision `B'`.
+/// - For revision `C`, `src/bar.cc` and `src/bar.h` goes through `clang-format`
+///   and file `foo.py` is fixed using `black`. Any other file is untouched. We
+///   obtain revision `C'`.
+///
+/// ```text
+/// C (mutable)                    /-> C'
+/// |  src/bar.cc -> clang-format -|   |
+/// |  src/bar.h --> clang-format -|   |
+/// |  foo.py -----> black --------|   |
+/// |  * --------------------------/   |
+/// |                                  |
+/// B @ (working copy - mutable)   /-> B' @
+/// |  src/bar.cc -> clang-format -|   |
+/// |  src/bar.h --> clang-format -|   |
+/// |  * --------------------------|   |
+/// |                                  |
+/// A (mutable)                    /-> A'
+/// |  src/bar.cc -> clang-format -|   |
+/// |  src/bar.h --> clang-format -|   |
+/// |  * --------------------------/   |
+/// |                                  |
+/// X (immutable)                      X
+/// ```
+///
+/// The revisions are now all correctly formatted according to the
+/// configuration.
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]
 pub(crate) struct FixArgs {
