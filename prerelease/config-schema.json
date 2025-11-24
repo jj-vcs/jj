@@ -237,6 +237,11 @@
                 "conflict-marker-style": {
                     "$ref": "#/properties/ui/definitions/conflict-marker-style"
                 },
+                "revsets-use-glob-by-default": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether to use glob string patterns in revsets by default"
+                },
                 "show-cryptographic-signatures": {
                     "type": "boolean",
                     "default": false,

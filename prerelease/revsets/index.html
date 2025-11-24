@@ -2464,14 +2464,17 @@ o root()
 </details>
 <h2 id="string-patterns">String patterns<a class="headerlink" href="#string-patterns" title="Permanent link">&para;</a></h2>
 <p>Functions that perform string matching support the following pattern syntax (the
-quotes are optional):</p>
+quotes are optional).</p>
+<p>By default, <code>"string"</code> is parsed as a <code>substring:</code> pattern in revsets. The
+default will be changed to <code>glob:</code> in a future release. The new behavior can be
+enabled by: <code>ui.revsets-use-glob-by-default=true</code>.</p>
 <ul>
-<li><code>"string"</code> or <code>substring:"string"</code>: Matches strings that contain <code>string</code>.</li>
 <li><code>exact:"string"</code>: Matches strings exactly equal to <code>string</code>.</li>
 <li><code>glob:"pattern"</code>: Matches strings with Unix-style shell <a href="https://docs.rs/globset/latest/globset/#syntax">wildcard
   <code>pattern</code></a>.</li>
 <li><code>regex:"pattern"</code>: Matches substrings with <a href="https://docs.rs/regex/latest/regex/#syntax">regular
   expression <code>pattern</code></a>.</li>
+<li><code>substring:"string"</code>: Matches strings that contain <code>string</code>.</li>
 </ul>
 <p>You can append <code>-i</code> after the kind to match case‐insensitively (e.g.
 <code>glob-i:"fix*jpeg*"</code>).</p>
