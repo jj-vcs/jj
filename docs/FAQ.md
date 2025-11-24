@@ -515,7 +515,7 @@ by `jj rebase` to rebase the changes in a commit. It's used in `jj log` to
 indicate which commits are empty. It's used in the `files()` revset function
 (and by `jj log <path>`) to find commits that modify a certain path. And so on.
 
-## How do I revert a merge commit? `jj revert -r <merge>` does nothing
+### How do I revert a merge commit? `jj revert -r <merge>` does nothing
 
 Jujutsu defines the changes in a merge commit (and non-merge commits) as the
 changes made compared to the auto-merged parents. That means that merge commits
