@@ -1177,6 +1177,8 @@ The primary use case for this command is to apply the results of automatic
 code formatting tools to revisions that may not be properly formatted yet.
 It can also be used to modify files with other tools like `sed` or `sort`.
 
+### How it works
+
 The changed files in the given revisions will be updated with any fixes
 determined by passing their file content through any external tools the user
 has configured for those files. Descendants will also be updated by passing
@@ -1185,50 +1187,10 @@ that the fixes are not lost. This will never result in new conflicts. Files
 with existing conflicts will be updated on all sides of the conflict, which
 can potentially increase or decrease the number of conflict markers.
 
-The external tools must accept the current file content on standard input,
-and return the updated file content on standard output. A tool's output will
-not be used unless it exits with a successful exit code. Output on standard
-error will be passed through to the terminal.
+### Configuration
 
-Tools are defined in a table where the keys are arbitrary identifiers and
-the values have the following properties:
- - `command`: The arguments used to run the tool. The first argument is the
-   path to an executable file. Arguments can contain these variables that
-   will be replaced:
-   - `$root` will be replaced with the workspace root path (the directory
-     containing the .jj directory).
-   - `$path` will be replaced with the repo-relative path of the file being
-     fixed. It is useful to provide the path to tools that include the path
-     in error messages, or behave differently based on the directory or file
-     name.
- - `patterns`: List of filesets (see: `jj help -k filesets`), determining
-   which files the tool will affect based on their path. If this list is
-   empty, no files will be affected by the tool. If there are multiple
-   patterns, the tool is applied only once to each file in the union of the
-   patterns.
- - `enabled`: Enables or disables the tool. If omitted, the tool is enabled.
-   This is useful for defining disabled tools in user configuration that can
-   be enabled in individual repositories with one config setting.
-
-For example, the following configuration defines how two code formatters
-(`clang-format` and `black`) will apply to three different file extensions
-(`.cc`, `.h`, and `.py`):
-
-```toml
-[fix.tools.clang-format]
-command = ["/usr/bin/clang-format", "--assume-filename=$path"]
-patterns = ["glob:'**/*.cc'",
-            "glob:'**/*.h'"]
-
-[fix.tools.black]
-command = ["/usr/bin/black", "-", "--stdin-filename=$path"]
-patterns = ["glob:'**/*.py'"]
-```
-
-Execution order of tools that affect the same file is deterministic, but
-currently unspecified, and may change between releases. If two tools affect
-the same file, the second tool to run will receive its input from the
-output of the first tool.
+See `jj help -k config` chapter `Code formatting and other file content
+transformations` to understand how to configure your tools.
 
 **Usage:** `jj fix [OPTIONS] [FILESETS]...`
 

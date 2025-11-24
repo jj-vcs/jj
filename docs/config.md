@@ -1192,19 +1192,46 @@ The conflict marker style can also be customized per tool using the
 
 The `jj fix` command allows you to efficiently rewrite files in complex commit
 graphs with no risk of introducing conflicts, using tools like `clang-format` or
-`prettier`. The tools run as subprocesses that take file content on standard
-input and repeat it, with any desired changes, on standard output. The file is
-only rewritten if the subprocess produces a successful exit code.
+`prettier`. The tools run as subprocesses that take a file content on standard
+input and repeat it, with any desired changes, on standard output.
+
+This enables the command to format many versions of the same file concurrently
+and without touching on the working copy. The local files are not and must not
+be used.
+
+The file is only rewritten if the subprocess produces a successful exit code.
+
+### Configuration
+
+Tools are defined in a table where the keys are arbitrary identifiers and
+the values have the following properties:
+ - `command`: The arguments used to run the tool. The first argument is the
+   path to an executable file. Arguments can contain these variables that will
+   be replaced:
+   - `$root` will be replaced with the workspace root path (the directory
+     containing the .jj directory).
+   - `$path` will be replaced with the repo-relative path of the file being
+     fixed. It is useful to provide the path to tools that include the path
+     in error messages, or behave differently based on the directory or file
+     name.
+ - `patterns`: List of filesets (see: `jj help -k filesets`), determining
+   which files the tool will affect based on their path. If this list is
+   empty, no files will be affected by the tool. If there are multiple
+   patterns, the tool is applied only once to each file in the union of the
+   patterns.
+ - `enabled`: Enables or disables the tool. If omitted, the tool is enabled.
+   This is useful for defining disabled tools in user configuration that can
+   be enabled in individual repositories with one config setting.
+
+`jj fix` provides the file content anonymously on standard input, but the name
+of the file being formatted may be important for include sorting or other output
+like error messages. To address this, you can use the `$root` and `$path` in
+your arguments.
 
 ### Enforce coding style rules
 
 Suppose you want to use `clang-format` to format your `*.c` and `*.h` files,
 as well as sorting their `#include` directives.
-
-`jj fix` provides the file content anonymously on standard input, but the name
-of the file being formatted may be important for include sorting or other output
-like error messages. To address this, you can use the `$path` substitution to
-provide the name of the file in a command argument.
 
 ```toml
 [fix.tools.clang-format]
@@ -1245,10 +1272,13 @@ command = ["$root\\node_modules\\@biomejs\\cli-win32-x64\\biome.exe"]
 ### Execution order of tools
 
 If two or more tools affect the same file, they are executed in the ascending
-lexicographical order of their configured names. This will remain as a tie
-breaker if other ordering mechanisms are introduced in the future. If you use
-numbers in tool names to control execution order, remember to include enough
-leading zeros so that, for example, `09` sorts before `10`.
+lexicographical order of their configured names. Any tool, but the first one to
+be executed, get as input the content of the file produced by the previous
+tool. This will remain as a tie breaker if other ordering mechanisms are
+introduced in the future.
+
+If you use numbers in tool names to control execution order, remember to
+include enough leading zeros so that, for example, `09` sorts before `10`.
 
 Suppose you want to keep only the 10 smallest numbers in a text file that
 contains one number on each line. This can be accomplished with `sort` and
