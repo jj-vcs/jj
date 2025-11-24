@@ -338,28 +338,28 @@ pub fn get_git_repo(store: &Store) -> Result<gix::Repository, UnexpectedGitBacke
 
 /// Checks if `git_ref` points to a Git commit object, and returns its id.
 ///
-/// If the ref points to the previously `known_target` (i.e. unchanged), this
-/// should be faster than `git_ref.into_fully_peeled_id()`.
+/// If the ref points to the previously `known_commit_oid` (i.e. unchanged),
+/// this should be faster than `git_ref.into_fully_peeled_id()`.
 fn resolve_git_ref_to_commit_id(
     git_ref: &gix::Reference,
-    known_target: &RefTarget,
-) -> Option<CommitId> {
+    known_commit_oid: Option<&gix::oid>,
+) -> Option<gix::ObjectId> {
     let mut peeling_ref = Cow::Borrowed(git_ref);
 
     // Try fast path if we have a candidate id which is known to be a commit object.
-    if let Some(id) = known_target.as_normal() {
+    if let Some(known_oid) = known_commit_oid {
         let raw_ref = &git_ref.inner;
         if let Some(oid) = raw_ref.target.try_id()
-            && oid.as_bytes() == id.as_bytes()
+            && oid == known_oid
         {
-            return Some(id.clone());
+            return Some(oid.to_owned());
         }
         if let Some(oid) = raw_ref.peeled
-            && oid.as_bytes() == id.as_bytes()
+            && oid == known_oid
         {
             // Perhaps an annotated tag stored in packed-refs file, and pointing to the
             // already known target commit.
-            return Some(id.clone());
+            return Some(oid);
         }
         // A tag (according to ref name.) Try to peel one more level. This is slightly
         // faster than recurse into into_fully_peeled_id(). If we recorded a tag oid, we
@@ -370,13 +370,14 @@ fn resolve_git_ref_to_commit_id(
                 .and_then(|id| id.object().ok())
                 .and_then(|object| object.try_into_tag().ok());
             if let Some(oid) = maybe_tag.as_ref().and_then(|tag| tag.target_id().ok()) {
-                if oid.as_bytes() == id.as_bytes() {
+                let oid = oid.detach();
+                if oid == known_oid {
                     // An annotated tag pointing to the already known target commit.
-                    return Some(id.clone());
+                    return Some(oid);
                 }
                 // Unknown id. Recurse from the current state. A tag may point to
                 // non-commit object.
-                peeling_ref.to_mut().inner.target = gix::refs::Target::Object(oid.detach());
+                peeling_ref.to_mut().inner.target = gix::refs::Target::Object(oid);
             }
         }
     }
@@ -388,7 +389,7 @@ fn resolve_git_ref_to_commit_id(
     let is_commit = peeled_id
         .object()
         .is_ok_and(|object| object.kind.is_commit());
-    is_commit.then(|| CommitId::from_bytes(peeled_id.as_bytes()))
+    is_commit.then_some(peeled_id.detach())
 }
 
 #[derive(Error, Debug)]
@@ -761,11 +762,14 @@ fn collect_changed_refs_to_import(
             continue;
         }
         let old_git_target = known_git_refs.get(full_name).copied().flatten();
-        let Some(id) = resolve_git_ref_to_commit_id(&git_ref, old_git_target) else {
+        let old_git_oid = old_git_target
+            .as_normal()
+            .map(|id| gix::oid::from_bytes_unchecked(id.as_bytes()));
+        let Some(oid) = resolve_git_ref_to_commit_id(&git_ref, old_git_oid) else {
             // Skip (or remove existing) invalid refs.
             continue;
         };
-        let new_target = RefTarget::normal(id);
+        let new_target = RefTarget::normal(CommitId::from_bytes(oid.as_bytes()));
         known_git_refs.remove(full_name);
         if new_target != *old_git_target {
             changed_git_refs.push((full_name.to_owned(), new_target.clone()));
