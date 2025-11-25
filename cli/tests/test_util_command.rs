@@ -28,7 +28,7 @@ fn test_util_config_schema() {
             "$comment": "`taplo` and the corresponding VS Code plugins only support version draft-04 of JSON Schema, see <https://taplo.tamasfe.dev/configuration/developing-schemas.html>. draft-07 is mostly compatible with it, newer versions may not be.",
             "title": "Jujutsu config",
             "type": "object",
-            "description": "User configuration for Jujutsu VCS. See https://jj-vcs.github.io/jj/latest/config/ for details",
+            "description": "User configuration for Jujutsu VCS. See https://docs.jj-vcs.dev/latest/config/ for details",
             "properties": {
                 [...]
             }

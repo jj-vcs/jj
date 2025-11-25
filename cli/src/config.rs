@@ -564,7 +564,7 @@ fn config_files_for(
 /// Sources from the lowest precedence:
 /// 1. Default
 /// 2. Base environment variables
-/// 3. [User configs](https://jj-vcs.github.io/jj/latest/config/)
+/// 3. [User configs](https://docs.jj-vcs.dev/latest/config/)
 /// 4. Repo config `.jj/repo/config.toml`
 /// 5. Workspace config `.jj/workspace-config.toml`
 /// 6. Override environment variables
@@ -777,7 +777,7 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
                 Ok("`git.auto-local-bookmark` is deprecated; use \
                     `remotes.<name>.auto-track-bookmarks` instead.
 Example: jj config set --user remotes.origin.auto-track-bookmarks 'glob:*'
-For details, see: https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks"
+For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks"
                     .into())
             },
         ),
@@ -793,7 +793,7 @@ For details, see: https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-
                 Ok("`git.push-new-bookmarks` is deprecated; use \
                     `remotes.<name>.auto-track-bookmarks` instead.
 Example: jj config set --user remotes.origin.auto-track-bookmarks 'glob:*'
-For details, see: https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks"
+For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks"
                     .into())
             },
         ),

@@ -43,7 +43,7 @@ use crate::ui::Ui;
 /// working copy and the `main` bookmark as parents.
 ///
 /// [working copy]:
-///     https://jj-vcs.github.io/jj/latest/working-copy/
+///     https://docs.jj-vcs.dev/latest/working-copy/
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct NewArgs {
     /// Parent(s) of the new change

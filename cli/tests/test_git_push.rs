@@ -616,7 +616,7 @@ fn test_git_push_locally_created_and_rewritten() {
     ------- stderr -------
     Warning: Deprecated CLI-provided config: `git.push-new-bookmarks` is deprecated; use `remotes.<name>.auto-track-bookmarks` instead.
     Example: jj config set --user remotes.origin.auto-track-bookmarks 'glob:*'
-    For details, see: https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks
+    For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks
     Changes to push to origin:
       Add bookmark my to e0cba5e497ee
     Dry-run requested, not pushing.
@@ -1431,8 +1431,8 @@ fn test_git_push_conflict() {
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Won't push commit 654e715becca since it has conflicts
-    Hint: Rejected commit: yostqsxw 654e715b my-bookmark | (conflict) third
+    Error: Won't push commit d1b152bb0916 since it has conflicts
+    Hint: Rejected commit: yostqsxw d1b152bb my-bookmark | (conflict) third
     [EOF]
     [exit status: 1]
     ");

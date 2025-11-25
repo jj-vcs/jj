@@ -71,7 +71,7 @@ pub struct GitInitArgs {
     /// This option is mutually exclusive with `--git-repo`.
     ///
     /// [git.colocate config]:
-    ///     https://jj-vcs.github.io/jj/latest/config/#default-colocation
+    ///     https://docs.jj-vcs.dev/latest/config/#default-colocation
     #[arg(long, conflicts_with = "git_repo")]
     colocate: bool,
 
@@ -85,7 +85,7 @@ pub struct GitInitArgs {
     /// workspaces.
     ///
     /// [colocation docs]:
-    ///     https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos
+    ///     https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos
     #[arg(long, conflicts_with = "colocate")]
     no_colocate: bool,
 

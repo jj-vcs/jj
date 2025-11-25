@@ -1357,7 +1357,7 @@ fn test_files() {
     │  M f_modified
     │  M f_not_yet_copied
     │  R {f_not_yet_renamed => f_renamed}
-    │ ×  royxmykx test.user@example.com 2001-02-03 08:05:14 conflicted cf10549a conflict
+    │ ×  royxmykx test.user@example.com 2001-02-03 08:05:14 conflicted a24d7569 conflict
     ├─╯  conflicted
     │    A f_added_2
     │    A f_dir/dir_file_1

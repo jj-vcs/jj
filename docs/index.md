@@ -17,8 +17,8 @@ Additional help is available using the `jj help` command if you have
 
 You may want to jump to:
 
-- Documentation for the [latest released version of `jj`](https://jj-vcs.github.io/jj/latest).
-- Documentation for the [unreleased version of `jj`](https://jj-vcs.github.io/jj/prerelease). This version of the docs corresponds to the `main` branch of the `jj` repo.
+- Documentation for the [latest released version of `jj`](https://docs.jj-vcs.dev/latest).
+- Documentation for the [unreleased version of `jj`](https://docs.jj-vcs.dev/prerelease). This version of the docs corresponds to the `main` branch of the `jj` repo.
 
 ## Some useful links
 

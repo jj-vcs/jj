@@ -101,7 +101,7 @@ stakeholders, which we do with [Design Docs](design_docs.md), see the
 We appreciate [bug
 reports](https://github.com/jj-vcs/jj/issues/new?template=bug_report.md)
 about any problems, however small, lurking in [our documentation
-website](https://jj-vcs.github.io/jj/prerelease) or in the `jj help
+website](https://docs.jj-vcs.dev/prerelease) or in the `jj help
 <command>` docs. If a part of the bug report template does not apply, you can
 just delete it.
 
@@ -390,7 +390,7 @@ You can customize this configuration using
 ## Previewing the HTML documentation
 
 The documentation for `jj` is automatically published online at
-<https://jj-vcs.github.io/jj/>.
+<https://docs.jj-vcs.dev/>.
 
 When editing documentation, you should check your changes locally — especially
 if you are adding a new page, or doing a major rewrite.
@@ -480,8 +480,8 @@ MKDOCS_OFFLINE=true uv run mkdocs build
 
 The full `jj` website includes the documentation for several `jj` versions
 (`prerelease`, latest release, and the older releases). The top-level
-URL <https://jj-vcs.github.io/jj> redirects to
-<https://jj-vcs.github.io/jj/latest>, which in turn redirects to
+URL <https://docs.jj-vcs.dev> redirects to
+<https://docs.jj-vcs.dev/latest>, which in turn redirects to
 the docs for the last stable version.
 
 The different versions of documentation are managed and deployed with
@@ -550,12 +550,12 @@ If you need to do something more complicated, you can use `uv run mike
 ...` commands. You can also edit the `gh-pages` bookmark directly, but take care
 to avoid files that will be overwritten by future invocations of `mike`. Then,
 you can submit a PR based on the `gh-pages` bookmark of
-<https://jj-vcs.github.com/jj> (instead of the usual `main` bookmark).
+<https://docs.jj-vcs.dev/> (instead of the usual `main` bookmark).
 
 Previously, the version switcher would not work unless the value of the
 `site_url` config in `mkdocs.yml` matched the actual URL the site is being
 served from. This bug should now be fixed, but if you are not serving the site
-from <https://jj-vcs.github.com/jj> and something fails weirdly, you might want
+from <https://docs.jj-vcs.dev/> and something fails weirdly, you might want
 to adjust the `site_url` to something like `https://jjfan.github.io/jj`.
 
 

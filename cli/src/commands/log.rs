@@ -50,7 +50,7 @@ use crate::ui::Ui;
 /// all revisions. See [`jj help -k revsets`] for information about the syntax.
 ///
 /// [`jj help -k revsets`]:
-///     https://jj-vcs.github.io/jj/latest/revsets/
+///     https://docs.jj-vcs.dev/latest/revsets/
 ///
 /// Spans of revisions that are not included in the graph per `--revisions` are
 /// rendered as a synthetic node labeled "(elided revisions)".
@@ -60,10 +60,10 @@ use crate::ui::Ui;
 /// All of these symbols can be [customized].
 ///
 /// [Immutable revisions]:
-///     https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+///     https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
 ///
 /// [customized]:
-///     https://jj-vcs.github.io/jj/latest/config/#node-style
+///     https://docs.jj-vcs.dev/latest/config/#node-style
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct LogArgs {
     /// Which revisions to show
@@ -107,10 +107,10 @@ pub(crate) struct LogArgs {
     /// If not specified, this defaults to the `templates.log` setting.
     ///
     /// [built-in keywords]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
+    ///     https://docs.jj-vcs.dev/latest/templates/#commit-keywords
     ///
     /// [`jj help -k templates`]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/
+    ///     https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
     /// Show patch

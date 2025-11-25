@@ -34,7 +34,7 @@ use crate::ui::Ui;
 /// This command requires configuring a [commit signing] backend.
 ///
 /// [commit signing]:
-///     https://jj-vcs.github.io/jj/latest/config/#commit-signing
+///     https://docs.jj-vcs.dev/latest/config/#commit-signing
 #[derive(clap::Args, Clone, Debug)]
 pub struct SignArgs {
     /// What revision(s) to sign
@@ -68,7 +68,7 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
     if !workspace_command.repo().store().signer().can_sign() {
         return Err(user_error_with_hint(
             "No signing backend configured",
-            "For configuring a signing backend, see https://jj-vcs.github.io/jj/latest/config/#commit-signing",
+            "For configuring a signing backend, see https://docs.jj-vcs.dev/latest/config/#commit-signing",
         ));
     }
 

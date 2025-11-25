@@ -44,10 +44,10 @@ pub struct OperationShowArgs {
     /// information.
     ///
     /// [built-in keywords]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/#operation-keywords
+    ///     https://docs.jj-vcs.dev/latest/templates/#operation-keywords
     ///
     /// [`jj help -k templates`]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/
+    ///     https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
     /// Show patch of modifications to changes

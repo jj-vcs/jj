@@ -60,10 +60,10 @@ pub(crate) struct FileAnnotateArgs {
     /// setting.
     ///
     /// [`AnnotationLine` type]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/#annotationline-type
+    ///     https://docs.jj-vcs.dev/latest/templates/#annotationline-type
     ///
     /// [`jj help -k templates`]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/
+    ///     https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
 }

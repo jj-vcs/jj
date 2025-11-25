@@ -66,7 +66,7 @@ use crate::ui::Ui;
 /// See [`jj help -k bookmarks`] for more information.
 ///
 /// [`jj help -k bookmarks`]:
-///     https://jj-vcs.github.io/jj/latest/bookmarks
+///     https://docs.jj-vcs.dev/latest/bookmarks
 #[derive(clap::Subcommand, Clone, Debug)]
 pub enum BookmarkCommand {
     #[command(visible_alias("c"))]

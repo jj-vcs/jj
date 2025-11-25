@@ -62,7 +62,7 @@ pub struct ConfigListArgs {
     /// See [`jj help -k templates`] for more information.
     ///
     /// [`jj help -k templates`]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/
+    ///     https://docs.jj-vcs.dev/latest/templates/
     #[arg(
         long, short = 'T',
         verbatim_doc_comment,

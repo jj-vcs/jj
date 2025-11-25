@@ -30,7 +30,7 @@ use crate::ui::Ui;
 /// squash`.
 ///
 /// [generally recommended]:
-///     https://jj-vcs.github.io/jj/latest/FAQ#how-do-i-resume-working-on-an-existing-change
+///     https://docs.jj-vcs.dev/latest/FAQ#how-do-i-resume-working-on-an-existing-change
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct EditArgs {
     /// The commit to edit

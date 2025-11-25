@@ -1138,7 +1138,7 @@ fn test_git_colocated_update_index_merge_conflict() {
     work_dir.run_jj(["new", "left", "right"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @    8b05232ad2cda6f6d06b290486e07251f53c0958
+    @    985fe3b46a6caecb44b6a12d22fc2b1fc33c219d
     ├─╮
     │ ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
     ○ │  d0f55ffafa1e0e72980202c349af23d093f825be left git_head()
@@ -1162,8 +1162,8 @@ fn test_git_colocated_update_index_merge_conflict() {
     work_dir.run_jj(["new"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  7c98aa1e17acd7829c9ccb9eaae705df9b255bd1
-    ×    8b05232ad2cda6f6d06b290486e07251f53c0958 git_head()
+    @  4e86bd16fa83ac6276701bfa361c683e258a653b
+    ×    985fe3b46a6caecb44b6a12d22fc2b1fc33c219d git_head()
     ├─╮
     │ ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
     ○ │  d0f55ffafa1e0e72980202c349af23d093f825be left
@@ -1245,7 +1245,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
         .success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  535388c5aab1b3a33fdc04a4bf8033de0d1b86ec left
+    @  b641af6d56002585b3152e84d4bd92f8181d7909 left
     ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right git_head()
     ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
@@ -1264,8 +1264,8 @@ fn test_git_colocated_update_index_rebase_conflict() {
     work_dir.run_jj(["new"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  04ebd7523ac6107ccdd5bc34600a073b94e43299
-    ×  535388c5aab1b3a33fdc04a4bf8033de0d1b86ec left git_head()
+    @  3118c1f8fb0a6279d411eb484906e7274ab5c8f7
+    ×  b641af6d56002585b3152e84d4bd92f8181d7909 left git_head()
     ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
     ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
@@ -1341,7 +1341,7 @@ fn test_git_colocated_update_index_3_sided_conflict() {
         .success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @      3105daa0d68e3cdc22b2533d7d1b231cd41c76ec
+    @      3b8792248f224ce8e3f6652681e518a4f3cb3a0f
     ├─┬─╮
     │ │ ○  5008c8807feaa955d02e96cb1b0dcf51536fefb8 side-3
     │ ○ │  da6e0a03f8b72f6868a9ea33836123fe965c0cb4 side-2
@@ -1367,8 +1367,8 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     work_dir.run_jj(["new"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  5b4266a02e8fe9febc6294c7d0a02fc8463221e8
-    ×      3105daa0d68e3cdc22b2533d7d1b231cd41c76ec git_head()
+    @  b16ae318909e9bf70fc312217988f2ca0abccb62
+    ×      3b8792248f224ce8e3f6652681e518a4f3cb3a0f git_head()
     ├─┬─╮
     │ │ ○  5008c8807feaa955d02e96cb1b0dcf51536fefb8 side-3
     │ ○ │  da6e0a03f8b72f6868a9ea33836123fe965c0cb4 side-2

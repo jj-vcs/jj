@@ -147,7 +147,7 @@ impl ConfigLevelArgs {
 /// config options, and other details about `jj config`.
 ///
 /// [`jj help -k config`]:
-///     https://jj-vcs.github.io/jj/latest/config/
+///     https://docs.jj-vcs.dev/latest/config/
 #[derive(clap::Subcommand, Clone, Debug)]
 pub(crate) enum ConfigCommand {
     #[command(visible_alias("e"))]

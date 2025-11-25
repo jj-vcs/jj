@@ -34,7 +34,7 @@ pub struct TagDeleteArgs {
     /// select tags by [wildcard pattern].
     ///
     /// [wildcard pattern]:
-    ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+    ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(
         required = true,
         value_parser = StringPattern::parse,

@@ -530,7 +530,7 @@ fn test_workspaces_conflicting_edits() {
     ------- stderr -------
     Error: The working copy is stale (not updated since operation bd4f780d0422).
     Hint: Run `jj workspace update-stale` to update it.
-    See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
+    See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
     [exit status: 1]
     ");
@@ -540,7 +540,7 @@ fn test_workspaces_conflicting_edits() {
     ------- stderr -------
     Error: The working copy is stale (not updated since operation bd4f780d0422).
     Hint: Run `jj workspace update-stale` to update it.
-    See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
+    See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
     [exit status: 1]
     ");
@@ -561,7 +561,7 @@ fn test_workspaces_conflicting_edits() {
     insta::assert_snapshot!(get_log_output(&secondary_dir),
     @r"
     @  90f3d42e0bff secondary@ (divergent)
-    │ ×  de7155dbea42 (divergent)
+    │ ×  3ef90f18334b (divergent)
     ├─╯
     │ ○  3a9b690d6e67 default@
     ├─╯
@@ -572,7 +572,7 @@ fn test_workspaces_conflicting_edits() {
     // The stale working copy should have been resolved by the previous command
     insta::assert_snapshot!(get_log_output(&secondary_dir), @r"
     @  90f3d42e0bff secondary@ (divergent)
-    │ ×  de7155dbea42 (divergent)
+    │ ×  3ef90f18334b (divergent)
     ├─╯
     │ ○  3a9b690d6e67 default@
     ├─╯
@@ -631,7 +631,7 @@ fn test_workspaces_updated_by_other() {
     ------- stderr -------
     Error: The working copy is stale (not updated since operation bd4f780d0422).
     Hint: Run `jj workspace update-stale` to update it.
-    See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
+    See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
     [exit status: 1]
     ");
@@ -831,7 +831,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         ------- stderr -------
         Error: Could not read working copy's operation.
         Hint: Run `jj workspace update-stale` to recover.
-        See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
+        See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
         [EOF]
         [exit status: 1]
         ");

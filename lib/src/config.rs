@@ -564,9 +564,8 @@ impl ConfigFile {
                 source: error,
             })) if error.kind() == io::ErrorKind::NotFound => {
                 let mut data = DocumentMut::new();
-                data.decor_mut().set_prefix(
-                    "#:schema https://jj-vcs.github.io/jj/latest/config-schema.json\n\n",
-                );
+                data.decor_mut()
+                    .set_prefix("#:schema https://docs.jj-vcs.dev/latest/config-schema.json\n\n");
                 let layer = ConfigLayer {
                     source,
                     path: Some(path),

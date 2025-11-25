@@ -41,7 +41,7 @@ pub struct BookmarkUntrackArgs {
     /// Examples: bookmark@remote, glob:main@*, glob:jjfan-*@upstream
     ///
     /// [wildcard pattern]:
-    ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+    ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(
         required = true,
         value_name = "BOOKMARK@REMOTE",

@@ -298,7 +298,7 @@ backend = "none"
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No signing backend configured
-    Hint: For configuring a signing backend, see https://jj-vcs.github.io/jj/latest/config/#commit-signing
+    Hint: For configuring a signing backend, see https://docs.jj-vcs.dev/latest/config/#commit-signing
     [EOF]
     [exit status: 1]
     ");

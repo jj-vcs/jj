@@ -127,7 +127,7 @@ Jujutsu (An experimental VCS)
 
 To get started, see the tutorial [`jj help -k tutorial`].
 
-[`jj help -k tutorial`]: https://jj-vcs.github.io/jj/latest/tutorial/
+[`jj help -k tutorial`]: https://docs.jj-vcs.dev/latest/tutorial/
 
 **Usage:** `jj [OPTIONS] [COMMAND]`
 
@@ -337,7 +337,7 @@ Manage bookmarks [default alias: b]
 
 See [`jj help -k bookmarks`] for more information.
 
-[`jj help -k bookmarks`]: https://jj-vcs.github.io/jj/latest/bookmarks
+[`jj help -k bookmarks`]: https://docs.jj-vcs.dev/latest/bookmarks
 
 **Usage:** `jj bookmark <COMMAND>`
 
@@ -393,7 +393,7 @@ If you don't want the deletion of the local bookmark to propagate to any tracked
 
    By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
 
-   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 
 
@@ -413,7 +413,7 @@ If a local bookmark is forgotten, any corresponding remote bookmarks will become
 
    By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
 
-   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 ###### **Options:**
 
@@ -431,7 +431,7 @@ By default, a tracking remote bookmark will be included only if its target is di
 
 See [`jj help -k bookmarks`] for more information.
 
-[`jj help -k bookmarks`]: https://jj-vcs.github.io/jj/latest/bookmarks
+[`jj help -k bookmarks`]: https://docs.jj-vcs.dev/latest/bookmarks
 
 **Usage:** `jj bookmark list [OPTIONS] [NAMES]...`
 
@@ -443,7 +443,7 @@ See [`jj help -k bookmarks`] for more information.
 
    By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
 
-   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 ###### **Options:**
 
@@ -454,7 +454,7 @@ See [`jj help -k bookmarks`] for more information.
 
    By default, the specified remote name matches exactly. Use `glob:` prefix to select remotes by [wildcard pattern].
 
-   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 * `-t`, `--tracked` — Show remote tracked bookmarks only. Omits local Git-tracking bookmarks by default
 * `-c`, `--conflicted` — Show conflicted bookmarks only
 * `-r`, `--revisions <REVSETS>` — Show bookmarks whose local targets are in the given revisions
@@ -464,9 +464,9 @@ See [`jj help -k bookmarks`] for more information.
 
    All 0-argument methods of the [`CommitRef` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
-   [`CommitRef` type]: https://jj-vcs.github.io/jj/latest/templates/#commitref-type
+   [`CommitRef` type]: https://docs.jj-vcs.dev/latest/templates/#commitref-type
 
-   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 * `--sort <SORT_KEY>` — Sort bookmarks based on the given key (or multiple keys)
 
    Suffix the key with `-` to sort in descending order of the value (e.g. `--sort name-`). Note that when using multiple keys, the first key is the most significant.
@@ -500,7 +500,7 @@ $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 
    By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
 
-   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 ###### **Options:**
 
@@ -568,7 +568,7 @@ A tracking remote bookmark will be imported as a local bookmark of the same name
 
    Examples: bookmark@remote, glob:main@*, glob:jjfan-*@upstream
 
-   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 
 
@@ -590,7 +590,7 @@ If you want to forget a local bookmark while also untracking the corresponding r
 
    Examples: bookmark@remote, glob:main@*, glob:jjfan-*@upstream
 
-   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 
 
@@ -635,7 +635,7 @@ Operates on jj configuration, which comes from the config file and environment v
 
 See [`jj help -k config`] to know more about file locations, supported config options, and other details about `jj config`.
 
-[`jj help -k config`]: https://jj-vcs.github.io/jj/latest/config/
+[`jj help -k config`]: https://docs.jj-vcs.dev/latest/config/
 
 **Usage:** `jj config <COMMAND>`
 
@@ -726,7 +726,7 @@ List variables set in config files, along with their values
    See [`jj help -k templates`] for more information.
 
    [`jj help -k templates`]:
-       https://jj-vcs.github.io/jj/latest/templates/
+       https://docs.jj-vcs.dev/latest/templates/
 
 
 
@@ -856,9 +856,9 @@ If no option is specified, it defaults to `-r @`.
 
    All 0-argument methods of the [`TreeDiffEntry` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
-   [`TreeDiffEntry` type]: https://jj-vcs.github.io/jj/latest/templates/#treediffentry-type
+   [`TreeDiffEntry` type]: https://docs.jj-vcs.dev/latest/templates/#treediffentry-type
 
-   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
 * `--stat` — Show a histogram of the changes
 * `--types` — For each path, show only its type before and after
@@ -886,7 +886,7 @@ With the `-r` option, starts a [diff editor] on the changes in the revision.
 
 With the `--from` and/or `--to` options, starts a [diff editor] comparing the "from" revision to the "to" revision.
 
-[diff editor]: https://jj-vcs.github.io/jj/latest/config/#editing-diffs
+[diff editor]: https://docs.jj-vcs.dev/latest/config/#editing-diffs
 
 Edit the right side of the diff until it looks the way you want. Once you close the editor, the revision specified with `-r` or `--to` will be updated. Unless `--restore-descendants` is used, descendants will be rebased on top as usual, which may result in conflicts.
 
@@ -946,7 +946,7 @@ Sets the specified revision as the working-copy revision
 
 Note: it is [generally recommended] to instead use `jj new` and `jj squash`.
 
-[generally recommended]: https://jj-vcs.github.io/jj/latest/FAQ#how-do-i-resume-working-on-an-existing-change
+[generally recommended]: https://docs.jj-vcs.dev/latest/FAQ#how-do-i-resume-working-on-an-existing-change
 
 **Usage:** `jj edit <REVSET>`
 
@@ -982,9 +982,9 @@ Lists the previous commits which a change has pointed to. The current commit of 
 
    If not specified, this defaults to the `templates.evolog` setting.
 
-   [`CommitEvolutionEntry` type]: https://jj-vcs.github.io/jj/latest/templates/#commitevolutionentry-type
+   [`CommitEvolutionEntry` type]: https://docs.jj-vcs.dev/latest/templates/#commitevolutionentry-type
 
-   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 * `-p`, `--patch` — Show patch compared to the previous version of this change
 
    If the previous version has different parents, it will be temporarily rebased to the parents of the new version, so the diff is not contaminated by unrelated changes.
@@ -1045,9 +1045,9 @@ Annotates a revision line by line. Each line includes the source change that int
 
    If not specified, this defaults to the `templates.file_annotate` setting.
 
-   [`AnnotationLine` type]: https://jj-vcs.github.io/jj/latest/templates/#annotationline-type
+   [`AnnotationLine` type]: https://docs.jj-vcs.dev/latest/templates/#annotationline-type
 
-   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 
 
 
@@ -1098,9 +1098,9 @@ List files in a revision
 
    All 0-argument methods of the [`TreeEntry` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
-   [`TreeEntry` type]: https://jj-vcs.github.io/jj/latest/templates/#treeentry-type
+   [`TreeEntry` type]: https://docs.jj-vcs.dev/latest/templates/#treeentry-type
 
-   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 
 
 
@@ -1127,9 +1127,9 @@ If the given path is a directory, files in the directory will be visited recursi
 
    If not specified, this defaults to the `templates.file_show` setting.
 
-   [`TreeEntry` type]: https://jj-vcs.github.io/jj/latest/templates/#treeentry-type
+   [`TreeEntry` type]: https://docs.jj-vcs.dev/latest/templates/#treeentry-type
 
-   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 
 
 
@@ -1289,9 +1289,9 @@ Commands for working with Git remotes and the underlying Git repo
 
 See this [comparison], including a [table of commands].
 
-[comparison]: https://jj-vcs.github.io/jj/latest/git-comparison/.
+[comparison]: https://docs.jj-vcs.dev/latest/git-comparison/.
 
-[table of commands]: https://jj-vcs.github.io/jj/latest/git-command-table
+[table of commands]: https://docs.jj-vcs.dev/latest/git-command-table
 
 **Usage:** `jj git <COMMAND>`
 
@@ -1335,14 +1335,14 @@ Create a new repo backed by a clone of a Git repo
 
    **This is the default**, and this option has no effect, unless the [git.colocate config] is set to `false`.
 
-   [git.colocate config]: https://jj-vcs.github.io/jj/latest/config/#default-colocation
+   [git.colocate config]: https://docs.jj-vcs.dev/latest/config/#default-colocation
 * `--no-colocate` — Disable colocation of the Jujutsu repo with the git repo
 
    Prevent Git tools that are unaware of `jj` and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the `.jj` directory.
 
    See [colocation docs] for some minor advantages of non-colocated workspaces.
 
-   [colocation docs]: https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos
+   [colocation docs]: https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos
 * `--depth <DEPTH>` — Create a shallow clone of the given depth
 * `--fetch-tags <FETCH_TAGS>` — Configure when to fetch tags
 
@@ -1438,7 +1438,7 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
    By default, the specified remote names matches exactly. Use a [string pattern], e.g. `--remote 'glob:*'`, to select remotes using patterns.
 
-   [string pattern]: https://jj-vcs.github.io/jj/latest/revsets#string-patterns
+   [string pattern]: https://docs.jj-vcs.dev/latest/revsets#string-patterns
 * `--all-remotes` — Fetch from all remotes
 
 
@@ -1481,14 +1481,14 @@ Create a new Git backed repo
 
    This option is mutually exclusive with `--git-repo`.
 
-   [git.colocate config]: https://jj-vcs.github.io/jj/latest/config/#default-colocation
+   [git.colocate config]: https://docs.jj-vcs.dev/latest/config/#default-colocation
 * `--no-colocate` — Disable colocation of the Jujutsu repo with the git repo
 
    Prevent Git tools that are unaware of `jj` and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the `.jj` directory.
 
    See [colocation docs] for some minor advantages of non-colocated workspaces.
 
-   [colocation docs]: https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos
+   [colocation docs]: https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos
 * `--git-repo <GIT_REPO>` — Specifies a path to an **existing** git repository to be used as the backing git repo for the newly created `jj` repo.
 
    If the specified `--git-repo` path happens to be the same as the `jj` repo path (both .jj and .git directories are in the same working directory), then both `jj` and `git` commands will work on the same repo. This is called a colocated workspace.
@@ -1507,9 +1507,9 @@ Unlike in Git, the remote to push to is not derived from the tracked remote book
 
 Before the command actually moves, creates, or deletes a remote bookmark, it makes several [safety checks]. If there is a problem, you may need to run `jj git fetch --remote <remote name>` and/or resolve some [bookmark conflicts].
 
-[safety checks]: https://jj-vcs.github.io/jj/latest/bookmarks/#pushing-bookmarks-safety-checks
+[safety checks]: https://docs.jj-vcs.dev/latest/bookmarks/#pushing-bookmarks-safety-checks
 
-[bookmark conflicts]: https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
+[bookmark conflicts]: https://docs.jj-vcs.dev/latest/bookmarks/#conflicts
 
 **Usage:** `jj git push [OPTIONS]`
 
@@ -1522,13 +1522,13 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 
    By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
 
-   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets#string-patterns
+   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets#string-patterns
 * `--all` — Push all bookmarks (including new bookmarks)
 * `--tracked` — Push all tracked bookmarks
 
    This usually means that the bookmark was already pushed to or fetched from the [relevant remote].
 
-   [relevant remote]: https://jj-vcs.github.io/jj/latest/bookmarks#remotes-and-tracked-bookmarks
+   [relevant remote]: https://docs.jj-vcs.dev/latest/bookmarks#remotes-and-tracked-bookmarks
 * `--deleted` — Push all deleted bookmarks
 
    Only tracked bookmarks can be successfully deleted on the remote. A warning will be printed if any untracked bookmarks on the remote correspond to missing local bookmarks.
@@ -1725,15 +1725,15 @@ Show revision history
 
 Renders a graphical view of the project's history, ordered with children before parents. By default, the output only includes mutable revisions, along with some additional revisions for context. Use `jj log -r ::` to see all revisions. See [`jj help -k revsets`] for information about the syntax.
 
-[`jj help -k revsets`]: https://jj-vcs.github.io/jj/latest/revsets/
+[`jj help -k revsets`]: https://docs.jj-vcs.dev/latest/revsets/
 
 Spans of revisions that are not included in the graph per `--revisions` are rendered as a synthetic node labeled "(elided revisions)".
 
 The working-copy commit is indicated by a `@` symbol in the graph. [Immutable revisions] have a `◆` symbol. Other commits have a `○` symbol. All of these symbols can be [customized].
 
-[Immutable revisions]: https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+[Immutable revisions]: https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
 
-[customized]: https://jj-vcs.github.io/jj/latest/config/#node-style
+[customized]: https://docs.jj-vcs.dev/latest/config/#node-style
 
 **Usage:** `jj log [OPTIONS] [FILESETS]...`
 
@@ -1759,9 +1759,9 @@ The working-copy commit is indicated by a `@` symbol in the graph. [Immutable re
 
    If not specified, this defaults to the `templates.log` setting.
 
-   [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
+   [built-in keywords]: https://docs.jj-vcs.dev/latest/templates/#commit-keywords
 
-   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 * `-p`, `--patch` — Show patch
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
 * `--stat` — Show a histogram of the changes
@@ -1838,7 +1838,7 @@ By default, `jj` will edit the new change, making the [working copy] represent t
 
 Note that you can create a merge commit by specifying multiple revisions as argument. For example, `jj new @ main` will create a new commit with the working copy and the `main` bookmark as parents.
 
-[working copy]: https://jj-vcs.github.io/jj/latest/working-copy/
+[working copy]: https://docs.jj-vcs.dev/latest/working-copy/
 
 **Usage:** `jj new [OPTIONS] [REVSETS]...`
 
@@ -1969,7 +1969,7 @@ Commands for working with the operation log
 
 See the [operation log documentation] for more information.
 
-[operation log documentation]: https://jj-vcs.github.io/jj/latest/operation-log/
+[operation log documentation]: https://docs.jj-vcs.dev/latest/operation-log/
 
 **Usage:** `jj operation <COMMAND>`
 
@@ -2057,9 +2057,9 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
 
    You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
 
-   [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#operation-keywords
+   [built-in keywords]: https://docs.jj-vcs.dev/latest/templates/#operation-keywords
 
-   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 * `-d`, `--op-diff` — Show changes to the repository at each operation
 * `-p`, `--patch` — Show patch of modifications to changes (implies --op-diff)
 
@@ -2166,9 +2166,9 @@ Show changes to the repository in an operation
 
    You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
 
-   [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#operation-keywords
+   [built-in keywords]: https://docs.jj-vcs.dev/latest/templates/#operation-keywords
 
-   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 * `-p`, `--patch` — Show patch of modifications to changes
 
    If the previous version has different parents, it will be temporarily rebased to the parents of the new version, so the diff is not contaminated by unrelated changes.
@@ -2644,9 +2644,9 @@ Show commit description and changes in a revision
 
    You can specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
 
-   [built-in keywords]: https://jj-vcs.github.io/jj/latest/templates/#commit-keywords
+   [built-in keywords]: https://docs.jj-vcs.dev/latest/templates/#commit-keywords
 
-   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
 * `--stat` — Show a histogram of the changes
 * `--types` — For each path, show only its type before and after
@@ -2673,7 +2673,7 @@ Cryptographically sign a revision
 
 This command requires configuring a [commit signing] backend.
 
-[commit signing]: https://jj-vcs.github.io/jj/latest/config/#commit-signing
+[commit signing]: https://docs.jj-vcs.dev/latest/config/#commit-signing
 
 **Usage:** `jj sign [OPTIONS]`
 
@@ -2774,7 +2774,7 @@ Split a revision in two
 
 Starts a [diff editor] on the changes in the revision. Edit the right side of the diff until it has the content you want in the new revision. Once you close the editor, your edited content will replace the previous revision. The remaining changes will be put in a new revision on top.
 
-[diff editor]: https://jj-vcs.github.io/jj/latest/config/#editing-diffs
+[diff editor]: https://docs.jj-vcs.dev/latest/config/#editing-diffs
 
 If the change you split had a description, you will be asked to enter a change description for each commit. If the change did not have a description, the remaining changes will not get a description, and you will be asked for a description only for the selected changes.
 
@@ -2863,7 +2863,7 @@ This includes:
 
 * [Conflicted bookmarks]
 
-[Conflicted bookmarks]: https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
+[Conflicted bookmarks]: https://docs.jj-vcs.dev/latest/bookmarks/#conflicts
 
 **Usage:** `jj status [FILESETS]...`
 
@@ -2903,7 +2903,7 @@ Revisions referred to by the deleted tags are not abandoned.
 
    By default, the specified name matches exactly. Use `glob:` prefix to select tags by [wildcard pattern].
 
-   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 
 
@@ -2921,7 +2921,7 @@ List tags
 
    By default, the specified name matches exactly. Use `glob:` prefix to select tags by [wildcard pattern].
 
-   [wildcard pattern]: https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 ###### **Options:**
 
@@ -2929,9 +2929,9 @@ List tags
 
    All 0-argument methods of the [`CommitRef` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
-   [`CommitRef` type]: https://jj-vcs.github.io/jj/latest/templates/#commitref-type
+   [`CommitRef` type]: https://docs.jj-vcs.dev/latest/templates/#commitref-type
 
-   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 
 
 
@@ -2986,7 +2986,7 @@ Drop a cryptographic signature
 
 See also [commit signing] docs.
 
-[commit signing]: https://jj-vcs.github.io/jj/latest/config/#commit-signing
+[commit signing]: https://docs.jj-vcs.dev/latest/config/#commit-signing
 
 **Usage:** `jj unsign [OPTIONS]`
 
@@ -3036,7 +3036,7 @@ Apply it by running one of these:
 See the docs on [command-line completion] for more details.
 
 [command-line completion]:
-   https://jj-vcs.github.io/jj/latest/install-and-setup/#command-line-completion
+   https://docs.jj-vcs.dev/latest/install-and-setup/#command-line-completion
 
 **Usage:** `jj util completion <SHELL>`
 
@@ -3246,9 +3246,9 @@ List workspaces
 
    All 0-argument methods of the [`WorkspaceRef` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
 
-   [`WorkspaceRef` type]: https://jj-vcs.github.io/jj/latest/templates/#workspaceref-type
+   [`WorkspaceRef` type]: https://docs.jj-vcs.dev/latest/templates/#workspaceref-type
 
-   [`jj help -k templates`]: https://jj-vcs.github.io/jj/latest/templates/
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 
 
 
@@ -3278,7 +3278,7 @@ Update a workspace that has become stale
 
 See the [stale working copy documentation] for more information.
 
-[stale working copy documentation]: https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy
+[stale working copy documentation]: https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy
 
 **Usage:** `jj workspace update-stale`
 

@@ -49,7 +49,7 @@ use crate::ui::Ui;
 /// See [`jj help -k bookmarks`] for more information.
 ///
 /// [`jj help -k bookmarks`]:
-///     https://jj-vcs.github.io/jj/latest/bookmarks
+///     https://docs.jj-vcs.dev/latest/bookmarks
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkListArgs {
     /// Show all tracking and non-tracking remote bookmarks including the ones
@@ -67,7 +67,7 @@ pub struct BookmarkListArgs {
     /// prefix to select remotes by [wildcard pattern].
     ///
     /// [wildcard pattern]:
-    ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+    ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(
         long = "remote",
         value_name = "REMOTE",
@@ -91,7 +91,7 @@ pub struct BookmarkListArgs {
     /// select bookmarks by [wildcard pattern].
     ///
     /// [wildcard pattern]:
-    ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+    ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(add = ArgValueCandidates::new(complete::bookmarks))]
     names: Option<Vec<String>>,
 
@@ -109,10 +109,10 @@ pub struct BookmarkListArgs {
     /// for more information.
     ///
     /// [`CommitRef` type]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/#commitref-type
+    ///     https://docs.jj-vcs.dev/latest/templates/#commitref-type
     ///
     /// [`jj help -k templates`]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/
+    ///     https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
 

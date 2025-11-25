@@ -56,7 +56,7 @@ use crate::ui::Ui;
 /// revision. The remaining changes will be put in a new revision on top.
 ///
 /// [diff editor]:
-///     https://jj-vcs.github.io/jj/latest/config/#editing-diffs
+///     https://docs.jj-vcs.dev/latest/config/#editing-diffs
 ///
 /// If the change you split had a description, you will be asked to enter a
 /// change description for each commit. If the change did not have a

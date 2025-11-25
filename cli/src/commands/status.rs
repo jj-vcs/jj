@@ -46,7 +46,7 @@ use crate::ui::Ui;
 /// * [Conflicted bookmarks]
 ///
 /// [Conflicted bookmarks]:
-///     https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
+///     https://docs.jj-vcs.dev/latest/bookmarks/#conflicts
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct StatusArgs {
     /// Restrict the status display to these paths

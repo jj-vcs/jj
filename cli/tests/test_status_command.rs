@@ -242,11 +242,11 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let output = work_dir.run_jj(["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 7e0bc4cf conflict
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 6e3ffaa1 conflict
     │  (empty) boom-cont-2
-    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 681c71af conflict
+    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 7f9e90e6 conflict
     │  (empty) boom-cont
-    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 30558616 conflict
+    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 f024cc11 conflict
     ├─╮  (empty) boom
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 bb11a679
     │ │  First part of conflicting change
@@ -261,8 +261,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r###"
     The working copy has no changes.
-    Working copy  (@) : yqosqzyt 7e0bc4cf (conflict) (empty) boom-cont-2
-    Parent commit (@-): royxmykx 681c71af (conflict) (empty) boom-cont
+    Working copy  (@) : yqosqzyt 6e3ffaa1 (conflict) (empty) boom-cont-2
+    Parent commit (@-): royxmykx 7f9e90e6 (conflict) (empty) boom-cont
     Warning: There are unresolved conflicts at these paths:
     conflicted.txt    2-sided conflict
     Hint: To resolve the conflicts, start by creating a commit on top of
@@ -277,8 +277,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let output = work_dir.run_jj(["status", "--color=always"]);
     insta::assert_snapshot!(output, @r###"
     The working copy has no changes.
-    Working copy  (@) : [1m[38;5;13my[38;5;8mqosqzyt[39m [38;5;12m7[38;5;8me0bc4cf[39m [38;5;9m(conflict)[39m [38;5;10m(empty)[39m boom-cont-2[0m
-    Parent commit (@-): [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4m6[0m[38;5;8m81c71af[39m [38;5;1m(conflict)[39m [38;5;2m(empty)[39m boom-cont
+    Working copy  (@) : [1m[38;5;13my[38;5;8mqosqzyt[39m [38;5;12m6[38;5;8me3ffaa1[39m [38;5;9m(conflict)[39m [38;5;10m(empty)[39m boom-cont-2[0m
+    Parent commit (@-): [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4m7[0m[38;5;8mf9e90e6[39m [38;5;1m(conflict)[39m [38;5;2m(empty)[39m boom-cont
     [1m[38;5;3mWarning: [39mThere are unresolved conflicts at these paths:[0m
     conflicted.txt    [38;5;3m2-sided conflict[39m
     [1m[38;5;6mHint: [0m[39mTo resolve the conflicts, start by creating a commit on top of[39m
@@ -293,8 +293,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let output = work_dir.run_jj(["status", "--config=hints.resolving-conflicts=false"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : yqosqzyt 7e0bc4cf (conflict) (empty) boom-cont-2
-    Parent commit (@-): royxmykx 681c71af (conflict) (empty) boom-cont
+    Working copy  (@) : yqosqzyt 6e3ffaa1 (conflict) (empty) boom-cont-2
+    Parent commit (@-): royxmykx 7f9e90e6 (conflict) (empty) boom-cont
     Warning: There are unresolved conflicts at these paths:
     conflicted.txt    2-sided conflict
     [EOF]
@@ -312,15 +312,15 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let output = work_dir.run_jj(["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
-    @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 cc7d68f7
+    @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 1ad2785d
     │  fixed 2
-    ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 812e2163
+    ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 aeb3b829
     │  fixed 1
-    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 7e0bc4cf conflict
+    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 6e3ffaa1 conflict
     │  (empty) boom-cont-2
-    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 681c71af conflict
+    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 7f9e90e6 conflict
     │  (empty) boom-cont
-    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 30558616 conflict
+    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 f024cc11 conflict
     ├─╮  (empty) boom
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 bb11a679
     │ │  First part of conflicting change
@@ -337,8 +337,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M conflicted.txt
-    Working copy  (@) : wqnwkozp cc7d68f7 fixed 2
-    Parent commit (@-): kmkuslsw 812e2163 fixed 1
+    Working copy  (@) : wqnwkozp 1ad2785d fixed 2
+    Parent commit (@-): kmkuslsw aeb3b829 fixed 1
     [EOF]
     ");
 
@@ -348,15 +348,15 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let output = work_dir.run_jj(["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
-    ○  wqnwkozp test.user@example.com 2001-02-03 08:05:20 cc7d68f7
+    ○  wqnwkozp test.user@example.com 2001-02-03 08:05:20 1ad2785d
     │  fixed 2
-    @  kmkuslsw test.user@example.com 2001-02-03 08:05:19 812e2163
+    @  kmkuslsw test.user@example.com 2001-02-03 08:05:19 aeb3b829
     │  fixed 1
-    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 7e0bc4cf conflict
+    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 6e3ffaa1 conflict
     │  (empty) boom-cont-2
-    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 681c71af conflict
+    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 7f9e90e6 conflict
     │  (empty) boom-cont
-    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 30558616 conflict
+    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 f024cc11 conflict
     ├─╮  (empty) boom
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 bb11a679
     │ │  First part of conflicting change
@@ -373,8 +373,8 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M conflicted.txt
-    Working copy  (@) : kmkuslsw 812e2163 fixed 1
-    Parent commit (@-): yqosqzyt 7e0bc4cf (conflict) (empty) boom-cont-2
+    Working copy  (@) : kmkuslsw aeb3b829 fixed 1
+    Parent commit (@-): yqosqzyt 6e3ffaa1 (conflict) (empty) boom-cont-2
     Hint: Conflict in parent commit has been resolved in working copy
     [EOF]
     ");
@@ -386,15 +386,15 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let output = work_dir.run_jj(["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
-    ○  wqnwkozp test.user@example.com 2001-02-03 08:05:20 cc7d68f7
+    ○  wqnwkozp test.user@example.com 2001-02-03 08:05:20 1ad2785d
     │  fixed 2
-    ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 812e2163
+    ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 aeb3b829
     │  fixed 1
-    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 7e0bc4cf conflict
+    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 6e3ffaa1 conflict
     │  (empty) boom-cont-2
-    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 681c71af conflict
+    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 7f9e90e6 conflict
     │  (empty) boom-cont
-    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 30558616 conflict
+    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 f024cc11 conflict
     ├─╮  (empty) boom
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 bb11a679
     │ │  First part of conflicting change
@@ -443,9 +443,9 @@ fn test_status_simplify_conflict_sides() {
     insta::assert_snapshot!(work_dir.run_jj(["status"]),
     @r###"
     The working copy has no changes.
-    Working copy  (@) : nkmrtpmo a5a545ce conflict | (conflict) (empty) conflict
-    Parent commit (@-): kmkuslsw ccb05364 conflictA | (conflict) (empty) conflictA
-    Parent commit (@-): lylxulpl d9bc60cb conflictB | (conflict) (empty) conflictB
+    Working copy  (@) : nkmrtpmo 14a0b4b7 conflict | (conflict) (empty) conflict
+    Parent commit (@-): kmkuslsw 73b61e6e conflictA | (conflict) (empty) conflictA
+    Parent commit (@-): lylxulpl 563db74e conflictB | (conflict) (empty) conflictB
     Warning: There are unresolved conflicts at these paths:
     fileA    2-sided conflict
     fileB    2-sided conflict

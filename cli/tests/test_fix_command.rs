@@ -52,7 +52,7 @@ fn test_config_no_tools() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: No `fix.tools` are configured
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -169,7 +169,7 @@ fn test_config_multiple_tools_with_same_name() {
     duplicate key
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -261,7 +261,7 @@ fn test_config_disabled_tools_warning_when_all_tools_are_disabled() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: At least one entry of `fix.tools` must be enabled.
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -335,7 +335,7 @@ fn test_config_tables_all_commands_missing() {
     Caused by: missing field `command`
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -375,7 +375,7 @@ fn test_config_tables_some_commands_missing() {
     Caused by: missing field `command`
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -894,7 +894,7 @@ fn test_fix_immutable_commit() {
     Hint: Could not modify commit: qpvuntsm a86b2ecc immutable | (no description set)
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
-          - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+          - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]
@@ -1395,7 +1395,7 @@ fn test_fix_both_sides_of_conflict() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 3 commits of 3 checked.
-    Working copy  (@) now at: mzvwutvl d4d02bf0 (conflict) (empty) (no description set)
+    Working copy  (@) now at: mzvwutvl e1acdc6e (conflict) (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 0eae0dae a | (no description set)
     Parent commit (@-)      : kkmpptxz eb61ba8d b | (no description set)
     Added 0 files, modified 1 files, removed 0 files

@@ -89,10 +89,10 @@ use crate::ui::Ui;
 /// conflicts].
 ///
 /// [safety checks]:
-///     https://jj-vcs.github.io/jj/latest/bookmarks/#pushing-bookmarks-safety-checks
+///     https://docs.jj-vcs.dev/latest/bookmarks/#pushing-bookmarks-safety-checks
 ///
 /// [bookmark conflicts]:
-///     https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts
+///     https://docs.jj-vcs.dev/latest/bookmarks/#conflicts
 
 #[derive(clap::Args, Clone, Debug)]
 #[command(group(ArgGroup::new("specific").args(&["bookmark", "change", "revisions", "named"]).multiple(true)))]
@@ -111,7 +111,7 @@ pub struct GitPushArgs {
     /// select bookmarks by [wildcard pattern].
     ///
     /// [wildcard pattern]:
-    ///     https://jj-vcs.github.io/jj/latest/revsets#string-patterns
+    ///     https://docs.jj-vcs.dev/latest/revsets#string-patterns
     #[arg(
         long, short,
         alias = "branch",
@@ -128,7 +128,7 @@ pub struct GitPushArgs {
     /// from the [relevant remote].
     ///
     /// [relevant remote]:
-    ///     https://jj-vcs.github.io/jj/latest/bookmarks#remotes-and-tracked-bookmarks
+    ///     https://docs.jj-vcs.dev/latest/bookmarks#remotes-and-tracked-bookmarks
     #[arg(long)]
     tracked: bool,
     /// Push all deleted bookmarks

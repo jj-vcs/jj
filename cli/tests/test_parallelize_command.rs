@@ -789,7 +789,7 @@ fn test_parallelize_no_immutable_non_base_commits() {
     Hint: Could not modify commit: kkmpptxz 6d01ab1f (empty) x1
     Hint: Immutable commits are used to protect shared history.
     Hint: For more information, see:
-          - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+          - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
           - `jj help -k config`, "Set of immutable commits"
     Hint: This operation would rewrite 1 immutable commits.
     [EOF]

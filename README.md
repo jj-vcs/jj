@@ -17,10 +17,10 @@
 **[Development Roadmap] &nbsp;&nbsp;&bull;&nbsp;&nbsp;**
 **[Contributing](#contributing)**
 
-[Homepage]: https://jj-vcs.github.io/jj
-[Installation]: https://jj-vcs.github.io/jj/latest/install-and-setup
-[Getting Started]: https://jj-vcs.github.io/jj/latest/tutorial
-[Development Roadmap]: https://jj-vcs.github.io/jj/latest/roadmap
+[Homepage]: https://www.jj-vcs.dev
+[Installation]: https://docs.jj-vcs.dev/latest/install-and-setup
+[Getting Started]: https://docs.jj-vcs.dev/latest/tutorial
+[Development Roadmap]: https://docs.jj-vcs.dev/latest/roadmap
 
 </div>
 
@@ -71,9 +71,9 @@ systems into a single tool. Some of those sources of inspiration include:
   conflict resolution can be performed and propagated automatically.
 
 [perf]: https://github.com/jj-vcs/jj/discussions/49
-[revset]: https://jj-vcs.github.io/jj/latest/revsets/
-[no-index]: https://jj-vcs.github.io/jj/latest/git-comparison/#the-index
-[conflicts]: https://jj-vcs.github.io/jj/latest/conflicts/
+[revset]: https://docs.jj-vcs.dev/latest/revsets/
+[no-index]: https://docs.jj-vcs.dev/latest/git-comparison/#the-index
+[conflicts]: https://docs.jj-vcs.dev/latest/conflicts/
 
 And it adds several innovative, useful features of its own:
 
@@ -118,9 +118,9 @@ And it adds several innovative, useful features of its own:
   _should_ happen is that it will expose conflicts between the local and remote
   state, leaving you to resolve them.
 
-[wcc]: https://jj-vcs.github.io/jj/latest/working-copy/
+[wcc]: https://docs.jj-vcs.dev/latest/working-copy/
 [undo-history]: https://en.wikipedia.org/wiki/Undo#History
-[conc-safety]: https://jj-vcs.github.io/jj/latest/technical/concurrency/
+[conc-safety]: https://docs.jj-vcs.dev/latest/technical/concurrency/
 
 The command-line tool is called `jj` for now because it's easy to type and easy
 to replace (rare in English). The project is called "Jujutsu" because it matches
@@ -185,25 +185,25 @@ The wiki also contains a more extensive list of [media references][wiki-media].
 > it unusable for your particular use.
 
 Follow the [installation
-instructions](https://jj-vcs.github.io/jj/latest/install-and-setup) to
+instructions](https://docs.jj-vcs.dev/latest/install-and-setup) to
 obtain and configure `jj`.
 
 The best way to get started is probably to go through [the
-tutorial](https://jj-vcs.github.io/jj/latest/tutorial). Also see the [Git
-comparison](https://jj-vcs.github.io/jj/latest/git-comparison), which
+tutorial](https://docs.jj-vcs.dev/latest/tutorial). Also see the [Git
+comparison](https://docs.jj-vcs.dev/latest/git-comparison), which
 includes a table of `jj` vs. `git` commands.
 
 As you become more familiar with Jujutsu, the following resources may be helpful:
 
-- The [FAQ](https://jj-vcs.github.io/jj/latest/FAQ).
-- The [Glossary](https://jj-vcs.github.io/jj/latest/glossary).
+- The [FAQ](https://docs.jj-vcs.dev/latest/FAQ).
+- The [Glossary](https://docs.jj-vcs.dev/latest/glossary).
 - The `jj help` command (e.g. `jj help rebase`).
 - The `jj help -k <keyword>` command (e.g. `jj help -k config`). Use `jj help --help`
   to see what keywords are available.
 
 If you are using a **prerelease** version of `jj`, you would want to consult
 [the docs for the prerelease (main branch)
-version](https://jj-vcs.github.io/jj/prerelease/). You can also get there
+version](https://docs.jj-vcs.dev/prerelease/). You can also get there
 from the docs for the latest release by using the website's version switcher. The version switcher is visible in
 the header of the website when you scroll to the top of any page.
 
@@ -215,7 +215,7 @@ Jujutsu is designed so that the underlying data and storage model is abstract.
 Today, only the Git backend is production-ready. The Git backend uses the
 [gitoxide](https://github.com/Byron/gitoxide) Rust library.
 
-[backends]: https://jj-vcs.github.io/jj/latest/glossary#backend
+[backends]: https://docs.jj-vcs.dev/latest/glossary#backend
 
 The Git backend is fully featured and maintained, and allows you to use Jujutsu
 with any Git remote. The commits you create will look like regular Git commits.
@@ -227,7 +227,7 @@ Here is how you can explore a GitHub repository with `jj`.
 <img src="demos/git_compat.png" />
 
 You can even have a [colocated local
-workspace](https://jj-vcs.github.io/jj/latest/git-compatibility#colocated-jujutsugit-repos)
+workspace](https://docs.jj-vcs.dev/latest/git-compatibility#colocated-jujutsugit-repos)
 where you can use both `jj` and `git` commands interchangeably.
 
 ### The working copy is automatically committed
@@ -268,7 +268,7 @@ particular operation which does not have to be the most recent one.
 ### Conflicts can be recorded in commits
 
 If an operation results in
-[conflicts](https://jj-vcs.github.io/jj/latest/glossary#conflict),
+[conflicts](https://docs.jj-vcs.dev/latest/glossary#conflict),
 information about those conflicts will be recorded in the commit(s). The
 operation will succeed. You can then resolve the conflicts later. One
 consequence of this design is that there's no need to continue interrupted
@@ -320,7 +320,7 @@ upgrade commands or scripts if requested.
 ## Related work
 
 There are several tools trying to solve similar problems as Jujutsu. See
-[related work](https://jj-vcs.github.io/jj/latest/related-work) for details.
+[related work](https://docs.jj-vcs.dev/latest/related-work) for details.
 
 ## Contributing
 
@@ -329,7 +329,7 @@ don't be shy. Please ask if you want a pointer on something you can help with,
 and hopefully we can all figure something out.
 
 We do have [a few policies and
-suggestions](https://jj-vcs.github.io/jj/prerelease/contributing/)
+suggestions](https://docs.jj-vcs.dev/prerelease/contributing/)
 for contributors. The broad TL;DR:
 
 - Bug reports are very welcome!

@@ -45,7 +45,7 @@ fn test_syntax_error() {
       |    ^---
       |
       = expected `::`, `..`, `~`, or <primary>
-    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
     [EOF]
     [exit status: 1]
     ");
@@ -217,7 +217,7 @@ fn test_bad_function_call() {
       |     ^---
       |
       = expected <identifier>, <string_literal>, or <raw_string_literal>
-    Hint: See https://jj-vcs.github.io/jj/latest/filesets/ or use `jj help -k filesets` for filesets syntax and how to match file paths.
+    Hint: See https://docs.jj-vcs.dev/latest/filesets/ or use `jj help -k filesets` for filesets syntax and how to match file paths.
     [EOF]
     [exit status: 1]
     ");
@@ -240,7 +240,7 @@ fn test_bad_function_call() {
       |
       = Invalid file pattern
     3: Invalid file pattern kind `foo:`
-    Hint: See https://jj-vcs.github.io/jj/latest/filesets/#file-patterns or `jj help -k filesets` for valid prefixes.
+    Hint: See https://docs.jj-vcs.dev/latest/filesets/#file-patterns or `jj help -k filesets` for valid prefixes.
     [EOF]
     [exit status: 1]
     "#);
@@ -356,7 +356,7 @@ fn test_bad_function_call() {
       |                  ^---
       |
       = expected <strict_identifier> or <expression>
-    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
     [EOF]
     [exit status: 1]
     ");
@@ -371,7 +371,7 @@ fn test_bad_function_call() {
       |                         ^---
       |
       = expected <expression>
-    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
     [EOF]
     [exit status: 1]
     ");
@@ -597,7 +597,7 @@ fn test_alias() {
       |           ^---
       |
       = expected `::`, `..`, `~`, or <primary>
-    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
     [EOF]
     [exit status: 1]
     ");
@@ -926,7 +926,7 @@ fn test_all_modifier() {
       |    ^
       |
       = `:` is not an infix operator
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");

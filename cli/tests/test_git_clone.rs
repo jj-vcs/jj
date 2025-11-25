@@ -682,7 +682,7 @@ fn test_git_clone_remote_default_bookmark() {
     ------- stderr -------
     Warning: Deprecated CLI-provided config: `git.auto-local-bookmark` is deprecated; use `remotes.<name>.auto-track-bookmarks` instead.
     Example: jj config set --user remotes.origin.auto-track-bookmarks 'glob:*'
-    For details, see: https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks
+    For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks
     Fetching into new repo in "$TEST_ENV/clone5"
     bookmark: feature1@origin [new] tracked
     bookmark: main@origin     [new] tracked
@@ -778,7 +778,7 @@ fn test_git_clone_ignore_working_copy() {
     ------- stderr -------
     Error: The working copy is stale (not updated since operation 8f47435a3990).
     Hint: Run `jj workspace update-stale` to update it.
-    See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
+    See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
     [exit status: 1]
     ");
@@ -1039,7 +1039,7 @@ fn test_git_clone_invalid_immutable_heads() {
     ------- stderr -------
     Config error: Invalid `revset-aliases.immutable_heads()`
     Caused by: Revision `unknown` doesn't exist
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -1074,7 +1074,7 @@ fn test_git_clone_malformed() {
     ------- stderr -------
     Error: The working copy is stale (not updated since operation 353078ed182b).
     Hint: Run `jj workspace update-stale` to update it.
-    See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy for more information.
+    See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
     [exit status: 1]
     ");

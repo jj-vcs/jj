@@ -800,8 +800,8 @@ fn find_source_parse_error_hint(err: &dyn error::Error) -> Option<String> {
     }
 }
 
-const REVSET_SYMBOL_HINT: &str = "See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help \
-                                  -k revsets` for how to quote symbols.";
+const REVSET_SYMBOL_HINT: &str = "See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k \
+                                  revsets` for how to quote symbols.";
 
 fn bookmark_name_parse_error_hint(err: &BookmarkNameParseError) -> Option<String> {
     use revset::ExpressionKind;
@@ -825,8 +825,8 @@ fn config_get_error_hint(err: &ConfigGetError) -> Option<String> {
 fn file_pattern_parse_error_hint(err: &FilePatternParseError) -> Option<String> {
     match err {
         FilePatternParseError::InvalidKind(_) => Some(String::from(
-            "See https://jj-vcs.github.io/jj/latest/filesets/#file-patterns or `jj help -k \
-             filesets` for valid prefixes.",
+            "See https://docs.jj-vcs.dev/latest/filesets/#file-patterns or `jj help -k filesets` \
+             for valid prefixes.",
         )),
         // Suggest root:"<path>" if input can be parsed as repo-relative path
         FilePatternParseError::UiPath(UiPathParseError::Fs(e)) => {
@@ -842,7 +842,7 @@ fn file_pattern_parse_error_hint(err: &FilePatternParseError) -> Option<String> 
 fn fileset_parse_error_hint(err: &FilesetParseError) -> Option<String> {
     match err.kind() {
         FilesetParseErrorKind::SyntaxError => Some(String::from(
-            "See https://jj-vcs.github.io/jj/latest/filesets/ or use `jj help -k filesets` for \
+            "See https://docs.jj-vcs.dev/latest/filesets/ or use `jj help -k filesets` for \
              filesets syntax and how to match file paths.",
         )),
         FilesetParseErrorKind::NoSuchFunction {
@@ -876,8 +876,8 @@ pub(crate) fn revset_parse_error_hint(err: &RevsetParseError) -> Option<String> 
     let bottom_err = iter::successors(Some(err), |e| e.origin()).last().unwrap();
     match bottom_err.kind() {
         RevsetParseErrorKind::SyntaxError => Some(
-            "See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for \
-             revsets syntax and how to quote symbols."
+            "See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets \
+             syntax and how to quote symbols."
                 .into(),
         ),
         RevsetParseErrorKind::NotPrefixOperator {
@@ -1000,8 +1000,7 @@ fn try_handle_command_result(ui: &mut Ui, result: Result<(), CommandError>) -> i
             print_error(ui, "Config error: ", err, hints)?;
             writeln!(
                 ui.stderr_formatter().labeled("hint"),
-                "For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k \
-                 config`."
+                "For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`."
             )?;
             Ok(1)
         }

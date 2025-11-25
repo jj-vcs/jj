@@ -43,7 +43,7 @@ use crate::ui::Ui;
 /// See the [operation log documentation] for more information.
 ///
 /// [operation log documentation]:
-///     https://jj-vcs.github.io/jj/latest/operation-log/
+///     https://docs.jj-vcs.dev/latest/operation-log/
 #[derive(Subcommand, Clone, Debug)]
 pub enum OperationCommand {
     Abandon(OperationAbandonArgs),

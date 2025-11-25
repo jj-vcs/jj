@@ -158,7 +158,7 @@ fn test_bookmark_bad_name() {
       | ^---
       |
       = expected <identifier>, <string_literal>, or <raw_string_literal>
-    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for how to quote symbols.
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for how to quote symbols.
     [EOF]
     [exit status: 2]
     ");
@@ -175,7 +175,7 @@ fn test_bookmark_bad_name() {
       | ^^
       |
       = Expected non-empty string
-    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for how to quote symbols.
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for how to quote symbols.
     [EOF]
     [exit status: 2]
     ");
@@ -192,7 +192,7 @@ fn test_bookmark_bad_name() {
       | ^---
       |
       = expected <identifier>, <string_literal>, or <raw_string_literal>
-    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for how to quote symbols.
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for how to quote symbols.
     [EOF]
     [exit status: 2]
     ");
@@ -210,7 +210,7 @@ fn test_bookmark_bad_name() {
       | ^---
       |
       = expected <identifier>, <string_literal>, or <raw_string_literal>
-    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for how to quote symbols.
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for how to quote symbols.
     [EOF]
     [exit status: 2]
     ");
@@ -2111,7 +2111,7 @@ fn test_bookmark_list_filtered() {
       |      ^---
       |
       = expected `::`, `..`, `~`, or <primary>
-    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
     [EOF]
     [exit status: 1]
     ");

@@ -150,7 +150,7 @@ fn test_alias_calls_help() {
 
     To get started, see the tutorial [`jj help -k tutorial`].
 
-    [`jj help -k tutorial`]: https://jj-vcs.github.io/jj/latest/tutorial/
+    [`jj help -k tutorial`]: https://docs.jj-vcs.dev/latest/tutorial/
 
     Usage: jj [OPTIONS] <COMMAND>
     [EOF]
@@ -280,7 +280,7 @@ fn test_alias_invalid_definition() {
     Caused by: invalid type: integer `5`, expected a sequence
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -291,7 +291,7 @@ fn test_alias_invalid_definition() {
     Caused by: invalid type: integer `0`, expected a string
 
     Hint: Check the config file: $TEST_ENV/config/config0002.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");

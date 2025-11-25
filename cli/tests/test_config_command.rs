@@ -645,7 +645,7 @@ fn test_config_set_for_user() {
     let user_config_toml = std::fs::read_to_string(&user_config_path)
         .unwrap_or_else(|_| panic!("Failed to read file {}", user_config_path.display()));
     insta::assert_snapshot!(user_config_toml, @r#"
-    #:schema https://jj-vcs.github.io/jj/latest/config-schema.json
+    #:schema https://docs.jj-vcs.dev/latest/config-schema.json
 
     test-key = "test-val"
 
@@ -719,7 +719,7 @@ fn test_config_set_for_repo() {
     // Ensure test-key successfully written to user config.
     let repo_config_toml = work_dir.read_file(".jj/repo/config.toml");
     insta::assert_snapshot!(repo_config_toml, @r#"
-    #:schema https://jj-vcs.github.io/jj/latest/config-schema.json
+    #:schema https://docs.jj-vcs.dev/latest/config-schema.json
 
     test-key = "test-val"
 
@@ -747,7 +747,7 @@ fn test_config_set_for_workspace() {
     // Read workspace config
     let workspace_config = work_dir.read_file(".jj/workspace-config.toml");
     insta::assert_snapshot!(workspace_config, @r#"
-    #:schema https://jj-vcs.github.io/jj/latest/config-schema.json
+    #:schema https://docs.jj-vcs.dev/latest/config-schema.json
 
     test-key = "ws-val"
     "#);
@@ -774,7 +774,7 @@ fn test_config_set_toml_types() {
     set_value("test-table.string", r#""foo""#);
     set_value("test-table.invalid", r"a + b");
     insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r#"
-    #:schema https://jj-vcs.github.io/jj/latest/config-schema.json
+    #:schema https://docs.jj-vcs.dev/latest/config-schema.json
 
     [test-table]
     integer = 42
@@ -870,7 +870,7 @@ fn test_config_unset_inline_table_key() {
         .success();
     let user_config_toml = std::fs::read_to_string(&user_config_path).unwrap();
     insta::assert_snapshot!(user_config_toml, @r"
-    #:schema https://jj-vcs.github.io/jj/latest/config-schema.json
+    #:schema https://docs.jj-vcs.dev/latest/config-schema.json
 
     inline-table = {}
     ");
@@ -1237,7 +1237,7 @@ fn test_config_get() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Value not found for nonexistent
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -1412,7 +1412,7 @@ fn test_config_path_syntax() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Value not found for a.'b()'.x
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");
@@ -1717,7 +1717,7 @@ fn test_config_show_paths() {
     Caused by: unknown variant `:builtin`, expected `never` or `auto`
 
     Hint: Check the config file: $TEST_ENV/config/config0001.toml
-    For help, see https://jj-vcs.github.io/jj/latest/config/ or use `jj help -k config`.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
     [EOF]
     [exit status: 1]
     ");

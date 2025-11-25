@@ -392,7 +392,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: mzvwutvl 268f208f (conflict) (empty) (no description set)
+    Working copy  (@) now at: mzvwutvl b9458f20 (conflict) (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 74e448a1 side-a
     Parent commit (@-)      : zsuskuln 6982bce7 side-b
     Added 0 files, modified 1 files, removed 0 files
@@ -471,7 +471,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     let output = work_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : mzvwutvl 268f208f (conflict) (empty) (no description set)
+    Working copy  (@) : mzvwutvl b9458f20 (conflict) (empty) (no description set)
     Parent commit (@-): rlvkpnrz 74e448a1 side-a
     Parent commit (@-): zsuskuln 6982bce7 side-b
     Warning: There are unresolved conflicts at these paths:
@@ -633,8 +633,8 @@ fn test_diffedit_merge() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: yqosqzyt ce686d54 (conflict) (empty) (no description set)
-    Parent commit (@-)      : royxmykx 47cae64e (conflict) merge
+    Working copy  (@) now at: yqosqzyt 5e33630e (conflict) (empty) (no description set)
+    Parent commit (@-)      : royxmykx 501edbda (conflict) merge
     Added 0 files, modified 0 files, removed 1 files
     Warning: There are unresolved conflicts at these paths:
     file2    2-sided conflict

@@ -1828,7 +1828,7 @@ enable schema validation in your editor, add this line at the top of your TOML
 config files:
 
 ```toml
-#:schema https://jj-vcs.github.io/jj/latest/config-schema.json
+#:schema https://docs.jj-vcs.dev/latest/config-schema.json
 ```
 
 This enables features like:

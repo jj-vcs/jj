@@ -73,7 +73,7 @@ pub struct GitCloneArgs {
     /// [git.colocate config] is set to `false`.
     ///
     /// [git.colocate config]:
-    ///     https://jj-vcs.github.io/jj/latest/config/#default-colocation
+    ///     https://docs.jj-vcs.dev/latest/config/#default-colocation
     #[arg(long)]
     colocate: bool,
     /// Disable colocation of the Jujutsu repo with the git repo
@@ -86,7 +86,7 @@ pub struct GitCloneArgs {
     /// workspaces.
     ///
     /// [colocation docs]:
-    ///     https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos
+    ///     https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos
     #[arg(long, conflicts_with = "colocate")]
     no_colocate: bool,
     /// Create a shallow clone of the given depth

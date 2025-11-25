@@ -65,10 +65,10 @@ use crate::ui::Ui;
 /// See this [comparison], including a [table of commands].
 ///
 /// [comparison]:
-///     https://jj-vcs.github.io/jj/latest/git-comparison/.
+///     https://docs.jj-vcs.dev/latest/git-comparison/.
 ///
 /// [table of commands]:
-///     https://jj-vcs.github.io/jj/latest/git-command-table
+///     https://docs.jj-vcs.dev/latest/git-command-table
 #[derive(Subcommand, Clone, Debug)]
 pub enum GitCommand {
     Clone(GitCloneArgs),

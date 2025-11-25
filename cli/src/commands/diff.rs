@@ -109,10 +109,10 @@ pub(crate) struct DiffArgs {
     /// more information.
     ///
     /// [`TreeDiffEntry` type]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/#treediffentry-type
+    ///     https://docs.jj-vcs.dev/latest/templates/#treediffentry-type
     ///
     /// [`jj help -k templates`]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/
+    ///     https://docs.jj-vcs.dev/latest/templates/
     #[arg(
         long,
         short = 'T',

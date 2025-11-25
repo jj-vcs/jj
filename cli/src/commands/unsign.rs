@@ -33,7 +33,7 @@ use crate::ui::Ui;
 /// See also [commit signing] docs.
 ///
 /// [commit signing]:
-///     https://jj-vcs.github.io/jj/latest/config/#commit-signing
+///     https://docs.jj-vcs.dev/latest/config/#commit-signing
 #[derive(clap::Args, Clone, Debug)]
 pub struct UnsignArgs {
     /// What revision(s) to unsign

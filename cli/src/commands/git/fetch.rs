@@ -78,7 +78,7 @@ pub struct GitFetchArgs {
     /// patterns.
     ///
     /// [string pattern]:
-    ///     https://jj-vcs.github.io/jj/latest/revsets#string-patterns
+    ///     https://docs.jj-vcs.dev/latest/revsets#string-patterns
     #[arg(
         long = "remote",
         value_name = "REMOTE",

@@ -34,7 +34,7 @@ pub struct TagListArgs {
     /// select tags by [wildcard pattern].
     ///
     /// [wildcard pattern]:
-    ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+    ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     pub names: Option<Vec<String>>,
     /// Render each tag using the given template
     ///
@@ -43,10 +43,10 @@ pub struct TagListArgs {
     /// for more information.
     ///
     /// [`CommitRef` type]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/#commitref-type
+    ///     https://docs.jj-vcs.dev/latest/templates/#commitref-type
     ///
     /// [`jj help -k templates`]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/
+    ///     https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
 }

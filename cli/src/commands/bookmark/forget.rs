@@ -51,7 +51,7 @@ pub struct BookmarkForgetArgs {
     /// select bookmarks by [wildcard pattern].
     ///
     /// [wildcard pattern]:
-    ///     https://jj-vcs.github.io/jj/latest/revsets/#string-patterns
+    ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(
         required = true,
         value_parser = StringPattern::parse,

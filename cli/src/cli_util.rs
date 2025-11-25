@@ -1864,7 +1864,7 @@ to the current parents may contain changes from multiple commits.
             error.add_hint("Immutable commits are used to protect shared history.");
             error.add_hint(indoc::indoc! {"
                 For more information, see:
-                      - https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits
+                      - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
                       - `jj help -k config`, \"Set of immutable commits\""});
 
             // Not using self.id_prefix_context() for consistency with
@@ -1948,7 +1948,7 @@ to the current parents may contain changes from multiple commits.
                                 short_operation_hash(&old_op_id)
                             ),
                             "Run `jj workspace update-stale` to update it.
-See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
+See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
                              for more information.",
                         ),
                     ));
@@ -1968,7 +1968,7 @@ See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
                         user_error_with_hint(
                             "Could not read working copy's operation.",
                             "Run `jj workspace update-stale` to recover.
-See https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy \
+See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
                              for more information.",
                         ),
                     ));
@@ -3261,7 +3261,7 @@ fn ensure_no_commit_loop(
 /// To get started, see the tutorial [`jj help -k tutorial`].
 ///
 /// [`jj help -k tutorial`]:
-///     https://jj-vcs.github.io/jj/latest/tutorial/
+///     https://docs.jj-vcs.dev/latest/tutorial/
 #[derive(clap::Parser, Clone, Debug)]
 #[command(name = "jj")]
 pub struct Args {

@@ -2,7 +2,7 @@ site_name: !ENV [MKDOCS_SITE_NAME, 'Jujutsu docs']
 site_dir: 'rendered-docs'
 # Not having this (or viewing the site locally, or from any place other than the
 # site_url) leads to version switching failing to preserve the current path.
-site_url: 'https://jj-vcs.github.io/jj/'
+site_url: 'https://docs.jj-vcs.dev/'
 repo_url: https://github.com/jj-vcs/jj
 repo_name: jj-vcs/jj
 edit_uri: edit/main/docs/

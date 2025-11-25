@@ -1468,13 +1468,13 @@ fn write_tree_conflict(
     .collect_vec();
     let readme_id = repo
         .write_blob(
-            r#"This commit was made by jj, https://github.com/jj-vcs/jj.
+            r#"This commit was made by jj, https://jj-vcs.dev/.
 The commit contains file conflicts, and therefore looks wrong when used with plain
 Git or other tools that are unfamiliar with jj.
 
 The .jjconflict-* directories represent the different inputs to the conflict.
 For details, see
-https://jj-vcs.github.io/jj/prerelease/git-compatibility/#format-mapping-details
+https://docs.jj-vcs.dev/prerelease/git-compatibility/#format-mapping-details
 
 If you see this file in your working copy, it probably means that you used a
 regular `git` command to check out a conflicted commit. Use `jj abandon` to

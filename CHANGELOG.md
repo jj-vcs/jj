@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+The documentation has moved from <https://jj-vcs.github.io/jj/> to
+<https://docs.jj-vcs.dev/>.
+
+301 redirects are being issued towards the new domain, so any existing links
+should not be broken.
+
 ### Breaking changes
 
 * In [filesets or path patterns](docs/filesets.md#file-patterns), glob matching

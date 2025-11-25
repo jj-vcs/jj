@@ -73,10 +73,10 @@ pub(crate) struct EvologArgs {
     /// If not specified, this defaults to the `templates.evolog` setting.
     ///
     /// [`CommitEvolutionEntry` type]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/#commitevolutionentry-type
+    ///     https://docs.jj-vcs.dev/latest/templates/#commitevolutionentry-type
     ///
     /// [`jj help -k templates`]:
-    ///     https://jj-vcs.github.io/jj/latest/templates/
+    ///     https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
     /// Show patch compared to the previous version of this change

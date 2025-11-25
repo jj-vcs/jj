@@ -10,9 +10,9 @@ license = "Apache-2.0"
 rust-version = "1.89" # NOTE: remember to update CI, mise.toml, contributing.md, changelog.md, and install-and-setup.md
 edition = "2024"
 readme = "README.md"
-homepage = "https://github.com/jj-vcs/jj"
+homepage = "https://www.jj-vcs.dev/"
 repository = "https://github.com/jj-vcs/jj"
-documentation = "https://jj-vcs.github.io/jj/"
+documentation = "https://docs.jj-vcs.dev/"
 categories = ["version-control", "development-tools"]
 keywords = ["VCS", "DVCS", "SCM", "Git", "Mercurial"]
 
