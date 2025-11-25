@@ -22,13 +22,13 @@ assert_matches = "1.5.0"
 async-trait = "0.1.89"
 blake2 = "0.10.6"
 bstr = "1.12.1"
-clap = { version = "4.5.51", features = [
+clap = { version = "4.5.53", features = [
     "derive",
     "deprecated",
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.5.60", features = ["unstable-dynamic"] }
+clap_complete = { version = "4.5.61", features = ["unstable-dynamic"] }
 clap_complete_nushell = "4.5.10"
 # Update clap-markdown manually since test_generate_md_cli_help snapshot
 # will need regenerating.
@@ -57,9 +57,9 @@ gix = { version = "0.74.1", default-features = false, features = [
     "zlib-rs",
 ] }
 globset = "0.4.18"
-hashbrown = { version = "0.16.0", default-features = false, features = ["inline-more"] }
+hashbrown = { version = "0.16.1", default-features = false, features = ["inline-more"] }
 ignore = "0.4.25"
-indexmap = { version = "2.12.0", features = ["serde"] }
+indexmap = { version = "2.12.1", features = ["serde"] }
 indoc = "2.0.7"
 insta = { version = "1.43.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
@@ -70,8 +70,8 @@ maplit = "1.0.2"
 nix = "0.30.1"
 num_cpus = "1.17.0"
 once_cell = "1.21.3"
-pest = "2.8.3"
-pest_derive = "2.8.3"
+pest = "2.8.4"
+pest_derive = "2.8.4"
 pollster = "0.4.0"
 pretty_assertions = "1.4.1"
 proc-macro2 = "1.0.103"
@@ -102,7 +102,7 @@ smallvec = { version = "1.15.1", features = [
     "union",
 ] }
 strsim = "0.11.1"
-syn = "2.0.110"
+syn = "2.0.111"
 rustversion = "1.0.22"
 tempfile = "3.23.0"
 test-case = "3.3.1"
