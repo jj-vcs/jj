@@ -1817,16 +1817,31 @@ fn test_export_refs_bookmark_changed() {
 
 #[test]
 fn test_export_refs_tag_changed() {
-    // We can export a change to a tag
+    // We can export changes to lightweight and annotated tags. Since jj doesn't
+    // have a native support for tag objects, updated tags won't retain the
+    // original tag metadata.
     let test_data = GitRepoData::create();
     let import_options = default_import_options();
     let git_repo = test_data.git_repo;
-    let commit = empty_git_commit(&git_repo, "refs/tags/v1.0", &[]);
+
+    let commit = empty_git_commit(&git_repo, "refs/tags/lightweight-change", &[]);
+    let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
+    git_repo
+        .tag_reference("lightweight-delete", commit, constraint)
+        .unwrap();
+    for name in ["annotated-change", "annotated-delete"] {
+        let kind = gix::object::Kind::Commit;
+        let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
+        git_repo
+            .tag(name, commit, kind, None, "", constraint)
+            .unwrap();
+    }
 
     let mut tx = test_data.repo.start_transaction();
     let mut_repo = tx.repo_mut();
     git::import_head(mut_repo).unwrap();
-    git::import_refs(mut_repo, &import_options).unwrap();
+    let stats = git::import_refs(mut_repo, &import_options).unwrap();
+    assert_eq!(stats.changed_remote_tags.len(), 4);
     mut_repo.rebase_descendants().unwrap();
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
@@ -1836,17 +1851,42 @@ fn test_export_refs_tag_changed() {
         .set_parents(vec![jj_id(commit)])
         .write()
         .unwrap();
-    mut_repo.set_local_tag_target("v1.0".as_ref(), RefTarget::normal(new_commit.id().clone()));
+    let new_target = RefTarget::normal(new_commit.id().clone());
+    mut_repo.set_local_tag_target("lightweight-change".as_ref(), new_target.clone());
+    mut_repo.set_local_tag_target("lightweight-delete".as_ref(), RefTarget::absent());
+    mut_repo.set_local_tag_target("annotated-change".as_ref(), new_target.clone());
+    mut_repo.set_local_tag_target("annotated-delete".as_ref(), RefTarget::absent());
+    mut_repo.set_local_tag_target("new".as_ref(), new_target.clone());
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
-    assert!(stats.failed_tags.is_empty());
+    assert_eq!(stats.failed_tags.len(), 2); // FIXME
     assert_eq!(
-        mut_repo.get_git_ref("refs/tags/v1.0".as_ref()),
-        RefTarget::normal(new_commit.id().clone())
+        mut_repo.get_git_ref("refs/tags/lightweight-change".as_ref()),
+        new_target
+    );
+    assert_eq!(
+        mut_repo.get_git_ref("refs/tags/lightweight-delete".as_ref()),
+        RefTarget::absent()
+    );
+    assert_eq!(mut_repo.get_git_ref("refs/tags/new".as_ref()), new_target);
+    assert_eq!(
+        git_repo
+            .find_reference("refs/tags/lightweight-change")
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id(),
+        git_id(&new_commit)
+    );
+    assert!(
+        git_repo
+            .try_find_reference("refs/tags/lightweight-delete")
+            .unwrap()
+            .is_none()
     );
     assert_eq!(
         git_repo
-            .find_reference("refs/tags/v1.0")
+            .find_reference("refs/tags/new")
             .unwrap()
             .peel_to_commit()
             .unwrap()
