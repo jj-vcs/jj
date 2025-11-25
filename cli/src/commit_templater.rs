@@ -2359,8 +2359,7 @@ impl TreeDiffEntry {
     }
 
     fn status_label(&self) -> &'static str {
-        let (label, _sigil) = diff_util::diff_status_label_and_char(&self.path, &self.values);
-        label
+        diff_util::diff_status(&self.path, &self.values).label()
     }
 
     fn into_source_entry(self) -> TreeEntry {
