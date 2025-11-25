@@ -12,15 +12,6 @@
 }: let
   packageVersion = (lib.importTOML ./Cargo.toml).workspace.package.version;
 
-  filterSrc = src: regexes:
-    lib.cleanSourceWith {
-      inherit src;
-      filter = path: type: let
-        relPath = lib.removePrefix (toString src + "/") (toString path);
-      in
-        lib.all (re: builtins.match re relPath == null) regexes;
-    };
-
   # But, whenever we are running CI builds or checks, we want to use a
   # smaller closure. This reduces the CI impact on fresh clones/VMs, etc.
   rustMinimalPlatform = let
@@ -64,12 +55,24 @@ in
       "--profile"
       "ci"
     ];
-    src = filterSrc ./. [
-      ".*\\.nix$"
-      "^.jj/"
-      "^flake\\.lock$"
-      "^target/"
-    ];
+    src = lib.fileset.toSource {
+      root = ./.;
+      fileset =
+        lib.fileset.fileFilter (
+          {
+            name,
+            hasExt,
+            ...
+          }:
+            !hasExt "nix"
+            && !lib.elem name [
+              "target"
+              ".jj"
+              "flake.lock"
+            ]
+        )
+        ./.;
+    };
 
     cargoLock.lockFile = ./Cargo.lock;
     nativeBuildInputs = nativeBuildInputs ++ [installShellFiles];
