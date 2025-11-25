@@ -19,28 +19,19 @@
     rust-overlay,
   }:
     {
-      overlays.default = final: prev: {
-        jujutsu = self.packages.${final.system}.jujutsu;
-      };
+      overlays.default = final: prev:
+        rust-overlay.overlays.default final prev
+        // {
+          jujutsu = final.callPackage ./package.nix {inherit self;};
+        };
     }
     // (flake-utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
         inherit system;
         overlays = [
-          rust-overlay.overlays.default
+          self.overlays.default
         ];
       };
-
-      packageVersion = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).workspace.package.version;
-
-      filterSrc = src: regexes:
-        pkgs.lib.cleanSourceWith {
-          inherit src;
-          filter = path: type: let
-            relPath = pkgs.lib.removePrefix (toString src + "/") (toString path);
-          in
-            pkgs.lib.all (re: builtins.match re relPath == null) regexes;
-        };
 
       # When we're running in the shell, we want to use rustc with a bunch
       # of extra junk to ensure that rust-analyzer works, clippy etc are all
@@ -55,84 +46,11 @@
         # relevant PR: https://github.com/rust-lang/rust/pull/129687
         extensions = ["rust-src" "rust-analyzer"];
       };
-
-      # But, whenever we are running CI builds or checks, we want to use a
-      # smaller closure. This reduces the CI impact on fresh clones/VMs, etc.
-      rustMinimalPlatform = let
-        platform = pkgs.rust-bin.selectLatestNightlyWith (t: t.minimal);
-      in
-        pkgs.makeRustPlatform {
-          rustc = platform;
-          cargo = platform;
-        };
-
-      nativeBuildInputs = with pkgs;
-        []
-        ++ lib.optionals stdenv.isLinux [
-          mold-wrapped
-        ];
-
-      buildInputs = [];
-
-      nativeCheckInputs = with pkgs; [
-        # for signing tests
-        gnupg
-        openssh
-
-        # for git subprocess test
-        git
-      ];
-
-      env = {
-        RUST_BACKTRACE = 1;
-        CARGO_INCREMENTAL = "0"; # https://github.com/rust-lang/rust/issues/139110
-      };
     in {
       formatter = pkgs.alejandra;
 
       packages = {
-        jujutsu = rustMinimalPlatform.buildRustPackage {
-          pname = "jujutsu";
-          version = "${packageVersion}-unstable-${self.shortRev or "dirty"}";
-
-          cargoBuildFlags = ["--bin" "jj"]; # don't build and install the fake editors
-          useNextest = true;
-          cargoTestFlags = ["--profile" "ci"];
-          src = filterSrc ./. [
-            ".*\\.nix$"
-            "^.jj/"
-            "^flake\\.lock$"
-            "^target/"
-          ];
-
-          cargoLock.lockFile = ./Cargo.lock;
-          nativeBuildInputs = nativeBuildInputs ++ [pkgs.installShellFiles];
-          inherit buildInputs nativeCheckInputs;
-
-          env =
-            env
-            // {
-              RUSTFLAGS = pkgs.lib.optionalString pkgs.stdenv.isLinux "-C link-arg=-fuse-ld=mold";
-              NIX_JJ_GIT_HASH = self.rev or "";
-            };
-
-          postInstall = ''
-            $out/bin/jj util install-man-pages man
-            installManPage ./man/man1/*
-
-            installShellCompletion --cmd jj \
-              --bash <(COMPLETE=bash $out/bin/jj) \
-              --fish <(COMPLETE=fish $out/bin/jj) \
-              --zsh <(COMPLETE=zsh $out/bin/jj)
-          '';
-
-          meta = {
-            description = "Git-compatible DVCS that is both simple and powerful";
-            homepage = "https://github.com/jj-vcs/jj";
-            license = pkgs.lib.licenses.asl20;
-            mainProgram = "jj";
-          };
-        };
+        inherit (pkgs) jujutsu;
         default = self.packages.${system}.jujutsu;
       };
 
@@ -202,6 +120,8 @@
         shellHook = ''
           export RUSTFLAGS="-Zthreads=0 ${rustLinkFlagsString}"
         '';
+
+        inherit (self.packages.${system}.jujutsu.passthru) env nativeBuildInputs buildInputs nativeCheckInputs;
       in
         pkgs.mkShell {
           name = "jujutsu";
