@@ -172,12 +172,12 @@ fn test_git_clone_bad_source() {
     [exit status: 2]
     "#);
 
-    // Invalid URL
+    // Invalid URL unparsable by gitoxide
     let output = root_dir.run_jj(["git", "clone", "https://", "dest"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: URL "https://" can not be parsed as valid URL
-    Caused by: empty host
+    Caused by: Scheme requires host
     [EOF]
     [exit status: 2]
     "#);
