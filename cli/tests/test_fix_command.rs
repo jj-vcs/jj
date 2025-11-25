@@ -302,8 +302,7 @@ fn test_config_tables_overlapping_patterns() {
     let output = work_dir.run_jj(["file", "show", "bar", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     bar
-    tool-1
-    tool-2[EOF]
+    tool-1tool-2[EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "baz", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
@@ -457,15 +456,9 @@ fn test_config_filesets() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "b1", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
-    1b
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"1b[EOF]");
     let output = work_dir.run_jj(["file", "show", "b2", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
-    2b
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"2b[EOF]");
 }
 
 #[test]
@@ -655,7 +648,7 @@ fn test_fix_leaf_commit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
-    Working copy  (@) now at: rlvkpnrz 45a3ace1 (no description set)
+    Working copy  (@) now at: rlvkpnrz f5c11961 (no description set)
     Parent commit (@-)      : qpvuntsm b37955c0 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
@@ -663,10 +656,7 @@ fn test_fix_leaf_commit() {
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@-"]);
     insta::assert_snapshot!(output, @"unaffected[EOF]");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
-    AFFECTED
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"AFFECTED[EOF]");
 }
 
 #[test]
@@ -695,26 +685,17 @@ fn test_fix_parent_commit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 3 commits of 3 checked.
-    Working copy  (@) now at: mzvwutvl 6842c630 child2 | (no description set)
-    Parent commit (@-)      : qpvuntsm e586ba6c parent | (no description set)
+    Working copy  (@) now at: mzvwutvl e7ba6d31 child2 | (no description set)
+    Parent commit (@-)      : qpvuntsm 49f1ddd5 parent | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "parent"]);
-    insta::assert_snapshot!(output, @r"
-    PARENT
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"PARENT[EOF]");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "child1"]);
-    insta::assert_snapshot!(output, @r"
-    CHILD1
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"CHILD1[EOF]");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "child2"]);
-    insta::assert_snapshot!(output, @r"
-    CHILD2
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"CHILD2[EOF]");
 }
 
 #[test]
@@ -747,10 +728,7 @@ fn test_fix_sibling_commit() {
     let output = work_dir.run_jj(["file", "show", "file", "-r", "parent"]);
     insta::assert_snapshot!(output, @"parent[EOF]");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "child1"]);
-    insta::assert_snapshot!(output, @r"
-    CHILD1
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"CHILD1[EOF]");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "child2"]);
     insta::assert_snapshot!(output, @"child2[EOF]");
 }
@@ -781,7 +759,7 @@ fn test_fix_descendant_commits() {
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Fixed 2 commits of 3 checked.
-    Working copy  (@) now at: mzvwutvl 48a5dc7d child2 | (no description set)
+    Working copy  (@) now at: mzvwutvl afe0ade0 child2 | (no description set)
     Parent commit (@-)      : qpvuntsm c9cb6288 parent | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
@@ -789,14 +767,9 @@ fn test_fix_descendant_commits() {
     let output = work_dir.run_jj(["file", "show", "parent", "-r", "parent"]);
     insta::assert_snapshot!(output, @"parent[EOF]");
     let output = work_dir.run_jj(["file", "show", "child1", "-r", "child1"]);
-    insta::assert_snapshot!(output, @r"
-    CHILD1
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"CHILD1[EOF]");
     let output = work_dir.run_jj(["file", "show", "child2", "-r", "child2"]);
-    insta::assert_snapshot!(output, @"
-    CHILD2
-    [EOF]");
+    insta::assert_snapshot!(output, @"CHILD2[EOF]");
 }
 
 #[test]
@@ -844,8 +817,8 @@ fn test_default_revset() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 3 commits of 3 checked.
-    Working copy  (@) now at: yostqsxw 41903dfd bar2 | (no description set)
-    Parent commit (@-)      : yqosqzyt c2e6d322 bar1 | (no description set)
+    Working copy  (@) now at: yostqsxw 932b950d bar2 | (no description set)
+    Parent commit (@-)      : yqosqzyt 8a37ed67 bar1 | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
@@ -856,20 +829,11 @@ fn test_default_revset() {
     let output = work_dir.run_jj(["file", "show", "file", "-r", "foo"]);
     insta::assert_snapshot!(output, @"foo[EOF]");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "bar1"]);
-    insta::assert_snapshot!(output, @r"
-    BAR1
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"BAR1[EOF]");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "bar2"]);
-    insta::assert_snapshot!(output, @r"
-    BAR2
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"BAR2[EOF]");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "bar3"]);
-    insta::assert_snapshot!(output, @r"
-    BAR3
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"BAR3[EOF]");
 }
 
 #[test]
@@ -903,10 +867,7 @@ fn test_custom_default_revset() {
     let output = work_dir.run_jj(["file", "show", "file", "-r", "foo"]);
     insta::assert_snapshot!(output, @"foo[EOF]");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "bar"]);
-    insta::assert_snapshot!(output, @r"
-    BAR
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"BAR[EOF]");
 }
 
 #[test]
@@ -977,16 +938,13 @@ fn test_fix_some_paths() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
-    Working copy  (@) now at: qpvuntsm b3e6840d (no description set)
+    Working copy  (@) now at: qpvuntsm 0279baba (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1"]);
-    insta::assert_snapshot!(output, @r"
-    FOO
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"FOO[EOF]");
     let output = work_dir.run_jj(["file", "show", "file2"]);
     insta::assert_snapshot!(output, @"bar[EOF]");
 }
@@ -1003,31 +961,25 @@ fn test_fix_cyclic() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
-    Working copy  (@) now at: qpvuntsm 087e5fb0 (no description set)
+    Working copy  (@) now at: qpvuntsm ce361156 (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
-    tnetnoc
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"tnetnoc[EOF]");
 
     let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
-    Working copy  (@) now at: qpvuntsm 832f43c5 (no description set)
+    Working copy  (@) now at: qpvuntsm 547f589b (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
-    content
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"content[EOF]");
 }
 
 #[test]
@@ -1263,16 +1215,13 @@ fn test_fix_file_types() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
-    Working copy  (@) now at: qpvuntsm a600eba5 (no description set)
+    Working copy  (@) now at: qpvuntsm 0184b215 (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
-    CONTENT
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"CONTENT[EOF]");
 }
 
 #[cfg(unix)]
@@ -1292,16 +1241,13 @@ fn test_fix_executable() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
-    Working copy  (@) now at: qpvuntsm ed402983 (no description set)
+    Working copy  (@) now at: qpvuntsm 5293bf26 (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
-    CONTENT
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @r"CONTENT[EOF]");
     let executable = std::fs::metadata(&path).unwrap().permissions().mode() & 0o111;
     assert_eq!(executable, 0o111);
 }
@@ -1371,32 +1317,20 @@ fn test_fix_adding_merge_commit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
-    Working copy  (@) now at: mzvwutvl c8d50db3 (no description set)
+    Working copy  (@) now at: mzvwutvl 9f580aac (no description set)
     Parent commit (@-)      : qpvuntsm 93f04460 a | (no description set)
     Parent commit (@-)      : kkmpptxz ad4fc36c b | (no description set)
     Added 0 files, modified 4 files, removed 0 files
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file_a", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
-    CHANGE A
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"CHANGE A[EOF]");
     let output = work_dir.run_jj(["file", "show", "file_b", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
-    CHANGE B
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"CHANGE B[EOF]");
     let output = work_dir.run_jj(["file", "show", "file_c", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
-    CHANGE C
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"CHANGE C[EOF]");
     let output = work_dir.run_jj(["file", "show", "file_d", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
-    CHANGE D
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"CHANGE D[EOF]");
 }
 
 #[test]
@@ -1595,8 +1529,8 @@ fn test_all_files() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Fixed 2 commits of 2 checked.
-    Working copy  (@) now at: rlvkpnrz 3675eae3 child
-    Parent commit (@-)      : qpvuntsm 6a0a8a6a parent
+    Working copy  (@) now at: rlvkpnrz 16aeb14c child
+    Parent commit (@-)      : qpvuntsm 5257b8ec parent
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
@@ -1609,8 +1543,7 @@ fn test_all_files() {
     let output = work_dir.run_jj(["file", "show", "b/b", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
     parent bbb
-    fixed
-    fixed[EOF]
+    fixedfixed[EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "c/c", "-r", "@-"]);
     insta::assert_snapshot!(output, @r"
@@ -1631,8 +1564,7 @@ fn test_all_files() {
     let output = work_dir.run_jj(["file", "show", "b/b", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
     parent bbb
-    fixed
-    fixed[EOF]
+    fixedfixed[EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "c/c", "-r", "@"]);
     insta::assert_snapshot!(output, @r"

@@ -13,10 +13,12 @@
 // limitations under the License.
 
 use std::fs::OpenOptions;
+use std::io::Read as _;
 use std::io::Write as _;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use bstr::ByteSlice as _;
 use clap::Parser;
 use itertools::Itertools as _;
 
@@ -79,25 +81,31 @@ fn main() -> ExitCode {
         assert!(args.append.is_none());
         data
     } else {
-        let mut stdout = std::io::stdin()
-            .lines()
+        let mut input = vec![];
+        std::io::stdin()
+            .read_to_end(&mut input)
+            .expect("Failed to read from stdin");
+        let mut stdout = input
+            .lines_with_terminator()
             .map(|line| {
-                format!("{}\n", {
-                    let line = if args.reverse {
-                        line.unwrap().chars().rev().collect()
-                    } else {
-                        line.unwrap()
-                    };
-                    if args.uppercase {
-                        assert!(!args.lowercase);
-                        line.to_uppercase()
-                    } else if args.lowercase {
-                        assert!(!args.uppercase);
-                        line.to_lowercase()
-                    } else {
-                        line
-                    }
-                })
+                let line = line
+                    .to_str()
+                    .expect("The input is not valid UTF-8 string")
+                    .to_owned();
+                let line = if args.reverse {
+                    line.chars().rev().collect()
+                } else {
+                    line
+                };
+                if args.uppercase {
+                    assert!(!args.lowercase);
+                    line.to_uppercase()
+                } else if args.lowercase {
+                    assert!(!args.uppercase);
+                    line.to_lowercase()
+                } else {
+                    line
+                }
             })
             .join("");
         if let Some(line) = args.append {
