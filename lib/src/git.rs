@@ -1276,27 +1276,26 @@ fn create_git_ref(
     git_ref_name: &GitRefName,
     new_oid: gix::ObjectId,
 ) -> Result<(), FailedRefExportReason> {
-    if let Some(git_ref) = git_repo
+    let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
+    let Err(set_err) =
+        git_repo.reference(git_ref_name.as_str(), new_oid, constraint, "export from jj")
+    else {
+        // The ref was added in jj but still doesn't exist in git
+        return Ok(());
+    };
+    let Some(git_ref) = git_repo
         .try_find_reference(git_ref_name.as_str())
         .map_err(|err| FailedRefExportReason::FailedToSet(err.into()))?
-    {
-        // The ref was added in jj and in git. We're good if and only if git
-        // pointed it to our desired target.
-        if git_ref.inner.target.try_id() != Some(&new_oid) {
-            return Err(FailedRefExportReason::AddedInJjAddedInGit);
-        }
+    else {
+        return Err(FailedRefExportReason::FailedToSet(set_err.into()));
+    };
+    // The ref was added in jj and in git. We're good if and only if git
+    // pointed it to our desired target.
+    if git_ref.inner.target.try_id() == Some(&new_oid) {
+        Ok(())
     } else {
-        // The ref was added in jj but still doesn't exist in git, so add it
-        git_repo
-            .reference(
-                git_ref_name.as_str(),
-                new_oid,
-                gix::refs::transaction::PreviousValue::MustNotExist,
-                "export from jj",
-            )
-            .map_err(|err| FailedRefExportReason::FailedToSet(err.into()))?;
+        Err(FailedRefExportReason::AddedInJjAddedInGit)
     }
-    Ok(())
 }
 
 fn move_git_ref(
