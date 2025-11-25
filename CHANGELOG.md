@@ -95,6 +95,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added `join()` template function. This is different from `separate()` in that
   it adds a separator between all arguments, even if empty.
 
+* Added `files()` template function to `DiffStats`. This supports per-file stats
+  like `lines_added()` and `lines_removed()`
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
