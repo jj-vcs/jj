@@ -172,7 +172,6 @@ fn test_init_checkout(backend: TestRepoBackend) {
 }
 
 #[cfg(unix)]
-#[cfg_attr(target_os = "macos", ignore = "APFS/HFS+ don't like non-UTF-8 paths")]
 #[test]
 fn test_init_load_non_utf8_path() {
     use std::ffi::OsStr;
@@ -183,6 +182,15 @@ fn test_init_load_non_utf8_path() {
 
     let settings = testutils::user_settings();
     let test_env = TestEnvironment::init();
+
+    if testutils::check_strict_utf8_fs(test_env.root()) {
+        eprintln!(
+            "Skipping test \"test_init_load_non_utf8_path\" due to strict UTF-8 filesystem for \
+             path {:?}",
+            test_env.root()
+        );
+        return;
+    }
 
     let git_repo_path = test_env.root().join(OsStr::from_bytes(b"git\xe0"));
     assert!(git_repo_path.to_str().is_none());

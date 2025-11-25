@@ -93,7 +93,6 @@ fn test_init_additional_workspace() {
 }
 
 #[cfg(unix)]
-#[cfg_attr(target_os = "macos", ignore = "APFS/HFS+ don't like non-UTF-8 paths")]
 #[test]
 fn test_init_additional_workspace_non_utf8_path() {
     use std::ffi::OsStr;
@@ -101,6 +100,15 @@ fn test_init_additional_workspace_non_utf8_path() {
 
     let settings = testutils::user_settings();
     let test_env = TestEnvironment::init();
+
+    if testutils::check_strict_utf8_fs(test_env.root()) {
+        eprintln!(
+            "Skipping test \"test_init_additional_workspace_non_utf8_path\" due to strict UTF-8 \
+             filesystem for path {:?}",
+            test_env.root()
+        );
+        return;
+    }
 
     let ws1_root = test_env.root().join(OsStr::from_bytes(b"ws1_root\xe0"));
     std::fs::create_dir(&ws1_root).unwrap();

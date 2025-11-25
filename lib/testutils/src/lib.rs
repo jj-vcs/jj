@@ -768,3 +768,21 @@ pub fn assert_no_forgotten_test_files(test_dir: &Path) {
             .join(", "),
     );
 }
+
+/// Returns true if the directory appears to be on a filesystem with strict
+/// UTF-8 validation, as on ZFS with the `utf8only=on` property set.
+#[cfg(unix)]
+pub fn check_strict_utf8_fs(dir: &Path) -> bool {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt as _;
+
+    let test_file_normal = tempfile::Builder::new()
+        .prefix(OsStr::from_bytes(b"strict-utf8-normal-"))
+        .tempfile_in(dir);
+    assert!(test_file_normal.is_ok());
+
+    let test_file_invalid = tempfile::Builder::new()
+        .prefix(OsStr::from_bytes(b"strict-utf8-\xe0-"))
+        .tempfile_in(dir);
+    test_file_invalid.is_err()
+}
