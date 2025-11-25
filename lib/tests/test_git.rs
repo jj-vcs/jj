@@ -1859,13 +1859,21 @@ fn test_export_refs_tag_changed() {
     mut_repo.set_local_tag_target("new".as_ref(), new_target.clone());
     let stats = git::export_refs(mut_repo).unwrap();
     assert!(stats.failed_bookmarks.is_empty());
-    assert_eq!(stats.failed_tags.len(), 2); // FIXME
+    assert!(stats.failed_tags.is_empty());
     assert_eq!(
         mut_repo.get_git_ref("refs/tags/lightweight-change".as_ref()),
         new_target
     );
     assert_eq!(
         mut_repo.get_git_ref("refs/tags/lightweight-delete".as_ref()),
+        RefTarget::absent()
+    );
+    assert_eq!(
+        mut_repo.get_git_ref("refs/tags/annotated-change".as_ref()),
+        new_target
+    );
+    assert_eq!(
+        mut_repo.get_git_ref("refs/tags/annotated-delete".as_ref()),
         RefTarget::absent()
     );
     assert_eq!(mut_repo.get_git_ref("refs/tags/new".as_ref()), new_target);
@@ -1881,6 +1889,21 @@ fn test_export_refs_tag_changed() {
     assert!(
         git_repo
             .try_find_reference("refs/tags/lightweight-delete")
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        git_repo
+            .find_reference("refs/tags/annotated-change")
+            .unwrap()
+            .peel_to_commit()
+            .unwrap()
+            .id(),
+        git_id(&new_commit)
+    );
+    assert!(
+        git_repo
+            .try_find_reference("refs/tags/annotated-delete")
             .unwrap()
             .is_none()
     );

@@ -1263,7 +1263,7 @@ fn delete_git_ref(
         // The ref is already deleted
         return Ok(());
     };
-    if git_ref.inner.target.try_id() == Some(old_oid) {
+    if resolve_git_ref_to_commit_id(&git_ref, Some(old_oid)).as_deref() == Some(old_oid) {
         // The ref has not been updated by git, so go ahead and delete it
         git_ref
             .delete()
@@ -1294,7 +1294,7 @@ fn create_git_ref(
     };
     // The ref was added in jj and in git. We're good if and only if git
     // pointed it to our desired target.
-    if git_ref.inner.target.try_id() == Some(&new_oid) {
+    if resolve_git_ref_to_commit_id(&git_ref, None) == Some(new_oid) {
         Ok(())
     } else {
         Err(FailedRefExportReason::AddedInJjAddedInGit)
@@ -1323,7 +1323,16 @@ fn move_git_ref(
         return Err(FailedRefExportReason::ModifiedInJjDeletedInGit);
     };
     // We still consider this a success if it was updated to our desired target
-    if git_ref.inner.target.try_id() == Some(&new_oid) {
+    let git_commit_oid = resolve_git_ref_to_commit_id(&git_ref, Some(&old_oid));
+    if git_commit_oid == Some(new_oid) {
+        Ok(())
+    } else if git_commit_oid == Some(old_oid) {
+        // The reference would point to annotated tag, try again
+        let constraint =
+            gix::refs::transaction::PreviousValue::MustExistAndMatch(git_ref.inner.target);
+        git_repo
+            .reference(git_ref_name.as_str(), new_oid, constraint, "export from jj")
+            .map_err(|err| FailedRefExportReason::FailedToSet(err.into()))?;
         Ok(())
     } else {
         Err(FailedRefExportReason::FailedToSet(set_err.into()))

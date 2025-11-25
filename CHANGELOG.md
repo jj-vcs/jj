@@ -48,6 +48,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
 
+* Fixed failure on exporting moved/deleted annotated tags to Git. Moved tags are
+  exported as lightweight tags.
+
 ## [0.36.0] - 2025-12-03
 
 ### Release highlights
