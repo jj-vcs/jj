@@ -113,6 +113,10 @@ pub(crate) struct DescribeArgs {
     ///
     /// This changes author name and email while retaining author
     /// timestamp for non-discardable commits.
+    ///
+    /// ```shell
+    /// $ jj describe --author "Foo Bar <foo@bar.com>"
+    /// ```
     #[arg(
         long,
         hide = true,
