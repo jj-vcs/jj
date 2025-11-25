@@ -125,6 +125,10 @@ should not be broken.
   date.
   [#8007](https://github.com/jj-vcs/jj/issues/8007)
 
+* `jj git clone` now succeeds if configuration for the current remote exists
+  in a global config file.
+  [#7820](https://github.com/jj-vcs/jj/issues/7820)
+
 ## [0.35.0] - 2025-11-05
 
 ### Release highlights
