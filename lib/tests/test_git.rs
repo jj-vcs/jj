@@ -5113,3 +5113,61 @@ fn test_export_refs_reftable_bookmark() {
         RefTarget::normal(commit.id().clone())
     );
 }
+
+#[test]
+fn test_git_head_update_reftable() {
+    // Test that we can update HEAD in a reftable repository
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+
+    // Create a git repository with reftable format
+    let git_repo_dir = temp_dir.path().join("git-reftable");
+    let output = std::process::Command::new("git")
+        .args(["init", "--ref-format=reftable"])
+        .arg(&git_repo_dir)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    let git_repo = testutils::git::open(&git_repo_dir);
+
+    // Create a jj repo backed by the reftable git repo
+    let jj_repo_dir = temp_dir.path().join("jj");
+    std::fs::create_dir(&jj_repo_dir).unwrap();
+    let repo = ReadonlyRepo::init(
+        &settings,
+        &jj_repo_dir,
+        &|settings, store_path| {
+            Ok(Box::new(GitBackend::init_external(
+                settings,
+                store_path,
+                git_repo.path(),
+            )?))
+        },
+        Signer::from_settings(&settings).unwrap(),
+        ReadonlyRepo::default_op_store_initializer(),
+        ReadonlyRepo::default_op_heads_store_initializer(),
+        ReadonlyRepo::default_index_store_initializer(),
+        ReadonlyRepo::default_submodule_store_initializer(),
+    )
+    .unwrap();
+
+    // Create a commit and bookmark
+    let mut tx = repo.start_transaction();
+    let commit = create_random_commit(tx.repo_mut()).write().unwrap();
+    tx.repo_mut()
+        .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit.id().clone()));
+
+    // Export refs - this should update HEAD via git CLI
+    let stats = git::export_refs(tx.repo_mut()).unwrap();
+    assert!(stats.failed_bookmarks.is_empty());
+
+    // Verify HEAD was updated in git
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(git_repo.path())
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+}

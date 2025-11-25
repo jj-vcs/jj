@@ -1468,6 +1468,19 @@ fn update_git_head(
     expected_ref: gix::refs::transaction::PreviousValue,
     new_oid: Option<gix::ObjectId>,
 ) -> Result<(), gix::reference::edit::Error> {
+    // Check if repository uses reftable format
+    let uses_reftable = git_repo
+        .config_snapshot()
+        .string("extensions.refstorage")
+        .map(|value| value.as_ref() == "reftable")
+        .unwrap_or(false);
+
+    if uses_reftable {
+        // Use git CLI for reftable repositories
+        return update_git_head_cli(git_repo, new_oid);
+    }
+
+    // Use gitoxide for traditional ref storage
     let mut ref_edits = Vec::new();
     let new_target = if let Some(oid) = new_oid {
         gix::refs::Target::Object(oid)
@@ -1499,6 +1512,49 @@ fn update_git_head(
         deref: false,
     });
     git_repo.edit_references(ref_edits)?;
+    Ok(())
+}
+
+/// Updates git HEAD using the git CLI. This is a workaround for reftable
+/// repositories where gitoxide doesn't yet support writing refs.
+fn update_git_head_cli(
+    git_repo: &gix::Repository,
+    new_oid: Option<gix::ObjectId>,
+) -> Result<(), gix::reference::edit::Error> {
+    let git_dir = git_repo.path();
+
+    if let Some(oid) = new_oid {
+        // Detach HEAD to the commit
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(git_dir)
+            .args(["update-ref", "HEAD", &oid.to_string()])
+            .output()
+            .map_err(|err| gix::reference::edit::Error::FileTransactionPrepare(err.into()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(gix::reference::edit::Error::FileTransactionPrepare(
+                std::io::Error::other(format!("git update-ref HEAD failed: {stderr}")).into(),
+            ));
+        }
+    } else {
+        // Set HEAD to unborn placeholder ref
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(git_dir)
+            .args(["symbolic-ref", "HEAD", UNBORN_ROOT_REF_NAME])
+            .output()
+            .map_err(|err| gix::reference::edit::Error::FileTransactionPrepare(err.into()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(gix::reference::edit::Error::FileTransactionPrepare(
+                std::io::Error::other(format!("git symbolic-ref HEAD failed: {stderr}")).into(),
+            ));
+        }
+    }
+
     Ok(())
 }
 
