@@ -108,6 +108,9 @@ should not be broken.
 * `jj log` now supports a `--count` flag to print the number of commits instead
   of displaying them.
 
+* Added `files()` template function to `DiffStats`. This supports per-file stats
+  like `lines_added()` and `lines_removed()`
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.

@@ -76,6 +76,65 @@ fn test_log_with_no_template() {
 }
 
 #[test]
+fn test_log_with_diff_stats() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\nfoo\n");
+    work_dir.write_file("file3", "foo\n");
+    work_dir.write_file("file4", "foo\n");
+    work_dir.write_file("file5", "foobar\nbaz\n");
+    work_dir
+        .run_jj(["describe", "-m", "initial commit"])
+        .success();
+    work_dir.run_jj(["new", "-m", "multiple changes"]).success();
+    work_dir.write_file("file1", "foo\nbar\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir.write_file("file3", "baz\n");
+    work_dir.remove_file("file4");
+    work_dir.remove_file("file5");
+    work_dir.write_file("file6", "foobar\nbaz\n");
+
+    let template = r#"
+    self.diff().files().map(
+        |f| f.status() ++ " " ++ f.source().path() ++ " " ++ f.target().path()
+    ).join("\n")
+    ++ "\n" ++
+    self.diff().stat().files().map(
+        |f| f.status_char() ++ " " ++ f.status() ++ " " ++ f.lines_added() ++ " " ++ f.lines_removed() ++ " " ++ f.path()
+    ).join("\n")
+    "#;
+
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    @  modified file1 file1
+    │  modified file2 file2
+    │  modified file3 file3
+    │  removed file4 file4
+    │  renamed file5 file6
+    │  M modified 1 0 file1
+    │  M modified 0 1 file2
+    │  M modified 1 1 file3
+    │  D removed 0 1 file4
+    │  R renamed 0 0 file6
+    ○  added file1 file1
+    │  added file2 file2
+    │  added file3 file3
+    │  added file4 file4
+    │  added file5 file5
+    │  A added 1 0 file1
+    │  A added 2 0 file2
+    │  A added 1 0 file3
+    │  A added 1 0 file4
+    │  A added 2 0 file5
+    ◆
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_log_with_or_without_diff() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

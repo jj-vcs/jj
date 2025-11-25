@@ -83,6 +83,7 @@ use pollster::FutureExt as _;
 use serde::Serialize as _;
 
 use crate::diff_util;
+use crate::diff_util::DiffStatEntry;
 use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
 use crate::operation_templater;
@@ -347,6 +348,16 @@ impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
                 let property = property.map(|formatted| formatted.stats).into_dyn();
                 build(self, diagnostics, build_ctx, property, function)
             }
+            CommitTemplatePropertyKind::DiffStatEntry(property) => {
+                let table = &self.build_fn_table.diff_stat_entry_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
+            CommitTemplatePropertyKind::DiffStatEntryList(property) => {
+                let table = &self.build_fn_table.diff_stat_entry_list_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(self, diagnostics, build_ctx, property, function)
+            }
             CommitTemplatePropertyKind::CryptographicSignatureOpt(property) => {
                 let type_name = "CryptographicSignature";
                 let table = &self.build_fn_table.cryptographic_signature_methods;
@@ -431,6 +442,8 @@ pub enum CommitTemplatePropertyKind<'repo> {
     TreeEntry(BoxedTemplateProperty<'repo, TreeEntry>),
     TreeEntryList(BoxedTemplateProperty<'repo, Vec<TreeEntry>>),
     DiffStats(BoxedTemplateProperty<'repo, DiffStatsFormatted<'repo>>),
+    DiffStatEntry(BoxedTemplateProperty<'repo, DiffStatEntry>),
+    DiffStatEntryList(BoxedTemplateProperty<'repo, Vec<DiffStatEntry>>),
     CryptographicSignatureOpt(BoxedTemplateProperty<'repo, Option<CryptographicSignature>>),
     AnnotationLine(BoxedTemplateProperty<'repo, AnnotationLine>),
     Trailer(BoxedTemplateProperty<'repo, Trailer>),
@@ -463,6 +476,8 @@ template_builder::impl_property_wrappers!(<'repo> CommitTemplatePropertyKind<'re
     TreeEntry(TreeEntry),
     TreeEntryList(Vec<TreeEntry>),
     DiffStats(DiffStatsFormatted<'repo>),
+    DiffStatEntry(DiffStatEntry),
+    DiffStatEntryList(Vec<DiffStatEntry>),
     CryptographicSignatureOpt(Option<CryptographicSignature>),
     AnnotationLine(AnnotationLine),
     Trailer(Trailer),
@@ -505,6 +520,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::TreeEntry(_) => "TreeEntry",
             Self::TreeEntryList(_) => "List<TreeEntry>",
             Self::DiffStats(_) => "DiffStats",
+            Self::DiffStatEntry(_) => "DiffStatEntry",
+            Self::DiffStatEntryList(_) => "List<DiffStatEntry>",
             Self::CryptographicSignatureOpt(_) => "Option<CryptographicSignature>",
             Self::AnnotationLine(_) => "AnnotationLine",
             Self::Trailer(_) => "Trailer",
@@ -541,6 +558,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::TreeEntry(_) => None,
             Self::TreeEntryList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
             Self::DiffStats(_) => None,
+            Self::DiffStatEntry(_) => None,
+            Self::DiffStatEntryList(property) => Some(property.map(|l| !l.is_empty()).into_dyn()),
             Self::CryptographicSignatureOpt(property) => {
                 Some(property.map(|sig| sig.is_some()).into_dyn())
             }
@@ -602,6 +621,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::TreeEntry(_) => None,
             Self::TreeEntryList(_) => None,
             Self::DiffStats(_) => None,
+            Self::DiffStatEntry(_) => None,
+            Self::DiffStatEntryList(_) => None,
             Self::CryptographicSignatureOpt(_) => None,
             Self::AnnotationLine(_) => None,
             Self::Trailer(_) => None,
@@ -636,6 +657,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             Self::TreeEntry(_) => None,
             Self::TreeEntryList(_) => None,
             Self::DiffStats(property) => Some(property.into_template()),
+            Self::DiffStatEntry(_) => None,
+            Self::DiffStatEntryList(_) => None,
             Self::CryptographicSignatureOpt(_) => None,
             Self::AnnotationLine(_) => None,
             Self::Trailer(property) => Some(property.into_template()),
@@ -703,6 +726,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::TreeEntry(_), _) => None,
             (Self::TreeEntryList(_), _) => None,
             (Self::DiffStats(_), _) => None,
+            (Self::DiffStatEntry(_), _) => None,
+            (Self::DiffStatEntryList(_), _) => None,
             (Self::CryptographicSignatureOpt(_), _) => None,
             (Self::AnnotationLine(_), _) => None,
             (Self::Trailer(_), _) => None,
@@ -743,6 +768,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
             (Self::TreeEntry(_), _) => None,
             (Self::TreeEntryList(_), _) => None,
             (Self::DiffStats(_), _) => None,
+            (Self::DiffStatEntry(_), _) => None,
+            (Self::DiffStatEntryList(_), _) => None,
             (Self::CryptographicSignatureOpt(_), _) => None,
             (Self::AnnotationLine(_), _) => None,
             (Self::Trailer(_), _) => None,
@@ -778,6 +805,8 @@ pub struct CommitTemplateBuildFnTable<'repo> {
     pub tree_entry_methods: CommitTemplateBuildMethodFnMap<'repo, TreeEntry>,
     pub tree_entry_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<TreeEntry>>,
     pub diff_stats_methods: CommitTemplateBuildMethodFnMap<'repo, DiffStats>,
+    pub diff_stat_entry_methods: CommitTemplateBuildMethodFnMap<'repo, DiffStatEntry>,
+    pub diff_stat_entry_list_methods: CommitTemplateBuildMethodFnMap<'repo, Vec<DiffStatEntry>>,
     pub cryptographic_signature_methods:
         CommitTemplateBuildMethodFnMap<'repo, CryptographicSignature>,
     pub annotation_line_methods: CommitTemplateBuildMethodFnMap<'repo, AnnotationLine>,
@@ -807,6 +836,8 @@ impl CommitTemplateBuildFnTable<'_> {
             tree_entry_methods: HashMap::new(),
             tree_entry_list_methods: HashMap::new(),
             diff_stats_methods: HashMap::new(),
+            diff_stat_entry_methods: HashMap::new(),
+            diff_stat_entry_list_methods: HashMap::new(),
             cryptographic_signature_methods: HashMap::new(),
             annotation_line_methods: HashMap::new(),
             trailer_methods: HashMap::new(),
@@ -835,6 +866,8 @@ impl CommitTemplateBuildFnTable<'_> {
             tree_entry_methods,
             tree_entry_list_methods,
             diff_stats_methods,
+            diff_stat_entry_methods,
+            diff_stat_entry_list_methods,
             cryptographic_signature_methods,
             annotation_line_methods,
             trailer_methods,
@@ -872,6 +905,11 @@ impl CommitTemplateBuildFnTable<'_> {
         merge_fn_map(&mut self.tree_entry_methods, tree_entry_methods);
         merge_fn_map(&mut self.tree_entry_list_methods, tree_entry_list_methods);
         merge_fn_map(&mut self.diff_stats_methods, diff_stats_methods);
+        merge_fn_map(&mut self.diff_stat_entry_methods, diff_stat_entry_methods);
+        merge_fn_map(
+            &mut self.diff_stat_entry_list_methods,
+            diff_stat_entry_list_methods,
+        );
         merge_fn_map(
             &mut self.cryptographic_signature_methods,
             cryptographic_signature_methods,
@@ -903,6 +941,8 @@ impl CommitTemplateBuildFnTable<'_> {
             tree_entry_methods: builtin_tree_entry_methods(),
             tree_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
             diff_stats_methods: builtin_diff_stats_methods(),
+            diff_stat_entry_methods: builtin_diff_stat_entry_methods(),
+            diff_stat_entry_list_methods: template_builder::builtin_unformattable_list_methods(),
             cryptographic_signature_methods: builtin_cryptographic_signature_methods(),
             annotation_line_methods: builtin_annotation_line_methods(),
             trailer_methods: builtin_trailer_methods(),
@@ -2505,7 +2545,14 @@ fn builtin_diff_stats_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
     let mut map = CommitTemplateBuildMethodFnMap::<DiffStats>::new();
-    // TODO: add files() -> List<DiffStatEntry> ?
+    map.insert(
+        "files",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|diff| Ok(diff.entries().to_vec()));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
     map.insert(
         "total_added",
         |_language, _diagnostics, _build_ctx, self_property, function| {
@@ -2521,6 +2568,71 @@ fn builtin_diff_stats_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
             function.expect_no_arguments()?;
             let out_property =
                 self_property.and_then(|stats| Ok(i64::try_from(stats.count_total_removed())?));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map
+}
+
+fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, DiffStatEntry>
+{
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = CommitTemplateBuildMethodFnMap::<DiffStatEntry>::new();
+    map.insert(
+        "path",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|entry| entry.path.target);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "status",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|entry| entry.status.label().to_owned());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "status_char",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|entry| entry.status.char().to_string());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "lines_added",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|entry| {
+                Ok(i64::try_from(
+                    entry.added_removed.map_or(0, |(added, _)| added),
+                )?)
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "lines_removed",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|entry| {
+                Ok(i64::try_from(
+                    entry.added_removed.map_or(0, |(_, removed)| removed),
+                )?)
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "bytes_delta",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property =
+                self_property.and_then(|entry| Ok(i64::try_from(entry.bytes_delta)?));
             Ok(out_property.into_dyn_wrapped())
         },
     );

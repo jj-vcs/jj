@@ -285,8 +285,24 @@ _Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
 This type can be printed as a histogram of the changes. The following methods
 are defined.
 
+* `.files() -> List<DiffStatEntry>`: Per-file stats for changed files.
 * `.total_added() -> Integer`: Total number of insertions.
 * `.total_removed() -> Integer`: Total number of deletions.
+
+### `DiffStatEntry` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+
+This type holds the diff stats per file. The following methods are defined.
+
+* `.bytes_delta() -> Integer`: The difference in size of the file, in bytes.
+* `.lines_added() -> Integer`: Number of lines added.
+* `.lines_removed() -> Integer`: Number of lines deleted.
+* `.path() -> RepoPath`: Path to the entry. If the entry is a copy/rename, this
+  points to the target (or right) entry.
+* `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`, `"copied"`, or `"renamed"`.
+* `.status_char() -> String`: One of `"M"` (modified), `"A"` (added), `"D"` (removed),
+  `"C"` (copied), or `"R"` (renamed).
 
 ### `Email` type
 
