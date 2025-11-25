@@ -706,7 +706,7 @@ graphs to see if a node exists in the destination tree.
 
 A weakness of this solution is that the search gets expensive if there are very
 many related files. That's probably not much of a problem in practice. The
-server might want to populate the the index only for public/immutable commits.
+server might want to populate the index only for public/immutable commits.
 Otherwise, a user could poison the index by creating tons of copies
 (intentionally or by mistake), which would make all future queries about those
 files expensive.

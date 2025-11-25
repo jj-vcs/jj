@@ -1926,7 +1926,7 @@ pub fn show_diff_stats(
     //   path/to/file | (binary) +1234 bytes
     //
     // Depending on display widths, we can elide part of the path,
-    // and the the ++-- bar will adjust its scale to fill the rest.
+    // and the ++-- bar will adjust its scale to fill the rest.
 
     // Choose how many columns to use for the path.  The right side will use the
     // rest. Start with the longest path.  The code below might shorten it.

@@ -233,7 +233,7 @@ where you can use both `jj` and `git` commands interchangeably.
 ### The working copy is automatically committed
 
 Jujutsu uses a real commit to represent the working copy. Checking out a commit
-results a new working-copy commit on top of the target commit. Almost all
+results in a new working-copy commit on top of the target commit. Almost all
 commands automatically amend the working-copy commit.
 
 The working-copy being a commit means that commands never fail because the
