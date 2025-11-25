@@ -58,17 +58,21 @@
 
       # But, whenever we are running CI builds or checks, we want to use a
       # smaller closure. This reduces the CI impact on fresh clones/VMs, etc.
-      rustMinimalPlatform =
-        let platform = pkgs.rust-bin.selectLatestNightlyWith (t: t.minimal);
-        in pkgs.makeRustPlatform { rustc = platform; cargo = platform; };
+      rustMinimalPlatform = let
+        platform = pkgs.rust-bin.selectLatestNightlyWith (t: t.minimal);
+      in
+        pkgs.makeRustPlatform {
+          rustc = platform;
+          cargo = platform;
+        };
 
       nativeBuildInputs = with pkgs;
-        [ ]
+        []
         ++ lib.optionals stdenv.isLinux [
           mold-wrapped
         ];
 
-      buildInputs = [ ];
+      buildInputs = [];
 
       nativeCheckInputs = with pkgs; [
         # for signing tests
@@ -159,6 +163,7 @@
 
           # Miscellaneous tools
           watchman
+          self.formatter.${system}
 
           # In case you need to run `cargo run --bin gen-protos`
           protobuf
