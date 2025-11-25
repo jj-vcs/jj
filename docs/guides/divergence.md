@@ -66,18 +66,13 @@ jj abandon <unwanted-commit-id>
 
 This is the simplest solution when you know which version to keep.
 
-### Strategy 2: Duplicate and abandon
+### Strategy 2: Generate a new change ID
 
 If you want to keep both versions as separate changes with different change IDs,
-you can duplicate one of the commits to generate a new change ID, then abandon
-the original:
+you can generate a new change ID for one of the commits:
 
 ```shell
-# Duplicate one of the commits to create a new change ID
-jj duplicate <commit-id>
-
-# Abandon the original commit
-jj abandon <commit-id>
+jj metaedit --update-change-id <commit-id>
 ```
 
 This preserves both versions of the content while resolving the divergence.
