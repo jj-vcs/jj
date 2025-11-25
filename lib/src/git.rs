@@ -916,10 +916,10 @@ pub enum FailedRefExportReason {
     ModifiedInJjDeletedInGit,
     /// Failed to delete the ref from the Git repo
     #[error("Failed to delete")]
-    FailedToDelete(#[source] Box<gix::reference::edit::Error>),
+    FailedToDelete(#[source] Box<dyn std::error::Error + Send + Sync>),
     /// Failed to set the ref in the Git repo
     #[error("Failed to set")]
-    FailedToSet(#[source] Box<gix::reference::edit::Error>),
+    FailedToSet(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
 /// Describes changes made by [`export_refs()`].
@@ -1252,7 +1252,10 @@ fn delete_git_ref(
     git_ref_name: &GitRefName,
     old_oid: &gix::oid,
 ) -> Result<(), FailedRefExportReason> {
-    if let Ok(git_ref) = git_repo.find_reference(git_ref_name.as_str()) {
+    if let Some(git_ref) = git_repo
+        .try_find_reference(git_ref_name.as_str())
+        .map_err(|err| FailedRefExportReason::FailedToDelete(err.into()))?
+    {
         if git_ref.inner.target.try_id() == Some(old_oid) {
             // The ref has not been updated by git, so go ahead and delete it
             git_ref
@@ -1273,10 +1276,13 @@ fn create_git_ref(
     git_ref_name: &GitRefName,
     new_oid: gix::ObjectId,
 ) -> Result<(), FailedRefExportReason> {
-    if let Ok(git_repo_ref) = git_repo.find_reference(git_ref_name.as_str()) {
+    if let Some(git_ref) = git_repo
+        .try_find_reference(git_ref_name.as_str())
+        .map_err(|err| FailedRefExportReason::FailedToSet(err.into()))?
+    {
         // The ref was added in jj and in git. We're good if and only if git
         // pointed it to our desired target.
-        if git_repo_ref.inner.target.try_id() != Some(&new_oid) {
+        if git_ref.inner.target.try_id() != Some(&new_oid) {
             return Err(FailedRefExportReason::AddedInJjAddedInGit);
         }
     } else {
@@ -1306,9 +1312,12 @@ fn move_git_ref(
         "export from jj",
     ) {
         // The reference was probably updated in git
-        if let Ok(git_repo_ref) = git_repo.find_reference(git_ref_name.as_str()) {
+        if let Some(git_ref) = git_repo
+            .try_find_reference(git_ref_name.as_str())
+            .map_err(|err| FailedRefExportReason::FailedToSet(err.into()))?
+        {
             // We still consider this a success if it was updated to our desired target
-            if git_repo_ref.inner.target.try_id() != Some(&new_oid) {
+            if git_ref.inner.target.try_id() != Some(&new_oid) {
                 return Err(FailedRefExportReason::FailedToSet(err.into()));
             }
         } else {
