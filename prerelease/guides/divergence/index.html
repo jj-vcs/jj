@@ -818,9 +818,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#strategy-2-duplicate-and-abandon" class="md-nav__link">
+  <a href="#strategy-2-generate-a-new-change-id" class="md-nav__link">
     <span class="md-ellipsis">
-      Strategy 2: Duplicate and abandon
+      Strategy 2: Generate a new change ID
     </span>
   </a>
   
@@ -1833,9 +1833,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#strategy-2-duplicate-and-abandon" class="md-nav__link">
+  <a href="#strategy-2-generate-a-new-change-id" class="md-nav__link">
     <span class="md-ellipsis">
-      Strategy 2: Duplicate and abandon
+      Strategy 2: Generate a new change ID
     </span>
   </a>
   
@@ -1950,15 +1950,10 @@ jj<span class="w"> </span>abandon<span class="w"> </span>&lt;unwanted-commit-id&
 <span class="c1"># jj abandon abc::</span>
 </code></pre></div>
 <p>This is the simplest solution when you know which version to keep.</p>
-<h3 id="strategy-2-duplicate-and-abandon">Strategy 2: Duplicate and abandon<a class="headerlink" href="#strategy-2-duplicate-and-abandon" title="Permanent link">&para;</a></h3>
+<h3 id="strategy-2-generate-a-new-change-id">Strategy 2: Generate a new change ID<a class="headerlink" href="#strategy-2-generate-a-new-change-id" title="Permanent link">&para;</a></h3>
 <p>If you want to keep both versions as separate changes with different change IDs,
-you can duplicate one of the commits to generate a new change ID, then abandon
-the original:</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># Duplicate one of the commits to create a new change ID</span>
-jj<span class="w"> </span>duplicate<span class="w"> </span>&lt;commit-id&gt;
-
-<span class="c1"># Abandon the original commit</span>
-jj<span class="w"> </span>abandon<span class="w"> </span>&lt;commit-id&gt;
+you can generate a new change ID for one of the commits:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>metaedit<span class="w"> </span>--update-change-id<span class="w"> </span>&lt;commit-id&gt;
 </code></pre></div>
 <p>This preserves both versions of the content while resolving the divergence.</p>
 <h3 id="strategy-3-squash-the-commits-together">Strategy 3: Squash the commits together<a class="headerlink" href="#strategy-3-squash-the-commits-together" title="Permanent link">&para;</a></h3>
