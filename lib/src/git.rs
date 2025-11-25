@@ -1241,11 +1241,144 @@ fn collect_changed_refs_to_export(
     }
 }
 
+/// Deletes a git ref using the git CLI. This is a workaround for reftable
+/// repositories where gitoxide doesn't yet support writing refs.
+fn delete_git_ref_cli(
+    git_repo: &gix::Repository,
+    git_ref_name: &GitRefName,
+    old_oid: &gix::oid,
+) -> Result<(), FailedRefExportReason> {
+    // Check current value matches old_oid
+    if let Ok(git_ref) = git_repo.find_reference(git_ref_name.as_str()) {
+        if git_ref.inner.target.try_id() != Some(old_oid) {
+            // The ref was updated by git
+            return Err(FailedRefExportReason::DeletedInJjModifiedInGit);
+        }
+    } else {
+        // The ref is already deleted
+        return Ok(());
+    }
+
+    // Use git CLI to delete the ref
+    let git_dir = git_repo.path();
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(git_dir)
+        .arg("update-ref")
+        .arg("-d")
+        .arg(git_ref_name.as_str())
+        .arg(old_oid.to_string())
+        .output()
+        .map_err(|err| {
+            FailedRefExportReason::FailedToDelete(Box::new(
+                gix::reference::edit::Error::FileTransactionPrepare(err.into()),
+            ))
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(FailedRefExportReason::FailedToDelete(Box::new(
+            gix::reference::edit::Error::FileTransactionPrepare(
+                std::io::Error::other(format!("git update-ref failed: {stderr}")).into(),
+            ),
+        )));
+    }
+
+    Ok(())
+}
+
+/// Updates a git ref using the git CLI. This is a workaround for reftable
+/// repositories where gitoxide doesn't yet support writing refs.
+fn update_git_ref_cli(
+    git_repo: &gix::Repository,
+    git_ref_name: &GitRefName,
+    old_oid: Option<gix::ObjectId>,
+    new_oid: gix::ObjectId,
+) -> Result<(), FailedRefExportReason> {
+    // Check for conflicts
+    match old_oid {
+        None => {
+            if let Ok(git_repo_ref) = git_repo.find_reference(git_ref_name.as_str()) {
+                // The ref was added in jj and in git. We're good if and only if git
+                // pointed it to our desired target.
+                if git_repo_ref.inner.target.try_id() != Some(&new_oid) {
+                    return Err(FailedRefExportReason::AddedInJjAddedInGit);
+                }
+                return Ok(());
+            }
+        }
+        Some(old_oid) => {
+            if let Ok(git_repo_ref) = git_repo.find_reference(git_ref_name.as_str()) {
+                let current_oid = git_repo_ref.inner.target.try_id();
+                if current_oid == Some(&new_oid) {
+                    // Already at target
+                    return Ok(());
+                }
+                if current_oid != Some(&old_oid) {
+                    // The reference was modified in git
+                    return Err(FailedRefExportReason::FailedToSet(Box::new(
+                        gix::reference::edit::Error::FileTransactionPrepare(
+                            std::io::Error::other("ref was modified in git").into(),
+                        ),
+                    )));
+                }
+            } else {
+                // The reference was deleted in git and moved in jj
+                return Err(FailedRefExportReason::ModifiedInJjDeletedInGit);
+            }
+        }
+    }
+
+    // Use git CLI to update the ref
+    let git_dir = git_repo.path();
+    let mut cmd = std::process::Command::new("git");
+    cmd.arg("-C")
+        .arg(git_dir)
+        .arg("update-ref")
+        .arg(git_ref_name.as_str())
+        .arg(new_oid.to_string());
+
+    // Add old value if specified for atomic update
+    if let Some(old_oid) = old_oid {
+        cmd.arg(old_oid.to_string());
+    }
+
+    let output = cmd.output().map_err(|err| {
+        FailedRefExportReason::FailedToSet(Box::new(
+            gix::reference::edit::Error::FileTransactionPrepare(err.into()),
+        ))
+    })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(FailedRefExportReason::FailedToSet(Box::new(
+            gix::reference::edit::Error::FileTransactionPrepare(
+                std::io::Error::other(format!("git update-ref failed: {stderr}")).into(),
+            ),
+        )));
+    }
+
+    Ok(())
+}
+
 fn delete_git_ref(
     git_repo: &gix::Repository,
     git_ref_name: &GitRefName,
     old_oid: &gix::oid,
 ) -> Result<(), FailedRefExportReason> {
+    // Check if repository uses reftable format
+    let uses_reftable = git_repo
+        .config_snapshot()
+        .string("extensions.refstorage")
+        .map(|value| value.as_ref() == "reftable")
+        .unwrap_or(false);
+
+    if uses_reftable {
+        // Use git CLI for reftable repositories
+        return delete_git_ref_cli(git_repo, git_ref_name, old_oid);
+    }
+
+    // Use gitoxide for traditional ref storage
     if let Ok(git_ref) = git_repo.find_reference(git_ref_name.as_str()) {
         if git_ref.inner.target.try_id() == Some(old_oid) {
             // The ref has not been updated by git, so go ahead and delete it
@@ -1268,6 +1401,19 @@ fn update_git_ref(
     old_oid: Option<gix::ObjectId>,
     new_oid: gix::ObjectId,
 ) -> Result<(), FailedRefExportReason> {
+    // Check if repository uses reftable format
+    let uses_reftable = git_repo
+        .config_snapshot()
+        .string("extensions.refstorage")
+        .map(|value| value.as_ref() == "reftable")
+        .unwrap_or(false);
+
+    if uses_reftable {
+        // Use git CLI for reftable repositories
+        return update_git_ref_cli(git_repo, git_ref_name, old_oid, new_oid);
+    }
+
+    // Use gitoxide for traditional ref storage
     match old_oid {
         None => {
             if let Ok(git_repo_ref) = git_repo.find_reference(git_ref_name.as_str()) {

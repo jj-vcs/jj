@@ -5028,3 +5028,88 @@ fn auto_track_all() -> HashMap<RemoteNameBuf, RemoteSettings> {
         .map(|name| (name.into(), settings.clone()))
         .collect()
 }
+
+#[test]
+fn test_export_refs_reftable_bookmark() {
+    // Test that we can export refs to a reftable repository
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+
+    // Create a git repository with reftable format using git CLI
+    let git_repo_dir = temp_dir.path().join("git-reftable");
+    let output = std::process::Command::new("git")
+        .args(["init", "--ref-format=reftable"])
+        .arg(&git_repo_dir)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "git init with reftable failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let git_repo = testutils::git::open(&git_repo_dir);
+
+    // Verify it's using reftable
+    assert_eq!(
+        git_repo
+            .config_snapshot()
+            .string("extensions.refstorage")
+            .as_deref()
+            .map(|v| v.as_ref()),
+        Some(b"reftable".as_ref())
+    );
+
+    // Create a jj repo backed by the reftable git repo
+    let jj_repo_dir = temp_dir.path().join("jj");
+    std::fs::create_dir(&jj_repo_dir).unwrap();
+    let repo = ReadonlyRepo::init(
+        &settings,
+        &jj_repo_dir,
+        &|settings, store_path| {
+            Ok(Box::new(GitBackend::init_external(
+                settings,
+                store_path,
+                git_repo.path(),
+            )?))
+        },
+        Signer::from_settings(&settings).unwrap(),
+        ReadonlyRepo::default_op_store_initializer(),
+        ReadonlyRepo::default_op_heads_store_initializer(),
+        ReadonlyRepo::default_index_store_initializer(),
+        ReadonlyRepo::default_submodule_store_initializer(),
+    )
+    .unwrap();
+
+    // Create a commit and bookmark in jj
+    let mut tx = repo.start_transaction();
+    let commit = create_random_commit(tx.repo_mut()).write().unwrap();
+    tx.repo_mut().set_local_bookmark_target(
+        "test-bookmark".as_ref(),
+        RefTarget::normal(commit.id().clone()),
+    );
+
+    // Export the bookmark - this should use the git CLI fallback
+    let stats = git::export_refs(tx.repo_mut()).unwrap();
+    assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
+
+    // Verify the bookmark was created in git (use git CLI since gitoxide can't read
+    // reftable)
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(git_repo.path())
+        .args(["rev-parse", "refs/heads/test-bookmark"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let git_commit_id = String::from_utf8(output.stdout).unwrap();
+    assert_eq!(git_commit_id.trim(), commit.id().hex());
+
+    // Verify in the jj repo
+    assert_eq!(
+        tx.repo_mut()
+            .get_git_ref("refs/heads/test-bookmark".as_ref()),
+        RefTarget::normal(commit.id().clone())
+    );
+}

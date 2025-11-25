@@ -175,6 +175,10 @@ pub struct GitBackend {
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
     git_executable: PathBuf,
     write_change_id_header: bool,
+    // Cached detection of reftable format. Not currently used directly,
+    // but kept for potential future optimizations.
+    #[allow(dead_code)]
+    uses_reftable: bool,
 }
 
 impl GitBackend {
@@ -191,6 +195,7 @@ impl GitBackend {
         let root_commit_id = CommitId::from_bytes(&[0; HASH_LENGTH]);
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
         let empty_tree_id = TreeId::from_hex("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
+        let uses_reftable = detect_reftable_format(&base_repo);
         Self {
             base_repo,
             repo,
@@ -202,6 +207,7 @@ impl GitBackend {
             cached_extra_metadata: Mutex::new(None),
             git_executable: git_settings.executable_path,
             write_change_id_header: git_settings.write_change_id_header,
+            uses_reftable,
         }
     }
 
@@ -531,6 +537,17 @@ fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
         .open_path_as_is(true)
         // Gitoxide recommends this when correctness is preferred
         .strict_config(true)
+}
+
+/// Detects if the repository uses reftable format for storing refs.
+/// Reftable format is indicated by extensions.refstorage=reftable in the git
+/// config.
+fn detect_reftable_format(repo: &gix::ThreadSafeRepository) -> bool {
+    repo.to_thread_local()
+        .config_snapshot()
+        .string("extensions.refstorage")
+        .map(|value| value.as_ref() == "reftable")
+        .unwrap_or(false)
 }
 
 /// Parses the `jj:trees` header value.
