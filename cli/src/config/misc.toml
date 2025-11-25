@@ -6,6 +6,7 @@
 b = ["bookmark"]
 ci = ["commit"]
 desc = ["describe"]
+lg = ["log"]
 st = ["status"]
 
 [diff.color-words]

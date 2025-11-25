@@ -154,7 +154,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `git` — Commands for working with Git remotes and the underlying Git repo
 * `help` — Print this message or the help of the given subcommand(s)
 * `interdiff` — Compare the changes of two commits
-* `log` — Show revision history
+* `log` — Show revision history [default alias: lg]
 * `metaedit` — Modify the metadata of a revision without changing its content
 * `new` — Create a new, empty change and (by default) edit it in the working copy
 * `next` — Move the working-copy commit to the child revision
@@ -1721,7 +1721,7 @@ This excludes changes from other commits by temporarily rebasing `--from` onto `
 
 ## `jj log`
 
-Show revision history
+Show revision history [default alias: lg]
 
 Renders a graphical view of the project's history, ordered with children before parents. By default, the output only includes mutable revisions, along with some additional revisions for context. Use `jj log -r ::` to see all revisions. See [`jj help -k revsets`] for information about the syntax.
 
