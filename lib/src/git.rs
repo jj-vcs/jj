@@ -1252,23 +1252,22 @@ fn delete_git_ref(
     git_ref_name: &GitRefName,
     old_oid: &gix::oid,
 ) -> Result<(), FailedRefExportReason> {
-    if let Some(git_ref) = git_repo
+    let Some(git_ref) = git_repo
         .try_find_reference(git_ref_name.as_str())
         .map_err(|err| FailedRefExportReason::FailedToDelete(err.into()))?
-    {
-        if git_ref.inner.target.try_id() == Some(old_oid) {
-            // The ref has not been updated by git, so go ahead and delete it
-            git_ref
-                .delete()
-                .map_err(|err| FailedRefExportReason::FailedToDelete(err.into()))?;
-        } else {
-            // The ref was updated by git
-            return Err(FailedRefExportReason::DeletedInJjModifiedInGit);
-        }
-    } else {
+    else {
         // The ref is already deleted
+        return Ok(());
+    };
+    if git_ref.inner.target.try_id() == Some(old_oid) {
+        // The ref has not been updated by git, so go ahead and delete it
+        git_ref
+            .delete()
+            .map_err(|err| FailedRefExportReason::FailedToDelete(err.into()))
+    } else {
+        // The ref was updated by git
+        Err(FailedRefExportReason::DeletedInJjModifiedInGit)
     }
-    Ok(())
 }
 
 fn create_git_ref(
@@ -1304,29 +1303,27 @@ fn move_git_ref(
     old_oid: gix::ObjectId,
     new_oid: gix::ObjectId,
 ) -> Result<(), FailedRefExportReason> {
-    if let Err(err) = git_repo.reference(
-        git_ref_name.as_str(),
-        new_oid,
-        gix::refs::transaction::PreviousValue::MustExistAndMatch(old_oid.into()),
-        "export from jj",
-    ) {
-        // The reference was probably updated in git
-        if let Some(git_ref) = git_repo
-            .try_find_reference(git_ref_name.as_str())
-            .map_err(|err| FailedRefExportReason::FailedToSet(err.into()))?
-        {
-            // We still consider this a success if it was updated to our desired target
-            if git_ref.inner.target.try_id() != Some(&new_oid) {
-                return Err(FailedRefExportReason::FailedToSet(err.into()));
-            }
-        } else {
-            // The reference was deleted in git and moved in jj
-            return Err(FailedRefExportReason::ModifiedInJjDeletedInGit);
-        }
-    } else {
+    let constraint = gix::refs::transaction::PreviousValue::MustExistAndMatch(old_oid.into());
+    let Err(set_err) =
+        git_repo.reference(git_ref_name.as_str(), new_oid, constraint, "export from jj")
+    else {
         // Successfully updated from old_oid to new_oid (unchanged in git)
+        return Ok(());
+    };
+    // The reference was probably updated in git
+    let Some(git_ref) = git_repo
+        .try_find_reference(git_ref_name.as_str())
+        .map_err(|err| FailedRefExportReason::FailedToSet(err.into()))?
+    else {
+        // The reference was deleted in git and moved in jj
+        return Err(FailedRefExportReason::ModifiedInJjDeletedInGit);
+    };
+    // We still consider this a success if it was updated to our desired target
+    if git_ref.inner.target.try_id() == Some(&new_oid) {
+        Ok(())
+    } else {
+        Err(FailedRefExportReason::FailedToSet(set_err.into()))
     }
-    Ok(())
 }
 
 fn update_git_ref(
