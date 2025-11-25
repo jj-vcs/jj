@@ -138,9 +138,7 @@ fn test_git_colocated_intent_to_add() {
     // If we remove the added file, it's removed from the index
     work_dir.remove_file("file2.txt");
     work_dir.run_jj(["status"]).success();
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
-    Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
-    ");
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt");
 
     // If we untrack the file, it's removed from the index
     work_dir
@@ -1606,9 +1604,7 @@ fn test_git_colocated_operation_cleanup() {
         .output()
         .unwrap();
     assert!(output.status.success());
-    insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @r#"
-    UU file
-    "#);
+    insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @"UU file");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  588c505e689d116180684778b29c540fe7180268
     ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main git_head() 2

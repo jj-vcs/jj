@@ -61,7 +61,7 @@ hashbrown = { version = "0.16.1", default-features = false, features = ["inline-
 ignore = "0.4.25"
 indexmap = { version = "2.12.1", features = ["serde"] }
 indoc = "2.0.7"
-insta = { version = "1.43.2", features = ["filters"] }
+insta = { version = "1.44.1", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
 jsonschema = { version = "0.37.1", default-features = false }
