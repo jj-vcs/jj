@@ -172,12 +172,12 @@ fn test_git_clone_bad_source() {
     [exit status: 2]
     "#);
 
-    // Invalid port number
-    let output = root_dir.run_jj(["git", "clone", "https://example.net:bad-port/bar", "dest"]);
+    // Invalid URL
+    let output = root_dir.run_jj(["git", "clone", "https://", "dest"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: URL "https://example.net:bad-port/bar" can not be parsed as valid URL
-    Caused by: invalid port number
+    Error: URL "https://" can not be parsed as valid URL
+    Caused by: empty host
     [EOF]
     [exit status: 2]
     "#);
