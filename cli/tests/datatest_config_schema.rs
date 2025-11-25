@@ -24,12 +24,14 @@ fn validate_config_toml(config_toml: String) -> Result<(), String> {
     let schema = serde_json::from_str(SCHEMA_SRC).expect("`config-schema.json` to be valid JSON");
     let validator =
         jsonschema::validator_for(&schema).expect("`config-schema.json` to be a valid schema");
-    match validator.apply(&config).basic() {
-        jsonschema::BasicOutput::Valid(_) => Ok(()),
-        jsonschema::BasicOutput::Invalid(errs) => Err(errs
-            .into_iter()
-            .map(|err| format!("* {}: {}", err.instance_location(), err.error_description()))
-            .join("\n")),
+    let evaluation = validator.evaluate(&config);
+    if evaluation.flag().valid {
+        Ok(())
+    } else {
+        Err(evaluation
+            .iter_errors()
+            .map(|err| format!("* {}: {}", err.instance_location, err.error))
+            .join("\n"))
     }
 }
 

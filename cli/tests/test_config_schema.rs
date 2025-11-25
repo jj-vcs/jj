@@ -23,11 +23,14 @@ fn test_config_schema_default_values_are_consistent_with_schema() {
     let validator =
         jsonschema::validator_for(&schema).expect("`config-schema.json` to be a valid schema");
     let schema_defaults = default_config_from_schema();
-    if let jsonschema::BasicOutput::Invalid(errs) = validator.apply(&schema_defaults).basic() {
+
+    let evaluation = validator.evaluate(&schema_defaults);
+    if !evaluation.flag().valid {
         panic!(
             "Failed to validate the schema defaults:\n{}",
-            errs.into_iter()
-                .map(|err| format!("* {}: {}", err.instance_location(), err.error_description()))
+            evaluation
+                .iter_errors()
+                .map(|err| format!("* {}: {}", err.instance_location, err.error))
                 .join("\n")
         );
     }

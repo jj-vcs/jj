@@ -64,7 +64,7 @@ indoc = "2.0.7"
 insta = { version = "1.43.2", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
-jsonschema = { version = "0.35.0", default-features = false }
+jsonschema = { version = "0.37.1", default-features = false }
 libc = { version = "0.2.177" }
 maplit = "1.0.2"
 nix = "0.30.1"
