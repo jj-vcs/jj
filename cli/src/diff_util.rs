@@ -1762,7 +1762,8 @@ pub async fn show_diff_summary(
 ) -> Result<(), DiffRenderError> {
     while let Some(CopiesTreeDiffEntry { path, values }) = tree_diff.next().await {
         let values = values?;
-        let (label, sigil) = diff_status_label_and_char(&path, &values);
+        let status = diff_status(&path, &values);
+        let (label, sigil) = (status.label(), status.char());
         let path = if path.copy_operation().is_some() {
             path_converter.format_copied_path(path.source(), path.target())
         } else {
@@ -1773,20 +1774,20 @@ pub async fn show_diff_summary(
     Ok(())
 }
 
-pub fn diff_status_label_and_char(
+pub fn diff_status(
     path: &CopiesTreeDiffEntryPath,
     values: &Diff<MergedTreeValue>,
-) -> (&'static str, char) {
+) -> DiffEntryStatus {
     if let Some(op) = path.copy_operation() {
         match op {
-            CopyOperation::Copy => ("copied", 'C'),
-            CopyOperation::Rename => ("renamed", 'R'),
+            CopyOperation::Copy => DiffEntryStatus::Copied,
+            CopyOperation::Rename => DiffEntryStatus::Renamed,
         }
     } else {
         match (values.before.is_present(), values.after.is_present()) {
-            (true, true) => ("modified", 'M'),
-            (false, true) => ("added", 'A'),
-            (true, false) => ("removed", 'D'),
+            (true, true) => DiffEntryStatus::Modified,
+            (false, true) => DiffEntryStatus::Added,
+            (true, false) => DiffEntryStatus::Removed,
             (false, false) => panic!("values pair must differ"),
         }
     }
@@ -1855,6 +1856,37 @@ impl DiffStats {
             .iter()
             .filter_map(|stat| stat.added_removed.map(|(_, removed)| removed))
             .sum()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DiffEntryStatus {
+    Added,
+    Removed,
+    Modified,
+    Copied,
+    Renamed,
+}
+
+impl DiffEntryStatus {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Added => "added",
+            Self::Removed => "removed",
+            Self::Modified => "modified",
+            Self::Copied => "copied",
+            Self::Renamed => "renamed",
+        }
+    }
+
+    pub fn char(&self) -> char {
+        match self {
+            Self::Added => 'A',
+            Self::Removed => 'D',
+            Self::Modified => 'M',
+            Self::Copied => 'C',
+            Self::Renamed => 'R',
+        }
     }
 }
 
