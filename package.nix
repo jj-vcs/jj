@@ -1,6 +1,6 @@
 {
   lib,
-  rust-bin,
+  buildPackages,
   makeRustPlatform,
   stdenv,
   mold-wrapped,
@@ -15,7 +15,7 @@
   # But, whenever we are running CI builds or checks, we want to use a
   # smaller closure. This reduces the CI impact on fresh clones/VMs, etc.
   rustMinimalPlatform = let
-    platform = rust-bin.selectLatestNightlyWith (t: t.minimal);
+    platform = buildPackages.rust-bin.selectLatestNightlyWith (t: t.minimal);
   in
     makeRustPlatform {
       rustc = platform;
@@ -85,7 +85,7 @@ in
         NIX_JJ_GIT_HASH = self.rev or "";
       };
 
-    postInstall = ''
+    postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
       $out/bin/jj util install-man-pages man
       installManPage ./man/man1/*
 
