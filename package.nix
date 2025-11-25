@@ -53,7 +53,7 @@
 in
   rustMinimalPlatform.buildRustPackage {
     pname = "jujutsu";
-    version = "${packageVersion}-unstable-${self.shortRev or "dirty"}";
+    version = "${packageVersion}-unstable-${self.shortRev or self.dirtyShortRev or "dirty"}";
 
     cargoBuildFlags = [
       "--bin"
