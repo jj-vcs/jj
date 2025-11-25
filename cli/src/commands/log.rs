@@ -42,7 +42,7 @@ use crate::graphlog::get_graphlog;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
-/// Show revision history
+/// Show revision history [default alias: lg]
 ///
 /// Renders a graphical view of the project's history, ordered with children
 /// before parents. By default, the output only includes mutable revisions,
