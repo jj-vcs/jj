@@ -1052,3 +1052,121 @@ fn test_revset_committer_date_with_time_zone() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_alias_super() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["commit", "-m", "first"]).success();
+    work_dir.run_jj(["commit", "-m", "second"]).success();
+    work_dir.run_jj(["commit", "-m", "third"]).success();
+
+    test_env.add_config(
+        r###"
+    [revset-aliases]
+    'no_args()' = '@'
+    'symbol' = '@'
+    'with_args(x)' = 'x'
+    "###,
+    );
+    test_env.add_config(
+        r###"
+    [revset-aliases]
+    'no_args()' = 'super() | @--'
+    'symbol' = 'super | @-'
+    "###,
+    );
+    test_env.add_config(
+        r###"
+    [revset-aliases]
+    'symbol' = 'super | @---'
+    'with_args(x)' = 'super(x) | x-'
+    "###,
+    );
+
+    // Basic: super() references the previous definition
+    let output = work_dir.run_jj(["log", "-r", "no_args()", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
+    @
+    ~  (elided revisions)
+    ○  second
+    │
+    ~
+    [EOF]
+    ");
+
+    // Multiple layers of super
+    let output = work_dir.run_jj(["log", "-r", "symbol", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
+    @
+    ○  third
+    ~  (elided revisions)
+    ○  first
+    │
+    ~
+    [EOF]
+    ");
+
+    // super in function alias with parameters
+    let output = work_dir.run_jj(["log", "-r", "with_args(@-)", "-T", "description"]);
+    insta::assert_snapshot!(output, @r"
+    ○  third
+    ○  second
+    │
+    ~
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_alias_super_errors() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Error: super without previous definition
+    test_env.add_config(
+        r###"
+    [revset-aliases]
+    'no_base' = 'super'
+    "###,
+    );
+
+    let output = work_dir.run_jj(["log", "-r", "no_base"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Failed to parse revset: In alias `no_base`
+    Caused by:
+    1:  --> 1:1
+      |
+    1 | no_base
+      | ^-----^
+      |
+      = In alias `no_base`
+    2:  --> 1:1
+      |
+    1 | super
+      | ^---^
+      |
+      = Function `super`: No previous definition (already at base layer)
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Error: super() used outside of alias
+    let output = work_dir.run_jj(["log", "-r", "super()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Failed to parse revset: Function `super`: super can only be used within an alias definition
+    Caused by:  --> 1:1
+      |
+    1 | super()
+      | ^---^
+      |
+      = Function `super`: super can only be used within an alias definition
+    [EOF]
+    [exit status: 1]
+    ");
+}
