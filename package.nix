@@ -10,7 +10,7 @@
   installShellFiles,
   self,
 }: let
-  packageVersion = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).workspace.package.version;
+  packageVersion = (lib.importTOML ./Cargo.toml).workspace.package.version;
 
   filterSrc = src: regexes:
     lib.cleanSourceWith {
