@@ -510,9 +510,99 @@ fn test_resolution() {
     [EOF]
     [exit status: 1]
     ");
+}
 
-    // TODO: Check that running `jj new` and then `jj resolve -r conflict` works
-    // correctly.
+#[test]
+fn test_files_still_have_conflicts() {
+    let mut test_env = TestEnvironment::default();
+    let editor_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // set up the commit graph
+    create_commit_with_files(
+        &work_dir,
+        "base",
+        &[],
+        &[("file1", "base\n"), ("file2", "base\n")],
+    );
+    create_commit_with_files(
+        &work_dir,
+        "a",
+        &["base"],
+        &[("file1", "a\n"), ("file2", "a\n")],
+    );
+    create_commit_with_files(
+        &work_dir,
+        "b",
+        &["base"],
+        &[("file1", "b\n"), ("file2", "b\n")],
+    );
+    create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&work_dir, "c", &["conflict"], &[]);
+    create_commit_with_files(&work_dir, "d", &["base"], &[]);
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  d
+    │ ×  c
+    │ ×    conflict
+    │ ├─╮
+    │ │ ○  b
+    ├───╯
+    │ ○  a
+    ├─╯
+    ○  base
+    ◆
+    [EOF]
+    ");
+    let setup_opid = work_dir.current_operation_id();
+
+    // partially resolve the conflict from an unaffected sibling
+    std::fs::write(&editor_script, "write\nresolution\n").unwrap();
+    let output = work_dir.run_jj([
+        "resolve",
+        "-r",
+        "conflict",
+        "file1",
+        "--config",
+        "hints.resolving-conflicts=false",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Resolving conflicts in: file1
+    Rebased 1 descendant commits
+    New conflicts appeared in 1 commits:
+      vruxwmqv 5f31d8ad conflict | (conflict) conflict
+    Warning: After this operation, some files at this revision still have conflicts:
+    file2    2-sided conflict
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // partially resolve the conflict from a descendant
+    work_dir.run_jj(["edit", "c"]).success();
+    let output = work_dir.run_jj([
+        "resolve",
+        "-r",
+        "conflict",
+        "file1",
+        "--config",
+        "hints.resolving-conflicts=false",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Resolving conflicts in: file1
+    Rebased 1 descendant commits
+    Working copy  (@) now at: znkkpsqq 1577a6a8 c | (conflict) (empty) c
+    Parent commit (@-)      : vruxwmqv c6be5b3d conflict | (conflict) conflict
+    Added 0 files, modified 1 files, removed 0 files
+    Warning: There are unresolved conflicts at these paths:
+    file2    2-sided conflict
+    New conflicts appeared in 1 commits:
+      vruxwmqv c6be5b3d conflict | (conflict) conflict
+    Warning: After this operation, some files at this revision still have conflicts:
+    file2    2-sided conflict
+    [EOF]
+    ");
 }
 
 fn check_resolve_produces_input_file(
