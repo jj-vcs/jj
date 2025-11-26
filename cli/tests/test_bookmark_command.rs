@@ -2637,10 +2637,10 @@ fn test_create_and_set_auto_track_bookmarks() {
     ");
     repo_dir.run_jj(["commit", "--message", "set"]).success();
 
-    // jj bookmark create warns when auto-tracking existing bookmark
+    // jj bookmark create/set warns when auto-tracking existing bookmark
     repo_dir.run_jj(["git", "push"]).success();
     repo_dir
-        .run_jj(["bookmark", "forget", "mine/create"])
+        .run_jj(["bookmark", "forget", "mine/create", "mine/set"])
         .success();
     let output = repo_dir.run_jj(["bookmark", "create", "mine/create"]);
     insta::assert_snapshot!(output, @r"
@@ -2648,6 +2648,14 @@ fn test_create_and_set_auto_track_bookmarks() {
     Warning: Target revision is empty.
     Warning: Auto-tracking bookmark that exists on the remote: mine/create@origin
     Created 1 bookmarks pointing to znkkpsqq 2e899fb8 mine/create* | (empty) (no description set)
+    [EOF]
+    ");
+    let output = repo_dir.run_jj(["bookmark", "set", "mine/set"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Target revision is empty.
+    Warning: Auto-tracking bookmark that exists on the remote: mine/set@origin
+    Created 1 bookmarks pointing to znkkpsqq 2e899fb8 mine/create* mine/set* | (empty) (no description set)
     [EOF]
     ");
 }
