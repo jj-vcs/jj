@@ -500,8 +500,6 @@ String patterns can be combined by using logical operators
 * `x ~ y`: Matches `x` but not `y`.
 * `x | y`: Matches either `x` or `y` (or both).
 
-Not all command arguments support logical operators yet.
-
 ## Date patterns
 
 Functions that perform date matching support the following pattern syntax:

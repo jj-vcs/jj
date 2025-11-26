@@ -49,7 +49,6 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringExpression;
-use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
 use crate::cli_util::CommandHelper;
@@ -70,6 +69,7 @@ use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
 use crate::git_util::with_remote_git_callbacks;
 use crate::revset_util::parse_bookmark_name;
+use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
 /// Push to a Git remote
@@ -115,10 +115,9 @@ pub struct GitPushArgs {
     #[arg(
         long, short,
         alias = "branch",
-        value_parser = StringPattern::parse,
         add = ArgValueCandidates::new(complete::local_bookmarks),
     )]
-    bookmark: Vec<StringPattern>,
+    bookmark: Vec<String>,
     /// Push all bookmarks (including new bookmarks)
     #[arg(long)]
     all: bool,
@@ -939,31 +938,33 @@ fn create_change_bookmarks(
 fn find_bookmarks_to_push<'a>(
     ui: &Ui,
     view: &'a View,
-    bookmark_patterns: &[StringPattern],
+    bookmark_patterns: &[String],
     remote: &RemoteName,
 ) -> Result<Vec<(&'a RefName, LocalAndRemoteRef<'a>)>, CommandError> {
-    let mut matching_bookmarks = vec![];
-    let mut unmatched_names = vec![];
-    for pattern in bookmark_patterns {
-        let matcher = pattern.to_matcher();
-        let mut matches = view
-            .local_remote_bookmarks_matching(&matcher, remote)
-            .filter(|(_, targets)| {
-                // If the remote exists but is not tracked, the absent local shouldn't
-                // be considered a deleted bookmark.
-                targets.local_target.is_present() || targets.remote_ref.is_tracked()
-            })
-            .peekable();
-        if matches.peek().is_none() {
-            unmatched_names.extend(pattern.as_exact());
-        }
-        matching_bookmarks.extend(matches);
-    }
-    if !unmatched_names.is_empty() {
+    let bookmark_expr = parse_union_name_patterns(ui, bookmark_patterns)?;
+    let bookmark_matcher = bookmark_expr.to_matcher();
+    let matching_bookmarks = view
+        .local_remote_bookmarks_matching(&bookmark_matcher, remote)
+        .filter(|(_, targets)| {
+            // If the remote exists but is not tracked, the absent local shouldn't
+            // be considered a deleted bookmark.
+            targets.local_target.is_present() || targets.remote_ref.is_tracked()
+        })
+        .collect();
+    let mut unmatched_names = bookmark_expr
+        .exact_strings()
+        .map(RefName::new)
+        .filter(|&name| {
+            let symbol = name.to_remote_symbol(remote);
+            view.get_local_bookmark(name).is_absent()
+                && !view.get_remote_bookmark(symbol).is_tracked()
+        })
+        .peekable();
+    if unmatched_names.peek().is_some() {
         writeln!(
             ui.warning_default(),
             "No matching bookmarks for names: {}",
-            unmatched_names.join(", ")
+            unmatched_names.map(|name| name.as_symbol()).join(", ")
         )?;
     }
     Ok(matching_bookmarks)

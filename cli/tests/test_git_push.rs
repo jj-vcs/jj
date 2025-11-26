@@ -721,7 +721,7 @@ fn test_git_push_multiple() {
     [EOF]
     ");
     // Dry run with glob pattern
-    let output = work_dir.run_jj(["git", "push", "-b=glob:bookmark?", "--dry-run"]);
+    let output = work_dir.run_jj(["git", "push", "-b=glob:'bookmark?'", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -739,7 +739,7 @@ fn test_git_push_multiple() {
     Nothing changed.
     [EOF]
     ");
-    let output = work_dir.run_jj(["git", "push", "-b=foo", "-b=glob:?bookmark"]);
+    let output = work_dir.run_jj(["git", "push", "-b=foo", "-b=glob:'?bookmark'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No matching bookmarks for names: foo

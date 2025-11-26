@@ -249,8 +249,8 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
-      Move forward bookmark main from 95cc152cd086 to 03bc2bf271e0
       Add bookmark bookmark1 to 95cc152cd086
+      Move forward bookmark main from 95cc152cd086 to 03bc2bf271e0
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
     Working copy  (@) now at: kpqxywon 5308110d (empty) (no description set)
     Parent commit (@-)      : yostqsxw 03bc2bf2 main | (empty) public 3
