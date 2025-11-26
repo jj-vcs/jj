@@ -8,7 +8,7 @@
       
       
       
-        <link rel="canonical" href="https://jj-vcs.github.io/jj/latest/cli-reference/">
+        <link rel="canonical" href="https://docs.jj-vcs.dev/latest/cli-reference/">
       
       
         <link rel="prev" href="../FAQ/">
@@ -7726,7 +7726,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <ul>
 <li>
 <p><code>&lt;NAMES&gt;</code> — The bookmarks to delete</p>
-<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://jj-vcs.github.io/jj/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
+<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
 </li>
 </ul>
 <h2 id="jj-bookmark-forget"><code>jj bookmark forget</code><a class="headerlink" href="#jj-bookmark-forget" title="Permanent link">&para;</a></h2>
@@ -7738,7 +7738,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <ul>
 <li>
 <p><code>&lt;NAMES&gt;</code> — The bookmarks to forget</p>
-<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://jj-vcs.github.io/jj/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
+<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
 </li>
 </ul>
 <h6 id="options_5"><strong>Options:</strong><a class="headerlink" href="#options_5" title="Permanent link">&para;</a></h6>
@@ -7758,7 +7758,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <ul>
 <li>
 <p><code>&lt;NAMES&gt;</code> — Show bookmarks whose local name matches</p>
-<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://jj-vcs.github.io/jj/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
+<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
 </li>
 </ul>
 <h6 id="options_6"><strong>Options:</strong><a class="headerlink" href="#options_6" title="Permanent link">&para;</a></h6>
@@ -7767,7 +7767,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <li>
 <p><code>--remote &lt;REMOTE&gt;</code> — Show all tracking and non-tracking remote bookmarks belonging to this remote</p>
 <p>Can be combined with <code>--tracked</code> or <code>--conflicted</code> to filter the bookmarks shown (can be repeated.)</p>
-<p>By default, the specified remote name matches exactly. Use <code>glob:</code> prefix to select remotes by <a href="https://jj-vcs.github.io/jj/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
+<p>By default, the specified remote name matches exactly. Use <code>glob:</code> prefix to select remotes by <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
 </li>
 <li>
 <p><code>-t</code>, <code>--tracked</code> — Show remote tracked bookmarks only. Omits local Git-tracking bookmarks by default</p>
@@ -7800,7 +7800,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <ul>
 <li>
 <p><code>&lt;NAMES&gt;</code> — Move bookmarks matching the given name patterns</p>
-<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://jj-vcs.github.io/jj/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
+<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
 </li>
 </ul>
 <h6 id="options_7"><strong>Options:</strong><a class="headerlink" href="#options_7" title="Permanent link">&para;</a></h6>
@@ -7851,7 +7851,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <ul>
 <li>
 <p><code>&lt;BOOKMARK@REMOTE&gt;</code> — Remote bookmarks to track</p>
-<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://jj-vcs.github.io/jj/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
+<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
 <p>Examples: bookmark@remote, glob:main@<em>, glob:jjfan-</em>@upstream</p>
 </li>
 </ul>
@@ -7864,7 +7864,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <ul>
 <li>
 <p><code>&lt;BOOKMARK@REMOTE&gt;</code> — Remote bookmarks to untrack</p>
-<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://jj-vcs.github.io/jj/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
+<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
 <p>Examples: bookmark@remote, glob:main@<em>, glob:jjfan-</em>@upstream</p>
 </li>
 </ul>
@@ -8097,8 +8097,8 @@ Martin von Zweigbergk</p>
 </ul>
 <h2 id="jj-diffedit"><code>jj diffedit</code><a class="headerlink" href="#jj-diffedit" title="Permanent link">&para;</a></h2>
 <p>Touch up the content changes in a revision with a diff editor</p>
-<p>With the <code>-r</code> option, starts a <a href="https://jj-vcs.github.io/jj/latest/config/#editing-diffs">diff editor</a> on the changes in the revision.</p>
-<p>With the <code>--from</code> and/or <code>--to</code> options, starts a <a href="https://jj-vcs.github.io/jj/latest/config/#editing-diffs">diff editor</a> comparing the "from" revision to the "to" revision.</p>
+<p>With the <code>-r</code> option, starts a <a href="https://docs.jj-vcs.dev/latest/config/#editing-diffs">diff editor</a> on the changes in the revision.</p>
+<p>With the <code>--from</code> and/or <code>--to</code> options, starts a <a href="https://docs.jj-vcs.dev/latest/config/#editing-diffs">diff editor</a> comparing the "from" revision to the "to" revision.</p>
 <p>Edit the right side of the diff until it looks the way you want. Once you close the editor, the revision specified with <code>-r</code> or <code>--to</code> will be updated. Unless <code>--restore-descendants</code> is used, descendants will be rebased on top as usual, which may result in conflicts.</p>
 <p>See <code>jj restore</code> if you want to move entire files from one revision to another. For moving changes between revisions, see <code>jj squash -i</code>.</p>
 <p><strong>Usage:</strong> <code>jj diffedit [OPTIONS] [FILESETS]...</code></p>
@@ -8146,7 +8146,7 @@ Martin von Zweigbergk</p>
 </ul>
 <h2 id="jj-edit"><code>jj edit</code><a class="headerlink" href="#jj-edit" title="Permanent link">&para;</a></h2>
 <p>Sets the specified revision as the working-copy revision</p>
-<p>Note: it is <a href="https://jj-vcs.github.io/jj/latest/FAQ#how-do-i-resume-working-on-an-existing-change">generally recommended</a> to instead use <code>jj new</code> and <code>jj squash</code>.</p>
+<p>Note: it is <a href="https://docs.jj-vcs.dev/latest/FAQ#how-do-i-resume-working-on-an-existing-change">generally recommended</a> to instead use <code>jj new</code> and <code>jj squash</code>.</p>
 <p><strong>Usage:</strong> <code>jj edit &lt;REVSET&gt;</code></p>
 <h6 id="arguments_21"><strong>Arguments:</strong><a class="headerlink" href="#arguments_21" title="Permanent link">&para;</a></h6>
 <ul>
@@ -8424,7 +8424,7 @@ output of the first tool.</p>
 </ul>
 <h2 id="jj-git"><code>jj git</code><a class="headerlink" href="#jj-git" title="Permanent link">&para;</a></h2>
 <p>Commands for working with Git remotes and the underlying Git repo</p>
-<p>See this <a href="https://jj-vcs.github.io/jj/latest/git-comparison/.">comparison</a>, including a <a href="https://jj-vcs.github.io/jj/latest/git-command-table">table of commands</a>.</p>
+<p>See this <a href="https://docs.jj-vcs.dev/latest/git-comparison/.">comparison</a>, including a <a href="https://docs.jj-vcs.dev/latest/git-command-table">table of commands</a>.</p>
 <p><strong>Usage:</strong> <code>jj git &lt;COMMAND&gt;</code></p>
 <h6 id="subcommands_6"><strong>Subcommands:</strong><a class="headerlink" href="#subcommands_6" title="Permanent link">&para;</a></h6>
 <ul>
@@ -8461,12 +8461,12 @@ output of the first tool.</p>
 <p><code>--colocate</code> — Colocate the Jujutsu repo with the git repo</p>
 <p>Specifies that the <code>jj</code> repo should also be a valid <code>git</code> repo, allowing the use of both <code>jj</code> and <code>git</code> commands in the same directory.</p>
 <p>The repository will contain a <code>.git</code> dir in the top-level. Regular Git tools will be able to operate on the repo.</p>
-<p><strong>This is the default</strong>, and this option has no effect, unless the <a href="https://jj-vcs.github.io/jj/latest/config/#default-colocation">git.colocate config</a> is set to <code>false</code>.</p>
+<p><strong>This is the default</strong>, and this option has no effect, unless the <a href="https://docs.jj-vcs.dev/latest/config/#default-colocation">git.colocate config</a> is set to <code>false</code>.</p>
 </li>
 <li>
 <p><code>--no-colocate</code> — Disable colocation of the Jujutsu repo with the git repo</p>
 <p>Prevent Git tools that are unaware of <code>jj</code> and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the <code>.jj</code> directory.</p>
-<p>See <a href="https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated workspaces.</p>
+<p>See <a href="https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated workspaces.</p>
 </li>
 <li>
 <p><code>--depth &lt;DEPTH&gt;</code> — Create a shallow clone of the given depth</p>
@@ -8531,7 +8531,7 @@ output of the first tool.</p>
 <li>
 <p><code>--remote &lt;REMOTE&gt;</code> — The remote to fetch from (only named remotes are supported, can be repeated)</p>
 <p>This defaults to the <code>git.fetch</code> setting. If that is not configured, and if there are multiple remotes, the remote named "origin" will be used.</p>
-<p>By default, the specified remote names matches exactly. Use a <a href="https://jj-vcs.github.io/jj/latest/revsets#string-patterns">string pattern</a>, e.g. <code>--remote 'glob:*'</code>, to select remotes using patterns.</p>
+<p>By default, the specified remote names matches exactly. Use a <a href="https://docs.jj-vcs.dev/latest/revsets#string-patterns">string pattern</a>, e.g. <code>--remote 'glob:*'</code>, to select remotes using patterns.</p>
 </li>
 <li>
 <p><code>--all-remotes</code> — Fetch from all remotes</p>
@@ -8559,13 +8559,13 @@ output of the first tool.</p>
 <p><code>--colocate</code> — Colocate the Jujutsu repo with the git repo</p>
 <p>Specifies that the <code>jj</code> repo should also be a valid <code>git</code> repo, allowing the use of both <code>jj</code> and <code>git</code> commands in the same directory.</p>
 <p>The repository will contain a <code>.git</code> dir in the top-level. Regular Git tools will be able to operate on the repo.</p>
-<p><strong>This is the default</strong>, and this option has no effect, unless the <a href="https://jj-vcs.github.io/jj/latest/config/#default-colocation">git.colocate config</a> is set to <code>false</code>.</p>
+<p><strong>This is the default</strong>, and this option has no effect, unless the <a href="https://docs.jj-vcs.dev/latest/config/#default-colocation">git.colocate config</a> is set to <code>false</code>.</p>
 <p>This option is mutually exclusive with <code>--git-repo</code>.</p>
 </li>
 <li>
 <p><code>--no-colocate</code> — Disable colocation of the Jujutsu repo with the git repo</p>
 <p>Prevent Git tools that are unaware of <code>jj</code> and regular Git commands from operating on the repo. The Git repository that stores most of the repo data will be hidden inside a sub-directory of the <code>.jj</code> directory.</p>
-<p>See <a href="https://jj-vcs.github.io/jj/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated workspaces.</p>
+<p>See <a href="https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos">colocation docs</a> for some minor advantages of non-colocated workspaces.</p>
 </li>
 <li>
 <p><code>--git-repo &lt;GIT_REPO&gt;</code> — Specifies a path to an <strong>existing</strong> git repository to be used as the backing git repo for the newly created <code>jj</code> repo.</p>
@@ -8577,7 +8577,7 @@ output of the first tool.</p>
 <p>Push to a Git remote</p>
 <p>By default, pushes tracking bookmarks pointing to <code>remote_bookmarks(remote=&lt;remote&gt;)..@</code>. Use <code>--bookmark</code> to push specific bookmarks. Use <code>--all</code> to push all bookmarks. Use <code>--change</code> to generate bookmark names based on the change IDs of specific commits.</p>
 <p>Unlike in Git, the remote to push to is not derived from the tracked remote bookmarks. Use <code>--remote</code> to select the remote Git repository by name. There is no option to push to multiple remotes.</p>
-<p>Before the command actually moves, creates, or deletes a remote bookmark, it makes several <a href="https://jj-vcs.github.io/jj/latest/bookmarks/#pushing-bookmarks-safety-checks">safety checks</a>. If there is a problem, you may need to run <code>jj git fetch --remote &lt;remote name&gt;</code> and/or resolve some <a href="https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts">bookmark conflicts</a>.</p>
+<p>Before the command actually moves, creates, or deletes a remote bookmark, it makes several <a href="https://docs.jj-vcs.dev/latest/bookmarks/#pushing-bookmarks-safety-checks">safety checks</a>. If there is a problem, you may need to run <code>jj git fetch --remote &lt;remote name&gt;</code> and/or resolve some <a href="https://docs.jj-vcs.dev/latest/bookmarks/#conflicts">bookmark conflicts</a>.</p>
 <p><strong>Usage:</strong> <code>jj git push [OPTIONS]</code></p>
 <h6 id="options_30"><strong>Options:</strong><a class="headerlink" href="#options_30" title="Permanent link">&para;</a></h6>
 <ul>
@@ -8587,14 +8587,14 @@ output of the first tool.</p>
 </li>
 <li>
 <p><code>-b</code>, <code>--bookmark &lt;BOOKMARK&gt;</code> — Push only this bookmark, or bookmarks matching a pattern (can be repeated)</p>
-<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://jj-vcs.github.io/jj/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
+<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select bookmarks by <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
 </li>
 <li>
 <p><code>--all</code> — Push all bookmarks (including new bookmarks)</p>
 </li>
 <li>
 <p><code>--tracked</code> — Push all tracked bookmarks</p>
-<p>This usually means that the bookmark was already pushed to or fetched from the <a href="https://jj-vcs.github.io/jj/latest/bookmarks#remotes-and-tracked-bookmarks">relevant remote</a>.</p>
+<p>This usually means that the bookmark was already pushed to or fetched from the <a href="https://docs.jj-vcs.dev/latest/bookmarks#remotes-and-tracked-bookmarks">relevant remote</a>.</p>
 </li>
 <li>
 <p><code>--deleted</code> — Push all deleted bookmarks</p>
@@ -8763,7 +8763,7 @@ output of the first tool.</p>
 <p>Show revision history</p>
 <p>Renders a graphical view of the project's history, ordered with children before parents. By default, the output only includes mutable revisions, along with some additional revisions for context. Use <code>jj log -r ::</code> to see all revisions. See [<code>jj help -k revsets</code>] for information about the syntax.</p>
 <p>Spans of revisions that are not included in the graph per <code>--revisions</code> are rendered as a synthetic node labeled "(elided revisions)".</p>
-<p>The working-copy commit is indicated by a <code>@</code> symbol in the graph. <a href="https://jj-vcs.github.io/jj/latest/config/#set-of-immutable-commits">Immutable revisions</a> have a <code>◆</code> symbol. Other commits have a <code>○</code> symbol. All of these symbols can be <a href="https://jj-vcs.github.io/jj/latest/config/#node-style">customized</a>.</p>
+<p>The working-copy commit is indicated by a <code>@</code> symbol in the graph. <a href="https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits">Immutable revisions</a> have a <code>◆</code> symbol. Other commits have a <code>○</code> symbol. All of these symbols can be <a href="https://docs.jj-vcs.dev/latest/config/#node-style">customized</a>.</p>
 <p><strong>Usage:</strong> <code>jj log [OPTIONS] [FILESETS]...</code></p>
 <h6 id="arguments_37"><strong>Arguments:</strong><a class="headerlink" href="#arguments_37" title="Permanent link">&para;</a></h6>
 <ul>
@@ -8786,7 +8786,7 @@ output of the first tool.</p>
 <li>
 <p><code>-T</code>, <code>--template &lt;TEMPLATE&gt;</code> — Render each revision using the given template</p>
 <p>Run <code>jj log -T</code> to list the built-in templates.</p>
-<p>You can also specify arbitrary template expressions using the <a href="https://jj-vcs.github.io/jj/latest/templates/#commit-keywords">built-in keywords</a>. See [<code>jj help -k templates</code>] for more information.</p>
+<p>You can also specify arbitrary template expressions using the <a href="https://docs.jj-vcs.dev/latest/templates/#commit-keywords">built-in keywords</a>. See [<code>jj help -k templates</code>] for more information.</p>
 <p>If not specified, this defaults to the <code>templates.log</code> setting.</p>
 </li>
 <li>
@@ -8862,7 +8862,7 @@ output of the first tool.</p>
 </ul>
 <h2 id="jj-new"><code>jj new</code><a class="headerlink" href="#jj-new" title="Permanent link">&para;</a></h2>
 <p>Create a new, empty change and (by default) edit it in the working copy</p>
-<p>By default, <code>jj</code> will edit the new change, making the <a href="https://jj-vcs.github.io/jj/latest/working-copy/">working copy</a> represent the new commit. This can be avoided with <code>--no-edit</code>.</p>
+<p>By default, <code>jj</code> will edit the new change, making the <a href="https://docs.jj-vcs.dev/latest/working-copy/">working copy</a> represent the new commit. This can be avoided with <code>--no-edit</code>.</p>
 <p>Note that you can create a merge commit by specifying multiple revisions as argument. For example, <code>jj new @ main</code> will create a new commit with the working copy and the <code>main</code> bookmark as parents.</p>
 <p><strong>Usage:</strong> <code>jj new [OPTIONS] [REVSETS]...</code></p>
 <h6 id="arguments_39"><strong>Arguments:</strong><a class="headerlink" href="#arguments_39" title="Permanent link">&para;</a></h6>
@@ -8968,7 +8968,7 @@ B   =&gt;   @
 </ul>
 <h2 id="jj-operation"><code>jj operation</code><a class="headerlink" href="#jj-operation" title="Permanent link">&para;</a></h2>
 <p>Commands for working with the operation log</p>
-<p>See the <a href="https://jj-vcs.github.io/jj/latest/operation-log/">operation log documentation</a> for more information.</p>
+<p>See the <a href="https://docs.jj-vcs.dev/latest/operation-log/">operation log documentation</a> for more information.</p>
 <p><strong>Usage:</strong> <code>jj operation &lt;COMMAND&gt;</code></p>
 <p><strong>Command Alias:</strong> <code>op</code></p>
 <h6 id="subcommands_9"><strong>Subcommands:</strong><a class="headerlink" href="#subcommands_9" title="Permanent link">&para;</a></h6>
@@ -9045,7 +9045,7 @@ B   =&gt;   @
 <li><code>-G</code>, <code>--no-graph</code> — Don't show the graph, show a flat list of operations</li>
 <li>
 <p><code>-T</code>, <code>--template &lt;TEMPLATE&gt;</code> — Render each operation using the given template</p>
-<p>You can specify arbitrary template expressions using the <a href="https://jj-vcs.github.io/jj/latest/templates/#commit-keywords">built-in keywords</a>. See [<code>jj help -k templates</code>] for more information.</p>
+<p>You can specify arbitrary template expressions using the <a href="https://docs.jj-vcs.dev/latest/templates/#commit-keywords">built-in keywords</a>. See [<code>jj help -k templates</code>] for more information.</p>
 </li>
 <li>
 <p><code>-d</code>, <code>--op-diff</code> — Show changes to the repository at each operation</p>
@@ -9148,7 +9148,7 @@ B   =&gt;   @
 <li><code>-G</code>, <code>--no-graph</code> — Don't show the graph, show a flat list of modified changes</li>
 <li>
 <p><code>-T</code>, <code>--template &lt;TEMPLATE&gt;</code> — Render the operation using the given template</p>
-<p>You can specify arbitrary template expressions using the <a href="https://jj-vcs.github.io/jj/latest/templates/#commit-keywords">built-in keywords</a>. See [<code>jj help -k templates</code>] for more information.</p>
+<p>You can specify arbitrary template expressions using the <a href="https://docs.jj-vcs.dev/latest/templates/#commit-keywords">built-in keywords</a>. See [<code>jj help -k templates</code>] for more information.</p>
 </li>
 <li>
 <p><code>-p</code>, <code>--patch</code> — Show patch of modifications to changes</p>
@@ -9546,7 +9546,7 @@ J           J
 <ul>
 <li>
 <p><code>-T</code>, <code>--template &lt;TEMPLATE&gt;</code> — Render a revision using the given template</p>
-<p>You can specify arbitrary template expressions using the <a href="https://jj-vcs.github.io/jj/latest/templates/#commit-keywords">built-in keywords</a>. See [<code>jj help -k templates</code>] for more information.</p>
+<p>You can specify arbitrary template expressions using the <a href="https://docs.jj-vcs.dev/latest/templates/#commit-keywords">built-in keywords</a>. See [<code>jj help -k templates</code>] for more information.</p>
 </li>
 <li>
 <p><code>-s</code>, <code>--summary</code> — For each path, show only whether it was modified, added, or deleted</p>
@@ -9577,7 +9577,7 @@ J           J
 </ul>
 <h2 id="jj-sign"><code>jj sign</code><a class="headerlink" href="#jj-sign" title="Permanent link">&para;</a></h2>
 <p>Cryptographically sign a revision</p>
-<p>This command requires configuring a <a href="https://jj-vcs.github.io/jj/latest/config/#commit-signing">commit signing</a> backend.</p>
+<p>This command requires configuring a <a href="https://docs.jj-vcs.dev/latest/config/#commit-signing">commit signing</a> backend.</p>
 <p><strong>Usage:</strong> <code>jj sign [OPTIONS]</code></p>
 <h6 id="options_49"><strong>Options:</strong><a class="headerlink" href="#options_49" title="Permanent link">&para;</a></h6>
 <ul>
@@ -9636,7 +9636,7 @@ J           J
 </ul>
 <h2 id="jj-split"><code>jj split</code><a class="headerlink" href="#jj-split" title="Permanent link">&para;</a></h2>
 <p>Split a revision in two</p>
-<p>Starts a <a href="https://jj-vcs.github.io/jj/latest/config/#editing-diffs">diff editor</a> on the changes in the revision. Edit the right side of the diff until it has the content you want in the new revision. Once you close the editor, your edited content will replace the previous revision. The remaining changes will be put in a new revision on top.</p>
+<p>Starts a <a href="https://docs.jj-vcs.dev/latest/config/#editing-diffs">diff editor</a> on the changes in the revision. Edit the right side of the diff until it has the content you want in the new revision. Once you close the editor, your edited content will replace the previous revision. The remaining changes will be put in a new revision on top.</p>
 <p>If the change you split had a description, you will be asked to enter a change description for each commit. If the change did not have a description, the remaining changes will not get a description, and you will be asked for a description only for the selected changes.</p>
 <p>Splitting an empty commit is not supported because the same effect can be achieved with <code>jj new</code>.</p>
 <p><strong>Usage:</strong> <code>jj split [OPTIONS] [FILESETS]...</code></p>
@@ -9719,7 +9719,7 @@ J           J
 <p>Conflicts in the working copy</p>
 </li>
 <li>
-<p><a href="https://jj-vcs.github.io/jj/latest/bookmarks/#conflicts">Conflicted bookmarks</a></p>
+<p><a href="https://docs.jj-vcs.dev/latest/bookmarks/#conflicts">Conflicted bookmarks</a></p>
 </li>
 </ul>
 <p><strong>Usage:</strong> <code>jj status [FILESETS]...</code></p>
@@ -9745,7 +9745,7 @@ J           J
 <ul>
 <li>
 <p><code>&lt;NAMES&gt;</code> — Tag names to delete</p>
-<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select tags by <a href="https://jj-vcs.github.io/jj/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
+<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select tags by <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
 </li>
 </ul>
 <h2 id="jj-tag-list"><code>jj tag list</code><a class="headerlink" href="#jj-tag-list" title="Permanent link">&para;</a></h2>
@@ -9756,7 +9756,7 @@ J           J
 <ul>
 <li>
 <p><code>&lt;NAMES&gt;</code> — Show tags whose local name matches</p>
-<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select tags by <a href="https://jj-vcs.github.io/jj/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
+<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to select tags by <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">wildcard pattern</a>.</p>
 </li>
 </ul>
 <h6 id="options_54"><strong>Options:</strong><a class="headerlink" href="#options_54" title="Permanent link">&para;</a></h6>
@@ -9801,7 +9801,7 @@ J           J
 </ul>
 <h2 id="jj-unsign"><code>jj unsign</code><a class="headerlink" href="#jj-unsign" title="Permanent link">&para;</a></h2>
 <p>Drop a cryptographic signature</p>
-<p>See also <a href="https://jj-vcs.github.io/jj/latest/config/#commit-signing">commit signing</a> docs.</p>
+<p>See also <a href="https://docs.jj-vcs.dev/latest/config/#commit-signing">commit signing</a> docs.</p>
 <p><strong>Usage:</strong> <code>jj unsign [OPTIONS]</code></p>
 <h6 id="options_56"><strong>Options:</strong><a class="headerlink" href="#options_56" title="Permanent link">&para;</a></h6>
 <ul>
@@ -9835,7 +9835,7 @@ compinit
 <span class="nb">source</span><span class="w"> </span>&lt;<span class="o">(</span>jj<span class="w"> </span>util<span class="w"> </span>completion<span class="w"> </span>zsh<span class="o">)</span>
 </code></pre></div></li>
 </ul>
-<p>See the docs on <a href="https://jj-vcs.github.io/jj/latest/install-and-setup/#command-line-completion">command-line completion</a> for more details.</p>
+<p>See the docs on <a href="https://docs.jj-vcs.dev/latest/install-and-setup/#command-line-completion">command-line completion</a> for more details.</p>
 <p><strong>Usage:</strong> <code>jj util completion &lt;SHELL&gt;</code></p>
 <h6 id="arguments_57"><strong>Arguments:</strong><a class="headerlink" href="#arguments_57" title="Permanent link">&para;</a></h6>
 <ul>
@@ -9992,7 +9992,7 @@ already explicitly passing your script into the right shell.</p>
 <p><strong>Usage:</strong> <code>jj workspace root</code></p>
 <h2 id="jj-workspace-update-stale"><code>jj workspace update-stale</code><a class="headerlink" href="#jj-workspace-update-stale" title="Permanent link">&para;</a></h2>
 <p>Update a workspace that has become stale</p>
-<p>See the <a href="https://jj-vcs.github.io/jj/latest/working-copy/#stale-working-copy">stale working copy documentation</a> for more information.</p>
+<p>See the <a href="https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy">stale working copy documentation</a> for more information.</p>
 <p><strong>Usage:</strong> <code>jj workspace update-stale</code></p>
 <hr/>
 

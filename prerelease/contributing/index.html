@@ -8,7 +8,7 @@
       
       
       
-        <link rel="canonical" href="https://jj-vcs.github.io/jj/latest/contributing/">
+        <link rel="canonical" href="https://docs.jj-vcs.dev/latest/contributing/">
       
       
         <link rel="prev" href="../technical/conflicts/">
@@ -2442,7 +2442,7 @@ stakeholders, which we do with <a href="../design_docs/">Design Docs</a>, see th
 <h2 id="contributing-to-the-documentation">Contributing to the documentation<a class="headerlink" href="#contributing-to-the-documentation" title="Permanent link">&para;</a></h2>
 <p>We appreciate <a href="https://github.com/jj-vcs/jj/issues/new?template=bug_report.md">bug
 reports</a>
-about any problems, however small, lurking in <a href="https://jj-vcs.github.io/jj/prerelease">our documentation
+about any problems, however small, lurking in <a href="https://docs.jj-vcs.dev/prerelease">our documentation
 website</a> or in the <code>jj help
 &lt;command&gt;</code> docs. If a part of the bug report template does not apply, you can
 just delete it.</p>
@@ -2682,7 +2682,7 @@ the configuration file at <code>.config/mise.toml</code>.</p>
 <a href="https://mise.jdx.dev/configuration.html#mise-toml">a <code>mise.local.toml</code> file</a>.</p>
 <h2 id="previewing-the-html-documentation">Previewing the HTML documentation<a class="headerlink" href="#previewing-the-html-documentation" title="Permanent link">&para;</a></h2>
 <p>The documentation for <code>jj</code> is automatically published online at
-<a href="https://jj-vcs.github.io/jj/">https://jj-vcs.github.io/jj/</a>.</p>
+<a href="https://docs.jj-vcs.dev/">https://docs.jj-vcs.dev/</a>.</p>
 <p>When editing documentation, you should check your changes locally — especially
 if you are adding a new page, or doing a major rewrite.</p>
 <h3 id="install-uv">Install <code>uv</code><a class="headerlink" href="#install-uv" title="Permanent link">&para;</a></h3>
@@ -2751,8 +2751,8 @@ documentation that we currently do with <code>mike</code>.</p>
 </div>
 <p>The full <code>jj</code> website includes the documentation for several <code>jj</code> versions
 (<code>prerelease</code>, latest release, and the older releases). The top-level
-URL <a href="https://jj-vcs.github.io/jj">https://jj-vcs.github.io/jj</a> redirects to
-<a href="https://jj-vcs.github.io/jj/latest">https://jj-vcs.github.io/jj/latest</a>, which in turn redirects to
+URL <a href="https://docs.jj-vcs.dev">https://docs.jj-vcs.dev</a> redirects to
+<a href="https://docs.jj-vcs.dev/latest">https://docs.jj-vcs.dev/latest</a>, which in turn redirects to
 the docs for the last stable version.</p>
 <p>The different versions of documentation are managed and deployed with
 <a href="https://github.com/jimporter/mike"><code>mike</code></a>, which can be run with
@@ -2817,11 +2817,11 @@ arguments do.</p>
 ...</code> commands. You can also edit the <code>gh-pages</code> bookmark directly, but take care
 to avoid files that will be overwritten by future invocations of <code>mike</code>. Then,
 you can submit a PR based on the <code>gh-pages</code> bookmark of
-<a href="https://jj-vcs.github.com/jj">https://jj-vcs.github.com/jj</a> (instead of the usual <code>main</code> bookmark).</p>
+<a href="https://docs.jj-vcs.dev/">https://docs.jj-vcs.dev/</a> (instead of the usual <code>main</code> bookmark).</p>
 <p>Previously, the version switcher would not work unless the value of the
 <code>site_url</code> config in <code>mkdocs.yml</code> matched the actual URL the site is being
 served from. This bug should now be fixed, but if you are not serving the site
-from <a href="https://jj-vcs.github.com/jj">https://jj-vcs.github.com/jj</a> and something fails weirdly, you might want
+from <a href="https://docs.jj-vcs.dev/">https://docs.jj-vcs.dev/</a> and something fails weirdly, you might want
 to adjust the <code>site_url</code> to something like <code>https://jjfan.github.io/jj</code>.</p>
 <h2 id="modifying-protobuffers-this-is-not-common">Modifying protobuffers (this is not common)<a class="headerlink" href="#modifying-protobuffers-this-is-not-common" title="Permanent link">&para;</a></h2>
 <p>Occasionally, you may need to change the <code>.proto</code> files that define jj's data
