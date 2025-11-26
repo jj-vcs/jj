@@ -565,3 +565,16 @@ fn test_status_untracked_files() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_status_no_working_copy() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.run_jj(["workspace", "forget"]).success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
+    No working copy
+    [EOF]
+    ");
+}
