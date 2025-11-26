@@ -21,7 +21,7 @@ should not be broken.
 
 * In the following commands, [string pattern
   arguments](docs/revsets.md#string-patterns) are now parsed the same way they
-  are in revsets. and can be combined with logical operators: `jj bookmark
+  are in revsets and can be combined with logical operators: `jj bookmark
   list`, `jj tag list`
 
 * The default string pattern syntax in revsets will be changed to `glob:` in a
