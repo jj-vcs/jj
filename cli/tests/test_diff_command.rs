@@ -212,6 +212,35 @@ fn test_diff_basic() {
     [EOF]
     ");
 
+    // Reverse-order diff
+    let output = work_dir.run_jj(["diff", "--to", "@-", "--git"]);
+    insta::assert_snapshot!(output, @r"
+    diff --git a/file3 b/file1
+    rename from file3
+    rename to file1
+    diff --git a/file2 b/file2
+    index 1ffc51b472..94ebaf9001 100644
+    --- a/file2
+    +++ b/file2
+    @@ -1,3 +1,4 @@
+     1
+    -5
+    +2
+     3
+    +4
+    diff --git a/file4 b/file4
+    deleted file mode 100644
+    index 94ebaf9001..0000000000
+    --- a/file4
+    +++ /dev/null
+    @@ -1,4 +0,0 @@
+    -1
+    -2
+    -3
+    -4
+    [EOF]
+    ");
+
     // Filter by glob pattern
     let output = work_dir.run_jj(["diff", "-s", "glob:file[12]"]);
     insta::assert_snapshot!(output, @r"
