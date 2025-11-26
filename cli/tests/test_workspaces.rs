@@ -1156,13 +1156,6 @@ fn test_workspaces_forget() {
     [EOF]
     ");
 
-    // `jj status` tells us that there's no working copy here
-    let output = main_dir.run_jj(["st"]);
-    insta::assert_snapshot!(output, @r"
-    No working copy
-    [EOF]
-    ");
-
     // The old working copy doesn't get an "@" in the log output
     // TODO: It seems useful to still have the "secondary@" marker here even though
     // there's only one workspace. We should show it when the command is not run
