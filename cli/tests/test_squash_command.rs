@@ -1748,17 +1748,29 @@ fn test_squash_to_new_commit() {
     work_dir.run_jj(["commit", "-m", "file3"]).success();
     work_dir.write_file("file4", "file4\n");
     work_dir.run_jj(["commit", "-m", "file4"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "bm4", "-r", "@-"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "bm3", "-r", "bm4-"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "bm2", "-r", "bm3-"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "bm1", "-r", "bm2-"])
+        .success();
     let setup_opid = work_dir.current_operation_id();
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
     @  mzvwutvlkqwt
-    ○  zsuskulnrvyr file4
+    ○  zsuskulnrvyr bm4 file4
     │  A file4
-    ○  kkmpptxzrspx file3
+    ○  kkmpptxzrspx bm3 file3
     │  A file3
-    ○  rlvkpnrzqnoo file2
+    ○  rlvkpnrzqnoo bm2 file2
     │  A file2
-    ○  qpvuntsmwlqt file1
+    ○  qpvuntsmwlqt bm1 file1
     │  A file1
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -1776,20 +1788,20 @@ fn test_squash_to_new_commit() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit yqosqzyt 12bb5aa1 file 3&4
+    Created new commit kpqxywon f87660dd file 3&4
     Rebased 2 descendant commits
-    Working copy  (@) now at: spxsnpux 5b7a2ac3 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 269d92e4 file2
+    Working copy  (@) now at: vzqnnsmr 35736bd0 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 4c273fe2 bm2 bm3 bm4 | file2
     [EOF]
     ");
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
-    @  spxsnpuxtvxq
-    ○  rlvkpnrzqnoo file2
+    @  vzqnnsmrxxkw
+    ○  rlvkpnrzqnoo bm2 bm3 bm4 file2
     │  A file2
-    ○  qpvuntsmwlqt file1
+    ○  qpvuntsmwlqt bm1 file1
     │  A file1
-    ○  yqosqzytrlsw file 3&4
+    ○  kpqxywonksrl file 3&4
     │  A file3
     │  A file4
     ◆  zzzzzzzzzzzz
@@ -1809,21 +1821,21 @@ fn test_squash_to_new_commit() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit znkkpsqq 71efbc99 file 3&4
+    Created new commit lylxulpl 43cf43eb file 3&4
     Rebased 1 descendant commits
-    Working copy  (@) now at: uuzqqzqu 4a07118a (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 800cd9f9 file2
+    Working copy  (@) now at: rsllmpnm 42df41a1 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 3a4b2e8a bm2 bm3 bm4 | file2
     [EOF]
     ");
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
-    @  uuzqqzquvwzn
-    ○  rlvkpnrzqnoo file2
+    @  rsllmpnmslon
+    ○  rlvkpnrzqnoo bm2 bm3 bm4 file2
     │  A file2
-    ○  znkkpsqqskkl file 3&4
+    ○  lylxulplsnyw file 3&4
     │  A file3
     │  A file4
-    ○  qpvuntsmwlqt file1
+    ○  qpvuntsmwlqt bm1 file1
     │  A file1
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -1842,21 +1854,21 @@ fn test_squash_to_new_commit() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit wqnwkozp e70a59b7 file 3&4
-    Working copy  (@) now at: mouksmqu ecd9569d (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 27974c44 file2
+    Created new commit uyznsvlq fd4b7c85 file 3&4
+    Working copy  (@) now at: uuqyqztp c2d532a4 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 27974c44 bm2 bm3 bm4 | file2
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
-    @  mouksmquosnp
-    ○  rlvkpnrzqnoo file2
+    @  uuqyqztpptml
+    ○  rlvkpnrzqnoo bm2 bm3 bm4 file2
     │  A file2
-    │ ○  wqnwkozpkust file 3&4
+    │ ○  uyznsvlquzzm file 3&4
     ├─╯  A file3
     │    A file4
-    ○  qpvuntsmwlqt file1
+    ○  qpvuntsmwlqt bm1 file1
     │  A file1
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -1875,21 +1887,21 @@ fn test_squash_to_new_commit() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit nkmrtpmo dc2faadd file 3&4
+    Created new commit nmzmmopx c7558c47 file 3&4
     Rebased 1 descendant commits
-    Working copy  (@) now at: ruktrxxu 6d045de7 (empty) (no description set)
-    Parent commit (@-)      : nkmrtpmo dc2faadd file 3&4
+    Working copy  (@) now at: pwyqokvy 525d9441 (empty) (no description set)
+    Parent commit (@-)      : nmzmmopx c7558c47 file 3&4
     [EOF]
     ");
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
-    @  ruktrxxusqqp
-    ○  nkmrtpmomlro file 3&4
+    @  pwyqokvyvunr
+    ○  nmzmmopxokps file 3&4
     │  A file3
     │  A file4
-    ○  rlvkpnrzqnoo file2
+    ○  rlvkpnrzqnoo bm2 bm3 bm4 file2
     │  A file2
-    ○  qpvuntsmwlqt file1
+    ○  qpvuntsmwlqt bm1 file1
     │  A file1
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -1908,21 +1920,21 @@ fn test_squash_to_new_commit() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit xtnwkqum 342eb9be file 3&4
+    Created new commit nlrtlrxv c5286eac bm4 | file 3&4
     Rebased 1 descendant commits
-    Working copy  (@) now at: pqrnrkux 4f456097 (empty) (no description set)
-    Parent commit (@-)      : xtnwkqum 342eb9be file 3&4
+    Working copy  (@) now at: plymsszl faf348e7 (empty) (no description set)
+    Parent commit (@-)      : nlrtlrxv c5286eac bm4 | file 3&4
     [EOF]
     ");
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
-    @  pqrnrkuxnrvz
-    ○  xtnwkqumpolk file 3&4
+    @  plymsszllttm
+    ○  nlrtlrxvuusk bm4 file 3&4
     │  A file3
     │  A file4
-    ○  rlvkpnrzqnoo file2
+    ○  rlvkpnrzqnoo bm2 bm3 file2
     │  A file2
-    ○  qpvuntsmwlqt file1
+    ○  qpvuntsmwlqt bm1 file1
     │  A file1
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -1943,21 +1955,21 @@ fn test_squash_to_new_commit() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit wvuyspvk 8a940ae6 file 3&4
-    Working copy  (@) now at: pkynqtxp 09bb6d70 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 27974c44 file2
+    Created new commit uuuvxpvw 2ad3f239 file 3&4
+    Working copy  (@) now at: nmpuuozl 95ef3451 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 27974c44 bm2 bm3 bm4 | file2
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
-    @  pkynqtxptmyn
-    │ ○  wvuyspvkupzz file 3&4
+    @  nmpuuozlonyz
+    │ ○  uuuvxpvwspwr file 3&4
     ├─╯  A file3
     │    A file4
-    ○  rlvkpnrzqnoo file2
+    ○  rlvkpnrzqnoo bm2 bm3 bm4 file2
     │  A file2
-    ○  qpvuntsmwlqt file1
+    ○  qpvuntsmwlqt bm1 file1
     │  A file1
     ◆  zzzzzzzzzzzz
     [EOF]
@@ -1975,10 +1987,10 @@ fn test_squash_to_new_commit() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit xlzxqlsl 8ceb6c68 file 3&4
+    Created new commit pkstwlsy 41510a56 file 3&4
     Rebased 3 descendant commits
-    Working copy  (@) now at: mzvwutvl af73b227 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz e72015b0 file2
+    Working copy  (@) now at: mzvwutvl 3d11750f (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 8ed73d06 bm2 bm3 bm4 | file2
     [EOF]
     ");
 
@@ -1992,7 +2004,7 @@ fn test_squash_to_new_commit() {
     JJ: Description from source commit:
     file4
 
-    JJ: Change ID: xlzxqlsl
+    JJ: Change ID: pkstwlsy
     JJ: This commit contains the following changes:
     JJ:     A file3
     JJ:     A file4
@@ -2002,25 +2014,25 @@ fn test_squash_to_new_commit() {
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
     @  mzvwutvlkqwt
-    ○  rlvkpnrzqnoo file2
+    ○  rlvkpnrzqnoo bm2 bm3 bm4 file2
     │  A file2
-    ○  qpvuntsmwlqt file1
+    ○  qpvuntsmwlqt bm1 file1
     │  A file1
-    ○  xlzxqlslvuyv file 3&4
+    ○  pkstwlsyuyku file 3&4
     │  A file3
     │  A file4
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["evolog", "-r", "xlzxqlslvuyv"]);
+    let output = work_dir.run_jj(["evolog", "-r", "pkstwlsyuyku"]);
     insta::assert_snapshot!(output, @r"
-    ○    xlzxqlsl test.user@example.com 2001-02-03 08:05:31 8ceb6c68
+    ○    pkstwlsy test.user@example.com 2001-02-03 08:05:35 41510a56
     ├─╮  file 3&4
-    │ │  -- operation 05266483f4c2 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
-    │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:31 c7946a56
+    │ │  -- operation ad1aa66374f6 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:35 a5bc761f
     │ │  file4
-    │ │  -- operation 05266483f4c2 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ │  -- operation ad1aa66374f6 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:11 38778966
     │ │  file4
     │ │  -- operation 83489d186f66 commit 89a30a7539466ed176c1ef122a020fd9cb15848e
@@ -2030,9 +2042,9 @@ fn test_squash_to_new_commit() {
     │ ○  zsuskuln hidden test.user@example.com 2001-02-03 08:05:10 bbf04d26
     │    (empty) (no description set)
     │    -- operation 19d57874b952 commit c23c424826221bc4fdee9487926595324e50ee95
-    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:31 3ab8a4a5
+    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:35 ce3b0a58
     │  file3
-    │  -- operation 05266483f4c2 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │  -- operation ad1aa66374f6 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:10 0d254956
     │  file3
     │  -- operation 19d57874b952 commit c23c424826221bc4fdee9487926595324e50ee95
@@ -2058,20 +2070,20 @@ fn test_squash_to_new_commit() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit pkstwlsy 3e0cd203 (no description set)
+    Created new commit soqnvnyz bf2d3b81 (no description set)
     Rebased 3 descendant commits
-    Working copy  (@) now at: mzvwutvl f52f8d55 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 8cfd575a file2
+    Working copy  (@) now at: mzvwutvl 9ebad59e (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 0c770834 bm2 bm3 bm4 | file2
     [EOF]
     ");
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
     @  mzvwutvlkqwt
-    ○  rlvkpnrzqnoo file2
+    ○  rlvkpnrzqnoo bm2 bm3 bm4 file2
     │  A file2
-    ○  qpvuntsmwlqt file1
+    ○  qpvuntsmwlqt bm1 file1
     │  A file1
-    ○  pkstwlsyuyku
+    ○  soqnvnyzoxuu
     │  A file3
     │  A file4
     ◆  zzzzzzzzzzzz
@@ -2090,33 +2102,33 @@ fn test_squash_to_new_commit() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit zowrlwsv 5feda7c2 (empty) (no description set)
+    Created new commit nsrwusvy c2183685 (empty) (no description set)
     Rebased 5 descendant commits
-    Working copy  (@) now at: mzvwutvl 95edec8e (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 5abf0a51 file4
+    Working copy  (@) now at: mzvwutvl cb96ecf9 (empty) (no description set)
+    Parent commit (@-)      : zsuskuln 97edce13 bm4 | file4
     [EOF]
     ");
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
     @  mzvwutvlkqwt
-    ○  zsuskulnrvyr file4
+    ○  zsuskulnrvyr bm4 file4
     │  A file4
-    ○  kkmpptxzrspx file3
+    ○  kkmpptxzrspx bm3 file3
     │  A file3
-    ○  rlvkpnrzqnoo file2
+    ○  rlvkpnrzqnoo bm2 file2
     │  A file2
-    ○  qpvuntsmwlqt file1
+    ○  qpvuntsmwlqt bm1 file1
     │  A file1
-    ○  zowrlwsvrkvk
+    ○  nsrwusvynpoy
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["evolog", "-r", "zowrlwsvrkvk"]);
+    let output = work_dir.run_jj(["evolog", "-r", "nsrwusvynpoy"]);
     insta::assert_snapshot!(output, @r"
-    ○  zowrlwsv test.user@example.com 2001-02-03 08:05:38 5feda7c2
+    ○  nsrwusvy test.user@example.com 2001-02-03 08:05:42 c2183685
        (empty) (no description set)
-       -- operation bfcdfe8808b3 squash 0 commits
+       -- operation a656ab530912 squash 0 commits
     [EOF]
     ");
 
@@ -2134,33 +2146,33 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No matching entries for paths: no file
-    Created new commit nsrwusvy c2183685 (empty) (no description set)
+    Created new commit wtlqussy 7eff41c8 (empty) (no description set)
     Rebased 5 descendant commits
-    Working copy  (@) now at: mzvwutvl cb96ecf9 (empty) (no description set)
-    Parent commit (@-)      : zsuskuln 97edce13 file4
+    Working copy  (@) now at: mzvwutvl cf8a98c4 (empty) (no description set)
+    Parent commit (@-)      : zsuskuln 461e8bb9 bm4 | file4
     [EOF]
     ");
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
     @  mzvwutvlkqwt
-    ○  zsuskulnrvyr file4
+    ○  zsuskulnrvyr bm4 file4
     │  A file4
-    ○  kkmpptxzrspx file3
+    ○  kkmpptxzrspx bm3 file3
     │  A file3
-    ○  rlvkpnrzqnoo file2
+    ○  rlvkpnrzqnoo bm2 file2
     │  A file2
-    ○  qpvuntsmwlqt file1
+    ○  qpvuntsmwlqt bm1 file1
     │  A file1
-    ○  nsrwusvynpoy
+    ○  wtlqussytxur
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["evolog", "-r", "nsrwusvynpoy"]);
+    let output = work_dir.run_jj(["evolog", "-r", "wtlqussytxur"]);
     insta::assert_snapshot!(output, @r"
-    ○  nsrwusvy test.user@example.com 2001-02-03 08:05:42 c2183685
+    ○  wtlqussy test.user@example.com 2001-02-03 08:05:46 7eff41c8
        (empty) (no description set)
-       -- operation 68089102e2bb squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+       -- operation 1661e2cea988 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     [EOF]
     ");
 
@@ -2169,48 +2181,48 @@ fn test_squash_to_new_commit() {
     let output = work_dir.run_jj(["new", "--no-edit", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit wtlqussy 7eff41c8 (empty) (no description set)
+    Created new commit szrrkvty f5e47d01 (empty) (no description set)
     [EOF]
     ");
 
     let output = work_dir.run_jj([
         "squash",
         "-f",
-        "wtlqussy",
+        "szrrkvty",
         "--onto",
         "root()",
         "--use-destination-message",
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit ukwxllxp 43a4b8e0 (empty) (no description set)
+    Created new commit pyoswmwk 991d0644 (empty) (no description set)
     [EOF]
     ");
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
     @  mzvwutvlkqwt
-    ○  zsuskulnrvyr file4
+    ○  zsuskulnrvyr bm4 file4
     │  A file4
-    ○  kkmpptxzrspx file3
+    ○  kkmpptxzrspx bm3 file3
     │  A file3
-    ○  rlvkpnrzqnoo file2
+    ○  rlvkpnrzqnoo bm2 file2
     │  A file2
-    ○  qpvuntsmwlqt file1
+    ○  qpvuntsmwlqt bm1 file1
     │  A file1
-    │ ○  ukwxllxpysvw
+    │ ○  pyoswmwkkqyt
     ├─╯
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["evolog", "-r", "ukwxllxpysvw"]);
+    let output = work_dir.run_jj(["evolog", "-r", "pyoswmwkkqyt"]);
     insta::assert_snapshot!(output, @r"
-    ○  ukwxllxp test.user@example.com 2001-02-03 08:05:46 43a4b8e0
+    ○  pyoswmwk test.user@example.com 2001-02-03 08:05:50 991d0644
     │  (empty) (no description set)
-    │  -- operation 05a5eef8665f squash commit 7eff41c8d17b8b4d2e7110402719e9d245dba975
-    ○  wtlqussy hidden test.user@example.com 2001-02-03 08:05:46 7eff41c8
+    │  -- operation 60d056329b43 squash commit f5e47d019271a392eb7f92a6b2e9f8cf41d97049
+    ○  szrrkvty hidden test.user@example.com 2001-02-03 08:05:50 f5e47d01
        (empty) (no description set)
-       -- operation 9f39ca40bedf new empty commit
+       -- operation 31e408225067 new empty commit
     [EOF]
     ");
 
@@ -2229,21 +2241,21 @@ fn test_squash_to_new_commit() {
     ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Created new commit pyoswmwk d5aa6638 file 3&4
+    Created new commit vkywoywq 96673776 file 3&4
     Rebased 1 descendant commits
-    Working copy  (@) now at: yqnpwwmq 68513612 (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz ed79225c file2
+    Working copy  (@) now at: rsmzzqvr e37e3e4a (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 8044909c bm2 bm3 bm4 | file2
     [EOF]
     ");
 
     insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
-    @  yqnpwwmqtwyk
-    ○    rlvkpnrzqnoo file2
+    @  rsmzzqvrnpvn
+    ○    rlvkpnrzqnoo bm2 bm3 bm4 file2
     ├─╮  A file2
-    │ ○  pyoswmwkkqyt file 3&4
+    │ ○  vkywoywqymtr file 3&4
     │ │  A file3
     │ │  A file4
-    ○ │  qpvuntsmwlqt file1
+    ○ │  qpvuntsmwlqt bm1 file1
     ├─╯  A file1
     ◆  zzzzzzzzzzzz
     [EOF]
