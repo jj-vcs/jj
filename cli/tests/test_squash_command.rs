@@ -2260,6 +2260,43 @@ fn test_squash_to_new_commit() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
+
+    // squash-moves can use the current commit too
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    work_dir.run_jj(["edit", "bm3"]).success();
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    ○  zsuskulnrvyr bm4 file4
+    │  A file4
+    @  kkmpptxzrspx bm3 file3
+    │  A file3
+    ○  rlvkpnrzqnoo bm2 file2
+    │  A file2
+    ○  qpvuntsmwlqt bm1 file1
+    │  A file1
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["squash", "--before", "rlvkpnrzqnoo"]), @r"
+    ------- stderr -------
+    Created new commit wxzmtyol bc0392dc file3
+    Rebased 2 descendant commits
+    Working copy  (@) now at: musouqkq 1841cc81 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 264a43af bm2 bm3 | file2
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  musouqkqsmll
+    │ ○  zsuskulnrvyr bm4 file4
+    ├─╯  A file4
+    ○  rlvkpnrzqnoo bm2 bm3 file2
+    │  A file2
+    ○  wxzmtyollrwl file3
+    │  A file3
+    ○  qpvuntsmwlqt bm1 file1
+    │  A file1
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
 }
 
 #[test]
