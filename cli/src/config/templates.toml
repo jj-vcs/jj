@@ -25,7 +25,7 @@ if(remote,
 commit_summary = 'format_commit_summary_with_refs(self, bookmarks)'
 
 file_annotate = '''
-separate(" ",
+join(" ",
   commit.change_id().shortest(8),
   pad_end(8, truncate_end(8, commit.author().email().local())),
   commit_timestamp(commit).local().format("%Y-%m-%d %H:%M:%S"),
@@ -348,7 +348,7 @@ coalesce(signature.email().local(), email_placeholder)
 '''
 
 'format_detailed_signature(signature)' = '''
-separate(" ",
+join(" ",
   coalesce(signature.name(), name_placeholder),
   "<" ++ coalesce(signature.email(), email_placeholder) ++ ">",
   "(" ++ format_timestamp(signature.timestamp()) ++ ")",
@@ -451,7 +451,7 @@ concat(
 'format_snapshot_operation(op)' = 'format_operation(op)'
 'format_snapshot_operation_redacted(op)' = 'format_operation_redacted(op)'
 'format_root_operation(root)' = '''
-separate(" ", root.id().short(), label("root", "root()")) ++ "\n"
+join(" ", root.id().short(), label("root", "root()")) ++ "\n"
 '''
 
 'format_operation_oneline(op)' = '''
