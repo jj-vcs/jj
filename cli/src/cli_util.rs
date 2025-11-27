@@ -445,7 +445,7 @@ impl CommandHelper {
     ) -> Result<(WorkspaceCommandHelper, SnapshotStats), CommandError> {
         let mut workspace_command = self.workspace_helper_no_snapshot(ui)?;
 
-        let (workspace_command, stats) = match workspace_command.maybe_snapshot_impl(ui) {
+        let (workspace_command, stats) = match workspace_command.maybe_snapshot_impl(ui, false) {
             Ok(stats) => (workspace_command, stats),
             Err(SnapshotWorkingCopyError::Command(err)) => return Err(err),
             Err(SnapshotWorkingCopyError::StaleWorkingCopy(err)) => {
@@ -544,8 +544,9 @@ impl CommandHelper {
                 // operation, then merge the divergent operations. The wc_commit_id of the
                 // merged repo wouldn't change because the old one wins, but it's probably
                 // fine if we picked the new wc_commit_id.
+                // TODO: Do not import Git refs when recovering from a stale working copy.
                 let stats = workspace_command
-                    .maybe_snapshot_impl(ui)
+                    .maybe_snapshot_impl(ui, /* skip_head_reload: */ true)
                     .map_err(|err| err.into_command_error())?;
 
                 let wc_commit_id = workspace_command.get_wc_commit_id().unwrap();
@@ -1121,8 +1122,15 @@ impl WorkspaceCommandHelper {
     /// Note that unless you have a good reason not to do so, you should always
     /// call [`print_snapshot_stats`] with the [`SnapshotStats`] returned by
     /// this function to present possible untracked files to the user.
+    ///
+    /// Set `skip_head_reload` to true when recovering from a stale working
+    /// copy, to avoid reloading the repo to HEAD before snapshotting.
     #[instrument(skip_all)]
-    fn maybe_snapshot_impl(&mut self, ui: &Ui) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
+    fn maybe_snapshot_impl(
+        &mut self,
+        ui: &Ui,
+        skip_head_reload: bool,
+    ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         if !self.may_update_working_copy {
             return Ok(SnapshotStats::default());
         }
@@ -1136,7 +1144,9 @@ impl WorkspaceCommandHelper {
 
         // Reload at current head to avoid creating divergent operations if another
         // process committed an operation while we were waiting for the lock.
-        if self.working_copy_shared_with_git {
+        // Skip this when recovering from a stale working copy, since we
+        // intentionally loaded at an old operation to snapshot there.
+        if self.working_copy_shared_with_git && !skip_head_reload {
             let repo = self.repo().clone();
             let op_heads_store = repo.loader().op_heads_store();
             let op_heads = op_heads_store
@@ -1179,7 +1189,7 @@ impl WorkspaceCommandHelper {
     #[instrument(skip_all)]
     pub fn maybe_snapshot(&mut self, ui: &Ui) -> Result<(), CommandError> {
         let stats = self
-            .maybe_snapshot_impl(ui)
+            .maybe_snapshot_impl(ui, false)
             .map_err(|err| err.into_command_error())?;
         print_snapshot_stats(ui, &stats, self.env().path_converter())?;
         Ok(())
@@ -1353,7 +1363,7 @@ to the current parents may contain changes from multiple commits.
         locked_ws.finish(repo.op_id().clone())?;
         self.user_repo = ReadonlyUserRepo::new(repo);
 
-        self.maybe_snapshot_impl(ui)
+        self.maybe_snapshot_impl(ui, false)
             .map_err(|err| err.into_command_error())
     }
 

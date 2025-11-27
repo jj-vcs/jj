@@ -985,7 +985,6 @@ fn test_workspaces_update_stale_snapshot() {
 /// "workspace update-stale" by reloading the repo to HEAD before snapshotting,
 /// even though recovery intentionally loads at an old operation.
 #[test]
-#[should_panic(expected = "Expected successful update")]
 fn test_colocated_workspace_update_stale() {
     let test_env = TestEnvironment::default();
     test_env
@@ -1021,13 +1020,14 @@ fn test_colocated_workspace_update_stale() {
     // because the colocated repo reload logic would reload to HEAD before
     // snapshotting, breaking the recovery.
     let output = main_dir.run_jj(["workspace", "update-stale"]);
-    assert!(
-        output
-            .stderr
-            .raw()
-            .contains("Updated working copy to fresh commit"),
-        "Expected successful update, got: {output}"
-    );
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz f56876af (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 5ed82d60 (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    Updated working copy to fresh commit f56876af92ff
+    [EOF]
+    ");
 
     // Verify the workspace is now up-to-date
     let output = main_dir.run_jj(["st"]);
