@@ -5,7 +5,10 @@
 > range of features, you may find the (not quite finished) [tutorial by Steve
 > Klabnik](https://steveklabnik.github.io/jujutsu-tutorial/) helpful. If you're
 > looking for a tutorial that doesn't require experience with Git, take a look
-> at [Jujutsu for everyone](https://jj-for-everyone.github.io).
+> at [Jujutsu for everyone](https://jj-for-everyone.github.io). Finally, check
+> out [Stavros' tutorial](https://www.stavros.io/posts/switch-to-jujutsu-already-a-tutorial/)
+> for a high-level mental model and an FAQ to help you think in Jujutsu concepts
+> rather than Git concepts.
 
 This text assumes that the reader is familiar with Git.
 
