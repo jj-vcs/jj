@@ -199,13 +199,14 @@ fn test_bookmark_names() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.complete_fish(["bookmark", "rename", ""]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     aaa-local	x
     aaa-tracked	x
     bbb-local	x
     bbb-tracked	x
     --repository	Path to repository to operate on
     --ignore-working-copy	Don't snapshot the working copy, and don't update it
+    --snapshot-name	When taking the snapshot of the working copy, sets the name of the transaction in the operation log
     --ignore-immutable	Allow rewriting immutable commits
     --at-operation	Operation to load the repo at
     --debug	Enable debug logging
@@ -216,7 +217,7 @@ fn test_bookmark_names() {
     --config-file	Additional configuration files (can be repeated)
     --help	Print help (see more with '--help')
     [EOF]
-    ");
+    "###);
 
     let output = work_dir.complete_fish(["bookmark", "rename", "a"]);
     insta::assert_snapshot!(output, @r"

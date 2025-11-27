@@ -1986,7 +1986,13 @@ See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
                 .block_on()
                 .map_err(snapshot_command_error)?
         };
-        if new_tree.tree_ids() != wc_commit.tree_ids() {
+        let snapshot_name = &self.env.command.global_args().snapshot_name;
+
+        // If the user explicitly provided --snapshot-name, they may want to
+        // find it later.
+        // Thus, we should create an entry in the op log even if nothing has
+        // changed.
+        if snapshot_name.is_some() || new_tree.tree_ids() != wc_commit.tree_ids() {
             let mut tx =
                 start_repo_transaction(&self.user_repo.repo, self.env.command.string_args());
             tx.set_is_snapshot(true);
@@ -2021,7 +2027,7 @@ See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
             }
 
             let repo = tx
-                .commit("snapshot working copy")
+                .commit(snapshot_name.as_deref().unwrap_or("snapshot working copy"))
                 .map_err(snapshot_command_error)?;
             self.user_repo = ReadonlyUserRepo::new(repo);
         }
@@ -3292,6 +3298,13 @@ pub struct GlobalArgs {
     /// implies `--ignore-working-copy`.
     #[arg(long, global = true)]
     pub ignore_working_copy: bool,
+    /// When taking the snapshot of the working copy, sets the name of the
+    /// transaction in the operation log.
+    ///
+    /// Note: When this flag is provided, jj will create operations even if no
+    /// files have been changed.
+    #[arg(long, global = true)]
+    pub snapshot_name: Option<String>,
     /// Allow rewriting immutable commits
     ///
     /// By default, Jujutsu prevents rewriting commits in the configured set of
