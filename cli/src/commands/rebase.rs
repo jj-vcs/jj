@@ -444,7 +444,7 @@ fn plan_rebase_revisions(
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
     )?;
-    if rebase_destination.onto.is_some() && new_child_ids.is_empty() {
+    if rebase_destination.onto.is_some() {
         for id in &target_commit_ids {
             if new_parent_ids.contains(id) {
                 return Err(user_error(format!(
@@ -479,7 +479,7 @@ fn plan_rebase_source(
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
     )?;
-    if rebase_destination.onto.is_some() && new_child_ids.is_empty() {
+    if rebase_destination.onto.is_some() {
         for id in &source_commit_ids {
             let commit = workspace_command.repo().store().get_commit(id)?;
             check_rebase_destinations(workspace_command.repo(), &new_parent_ids, &commit)?;
@@ -530,7 +530,7 @@ fn plan_rebase_branch(
         .unwrap()
         .iter()
         .try_collect()?;
-    if rebase_destination.onto.is_some() && new_child_ids.is_empty() {
+    if rebase_destination.onto.is_some() {
         for id in &root_commit_ids {
             let commit = workspace_command.repo().store().get_commit(id)?;
             check_rebase_destinations(workspace_command.repo(), &new_parent_ids, &commit)?;
