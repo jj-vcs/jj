@@ -1167,9 +1167,9 @@ fn expect_string_expression_inner(
         let default_pattern = |diagnostics: &mut RevsetDiagnostics, value: &str| {
             if default_kind == "substring" {
                 diagnostics.add_warning(RevsetParseError::expression(
-                    "Default pattern syntax will be changed to `glob:` in a future release; use \
-                     `substring:` prefix or set ui.revsets-use-glob-by-default=true to suppress \
-                     this warning",
+                    "Default pattern syntax will be changed to `glob:` / `exact:` (depending on \
+                     whether it looks like a glob) in a future release; use `substring:` prefix \
+                     or set ui.revsets-use-glob-by-default=true to suppress this warning",
                     node.span,
                 ));
             }
