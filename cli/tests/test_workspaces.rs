@@ -978,6 +978,67 @@ fn test_workspaces_update_stale_snapshot() {
     ");
 }
 
+/// Test that "workspace update-stale" works in colocated repos.
+///
+/// This is a regression test for a bug introduced in commit 7a296ca1 where
+/// the reload-to-HEAD logic (added to fix a race condition) would break
+/// "workspace update-stale" by reloading the repo to HEAD before snapshotting,
+/// even though recovery intentionally loads at an old operation.
+#[test]
+#[should_panic(expected = "Expected successful update")]
+fn test_colocated_workspace_update_stale() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+    let secondary_dir = test_env.work_dir("secondary");
+
+    main_dir.write_file("file", "contents\n");
+    main_dir.run_jj(["new"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    // Rewrite the check-out commit from the secondary workspace.
+    // This makes the main (colocated) workspace's working copy stale.
+    secondary_dir.write_file("file", "changed in secondary\n");
+    secondary_dir.run_jj(["squash"]).success();
+
+    // The main workspace's working copy is now stale.
+    let output = main_dir.run_jj(["st"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: The working copy is stale (not updated since operation 693184328c15).
+    Hint: Run `jj workspace update-stale` to update it.
+    See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Before the fix, this would fail with the same "working copy is stale" error
+    // because the colocated repo reload logic would reload to HEAD before
+    // snapshotting, breaking the recovery.
+    let output = main_dir.run_jj(["workspace", "update-stale"]);
+    assert!(
+        output
+            .stderr
+            .raw()
+            .contains("Updated working copy to fresh commit"),
+        "Expected successful update, got: {output}"
+    );
+
+    // Verify the workspace is now up-to-date
+    let output = main_dir.run_jj(["st"]);
+    insta::assert_snapshot!(output, @r"
+    The working copy has no changes.
+    Working copy  (@) : rlvkpnrz f56876af (empty) (no description set)
+    Parent commit (@-): qpvuntsm 5ed82d60 (no description set)
+    [EOF]
+    ");
+}
+
 /// Test forgetting workspaces
 #[test]
 fn test_workspaces_forget() {
