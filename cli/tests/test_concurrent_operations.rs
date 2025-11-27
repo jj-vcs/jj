@@ -364,7 +364,6 @@ fn test_git_head_race_condition() {
 /// "workspace update-stale" by reloading the repo to HEAD before snapshotting,
 /// even though recovery intentionally loads at an old operation.
 #[test]
-#[should_panic(expected = "Expected successful update")]
 fn test_colocated_workspace_update_stale() {
     let test_env = TestEnvironment::default();
     test_env
