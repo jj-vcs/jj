@@ -379,6 +379,16 @@ fn test_squash_partial() {
     ◆  000000000000 (empty)
     [EOF]
     ");
+
+    // No warning if we pass a positional argument does not parse as a revset
+    work_dir.run_jj(["op", "restore", &start_op_id]).success();
+    let output = work_dir.run_jj(["squash", ".tmp"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: No matching entries for paths: .tmp
+    Nothing changed.
+    [EOF]
+    "#);
 }
 
 #[test]
