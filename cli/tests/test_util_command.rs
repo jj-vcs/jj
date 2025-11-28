@@ -120,8 +120,10 @@ fn test_shell_completions() {
     }
 
     test("bash");
+    test("elvish");
     test("fish");
     test("nushell");
+    test("power-shell");
     test("zsh");
 }
 
