@@ -55,6 +55,16 @@ use crate::ui::Ui;
 /// parent revision. Fails if there are several parent revisions (i.e., the
 /// given revision is a merge).
 ///
+/// ```text
+/// D          D
+/// |          |
+/// C    =>   B'  (contains changes from both B and C; C is abandoned)
+/// |          |
+/// B          A
+/// |
+/// A
+/// ```
+///
 /// With the `--from` and/or `--into` options, moves changes from/to the given
 /// revisions. If either is left out, it defaults to the working-copy commit.
 /// For example, `jj squash --into @--` moves changes from the working-copy
@@ -78,6 +88,7 @@ use crate::ui::Ui;
 /// together with one or more `--from` options (if no `--from` is specified,
 /// `--from @` is assumed).
 #[derive(clap::Args, Clone, Debug)]
+#[command(verbatim_doc_comment)]
 pub(crate) struct SquashArgs {
     /// Revision to squash into its parent (default: @). Incompatible with the
     /// experimental `-o`/`-A`/`-B` options.
