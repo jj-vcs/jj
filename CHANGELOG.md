@@ -42,6 +42,9 @@ should not be broken.
   is not read anymore. Use `$XDG_CONFIG_HOME/jj` instead (defaults to
   `~/.config/jj`).
 
+* Sub-repos are no longer tracked. Any directory containing `.jj` or `.git`
+  is ignored. Note that git submodules are unaffected by this.
+
 ### Deprecations
 
 * The `--destination`/`-d` arguments for `jj rebase`, `jj split`, `jj revert`,
@@ -124,6 +127,9 @@ should not be broken.
 * Nushell completion script documentation add `-f` option, to keep it up to
   date.
   [#8007](https://github.com/jj-vcs/jj/issues/8007)
+
+* Ensured that with git submodules, remnants of your submodules do not show up
+  in the working copy after running `jj new`
 
 ## [0.35.0] - 2025-11-05
 

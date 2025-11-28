@@ -1350,6 +1350,16 @@ fn test_dotgit_ignored() {
     testutils::write_working_copy_file(&workspace_root, repo_path(".git"), "contents");
     let new_tree = test_workspace.snapshot().unwrap();
     assert_tree_eq!(new_tree, empty_tree);
+    std::fs::remove_file(workspace_root.join(".git")).unwrap();
+
+    // Test a nested repository foo/ containing .git and f.
+    let foo_path = workspace_root.join("foo");
+    std::fs::create_dir(&foo_path).unwrap();
+    testutils::write_working_copy_file(&workspace_root, repo_path("foo/.git"), "");
+    testutils::write_working_copy_file(&workspace_root, repo_path("foo/f"), "contents");
+    let new_tree = test_workspace.snapshot().unwrap();
+    assert_tree_eq!(new_tree, empty_tree);
+    std::fs::remove_dir_all(&foo_path).unwrap();
 }
 
 #[test_case(""; "ignore nothing")]
