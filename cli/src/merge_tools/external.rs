@@ -211,7 +211,7 @@ fn run_mergetool_external_single_file(
             marker_len: Some(conflict_marker_len),
             merge: store.merge_options().clone(),
         };
-        materialize_merge_result_to_bytes(&file.contents, &options)
+        materialize_merge_result_to_bytes(&file.contents, &file.labels, &options)
     } else {
         BString::default()
     };

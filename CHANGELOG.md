@@ -101,6 +101,9 @@ should not be broken.
 * Added `join()` template function. This is different from `separate()` in that
   it adds a separator between all arguments, even if empty.
 
+* Conflict labels can now contain more information about where the sides of
+  the conflict came from. Currently, only some commands add conflict labels.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
