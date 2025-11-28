@@ -44,6 +44,8 @@ use crate::hex_util;
 use crate::index::ChangeIdIndex;
 use crate::index::Index;
 use crate::index::IndexResult;
+use crate::index::ResolvedChangeState;
+use crate::index::ResolvedChangeTargets;
 use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
 use crate::object_id::PrefixResolution;
@@ -648,13 +650,15 @@ impl<I: AsCompositeIndex> ChangeIdIndexImpl<I> {
 }
 
 impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
-    // Resolves change id prefix among all ids, then filters out hidden
-    // entries.
+    // Resolves change ID prefix among all IDs.
     //
-    // If `SingleMatch` is returned, the commits including in the set are all
-    // visible. `AmbiguousMatch` may be returned even if the prefix is unique
-    // within the visible entries.
-    fn resolve_prefix(&self, prefix: &HexPrefix) -> IndexResult<PrefixResolution<Vec<CommitId>>> {
+    // If `SingleMatch` is returned, there is at least one commit with the given
+    // change ID (either visible or hidden). `AmbiguousMatch` may be returned even
+    // if the prefix is unique within the visible entries.
+    fn resolve_prefix(
+        &self,
+        prefix: &HexPrefix,
+    ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>> {
         let index = self.index.as_composite().commits();
         let prefix = match index.resolve_change_id_prefix(prefix) {
             PrefixResolution::NoMatch => PrefixResolution::NoMatch,
@@ -662,15 +666,24 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
                 debug_assert!(positions.is_sorted_by(|a, b| a < b));
                 let mut reachable_set = self.reachable_set.lock().unwrap();
                 reachable_set.visit_until(index, *positions.first().unwrap());
-                let reachable_commit_ids = positions
+                let mut targets: Vec<_> = positions
                     .iter()
-                    .filter(|&&pos| reachable_set.contains(pos))
-                    .map(|&pos| index.entry_by_pos(pos).commit_id())
-                    .collect_vec();
-                if reachable_commit_ids.is_empty() {
+                    .map(|&pos| {
+                        let commit_id = index.entry_by_pos(pos).commit_id();
+                        let state = if reachable_set.contains(pos) {
+                            ResolvedChangeState::Visible
+                        } else {
+                            ResolvedChangeState::Hidden
+                        };
+                        (commit_id, state)
+                    })
+                    .collect();
+                if targets.is_empty() {
                     PrefixResolution::NoMatch
                 } else {
-                    PrefixResolution::SingleMatch(reachable_commit_ids)
+                    // Most recent commits should appear first, so we need to reverse these.
+                    targets.reverse();
+                    PrefixResolution::SingleMatch(ResolvedChangeTargets { targets })
                 }
             }
             PrefixResolution::AmbiguousMatch => PrefixResolution::AmbiguousMatch,

@@ -181,7 +181,7 @@ impl Commit {
     ///  A commit is hidden if its commit id is not in the change id index.
     pub fn is_hidden(&self, repo: &dyn Repo) -> IndexResult<bool> {
         let maybe_entries = repo.resolve_change_id(self.change_id())?;
-        Ok(maybe_entries.is_none_or(|entries| !entries.contains(&self.id)))
+        Ok(maybe_entries.is_none_or(|entries| !entries.has_visible(&self.id)))
     }
 
     /// A commit is discardable if it has no change from its parent, and an

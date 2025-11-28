@@ -1426,20 +1426,20 @@ fn test_bookmark_track_conflict() {
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     main (conflicted):
-      + qpvuntsm?? 467e027c (empty) c
-      + qpvuntsm?? 48ded843 (empty) a
-      @origin (behind by 1 commits): qpvuntsm?? 48ded843 (empty) a
+      + qpvuntsm/0 467e027c (empty) c
+      + qpvuntsm/2 48ded843 (empty) a
+      @origin (behind by 1 commits): qpvuntsm/2 48ded843 (empty) a
     [EOF]
     ");
 
     // origin2 differs but is not in conflict
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main (conflicted):
-      + qpvuntsm?? 467e027c (empty) c
-      + qpvuntsm?? 48ded843 (empty) a
-      @origin (behind by 1 commits): qpvuntsm?? 48ded843 (empty) a
-      @origin2 (ahead by 1 commits, behind by 2 commits): qpvuntsm hidden 579e0acd (empty) b
-      @origin3 (behind by 1 commits): qpvuntsm?? 467e027c (empty) c
+      + qpvuntsm/0 467e027c (empty) c
+      + qpvuntsm/2 48ded843 (empty) a
+      @origin (behind by 1 commits): qpvuntsm/2 48ded843 (empty) a
+      @origin2 (ahead by 1 commits, behind by 2 commits): qpvuntsm/1 579e0acd (empty) b
+      @origin3 (behind by 1 commits): qpvuntsm/0 467e027c (empty) c
     [EOF]
     ");
 
@@ -1452,10 +1452,10 @@ fn test_bookmark_track_conflict() {
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     main (conflicted):
-      + qpvuntsm?? 467e027c (empty) c
-      + qpvuntsm?? 48ded843 (empty) a
-      + qpvuntsm?? 579e0acd (empty) b
-      @origin2 (behind by 2 commits): qpvuntsm?? 579e0acd (empty) b
+      + qpvuntsm/0 467e027c (empty) c
+      + qpvuntsm/2 48ded843 (empty) a
+      + qpvuntsm/1 579e0acd (empty) b
+      @origin2 (behind by 2 commits): qpvuntsm/1 579e0acd (empty) b
     [EOF]
     ");
 }
@@ -1947,7 +1947,7 @@ fn test_bookmark_list_filtered() {
       @origin: zsuskuln 0e6b7968 (empty) remote-delete
     remote-keep: rlvkpnrz c2f2ee40 (empty) remote-keep
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
-      @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
+      @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (empty) remote-rewrite
     [EOF]
     ------- stderr -------
     Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
@@ -1963,7 +1963,7 @@ fn test_bookmark_list_filtered() {
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-keep: rlvkpnrz c2f2ee40 (empty) remote-keep
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
-      @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
+      @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (empty) remote-rewrite
     [EOF]
     ");
 
@@ -1973,19 +1973,19 @@ fn test_bookmark_list_filtered() {
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-keep: rlvkpnrz c2f2ee40 (empty) remote-keep
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
-      @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
+      @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (empty) remote-rewrite
     [EOF]
     ");
 
     // Select bookmarks by name.
     insta::assert_snapshot!(query(&["remote-rewrite"]), @r"
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
-      @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
+      @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (empty) remote-rewrite
     [EOF]
     ");
     insta::assert_snapshot!(query(&["-rbookmarks(glob:remote-rewrite)"]), @r"
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
-      @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
+      @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (empty) remote-rewrite
     [EOF]
     ");
 
@@ -1994,13 +1994,13 @@ fn test_bookmark_list_filtered() {
     insta::assert_snapshot!(query(&["--all-remotes", "remote-rewrite"]), @r"
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @git: royxmykx e6970e0e (empty) rewritten
-      @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
+      @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (empty) remote-rewrite
     [EOF]
     ");
     insta::assert_snapshot!(query(&["--all-remotes", "-rbookmarks(glob:remote-rewrite)"]), @r"
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @git: royxmykx e6970e0e (empty) rewritten
-      @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
+      @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (empty) remote-rewrite
     [EOF]
     ");
 
@@ -2011,7 +2011,7 @@ fn test_bookmark_list_filtered() {
     remote-keep: rlvkpnrz c2f2ee40 (empty) remote-keep
       @origin: rlvkpnrz c2f2ee40 (empty) remote-keep
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
-      @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
+      @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (empty) remote-rewrite
     [EOF]
     ------- stderr -------
     Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
@@ -2036,7 +2036,7 @@ fn test_bookmark_list_filtered() {
       @origin: rlvkpnrz c2f2ee40 (empty) remote-keep
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @git: royxmykx e6970e0e (empty) rewritten
-      @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
+      @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (empty) remote-rewrite
     [EOF]
     ------- stderr -------
     Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
@@ -2091,7 +2091,7 @@ fn test_bookmark_list_filtered() {
     insta::assert_snapshot!(query(&["local-keep", "-rbookmarks(glob:remote-rewrite)"]), @r"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
-      @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
+      @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (empty) remote-rewrite
     [EOF]
     ");
 

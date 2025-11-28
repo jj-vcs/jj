@@ -39,6 +39,7 @@ use crate::fileset::FilesetExpression;
 use crate::graph::GraphNode;
 use crate::id_prefix::IdPrefixContext;
 use crate::id_prefix::IdPrefixIndex;
+use crate::index::ResolvedChangeTargets;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
 use crate::op_store::RefTarget;
@@ -92,7 +93,7 @@ pub enum RevsetResolutionError {
     #[error("Change ID `{symbol}` is divergent")]
     DivergentChangeId {
         symbol: String,
-        targets: Vec<CommitId>,
+        visible_targets: Vec<(usize, CommitId)>,
     },
     #[error("Name `{symbol}` is conflicted")]
     ConflictedRef {
@@ -100,6 +101,8 @@ pub enum RevsetResolutionError {
         symbol: String,
         targets: Vec<CommitId>,
     },
+    #[error("Invalid offset for change ID `{symbol}`: {offset}")]
+    InvalidChangeOffset { symbol: String, offset: usize },
     #[error("Unexpected error from commit backend")]
     Backend(#[source] BackendError),
     #[error(transparent)]
@@ -2749,7 +2752,7 @@ impl ChangePrefixResolver<'_> {
         &self,
         repo: &dyn Repo,
         prefix: &HexPrefix,
-    ) -> Result<Option<Vec<CommitId>>, RevsetResolutionError> {
+    ) -> Result<Option<ResolvedChangeTargets>, RevsetResolutionError> {
         let index = self
             .context
             .map(|ctx| ctx.populate(self.context_repo))
@@ -2775,17 +2778,41 @@ impl PartialSymbolResolver for ChangePrefixResolver<'_> {
         repo: &dyn Repo,
         symbol: &str,
     ) -> Result<Option<CommitId>, RevsetResolutionError> {
-        if let Some(prefix) = HexPrefix::try_from_reverse_hex(symbol) {
-            match self.try_resolve(repo, &prefix)? {
-                Some(targets) if targets.len() == 1 => Ok(targets.into_iter().next()),
-                Some(targets) => Err(RevsetResolutionError::DivergentChangeId {
-                    symbol: symbol.to_owned(),
-                    targets,
-                }),
-                None => Ok(None),
+        let (change_id, offset) = if let Some((prefix, suffix)) = symbol.split_once('/') {
+            if prefix.is_empty() || suffix.is_empty() {
+                return Ok(None);
+            }
+            let Ok(offset) = suffix.parse() else {
+                return Ok(None);
+            };
+            (prefix, Some(offset))
+        } else {
+            (symbol, None)
+        };
+        let Some(prefix) = HexPrefix::try_from_reverse_hex(change_id) else {
+            return Ok(None);
+        };
+        let Some(targets) = self.try_resolve(repo, &prefix)? else {
+            return Ok(None);
+        };
+        if let Some(offset) = offset {
+            if let Some(commit_id) = targets.at_offset(offset) {
+                Ok(Some(commit_id.clone()))
+            } else {
+                Err(RevsetResolutionError::InvalidChangeOffset {
+                    symbol: change_id.to_owned(),
+                    offset,
+                })
             }
         } else {
-            Ok(None)
+            match targets.try_resolve_to_commit() {
+                Ok(commit_id) => Ok(Some(commit_id)),
+                Err(visible_targets) if visible_targets.is_empty() => Ok(None),
+                Err(visible_targets) => Err(RevsetResolutionError::DivergentChangeId {
+                    symbol: change_id.to_owned(),
+                    visible_targets,
+                }),
+            }
         }
     }
 }
@@ -2901,7 +2928,10 @@ fn resolve_commit_ref(
         }
         RevsetCommitRef::ChangeId(prefix) => {
             let resolver = &symbol_resolver.change_id_resolver;
-            Ok(resolver.try_resolve(repo, prefix)?.unwrap_or_else(Vec::new))
+            Ok(resolver
+                .try_resolve(repo, prefix)?
+                .and_then(ResolvedChangeTargets::into_visible)
+                .unwrap_or_else(Vec::new))
         }
         RevsetCommitRef::CommitId(prefix) => {
             let resolver = &symbol_resolver.commit_id_resolver;
@@ -2999,6 +3029,7 @@ impl ExpressionStateFolder<UserExpressionState, ResolvedExpressionState>
                     | RevsetResolutionError::AmbiguousChangeIdPrefix(_)
                     | RevsetResolutionError::DivergentChangeId { .. }
                     | RevsetResolutionError::ConflictedRef { .. }
+                    | RevsetResolutionError::InvalidChangeOffset { .. }
                     | RevsetResolutionError::Backend(_)
                     | RevsetResolutionError::Other(_) => Err(err),
                 })
