@@ -20,17 +20,13 @@ fn test_undo_root_operation() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
+    // Undoing the first operation after init would restore to root operation,
+    // which should be prevented as it leaves the repo in an unusable state
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Restored to operation: 000000000000 root()
-    [EOF]
-    ");
-
-    let output = work_dir.run_jj(["undo"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Error: Cannot undo root operation
+    Error: Cannot restore to root operation
+    Hint: Use `jj redo` to move forward if you have already undone too far
     [EOF]
     [exit status: 1]
     ");
