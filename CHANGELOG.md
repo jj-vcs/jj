@@ -103,6 +103,11 @@ should not be broken.
 
 ### Fixed bugs
 
+* `jj` now works with Git repositories using the reftable ref storage format.
+  Previously, jj would fail when trying to export bookmarks or tags to reftable
+  repositories. The fix uses a temporary git CLI fallback for ref operations
+  until gitoxide adds native reftable support.
+
 * `jj fix` now prints a warning if a tool failed to run on a file.
   [#7971](https://github.com/jj-vcs/jj/issues/7971)
 
