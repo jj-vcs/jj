@@ -125,6 +125,9 @@ should not be broken.
   date.
   [#8007](https://github.com/jj-vcs/jj/issues/8007)
 
+* Ensured that with git submodules, remnants of your submodules do not show up
+  in the working copy after running `jj new`
+
 ## [0.35.0] - 2025-11-05
 
 ### Release highlights
