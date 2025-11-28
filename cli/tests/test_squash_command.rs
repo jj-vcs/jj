@@ -331,6 +331,16 @@ fn test_squash_partial() {
     [EOF]
     "#);
 
+    // No warning if we pass a positional argument does not parse as a revset
+    work_dir.run_jj(["op", "restore", &start_op_id]).success();
+    let output = work_dir.run_jj(["squash", ".tmp"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: No matching entries for paths: .tmp
+    Nothing changed.
+    [EOF]
+    "#);
+
     // we can use --interactive and fileset together
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
     work_dir.write_file("file3", "foo\n");
@@ -339,17 +349,17 @@ fn test_squash_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: mzvwutvl 69c58f86 c | (no description set)
-    Parent commit (@-)      : kkmpptxz 0f38c564 b | (no description set)
+    Working copy  (@) now at: mzvwutvl 3615d80e c | (no description set)
+    Parent commit (@-)      : kkmpptxz 037106c4 b | (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-s"]);
     insta::assert_snapshot!(output, @r"
-    @  mzvwutvl test.user@example.com 2001-02-03 08:05:36 c 69c58f86
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:38 c 3615d80e
     │  (no description set)
     │  M file1
     │  M file2
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:36 b 0f38c564
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:38 b 037106c4
     │  (no description set)
     │  M file1
     │  M file2
