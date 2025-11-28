@@ -361,6 +361,24 @@ fn test_squash_partial() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+
+    // Error if no changes selected in interactive mode
+    work_dir.run_jj(["op", "restore", &start_op_id]).success();
+    std::fs::write(&edit_script, "reset file1\0reset file2").unwrap();
+    let output = work_dir.run_jj(["squash", "-r", "b", "-i"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: No changes selected
+    [EOF]
+    [exit status: 1]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  87059ac9657b c
+    ○  f2c9709f39e9 b
+    ○  64ea60be8d77 a
+    ◆  000000000000 (empty)
+    [EOF]
+    ");
 }
 
 #[test]
