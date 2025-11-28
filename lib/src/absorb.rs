@@ -317,7 +317,7 @@ pub fn absorb_hunks(
         let commit_builder = rewriter.rebase().await?;
         let destination_tree = commit_builder.tree();
         let new_tree = destination_tree
-            .merge(source.parent_tree.clone(), selected_tree)
+            .merge_unlabeled(source.parent_tree.clone(), selected_tree)
             .block_on()?;
         let mut predecessors = commit_builder.predecessors().to_vec();
         predecessors.push(source.commit.id().clone());
