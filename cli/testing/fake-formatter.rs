@@ -38,6 +38,10 @@ struct Args {
     #[arg(long, default_value_t = false)]
     fail: bool,
 
+    /// Abort instead of exiting
+    #[arg(long, default_value_t = false, conflicts_with = "fail")]
+    abort: bool,
+
     /// Reverse the characters in each line when reading stdin.
     #[arg(long, default_value_t = false)]
     reverse: bool,
@@ -153,7 +157,9 @@ fn main() -> ExitCode {
             .unwrap();
         write!(file, "{stdout}").unwrap();
     }
-    if args.fail {
+    if args.abort {
+        std::process::abort()
+    } else if args.fail {
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS

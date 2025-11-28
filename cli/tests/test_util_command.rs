@@ -165,7 +165,9 @@ fn test_util_exec_fail() {
     ------- stderr -------
     error: unexpected argument '--badopt' found
 
-    Usage: fake-formatter [OPTIONS]
+      tip: a similar argument exists: '--abort'
+
+    Usage: fake-formatter --abort
 
     For more information, try '--help'.
     [EOF]
@@ -183,6 +185,38 @@ fn test_util_exec_not_found() {
     [EOF]
     [exit status: 1]
     ");
+}
+
+#[test]
+fn test_util_exec_crash() {
+    let test_env = TestEnvironment::default();
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    let output = test_env.run_jj_in(
+        ".",
+        [
+            "util",
+            "exec",
+            "--",
+            formatter_path.to_str().unwrap(),
+            "--abort",
+        ],
+    );
+
+    if cfg!(unix) {
+        // abort produces SIGABRT; strip any "(core dumped)" string
+        let output = output.normalize_stderr_with(|s| s.replacen(" (core dumped)", "", 1));
+        insta::assert_snapshot!(output, @r"
+        ------- stderr -------
+        Error: External command was terminated by signal: 6 (SIGABRT)
+        [EOF]
+        [exit status: 1]
+        ");
+    } else if cfg!(windows) {
+        // abort produces STATUS_STACK_BUFFER_OVERRUN (0xc0000409)
+        insta::assert_snapshot!(output, @r"
+        [exit status: -1073740791]
+        ");
+    }
 }
 
 #[cfg(unix)]
