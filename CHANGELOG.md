@@ -101,6 +101,9 @@ should not be broken.
 * Added `join()` template function. This is different from `separate()` in that
   it adds a separator between all arguments, even if empty.
 
+* `--insert-before` now accepts a revset that resolves to an empty set when
+  used with `--insert-after`. The behavior is equivalent to `--onto`.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
