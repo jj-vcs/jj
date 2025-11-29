@@ -281,6 +281,7 @@ fn configure_remote(
         tx.repo_mut(),
         remote_name,
         source,
+        None,
         fetch_tags.as_fetch_tags(),
         branch_patterns,
     )?;
