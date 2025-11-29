@@ -193,6 +193,14 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
             .load_operation(&id_of_original_op)?;
     }
 
+    // Prevent restoring to root operation as it has no working copy
+    if op_to_restore.parents().next().is_none() {
+        return Err(user_error_with_hint(
+            "Cannot restore to root operation",
+            "Use `jj redo` to move forward if you have already undone too far",
+        ));
+    }
+
     let mut tx = workspace_command.start_transaction();
     let new_view = view_with_desired_portions_restored(
         op_to_restore.view()?.store_view(),
