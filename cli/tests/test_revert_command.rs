@@ -203,6 +203,14 @@ fn test_revert() {
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // Revert nothing
+    let output = work_dir.run_jj(["revert", "-r", "none()", "-d", "@"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    No revisions to revert.
+    [EOF]
+    "#);
 }
 
 #[test]

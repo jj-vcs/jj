@@ -361,6 +361,34 @@ fn test_squash_partial() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+
+    // Error if no changes selected in interactive mode
+    work_dir.run_jj(["op", "restore", &start_op_id]).success();
+    std::fs::write(&edit_script, "reset file1\0reset file2").unwrap();
+    let output = work_dir.run_jj(["squash", "-r", "b", "-i"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: No changes selected
+    [EOF]
+    [exit status: 1]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  87059ac9657b c
+    ○  f2c9709f39e9 b
+    ○  64ea60be8d77 a
+    ◆  000000000000 (empty)
+    [EOF]
+    ");
+
+    // No warning if we pass a positional argument does not parse as a revset
+    work_dir.run_jj(["op", "restore", &start_op_id]).success();
+    let output = work_dir.run_jj(["squash", ".tmp"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: No matching entries for paths: .tmp
+    Nothing changed.
+    [EOF]
+    "#);
 }
 
 #[test]
@@ -2257,6 +2285,43 @@ fn test_squash_to_new_commit() {
     │ │  A file4
     ○ │  qpvuntsmwlqt bm1 file1
     ├─╯  A file1
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+
+    // squash-moves can use the current commit too
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    work_dir.run_jj(["edit", "bm3"]).success();
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    ○  zsuskulnrvyr bm4 file4
+    │  A file4
+    @  kkmpptxzrspx bm3 file3
+    │  A file3
+    ○  rlvkpnrzqnoo bm2 file2
+    │  A file2
+    ○  qpvuntsmwlqt bm1 file1
+    │  A file1
+    ◆  zzzzzzzzzzzz
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["squash", "--before", "rlvkpnrzqnoo"]), @r"
+    ------- stderr -------
+    Created new commit wxzmtyol bc0392dc file3
+    Rebased 2 descendant commits
+    Working copy  (@) now at: musouqkq 1841cc81 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 264a43af bm2 bm3 | file2
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    @  musouqkqsmll
+    │ ○  zsuskulnrvyr bm4 file4
+    ├─╯  A file4
+    ○  rlvkpnrzqnoo bm2 bm3 file2
+    │  A file2
+    ○  wxzmtyollrwl file3
+    │  A file3
+    ○  qpvuntsmwlqt bm1 file1
+    │  A file1
     ◆  zzzzzzzzzzzz
     [EOF]
     ");

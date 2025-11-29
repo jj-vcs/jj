@@ -212,6 +212,23 @@ fn test_diff_basic() {
     [EOF]
     ");
 
+    // Reverse-order diff
+    let output = work_dir.run_jj(["diff", "--to", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    Modified regular file file1 (file3 => file1):
+    Modified regular file file2:
+       1    1: 1
+       2    2: 52
+       3    3: 3
+            4: 4
+    Removed regular file file4:
+       1     : 1
+       2     : 2
+       3     : 3
+       4     : 4
+    [EOF]
+    ");
+
     // Filter by glob pattern
     let output = work_dir.run_jj(["diff", "-s", "glob:file[12]"]);
     insta::assert_snapshot!(output, @r"

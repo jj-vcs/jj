@@ -203,6 +203,43 @@ fn test_diffedit() {
     M file3
     [EOF]
     ");
+
+    // Test reverse-order diffedit --to @-
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    std::fs::write(
+        &edit_script,
+        [
+            "files-before file2",
+            "files-after JJ-INSTRUCTIONS file1 file2",
+            "reset file2",
+            "dump JJ-INSTRUCTIONS instrs",
+        ]
+        .join("\0"),
+    )
+    .unwrap();
+    let output = work_dir.run_jj(["diffedit", "--to", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 1 descendant commits
+    Working copy  (@) now at: kkmpptxz 9a4e9bcc (no description set)
+    Parent commit (@-)      : rlvkpnrz fb5c77f4 (no description set)
+    [EOF]
+    ");
+    insta::assert_snapshot!(
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
+    You are editing changes in: rlvkpnrz 7e268da3 (no description set)
+
+    The diff initially shows the commit's changes relative to:
+    kkmpptxz e4245972 (no description set)
+
+    Adjust the right side until it shows the contents you want. If you
+    don't make any changes, then the operation will be aborted.
+    ");
+    let output = work_dir.run_jj(["diff", "-s"]);
+    insta::assert_snapshot!(output, @r"
+    D file1
+    [EOF]
+    ");
 }
 
 #[test]

@@ -60,6 +60,13 @@ fn test_config_list_nonexistent() {
     Warning: No matching config key for nonexistent-test-key
     [EOF]
     ");
+
+    let output = test_env.run_jj_in(".", ["config", "list", "--repo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No config to list
+    [EOF]
+    ");
 }
 
 #[test]
@@ -1142,6 +1149,9 @@ fn test_config_path() {
     let repo_config_path = work_dir
         .root()
         .join(PathBuf::from_iter([".jj", "repo", "config.toml"]));
+    let ws_config_path = work_dir
+        .root()
+        .join(PathBuf::from_iter([".jj", "workspace-config.toml"]));
     test_env.set_config_path(&user_config_path);
     let work_dir = test_env.work_dir("repo");
 
@@ -1166,6 +1176,22 @@ fn test_config_path() {
     insta::assert_snapshot!(test_env.run_jj_in(".", ["config", "path", "--repo"]), @r"
     ------- stderr -------
     Error: No repo config path found
+    [EOF]
+    [exit status: 1]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj(["config", "path", "--workspace"]), @r"
+    $TEST_ENV/repo/.jj/workspace-config.toml
+    [EOF]
+    ");
+    assert!(
+        !ws_config_path.exists(),
+        "jj config path shouldn't create new file"
+    );
+
+    insta::assert_snapshot!(test_env.run_jj_in(".", ["config", "path", "--workspace"]), @r"
+    ------- stderr -------
+    Error: No workspace config path found
     [EOF]
     [exit status: 1]
     ");
@@ -1746,13 +1772,50 @@ fn test_config_author_change_warning() {
         })
         .success();
 
-    let output = work_dir.run_jj(["log"]);
+    let output = work_dir.run_jj([
+        "log",
+        "-T",
+        "separate(' ', self.commit_id().shortest(8), self.author())",
+    ]);
     insta::assert_snapshot!(output, @r"
-    @  qpvuntsm Foo 2001-02-03 08:05:09 c2090b51
-    │  (empty) (no description set)
-    ◆  zzzzzzzz root() 00000000
+    @  c2090b51 Test User <Foo>
+    ◆  00000000
     [EOF]
     ");
+
+    let output = work_dir.run_jj(["config", "set", "--repo", "user.name", "'Bar'"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: This setting will only impact future commits.
+    The author of the working copy will stay "Test User <Foo>".
+    To change the working copy author, use "jj metaedit --update-author"
+    [EOF]
+    "#);
+
+    // test_env.run_jj*() resets state for every invocation
+    // for this test, both user.name and user.email are needed
+    work_dir
+        .run_jj_with(|cmd| {
+            cmd.args(["metaedit", "--update-author"])
+                .env_remove("JJ_EMAIL")
+                .env_remove("JJ_USER")
+        })
+        .success();
+
+    let output = work_dir.run_jj([
+        "log",
+        "-T",
+        "separate(' ', self.commit_id().shortest(8), self.author())",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    @  cab1afa9 Bar <Foo>
+    ◆  00000000
+    [EOF]
+    ");
+
+    // no warnings if no change
+    let output = work_dir.run_jj(["config", "set", "--repo", "user.name", "'Bar'"]);
+    insta::assert_snapshot!(output, @"");
 }
 
 #[test]
