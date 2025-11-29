@@ -30,6 +30,8 @@ use std::mem;
 use std::ops::Range;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
+#[cfg(windows)]
+use std::os::windows::fs::MetadataExt as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::slice;
@@ -763,8 +765,38 @@ fn mtime_from_metadata(metadata: &Metadata) -> MillisSinceEpoch {
     )
 }
 
+/// On Windows, checks if a path is a reparse point (junction or symlink).
+/// Junctions have is_dir()=true but is_symlink()=false, so we need this
+/// separate check to avoid recursing into them and hitting "Access denied".
+#[cfg(windows)]
+fn is_reparse_point(metadata: &Metadata) -> bool {
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+    (metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT) != 0
+}
+
+/// On Windows, checks if a DirEntry is a junction (directory reparse point).
+#[cfg(windows)]
+fn is_dir_entry_junction(entry: &DirEntry) -> bool {
+    entry.metadata().map(|m| m.file_type().is_dir() && is_reparse_point(&m)).unwrap_or(false)
+}
+
+#[cfg(not(windows))]
+fn is_dir_entry_junction(_entry: &DirEntry) -> bool {
+    false
+}
+
 fn file_state(metadata: &Metadata) -> Option<FileState> {
     let metadata_file_type = metadata.file_type();
+    // On Windows, junctions (created by tools like pnpm) have is_dir()=true
+    // but is_symlink()=false. We need to detect them via the reparse point
+    // attribute to avoid "Access denied" errors when trying to read their contents.
+    // On Windows, junctions (created by tools like pnpm) have is_dir()=true
+    // but is_symlink()=false. They cannot be read as symlinks or regular files.
+    // Returning None causes jj to skip them as "special files".
+    #[cfg(windows)]
+    if metadata_file_type.is_dir() && is_reparse_point(metadata) {
+        return None;
+    }
     let file_type = if metadata_file_type.is_dir() {
         None
     } else if metadata_file_type.is_symlink() {
@@ -1369,6 +1401,11 @@ impl FileSnapshotter<'_> {
             return Ok(None);
         }
 
+        // On Windows, junctions look like directories but cannot be safely traversed.
+        if is_dir_entry_junction(entry) {
+            return Ok(None);
+        }
+
         if file_type.is_dir() {
             let file_states = file_states.prefixed_at(dir, name);
             if git_ignore.matches(&path.to_internal_dir_string())
@@ -1756,14 +1793,20 @@ impl FileSnapshotter<'_> {
                     })?;
             Ok(self.store().write_symlink(path, str_target).await?)
         } else {
-            let target = fs::read(disk_path).map_err(|err| SnapshotError::Other {
-                message: format!("Failed to read file {}", disk_path.display()),
-                err: err.into(),
-            })?;
-            let string_target =
+            // On Windows, try read_link() first (works for junctions), then fs::read().
+            let string_target = if let Ok(target) = disk_path.read_link() {
+                target.to_str().ok_or_else(|| SnapshotError::InvalidUtf8SymlinkTarget {
+                    path: disk_path.to_path_buf(),
+                })?.to_string()
+            } else {
+                let target = fs::read(disk_path).map_err(|err| SnapshotError::Other {
+                    message: format!("Failed to read file {}", disk_path.display()),
+                    err: err.into(),
+                })?;
                 String::from_utf8(target).map_err(|_| SnapshotError::InvalidUtf8SymlinkTarget {
                     path: disk_path.to_path_buf(),
-                })?;
+                })?
+            };
             Ok(self.store().write_symlink(path, &string_target).await?)
         }
     }
