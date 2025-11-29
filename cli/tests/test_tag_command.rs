@@ -199,17 +199,16 @@ fn test_tag_unknown() {
     let output = work_dir.run_jj(["tag", "delete", "unknown"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No such tag: unknown
+    Warning: No matching tags for names: unknown
+    No tags to delete.
     [EOF]
-    [exit status: 1]
     ");
 
     let output = work_dir.run_jj(["tag", "delete", "glob:unknown*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: No matching tags for patterns: unknown*
+    No tags to delete.
     [EOF]
-    [exit status: 1]
     ");
 }
 

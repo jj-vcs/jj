@@ -33,8 +33,6 @@ use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo;
 use jj_lib::str_util::StringExpression;
-use jj_lib::str_util::StringMatcher;
-use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
 use self::create::BookmarkCreateArgs;
@@ -58,7 +56,6 @@ use self::untrack::cmd_bookmark_untrack;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RemoteBookmarkNamePattern;
 use crate::command_error::CommandError;
-use crate::command_error::user_error;
 use crate::ui::Ui;
 
 // Unlike most other aliases, `b` is defined in the config and can be overridden
@@ -109,48 +106,13 @@ pub fn cmd_bookmark(
     }
 }
 
-fn find_local_bookmarks<'a>(
-    view: &'a View,
-    name_patterns: &[StringPattern],
-) -> Result<Vec<(&'a RefName, &'a RefTarget)>, CommandError> {
-    find_bookmarks_with(name_patterns, |matcher| {
-        Ok(view.local_bookmarks_matching(matcher).collect())
-    })
-}
-
-fn find_bookmarks_with<'a, V>(
-    name_patterns: &[StringPattern],
-    mut find_matches: impl FnMut(&StringMatcher) -> Result<Vec<(&'a RefName, V)>, CommandError>,
-) -> Result<Vec<(&'a RefName, V)>, CommandError> {
-    let mut matching_bookmarks: Vec<(&'a RefName, V)> = vec![];
-    let mut unmatched_patterns = vec![];
-    for pattern in name_patterns {
-        let matches = find_matches(&pattern.to_matcher())?;
-        if matches.is_empty() {
-            unmatched_patterns.push(pattern);
-        }
-        matching_bookmarks.extend(matches);
-    }
-    match &unmatched_patterns[..] {
-        [] => {
-            matching_bookmarks.sort_unstable_by_key(|(name, _)| *name);
-            matching_bookmarks.dedup_by_key(|(name, _)| *name);
-            Ok(matching_bookmarks)
-        }
-        [pattern] if pattern.is_exact() => Err(user_error(format!("No such bookmark: {pattern}"))),
-        patterns => Err(user_error(format!(
-            "No matching bookmarks for patterns: {}",
-            patterns.iter().join(", ")
-        ))),
-    }
-}
-
 fn find_trackable_remote_bookmarks<'a>(
+    ui: &Ui,
     view: &'a View,
     name_patterns: &[RemoteBookmarkNamePattern],
 ) -> Result<Vec<(RemoteRefSymbol<'a>, &'a RemoteRef)>, CommandError> {
     let mut matching_bookmarks = vec![];
-    let mut unmatched_patterns = vec![];
+    let mut unmatched_symbols = vec![];
     for pattern in name_patterns {
         let bookmark_matcher = pattern.bookmark.to_matcher();
         let remote_matcher = pattern.remote.to_matcher();
@@ -165,24 +127,20 @@ fn find_trackable_remote_bookmarks<'a>(
                 });
         let mut matches = itertools::chain(present_or_tracked_matches, absent_matches).peekable();
         if matches.peek().is_none() {
-            unmatched_patterns.push(pattern);
+            unmatched_symbols.extend(pattern.as_exact());
         }
         matching_bookmarks.extend(matches);
     }
-    match &unmatched_patterns[..] {
-        [] => {
-            matching_bookmarks.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
-            matching_bookmarks.dedup_by(|(sym1, _), (sym2, _)| sym1 == sym2);
-            Ok(matching_bookmarks)
-        }
-        [pattern] if pattern.is_exact() => {
-            Err(user_error(format!("No such remote bookmark: {pattern}")))
-        }
-        patterns => Err(user_error(format!(
-            "No matching remote bookmarks for patterns: {}",
-            patterns.iter().join(", ")
-        ))),
+    matching_bookmarks.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
+    matching_bookmarks.dedup_by(|(sym1, _), (sym2, _)| sym1 == sym2);
+    if !unmatched_symbols.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "No matching remote bookmarks for names: {}",
+            unmatched_symbols.iter().join(", ")
+        )?;
     }
+    Ok(matching_bookmarks)
 }
 
 fn is_fast_forward(
@@ -201,6 +159,27 @@ fn is_fast_forward(
     } else {
         Ok(true)
     }
+}
+
+/// Warns about exact patterns that don't match local bookmarks.
+fn warn_unmatched_local_bookmarks(
+    ui: &Ui,
+    view: &View,
+    name_expr: &StringExpression,
+) -> io::Result<()> {
+    let mut names = name_expr
+        .exact_strings()
+        .map(RefName::new)
+        .filter(|name| view.get_local_bookmark(name).is_absent())
+        .peekable();
+    if names.peek().is_none() {
+        return Ok(());
+    }
+    writeln!(
+        ui.warning_default(),
+        "No matching bookmarks for names: {}",
+        names.map(|name| name.as_symbol()).join(", ")
+    )
 }
 
 /// Warns about exact patterns that don't match local or remote bookmarks.

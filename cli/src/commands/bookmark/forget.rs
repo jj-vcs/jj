@@ -19,14 +19,14 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
 use jj_lib::repo::Repo as _;
-use jj_lib::str_util::StringPattern;
 use jj_lib::view::View;
 
-use super::find_bookmarks_with;
+use super::warn_unmatched_local_or_remote_bookmarks;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::complete;
+use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
 /// Forget a bookmark without marking it as a deletion to be pushed
@@ -54,10 +54,9 @@ pub struct BookmarkForgetArgs {
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(
         required = true,
-        value_parser = StringPattern::parse,
         add = ArgValueCandidates::new(complete::bookmarks),
     )]
-    names: Vec<StringPattern>,
+    names: Vec<String>,
 }
 
 pub fn cmd_bookmark_forget(
@@ -68,7 +67,12 @@ pub fn cmd_bookmark_forget(
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
     let ignored_remote = default_ignored_remote_name(repo.store());
-    let matched_bookmarks = find_forgettable_bookmarks(repo.view(), &args.names)?;
+    let matched_bookmarks = find_forgettable_bookmarks(ui, repo.view(), &args.names)?;
+    if matched_bookmarks.is_empty() {
+        writeln!(ui.status(), "No bookmarks to forget.")?;
+        return Ok(());
+    }
+
     let mut tx = workspace_command.start_transaction();
     let mut forgotten_remote: usize = 0;
     for (name, bookmark_target) in &matched_bookmarks {
@@ -108,14 +112,16 @@ pub fn cmd_bookmark_forget(
 }
 
 fn find_forgettable_bookmarks<'a>(
+    ui: &Ui,
     view: &'a View,
-    name_patterns: &[StringPattern],
+    name_patterns: &[String],
 ) -> Result<Vec<(&'a RefName, LocalRemoteRefTarget<'a>)>, CommandError> {
-    find_bookmarks_with(name_patterns, |matcher| {
-        let bookmarks = view
-            .bookmarks()
-            .filter(|(name, _)| matcher.is_match(name.as_str()))
-            .collect();
-        Ok(bookmarks)
-    })
+    let name_expr = parse_union_name_patterns(ui, name_patterns)?;
+    let name_matcher = name_expr.to_matcher();
+    let matched_bookmarks = view
+        .bookmarks()
+        .filter(|(name, _)| name_matcher.is_match(name.as_str()))
+        .collect();
+    warn_unmatched_local_or_remote_bookmarks(ui, view, &name_expr)?;
+    Ok(matched_bookmarks)
 }
