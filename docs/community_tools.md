@@ -91,23 +91,21 @@ It can provide completions via `psc add jj`, or offer a better completion menu f
 
 Find it [here][PSCompletions].
 
-<!-- TODO: Add benbrittains/cultivate when its ready -->
 ## Finding other integrations
 
 You can find other community contributed tools and integrations in our
 [Wiki].
 
-[cultivate]: https://github.com/benbrittain/cultivate
 [diffedit3]: https://github.com/ilyagr/diffedit3
 [gg]: https://github.com/gulbanana/gg
 [hunk.nvim]: https://github.com/julienvincent/hunk.nvim
 [jj-fzf]: https://github.com/tim-janik/jj-fzf
 [jj_tui]: https://github.com/faldor20/jj_tui
 [jjk]: https://github.com/keanemind/jjk
-[lazyjj]: https://github.com/Cretezy/lazyjj
-[vjj]: https://github.com/noahmayr/vjj
-[visualjj]: https://www.visualjj.com
-[Wiki]: https://github.com/jj-vcs/jj/wiki
 [jjui]: https://github.com/idursun/jjui
-[selvejj]: https://selvejj.com
+[lazyjj]: https://github.com/Cretezy/lazyjj
 [PSCompletions]: https://github.com/abgox/PSCompletions
+[selvejj]: https://selvejj.com
+[visualjj]: https://www.visualjj.com
+[vjj]: https://github.com/noahmayr/vjj
+[Wiki]: https://github.com/jj-vcs/jj/wiki
