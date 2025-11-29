@@ -2168,9 +2168,18 @@ See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
         if self.may_update_working_copy {
             if let Some(new_commit) = &maybe_new_wc_commit {
                 self.update_working_copy(ui, maybe_old_wc_commit.as_ref(), new_commit)?;
-            } else {
-                // It seems the workspace was deleted, so we shouldn't try to
-                // update it.
+            } else if maybe_old_wc_commit.is_some() {
+                // Workspace was deleted by this operation
+                writeln!(
+                    ui.hint_default(),
+                    "Workspace '{name}' was removed by this operation.",
+                    name = self.workspace_name().as_symbol()
+                )?;
+                writeln!(
+                    ui.hint_no_heading(),
+                    "Use `jj workspace add` to create a new one, or `jj op revert` to restore \
+                     the previous state."
+                )?;
             }
         }
 

@@ -992,7 +992,12 @@ fn test_workspaces_forget() {
         .run_jj(["workspace", "add", "../secondary"])
         .success();
     let output = main_dir.run_jj(["workspace", "forget"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Hint: Workspace 'default' was removed by this operation.
+    Use `jj workspace add` to create a new one, or `jj op revert` to restore the previous state.
+    [EOF]
+    ");
 
     // When listing workspaces, only the secondary workspace shows up
     let output = main_dir.run_jj(["workspace", "list"]);
