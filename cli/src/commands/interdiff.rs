@@ -32,7 +32,25 @@ use crate::ui::Ui;
 /// This excludes changes from other commits by temporarily rebasing `--from`
 /// onto `--to`'s parents. If you wish to compare the same change across
 /// versions, consider `jj evolog -p` instead.
+///
+/// For example, with `jj interdiff --from A --to C`:
+///
+/// ```text
+///     D
+///     |
+/// C   C
+/// |   |
+/// B   A'  (A rebased onto C's parent)
+/// |   |
+/// A   B
+///  \ /
+///   root
+/// ```
+///
+/// The command compares A' (A rebased onto B) with C, effectively showing
+/// what changed between the two commits independent of their different bases.
 #[derive(clap::Args, Clone, Debug)]
+#[command(verbatim_doc_comment)]
 #[command(group(ArgGroup::new("to_diff").args(&["from", "to"]).multiple(true).required(true)))]
 #[command(mut_arg("ignore_all_space", |a| a.short('w')))]
 #[command(mut_arg("ignore_space_change", |a| a.short('b')))]
