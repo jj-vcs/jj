@@ -1168,8 +1168,8 @@ fn expect_string_expression_inner(
             if default_kind == "substring" {
                 diagnostics.add_warning(RevsetParseError::expression(
                     "Default pattern syntax will be changed to `glob:` in a future release; use \
-                     `substring:` prefix or set ui.revsets-use-glob-by-default=true to suppress \
-                     this warning",
+                     `exact:` or `substring:` prefix or set ui.revsets-use-glob-by-default=true \
+                     to suppress this warning",
                     node.span,
                 ));
             }
