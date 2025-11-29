@@ -469,3 +469,76 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     [EOF]
     "#);
 }
+
+#[test]
+fn test_submodule_ignored() {
+    let test_env = TestEnvironment::default();
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "submodule"])
+        .success();
+    let submodule_dir = test_env.work_dir("submodule");
+    submodule_dir.write_file("sub", "sub");
+    submodule_dir
+        .run_jj(["commit", "-m", "Submodule commit"])
+        .success();
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // There's no particular reason to run this with jj util exec, it's just that
+    // the infra makes it easier to run this way.
+    let output = work_dir.run_jj([
+        "util",
+        "exec",
+        "--",
+        "git",
+        "-c",
+        // Git normally doesn't allow file:// in submodules.
+        "protocol.file.allow=always",
+        "submodule",
+        "add",
+        &format!("{}/submodule", test_env.env_root().display()),
+        "sub",
+    ]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Cloning into '$TEST_ENV/repo/sub'...
+    done.
+    [EOF]
+    "###);
+    // Use git to commit since jj won't play nice with the submodule.
+    work_dir
+        .run_jj([
+            "util",
+            "exec",
+            "--",
+            "git",
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "user.name=Test user",
+            "commit",
+            "-m",
+            "Add submodule",
+        ])
+        .success();
+
+    // This should be empty. We shouldn't track the submodule itself.
+    let output = work_dir.run_jj(["diff", "--summary"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    ignoring git submodule at "sub"
+    Done importing changes from the underlying Git repo.
+    [EOF]
+    "###);
+
+    // Switch to a historical commit before the submodule was checked in.
+    work_dir.run_jj(["prev"]).success();
+    // jj new (or equivalently prev) should always leave you with an empty working
+    // copy.
+    let output = work_dir.run_jj(["diff", "--summary"]);
+    insta::assert_snapshot!(output, @"");
+}
