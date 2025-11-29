@@ -178,6 +178,7 @@ This type cannot be printed. The following methods are defined.
 * `.files([files: String]) -> List<TreeEntry>`: Files that exist in this commit,
   matching [the `files` expression](filesets.md). Use `.diff().files()` to list
   changed files.
+* `.conflicted_files() -> List<TreeEntry>`: Conflicted files in this commit.
 * `.root() -> Boolean`: True if the commit is the root commit.
 
 ### `CommitEvolutionEntry` type
@@ -630,6 +631,8 @@ This type cannot be printed. The following methods are defined.
 
 * `.path() -> RepoPath`: Path to the entry.
 * `.conflict() -> Boolean`: True if the entry is a merge conflict.
+* `.conflict_side_count() -> Integer`: Number of sides in the merge conflict (1 if not
+  conflicted, 2 or more for multi-way merges).
 * `.file_type() -> String`: One of `"file"`, `"symlink"`, `"tree"`,
   `"git-submodule"`, or `"conflict"`.
 * `.executable() -> Boolean`: True if the entry is an executable file.

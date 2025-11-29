@@ -1506,6 +1506,90 @@ fn test_file_list_entries() {
     ");
 }
 
+#[test]
+fn test_conflicted_files() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Base commit with files.
+    work_dir.write_file("normal-file", "base content");
+    work_dir.write_file("conflict-file1", "base content");
+    work_dir.write_file("conflict-file2", "base content");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+
+    // Sibling branches with conflicting changes.
+    work_dir.write_file("conflict-file1", "left content");
+    work_dir.write_file("conflict-file2", "left content");
+    work_dir.run_jj(["commit", "-m", "left"]).success();
+
+    work_dir.run_jj(["new", "subject(glob:base)"]).success();
+    work_dir.write_file("conflict-file1", "right content");
+    work_dir.write_file("conflict-file2", "right content");
+    work_dir.run_jj(["commit", "-m", "right"]).success();
+
+    // Merge with conflicts.
+    work_dir
+        .run_jj(["new", "subject(glob:left)", "subject(glob:right)"])
+        .success();
+
+    // Test basic conflicted_files() listing.
+    let template = r#"self.conflicted_files().map(|e| e.path()) ++ "\n""#;
+    let output = work_dir.run_jj(["log", "-r", "@", "-T", template, "--no-graph"]);
+    insta::assert_snapshot!(output, @r"
+    conflict-file1 conflict-file2
+    [EOF]
+    ");
+
+    // Test that non-conflicted commit returns empty list.
+    let template = r#"self.conflicted_files().len() ++ "\n""#;
+    let output = work_dir.run_jj([
+        "log",
+        "-r",
+        "subject(glob:left)",
+        "-T",
+        template,
+        "--no-graph",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    0
+    [EOF]
+    ");
+
+    // Metadata for conflicted_files.
+    let template = indoc! {r#"
+        self.conflicted_files().map(|e| separate(" ",
+          e.path(),
+          "conflict=" ++ e.conflict(),
+          "type=" ++ e.file_type(),
+          "sides=" ++ e.conflict_side_count(),
+        )).join("\n") ++ "\n"
+    "#};
+    let output = work_dir.run_jj(["log", "-r", "@", "-T", template, "--no-graph"]);
+    insta::assert_snapshot!(output, @r"
+    conflict-file1 conflict=true type=conflict sides=2
+    conflict-file2 conflict=true type=conflict sides=2
+    [EOF]
+    ");
+
+    // Metadata for all files.
+    let template = indoc! {r#"
+        self.files().map(|e| separate(" ",
+          e.path(),
+          "conflict=" ++ e.conflict(),
+          "type=" ++ e.file_type(),
+          "sides=" ++ e.conflict_side_count(),
+        )).join("\n") ++ "\n"
+    "#};
+    let output = work_dir.run_jj(["log", "-r", "@", "-T", template, "--no-graph"]);
+    insta::assert_snapshot!(output, @r"
+    conflict-file1 conflict=true type=conflict sides=2
+    conflict-file2 conflict=true type=conflict sides=2
+    normal-file conflict=false type=file sides=1
+    [EOF]
+    ");
+}
+
 #[cfg(unix)]
 #[test]
 fn test_file_list_symlink() {

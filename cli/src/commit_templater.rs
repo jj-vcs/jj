@@ -1294,6 +1294,22 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         },
     );
     map.insert(
+        "conflicted_files",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|commit| {
+                let tree = commit.tree();
+                let entries: Vec<_> = tree
+                    .conflicts()
+                    .map(|(path, value)| value.map(|value| (path, value)))
+                    .map_ok(|(path, value)| TreeEntry { path, value })
+                    .try_collect()?;
+                Ok(entries)
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
         "root",
         |language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
@@ -2482,6 +2498,15 @@ fn builtin_tree_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, 
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| !entry.value.is_resolved());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "conflict_side_count",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property
+                .and_then(|entry| Ok(i64::try_from(entry.value.simplify().num_sides())?));
             Ok(out_property.into_dyn_wrapped())
         },
     );

@@ -149,6 +149,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj log` now supports a `--count` flag to print the number of commits instead
   of displaying them.
 
+* `Commit` type now has a `conflicted_files()` method that returns a list of
+  files with merge conflicts.
+
+* `TreeEntry` type now has a `conflict_side_count()` method that returns the number
+  of sides in a merge conflict (1 for non-conflicted files, 2 or more for
+  conflicts).
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.

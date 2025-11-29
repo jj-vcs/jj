@@ -42,7 +42,7 @@ fn test_templater_parse_error() {
       | ^-------^
       |
       = Keyword `conflicts` doesn't exist
-    Hint: Did you mean `conflict`, `conflicting`?
+    Hint: Did you mean `conflict`, `conflicted_files`, `conflicting`?
     [EOF]
     [exit status: 1]
     ");
