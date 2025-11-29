@@ -255,6 +255,7 @@ impl TestRepo {
         let repo = ReadonlyRepo::init(
             settings,
             &repo_dir,
+            &repo_dir,
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
             Signer::from_settings(settings).unwrap(),
             ReadonlyRepo::default_op_store_initializer(),

@@ -1008,6 +1008,21 @@ fn test_workspaces_forget() {
     [EOF]
     ");
 
+    // After forgetting the default, secondary root is still recorded, default no
+    // longer exists
+    let output = main_dir.run_jj(["workspace", "root", "-w", "secondary"]);
+    insta::assert_snapshot!(output, @r#"
+    $TEST_ENV/secondary
+    [EOF]
+    "#);
+    let output = main_dir.run_jj(["workspace", "root", "-w", "default"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: No such workspace: default
+    [EOF]
+    [exit status: 1]
+    "#);
+
     // The old working copy doesn't get an "@" in the log output
     // TODO: It seems useful to still have the "secondary@" marker here even though
     // there's only one workspace. We should show it when the command is not run
@@ -1043,6 +1058,23 @@ fn test_workspaces_forget() {
     // ... and then forget it, and the secondary workspace too
     let output = main_dir.run_jj(["workspace", "forget", "secondary", "third"]);
     insta::assert_snapshot!(output, @"");
+    // No workspaces left
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output, @"");
+}
+
+/// Test forgetting workspace created before workspace store
+#[test]
+fn test_workspaces_forget_from_before_workspace_store() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.remove_file(".jj/repo/workspace_store");
+
+    let output = main_dir.run_jj(["workspace", "forget"]);
+    insta::assert_snapshot!(output, @"");
+
     // No workspaces left
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @"");
@@ -1238,6 +1270,12 @@ fn test_workspaces_root() {
     main_dir
         .run_jj(["workspace", "add", "--name", "secondary", "../secondary"])
         .success();
+    // Explicitly request root of 'secondary' workspace from main workspace
+    let output = main_dir.run_jj(["workspace", "root", "-w", "secondary"]);
+    insta::assert_snapshot!(output, @r"
+    $TEST_ENV/secondary
+    [EOF]
+    ");
     let output = secondary_dir.run_jj(["workspace", "root"]);
     insta::assert_snapshot!(output, @r"
     $TEST_ENV/secondary
@@ -1378,6 +1416,47 @@ fn test_workspaces_rename_workspace() {
     ◆  000000000000
     [EOF]
     ");
+
+    // The new workspace root is recorded and accessible
+    let output = main_dir.run_jj(["workspace", "root", "-w", "secondary"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: No such workspace: secondary
+    [EOF]
+    [exit status: 1]
+    "#);
+    let output = main_dir.run_jj(["workspace", "root", "-w", "third"]);
+    insta::assert_snapshot!(output, @r#"
+    $TEST_ENV/secondary
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_workspaces_rename_workspace_from_before_workspace_store() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.remove_file(".jj/repo/workspace_store");
+
+    let output = main_dir.run_jj(["workspace", "rename", "third"]);
+    insta::assert_snapshot!(output, @"");
+
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output, @r"
+    third: qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+
+    // The workspace root is not in the store
+    let output = main_dir.run_jj(["workspace", "root", "-w", "third"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: No such workspace: third
+    [EOF]
+    [exit status: 1]
+    "#);
 }
 
 #[must_use]
