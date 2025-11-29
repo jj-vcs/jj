@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(unix)]
+use std::io::Write as _;
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt as _;
+
 use insta::assert_snapshot;
 
 use crate::common::TestEnvironment;
@@ -171,16 +176,53 @@ fn test_util_exec_fail() {
     "###);
 }
 
+#[cfg(unix)]
+#[test]
+fn test_util_exec_relative() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let subdir = test_env.env_root().join("repo/subdir");
+    {
+        std::fs::create_dir(&subdir).unwrap();
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .mode(0o755)
+            .open(subdir.join("run.sh"))
+            .unwrap();
+        file.write_all(b"#!/bin/sh\npwd").unwrap();
+    }
+
+    std::fs::write(subdir.join("run.sh"), "#!/bin/sh\npwd").unwrap();
+
+    let output = test_env.run_jj_in(&subdir, ["util", "exec", "subdir/run.sh"]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Error: Failed to execute external command "subdir/run.sh"
+    Caused by: No such file or directory (os error 2)
+    Hint: Is your command relative to the workspace root? Did you mean $root/subdir/run.sh
+    [EOF]
+    [exit status: 1]
+    "###);
+
+    let output = test_env.run_jj_in(&subdir, ["util", "exec", "$root/subdir/run.sh"]);
+    insta::assert_snapshot!(output, @r###"
+    $TEST_ENV/repo/subdir
+    [EOF]
+    "###);
+}
+
 #[test]
 fn test_util_exec_not_found() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["util", "exec", "--", "jj-test-missing-program"]);
-    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @r###"
     ------- stderr -------
-    Error: Failed to execute external command 'jj-test-missing-program'
+    Error: Failed to execute external command "jj-test-missing-program"
     [EOF]
     [exit status: 1]
-    ");
+    "###);
 }
 
 #[cfg(unix)]

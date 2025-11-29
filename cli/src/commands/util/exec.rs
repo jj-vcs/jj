@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::path::PathBuf;
+
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
@@ -20,7 +22,10 @@ use crate::ui::Ui;
 
 /// Execute an external command via jj
 ///
-/// This command will have access to the environment variable JJ_WORKSPACE_ROOT.
+/// The command will be run in the directory this command was invoked from.
+/// It will have access to the environment variable JJ_WORKSPACE_ROOT.
+/// The command can be optionally prefixed with `$root/`, in which case it
+/// will be assumed to be relative to the workspace root instead of in $PATH.
 ///
 /// This is useful for arbitrary aliases.
 ///
@@ -35,7 +40,7 @@ use crate::ui::Ui;
 /// This feature may be removed or replaced by an embedded scripting language in
 /// the future.
 ///
-/// Let's assume you have a script called "my-jj-script" in you $PATH and you
+/// Let's assume you have a script called "my-jj-script" in your $PATH and you
 /// would like to execute it as "jj my-script". You would add the following line
 /// to your configuration file to achieve that:
 ///
@@ -82,7 +87,14 @@ pub fn cmd_util_exec(
         .workspace_loader()
         .ok()
         .map(|loader| loader.workspace_root());
-    let mut cmd = std::process::Command::new(&args.command);
+    let command = if let Some(workspace_root) = workspace_root
+        && args.command.starts_with("$root/")
+    {
+        workspace_root.join(&args.command[6..])
+    } else {
+        PathBuf::from(&args.command)
+    };
+    let mut cmd = std::process::Command::new(&command);
     cmd.args(&args.args);
 
     if let Some(workspace_root) = workspace_root {
@@ -90,10 +102,20 @@ pub fn cmd_util_exec(
     }
 
     let status = cmd.status().map_err(|err| {
-        user_error_with_message(
-            format!("Failed to execute external command '{}'", &args.command),
+        let err = user_error_with_message(
+            format!("Failed to execute external command {:?}", &command),
             err,
-        )
+        );
+        if let Some(workspace_root) = workspace_root
+            && workspace_root.join(&args.command).exists()
+        {
+            err.hinted(format!(
+                "Is your command relative to the workspace root? Did you mean $root/{}",
+                args.command
+            ))
+        } else {
+            err
+        }
     })?;
 
     // Try to match the exit status of the executed process.
