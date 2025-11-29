@@ -1039,7 +1039,7 @@ fn test_help() {
     let test_env = TestEnvironment::default();
 
     let output = test_env.run_jj_in(".", ["diffedit", "-h"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r###"
     Touch up the content changes in a revision with a diff editor
 
     Usage: jj diffedit [OPTIONS] [FILESETS]...
@@ -1056,19 +1056,21 @@ fn test_help() {
       -h, --help                 Print help (see more with '--help')
 
     Global Options:
-      -R, --repository <REPOSITORY>      Path to repository to operate on
-          --ignore-working-copy          Don't snapshot the working copy, and don't update it
-          --ignore-immutable             Allow rewriting immutable commits
-          --at-operation <AT_OPERATION>  Operation to load the repo at [aliases: --at-op]
-          --debug                        Enable debug logging
-          --color <WHEN>                 When to colorize output [possible values: always, never, debug,
-                                         auto]
-          --quiet                        Silence non-primary command output
-          --no-pager                     Disable the pager
-          --config <NAME=VALUE>          Additional configuration options (can be repeated)
-          --config-file <PATH>           Additional configuration files (can be repeated)
+      -R, --repository <REPOSITORY>        Path to repository to operate on
+          --ignore-working-copy            Don't snapshot the working copy, and don't update it
+          --snapshot-name <SNAPSHOT_NAME>  When taking the snapshot of the working copy, sets the name
+                                           of the transaction in the operation log
+          --ignore-immutable               Allow rewriting immutable commits
+          --at-operation <AT_OPERATION>    Operation to load the repo at [aliases: --at-op]
+          --debug                          Enable debug logging
+          --color <WHEN>                   When to colorize output [possible values: always, never,
+                                           debug, auto]
+          --quiet                          Silence non-primary command output
+          --no-pager                       Disable the pager
+          --config <NAME=VALUE>            Additional configuration options (can be repeated)
+          --config-file <PATH>             Additional configuration files (can be repeated)
     [EOF]
-    ");
+    "###);
 }
 
 #[test]

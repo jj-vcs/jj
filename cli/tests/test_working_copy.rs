@@ -469,3 +469,34 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     [EOF]
     "#);
 }
+
+#[test]
+fn test_snapshot_name_override() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(&["debug", "snapshot", "--snapshot-name=initial"])
+        .success();
+    // This shouldn't create an op log entry, since it's unchanged.
+    work_dir.run_jj(&["debug", "snapshot"]).success();
+    // This should though, since we use --snapshot-name.
+    work_dir
+        .run_jj(&["debug", "snapshot", "--snapshot-name=unchanged"])
+        .success();
+
+    let output = work_dir.run_jj(&["op", "log"]);
+    insta::assert_snapshot!(output, @r###"
+    @  f5928d480451 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │  unchanged
+    │  args: jj debug snapshot '--snapshot-name=unchanged'
+    ○  4c9d9356f2a8 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  initial
+    │  args: jj debug snapshot '--snapshot-name=initial'
+    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    │  add workspace 'default'
+    ○  000000000000 root()
+    [EOF]
+    "###);
+}

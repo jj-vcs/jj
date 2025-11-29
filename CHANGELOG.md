@@ -101,6 +101,9 @@ should not be broken.
 * Added `join()` template function. This is different from `separate()` in that
   it adds a separator between all arguments, even if empty.
 
+* Added a global option `--snapshot-name`. This overrides the default name of
+  the snapshot in the op log, allowing you to easily find it later.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
