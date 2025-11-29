@@ -1962,10 +1962,25 @@ impl TreeState {
             // tracked by jj than processing submodules specially. For example,
             // paths excluded by .gitignore can be marked as such so that
             // newly-"unignored" paths won't be snapshotted automatically.
+            if matches!(before.as_normal(), Some(TreeValue::GitSubmodule(_))) && after.is_absent() {
+                eprintln!("ignoring removed git submodule at {path:?}");
+                eprintln!(
+                    "Files from the submodule {path:?} will appear as added. Add the submodule to `.git/info/exclude` and run `jj file untrack` to ignore the directory."
+                );
+                deleted_files.insert(path);
+                continue;
+            }
+            if before.is_absent() && matches!(after, MaterializedTreeValue::GitSubmodule(_)) {
+                // Needed since the file deletion code fails and then replaces
+                // the submodule file state with a placeholder.
+                eprintln!("ignoring added git submodule at {path:?}");
+                changed_file_states.push((path, FileState::for_gitsubmodule()));
+                continue;
+            }
             if matches!(before.as_normal(), Some(TreeValue::GitSubmodule(_)))
                 && matches!(after, MaterializedTreeValue::GitSubmodule(_))
             {
-                eprintln!("ignoring git submodule at {path:?}");
+                eprintln!("ignoring existing git submodule at {path:?}");
                 // Not updating the file state as if there were no diffs. Leave
                 // the state type as FileType::GitSubmodule if it was before.
                 continue;
@@ -2061,7 +2076,7 @@ impl TreeState {
                     }
                 }
                 MaterializedTreeValue::GitSubmodule(_) => {
-                    eprintln!("ignoring git submodule at {path:?}");
+                    debug_assert!(false, "Added git submodule should have been handled above");
                     FileState::for_gitsubmodule()
                 }
                 MaterializedTreeValue::Tree(_) => {
