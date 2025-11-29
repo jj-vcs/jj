@@ -606,16 +606,39 @@ fn remove_old_file(disk_path: &Path) -> Result<bool, CheckoutError> {
     }
 }
 
+enum CreateNewFileResult {
+    /// Inner value can be `None` if the file descriptor for the new file could
+    /// not be cloned or the caller asked for the file to be deleted
+    Created(Option<File>),
+    /// The file could not be created because it already exists
+    AlreadyExists,
+}
+
 /// Checks if new file or symlink named `disk_path` can be created.
 ///
-/// If the file already exists, this function return `Ok(false)` to signal
-/// that the path should be skipped.
+/// # Returns
+///
+/// If the file already exists, this function returns
+/// `Ok(CreateNewFileResult::AlreadyExists)` to signal that the path should be
+/// skipped.
+///
+/// Otherwise returns `Ok(CreateNewFileResult::Created(_))`.
+///
+/// If the file was successfully opened and the file descriptor was able to
+/// be reused, the inner value will be `Some(created_file)`.
+///
+/// It's possible that the file descriptor was not able to be reused or did not
+/// need to be returned, in which case the inner value will be
+/// `CreateNewFileResult::Created(None)`.
 ///
 /// If the path may point to ".git" or ".jj" entry, this function returns an
 /// error.
 ///
 /// This function can fail if `disk_path.parent()` isn't a directory.
-fn can_create_new_file(disk_path: &Path) -> Result<bool, CheckoutError> {
+fn can_create_new_file(
+    delete_file: bool,
+    disk_path: &Path,
+) -> Result<CreateNewFileResult, CheckoutError> {
     // New file or symlink will be created by caller. If it were pointed to by
     // name ".git" or ".jj", git/jj CLI could be tricked to load configuration
     // from an attacker-controlled location. So we first test the path by
@@ -639,22 +662,36 @@ fn can_create_new_file(disk_path: &Path) -> Result<bool, CheckoutError> {
         },
     };
 
-    let new_file_created = new_file.is_some();
-
     if let Some(new_file) = new_file {
-        reject_reserved_existing_file(new_file, disk_path).inspect_err(|_| {
-            // We keep the error from `reject_reserved_existing_file`
-            let _ = fs::remove_file(disk_path);
-        })?;
+        // Try to clone this descriptor. If it fails, the caller will account for it.
+        let mut return_file = new_file.try_clone().ok();
 
-        fs::remove_file(disk_path).map_err(|err| CheckoutError::Other {
-            message: format!("Failed to remove temporary file {}", disk_path.display()),
-            err: err.into(),
-        })?;
+        let reject_result = reject_reserved_existing_file(new_file, disk_path);
+        if reject_result.is_err() || delete_file {
+            // Ensure there are no more open file descriptors for this file
+            let _ = return_file.take();
+
+            // Try to remove this file.
+            let remove_file_result = fs::remove_file(disk_path);
+
+            // The `fs::remove_file` result doesn't matter if `reject_reserved*` failed.
+            // In that case, we bubble up the `reject_result` error.
+            if reject_result.is_err() {
+                reject_result?;
+            } else {
+                remove_file_result.map_err(|err| CheckoutError::Other {
+                    message: format!("Failed to remove temporary file {}", disk_path.display()),
+                    err: err.into(),
+                })?;
+            }
+        }
+
+        Ok(CreateNewFileResult::Created(return_file))
     } else {
         reject_reserved_existing_path(disk_path)?;
+
+        Ok(CreateNewFileResult::AlreadyExists)
     }
-    Ok(new_file_created)
 }
 
 const RESERVED_DIR_NAMES: &[&str] = &[".git", ".jj"];
@@ -1771,14 +1808,14 @@ impl FileSnapshotter<'_> {
 
 /// Functions to update local-disk files from the store.
 impl TreeState {
-    async fn write_file(
+    async fn write_file_with_path(
         &self,
         disk_path: &Path,
         contents: impl AsyncRead + Send + Unpin,
         executable: bool,
         apply_eol_conversion: bool,
     ) -> Result<FileState, CheckoutError> {
-        let mut file = File::options()
+        let file = File::options()
             .write(true)
             .create_new(true) // Don't overwrite un-ignored file. Don't follow symlink.
             .open(disk_path)
@@ -1786,6 +1823,19 @@ impl TreeState {
                 message: format!("Failed to open file {} for writing", disk_path.display()),
                 err: err.into(),
             })?;
+
+        self.write_file(file, disk_path, contents, executable, apply_eol_conversion)
+            .await
+    }
+
+    async fn write_file(
+        &self,
+        mut file: File,
+        disk_path: &Path,
+        contents: impl AsyncRead + Send + Unpin,
+        executable: bool,
+        apply_eol_conversion: bool,
+    ) -> Result<FileState, CheckoutError> {
         let contents = if apply_eol_conversion {
             self.target_eol_strategy
                 .convert_eol_for_update(contents)
@@ -1833,8 +1883,28 @@ impl TreeState {
         Ok(FileState::for_symlink(&metadata))
     }
 
+    async fn write_conflict_with_path(
+        &self,
+        disk_path: &Path,
+        contents: &[u8],
+        executable: bool,
+    ) -> Result<FileState, CheckoutError> {
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true) // Don't overwrite un-ignored file. Don't follow symlink.
+            .open(disk_path)
+            .map_err(|err| CheckoutError::Other {
+                message: format!("Failed to open file {} for writing", disk_path.display()),
+                err: err.into(),
+            })?;
+
+        self.write_conflict(file, disk_path, contents, executable)
+            .await
+    }
+
     async fn write_conflict(
         &self,
+        mut file: File,
         disk_path: &Path,
         contents: &[u8],
         executable: bool,
@@ -1845,14 +1915,6 @@ impl TreeState {
             .await
             .map_err(|err| CheckoutError::Other {
                 message: "Failed to convert the EOL when writing a merge conflict".to_string(),
-                err: err.into(),
-            })?;
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true) // Don't overwrite un-ignored file. Don't follow symlink.
-            .open(disk_path)
-            .map_err(|err| CheckoutError::Other {
-                message: format!("Failed to open file {} for writing", disk_path.display()),
                 err: err.into(),
             })?;
         let size = copy_async_to_sync(contents, &mut file)
@@ -2022,11 +2084,38 @@ impl TreeState {
 
             // If the path was present, check reserved path first and delete it.
             let present_file_deleted = before.is_present() && remove_old_file(&disk_path)?;
+
+            let mut new_file = None;
+
             // If not, create temporary file to test the path validity.
-            if !present_file_deleted && !can_create_new_file(&disk_path)? {
-                changed_file_states.push((path, FileState::placeholder()));
-                stats.skipped_files += 1;
-                continue;
+            if !present_file_deleted {
+                let delete_file = match &after {
+                    // These operations can reuse the file returned by `can_create_new_file`
+                    MaterializedTreeValue::File(_)
+                    | MaterializedTreeValue::FileConflict(_)
+                    | MaterializedTreeValue::OtherConflict { .. } => false,
+
+                    // These operations either don't use the new file, or might
+                    // try to do diverse operations that _may_ expect no file to
+                    // be present (like creating a symlink)
+                    MaterializedTreeValue::Absent
+                    | MaterializedTreeValue::AccessDenied(_)
+                    | MaterializedTreeValue::Symlink { .. }
+                    | MaterializedTreeValue::GitSubmodule(_)
+                    | MaterializedTreeValue::Tree(_) => true,
+                };
+
+                match can_create_new_file(delete_file, &disk_path)? {
+                    CreateNewFileResult::Created(created_file) => {
+                        new_file = created_file;
+                    }
+                    CreateNewFileResult::AlreadyExists => {
+                        changed_file_states.push((path, FileState::placeholder()));
+                        stats.skipped_files += 1;
+
+                        continue;
+                    }
+                }
             }
 
             // TODO: Check that the file has not changed before overwriting/removing it.
@@ -2049,14 +2138,22 @@ impl TreeState {
                     continue;
                 }
                 MaterializedTreeValue::File(file) => {
-                    self.write_file(&disk_path, file.reader, file.executable, true)
-                        .await?
+                    if let Some(new_file) = new_file {
+                        self.write_file(new_file, &disk_path, file.reader, file.executable, true)
+                            .await?
+                    } else {
+                        self.write_file_with_path(&disk_path, file.reader, file.executable, true)
+                            .await?
+                    }
                 }
                 MaterializedTreeValue::Symlink { id: _, target } => {
                     if self.symlink_support {
                         self.write_symlink(&disk_path, target)?
+                    } else if let Some(new_file) = new_file {
+                        self.write_file(new_file, &disk_path, target.as_bytes(), false, false)
+                            .await?
                     } else {
-                        self.write_file(&disk_path, target.as_bytes(), false, false)
+                        self.write_file_with_path(&disk_path, target.as_bytes(), false, false)
                             .await?
                     }
                 }
@@ -2076,9 +2173,23 @@ impl TreeState {
                         merge: self.store.merge_options().clone(),
                     };
                     let contents = materialize_merge_result_to_bytes(&file.contents, &options);
-                    let mut file_state = self
-                        .write_conflict(&disk_path, &contents, file.executable.unwrap_or(false))
-                        .await?;
+
+                    let mut file_state = if let Some(new_file) = new_file {
+                        self.write_conflict(
+                            new_file,
+                            &disk_path,
+                            &contents,
+                            file.executable.unwrap_or(false),
+                        )
+                        .await?
+                    } else {
+                        self.write_conflict_with_path(
+                            &disk_path,
+                            &contents,
+                            file.executable.unwrap_or(false),
+                        )
+                        .await?
+                    };
                     file_state.materialized_conflict_data = Some(MaterializedConflictData {
                         conflict_marker_len: conflict_marker_len.try_into().unwrap_or(u32::MAX),
                     });
@@ -2089,10 +2200,16 @@ impl TreeState {
                     // better than trying to describe the merge.
                     let contents = id.describe();
                     let executable = false;
-                    self.write_conflict(&disk_path, contents.as_bytes(), executable)
-                        .await?
+                    if let Some(new_file) = new_file {
+                        self.write_conflict(new_file, &disk_path, contents.as_bytes(), executable)
+                            .await?
+                    } else {
+                        self.write_conflict_with_path(&disk_path, contents.as_bytes(), executable)
+                            .await?
+                    }
                 }
             };
+
             changed_file_states.push((path, file_state));
         }
         self.file_states
