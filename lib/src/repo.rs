@@ -976,7 +976,7 @@ impl MutableRepo {
     /// A later call to `rebase_descendants()` will update bookmarks pointing to
     /// `old_id` be conflicted and pointing to all pf `new_ids`. Working copies
     /// pointing to `old_id` will be updated to point to the first commit in
-    /// `new_ids``. Descendants of `old_id` will be left alone.
+    /// `new_ids`. Descendants of `old_id` will be left alone.
     pub fn set_divergent_rewrite(
         &mut self,
         old_id: CommitId,

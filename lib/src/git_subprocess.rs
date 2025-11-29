@@ -312,7 +312,7 @@ fn external_git_error(stderr: &[u8]) -> GitSubprocessError {
 /// form:
 /// `fatal: '<remote>' does not appear to be a git repository`
 /// or
-/// `fatal: '<remote>': Could not resolve host: invalid-remote
+/// `fatal: '<remote>': Could not resolve host: invalid-remote`
 fn parse_no_such_remote(stderr: &[u8]) -> Option<String> {
     let first_line = stderr.lines().next()?;
     let suffix = first_line

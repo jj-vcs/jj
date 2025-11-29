@@ -262,7 +262,7 @@ pub async fn copy_async_to_sync<R: AsyncRead, W: Write + ?Sized>(
     }
 }
 
-/// `AsyncRead`` implementation backed by a `Read`. It is not actually async;
+/// `AsyncRead` implementation backed by a `Read`. It is not actually async;
 /// the goal is simply to avoid reading the full contents from the `Read` into
 /// memory.
 pub struct BlockingAsyncReader<R> {

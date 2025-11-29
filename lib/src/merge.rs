@@ -410,7 +410,7 @@ impl<T> Merge<T> {
     }
 
     /// Creates a new merge by applying `f` to each remove and add, returning
-    /// `Err if `f` returns `Err` for any of them.
+    /// `Err` if `f` returns `Err` for any of them.
     pub fn try_map<'a, U, E>(
         &'a self,
         f: impl FnMut(&'a T) -> Result<U, E>,
@@ -420,7 +420,7 @@ impl<T> Merge<T> {
     }
 
     /// Creates a new merge by applying the async function `f` to each remove
-    /// and add, running them concurrently, and returning `Err if `f`
+    /// and add, running them concurrently, and returning `Err` if `f`
     /// returns `Err` for any of them.
     pub async fn try_map_async<'a, F, U, E>(
         &'a self,
