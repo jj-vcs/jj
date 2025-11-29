@@ -1762,7 +1762,8 @@ pub async fn show_diff_summary(
 ) -> Result<(), DiffRenderError> {
     while let Some(CopiesTreeDiffEntry { path, values }) = tree_diff.next().await {
         let values = values?;
-        let (label, sigil) = diff_status_label_and_char(&path, &values);
+        let status = diff_status(&path, &values);
+        let (label, sigil) = (status.label(), status.char());
         let path = if path.copy_operation().is_some() {
             path_converter.format_copied_path(path.source(), path.target())
         } else {
@@ -1773,23 +1774,31 @@ pub async fn show_diff_summary(
     Ok(())
 }
 
-pub fn diff_status_label_and_char(
+fn _diff_status(
     path: &CopiesTreeDiffEntryPath,
-    values: &Diff<MergedTreeValue>,
-) -> (&'static str, char) {
+    is_present_before: bool,
+    is_present_after: bool,
+) -> DiffEntryStatus {
     if let Some(op) = path.copy_operation() {
         match op {
-            CopyOperation::Copy => ("copied", 'C'),
-            CopyOperation::Rename => ("renamed", 'R'),
+            CopyOperation::Copy => DiffEntryStatus::Copied,
+            CopyOperation::Rename => DiffEntryStatus::Renamed,
         }
     } else {
-        match (values.before.is_present(), values.after.is_present()) {
-            (true, true) => ("modified", 'M'),
-            (false, true) => ("added", 'A'),
-            (true, false) => ("removed", 'D'),
+        match (is_present_before, is_present_after) {
+            (true, true) => DiffEntryStatus::Modified,
+            (false, true) => DiffEntryStatus::Added,
+            (true, false) => DiffEntryStatus::Removed,
             (false, false) => panic!("values pair must differ"),
         }
     }
+}
+
+pub fn diff_status(
+    path: &CopiesTreeDiffEntryPath,
+    values: &Diff<MergedTreeValue>,
+) -> DiffEntryStatus {
+    _diff_status(path, values.before.is_present(), values.after.is_present())
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -1825,10 +1834,15 @@ impl DiffStats {
         let entries = materialized_diff_stream(store, tree_diff)
             .map(|MaterializedTreeDiffEntry { path, values }| {
                 let (left, right) = values?;
+                let status = _diff_status(&path, left.is_present(), right.is_present());
                 let left_content = diff_content(path.source(), left, &materialize_options)?;
                 let right_content = diff_content(path.target(), right, &materialize_options)?;
-                let stat =
-                    get_diff_stat_entry(path, Diff::new(&left_content, &right_content), options);
+                let stat = get_diff_stat_entry(
+                    path,
+                    status,
+                    Diff::new(&left_content, &right_content),
+                    options,
+                );
                 BackendResult::Ok(stat)
             })
             .try_collect()
@@ -1858,6 +1872,37 @@ impl DiffStats {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DiffEntryStatus {
+    Added,
+    Removed,
+    Modified,
+    Copied,
+    Renamed,
+}
+
+impl DiffEntryStatus {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Copied => "copied",
+            Self::Renamed => "renamed",
+            Self::Modified => "modified",
+            Self::Added => "added",
+            Self::Removed => "removed",
+        }
+    }
+
+    pub fn char(&self) -> char {
+        match self {
+            Self::Copied => 'C',
+            Self::Renamed => 'R',
+            Self::Modified => 'M',
+            Self::Added => 'A',
+            Self::Removed => 'D',
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct DiffStatEntry {
     pub path: CopiesTreeDiffEntryPath,
@@ -1865,10 +1910,12 @@ pub struct DiffStatEntry {
     pub added_removed: Option<(usize, usize)>,
     /// Change in file size in bytes.
     pub bytes_delta: isize,
+    pub status: DiffEntryStatus,
 }
 
 fn get_diff_stat_entry(
     path: CopiesTreeDiffEntryPath,
+    status: DiffEntryStatus,
     contents: Diff<&FileContent<BString>>,
     options: &DiffStatOptions,
 ) -> DiffStatEntry {
@@ -1899,6 +1946,7 @@ fn get_diff_stat_entry(
         added_removed,
         bytes_delta: contents.after.contents.len() as isize
             - contents.before.contents.len() as isize,
+        status,
     }
 }
 
