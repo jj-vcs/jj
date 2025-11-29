@@ -357,6 +357,63 @@ fn test_git_head_race_condition() {
     );
 }
 
+/// Test that "workspace update-stale" works in colocated repos.
+///
+/// This is a regression test for a bug introduced in commit 7a296ca1 where
+/// the reload-to-HEAD logic (added to fix a race condition) would break
+/// "workspace update-stale" by reloading the repo to HEAD before snapshotting,
+/// even though recovery intentionally loads at an old operation.
+#[test]
+fn test_colocated_workspace_update_stale() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+    let secondary_dir = test_env.work_dir("secondary");
+
+    main_dir.write_file("file", "contents\n");
+    main_dir.run_jj(["new"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    // Rewrite the check-out commit from the secondary workspace.
+    // This makes the main (colocated) workspace's working copy stale.
+    secondary_dir.write_file("file", "changed in secondary\n");
+    secondary_dir.run_jj(["squash"]).success();
+
+    // The main workspace's working copy is now stale.
+    let output = main_dir.run_jj(["st"]);
+    assert!(
+        output.stderr.raw().contains("The working copy is stale"),
+        "Expected stale working copy error, got: {output}"
+    );
+
+    // Before the fix, this would fail with the same "working copy is stale" error
+    // because the colocated repo reload logic would reload to HEAD before
+    // snapshotting, breaking the recovery.
+    let output = main_dir.run_jj(["workspace", "update-stale"]);
+    assert!(
+        output
+            .stderr
+            .raw()
+            .contains("Updated working copy to fresh commit"),
+        "Expected successful update, got: {output}"
+    );
+
+    // Verify the workspace is now up-to-date
+    let output = main_dir.run_jj(["st"]);
+    assert!(
+        output
+            .stdout
+            .raw()
+            .contains("The working copy has no changes"),
+        "Expected clean working copy, got: {output}"
+    );
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj(["log", "-T", "description"])
