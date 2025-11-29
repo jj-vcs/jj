@@ -83,6 +83,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `--insert-before` now accepts a revset that resolves to an empty set when
   used with `--insert-after`. The behavior is similar to `--onto`.
 
+* `TreeDiffEntry` type now has a `display_diff_path()` method that formats
+  renames/copies appropriately.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

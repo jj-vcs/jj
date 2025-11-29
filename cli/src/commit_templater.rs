@@ -2461,6 +2461,16 @@ impl TreeDiffEntry {
     }
 }
 
+fn format_diff_path(
+    path: &CopiesTreeDiffEntryPath,
+    path_converter: &RepoPathUiConverter,
+) -> String {
+    match path.to_diff() {
+        Some(paths) => path_converter.format_copied_path(paths),
+        None => path_converter.format_file_path(path.target()),
+    }
+}
+
 fn builtin_tree_diff_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, TreeDiffEntry>
 {
     // Not using maplit::hashmap!{} or custom declarative macro here because
@@ -2471,6 +2481,16 @@ fn builtin_tree_diff_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.path.target);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "display_diff_path",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let path_converter = language.path_converter;
+            let out_property =
+                self_property.map(move |entry| format_diff_path(&entry.path, path_converter));
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -2637,6 +2657,16 @@ fn builtin_diff_stat_entry_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'r
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.map(|entry| entry.path.target);
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "display_diff_path",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let path_converter = language.path_converter;
+            let out_property =
+                self_property.map(move |entry| format_diff_path(&entry.path, path_converter));
             Ok(out_property.into_dyn_wrapped())
         },
     );

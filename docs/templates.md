@@ -301,6 +301,7 @@ This type holds the diff stats per file. The following methods are defined.
 * `.lines_removed() -> Integer`: Number of lines deleted.
 * `.path() -> RepoPath`: Path to the entry. If the entry is a copy/rename, this
   points to the target (or right) entry.
+* `.display_diff_path() -> String`: Format path for display, taking into account copy/rename information.
 * `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`, `"copied"`, or `"renamed"`.
 * `.status_char() -> String`: One of `"M"` (modified), `"A"` (added), `"D"` (removed),
   `"C"` (copied), or `"R"` (renamed).
@@ -626,6 +627,7 @@ This type cannot be printed. The following methods are defined.
 
 * `.path() -> RepoPath`: Path to the entry. If the entry is a copy/rename, this
   points to the target (or right) entry.
+* `.display_diff_path() -> String`: Format path for display, taking into account copy/rename information.
 * `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`,
   `"copied"`, or `"renamed"`.
 * `.source() -> TreeEntry`: The source (or left) entry.

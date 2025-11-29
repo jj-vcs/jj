@@ -1441,6 +1441,70 @@ fn test_log_diff_predefined_formats() {
 }
 
 #[test]
+fn test_log_diff_path_display() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a structure with nested directories.
+    work_dir.create_dir("src");
+    work_dir.create_dir("src/old");
+    work_dir.create_dir("src/new");
+    work_dir.write_file("src/old/file.rs", "content");
+    work_dir.write_file("src/common.rs", "content");
+    work_dir.write_file("top.txt", "content");
+    work_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    // Rename within nested directory (common prefix/suffix).
+    work_dir.write_file("src/new/file.rs", "content");
+    work_dir.remove_file("src/old/file.rs");
+    work_dir.run_jj(["commit", "-m", "rename nested"]).success();
+
+    // Rename at top level.
+    work_dir.write_file("renamed.txt", "content");
+    work_dir.remove_file("top.txt");
+    work_dir.run_jj(["commit", "-m", "rename top"]).success();
+
+    // Test display_diff_path shows compact format for renames.
+    let template = indoc! {r#"
+        concat(
+          "=== " ++ description.first_line() ++ " ===\n",
+          "--- files() ---\n",
+          diff.files().map(|e| 
+            e.display_diff_path() ++ " [" ++ e.status() ++ "]\n"
+          ).join(""),
+          "--- stat().files() ---\n",
+          diff.stat().files().map(|e| 
+            e.display_diff_path() ++ " [" ++ e.status() ++ "]\n"
+          ).join(""),
+        )
+    "#};
+    let output = work_dir.run_jj(["log", "--no-graph", "-r", "::@- & ~root()", "-T", template]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    === rename top ===
+    --- files() ---
+    {top.txt => renamed.txt} [renamed]
+    --- stat().files() ---
+    {top.txt => renamed.txt} [renamed]
+    === rename nested ===
+    --- files() ---
+    src/{old => new}/file.rs [renamed]
+    --- stat().files() ---
+    src/{old => new}/file.rs [renamed]
+    === initial ===
+    --- files() ---
+    src/common.rs [added]
+    src/old/file.rs [added]
+    top.txt [added]
+    --- stat().files() ---
+    src/common.rs [added]
+    src/old/file.rs [added]
+    top.txt [added]
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_file_list_entries() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
