@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fs;
+
 use insta::assert_snapshot;
 
 use crate::common::TestEnvironment;
@@ -241,4 +243,21 @@ fn test_util_exec_sets_env() {
     $TEST_ENV/repo
     [EOF]
     ");
+}
+
+#[test]
+fn test_install_man_pages() {
+    let test_env = TestEnvironment::default();
+
+    // no man pages present
+    let man_dir = test_env.env_root().join("man1");
+    assert!(!man_dir.exists());
+
+    // install man pages
+    let output = test_env.run_jj_in(".", ["util", "install-man-pages", "."]);
+    insta::assert_snapshot!(output, @"");
+
+    // confirm something is now present
+    assert!(man_dir.is_dir());
+    assert!(fs::read_dir(man_dir).unwrap().next().is_some());
 }
