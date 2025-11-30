@@ -180,6 +180,17 @@ fn test_sparse_manage_patterns() {
     file3
     [EOF]
     ");
+
+    // Invalid paths are rejected
+    edit_patterns(&["./file1"]);
+    let output = sub_dir.run_jj(["sparse", "edit"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to parse sparse pattern: ./file1
+    Caused by: Invalid component "." in repo-relative path "./file1"
+    [EOF]
+    [exit status: 1]
+    "#);
 }
 
 #[test]
