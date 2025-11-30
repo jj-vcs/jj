@@ -727,6 +727,9 @@ $ jj config set --user ui.pager "less -FRX"
 
 # Use the built-in pager (default on Windows)
 $ jj config set --user ui.pager :builtin
+
+# Use `$PAGER` environment variable if set (on non-Windows platforms)
+$ jj config set --user ui.pager '["sh", "-c", "exec ${PAGER:-less -FRX}"]'
 ```
 
 Additionally, paging behavior can be toggled via `ui.paginate` like so:
