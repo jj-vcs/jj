@@ -158,7 +158,7 @@ fn test_advance_bookmarks_at_minus(make_commit: CommitFn) {
 }
 
 // Test that per-bookmark overrides invert the behavior of
-// experimental-advance-bookmarks.enabled.
+// experimental-advance-branches.enabled.
 #[test_case(commit_cmd ; "commit")]
 #[test_case(describe_new_cmd; "new")]
 fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
@@ -166,7 +166,7 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    // advance-bookmarks is disabled by default.
+    // advance-branches is disabled by default.
     work_dir
         .run_jj(["bookmark", "create", "-r", "@-", "test_bookmark"])
         .success();
@@ -180,7 +180,7 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     ");
     }
 
-    // Commit will not advance the bookmark since advance-bookmarks is disabled.
+    // Commit will not advance the bookmark since advance-branches is disabled.
     make_commit(&work_dir, "first");
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
@@ -191,11 +191,11 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     ");
     }
 
-    // Now enable advance bookmarks for "test_bookmark", move the bookmark, and
+    // Now enable advance branches for "test_bookmark", move the bookmark, and
     // commit again.
     test_env.add_config(
-        r#"[experimental-advance-bookmarks]
-    enabled-bookmarks = ["test_bookmark"]
+        r#"[experimental-advance-branches]
+    enabled-branches = ["test_bookmark"]
     "#,
     );
     work_dir
@@ -213,19 +213,20 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
-    ○  bookmarks{} desc: second
-    ○  bookmarks{test_bookmark} desc: first
+    ○  bookmarks{test_bookmark} desc: second
+    ○  bookmarks{} desc: first
     ◆  bookmarks{} desc:
     [EOF]
     ");
     }
 
-    // Now disable advance bookmarks for "test_bookmark" and "second_bookmark",
-    // which we will use later. Disabling always takes precedence over enabling.
+    // Now disable advance branches for "test_bookmark" and enable for
+    // "second_bookmark", which we will use later. Disabling always takes
+    // precedence over enabling.
     test_env.add_config(
-        r#"[experimental-advance-bookmarks]
-    enabled-bookmarks = ["test_bookmark", "second_bookmark"]
-    disabled-bookmarks = ["test_bookmark"]
+        r#"[experimental-advance-branches]
+    enabled-branches = ["test_bookmark", "second_bookmark"]
+    disabled-branches = ["test_bookmark"]
     "#,
     );
     make_commit(&work_dir, "third");
@@ -233,8 +234,8 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
     ○  bookmarks{} desc: third
-    ○  bookmarks{} desc: second
-    ○  bookmarks{test_bookmark} desc: first
+    ○  bookmarks{test_bookmark} desc: second
+    ○  bookmarks{} desc: first
     ◆  bookmarks{} desc:
     [EOF]
     ");
@@ -263,8 +264,8 @@ fn test_advance_bookmarks_overrides(make_commit: CommitFn) {
     insta::allow_duplicates! {
     insta::assert_snapshot!(get_log_output_with_bookmarks(&work_dir), @r"
     @  bookmarks{} desc:
-    ○  bookmarks{} desc: fourth
-    ○  bookmarks{second_bookmark test_bookmark} desc: third
+    ○  bookmarks{second_bookmark} desc: fourth
+    ○  bookmarks{test_bookmark} desc: third
     ○  bookmarks{} desc: second
     ○  bookmarks{} desc: first
     ◆  bookmarks{} desc:
