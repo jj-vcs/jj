@@ -753,8 +753,22 @@ pub fn branch_name_equals_any_revision(current: &std::ffi::OsStr) -> Vec<Complet
         .collect()
 }
 
+#[derive(Clone, Debug)]
+struct PartialFileset<'a> {
+    /// The current path pattern being completed
+    current_path: &'a str,
+}
+
+impl<'a> PartialFileset<'a> {
+    fn parse(current: &'a std::ffi::OsStr) -> Option<Self> {
+        Some(PartialFileset {
+            current_path: current.to_str()?,
+        })
+    }
+}
+
 fn path_completion_candidate_from(
-    current_prefix: &str,
+    fileset: &PartialFileset,
     normalized_prefix_path: &Path,
     path: &Path,
     mode: Option<clap::builder::StyledStr>,
@@ -770,7 +784,7 @@ fn path_completion_candidate_from(
     // Trailing slash might have been normalized away in which case we need to strip
     // the leading slash in the remainder away, or else the slash would appear
     // twice.
-    if current_prefix.ends_with(std::path::is_separator) {
+    if fileset.current_path.ends_with(std::path::is_separator) {
         remainder = remainder.strip_prefix('/').unwrap_or(remainder);
     }
 
@@ -779,7 +793,8 @@ fn path_completion_candidate_from(
         // which `mode` refers.
         Ok(file_completion) => Some(
             CompletionCandidate::new(format!(
-                "{current_prefix}{}",
+                "{}{}",
+                fileset.current_path,
                 file_completion.unwrap_or_default()
             ))
             .help(mode),
@@ -787,25 +802,29 @@ fn path_completion_candidate_from(
 
         // Omit `mode` when completing only up to the next directory.
         Err(mut components) => Some(CompletionCandidate::new(format!(
-            "{current_prefix}{}",
+            "{}{}",
+            fileset.current_path,
             components.next().unwrap()
         ))),
     }
 }
 
-fn current_prefix_to_fileset(current: &str) -> String {
-    let cur_esc = globset::escape(current);
+fn fileset_matching_current_path(fileset: &PartialFileset) -> String {
+    let cur_esc = globset::escape(fileset.current_path);
     let dir_pat = format!("{cur_esc}*/**");
     let path_pat = format!("{cur_esc}*");
     format!("glob:{dir_pat:?} | glob:{path_pat:?}")
 }
 
 fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
-    let Some(current) = current.to_str() else {
+    let Some(fileset) = PartialFileset::parse(current) else {
         return Vec::new();
     };
+    all_files_from_rev_fileset(rev, &fileset)
+}
 
-    let normalized_prefix = normalize_path(Path::new(current));
+fn all_files_from_rev_fileset(rev: String, fileset: &PartialFileset) -> Vec<CompletionCandidate> {
+    let normalized_prefix = normalize_path(Path::new(fileset.current_path));
     let normalized_prefix = slash_path(&normalized_prefix);
 
     with_jj(|jj, _| {
@@ -817,7 +836,7 @@ fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionC
             .arg(rev)
             .arg("--template")
             .arg(r#"path.display() ++ "\n""#)
-            .arg(current_prefix_to_fileset(current))
+            .arg(fileset_matching_current_path(fileset))
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
             .spawn()
@@ -829,7 +848,7 @@ fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionC
             .take(1_000)
             .map_while(Result::ok)
             .filter_map(|path| {
-                path_completion_candidate_from(current, &normalized_prefix, Path::new(&path), None)
+                path_completion_candidate_from(fileset, &normalized_prefix, Path::new(&path), None)
             })
             .dedup() // directories may occur multiple times
             .collect())
@@ -838,14 +857,21 @@ fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionC
 
 fn modified_files_from_rev_with_jj_cmd(
     rev: (String, Option<String>),
-    mut cmd: std::process::Command,
+    cmd: std::process::Command,
     current: &std::ffi::OsStr,
 ) -> Result<Vec<CompletionCandidate>, CommandError> {
-    let Some(current) = current.to_str() else {
+    let Some(fileset) = PartialFileset::parse(current) else {
         return Ok(Vec::new());
     };
+    modified_files_from_rev_with_jj_cmd_fileset(rev, cmd, &fileset)
+}
 
-    let normalized_prefix = normalize_path(Path::new(current));
+fn modified_files_from_rev_with_jj_cmd_fileset(
+    rev: (String, Option<String>),
+    mut cmd: std::process::Command,
+    fileset: &PartialFileset,
+) -> Result<Vec<CompletionCandidate>, CommandError> {
+    let normalized_prefix = normalize_path(Path::new(fileset.current_path));
     let normalized_prefix = slash_path(&normalized_prefix);
 
     // In case of a rename, one entry of `diff` results in two suggestions.
@@ -857,7 +883,7 @@ fn modified_files_from_rev_with_jj_cmd(
     "#};
     cmd.arg("diff")
         .args(["--template", template])
-        .arg(current_prefix_to_fileset(current));
+        .arg(fileset_matching_current_path(fileset));
     match rev {
         (rev, None) => cmd.arg("--revisions").arg(rev),
         (from, Some(to)) => cmd.arg("--from").arg(from).arg("--to").arg(to),
@@ -882,7 +908,7 @@ fn modified_files_from_rev_with_jj_cmd(
                 "copied" => "Copied".into(),
                 _ => format!("unknown mode: '{mode}'").into(),
             };
-            path_completion_candidate_from(current, &normalized_prefix, Path::new(path), Some(mode))
+            path_completion_candidate_from(fileset, &normalized_prefix, Path::new(path), Some(mode))
         })
         .collect();
 
@@ -902,11 +928,17 @@ fn modified_files_from_rev(
 }
 
 fn conflicted_files_from_rev(rev: &str, current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
-    let Some(current) = current.to_str() else {
+    let Some(fileset) = PartialFileset::parse(current) else {
         return Vec::new();
     };
+    conflicted_files_from_rev_fileset(rev, &fileset)
+}
 
-    let normalized_prefix = normalize_path(Path::new(current));
+fn conflicted_files_from_rev_fileset(
+    rev: &str,
+    fileset: &PartialFileset,
+) -> Vec<CompletionCandidate> {
+    let normalized_prefix = normalize_path(Path::new(fileset.current_path));
     let normalized_prefix = slash_path(&normalized_prefix);
 
     with_jj(|jj, _| {
@@ -916,7 +948,7 @@ fn conflicted_files_from_rev(rev: &str, current: &std::ffi::OsStr) -> Vec<Comple
             .arg("--list")
             .arg("--revision")
             .arg(rev)
-            .arg(current_prefix_to_fileset(current))
+            .arg(fileset_matching_current_path(fileset))
             .output()
             .map_err(user_error)?;
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -929,7 +961,7 @@ fn conflicted_files_from_rev(rev: &str, current: &std::ffi::OsStr) -> Vec<Comple
                     .next()
                     .expect("resolve --list should contain whitespace after path");
 
-                path_completion_candidate_from(current, &normalized_prefix, Path::new(path), None)
+                path_completion_candidate_from(fileset, &normalized_prefix, Path::new(path), None)
             })
             .dedup() // directories may occur multiple times
             .collect())
