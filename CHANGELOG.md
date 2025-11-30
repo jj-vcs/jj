@@ -86,6 +86,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `TreeDiffEntry` type now has a `display_diff_path()` method that formats
   renames/copies appropriately.
 
+* `TreeDiffEntry` now has a `status_char()` method that returns
+  single-character status codes (M/A/D/C/R).
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

@@ -99,7 +99,7 @@ fn test_log_with_diff_stats() {
 
     let template = r#"
     self.diff().files().map(
-        |f| f.status() ++ " " ++ f.source().path() ++ " " ++ f.target().path()
+        |f| f.status_char() ++ " " ++ f.status() ++ " " ++ f.source().path() ++ " " ++ f.target().path()
     ).join("\n")
     ++ "\n" ++
     self.diff().stat().files().map(
@@ -109,21 +109,21 @@ fn test_log_with_diff_stats() {
 
     let output = work_dir.run_jj(["log", "-T", template]);
     insta::assert_snapshot!(output, @r"
-    @  modified file1 file1
-    │  modified file2 file2
-    │  modified file3 file3
-    │  removed file4 file4
-    │  renamed file5 file6
+    @  M modified file1 file1
+    │  M modified file2 file2
+    │  M modified file3 file3
+    │  D removed file4 file4
+    │  R renamed file5 file6
     │  M modified 1 0 file1
     │  M modified 0 1 file2
     │  M modified 1 1 file3
     │  D removed 0 1 file4
     │  R renamed 0 0 file6
-    ○  added file1 file1
-    │  added file2 file2
-    │  added file3 file3
-    │  added file4 file4
-    │  added file5 file5
+    ○  A added file1 file1
+    │  A added file2 file2
+    │  A added file3 file3
+    │  A added file4 file4
+    │  A added file5 file5
     │  A added 1 0 file1
     │  A added 2 0 file2
     │  A added 1 0 file3

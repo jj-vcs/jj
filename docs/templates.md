@@ -630,6 +630,8 @@ This type cannot be printed. The following methods are defined.
 * `.display_diff_path() -> String`: Format path for display, taking into account copy/rename information.
 * `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`,
   `"copied"`, or `"renamed"`.
+* `.status_char() -> String`: Single-character status indicator: `"M"` for modified,
+  `"A"` for added, `"D"` for removed, `"C"` for copied, or `"R"` for renamed.
 * `.source() -> TreeEntry`: The source (or left) entry.
 * `.target() -> TreeEntry`: The target (or right) entry.
 
