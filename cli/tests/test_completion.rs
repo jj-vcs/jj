@@ -1401,6 +1401,20 @@ fn test_files() {
     [EOF]
     ");
 
+    let output = work_dir.complete_fish(["file", "show", "~f_"]);
+    insta::assert_snapshot!(output, @r"
+    ~f_added
+    ~f_added_2
+    ~f_another_renamed_2
+    ~f_copied
+    ~f_dir/
+    ~f_modified
+    ~f_not_yet_copied
+    ~f_renamed
+    ~f_unchanged
+    [EOF]
+    ");
+
     let output = work_dir.complete_fish(["file", "show", "./f_"]);
     insta::assert_snapshot!(output, @r"
     ./f_added
@@ -1510,6 +1524,13 @@ fn test_files() {
     f_not_yet_renamed_2	Renamed
     f_not_yet_renamed_3	Renamed
     f_renamed	Renamed
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["diff", "-r", "@-", "glob:f_a"]);
+    insta::assert_snapshot!(output, @r"
+    glob:f_added	Added
+    glob:f_another_renamed_2	Renamed
     [EOF]
     ");
 
@@ -1624,6 +1645,14 @@ fn test_files() {
     insta::assert_snapshot!(output, @r"
     f_dir/
     f_modified
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["resolve", "-r=conflicted", "root:f_dir/d"]);
+    insta::assert_snapshot!(output, @r"
+    root:f_dir/dir_file_1
+    root:f_dir/dir_file_2
+    root:f_dir/dir_file_3
     [EOF]
     ");
 

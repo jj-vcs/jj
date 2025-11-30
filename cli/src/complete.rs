@@ -753,17 +753,54 @@ pub fn branch_name_equals_any_revision(current: &std::ffi::OsStr) -> Vec<Complet
         .collect()
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct PartialFileset<'a> {
+    /// Any prefix before the current path pattern
+    prefix: &'a str,
     /// The current path pattern being completed
     current_path: &'a str,
 }
 
 impl<'a> PartialFileset<'a> {
+    /// Splits the path being completed in `current` from any operators and
+    /// preceding expressions.
+    ///
+    /// Parsing is done on a best-effort basis and may produce incorrect results
+    /// e.g. with quoted names containing characters that look like operators.
     fn parse(current: &'a std::ffi::OsStr) -> Option<Self> {
-        Some(PartialFileset {
-            current_path: current.to_str()?,
-        })
+        current.to_str().map(Self::parse_str)
+    }
+
+    fn parse_str(current: &'a str) -> Self {
+        let (token_pos, token) = current
+            .rmatch_indices([':', '~', '|', '&', '(', ',', '"', '\''])
+            .next()
+            .unwrap_or((0, ""));
+        let (prefix, current_path) = match token {
+            // Any space after these tokens should be considered part of the path
+            ":" | "\"" | "'" => current.split_at(token_pos + token.len()),
+            // Other characters are operators that accept whitespace between operands
+            _ => {
+                let name = current[token_pos + token.len()..].trim_ascii_start();
+                current.split_at(current.len() - name.len())
+            }
+        };
+
+        PartialFileset {
+            prefix,
+            current_path,
+        }
+    }
+
+    fn add_prefix(&self, candidates: Vec<CompletionCandidate>) -> Vec<CompletionCandidate> {
+        if self.prefix.is_empty() {
+            candidates
+        } else {
+            candidates
+                .into_iter()
+                .map(|candidate| candidate.add_prefix(self.prefix))
+                .collect()
+        }
     }
 }
 
@@ -820,7 +857,7 @@ fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionC
     let Some(fileset) = PartialFileset::parse(current) else {
         return Vec::new();
     };
-    all_files_from_rev_fileset(rev, &fileset)
+    fileset.add_prefix(all_files_from_rev_fileset(rev, &fileset))
 }
 
 fn all_files_from_rev_fileset(rev: String, fileset: &PartialFileset) -> Vec<CompletionCandidate> {
@@ -863,7 +900,11 @@ fn modified_files_from_rev_with_jj_cmd(
     let Some(fileset) = PartialFileset::parse(current) else {
         return Ok(Vec::new());
     };
-    modified_files_from_rev_with_jj_cmd_fileset(rev, cmd, &fileset)
+    Ok(
+        fileset.add_prefix(modified_files_from_rev_with_jj_cmd_fileset(
+            rev, cmd, &fileset,
+        )?),
+    )
 }
 
 fn modified_files_from_rev_with_jj_cmd_fileset(
@@ -931,7 +972,7 @@ fn conflicted_files_from_rev(rev: &str, current: &std::ffi::OsStr) -> Vec<Comple
     let Some(fileset) = PartialFileset::parse(current) else {
         return Vec::new();
     };
-    conflicted_files_from_rev_fileset(rev, &fileset)
+    fileset.add_prefix(conflicted_files_from_rev_fileset(rev, &fileset))
 }
 
 fn conflicted_files_from_rev_fileset(
@@ -1373,6 +1414,104 @@ mod tests {
     fn test_config_keys() {
         // Just make sure the schema is parsed without failure.
         let _ = config_keys();
+    }
+
+    #[test]
+    fn test_partial_fileset_parse_str() {
+        fn partial_fileset<'a>(prefix: &'a str, current_path: &'a str) -> PartialFileset<'a> {
+            PartialFileset {
+                prefix,
+                current_path,
+            }
+        }
+
+        assert_eq!(PartialFileset::parse_str(""), partial_fileset("", ""));
+        assert_eq!(PartialFileset::parse_str(" "), partial_fileset(" ", ""));
+        assert_eq!(PartialFileset::parse_str("foo"), partial_fileset("", "foo"));
+        assert_eq!(
+            PartialFileset::parse_str(" foo"),
+            partial_fileset(" ", "foo")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("glob:"),
+            partial_fileset("glob:", "")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("glob:foo"),
+            partial_fileset("glob:", "foo")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("~foo"),
+            partial_fileset("~", "foo")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("~ foo"),
+            partial_fileset("~ ", "foo")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("glob:*.rs ~ foo"),
+            partial_fileset("glob:*.rs ~ ", "foo")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("foo|bar"),
+            partial_fileset("foo|", "bar")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("foo | bar"),
+            partial_fileset("foo | ", "bar")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("(foo"),
+            partial_fileset("(", "foo")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("( foo"),
+            partial_fileset("( ", "foo")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("function(foo,"),
+            partial_fileset("function(foo,", "")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("function(foo, "),
+            partial_fileset("function(foo, ", "")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("function(foo, b"),
+            partial_fileset("function(foo, ", "b")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("\"foo/b "),
+            partial_fileset("\"", "foo/b ")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("\" foo/b "),
+            partial_fileset("\"", " foo/b ")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("'foo/b "),
+            partial_fileset("'", "foo/b ")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("' foo/b "),
+            partial_fileset("'", " foo/b ")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("function(foo, '"),
+            partial_fileset("function(foo, '", "")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("function(foo, \""),
+            partial_fileset("function(foo, \"", "")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("function(foo, 'b"),
+            partial_fileset("function(foo, '", "b")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("function(foo, \" b"),
+            partial_fileset("function(foo, \"", " b")
+        );
     }
 
     #[test]

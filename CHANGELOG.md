@@ -104,6 +104,9 @@ should not be broken.
 * `jj log` now supports a `--count` flag to print the number of commits instead
   of displaying them.
 
+* Dynamic command-line completion of path parameters now supports fileset operators,
+  so for example typing `jj log ~RE` and pressing Tab could complete to `~README.md`.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
