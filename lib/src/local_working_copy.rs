@@ -606,6 +606,46 @@ fn remove_old_file(disk_path: &Path) -> Result<bool, CheckoutError> {
     }
 }
 
+/// Removes existing submodule directory named `disk_path` if any. Returns
+/// `Ok(true)` if the directory was there and got removed, meaning that new file
+/// can be safely created.
+///
+/// The directory will not be removed if it is not empty, as it could contain
+/// untracked or modified files. This is in line with Git's behavior.
+///
+/// Any failure to remove the directory is not treated as an error, since jj
+/// does not support, and generally tries to ignore, submodules.
+///
+/// If the existing directory points to ".git" or ".jj", this function returns
+/// an error.
+fn remove_old_submodule_dir(disk_path: &Path, replaced: bool) -> Result<bool, CheckoutError> {
+    reject_reserved_existing_path(disk_path)?;
+    // Git behavior: Try to remove the (empty) directory and give a warning if
+    // it fails
+    match fs::remove_dir(&disk_path) {
+        Ok(()) => Ok(true),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(err) => {
+            eprintln!(
+                "warning: failed to remove submodule directory {}: {}",
+                disk_path.display(),
+                err.kind()
+            );
+            if replaced {
+                eprintln!(
+                    "Submodule {} is replaced by a file in the commit. Run `git reset --hard` to remove the left-over submodule directory and replace it with the file.",
+                    disk_path.file_name().unwrap_or_default().display()
+                )
+            } else {
+                eprintln!(
+                    "Files from the submodule will appear as added. Add the submodule to `.git/info/exclude` and run `jj file untrack` to ignore the directory contents."
+                );
+            }
+            Ok(false)
+        }
+    }
+}
+
 /// Checks if new file or symlink named `disk_path` can be created.
 ///
 /// If the file already exists, this function return `Ok(false)` to signal
@@ -1959,15 +1999,16 @@ impl TreeState {
             // tracked by jj than processing submodules specially. For example,
             // paths excluded by .gitignore can be marked as such so that
             // newly-"unignored" paths won't be snapshotted automatically.
+            // Note that submodules are a bit special, as they are directories
+            // that are tracked as files.
             if matches!(before.as_normal(), Some(TreeValue::GitSubmodule(_)))
                 && matches!(after, MaterializedTreeValue::GitSubmodule(_))
             {
-                eprintln!("ignoring git submodule at {path:?}");
+                eprintln!("ignoring existing git submodule at {path:?}");
                 // Not updating the file state as if there were no diffs. Leave
                 // the state type as FileType::GitSubmodule if it was before.
                 continue;
             }
-
             // Create parent directories no matter if after.is_present(). This
             // ensures that the path never traverses symlinks.
             let Some(disk_path) = create_parent_dirs(&self.working_copy_path, &path)? else {
@@ -1975,13 +2016,53 @@ impl TreeState {
                 stats.skipped_files += 1;
                 continue;
             };
+
             // If the path was present, check reserved path first and delete it.
-            let present_file_deleted = before.is_present() && remove_old_file(&disk_path)?;
-            // If not, create temporary file to test the path validity.
-            if !present_file_deleted && !can_create_new_file(&disk_path)? {
-                changed_file_states.push((path, FileState::placeholder()));
-                stats.skipped_files += 1;
-                continue;
+            let present_file_deleted = before.is_present()
+                && if matches!(before.as_normal(), Some(TreeValue::GitSubmodule(_))) {
+                    let removed = remove_old_submodule_dir(&disk_path, after.is_present())?;
+                    if !removed {
+                        // Even though the (non-empty) directory was not
+                        // removed, the "submodule" was removed, so consider
+                        // this a success. That is, the directory is no longer
+                        // treated as a submodule.
+                        // In case the submodule was supposed to be replaced by
+                        // a file, a `jj status` will show that someone has
+                        // replaced the file with a directory on disk.
+                        // If we instead had indicated that the submodule could
+                        // not be deleted, jj would say that there was a
+                        // conflict, but not showing any conflicting file states
+                        // to restore from, as jj does not handle submodules in
+                        // conflicts.
+                        deleted_files.insert(path);
+                        continue;
+                    }
+                    removed
+                } else {
+                    remove_old_file(&disk_path)?
+                };
+
+            if matches!(after, MaterializedTreeValue::GitSubmodule(_)) {
+                // Skip the submodule "checkout" if the path was not deleted and
+                // it was a file, as jj does not handle submodules. Let the user
+                // resolve the situation using git. If the path was a directory,
+                // assume that it is the submodule (and do nothing).
+                if !present_file_deleted && disk_path.exists() && !disk_path.is_dir() {
+                    changed_file_states.push((path, FileState::for_gitsubmodule()));
+                    stats.skipped_files += 1;
+                    continue;
+                }
+            } else {
+                // If the path was not deleted, create temporary file to test the path validity.
+                if !present_file_deleted && !can_create_new_file(&disk_path)? {
+                    if matches!(after, MaterializedTreeValue::GitSubmodule(_)) {
+                        changed_file_states.push((path, FileState::for_gitsubmodule()));
+                    } else {
+                        changed_file_states.push((path, FileState::placeholder()));
+                    }
+                    stats.skipped_files += 1;
+                    continue;
+                }
             }
 
             // TODO: Check that the file has not changed before overwriting/removing it.
@@ -2010,7 +2091,11 @@ impl TreeState {
                     }
                 }
                 MaterializedTreeValue::GitSubmodule(_) => {
-                    eprintln!("ignoring git submodule at {path:?}");
+                    // Git behavior: Create the submodule directory but don't
+                    // populate/overwrite the contents.
+                    if fs::create_dir_all(&disk_path).is_err() {
+                        eprintln!("warning: failed to create submodule directory {path:?}");
+                    }
                     FileState::for_gitsubmodule()
                 }
                 MaterializedTreeValue::Tree(_) => {
