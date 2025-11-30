@@ -14,6 +14,7 @@
 
 #![expect(missing_docs)]
 
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::error::Error;
@@ -122,6 +123,33 @@ use crate::working_copy::UntrackedReason;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
+
+fn symlink_target_convert_to_store(path: &Path) -> Option<Cow<'_, str>> {
+    let path = path.to_str()?;
+    if std::path::MAIN_SEPARATOR == '/' {
+        Some(Cow::Borrowed(path))
+    } else {
+        // When storing the symlink target on Windows, convert "\" to "/", so that the
+        // symlink remains valid on Unix.
+        //
+        // Note that we don't use std::path to handle the conversion, because it
+        // performs poorly with Windows verbatim paths like \\?\Global\C:\file.txt.
+        Some(Cow::Owned(path.replace(std::path::MAIN_SEPARATOR_STR, "/")))
+    }
+}
+
+fn symlink_target_convert_to_disk(path: &str) -> PathBuf {
+    let path = if std::path::MAIN_SEPARATOR == '/' {
+        Cow::Borrowed(path)
+    } else {
+        // Use the main separator to reformat the input path to avoid creating a broken
+        // symlink with the incorrect separator "/".
+        //
+        // See https://github.com/jj-vcs/jj/issues/6934 for the relevant bug.
+        Cow::Owned(path.replace("/", std::path::MAIN_SEPARATOR_STR))
+    };
+    PathBuf::from(path.as_ref())
+}
 
 /// How to propagate executable bit changes in file metadata to/from the repo.
 ///
@@ -1866,13 +1894,12 @@ impl FileSnapshotter<'_> {
                 message: format!("Failed to read symlink {}", disk_path.display()),
                 err: err.into(),
             })?;
-            let str_target =
-                target
-                    .to_str()
-                    .ok_or_else(|| SnapshotError::InvalidUtf8SymlinkTarget {
-                        path: disk_path.to_path_buf(),
-                    })?;
-            Ok(self.store().write_symlink(path, str_target).await?)
+            let str_target = symlink_target_convert_to_store(&target).ok_or_else(|| {
+                SnapshotError::InvalidUtf8SymlinkTarget {
+                    path: disk_path.to_path_buf(),
+                }
+            })?;
+            Ok(self.store().write_symlink(path, &str_target).await?)
         } else {
             let target = fs::read(disk_path).map_err(|err| SnapshotError::Other {
                 message: format!("Failed to read file {}", disk_path.display()),
@@ -1937,7 +1964,25 @@ impl TreeState {
     }
 
     fn write_symlink(&self, disk_path: &Path, target: String) -> Result<FileState, CheckoutError> {
-        let target = PathBuf::from(&target);
+        let target = symlink_target_convert_to_disk(&target);
+
+        if cfg!(windows) {
+            // On Windows, "/" can't be part of valid file name, and "/" is also not a valid
+            // separator for the symlink target. See an example of this issue in
+            // https://github.com/jj-vcs/jj/issues/6934.
+            //
+            // We use debug_assert_* instead of assert_* because we want to avoid panic in
+            // release build, and we are sure that we shouldn't create invalid symlinks in
+            // tests.
+            debug_assert_ne!(
+                target.as_os_str().to_str().map(|path| path.contains("/")),
+                Some(true),
+                "Expect the symlink target doesn't contain \"/\", but got invalid symlink target: \
+                 {}.",
+                target.display()
+            );
+        }
+
         try_symlink(&target, disk_path).map_err(|err| CheckoutError::Other {
             message: format!(
                 "Failed to create symlink from {} to {}",

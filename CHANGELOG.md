@@ -10,6 +10,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* On Windows, symlinks that point to a path with `/` won't be supported. This
+  path is [invalid on Windows].
+
+[invalid on Windows]: https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
+
 ### Deprecations
 
 ### New features
@@ -20,6 +25,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `working-copy.exec-bit-change = "respect" | "ignore"`.
 
 ### Fixed bugs
+
+* Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
 
 ## [0.36.0] - 2025-12-03
 

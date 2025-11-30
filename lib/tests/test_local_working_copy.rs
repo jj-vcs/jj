@@ -15,6 +15,7 @@
 use std::fs::File;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
+use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -27,6 +28,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::TreeId;
 use jj_lib::backend::TreeValue;
+use jj_lib::file_util;
 use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::try_symlink;
 use jj_lib::fsmonitor::FsmonitorSettings;
@@ -2139,5 +2141,178 @@ fn test_snapshot_max_new_file_size() {
     assert_matches!(
         stats.untracked_paths.values().next().unwrap(),
         UntrackedReason::FileTooLarge { .. }
+    );
+}
+
+#[test]
+fn test_snapshot_symlink_use_forward_slash() {
+    if !file_util::check_symlink_support().unwrap() {
+        eprintln!("Symlink not supported. Skip the test.");
+    }
+    let mut test_workspace = TestWorkspace::init();
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+    let target = repo_path("target/link/target.txt");
+    let target_path = target.to_fs_path(&workspace_root).unwrap();
+    std::fs::create_dir_all(target_path.parent().unwrap()).unwrap();
+    std::fs::write(&target_path, "a\n").unwrap();
+    let link = repo_path("link/link.txt");
+    let link_path = link.to_fs_path(&workspace_root).unwrap();
+    let link_contents = "../target/link/target.txt";
+    std::fs::create_dir_all(link_path.parent().unwrap()).unwrap();
+    file_util::try_symlink(link_contents, link_path).unwrap();
+
+    let tree = test_workspace
+        .snapshot()
+        .expect("Snapshot with symlink should succeed.");
+    let tree_value = tree
+        .path_value(link)
+        .expect("Failed to retrieve the MergedTreeValue from the path.")
+        .into_resolved()
+        .expect("Shouldn't have conflicts.")
+        .expect("The link path should exist.");
+    let TreeValue::Symlink(symlink_id) = tree_value.clone() else {
+        panic!(
+            "Expect {} to be a symlink, but got {:?}",
+            link.as_internal_file_string(),
+            tree_value
+        );
+    };
+    let actual_link_contents = test_workspace
+        .repo
+        .store()
+        .read_symlink(link, &symlink_id)
+        .block_on()
+        .unwrap();
+
+    assert!(
+        !actual_link_contents.contains("\\"),
+        "Expect the symlink in the Store to use \"/\" as the separator, but got \
+         {actual_link_contents}."
+    );
+}
+
+fn is_verbatim_path(path: &Path) -> bool {
+    let Some(Component::Prefix(prefix)) = path.components().next() else {
+        return false;
+    };
+    prefix.kind().is_verbatim()
+}
+
+#[cfg(windows)]
+fn absolute_path_to_verbatim_path(input: &Path) -> PathBuf {
+    use std::ffi::OsString;
+    use std::path::Prefix;
+
+    use bstr::ByteSlice as _;
+
+    assert!(input.is_absolute());
+    let input = input.canonicalize().unwrap();
+
+    let mut components = input.components();
+    let Component::Prefix(prefix_component) = components.next().unwrap() else {
+        panic!("target should be an absolute path after being canonicalized");
+    };
+    let mut verbatim_path = match prefix_component.kind() {
+        // C: -> \\?\Global\C:
+        // \\?\C: -> \\?\Global\C:
+        //
+        // Prefix the path with Global, so that when we read back the symlink, it's still a verbatim
+        // path. The symlink to a \\?\C: prefixed path(e.g., \\?\C:\file.txt) will be converted to a
+        // not verbatim path(e.g., C:\file.txt) when calling read_link.
+        Prefix::Disk(disk) | Prefix::VerbatimDisk(disk) => {
+            let mut verbatim_prefix = OsString::from(r"\\?\Global\");
+            verbatim_prefix.push([disk].to_os_str().unwrap());
+            verbatim_prefix.push(":");
+            verbatim_prefix
+        }
+        _ => panic!("Unsupported path: {}", input.display()),
+    };
+    verbatim_path.push(components.as_path().as_os_str());
+    let verbatim_path = PathBuf::from(verbatim_path);
+    assert!(is_verbatim_path(&verbatim_path));
+    verbatim_path
+}
+
+#[test_case(|link, target| file_util::relative_path(link.parent().unwrap(), target); "relative")]
+#[test_case(|_, target| {
+    assert!(target.is_absolute());
+    target.to_owned()
+}; "absolute")]
+#[cfg_attr(
+    windows,
+    test_case(|_, target: &Path| absolute_path_to_verbatim_path(target); "verbatim absolute")
+)]
+fn test_snapshot_and_update_valid_symlink(get_link_target: impl FnOnce(&Path, &Path) -> PathBuf) {
+    if !file_util::check_symlink_support().unwrap() {
+        eprintln!("Symlink not supported. Skip the test.");
+    }
+    let mut test_workspace = TestWorkspace::init();
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+    let target = repo_path("target/link/target.txt");
+    let target_path = target.to_fs_path(&workspace_root).unwrap();
+    std::fs::create_dir_all(target_path.parent().unwrap()).unwrap();
+    // Unique contents that it's unlikely that we match accidentally.
+    let file_contents = b"18bHZD165T@C\n";
+    std::fs::write(&target_path, file_contents).unwrap();
+    let link = repo_path("link/link.txt");
+    let link_path = link.to_fs_path(&workspace_root).unwrap();
+    let link_contents = get_link_target(&link_path, &target_path);
+    std::fs::create_dir_all(link_path.parent().unwrap()).unwrap();
+    file_util::try_symlink(&link_contents, &link_path).unwrap();
+    std::fs::read_link(&link_path).expect("The symlink itself should exist.");
+    assert_eq!(std::fs::read(&link_path).unwrap(), file_contents);
+    assert_eq!(
+        is_verbatim_path(&std::fs::read_link(&link_path).unwrap()),
+        is_verbatim_path(&link_contents),
+        "Make sure that when we test with a verbatim path, it's still a verbatim path in the \
+         Store when snapshotting."
+    );
+
+    let tree = test_workspace
+        .snapshot()
+        .expect("Snapshot with symlink should succeed.");
+    let commit = commit_with_tree(test_workspace.repo.store(), tree);
+
+    // Checkout the root commit to clear the workspace.
+    let mut locked_ws = test_workspace
+        .workspace
+        .start_working_copy_mutation()
+        .unwrap();
+    let root_commit = test_workspace.repo.store().root_commit();
+    locked_ws
+        .locked_wc()
+        .check_out(&root_commit)
+        .block_on()
+        .unwrap();
+    locked_ws
+        .finish(test_workspace.repo.op_id().clone())
+        .unwrap();
+
+    assert!(!std::fs::exists(&link_path).unwrap());
+    assert!(std::fs::read_link(&link_path).is_err());
+
+    // Checkout the original commit back.
+    let mut locked_ws = test_workspace
+        .workspace
+        .start_working_copy_mutation()
+        .unwrap();
+    locked_ws.locked_wc().check_out(&commit).block_on().unwrap();
+    locked_ws
+        .finish(test_workspace.repo.op_id().clone())
+        .unwrap();
+
+    let actual_target = std::fs::read_link(&link_path).expect("The symlink itself should exist.");
+    let actual_contents = std::fs::read(&link_path).unwrap_or_else(|e| {
+        panic!(
+            "Failed to read from the symlink at {}, which points to {}: {e:?}",
+            link_path.display(),
+            actual_target.display()
+        )
+    });
+    assert_eq!(actual_contents, file_contents);
+    assert_eq!(
+        is_verbatim_path(&std::fs::read_link(&link_path).unwrap()),
+        is_verbatim_path(&link_contents),
+        "When we checkout a symlink to a verbatim path, it should still point to a verbatim path."
     );
 }
