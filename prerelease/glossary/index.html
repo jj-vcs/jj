@@ -2442,11 +2442,11 @@ detailed definition of these terms.</p>
 <p>Visible commits are the commits you see in <code>jj log -r 'all()'</code>. They are the
 commits that are reachable from an anonymous head in the <a href="#view">view</a>.
 Ancestors of a visible commit are implicitly visible.</p>
-<p>Intuitively, visible commits are the "latest versions" of a revision with a
-given <a href="#change-id">change id</a>. A commit that's abandoned or
-<a href="#rewrite">rewritten</a> stops being visible and is labeled as "hidden". Such
-commits are no longer accessible using a change id, but they are still
-accessible by their <a href="#commit-id">commit id</a>.</p>
+<p>Intuitively, visible commits are the "latest versions" of a given
+<a href="#change">change</a>. A commit that's abandoned or <a href="#rewrite">rewritten</a> stops
+being visible and is labeled as "hidden". Such commits are no longer accessible
+using a change id, but they are still accessible by their
+<a href="#commit-id">commit id</a>.</p>
 <h2 id="view">View<a class="headerlink" href="#view" title="Permanent link">&para;</a></h2>
 <p>A view is a snapshot of bookmarks and their targets, anonymous heads,
 and working-copy commits. The anonymous heads define which commits
