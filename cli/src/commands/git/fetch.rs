@@ -61,7 +61,7 @@ pub struct GitFetchArgs {
         value_parser = StringPattern::parse,
         add = ArgValueCandidates::new(complete::bookmarks),
     )]
-    branch: Vec<StringPattern>,
+    branch: Option<Vec<StringPattern>>,
     /// Fetch only tracked bookmarks
     ///
     /// This fetches only bookmarks that are already tracked from the specified
@@ -146,16 +146,16 @@ pub fn cmd_git_fetch(
                 .collect_vec();
             expansions.push((remote, expand_fetch_refspecs(remote, tracked_branches)?));
         }
-    } else if args.branch.is_empty() {
+    } else if let Some(branches) = &args.branch {
+        for remote in &remotes {
+            let expanded = expand_fetch_refspecs(remote, branches.clone())?;
+            expansions.push((remote, expanded));
+        }
+    } else {
         let git_repo = get_git_backend(tx.repo_mut().store())?.git_repo();
         for remote in &remotes {
             let (ignored, expanded) = expand_default_fetch_refspecs(remote, &git_repo)?;
             warn_ignored_refspecs(ui, remote, ignored)?;
-            expansions.push((remote, expanded));
-        }
-    } else {
-        for remote in &remotes {
-            let expanded = expand_fetch_refspecs(remote, args.branch.clone())?;
             expansions.push((remote, expanded));
         }
     };
@@ -171,7 +171,9 @@ pub fn cmd_git_fetch(
 
     let import_stats = git_fetch.import_refs()?;
     print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
-    warn_if_branches_not_found(ui, &tx, &args.branch, &remotes)?;
+    if let Some(branches) = &args.branch {
+        warn_if_branches_not_found(ui, &tx, branches, &remotes)?;
+    }
     tx.finish(
         ui,
         format!(
