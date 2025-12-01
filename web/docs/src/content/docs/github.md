@@ -1,4 +1,6 @@
-# Using Jujutsu with GitHub and GitLab Projects
+---
+title: Using Jujutsu with GitHub and GitLab Projects
+---
 
 This guide assumes a basic understanding of either Git or Mercurial.
 
@@ -123,10 +125,10 @@ $ jj git push
 Notably, the above workflow creates a new commit for you. The same can be
 achieved without creating a new commit.
 
-!!! warning
-
-    We strongly suggest to `jj new` after the example below, as all further edits
-    still get amended to the previous commit.
+:::caution
+We strongly suggest to `jj new` after the example below, as all further edits
+still get amended to the previous commit.
+:::
 
 ```shell
 $ # Create a new commit on top of the `your-feature` bookmark from above.

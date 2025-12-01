@@ -1,0 +1,132 @@
+---
+// Determine the base URL - no base path for docs.jj-vcs.dev
+const siteBase = '/';
+---
+
+<div class="version-switcher" id="version-switcher-container" style="display: none;">
+  <label for="version-select" class="sl-hidden">Select documentation version</label>
+  <select id="version-select" class="version-select">
+    <option>Loading versions...</option>
+  </select>
+</div>
+
+<script define:vars={{ siteBase }}>
+    // Fetch versions client-side and populate the dropdown
+    async function loadVersions() {
+      const container = document.getElementById('version-switcher-container');
+      const select = document.getElementById('version-select');
+
+      if (!container || !select) return;
+
+      try {
+        const response = await fetch(`${siteBase}versions.json`);
+        if (!response.ok) {
+          // No versions.json available (e.g., in development)
+          return;
+        }
+
+        const versions = await response.json();
+        if (!versions || versions.length === 0) return;
+
+        // Determine current version from URL path
+        const pathMatch = window.location.pathname.match(/^\/([^\/]+)/);
+        let currentVersion = 'unknown';
+
+        if (pathMatch) {
+          const pathVersion = pathMatch[1];
+          // Check if this is a direct version match
+          let versionObj = versions.find(v => v.version === pathVersion);
+          // Check if this matches an alias
+          if (!versionObj) {
+            versionObj = versions.find(v => v.aliases && v.aliases.includes(pathVersion));
+          }
+          currentVersion = versionObj?.version || pathVersion;
+        }
+
+        // Clear and populate the select
+        select.innerHTML = '';
+        versions.forEach(v => {
+          const option = document.createElement('option');
+          option.value = v.version;
+
+          // Display title with alias if it has one
+          const displayTitle = v.aliases && v.aliases.length > 0
+            ? `${v.title} (${v.aliases.join(', ')})`
+            : v.title;
+          option.textContent = displayTitle;
+
+          if (v.version === currentVersion) {
+            option.selected = true;
+          }
+
+          select.appendChild(option);
+        });
+
+        // Show the container
+        container.style.display = 'flex';
+
+        // Add change handler
+        select.addEventListener('change', (e) => {
+          const selectedVersion = e.target.value;
+          const currentPath = window.location.pathname;
+          const versionRegex = /^\/[^\/]+/;
+          const pagePath = currentPath.replace(versionRegex, '').replace(/^\//, '');
+          window.location.href = `${siteBase}${selectedVersion}/${pagePath}`;
+        });
+      } catch (error) {
+        console.debug('Could not load versions.json:', error);
+      }
+    }
+
+    // Load versions when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadVersions);
+    } else {
+      loadVersions();
+    }
+  </script>
+
+  <style>
+    .version-switcher {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .version-select {
+      padding: 0.4rem 2rem 0.4rem 0.75rem;
+      border: 1px solid var(--sl-color-gray-5);
+      border-radius: 0.375rem;
+      background-color: var(--sl-color-black);
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23999' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1.25rem;
+      color: var(--sl-color-white);
+      font-size: 0.875rem;
+      cursor: pointer;
+      appearance: none;
+      transition: border-color 0.2s;
+    }
+
+    .version-select:hover {
+      border-color: var(--sl-color-gray-2);
+    }
+
+    .version-select:focus {
+      outline: 2px solid var(--sl-color-accent);
+      outline-offset: 2px;
+    }
+
+    .sl-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+</style>

@@ -1,0 +1,18 @@
+/* Enhanced details/summary styling - subtle card appearance matching Starlight asides */
+.sl-markdown-content details:not(:where(.not-content *)) {
+  background-color: var(--sl-color-gray-6);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  padding-inline-start: 1rem;
+  border-inline-start-width: 0.25rem;
+  margin-block: 1rem;
+}
+
+.sl-markdown-content summary:not(:where(.not-content *)) {
+  margin-inline-start: 0;
+  padding-inline-start: 0;
+}
+
+.sl-markdown-content details[open] > summary:not(:where(.not-content *)) {
+  margin-bottom: var(--sl-content-gap-y);
+}
