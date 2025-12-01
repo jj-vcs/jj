@@ -4215,6 +4215,9 @@ $<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span
 
 <span class="c1"># Use the built-in pager (default on Windows)</span>
 $<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--user<span class="w"> </span>ui.pager<span class="w"> </span>:builtin
+
+<span class="c1"># Use `$PAGER` environment variable if set (on non-Windows platforms)</span>
+$<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--user<span class="w"> </span>ui.pager<span class="w"> </span><span class="s1">&#39;[&quot;sh&quot;, &quot;-c&quot;, &quot;exec ${PAGER:-less -FRX}&quot;]&#39;</span>
 </code></pre></div>
 <p>Additionally, paging behavior can be toggled via <code>ui.paginate</code> like so:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[ui]</span>
