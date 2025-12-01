@@ -84,6 +84,21 @@ fn test_tag_set_delete() {
     [EOF]
     ");
 
+    let output = work_dir.run_jj(["tag", "set", "--allow-move", "-r@-", "baz"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Target revision is empty.
+    Nothing changed.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  13cbd51558a6
+    ◆  bbc749308d7f baz
+    ◆  b876c5f49546 bar
+    ◆  000000000000
+    [EOF]
+    ");
+
     let output = work_dir.run_jj(["tag", "delete", "glob:b*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
