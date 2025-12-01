@@ -106,6 +106,8 @@ should not be broken.
 
 * Dynamic command-line completion of path parameters now supports fileset operators,
   so for example typing `jj log ~RE` and pressing Tab could complete to `~README.md`.
+  Workspace-relative patterns (e.g. `root:foo`) will also autocomplete correctly
+  from subdirectories.
 
 ### Fixed bugs
 

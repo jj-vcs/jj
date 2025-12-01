@@ -759,6 +759,8 @@ struct PartialFileset<'a> {
     prefix: &'a str,
     /// The current path pattern being completed
     current_path: &'a str,
+    /// Whether `current_path` is relative to the repository root
+    is_root: bool,
 }
 
 impl<'a> PartialFileset<'a> {
@@ -785,11 +787,38 @@ impl<'a> PartialFileset<'a> {
                 current.split_at(current.len() - name.len())
             }
         };
+        let is_root = match token {
+            ":" => Self::ends_with_root_pattern_kind(prefix),
+            "\"" | "'" => Self::ends_with_root_pattern_kind(&prefix[..token_pos]),
+            _ => false,
+        };
 
         PartialFileset {
             prefix,
             current_path,
+            is_root,
         }
+    }
+
+    fn ends_with_root_pattern_kind(prefix: &str) -> bool {
+        const ROOT_PATTERN_KINDS: &[&str] = &["root", "root-file", "root-glob", "root-glob-i"];
+        const MIN_LENGTH: usize = "root:".len();
+
+        if prefix.len() < MIN_LENGTH {
+            return false;
+        }
+        let Some(prefix) = prefix.strip_suffix(':') else {
+            return false;
+        };
+        ROOT_PATTERN_KINDS.iter().any(|kind| {
+            let Some(remaining) = prefix.strip_suffix(kind) else {
+                return false;
+            };
+            match remaining.chars().last() {
+                None => true,
+                Some(c) => !c.is_ascii_alphanumeric() && c != '_' && c != '-',
+            }
+        })
     }
 
     fn add_prefix(&self, candidates: Vec<CompletionCandidate>) -> Vec<CompletionCandidate> {
@@ -850,7 +879,8 @@ fn fileset_matching_current_path(fileset: &PartialFileset) -> String {
     let cur_esc = globset::escape(fileset.current_path);
     let dir_pat = format!("{cur_esc}*/**");
     let path_pat = format!("{cur_esc}*");
-    format!("glob:{dir_pat:?} | glob:{path_pat:?}")
+    let glob = if fileset.is_root { "root-glob" } else { "glob" };
+    format!("{glob}:{dir_pat:?} | {glob}:{path_pat:?}")
 }
 
 fn all_files_from_rev(rev: String, current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
@@ -872,7 +902,11 @@ fn all_files_from_rev_fileset(rev: String, fileset: &PartialFileset) -> Vec<Comp
             .arg("--revision")
             .arg(rev)
             .arg("--template")
-            .arg(r#"path.display() ++ "\n""#)
+            .arg(if fileset.is_root {
+                r#"path ++ "\n""#
+            } else {
+                r#"path.display() ++ "\n""#
+            })
             .arg(fileset_matching_current_path(fileset))
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
@@ -916,12 +950,21 @@ fn modified_files_from_rev_with_jj_cmd_fileset(
     let normalized_prefix = slash_path(&normalized_prefix);
 
     // In case of a rename, one entry of `diff` results in two suggestions.
-    let template = indoc! {r#"
-        concat(
-          status ++ ' ' ++ path.display() ++ "\n",
-          if(status == 'renamed', 'renamed.source ' ++ source.path().display() ++ "\n"),
-        )
-    "#};
+    let template = if fileset.is_root {
+        indoc! {r#"
+            concat(
+              status ++ ' ' ++ path ++ "\n",
+              if(status == 'renamed', 'renamed.source ' ++ source.path() ++ "\n"),
+            )
+        "#}
+    } else {
+        indoc! {r#"
+            concat(
+              status ++ ' ' ++ path.display() ++ "\n",
+              if(status == 'renamed', 'renamed.source ' ++ source.path().display() ++ "\n"),
+            )
+        "#}
+    };
     cmd.arg("diff")
         .args(["--template", template])
         .arg(fileset_matching_current_path(fileset));
@@ -1422,6 +1465,7 @@ mod tests {
             PartialFileset {
                 prefix,
                 current_path,
+                is_root: false,
             }
         }
 
@@ -1511,6 +1555,31 @@ mod tests {
         assert_eq!(
             PartialFileset::parse_str("function(foo, \" b"),
             partial_fileset("function(foo, \"", " b")
+        );
+
+        fn partial_fileset_root<'a>(prefix: &'a str, current_path: &'a str) -> PartialFileset<'a> {
+            PartialFileset {
+                prefix,
+                current_path,
+                is_root: true,
+            }
+        }
+
+        assert_eq!(
+            PartialFileset::parse_str("root:"),
+            partial_fileset_root("root:", "")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("(root-file:foo/"),
+            partial_fileset_root("(root-file:", "foo/")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("~root-glob:'"),
+            partial_fileset_root("~root-glob:'", "")
+        );
+        assert_eq!(
+            PartialFileset::parse_str("~root-glob-i:\"foo"),
+            partial_fileset_root("~root-glob-i:\"", "foo")
         );
     }
 
