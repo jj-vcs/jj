@@ -41,3 +41,36 @@ jobs:
           .github/scripts/docs-build-deploy prerelease --push
       - name: "Show `git diff --stat`"
         run: git diff --stat gh-pages^ gh-pages || echo "(No diffs)"
+
+  starlight-docs-build-deploy:
+    # Deploy Starlight-based docs to /starlight for comparison with MkDocs version
+    permissions:
+      contents: write
+    if: github.repository_owner == 'jj-vcs' # Stops this job from running on forks
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: true
+      - run: "git fetch origin gh-pages --depth=1"
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        working-directory: web/docs
+        run: npm ci
+      - name: Build Starlight docs
+        working-directory: web/docs
+        run: npm run build -- --base /starlight/
+      - name: Deploy to gh-pages/starlight
+        run: |
+          git config user.name 'jj-docs[bot]'
+          git config user.email 'jj-docs[bot]@users.noreply.github.io'
+          git checkout gh-pages
+          rm -rf starlight
+          mv web/docs/dist starlight
+          git add starlight
+          git commit -m "Deploy Starlight docs to /starlight" || echo "No changes to commit"
+          git push origin gh-pages
