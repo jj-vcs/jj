@@ -90,6 +90,14 @@ backend = "test"
     Parent commit (@-)      : kkmpptxz fc827eb8 (empty) three
     [EOF]
     ");
+
+    // Signing nothing is a valid no-op.
+    let output = work_dir.run_jj(["sign", "-r", "none()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
 }
 
 #[test]
@@ -365,6 +373,14 @@ backend = "test"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:13 c08b67cb
     │  (empty) one
     ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    // Unsigning nothing is a valid no-op.
+    let output = work_dir.run_jj(["unsign", "-r", "none()"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
     [EOF]
     ");
 }
