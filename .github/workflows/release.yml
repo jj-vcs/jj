@@ -98,7 +98,7 @@ jobs:
       - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with:
           persist-credentials: false
-      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: 3.11
       - name: Install uv
@@ -135,7 +135,7 @@ jobs:
           # `.github/scripts/docs-build-deploy` will need to `git push` to the docs branch
           persist-credentials: true
       - run:  "git fetch origin gh-pages --depth=1"
-      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: 3.11
       - name: Install uv

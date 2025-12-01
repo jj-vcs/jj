@@ -69,7 +69,7 @@ jobs:
       uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
       with:
         toolchain: 1.89
-    - uses: taiki-e/install-action@763e3324d4fd026c9bd284c504378585777a87d5
+    - uses: taiki-e/install-action@3575e532701a5fc614b0c842e4119af4cc5fd16d
       with:
         tool: nextest
     - name: Install mold
@@ -190,7 +190,7 @@ jobs:
     - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
       with:
         persist-credentials: false
-    - uses: EmbarkStudios/cargo-deny-action@f2ba7abc2abebaf185c833c3961145a3c275caad
+    - uses: EmbarkStudios/cargo-deny-action@76cd80eb775d7bbbd2d80292136d74d39e1b4918
       with:
         command: check ${{ matrix.checks }}
 
@@ -201,7 +201,7 @@ jobs:
       - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with:
           persist-credentials: false
-      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: 3.11
       - name: Install uv
@@ -242,7 +242,7 @@ jobs:
       - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
         with:
           persist-credentials: false
-      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: 3.11
       - name: Install uv
@@ -289,7 +289,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@fdbfb4d2750291e159f0156def62b853c2798ca2
+        uses: github/codeql-action/upload-sarif@fe4161a26a8629af62121b670040955b330f9af2
         with:
           sarif_file: results.sarif
           category: zizmor
