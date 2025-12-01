@@ -125,6 +125,7 @@ use jj_lib::str_util::StringPattern;
 use jj_lib::transaction::Transaction;
 use jj_lib::working_copy;
 use jj_lib::working_copy::CheckoutStats;
+use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::SnapshotOptions;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
@@ -1898,19 +1899,7 @@ to the current parents may contain changes from multiple commits.
         ui: &Ui,
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
         let workspace_name = self.workspace_name().to_owned();
-        let get_wc_commit = |repo: &ReadonlyRepo| -> Result<Option<_>, _> {
-            repo.view()
-                .get_wc_commit_id(&workspace_name)
-                .map(|id| repo.store().get_commit(id))
-                .transpose()
-                .map_err(snapshot_command_error)
-        };
         let repo = self.repo().clone();
-        let Some(wc_commit) = get_wc_commit(&repo)? else {
-            // If the workspace has been deleted, it's unclear what to do, so we just skip
-            // committing the working copy.
-            return Ok(SnapshotStats::default());
-        };
         let auto_tracking_matcher = self
             .auto_tracking_matcher(ui)
             .map_err(snapshot_command_error)?;
@@ -1923,58 +1912,14 @@ to the current parents may contain changes from multiple commits.
             .workspace
             .start_working_copy_mutation()
             .map_err(snapshot_command_error)?;
-        let old_op_id = locked_ws.locked_wc().old_operation_id().clone();
 
-        let (repo, wc_commit) =
-            match WorkingCopyFreshness::check_stale(locked_ws.locked_wc(), &wc_commit, &repo) {
-                Ok(WorkingCopyFreshness::Fresh) => (repo, wc_commit),
-                Ok(WorkingCopyFreshness::Updated(wc_operation)) => {
-                    let repo = repo
-                        .reload_at(&wc_operation)
-                        .map_err(snapshot_command_error)?;
-                    let wc_commit = if let Some(wc_commit) = get_wc_commit(&repo)? {
-                        wc_commit
-                    } else {
-                        // The workspace has been deleted (see above)
-                        return Ok(SnapshotStats::default());
-                    };
-                    (repo, wc_commit)
-                }
-                Ok(WorkingCopyFreshness::WorkingCopyStale) => {
-                    return Err(SnapshotWorkingCopyError::StaleWorkingCopy(
-                        user_error_with_hint(
-                            format!(
-                                "The working copy is stale (not updated since operation {}).",
-                                short_operation_hash(&old_op_id)
-                            ),
-                            "Run `jj workspace update-stale` to update it.
-See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
-                             for more information.",
-                        ),
-                    ));
-                }
-                Ok(WorkingCopyFreshness::SiblingOperation) => {
-                    return Err(SnapshotWorkingCopyError::StaleWorkingCopy(internal_error(
-                        format!(
-                            "The repo was loaded at operation {}, which seems to be a sibling of \
-                             the working copy's operation {}",
-                            short_operation_hash(repo.op_id()),
-                            short_operation_hash(&old_op_id)
-                        ),
-                    )));
-                }
-                Err(OpStoreError::ObjectNotFound { .. }) => {
-                    return Err(SnapshotWorkingCopyError::StaleWorkingCopy(
-                        user_error_with_hint(
-                            "Could not read working copy's operation.",
-                            "Run `jj workspace update-stale` to recover.
-See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
-                             for more information.",
-                        ),
-                    ));
-                }
-                Err(e) => return Err(snapshot_command_error(e)),
-            };
+        let Some((repo, wc_commit)) =
+            handle_stale_working_copy(locked_ws.locked_wc(), repo, &workspace_name)?
+        else {
+            // If the workspace has been deleted, it's unclear what to do, so we just skip
+            // committing the working copy.
+            return Ok(SnapshotStats::default());
+        };
         self.user_repo = ReadonlyUserRepo::new(repo);
         let (new_tree, stats) = {
             let mut options = options;
@@ -2648,6 +2593,70 @@ pub fn start_repo_transaction(repo: &Arc<ReadonlyRepo>, string_args: &[String]) 
     quoted_strings.extend(string_args.iter().skip(1).map(shell_escape));
     tx.set_tag("args".to_string(), quoted_strings.join(" "));
     tx
+}
+
+/// Check if the working copy is stale and reload the repo if the repo is ahead
+/// of the working copy.
+///
+/// Returns Ok(None) if the workspace doesn't exist in the repo (presumably
+/// because it was deleted).
+fn handle_stale_working_copy(
+    locked_wc: &mut dyn LockedWorkingCopy,
+    repo: Arc<ReadonlyRepo>,
+    workspace_name: &WorkspaceName,
+) -> Result<Option<(Arc<ReadonlyRepo>, Commit)>, SnapshotWorkingCopyError> {
+    let get_wc_commit = |repo: &ReadonlyRepo| -> Result<Option<_>, _> {
+        repo.view()
+            .get_wc_commit_id(workspace_name)
+            .map(|id| repo.store().get_commit(id))
+            .transpose()
+            .map_err(snapshot_command_error)
+    };
+    let Some(wc_commit) = get_wc_commit(&repo)? else {
+        return Ok(None);
+    };
+    let old_op_id = locked_wc.old_operation_id().clone();
+    match WorkingCopyFreshness::check_stale(locked_wc, &wc_commit, &repo) {
+        Ok(WorkingCopyFreshness::Fresh) => Ok(Some((repo, wc_commit))),
+        Ok(WorkingCopyFreshness::Updated(wc_operation)) => {
+            let repo = repo
+                .reload_at(&wc_operation)
+                .map_err(snapshot_command_error)?;
+            if let Some(wc_commit) = get_wc_commit(&repo)? {
+                Ok(Some((repo, wc_commit)))
+            } else {
+                Ok(None)
+            }
+        }
+        Ok(WorkingCopyFreshness::WorkingCopyStale) => Err(
+            SnapshotWorkingCopyError::StaleWorkingCopy(user_error_with_hint(
+                format!(
+                    "The working copy is stale (not updated since operation {}).",
+                    short_operation_hash(&old_op_id)
+                ),
+                "Run `jj workspace update-stale` to update it.
+See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
+                 for more information.",
+            )),
+        ),
+        Ok(WorkingCopyFreshness::SiblingOperation) => Err(
+            SnapshotWorkingCopyError::StaleWorkingCopy(internal_error(format!(
+                "The repo was loaded at operation {}, which seems to be a sibling of the working \
+                 copy's operation {}",
+                short_operation_hash(repo.op_id()),
+                short_operation_hash(&old_op_id)
+            ))),
+        ),
+        Err(OpStoreError::ObjectNotFound { .. }) => Err(
+            SnapshotWorkingCopyError::StaleWorkingCopy(user_error_with_hint(
+                "Could not read working copy's operation.",
+                "Run `jj workspace update-stale` to recover.
+See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
+                 for more information.",
+            )),
+        ),
+        Err(e) => Err(snapshot_command_error(e)),
+    }
 }
 
 fn update_stale_working_copy(
