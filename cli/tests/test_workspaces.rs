@@ -957,19 +957,21 @@ fn test_workspaces_unpublished_operation_same_tree() {
     main_dir
         .run_jj(["new", "-m=C", "--ignore-working-copy"])
         .success();
-    // TODO: The working copy should be stale and should require a `jj workspace
+    // The working copy should be stale and should require a `jj workspace
     // update-stale`
     let output = main_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
-    The working copy has no changes.
-    Working copy  (@) : zsuskuln 36a15ac4 (empty) C
-    Parent commit (@-): qpvuntsm 8777db25 (empty) A
+    ------- stderr -------
+    Internal error: The repo was loaded at operation 502db81004ba, which seems to be a sibling of the working copy's operation 48631817a82e
     [EOF]
+    [exit status: 255]
     ");
     let output = main_dir.run_jj(["workspace", "update-stale"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Attempted recovery, but the working copy is not stale
+    Working copy  (@) now at: zsuskuln 36a15ac4 (empty) C
+    Parent commit (@-)      : qpvuntsm 8777db25 (empty) A
+    Updated working copy to fresh commit 36a15ac414e8
     [EOF]
     ");
 }
