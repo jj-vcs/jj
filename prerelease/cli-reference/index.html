@@ -1596,6 +1596,34 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      How it works
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#execution-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Execution Example
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Execution Example">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#arguments_28" class="md-nav__link">
     <span class="md-ellipsis">
       Arguments:
@@ -1610,6 +1638,11 @@
       Options:
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -5643,6 +5676,34 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      How it works
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#execution-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Execution Example
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Execution Example">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#arguments_28" class="md-nav__link">
     <span class="md-ellipsis">
       Arguments:
@@ -5657,6 +5718,11 @@
       Options:
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -8354,6 +8420,7 @@ Martin von Zweigbergk</p>
 <p>The primary use case for this command is to apply the results of automatic
 code formatting tools to revisions that may not be properly formatted yet.
 It can also be used to modify files with other tools like <code>sed</code> or <code>sort</code>.</p>
+<h3 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h3>
 <p>The changed files in the given revisions will be updated with any fixes
 determined by passing their file content through any external tools the user
 has configured for those files. Descendants will also be updated by passing
@@ -8361,35 +8428,13 @@ their versions of the same files through the same tools, which will ensure
 that the fixes are not lost. This will never result in new conflicts. Files
 with existing conflicts will be updated on all sides of the conflict, which
 can potentially increase or decrease the number of conflict markers.</p>
-<p>The external tools must accept the current file content on standard input,
-and return the updated file content on standard output. A tool's output will
-not be used unless it exits with a successful exit code. Output on standard
-error will be passed through to the terminal.</p>
-<p>Tools are defined in a table where the keys are arbitrary identifiers and
-the values have the following properties:</p>
-<ul>
-<li><code>command</code>: The arguments used to run the tool. The first argument is the
-   path to an executable file. Arguments can contain these variables that
-   will be replaced:<ul>
-<li><code>$root</code> will be replaced with the workspace root path (the directory
-   containing the .jj directory).</li>
-<li><code>$path</code> will be replaced with the repo-relative path of the file being
-   fixed. It is useful to provide the path to tools that include the path
-   in error messages, or behave differently based on the directory or file
-   name.</li>
-</ul>
-</li>
-<li><code>patterns</code>: Determines which files the tool will affect. If this list is
-   empty, no files will be affected by the tool. If there are multiple
-   patterns, the tool is applied only once to each file in the union of the
-   patterns.</li>
-<li><code>enabled</code>: Enables or disables the tool. If omitted, the tool is enabled.
-   This is useful for defining disabled tools in user configuration that can
-   be enabled in individual repositories with one config setting.</li>
-</ul>
-<p>For example, the following configuration defines how two code formatters
-(<code>clang-format</code> and <code>black</code>) will apply to three different file extensions
-(<code>.cc</code>, <code>.h</code>, and <code>.py</code>):</p>
+<h3 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h3>
+<p>See <code>jj help -k config</code> chapter <code>Code formatting and other file content
+transformations</code> to understand how to configure your tools.</p>
+<h3 id="execution-example">Execution Example<a class="headerlink" href="#execution-example" title="Permanent link">&para;</a></h3>
+<p>Let's consider the following configuration is set. We have two code
+formatters (<code>clang-format</code> and <code>black</code>), which apply to three different
+file extensions (<code>.cc</code>, <code>.h</code>, and <code>.py</code>):</p>
 <div class="highlight"><pre><span></span><code><span class="k">[fix.tools.clang-format]</span>
 <span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;/usr/bin/clang-format&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--assume-filename=$path&quot;</span><span class="p">]</span>
 <span class="n">patterns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;glob:&#39;**/*.cc&#39;&quot;</span><span class="p">,</span>
@@ -8399,10 +8444,56 @@ the values have the following properties:</p>
 <span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;/usr/bin/black&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--stdin-filename=$path&quot;</span><span class="p">]</span>
 <span class="n">patterns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;glob:&#39;**/*.py&#39;&quot;</span><span class="p">]</span>
 </code></pre></div>
-<p>Execution order of tools that affect the same file is deterministic, but
-currently unspecified, and may change between releases. If two tools affect
-the same file, the second tool to run will receive its input from the
-output of the first tool.</p>
+<p>Now, let's see what would happen to the following history, when executing
+<code>jj fix</code>.</p>
+<div class="highlight"><pre><span></span><code>C (mutable)
+|  Modifies file: foo.py
+|
+B @ (working copy - mutable)
+|  Modifies file: README.md
+|
+A (mutable)
+|  Modifies files: src/bar.cc and src/bar.h
+|
+X (immutable)
+</code></pre></div>
+<p>By default, <code>jj fix</code> will modify revisions that matches the revset
+<code>reachable(@, mutable())</code> (see <code>jj help -k revsets</code>) which corresponds to
+the revisions <code>A</code>, <code>B</code> and <code>C</code> here.</p>
+<p>The following operations will then happen:</p>
+<ul>
+<li>For revision <code>A</code>, content from this revision for files <code>src/bar.cc</code> and
+  <code>src/bar.h</code> will each be provided to <code>clang-format</code> and the result output
+  will be used to recreate revision <code>A</code> which we will call <code>A'</code>. All other
+  files are untouched.</li>
+<li>For revision <code>B</code>, same thing happen for files <code>src/bar.cc</code> and <code>src/bar.h</code>
+  Their content from revision <code>B</code> will go through <code>clang-format</code>. The file
+  <code>README.md</code> as any other files, are untouched as no pattern matches it. We
+  obtain revision <code>B'</code>.</li>
+<li>For revision <code>C</code>, <code>src/bar.cc</code> and <code>src/bar.h</code> goes through <code>clang-format</code>
+  and file <code>foo.py</code> is fixed using <code>black</code>. Any other file is untouched. We
+  obtain revision <code>C'</code>.</li>
+</ul>
+<div class="highlight"><pre><span></span><code>C (mutable)                    /-&gt; C&#39;
+|  src/bar.cc -&gt; clang-format -|   |
+|  src/bar.h --&gt; clang-format -|   |
+|  foo.py -----&gt; black --------|   |
+|  * --------------------------/   |
+|                                  |
+B @ (working copy - mutable)   /-&gt; B&#39; @
+|  src/bar.cc -&gt; clang-format -|   |
+|  src/bar.h --&gt; clang-format -|   |
+|  * --------------------------|   |
+|                                  |
+A (mutable)                    /-&gt; A&#39;
+|  src/bar.cc -&gt; clang-format -|   |
+|  src/bar.h --&gt; clang-format -|   |
+|  * --------------------------/   |
+|                                  |
+X (immutable)                      X
+</code></pre></div>
+<p>The revisions are now all correctly formatted according to the
+configuration.</p>
 <p><strong>Usage:</strong> <code>jj fix [OPTIONS] [FILESETS]...</code></p>
 <h6 id="arguments_28"><strong>Arguments:</strong><a class="headerlink" href="#arguments_28" title="Permanent link">&para;</a></h6>
 <ul>

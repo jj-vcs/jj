@@ -1401,6 +1401,15 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#configuration_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#enforce-coding-style-rules" class="md-nav__link">
     <span class="md-ellipsis">
       Enforce coding style rules
@@ -3227,6 +3236,15 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#configuration_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#enforce-coding-style-rules" class="md-nav__link">
     <span class="md-ellipsis">
       Enforce coding style rules
@@ -4623,16 +4641,43 @@ The conflict marker style can also be customized per tool using the
 <h2 id="code-formatting-and-other-file-content-transformations">Code formatting and other file content transformations<a class="headerlink" href="#code-formatting-and-other-file-content-transformations" title="Permanent link">&para;</a></h2>
 <p>The <code>jj fix</code> command allows you to efficiently rewrite files in complex commit
 graphs with no risk of introducing conflicts, using tools like <code>clang-format</code> or
-<code>prettier</code>. The tools run as subprocesses that take file content on standard
-input and repeat it, with any desired changes, on standard output. The file is
-only rewritten if the subprocess produces a successful exit code.</p>
+<code>prettier</code>. The tools run as subprocesses that take a file content on standard
+input and repeat it, with any desired changes, on standard output.</p>
+<p>This enables the command to format many versions of the same file concurrently
+and without touching on the working copy. The local files are not and must not
+be used.</p>
+<p>The file is only rewritten if the subprocess produces a successful exit code.</p>
+<h3 id="configuration_1">Configuration<a class="headerlink" href="#configuration_1" title="Permanent link">&para;</a></h3>
+<p>Tools are defined in a table where the keys are arbitrary identifiers and
+the values have the following properties:</p>
+<ul>
+<li><code>command</code>: The arguments used to run the tool. The first argument is the
+   path to an executable file. Arguments can contain these variables that will
+   be replaced:<ul>
+<li><code>$root</code> will be replaced with the workspace root path (the directory
+   containing the .jj directory).</li>
+<li><code>$path</code> will be replaced with the repo-relative path of the file being
+   fixed. It is useful to provide the path to tools that include the path
+   in error messages, or behave differently based on the directory or file
+   name.</li>
+</ul>
+</li>
+<li><code>patterns</code>: List of filesets (see: <code>jj help -k filesets</code>), determining
+   which files the tool will affect based on their path. If this list is
+   empty, no files will be affected by the tool. If there are multiple
+   patterns, the tool is applied only once to each file in the union of the
+   patterns.</li>
+<li><code>enabled</code>: Enables or disables the tool. If omitted, the tool is enabled.
+   This is useful for defining disabled tools in user configuration that can
+   be enabled in individual repositories with one config setting.</li>
+</ul>
+<p><code>jj fix</code> provides the file content anonymously on standard input, but the name
+of the file being formatted may be important for include sorting or other output
+like error messages. To address this, you can use the <code>$root</code> and <code>$path</code> in
+your arguments.</p>
 <h3 id="enforce-coding-style-rules">Enforce coding style rules<a class="headerlink" href="#enforce-coding-style-rules" title="Permanent link">&para;</a></h3>
 <p>Suppose you want to use <code>clang-format</code> to format your <code>*.c</code> and <code>*.h</code> files,
 as well as sorting their <code>#include</code> directives.</p>
-<p><code>jj fix</code> provides the file content anonymously on standard input, but the name
-of the file being formatted may be important for include sorting or other output
-like error messages. To address this, you can use the <code>$path</code> substitution to
-provide the name of the file in a command argument.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[fix.tools.clang-format]</span>
 <span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;/usr/bin/clang-format&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--sort-includes&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--assume-filename=$path&quot;</span><span class="p">]</span>
 <span class="n">patterns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;glob:&#39;**/*.c&#39;&quot;</span><span class="p">,</span>
@@ -4660,10 +4705,12 @@ path to such a program:</p>
 </code></pre></div>
 <h3 id="execution-order-of-tools">Execution order of tools<a class="headerlink" href="#execution-order-of-tools" title="Permanent link">&para;</a></h3>
 <p>If two or more tools affect the same file, they are executed in the ascending
-lexicographical order of their configured names. This will remain as a tie
-breaker if other ordering mechanisms are introduced in the future. If you use
-numbers in tool names to control execution order, remember to include enough
-leading zeros so that, for example, <code>09</code> sorts before <code>10</code>.</p>
+lexicographical order of their configured names. Any tool, but the first one to
+be executed, get as input the content of the file produced by the previous
+tool. This will remain as a tie breaker if other ordering mechanisms are
+introduced in the future.</p>
+<p>If you use numbers in tool names to control execution order, remember to
+include enough leading zeros so that, for example, <code>09</code> sorts before <code>10</code>.</p>
 <p>Suppose you want to keep only the 10 smallest numbers in a text file that
 contains one number on each line. This can be accomplished with <code>sort</code> and
 <code>head</code>, but execution order is important.</p>
