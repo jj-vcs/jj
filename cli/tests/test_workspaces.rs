@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use test_case::test_case;
+use testutils::git;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
@@ -47,22 +48,22 @@ fn test_workspaces_add_second_workspace() {
 
     // Can see the working-copy commit in each workspace in the log output. The "@"
     // node in the graph indicates the current workspace's working-copy commit.
-    insta::assert_snapshot!(get_log_output(&main_dir), @r"
+    insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @  504e3d8c1bcd default@
     │ ○  bcc858e1d93f second@
     ├─╯
-    ○  7b22a8cbe888
+    ○  7b22a8cbe888 "initial"
     ◆  000000000000
     [EOF]
-    ");
-    insta::assert_snapshot!(get_log_output(&secondary_dir), @r"
+    "#);
+    insta::assert_snapshot!(get_log_output(&secondary_dir), @r#"
     @  bcc858e1d93f second@
     │ ○  504e3d8c1bcd default@
     ├─╯
-    ○  7b22a8cbe888
+    ○  7b22a8cbe888 "initial"
     ◆  000000000000
     [EOF]
-    ");
+    "#);
 
     // Both workspaces show up when we list them
     let output = main_dir.run_jj(["workspace", "list"]);
@@ -150,17 +151,17 @@ fn test_workspaces_add_second_workspace_on_merge() {
         .success();
 
     // The new workspace's working-copy commit shares all parents with the old one.
-    insta::assert_snapshot!(get_log_output(&main_dir), @r"
-    @    46ed31b61ce9 default@
+    insta::assert_snapshot!(get_log_output(&main_dir), @r#"
+    @    46ed31b61ce9 default@ "merge"
     ├─╮
     │ │ ○  d23b2d4ff55c second@
     ╭─┬─╯
-    │ ○  3c52528f5893
-    ○ │  a3155ab1bf5a
+    │ ○  3c52528f5893 "left"
+    ○ │  a3155ab1bf5a "right"
     ├─╯
     ◆  000000000000
     [EOF]
-    ");
+    "#);
 }
 
 /// Test that --ignore-working-copy is respected
@@ -293,24 +294,24 @@ fn test_workspaces_add_workspace_at_revision() {
 
     // Can see the working-copy commit in each workspace in the log output. The "@"
     // node in the graph indicates the current workspace's working-copy commit.
-    insta::assert_snapshot!(get_log_output(&main_dir), @r"
+    insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @  5ac9178da8b2 default@
-    ○  a47d8a593529
+    ○  a47d8a593529 "second"
     │ ○  ea5860fbd622 second@
     ├─╯
-    ○  27473635a942
+    ○  27473635a942 "first"
     ◆  000000000000
     [EOF]
-    ");
-    insta::assert_snapshot!(get_log_output(&secondary_dir), @r"
+    "#);
+    insta::assert_snapshot!(get_log_output(&secondary_dir), @r#"
     @  ea5860fbd622 second@
     │ ○  5ac9178da8b2 default@
-    │ ○  a47d8a593529
+    │ ○  a47d8a593529 "second"
     ├─╯
-    ○  27473635a942
+    ○  27473635a942 "first"
     ◆  000000000000
     [EOF]
-    ");
+    "#);
 }
 
 /// Test multiple `-r` flags to `workspace add` to create a workspace
@@ -333,17 +334,17 @@ fn test_workspaces_add_workspace_multiple_revisions() {
     main_dir.run_jj(["commit", "-m", "third"]).success();
     main_dir.run_jj(["new", "-r", "root()"]).success();
 
-    insta::assert_snapshot!(get_log_output(&main_dir), @r"
+    insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @  8d23abddc924
-    │ ○  eba7f49e2358
+    │ ○  eba7f49e2358 "third"
     ├─╯
-    │ ○  62444a45efcf
+    │ ○  62444a45efcf "second"
     ├─╯
-    │ ○  27473635a942
+    │ ○  27473635a942 "first"
     ├─╯
     ◆  000000000000
     [EOF]
-    ");
+    "#);
 
     let output = main_dir.run_jj([
         "workspace",
@@ -365,19 +366,19 @@ fn test_workspaces_add_workspace_multiple_revisions() {
     [EOF]
     "#);
 
-    insta::assert_snapshot!(get_log_output(&main_dir), @r"
+    insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @  8d23abddc924 default@
     │ ○      2d7c9a2d41dc merge@
     │ ├─┬─╮
-    │ │ │ ○  27473635a942
+    │ │ │ ○  27473635a942 "first"
     ├─────╯
-    │ │ ○  62444a45efcf
+    │ │ ○  62444a45efcf "second"
     ├───╯
-    │ ○  eba7f49e2358
+    │ ○  eba7f49e2358 "third"
     ├─╯
     ◆  000000000000
     [EOF]
-    ");
+    "#);
 }
 
 #[test]
@@ -842,15 +843,15 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
     }
 
     insta::allow_duplicates! {
-        insta::assert_snapshot!(get_log_output(&main_dir), @r"
+        insta::assert_snapshot!(get_log_output(&main_dir), @r#"
         @  320bc89effc9 default@
-        │ ○  18851b397d09 secondary@
+        │ ○  18851b397d09 secondary@ "RECOVERY COMMIT FROM `jj workspace update-stale`"
         │ ○  891f00062e10
         ├─╯
         ○  367415be5b44
         ◆  000000000000
         [EOF]
-        ");
+        "#);
     }
 
     // The sparse patterns should remain
@@ -1025,9 +1026,18 @@ fn test_colocated_workspace_update_stale() {
         .success();
     let main_dir = test_env.work_dir("main");
     let secondary_dir = test_env.work_dir("secondary");
+    let git_repo = git::open(main_dir.root());
 
     main_dir.write_file("file", "contents\n");
     main_dir.run_jj(["new"]).success();
+
+    // Create new bookmarked revision from the main workspace.
+    main_dir
+        .run_jj(["new", "--no-edit", "root()", "-mold book1"])
+        .success();
+    main_dir
+        .run_jj(["bookmark", "set", "-rsubject(glob:'old book1')", "book1"])
+        .success();
 
     main_dir
         .run_jj(["workspace", "add", "../secondary"])
@@ -1038,11 +1048,43 @@ fn test_colocated_workspace_update_stale() {
     secondary_dir.write_file("file", "changed in secondary\n");
     secondary_dir.run_jj(["squash"]).success();
 
+    // Update and export the bookmark from the secondary workspace.
+    secondary_dir
+        .run_jj(["new", "--no-edit", "root()", "-mnew book1"])
+        .success();
+    secondary_dir
+        .run_jj([
+            "bookmark",
+            "set",
+            "-rsubject(glob:'new book1')",
+            "--allow-backwards",
+            "book1",
+        ])
+        .success();
+    secondary_dir.run_jj(["git", "export"]).success();
+
+    // Create new Git ref and commit which will be imported later by "jj
+    // workspace update-stale".
+    git::add_commit(&git_repo, "refs/heads/book2", "file", b"", "book2", &[]);
+
+    insta::assert_snapshot!(get_log_output(&secondary_dir), @r#"
+    @  9cb8253861b5 secondary@
+    │ ○  f562bf82f2da default@
+    ├─╯
+    ○  30ed2f28b710
+    │ ○  e97ad7861f78 book1 "new book1"
+    ├─╯
+    │ ○  f656b467890b "old book1"
+    ├─╯
+    ◆  000000000000
+    [EOF]
+    "#);
+
     // The main workspace's working copy is now stale.
     let output = main_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 693184328c15).
+    Error: The working copy is stale (not updated since operation a3fbf68cb3f8).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -1055,21 +1097,39 @@ fn test_colocated_workspace_update_stale() {
     let output = main_dir.run_jj(["workspace", "update-stale"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: rlvkpnrz f56876af (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm 5ed82d60 (no description set)
+    Abandoned 1 commits that are no longer reachable.
+    Done importing changes from the underlying Git repo.
+    Concurrent modification detected, resolving automatically.
+    Working copy  (@) now at: rlvkpnrz f562bf82 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 30ed2f28 (no description set)
     Added 0 files, modified 1 files, removed 0 files
-    Updated working copy to fresh commit f56876af92ff
+    Updated working copy to fresh commit f562bf82f2da
     [EOF]
     ");
 
-    // Verify the workspace is now up-to-date
+    // Verify the workspace is now up-to-date. New bookmark "book2" should have
+    // been imported by the previous command.
     let output = main_dir.run_jj(["st"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : rlvkpnrz f56876af (empty) (no description set)
-    Parent commit (@-): qpvuntsm 5ed82d60 (no description set)
+    Working copy  (@) : rlvkpnrz f562bf82 (empty) (no description set)
+    Parent commit (@-): qpvuntsm 30ed2f28 (no description set)
     [EOF]
     ");
+
+    // FIXME: The "old book1" revision shouldn't be abandoned.
+    insta::assert_snapshot!(get_log_output(&main_dir), @r#"
+    @  f562bf82f2da default@
+    │ ○  9cb8253861b5 secondary@
+    ├─╯
+    ○  30ed2f28b710
+    │ ○  7fe3ff3b9a60 book2 "book2"
+    ├─╯
+    │ ○  e97ad7861f78 book1 "new book1"
+    ├─╯
+    ◆  000000000000
+    [EOF]
+    "#);
 }
 
 /// Test forgetting workspaces
@@ -1479,8 +1539,10 @@ fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"
     separate(" ",
       commit_id.short(),
+      bookmarks,
       working_copies,
       if(divergent, "(divergent)"),
+      surround('"', '"', description.first_line()),
     )
     "#;
     work_dir.run_jj(["log", "-T", template, "-r", "all()"])
