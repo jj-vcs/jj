@@ -1313,7 +1313,7 @@ Note: this command takes 1-or-more revsets arguments, each of which can resolve 
    This can be any arbitrary set of commits. Note that when you push a commit at the head of a stack, all ancestors are pushed too. This means that `jj gerrit upload -r foo` is equivalent to `jj gerrit upload -r 'mutable()::foo`.
 * `-b`, `--remote-branch <REMOTE_BRANCH>` — The location where your changes are intended to land
 
-   This should be a branch on the remote. Can be configured with the `gerrit.default-branch` repository option.
+   This should be a branch on the remote. Can be configured with the `gerrit.default-remote-branch` repository option.
 * `--remote <REMOTE>` — The Gerrit remote to push to
 
    Can be configured with the `gerrit.default-remote` repository option as well. This is typically a full SSH URL for your Gerrit instance.

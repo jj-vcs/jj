@@ -75,7 +75,7 @@ pub struct UploadArgs {
     /// The location where your changes are intended to land
     ///
     /// This should be a branch on the remote. Can be configured with the
-    /// `gerrit.default-branch` repository option.
+    /// `gerrit.default-remote-branch` repository option.
     #[arg(long = "remote-branch", short = 'b')]
     remote_branch: Option<String>,
 
