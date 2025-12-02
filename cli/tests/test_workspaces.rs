@@ -939,6 +939,41 @@ fn test_workspaces_update_stale_noop() {
     ");
 }
 
+/// If the working copy was last updated to an unpublished operation, it should
+/// be reported, even if the latest published operation has the same tree.
+#[test]
+fn test_workspaces_unpublished_operation_same_tree() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.run_jj(["desc", "-m=A"]).success();
+    let a_op_id = main_dir.current_operation_id();
+    main_dir.run_jj(["new", "-m=B"]).success();
+    let b_op_id = main_dir.current_operation_id();
+    // Make the repo forget about the B operation
+    main_dir.remove_file(format!(".jj/repo/op_heads/heads/{b_op_id}"));
+    main_dir.write_file(format!(".jj/repo/op_heads/heads/{a_op_id}"), "");
+    main_dir
+        .run_jj(["new", "-m=C", "--ignore-working-copy"])
+        .success();
+    // TODO: The working copy should be stale and should require a `jj workspace
+    // update-stale`
+    let output = main_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @r"
+    The working copy has no changes.
+    Working copy  (@) : zsuskuln 36a15ac4 (empty) C
+    Parent commit (@-): qpvuntsm 8777db25 (empty) A
+    [EOF]
+    ");
+    let output = main_dir.run_jj(["workspace", "update-stale"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Attempted recovery, but the working copy is not stale
+    [EOF]
+    ");
+}
+
 /// Test "update-stale" in a dirty, but not stale working copy.
 #[test]
 fn test_workspaces_update_stale_snapshot() {
