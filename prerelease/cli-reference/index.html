@@ -8601,7 +8601,7 @@ configuration.</p>
 <li>
 <p><code>-b</code>, <code>--branch &lt;BRANCH&gt;</code> — Name of the branch to fetch and use as the parent of the working-copy change</p>
 <p>If not present, all branches are fetched and the repository's default branch is used as parent of the working-copy change.</p>
-<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to expand <code>*</code> as a glob, e.g. <code>--branch 'glob:push-*'</code>. Other wildcard characters such as <code>?</code> are <em>not</em> supported. Can be repeated to specify multiple branches, in which case the first match of the first <code>--branch</code> argument is used as the working-copy parent.</p>
+<p>By default, the specified name matches exactly. Use <code>glob:</code> prefix to expand <code>*</code> as a glob, e.g. <code>--branch 'glob:push-*'</code>. Other wildcard characters such as <code>?</code> are <em>not</em> supported. Can be repeated to specify multiple branches, in which case the first exact branch name is used as the working-copy parent.</p>
 </li>
 </ul>
 <h2 id="jj-git-colocation"><code>jj git colocation</code><a class="headerlink" href="#jj-git-colocation" title="Permanent link">&para;</a></h2>
