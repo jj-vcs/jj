@@ -106,8 +106,8 @@ pub async fn split_hunks_to_trees(
     while let Some(entry) = diff_stream.next().await {
         let left_path = entry.path.source();
         let right_path = entry.path.target();
-        let (left_value, right_value) = entry.values?;
-        let (left_text, executable, copy_id) = match to_file_value(left_value) {
+        let values = entry.values?;
+        let (left_text, executable, copy_id) = match to_file_value(values.before) {
             Ok(Some(mut value)) => (
                 value.read_all(left_path).await?,
                 value.executable,
@@ -122,7 +122,7 @@ pub async fn split_hunks_to_trees(
                 continue;
             }
         };
-        let (right_text, deleted) = match to_file_value(right_value) {
+        let (right_text, deleted) = match to_file_value(values.after) {
             Ok(Some(mut value)) => (value.read_all(right_path).await?, false),
             Ok(None) => (vec![], true),
             Err(reason) => {

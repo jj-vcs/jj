@@ -1335,7 +1335,10 @@ pub async fn show_color_words_diff(
         let right_path = path.target();
         let left_ui_path = path_converter.format_file_path(left_path);
         let right_ui_path = path_converter.format_file_path(right_path);
-        let (left_value, right_value) = values?;
+        let Diff {
+            before: left_value,
+            after: right_value,
+        } = values?;
 
         match (&left_value, &right_value) {
             (MaterializedTreeValue::AccessDenied(source), _) => {
@@ -1498,7 +1501,10 @@ pub async fn show_file_by_file_diff(
     let right_wc_dir = temp_dir.path().join("right");
     let mut diff_stream = materialized_diff_stream(store, tree_diff);
     while let Some(MaterializedTreeDiffEntry { path, values }) = diff_stream.next().await {
-        let (left_value, right_value) = values?;
+        let Diff {
+            before: left_value,
+            after: right_value,
+        } = values?;
         let left_path = path.source();
         let right_path = path.target();
         let left_ui_path = path_converter.format_file_path(left_path);
@@ -1649,10 +1655,10 @@ pub async fn show_git_diff(
         let right_path = path.target();
         let left_path_string = left_path.as_internal_file_string();
         let right_path_string = right_path.as_internal_file_string();
-        let (left_value, right_value) = values?;
+        let values = values?;
 
-        let left_part = git_diff_part(left_path, left_value, &materialize_options)?;
-        let right_part = git_diff_part(right_path, right_value, &materialize_options)?;
+        let left_part = git_diff_part(left_path, values.before, &materialize_options)?;
+        let right_part = git_diff_part(right_path, values.after, &materialize_options)?;
 
         {
             let mut formatter = formatter.labeled("file_header");
@@ -1833,10 +1839,13 @@ impl DiffStats {
         };
         let entries = materialized_diff_stream(store, tree_diff)
             .map(|MaterializedTreeDiffEntry { path, values }| {
-                let (left, right) = values?;
-                let status = diff_status_inner(&path, left.is_present(), right.is_present());
-                let left_content = diff_content(path.source(), left, &materialize_options)?;
-                let right_content = diff_content(path.target(), right, &materialize_options)?;
+                let values = values?;
+                let status =
+                    diff_status_inner(&path, values.before.is_present(), values.after.is_present());
+                let left_content =
+                    diff_content(path.source(), values.before, &materialize_options)?;
+                let right_content =
+                    diff_content(path.target(), values.after, &materialize_options)?;
                 let stat = get_diff_stat_entry(
                     path,
                     status,

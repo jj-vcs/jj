@@ -276,9 +276,9 @@ async fn make_diff_files(
     while let Some(entry) = diff_stream.next().await {
         let left_path = entry.path.source();
         let right_path = entry.path.target();
-        let (left_value, right_value) = entry.values?;
-        let left_info = read_file_contents(left_value, left_path, &materialize_options)?;
-        let right_info = read_file_contents(right_value, right_path, &materialize_options)?;
+        let values = entry.values?;
+        let left_info = read_file_contents(values.before, left_path, &materialize_options)?;
+        let right_info = read_file_contents(values.after, right_path, &materialize_options)?;
         let mut sections = Vec::new();
 
         if left_info.file_mode != right_info.file_mode {

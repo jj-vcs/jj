@@ -45,6 +45,7 @@ use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::files;
 use crate::files::MergeResult;
+use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merge::MergedTreeValue;
 use crate::merge::SameChange;
@@ -701,7 +702,7 @@ fn diff_size(hunks: &[DiffHunk]) -> usize {
 
 pub struct MaterializedTreeDiffEntry {
     pub path: CopiesTreeDiffEntryPath,
-    pub values: BackendResult<(MaterializedTreeValue, MaterializedTreeValue)>,
+    pub values: BackendResult<Diff<MaterializedTreeValue>>,
 }
 
 pub fn materialized_diff_stream(
@@ -717,7 +718,8 @@ pub fn materialized_diff_stream(
             Ok(values) => {
                 let before_future = materialize_tree_value(store, path.source(), values.before);
                 let after_future = materialize_tree_value(store, path.target(), values.after);
-                let values = try_join!(before_future, after_future);
+                let values = try_join!(before_future, after_future)
+                    .map(|(before, after)| Diff { before, after });
                 MaterializedTreeDiffEntry { path, values }
             }
         })
