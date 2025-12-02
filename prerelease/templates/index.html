@@ -1110,6 +1110,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#diffstatentry-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      DiffStatEntry type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#email-type" class="md-nav__link">
     <span class="md-ellipsis">
       Email type
@@ -2360,6 +2369,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#diffstatentry-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      DiffStatEntry type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#email-type" class="md-nav__link">
     <span class="md-ellipsis">
       Email type
@@ -2907,8 +2925,22 @@ checking for signature presence through boolean coercion is fast:
 <p>This type can be printed as a histogram of the changes. The following methods
 are defined.</p>
 <ul>
+<li><code>.files() -&gt; List&lt;DiffStatEntry&gt;</code>: Per-file stats for changed files.</li>
 <li><code>.total_added() -&gt; Integer</code>: Total number of insertions.</li>
 <li><code>.total_removed() -&gt; Integer</code>: Total number of deletions.</li>
+</ul>
+<h3 id="diffstatentry-type"><code>DiffStatEntry</code> type<a class="headerlink" href="#diffstatentry-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
+<p>This type holds the diff stats per file. The following methods are defined.</p>
+<ul>
+<li><code>.bytes_delta() -&gt; Integer</code>: The difference in size of the file, in bytes.</li>
+<li><code>.lines_added() -&gt; Integer</code>: Number of lines added.</li>
+<li><code>.lines_removed() -&gt; Integer</code>: Number of lines deleted.</li>
+<li><code>.path() -&gt; RepoPath</code>: Path to the entry. If the entry is a copy/rename, this
+  points to the target (or right) entry.</li>
+<li><code>.status() -&gt; String</code>: One of <code>"modified"</code>, <code>"added"</code>, <code>"removed"</code>, <code>"copied"</code>, or <code>"renamed"</code>.</li>
+<li><code>.status_char() -&gt; String</code>: One of <code>"M"</code> (modified), <code>"A"</code> (added), <code>"D"</code> (removed),
+  <code>"C"</code> (copied), or <code>"R"</code> (renamed).</li>
 </ul>
 <h3 id="email-type"><code>Email</code> type<a class="headerlink" href="#email-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: yes, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
