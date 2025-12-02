@@ -1097,13 +1097,11 @@ fn test_colocated_workspace_update_stale() {
     let output = main_dir.run_jj(["workspace", "update-stale"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Abandoned 1 commits that are no longer reachable.
-    Done importing changes from the underlying Git repo.
-    Concurrent modification detected, resolving automatically.
     Working copy  (@) now at: rlvkpnrz f562bf82 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 30ed2f28 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Updated working copy to fresh commit f562bf82f2da
+    Done importing changes from the underlying Git repo.
     [EOF]
     ");
 
@@ -1117,7 +1115,8 @@ fn test_colocated_workspace_update_stale() {
     [EOF]
     ");
 
-    // FIXME: The "old book1" revision shouldn't be abandoned.
+    // The updated bookmark "book1" shouldn't be re-imported as an external
+    // change. If it were, the "old book1" revision would be abandoned.
     insta::assert_snapshot!(get_log_output(&main_dir), @r#"
     @  f562bf82f2da default@
     │ ○  9cb8253861b5 secondary@
@@ -1126,6 +1125,8 @@ fn test_colocated_workspace_update_stale() {
     │ ○  7fe3ff3b9a60 book2 "book2"
     ├─╯
     │ ○  e97ad7861f78 book1 "new book1"
+    ├─╯
+    │ ○  f656b467890b "old book1"
     ├─╯
     ◆  000000000000
     [EOF]
