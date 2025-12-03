@@ -36,6 +36,7 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
 use jj_lib::dsl_util;
+use jj_lib::secure_config::SecureConfig;
 use regex::Captures;
 use regex::Regex;
 use serde::Serialize as _;
@@ -271,6 +272,10 @@ struct UnresolvedConfigEnv {
 }
 
 impl UnresolvedConfigEnv {
+    fn root_config_dir(&self) -> Option<PathBuf> {
+        self.config_dir.as_deref().map(|c| c.join("jj"))
+    }
+
     fn resolve(self) -> Vec<ConfigPath> {
         if let Some(paths) = self.jj_config {
             return split_paths(&paths)
@@ -320,11 +325,12 @@ impl UnresolvedConfigEnv {
 #[derive(Clone, Debug)]
 pub struct ConfigEnv {
     home_dir: Option<PathBuf>,
+    root_config_dir: Option<PathBuf>,
     repo_path: Option<PathBuf>,
     workspace_path: Option<PathBuf>,
     user_config_paths: Vec<ConfigPath>,
-    repo_config_path: Option<ConfigPath>,
-    workspace_config_path: Option<ConfigPath>,
+    repo_config: Option<SecureConfig>,
+    workspace_config: Option<SecureConfig>,
     command: Option<String>,
     hostname: Option<String>,
 }
@@ -349,11 +355,12 @@ impl ConfigEnv {
         };
         Self {
             home_dir,
+            root_config_dir: env.root_config_dir(),
             repo_path: None,
             workspace_path: None,
             user_config_paths: env.resolve(),
-            repo_config_path: None,
-            workspace_config_path: None,
+            repo_config: None,
+            workspace_config: None,
             command: None,
             hostname: whoami::fallible::hostname().ok(),
         }
@@ -424,21 +431,33 @@ impl ConfigEnv {
     /// Sets the directory where repo-specific config file is stored. The path
     /// is usually `.jj/repo`.
     pub fn reset_repo_path(&mut self, path: &Path) {
+        if self.repo_path.as_deref() != Some(path)
+            && let Some(root_config_dir) = self.root_config_dir.as_deref()
+        {
+            self.repo_config = Some(SecureConfig::new(
+                path.to_owned(),
+                root_config_dir.join("repos"),
+                "repo-config-id",
+                "config.toml",
+            ));
+        }
         self.repo_path = Some(path.to_owned());
-        self.repo_config_path = Some(ConfigPath::new(path.join("config.toml")));
-    }
-
-    /// Returns a path to the repo-specific config file.
-    pub fn repo_config_path(&self) -> Option<&Path> {
-        self.repo_config_path.as_ref().map(|p| p.as_path())
     }
 
     /// Returns a path to the existing repo-specific config file.
-    fn existing_repo_config_path(&self) -> Option<&Path> {
-        match self.repo_config_path {
-            Some(ref path) if path.exists() => Some(path.as_path()),
-            _ => None,
-        }
+    fn maybe_repo_config_path(&self) -> Result<Option<PathBuf>, ConfigLoadError> {
+        Ok(match &self.repo_config {
+            Some(config) => config.maybe_load_config()?.0,
+            None => None,
+        })
+    }
+
+    /// Returns a path to the existing repo-specific config file.
+    pub fn repo_config_path(&self) -> Result<Option<PathBuf>, ConfigLoadError> {
+        Ok(match &self.repo_config {
+            Some(config) => Some(config.load_config()?.0),
+            None => None,
+        })
     }
 
     /// Returns repo configuration files for modification. Instantiates one if
@@ -455,7 +474,7 @@ impl ConfigEnv {
     }
 
     fn new_repo_config_file(&self) -> Result<Option<ConfigFile>, ConfigLoadError> {
-        self.repo_config_path()
+        self.repo_config_path()?
             // The path doesn't usually exist, but we shouldn't overwrite it
             // with an empty config if it did exist.
             .map(|path| ConfigFile::load_or_empty(ConfigSource::Repo, path))
@@ -467,32 +486,43 @@ impl ConfigEnv {
     #[instrument]
     pub fn reload_repo_config(&self, config: &mut RawConfig) -> Result<(), ConfigLoadError> {
         config.as_mut().remove_layers(ConfigSource::Repo);
-        if let Some(path) = self.existing_repo_config_path() {
+        if let Some(path) = self.maybe_repo_config_path()? {
             config.as_mut().load_file(ConfigSource::Repo, path)?;
         }
         Ok(())
     }
 
-    /// Sets the directory for the workspace and the workspace-specific config
-    /// file.
+    /// Sets the directory where repo-specific config file is stored. The path
+    /// is usually `.jj/repo`.
     pub fn reset_workspace_path(&mut self, path: &Path) {
-        self.workspace_path = Some(path.to_owned());
-        self.workspace_config_path = Some(ConfigPath::new(
-            path.join(".jj").join("workspace-config.toml"),
-        ));
-    }
-
-    /// Returns a path to the workspace-specific config file.
-    pub fn workspace_config_path(&self) -> Option<&Path> {
-        self.workspace_config_path.as_ref().map(|p| p.as_path())
-    }
-
-    /// Returns a path to the existing workspace-specific config file.
-    fn existing_workspace_config_path(&self) -> Option<&Path> {
-        match self.workspace_config_path {
-            Some(ref path) if path.exists() => Some(path.as_path()),
-            _ => None,
+        if self.workspace_path.as_deref() != Some(path)
+            && let Some(root_config_dir) = self.root_config_dir.as_deref()
+        {
+            self.workspace_config = Some(SecureConfig::new(
+                path.to_owned(),
+                root_config_dir.join("workspaces"),
+                "workspace-config-id",
+                "workspace-config.toml",
+            ));
         }
+        self.workspace_path = Some(path.to_owned());
+    }
+
+    /// Returns a path to the workspace-specific config file, if it exists.
+    fn maybe_workspace_config_path(&self) -> Result<Option<PathBuf>, ConfigLoadError> {
+        Ok(match &self.workspace_config {
+            Some(config) => config.maybe_load_config()?.0,
+            None => None,
+        })
+    }
+
+    /// Returns a path to the existing workspace-specific config file, creating
+    /// a new one if it doesn't exist.
+    pub fn workspace_config_path(&self) -> Result<Option<PathBuf>, ConfigLoadError> {
+        Ok(match &self.workspace_config {
+            Some(config) => Some(config.load_config()?.0),
+            None => None,
+        })
     }
 
     /// Returns workspace configuration files for modification. Instantiates one
@@ -511,7 +541,7 @@ impl ConfigEnv {
     }
 
     fn new_workspace_config_file(&self) -> Result<Option<ConfigFile>, ConfigLoadError> {
-        self.workspace_config_path()
+        self.workspace_config_path()?
             .map(|path| ConfigFile::load_or_empty(ConfigSource::Workspace, path))
             .transpose()
     }
@@ -521,7 +551,7 @@ impl ConfigEnv {
     #[instrument]
     pub fn reload_workspace_config(&self, config: &mut RawConfig) -> Result<(), ConfigLoadError> {
         config.as_mut().remove_layers(ConfigSource::Workspace);
-        if let Some(path) = self.existing_workspace_config_path() {
+        if let Some(path) = self.maybe_workspace_config_path()? {
             config.as_mut().load_file(ConfigSource::Workspace, path)?;
         }
         Ok(())
@@ -565,8 +595,8 @@ fn config_files_for(
 /// 1. Default
 /// 2. Base environment variables
 /// 3. [User configs](https://docs.jj-vcs.dev/latest/config/)
-/// 4. Repo config `.jj/repo/config.toml`
-/// 5. Workspace config `.jj/workspace-config.toml`
+/// 4. Repo config
+/// 5. Workspace config
 /// 6. Override environment variables
 /// 7. Command-line arguments `--config` and `--config-file`
 ///
@@ -1762,11 +1792,12 @@ mod tests {
         };
         ConfigEnv {
             home_dir,
+            root_config_dir: None,
             repo_path: None,
             workspace_path: None,
             user_config_paths: env.resolve(),
-            repo_config_path: None,
-            workspace_config_path: None,
+            repo_config: None,
+            workspace_config: None,
             command: None,
             hostname: None,
         }

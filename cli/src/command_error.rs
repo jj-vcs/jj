@@ -277,6 +277,9 @@ impl From<ConfigLoadError> for CommandError {
             ConfigLoadError::Parse { source_path, .. } => source_path
                 .as_ref()
                 .map(|path| format!("Check the config file: {}", path.display())),
+            ConfigLoadError::SecureConfigError(e) => {
+                Some(format!("Failed to load secure config: {e}"))
+            }
         };
         let mut cmd_err = config_error(err);
         cmd_err.extend_hints(hint);

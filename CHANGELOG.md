@@ -19,6 +19,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   filesystem's behavior, but this can be overridden manually by setting
   `working-copy.exec-bit-change = "respect" | "ignore"`.
 
+* Per-repo and per-workspace config is now stored outside the repo, for security
+  reasons. This is not a breaking change because we automatically migrate
+  legacy repos to this new format. `.jj/repo/config.toml` and
+  `.jj/workspace-config.toml` should no longer be used.
+
 ### Fixed bugs
 
 ## [0.36.0] - 2025-12-03

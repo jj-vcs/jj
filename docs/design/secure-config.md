@@ -2,6 +2,8 @@
 
 Author: [Matt Stark](mailto:msta@google.com)
 
+Status: Implemented
+
 ## The problem
 
 An attacker that has control over your jj configuration has full control over
