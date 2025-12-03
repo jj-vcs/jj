@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.jj-vcs.dev/latest/design/git-submodules/">
+        <link rel="canonical" href="https://docs.jj-vcs.dev/latest/design/secure-config/">
       
       
-        <link rel="prev" href="../../governance/GOVERNANCE/">
+        <link rel="prev" href="../copy-tracking/">
       
       
-        <link rel="next" href="../git-submodule-storage/">
+        <link rel="next" href="../../roadmap/">
       
       
       <link rel="icon" href="../../images/favicon-96x96.png">
@@ -22,7 +22,7 @@
     
     
       
-        <title>git-submodules - Jujutsu docs (prerelease)</title>
+        <title>Secure config - Jujutsu docs (prerelease)</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#git-submodules" class="md-skip">
+        <a href="#secure-jj-config" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              git-submodules
+              Secure config
             
           </span>
         </div>
@@ -1514,32 +1514,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    git-submodules
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../git-submodules/" class="md-nav__link">
         
   
   
@@ -1550,221 +1528,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#objective" class="md-nav__link">
-    <span class="md-ellipsis">
-      Objective
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Objective">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#non-goals" class="md-nav__link">
-    <span class="md-ellipsis">
-      Non-goals
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#background" class="md-nav__link">
-    <span class="md-ellipsis">
-      Background
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Background">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#intro-to-git-submodules" class="md-nav__link">
-    <span class="md-ellipsis">
-      Intro to Git Submodules
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#roadmap" class="md-nav__link">
-    <span class="md-ellipsis">
-      Roadmap
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Roadmap">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#phase-1-readonly-submodules" class="md-nav__link">
-    <span class="md-ellipsis">
-      Phase 1: Readonly submodules
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Phase 1: Readonly submodules">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#outcomes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Outcomes
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#phase-2-snapshotting-new-changes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Phase 2: Snapshotting new changes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Phase 2: Snapshotting new changes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#outcomes_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      Outcomes
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#phase-3-mergingrebasingconflicts" class="md-nav__link">
-    <span class="md-ellipsis">
-      Phase 3: Merging/rebasing/conflicts
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Phase 3: Merging/rebasing/conflicts">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#outcomes_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      Outcomes
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#phase-an-ideal-world" class="md-nav__link">
-    <span class="md-ellipsis">
-      Phase ?: An ideal world
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#design" class="md-nav__link">
-    <span class="md-ellipsis">
-      Design
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Design">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#guiding-principles" class="md-nav__link">
-    <span class="md-ellipsis">
-      Guiding principles
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#storing-submodules" class="md-nav__link">
-    <span class="md-ellipsis">
-      Storing submodules
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#snapshotting-new-submodule-changes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Snapshotting new submodule changes
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mergingrebasing-with-submodules" class="md-nav__link">
-    <span class="md-ellipsis">
-      Merging/rebasing with submodules
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1889,10 +1652,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../secure-config/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Secure config
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1903,6 +1688,290 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      The problem
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The problem">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#threat-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      Threat model
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Threat model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#attack-vector-1-no-knowledge-attacker" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attack vector 1: No-knowledge attacker
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#attack-vector-2-basic-replay-attack" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attack vector 2: Basic replay attack
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#attack-vector-3-replay-attack-with-social-engineering-to-preserve-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attack vector 3: Replay attack with social engineering to preserve paths
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#attack-vector-4-extremely-advanced-replay-attack-with-insecure-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attack vector 4: Extremely advanced replay attack with insecure code
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      Objective
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Objective">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      Goals
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      Non-goals (Optional)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      Detailed Design
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#storing-config-out-of-repo" class="md-nav__link">
+    <span class="md-ellipsis">
+      Storing config out-of-repo
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Storing config out-of-repo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#happy-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      Happy path
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#no-config-id-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      No config-ID file
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="No config-ID file">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#without-config-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Without config files
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#with-config-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      With config files
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#no-config-directory-for-the-config-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      No config directory for the config-ID
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#distinguishing-copies-from-moves" class="md-nav__link">
+    <span class="md-ellipsis">
+      Distinguishing copies from moves
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#garbage-collection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Garbage collection
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#attack-vectors-remaining" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attack vectors remaining
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ux-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      UX issues
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alternatives considered
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Alternatives considered">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#store-the-configs-in-repo-with-an-untamperable-cryptographic-signature" class="md-nav__link">
+    <span class="md-ellipsis">
+      Store the configs in-repo with an untamperable cryptographic signature
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Store the configs in-repo with an untamperable cryptographic signature">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#do-we-include-paths-in-the-signature" class="md-nav__link">
+    <span class="md-ellipsis">
+      Do we include paths in the signature?
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-sign-the-content-of-the-repo-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to sign the content of the repo config?
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1986,6 +2055,72 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#the-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      The problem
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The problem">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#threat-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      Threat model
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Threat model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#attack-vector-1-no-knowledge-attacker" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attack vector 1: No-knowledge attacker
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#attack-vector-2-basic-replay-attack" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attack vector 2: Basic replay attack
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#attack-vector-3-replay-attack-with-social-engineering-to-preserve-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attack vector 3: Replay attack with social engineering to preserve paths
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#attack-vector-4-extremely-advanced-replay-attack-with-insecure-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attack vector 4: Extremely advanced replay attack with insecure code
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#objective" class="md-nav__link">
     <span class="md-ellipsis">
       Objective
@@ -1996,9 +2131,18 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#non-goals" class="md-nav__link">
+  <a href="#goals" class="md-nav__link">
     <span class="md-ellipsis">
-      Non-goals
+      Goals
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      Non-goals (Optional)
     </span>
   </a>
   
@@ -2010,19 +2154,112 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#background" class="md-nav__link">
+  <a href="#detailed-design" class="md-nav__link">
     <span class="md-ellipsis">
-      Background
+      Detailed Design
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Background">
+    <nav class="md-nav" aria-label="Detailed Design">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#intro-to-git-submodules" class="md-nav__link">
+  <a href="#storing-config-out-of-repo" class="md-nav__link">
     <span class="md-ellipsis">
-      Intro to Git Submodules
+      Storing config out-of-repo
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Storing config out-of-repo">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#happy-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      Happy path
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#no-config-id-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      No config-ID file
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="No config-ID file">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#without-config-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Without config files
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#with-config-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      With config files
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#no-config-directory-for-the-config-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      No config directory for the config-ID
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#distinguishing-copies-from-moves" class="md-nav__link">
+    <span class="md-ellipsis">
+      Distinguishing copies from moves
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#garbage-collection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Garbage collection
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#attack-vectors-remaining" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attack vectors remaining
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ux-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      UX issues
     </span>
   </a>
   
@@ -2034,29 +2271,38 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#roadmap" class="md-nav__link">
+  <a href="#alternatives-considered" class="md-nav__link">
     <span class="md-ellipsis">
-      Roadmap
+      Alternatives considered
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Roadmap">
+    <nav class="md-nav" aria-label="Alternatives considered">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#phase-1-readonly-submodules" class="md-nav__link">
+  <a href="#store-the-configs-in-repo-with-an-untamperable-cryptographic-signature" class="md-nav__link">
     <span class="md-ellipsis">
-      Phase 1: Readonly submodules
+      Store the configs in-repo with an untamperable cryptographic signature
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Phase 1: Readonly submodules">
+    <nav class="md-nav" aria-label="Store the configs in-repo with an untamperable cryptographic signature">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#outcomes" class="md-nav__link">
+  <a href="#do-we-include-paths-in-the-signature" class="md-nav__link">
     <span class="md-ellipsis">
-      Outcomes
+      Do we include paths in the signature?
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-sign-the-content-of-the-repo-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to sign the content of the repo config?
     </span>
   </a>
   
@@ -2064,114 +2310,6 @@
         
       </ul>
     </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#phase-2-snapshotting-new-changes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Phase 2: Snapshotting new changes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Phase 2: Snapshotting new changes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#outcomes_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      Outcomes
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#phase-3-mergingrebasingconflicts" class="md-nav__link">
-    <span class="md-ellipsis">
-      Phase 3: Merging/rebasing/conflicts
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Phase 3: Merging/rebasing/conflicts">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#outcomes_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      Outcomes
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#phase-an-ideal-world" class="md-nav__link">
-    <span class="md-ellipsis">
-      Phase ?: An ideal world
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#design" class="md-nav__link">
-    <span class="md-ellipsis">
-      Design
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Design">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#guiding-principles" class="md-nav__link">
-    <span class="md-ellipsis">
-      Guiding principles
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#storing-submodules" class="md-nav__link">
-    <span class="md-ellipsis">
-      Storing submodules
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#snapshotting-new-submodule-changes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Snapshotting new submodule changes
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mergingrebasing-with-submodules" class="md-nav__link">
-    <span class="md-ellipsis">
-      Merging/rebasing with submodules
-    </span>
-  </a>
   
 </li>
         
@@ -2196,7 +2334,7 @@
 
 
   
-    <a href="https://github.com/jj-vcs/jj/edit/main/docs/design/git-submodules.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/jj-vcs/jj/edit/main/docs/design/secure-config.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
     </a>
@@ -2204,136 +2342,318 @@
   
 
 
-<h1 id="git-submodules">Git submodules<a class="headerlink" href="#git-submodules" title="Permanent link">&para;</a></h1>
-<p>This is an aspirational document that describes how jj <em>will</em> support Git
-submodules. Readers are assumed to have some familiarity with Git and Git
-submodules.</p>
-<p>This document is a work in progress; submodules are a big feature, and relevant
-details will be filled in incrementally.</p>
+<h1 id="secure-jj-config">Secure JJ config<a class="headerlink" href="#secure-jj-config" title="Permanent link">&para;</a></h1>
+<p>Author: <a href="mailto:msta@google.com">Matt Stark</a></p>
+<h2 id="the-problem">The problem<a class="headerlink" href="#the-problem" title="Permanent link">&para;</a></h2>
+<p>An attacker that has control over your jj configuration has full control over
+your system when you run specific commands. As an example, an attacker can have
+you enable the following repo config:</p>
+<div class="highlight"><pre><span></span><code>[fix.tools.foo]
+command = [&quot;malicious&quot;, &quot;command&quot;]
+</code></pre></div>
+<p>When a user then runs <code>jj fix</code>, this will run their malicious command and they
+can gain full control over your system. This can be achieved via zipping up a
+repo and sending it to the user, with the <code>.jj/repo/config.toml</code> file containing
+the above config (hence why this is colloquially known as the “zip file
+problem”).</p>
+<p>There are plans to add features such as hooks to jj which will only make it
+easier for this to occur. For simplicity’s sake, we will assume that if an
+attacker has their configuration enabled on your system, it is compromised.</p>
+<p>Assume any reference to repo config can equivalently be replaced with workspace
+configs. We will treat them in the same way.</p>
+<h3 id="threat-model">Threat model<a class="headerlink" href="#threat-model" title="Permanent link">&para;</a></h3>
+<p>This is not something that can be 100% defended against. Defense against all
+possible attack vectors is infeasible, so we will instead note all the attack
+vectors and what it would take to defend against them.</p>
+<h4 id="attack-vector-1-no-knowledge-attacker">Attack vector 1: No-knowledge attacker<a class="headerlink" href="#attack-vector-1-no-knowledge-attacker" title="Permanent link">&para;</a></h4>
+<ol>
+<li>The attacker creates a repo</li>
+<li>The attacker runs
+    <code>jj config set --repo fix.tools.foo ‘[“malicious”, “command”]’</code></li>
+<li>The attacker zips up their repo and sends it to the victim</li>
+<li>The victim unzips the repo, make some changes, then run <code>jj fix</code></li>
+<li>They have now executed an arbitrary command on the victim’s system</li>
+</ol>
+<p>This attack vector can be solved by ensuring that we can determine the user who
+created the repo.</p>
+<h4 id="attack-vector-2-basic-replay-attack">Attack vector 2: Basic replay attack<a class="headerlink" href="#attack-vector-2-basic-replay-attack" title="Permanent link">&para;</a></h4>
+<ol>
+<li>The victim uploads a zip file of a repository they have locally on their
+    system</li>
+<li>The attacker can now see stored in the repository</li>
+<li>The attacker runs
+    <code>jj config set --repo fix.tools.foo ‘[“malicious”, “command”]’</code></li>
+<li>The attacker copies the victim’s cryptographic signature and puts it in
+    their malicious repository.</li>
+<li>The attacker zips up their repo and sends it to the victim</li>
+<li>The victim unzips the repo at an arbitrary location, make some changes, then
+    run <code>jj fix</code></li>
+<li>They have now executed an arbitrary command on the victim’s system</li>
+</ol>
+<p>This attack vector can be solved by ensuring that we can determine the path that
+the repo was stored at.</p>
+<h4 id="attack-vector-3-replay-attack-with-social-engineering-to-preserve-paths">Attack vector 3: Replay attack with social engineering to preserve paths<a class="headerlink" href="#attack-vector-3-replay-attack-with-social-engineering-to-preserve-paths" title="Permanent link">&para;</a></h4>
+<ol>
+<li>The victim uploads a zip file of a repository they have locally on their
+    system at <code>/path/to/repo</code></li>
+<li>The attacker can now see any cryptographic signatures stored in the
+    repository</li>
+<li>The attacker runs
+    <code>jj config set --repo fix.tools.foo ‘[“malicious”, “command”]’</code></li>
+<li>The attacker copies the victim’s cryptographic signature and puts it in
+    their malicious repository.</li>
+<li>The attacker zips up their repo, sends it to the victim, and instructs them
+    to install it at <code>/path/to/repo</code></li>
+<li>The victim unzips the repo at <code>/path/to/repo</code>, make some changes, then run
+    <code>jj fix</code></li>
+<li>They have now executed an arbitrary command on the victim’s system</li>
+</ol>
+<p>This attack vector can be solved by making repository configuration
+untamperable.</p>
+<h4 id="attack-vector-4-extremely-advanced-replay-attack-with-insecure-code">Attack vector 4: Extremely advanced replay attack with insecure code<a class="headerlink" href="#attack-vector-4-extremely-advanced-replay-attack-with-insecure-code" title="Permanent link">&para;</a></h4>
+<ol>
+<li>The victim creates a repo</li>
+<li>The victim runs <code>jj config set --repo fix.tools.foo = [“$repo/format.py”]</code></li>
+<li>The victim uploads a zip file of a repository they have locally on their
+    system at <code>/path/to/repo</code></li>
+<li>The attacker can now see any cryptographic signatures stored in the
+    repository</li>
+<li>The attacker modifies <code>format.py</code> to be malicious</li>
+<li>The attacker zips up their repo and sends it to the victim</li>
+<li>The victim runs <code>jj fix</code></li>
+<li>They have now executed an arbitrary command on the victim’s system</li>
+</ol>
+<p>This attack vector cannot feasibly be dealt with. It would require a signature
+of the transitive closure of files that can be accessed via jj configs to solve.</p>
 <h2 id="objective">Objective<a class="headerlink" href="#objective" title="Permanent link">&para;</a></h2>
-<p>This proposal aims to replicate the workflows users are used to with Git
-submodules, e.g.:</p>
+<h3 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Cloning submodules</li>
-<li>Making new submodule commits and updating the superproject</li>
-<li>Fetching and pushing updates to the submodule's remote</li>
-<li>Viewing submodule history</li>
+<li>Prevent as many of the above attack vectors as possible</li>
+<li>Have minimal negative impacts on UX</li>
 </ul>
-<p>When it is convenient, this proposal will also aim to make submodules easier to
-use than Git's implementation.</p>
-<h3 id="non-goals">Non-goals<a class="headerlink" href="#non-goals" title="Permanent link">&para;</a></h3>
+<h3 id="non-goals-optional">Non-goals (Optional)<a class="headerlink" href="#non-goals-optional" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Non-Git 'submodules' (e.g. native jj submodules, other VCSes)</li>
-<li>Non-Git backends (e.g. Google internal backend)</li>
-<li>Changing how Git submodules are implemented in Git</li>
+<li>Use strategies such as sandboxing to mitigate damage
+    *   We could do this for formatters, for example, but then repo hooks would
+        have the same problem
+    *   These options are not mutually exclusive</li>
 </ul>
-<h2 id="background">Background<a class="headerlink" href="#background" title="Permanent link">&para;</a></h2>
-<p>We mainly want to support Git submodules for feature parity, since Git
-submodules are a standard feature in Git and are popular enough that we have
-received user requests for them. Secondarily (and distantly so), Git submodules
-are notoriously difficult to use, so there is an opportunity to improve the UX
-over Git's implementation.</p>
-<h3 id="intro-to-git-submodules">Intro to Git Submodules<a class="headerlink" href="#intro-to-git-submodules" title="Permanent link">&para;</a></h3>
-<p><a href="https://git-scm.com/docs/gitsubmodules">Git submodules</a> are a feature of Git
-that allow a repository (submodule) to be embedded inside another repository
-(the superproject). Notably, a submodule is a full repository, complete with its
-own index, object store and ref store. It can be interacted with like any other
-repository, regardless of the superproject.</p>
-<p>In a superproject commit, submodule information is captured in two places:</p>
+<h2 id="detailed-design">Detailed Design<a class="headerlink" href="#detailed-design" title="Permanent link">&para;</a></h2>
+<p>Note that this design uses the word "repo" for everything, but we will use
+precisely the same technique for workspace configs.</p>
+<h3 id="storing-config-out-of-repo">Storing config out-of-repo<a class="headerlink" href="#storing-config-out-of-repo" title="Permanent link">&para;</a></h3>
+<p>We start by creating the concept of a "config ID".</p>
 <ul>
-<li>
-<p>A <code>gitlink</code> entry in the commit's tree, where the value of the <code>gitlink</code> entry
-  is the submodule commit id. This tells Git what to populate in the working
-  tree.</p>
+<li>A config ID is a randomly generated ID used to identify a configuration.</li>
+<li>It should be stored in the repo</li>
+<li>It should uniquely identify a single repository / workspace</li>
+</ul>
+<p>For clarity's sake, we will call these "config IDs" for repos, and "workspace
+config IDs" for workspaces.</p>
+<p>We will store per-repo configuration in
+<code>etcetera::BaseStrategy::config_dir().join(“jj”).join(“repos”).join(config_id)</code>.</p>
+<p>The filesystem structure will look like:</p>
+<div class="highlight"><pre><span></span><code>$HOME/.config/jj/
+  repos/
+    abc123/
+      metadata.binpb
+      config.toml
+  workspaces/
+    def456/
+      config.toml
+      metadata.binpb
+my-repo/.jj/
+  workspace-config-id (contains &quot;def456&quot;)
+  workspace-config.toml (unused by jj, details below)
+  repo/
+    config-id (contains &quot;abc123&quot;)
+    config.toml (unused by jj, details below)
+</code></pre></div>
+<p><code>metadata.binpb</code> will refer to the following protobuf:</p>
+<div class="highlight"><pre><span></span><code><span class="kd">message</span><span class="w"> </span><span class="nc">Metadata</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// This is used to distinguish between copies and moves.</span>
+<span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="na">path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>The function to load repository configuration, will roughly speaking, look like:
+<div class="highlight"><pre><span></span><code><span class="k">enum</span><span class="w"> </span><span class="nc">ConfigLoadError</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">NoRepoId</span><span class="p">,</span><span class="w"> </span><span class="n">NoConfig</span><span class="p">,</span><span class="w"> </span><span class="n">PathMismatch</span><span class="p">,</span><span class="w"> </span><span class="p">}</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">load_repo_config_path</span><span class="p">(</span><span class="n">repo</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">Path</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">PathBuf</span><span class="p">,</span><span class="w"> </span><span class="n">ConfigLoadError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="n">config_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">fs</span><span class="p">::</span><span class="n">read_to_string</span><span class="p">(</span><span class="n">repo</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="s">&quot;config-id&quot;</span><span class="p">))</span>
+<span class="w">    </span><span class="p">.</span><span class="n">map_err</span><span class="p">(</span><span class="o">|</span><span class="n">_</span><span class="o">|</span><span class="nb">Err</span><span class="p">(</span><span class="n">NoRepoId</span><span class="p">))</span><span class="o">?</span><span class="p">;</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="n">repo_config_dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">config_dir</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="s">&quot;repos&quot;</span><span class="p">).</span><span class="n">join</span><span class="p">(</span><span class="n">config_id</span><span class="p">);</span>
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="n">metadata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Metadata</span><span class="p">::</span><span class="n">decode</span><span class="p">(</span>
+<span class="w">    </span><span class="n">std</span><span class="p">::</span><span class="n">fs</span><span class="p">::</span><span class="n">read</span><span class="p">(</span><span class="n">repo_config_dir</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="s">&quot;metadata.binpb&quot;</span><span class="p">))</span><span class="w"> </span><span class="p">.</span><span class="n">map_err</span><span class="p">(</span><span class="o">|</span><span class="n">_</span><span class="o">|</span>
+<span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">NoConfig</span><span class="p">))</span><span class="o">?</span><span class="w"> </span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="n">metadata</span><span class="p">.</span><span class="n">path</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">repo</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">PathMismatch</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="nb">Ok</span><span class="p">(</span><span class="n">repo_config_dir</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="s">&quot;config.toml&quot;</span><span class="p">))</span>
+<span class="p">}</span>
+</code></pre></div></p>
+<h4 id="happy-path">Happy path<a class="headerlink" href="#happy-path" title="Permanent link">&para;</a></h4>
+<p>Normally we will simply:</p>
+<ol>
+<li>Load the <code>config-id</code> file</li>
+<li>Check that <code>$HOME/.config/jj/repos/$CONFIG_ID</code> exists</li>
+<li>Validate that the path in <code>$HOME/.config/jj/repos/$CONFIG_ID/metadata.binpb</code>
+   matches the repo's path</li>
+<li>Find the corresponding config in
+   <code>$HOME/.config/jj/repos/$CONFIG_ID/config.toml</code></li>
+<li>Load that config.</li>
+</ol>
+<p>However, these steps can fail. The following sections are how we will handle
+the errors.</p>
+<h4 id="no-config-id-file">No config-ID file<a class="headerlink" href="#no-config-id-file" title="Permanent link">&para;</a></h4>
+<h5 id="without-config-files">Without config files<a class="headerlink" href="#without-config-files" title="Permanent link">&para;</a></h5>
+<p>If <code>$repo/.jj/repo/config.toml</code> does not exist, the repo doesn't have any config,
+and thus requires no config ID.</p>
+<p>Note that the expected way to generate a config-ID would be for the user to either
+run <code>jj config edit</code> or <code>jj config path</code>.</p>
+<h5 id="with-config-files">With config files<a class="headerlink" href="#with-config-files" title="Permanent link">&para;</a></h5>
+<p>If the config file exists, then this corresponds to a legacy repo. To preserve
+backwards compatibility, we will introduce a period of auto-migration. The
+current plan is 12 jj versions (approximately 1 year). During this period, if a
+config ID has not yet been generated, we will silently perform the following
+(order matters, to ensure failure halfway through doesn’t affect things):</p>
+<ol>
+<li>Generate a config ID <code>abc123</code></li>
+<li>Create <code>$HOME/.config/jj/repo/abc123/metadata.binpb</code></li>
+<li>Create <code>$HOME/.config/jj/repo/abc123/config.toml</code> as a copy of the original
+    config file</li>
+<li>Atomically generate a <code>config-id</code> file containing <code>abc123</code></li>
+<li>Remove the original config file</li>
+<li>For the user's convenience, and for older version of jj, we:
+    *   Try to symlink the old config to the new config
+    *   If this fails (symlinks don't play nice on windows), we replace it with
+        the same file content, with an extra comment at the top telling the user
+        not to edit the file, and set it to readonly.</li>
+</ol>
+<p>After the migration period is over, we will:</p>
+<ul>
+<li>Stop the auto-migration</li>
+<li>If the config file was previously created by auto-migration, delete it<ul>
+<li><code>zip</code> follows symlinks by default, so this would reveal the content of your
+  config to an attacker if they convinced you to send them your repo.</li>
+</ul>
 </li>
-<li>
-<p>A top level <code>.gitmodules</code> file. This file is in Git's config syntax and
-  entries take the form <code>submodule.&lt;submodule-name&gt;.*</code>. These include many
-  settings about the submodules, but most importantly:</p>
+<li>If the config file exists, print a warning that the config file has been ignored.</li>
+</ul>
+<h4 id="no-config-directory-for-the-config-id">No config directory for the config-ID<a class="headerlink" href="#no-config-directory-for-the-config-id" title="Permanent link">&para;</a></h4>
+<p>This could occur, for example, if the user created a repository in linux,
+rebooted into windows on the same computer, and attempted to access that repo.</p>
+<p>In this event, the user probably expects their config to be attached to the
+repository, and they expect it to still work on linux, so we will:</p>
 <ul>
-<li>
-<p><code>submodule&lt;submodule-name&gt;.path</code> contains the path from the root of the tree
-  to the <code>gitlink</code> being described.</p>
+<li>Create a new <code>$HOME/.config/jj/repo/$CONFIG_ID</code> directory for the same config
+  ID (to ensure that the config still works on windows)</li>
+<li>Print a warning that if there was any per-repo configuration, it is no longer
+  available.</li>
+</ul>
+<h4 id="distinguishing-copies-from-moves">Distinguishing copies from moves<a class="headerlink" href="#distinguishing-copies-from-moves" title="Permanent link">&para;</a></h4>
+<p>A user's expectation is that if they run <code>cp -r old_repo new_repo</code>, then modify
+the old repo's config, the new repo's config is not affected. Thus, we need to
+make sure that the repo remains in a 1:1 relationship with the config. Multiple
+repos should not point to the same config.</p>
+<p>To achieve this, we point the repo at the config, and the config back at the
+repo. If the path stored in the config doesn't match, we know that something has
+happened. To decide precisely what happened:</p>
+<ul>
+<li>If the path stored in the config no longer exists, we assume it's a move<ul>
+<li>We update <code>metadata.path</code> to point to the new path</li>
+</ul>
 </li>
-<li>
-<p><code>submodule&lt;submodule-name&gt;.url</code> contains the url to clone the submodule
-  from.</p>
-</li>
+<li>Otherwise, we attempt to write to a temporary file in <code>$NEW_REPO/.jj/repo</code>.<ul>
+<li>If it shows up in the original repository, it's some kind of reference
+  (link, mount, etc.), so we don't do anything.</li>
+<li>Otherwise, it's a copy, so we generate a new config ID and copy the old
+  config to it</li>
 </ul>
 </li>
 </ul>
-<p>In the working tree, Git notices the presence of a submodule by the <code>.git</code> entry
-(signifying the root of a Git repository working tree). This is either the
-submodule's actual Git directory (an "old-form" submodule), or a <code>.git</code> file
-pointing to <code>&lt;superproject-git-directory&gt;/modules/&lt;submodule-name&gt;</code>. The latter
-is sometimes called the "absorbed form", and is Git's preferred mode of
-operation.</p>
-<h2 id="roadmap">Roadmap<a class="headerlink" href="#roadmap" title="Permanent link">&para;</a></h2>
-<p>Git submodules should be implemented in an order that supports an increasing set
-of workflows, with the goal of getting feedback early and often. When support is
-incomplete, jj should not crash, but instead provide fallback behavior and warn
-the user where needed.</p>
-<p>The goal is to land good support for pure Jujutsu workspaces, while colocated
-workspaces will be supported when convenient.</p>
-<p>This section should be treated as a set of guidelines, not a strict order of
-work.</p>
-<h3 id="phase-1-readonly-submodules">Phase 1: Readonly submodules<a class="headerlink" href="#phase-1-readonly-submodules" title="Permanent link">&para;</a></h3>
-<p>This includes work that inspects submodule contents but does not create new
-objects in the submodule. This requires a way to store submodules in a jj
-repository that supports readonly operations.</p>
-<h4 id="outcomes">Outcomes<a class="headerlink" href="#outcomes" title="Permanent link">&para;</a></h4>
+<p>Note that with a copy, we only actually copy the config when the user runs a
+<code>jj</code> command. This means that you can end up in a situation where you:</p>
+<ol>
+<li><code>cp -r old_repo new_repo</code></li>
+<li>In <code>old_repo</code>, <code>jj config set --repo</code></li>
+<li>Run a jj command in the copy. This copies the config, including the config
+   from step 2.</li>
+</ol>
+<p>However, this is inherent to storing config out of the repo and is thus
+unavoidable.</p>
+<h3 id="garbage-collection">Garbage collection<a class="headerlink" href="#garbage-collection" title="Permanent link">&para;</a></h3>
+<p>We could, in the future, add a <code>gc</code> command to garbage-collect configs to
+deleted repo configs. However, there are some things to consider before doing
+so:</p>
 <ul>
-<li>Submodules can be cloned anew</li>
-<li>New submodule commits can be fetched</li>
-<li>Submodule history and branches can be viewed</li>
-<li>Submodule contents are populated in the working copy</li>
-<li>Superproject gitlink can be updated to an existing submodule commit</li>
-<li>Conflicts in the superproject gitlink can be resolved to an existing submodule
-  commit</li>
+<li>Each config would likely be very small, so cleaning it up may have limited
+  benefit.</li>
+<li>It is impossible to distinguish "deleted" from "moved".</li>
+<li>If you have something like a chroot or a dual boot where you share the
+  config, you may have references to config IDs with a different path.</li>
 </ul>
-<h3 id="phase-2-snapshotting-new-changes">Phase 2: Snapshotting new changes<a class="headerlink" href="#phase-2-snapshotting-new-changes" title="Permanent link">&para;</a></h3>
-<p>This allows a user to write new contents to a submodule and its remote.</p>
-<h4 id="outcomes_1">Outcomes<a class="headerlink" href="#outcomes_1" title="Permanent link">&para;</a></h4>
+<h3 id="attack-vectors-remaining">Attack vectors remaining<a class="headerlink" href="#attack-vectors-remaining" title="Permanent link">&para;</a></h3>
+<p>Unfortunately, there is no way to distinguish copying / moving from a replay
+attack. The attacker, if they know a config ID that exists on your system, can
+create a repo with the same config ID. However, the fact that the config itself is
+stored out of repo inherently prevents simple replay attacks. In order for the
+attacker to exploit this, they would need to:</p>
 <ul>
-<li>Changes in the working copy can be recorded in a submodule commit</li>
-<li>Submodule branches can be modified</li>
-<li>Submodules and their branches can be pushed to their remote</li>
+<li>Know your config ID (requires uploading a zip file or something similar)</li>
+<li>Get lucky by the victim having a “risky” per-repo config</li>
+<li>Eg. fix.tools pointing to <code>$repo/formatter</code></li>
+<li>Know how to exploit it</li>
+<li>Because your config file is stored out-of-repo, the attacker will likely not
+  know any of this without some social engineering</li>
 </ul>
-<h3 id="phase-3-mergingrebasingconflicts">Phase 3: Merging/rebasing/conflicts<a class="headerlink" href="#phase-3-mergingrebasingconflicts" title="Permanent link">&para;</a></h3>
-<p>This allows merging and rebasing of superproject commits in a content-aware way
-(in contrast to Git, where only the gitlink commit ids are compared), as well as
-workflows that make resolving conflicts easy and sensible.</p>
-<p>This can be done in tandem with Phase 2, but will likely require a significant
-amount of design work on its own.</p>
-<h4 id="outcomes_2">Outcomes<a class="headerlink" href="#outcomes_2" title="Permanent link">&para;</a></h4>
+<p>Given the impossibility of distinguishing copying / moving from a replay attack,
+any security measures we come up with to deal with this would have false positives
+whenever you do a copy / move, creating a significant UX cost. Thus, we
+intentionally choose not to deal with this kind of attack in the initial
+version, and have no current intention to solve it in future versions either.</p>
+<p>We could potentially deal with this attack vector as an opt-in feature in the
+future, but it has dubious benefit, as the kind of user who would opt in to
+something like this is also the kind of user who would never upload their repo
+as a zip file.</p>
+<p>Because only the config-id is stored in-repo, the only attack vector remaining
+is the replay attack I mentioned above.</p>
+<h3 id="ux-issues">UX issues<a class="headerlink" href="#ux-issues" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Merged/rebased submodules result in merged/rebased working copy content</li>
-<li>Merged/rebased working copy content can be committed, possibly by creating
-  sensible merged/rebased submodule commits</li>
-<li>Merge/rebase between submodule and non-submodule gives a sensible result</li>
-<li>Merge/rebase between submodule A and submodule B gives a sensible result</li>
+<li>Copying the repo is essentially a symlink to an old config until you update
+    it</li>
+<li>Multiple users on the same system would each have different per-repo configs
+    *   This can be solved by simply symlinking <code>$HOME/.config/jj</code> to
+        <code>%APPDATA%/jj</code> (or vice versa) to solve this issue. You were probably
+        doing this anyway with specifically the user config file instead of the
+        directory.</li>
+<li>The repo config will no longer be available across machines if the user is
+    using something like a distributed file system. This is probably OK, since
+    if the user has a complex setup like this, they will also have issues with
+    the config of every other application not being shared, and could easily
+    solve this by sharing <code>~/.config</code>.</li>
 </ul>
-<h3 id="phase-an-ideal-world">Phase ?: An ideal world<a class="headerlink" href="#phase-an-ideal-world" title="Permanent link">&para;</a></h3>
-<p>I.e. outcomes we would like to see if there were no constraints whatsoever.</p>
+<h2 id="alternatives-considered">Alternatives considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
+<h3 id="store-the-configs-in-repo-with-an-untamperable-cryptographic-signature">Store the configs in-repo with an untamperable cryptographic signature<a class="headerlink" href="#store-the-configs-in-repo-with-an-untamperable-cryptographic-signature" title="Permanent link">&para;</a></h3>
+<p>There are a few questions we would need to resolve here, all with significant
+drawbacks:</p>
+<h5 id="do-we-include-paths-in-the-signature">Do we include paths in the signature?<a class="headerlink" href="#do-we-include-paths-in-the-signature" title="Permanent link">&para;</a></h5>
+<p>If we do, we introduce a whole bunch of additional annoying UX to the user when
+they move repos around.</p>
+<p>If we don't, we leave ourselved exposed to additional attack vectors</p>
+<h5 id="how-to-sign-the-content-of-the-repo-config">How to sign the content of the repo config?<a class="headerlink" href="#how-to-sign-the-content-of-the-repo-config" title="Permanent link">&para;</a></h5>
 <ul>
-<li>Rewriting submodule commits rewrites descendants correctly and updates
-  superproject gitlinks.</li>
-<li>Submodule conflicts automatically resolve to the 'correct' submodule commits,
-  e.g. a merge between superproject commits creating a merge of the submodule
-  commits.</li>
-<li>Nested submodules are as easy to work with as non-nested submodules.</li>
-<li>The operation log captures changes in the submodule.</li>
+<li>We could not sign it at all, but that would leave ourselves exposed to
+    additional attack vectors.</li>
+<li>We could sign the content of the repo config, but then when the user
+    manually edits the file we have additional UX we need to introduce.</li>
+<li>We could store both the content and the signature in the repo protobuf, but
+    the config would no longer exist on disk as a regular file, and thus you
+    couldn't use standard tools to read and write the config.</li>
 </ul>
-<h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link">&para;</a></h2>
-<h3 id="guiding-principles">Guiding principles<a class="headerlink" href="#guiding-principles" title="Permanent link">&para;</a></h3>
-<p>TODO</p>
-<h3 id="storing-submodules">Storing submodules<a class="headerlink" href="#storing-submodules" title="Permanent link">&para;</a></h3>
-<p>Possible approaches under discussion. See
-<a href="../git-submodule-storage/">./git-submodule-storage.md</a>.</p>
-<h3 id="snapshotting-new-submodule-changes">Snapshotting new submodule changes<a class="headerlink" href="#snapshotting-new-submodule-changes" title="Permanent link">&para;</a></h3>
-<p>TODO</p>
-<h3 id="mergingrebasing-with-submodules">Merging/rebasing with submodules<a class="headerlink" href="#mergingrebasing-with-submodules" title="Permanent link">&para;</a></h3>
-<p>TODO</p>
+<p>All of these options were discussed in the original PR (#7761), which, unlike
+the current approach, introduced user interventions and a review process. The
+current approach, on the other hand, while it does have some extremely minor UX
+weirdness, has no such issues.</p>
 
 
 
