@@ -51,6 +51,23 @@ fn test_annotate_linear() {
 }
 
 #[test]
+fn test_annotate_directory() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("dir/file.txt", "");
+
+    let output = work_dir.run_jj(["file", "annotate", "dir"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Path exists but is not a regular file: dir
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_annotate_merge() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
