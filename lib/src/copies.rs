@@ -101,6 +101,7 @@ pub enum CopyOperation {
 }
 
 /// A `TreeDiffEntry` with copy information.
+#[derive(Debug)]
 pub struct CopiesTreeDiffEntry {
     /// The path.
     pub path: CopiesTreeDiffEntryPath,

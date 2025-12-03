@@ -327,6 +327,7 @@ impl<'repo> CommitRewriter<'repo> {
     }
 }
 
+#[derive(Debug)]
 pub enum RebasedCommit {
     Rewritten(Commit),
     Abandoned { parent_id: CommitId },
@@ -426,6 +427,7 @@ pub struct RewriteRefsOptions {
     pub delete_abandoned_bookmarks: bool,
 }
 
+#[derive(Debug)]
 pub struct MoveCommitsStats {
     /// The number of commits in the target set which were rebased.
     pub num_rebased_targets: u32,
@@ -861,7 +863,7 @@ fn apply_move_commits(
     })
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct DuplicateCommitsStats {
     /// Map of original commit ID to newly duplicated commit.
     pub duplicated_commits: IndexMap<CommitId, Commit>,
@@ -1123,6 +1125,7 @@ fn compute_commits_heads(
         .collect_vec()
 }
 
+#[derive(Debug)]
 pub struct CommitWithSelection {
     pub commit: Commit,
     pub selected_tree: MergedTree,

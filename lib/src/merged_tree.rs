@@ -267,6 +267,7 @@ impl MergedTree {
 }
 
 /// A single entry in a tree diff.
+#[derive(Debug)]
 pub struct TreeDiffEntry {
     /// The path.
     pub path: RepoPathBuf,
@@ -891,6 +892,7 @@ impl Stream for DiffStreamForFileSystem<'_> {
 /// You start by creating an instance of this type with one or more
 /// base trees. You then add overrides on top. The overrides may be
 /// conflicts. Then you can write the result as a merge of trees.
+#[derive(Debug)]
 pub struct MergedTreeBuilder {
     base_tree: MergedTree,
     overrides: BTreeMap<RepoPathBuf, MergedTreeValue>,
