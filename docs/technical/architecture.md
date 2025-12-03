@@ -71,8 +71,9 @@ renamed to `CommitBackend`.
 
 ### GitBackend
 
-The `GitBackend` stores commits in a Git repository. It uses `libgit2` to read
-and write commits and refs.
+The `GitBackend` stores commits in a Git repository. It uses
+[`gitoxide`](https://github.com/GitoxideLabs/gitoxide) to read and write commits
+and refs.
 
 To prevent GC from deleting commits that are still reachable from the operation
 log, the `GitBackend` stores a ref for each commit in the operation log in
