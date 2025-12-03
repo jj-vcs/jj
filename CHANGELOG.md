@@ -62,22 +62,22 @@ should not be broken.
 * The config options `git.auto-local-bookmark` and `git.push-new-bookmarks` are
   deprecated in favor of `remotes.<name>.auto-track-bookmarks`. For example:
   ```toml
-  [remote.origin]
+  [remotes.origin]
   auto-track-bookmarks = "glob:*"
   ```
-  For more details, refer to [the docs](
-  docs/config/#automatic-tracking-of-bookmarks).
+  For more details, refer to
+  [the docs](docs/config.md#automatic-tracking-of-bookmarks).
 
 * The flag `--allow-new` on `jj git push` is deprecated. In order to push new
   bookmarks, please track them with `jj bookmark track`. Alternatively, consider
   setting up an auto-tracking configuration to avoid the chore of tracking
   bookmarks manually. For example:
   ```toml
-  [remote.origin]
+  [remotes.origin]
   auto-track-bookmarks = "glob:*"
   ```
-  For more details, refer to [the docs](
-  docs/config/#automatic-tracking-of-bookmarks).
+  For more details, refer to
+  [the docs](docs/config.md#automatic-tracking-of-bookmarks).
 
 ### New features
 
@@ -103,8 +103,9 @@ should not be broken.
   children.
 
 * A new config option `remotes.<name>.auto-track-bookmarks` can be set to a
-  pattern. New bookmarks matching it will automatically track that remote.
-  See <https://jj-vcs.github.io/jj/latest/config/#automatic-tracking-of-bookmarks>.
+  string pattern. New bookmarks matching it will be automatically tracked for
+  the specified remote. See
+  [the docs](docs/config.md#automatic-tracking-of-bookmarks).
 
 * Added `join()` template function. This is different from `separate()` in that
   it adds a separator between all arguments, even if empty.
