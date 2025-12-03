@@ -2260,8 +2260,9 @@ and <code>SimpleBackend</code>.</p>
 <p>Since there are non-commit backends, the <code>Backend</code> trait should probably be
 renamed to <code>CommitBackend</code>.</p>
 <h3 id="gitbackend">GitBackend<a class="headerlink" href="#gitbackend" title="Permanent link">&para;</a></h3>
-<p>The <code>GitBackend</code> stores commits in a Git repository. It uses <code>libgit2</code> to read
-and write commits and refs.</p>
+<p>The <code>GitBackend</code> stores commits in a Git repository. It uses
+<a href="https://github.com/GitoxideLabs/gitoxide"><code>gitoxide</code></a> to read and write commits
+and refs.</p>
 <p>To prevent GC from deleting commits that are still reachable from the operation
 log, the <code>GitBackend</code> stores a ref for each commit in the operation log in
 the <code>refs/jj/keep/</code> namespace.</p>
