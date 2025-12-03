@@ -4889,45 +4889,54 @@ This is not a hard limitation, and could be changed in the future if there is
 demand.</p>
 <h3 id="automatic-tracking-of-bookmarks">Automatic tracking of bookmarks<a class="headerlink" href="#automatic-tracking-of-bookmarks" title="Permanent link">&para;</a></h3>
 <p>You can configure which bookmarks to track automatically per remote, using the
-key <code>auto-track-bookmarks</code> under a section <code>[remotes.&lt;name&gt;]</code>. The value is a
-<a href="../revsets/#string-patterns">string pattern</a> for the bookmarks to track. This
-setting is applied to all new bookmarks, including ones created locally and ones
-fetched from the remote. For example:</p>
-<div class="highlight"><pre><span></span><code><span class="k">[remote.origin]</span>
+<code>remotes.&lt;name&gt;.auto-track-bookmarks</code> config. The value is a
+<a href="../revsets/#string-patterns">string pattern</a> that matches the names of the
+bookmarks to track. This setting is applied to all new bookmarks, including ones
+created locally and ones fetched from the remote. For example:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[remotes.origin]</span>
 <span class="n">auto-track-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;glob:*&quot;</span>
 </code></pre></div>
 <p>This will simply track all bookmarks for the remote "origin". There are various
 reasons to restrict which bookmarks to track:</p>
+<ul>
+<li>
 <p>When collaborating with other people via the same remote, you may not want to
-track all the bookmarks of your collaborators. Similarly, you may not want to
-push some of your bookmarks to the remote at all. Some may only be intended
-for local use. Many people use a "personal prefix" in their bookmark names.
-This marks a bookmark as belonging to one person, making it possible to track
-and push only bookmarks with that prefix. For example, Alice may set her
-configuration like so:</p>
-<div class="highlight"><pre><span></span><code><span class="k">[remote.origin]</span>
+  track all the bookmarks of your collaborators. Similarly, you may not want to
+  push some of your bookmarks to the remote at all; these may only be intended
+  for local use. Many people use a "personal prefix" in their bookmark names.
+  This marks a bookmark as belonging to one person, making it possible to track
+  and push only bookmarks with that prefix. For example, Alice may set her
+  configuration like so:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[remotes.origin]</span>
 <span class="n">auto-track-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;glob:alice/*&quot;</span>
 </code></pre></div>
-<p>That way, bookmarks pushed by other people (who probably use a different prefix
-or none at all) are not tracked automatically. At the same time, Alice can
-create bookmarks without the prefix for local-only use. You can also configure
-Jujutsu to use your prefix for generated bookmark names, see the section
+<p>That way, bookmarks pushed by other people (who probably use a different
+prefix or none at all) are not tracked automatically. At the same time, Alice
+can create bookmarks without the prefix for local-only use. You can also
+configure Jujutsu to use your prefix for generated bookmark names; see the
+section
 <a href="#generated-bookmark-names-on-push">"Generated bookmark names on push"</a>.</p>
+</li>
+<li>
 <p>Another reason to restrict the bookmarks to track may be that you're not
-collaborating with people using the same remote, but a different one. For
-example, if you make a fork on GitHub, your fork will usually be called
-"origin", while the repository you forked from is usually called "upstream".
-In that case, you may want to track all bookmarks from your fork, but only the
-"main" bookmark from upstream. Here's an example how to achieve that:</p>
-<div class="highlight"><pre><span></span><code><span class="k">[remote.origin]</span>
+  collaborating with people using the same remote, but a different one. For
+  example, if you make a fork on GitHub, your fork will usually be called
+  "origin", while the repository you forked from is usually called "upstream".
+  In that case, you may want to track all bookmarks from your fork, but only the
+  "main" bookmark from upstream. Here's an example how to achieve that:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[remotes.origin]</span>
 <span class="n">auto-track-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;glob:*&quot;</span>
-<span class="k">[remote.upstream]</span>
+<span class="k">[remotes.upstream]</span>
 <span class="n">auto-track-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;main&quot;</span>
 </code></pre></div>
+</li>
+<li>
 <p>Lastly, you may be working on various projects with different conventions for
-bookmark names. In that case, it can be handy to apply different configuration
-to different (groups of) repositories. Read about how to do that in the section
-<a href="conditional-variables">"Conditional variables"</a>.</p>
+  bookmark names. In that case, it can be handy to apply different configuration
+  to different (groups of) repositories. Read about how to do that in the
+  section <a href="#conditional-variables">"Conditional variables"</a>.</p>
+</li>
+</ul>
 <h3 id="automatic-local-bookmark-creation-on-jj-git-clone">Automatic local bookmark creation on <code>jj git clone</code><a class="headerlink" href="#automatic-local-bookmark-creation-on-jj-git-clone" title="Permanent link">&para;</a></h3>
 <p>When cloning a new Git repository, <code>jj</code> by default creates a local bookmark
 tracking the default remote bookmark (such as <code>main</code> for <code>main@origin</code>.) If you
