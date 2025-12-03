@@ -42,6 +42,7 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::commands::git::FetchTagsMode;
 use crate::commands::git::maybe_add_gitignore;
+use crate::config::ConfigEnv;
 use crate::git_util::absolute_git_url;
 use crate::git_util::load_git_import_options;
 use crate::git_util::print_git_import_stats;
@@ -183,7 +184,8 @@ pub fn cmd_git_clone(
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
     let clone_result = (|| -> Result<_, CommandError> {
-        let workspace_command = init_workspace(ui, command, &canonical_wc_path, colocate)?;
+        let (workspace_command, config_env) =
+            init_workspace(ui, command, &canonical_wc_path, colocate)?;
         let mut workspace_command = configure_remote(
             ui,
             command,
@@ -205,7 +207,7 @@ pub fn cmd_git_clone(
             args.depth,
             args.fetch_tags,
         )?;
-        Ok((workspace_command, default_branch))
+        Ok((workspace_command, default_branch, config_env))
     })();
     if clone_result.is_err() {
         let clean_up_dirs = || -> io::Result<()> {
@@ -233,12 +235,12 @@ pub fn cmd_git_clone(
         }
     }
 
-    let (mut workspace_command, (working_branch, working_is_default)) = clone_result?;
+    let (mut workspace_command, (working_branch, working_is_default), config_env) = clone_result?;
 
     if let Some(name) = &working_branch {
         let working_symbol = name.to_remote_symbol(remote_name);
         if working_is_default {
-            write_repository_level_trunk_alias(ui, workspace_command.repo_path(), working_symbol)?;
+            write_repository_level_trunk_alias(ui, &config_env, working_symbol)?;
         }
         let working_branch_remote_ref = workspace_command
             .repo()
@@ -271,8 +273,8 @@ fn init_workspace(
     command: &CommandHelper,
     wc_path: &Path,
     colocate: bool,
-) -> Result<WorkspaceCommandHelper, CommandError> {
-    let settings = command.settings_for_new_workspace(wc_path)?;
+) -> Result<(WorkspaceCommandHelper, ConfigEnv), CommandError> {
+    let (settings, config_env) = command.settings_for_new_workspace(ui, wc_path)?;
     let (workspace, repo) = if colocate {
         Workspace::init_colocated_git(&settings, wc_path)?
     } else {
@@ -280,7 +282,7 @@ fn init_workspace(
     };
     let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
     maybe_add_gitignore(&workspace_command)?;
-    Ok(workspace_command)
+    Ok((workspace_command, config_env))
 }
 
 fn configure_remote(

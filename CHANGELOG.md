@@ -105,6 +105,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj workspace forget` now warns about unknown workspaces instead of failing.
 
+* Per-repo and per-workspace config is now stored outside the repo, for security
+  reasons. This is not a breaking change because we automatically migrate
+  legacy repos to this new format. `.jj/repo/config.toml` and
+  `.jj/workspace-config.toml` should no longer be used.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

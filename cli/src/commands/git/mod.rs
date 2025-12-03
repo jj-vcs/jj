@@ -23,7 +23,6 @@ mod remote;
 mod root;
 
 use std::io::Write as _;
-use std::path::Path;
 
 use clap::Subcommand;
 use clap::ValueEnum;
@@ -58,6 +57,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error_with_message;
+use crate::config::ConfigEnv;
 use crate::ui::Ui;
 
 /// Commands for working with Git remotes and the underlying Git repo
@@ -128,10 +128,16 @@ fn get_single_remote(store: &Store) -> Result<Option<RemoteNameBuf>, UnexpectedG
 /// Sets repository level `trunk()` alias to the specified remote symbol.
 fn write_repository_level_trunk_alias(
     ui: &Ui,
-    repo_path: &Path,
+    config_env: &ConfigEnv,
     symbol: RemoteRefSymbol<'_>,
 ) -> Result<(), CommandError> {
-    let mut file = ConfigFile::load_or_empty(ConfigSource::Repo, repo_path.join("config.toml"))?;
+    let config_path = if let Some(path) = config_env.repo_config_path(ui)? {
+        path
+    } else {
+        // We couldn't find the user's home directory, so we skip this step.
+        return Ok(());
+    };
+    let mut file = ConfigFile::load_or_empty(ConfigSource::Repo, config_path)?;
     file.set_value(["revset-aliases", "trunk()"], symbol.to_string())
         .expect("initial repo config shouldn't have invalid values");
     file.save()?;
