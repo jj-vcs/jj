@@ -8,6 +8,9 @@ pub mod git_store {
 pub mod local_working_copy {
     include!("local_working_copy.rs");
 }
+pub mod secure_config {
+    include!("secure_config.rs");
+}
 pub mod simple_op_store {
     include!("simple_op_store.rs");
 }

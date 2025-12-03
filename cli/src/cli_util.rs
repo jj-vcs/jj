@@ -355,7 +355,7 @@ impl CommandHelper {
     ///
     /// This may be different from the settings for new workspace created by
     /// e.g. `jj git init`. There may be conditional variables and repo config
-    /// `.jj/repo/config.toml` loaded for the cwd workspace.
+    /// loaded for the cwd workspace.
     pub fn settings(&self) -> &UserSettings {
         &self.data.settings
     }
@@ -363,19 +363,20 @@ impl CommandHelper {
     /// Resolves configuration for new workspace located at the specified path.
     pub fn settings_for_new_workspace(
         &self,
+        ui: &Ui,
         workspace_root: &Path,
-    ) -> Result<UserSettings, CommandError> {
+    ) -> Result<(UserSettings, ConfigEnv), CommandError> {
         let mut config_env = self.data.config_env.clone();
         let mut raw_config = self.data.raw_config.clone();
         let repo_path = workspace_root.join(".jj").join("repo");
         config_env.reset_repo_path(&repo_path);
-        config_env.reload_repo_config(&mut raw_config)?;
+        config_env.reload_repo_config(ui, &mut raw_config)?;
         config_env.reset_workspace_path(workspace_root);
-        config_env.reload_workspace_config(&mut raw_config)?;
+        config_env.reload_workspace_config(ui, &mut raw_config)?;
         let mut config = config_env.resolve_config(&raw_config)?;
         // No migration messages here, which would usually be emitted before.
         jj_lib::config::migrate(&mut config, &self.data.config_migrations)?;
-        Ok(self.data.settings.with_new_config(config)?)
+        Ok((self.data.settings.with_new_config(config)?, config_env))
     }
 
     /// Loads text editor from the settings.
@@ -4040,9 +4041,9 @@ impl<'a> CliRunner<'a> {
         config_env.reload_user_config(&mut raw_config)?;
         if let Ok(loader) = &maybe_cwd_workspace_loader {
             config_env.reset_repo_path(loader.repo_path());
-            config_env.reload_repo_config(&mut raw_config)?;
+            config_env.reload_repo_config(ui, &mut raw_config)?;
             config_env.reset_workspace_path(loader.workspace_root());
-            config_env.reload_workspace_config(&mut raw_config)?;
+            config_env.reload_workspace_config(ui, &mut raw_config)?;
         }
         let mut config = config_env.resolve_config(&raw_config)?;
         migrate_config(&mut config)?;
@@ -4086,9 +4087,9 @@ impl<'a> CliRunner<'a> {
                 .create(&abs_path)
                 .map_err(|err| map_workspace_load_error(err, Some(path)))?;
             config_env.reset_repo_path(loader.repo_path());
-            config_env.reload_repo_config(&mut raw_config)?;
+            config_env.reload_repo_config(ui, &mut raw_config)?;
             config_env.reset_workspace_path(loader.workspace_root());
-            config_env.reload_workspace_config(&mut raw_config)?;
+            config_env.reload_workspace_config(ui, &mut raw_config)?;
             Ok(loader)
         } else {
             maybe_cwd_workspace_loader

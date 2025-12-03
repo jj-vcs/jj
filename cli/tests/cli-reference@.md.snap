@@ -757,6 +757,8 @@ Print the paths to the config files
 
 A config file at that path may or may not exist.
 
+If `--repo` or `--workspace` is specified and the config file does not exist, jj will generate a new config directory for this repo/workspace and print the path to the config file in that directory.
+
 See `jj config edit` if you'd like to immediately edit a file.
 
 **Usage:** `jj config path <--user|--repo|--workspace>`

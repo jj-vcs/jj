@@ -19,7 +19,7 @@ mod path;
 mod set;
 mod unset;
 
-use std::path::Path;
+use std::path::PathBuf;
 
 use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
@@ -73,21 +73,24 @@ impl ConfigLevelArgs {
         }
     }
 
-    fn config_paths<'a>(&self, config_env: &'a ConfigEnv) -> Result<Vec<&'a Path>, CommandError> {
+    fn config_paths(&self, ui: &Ui, config_env: &ConfigEnv) -> Result<Vec<PathBuf>, CommandError> {
         if self.user {
-            let paths = config_env.user_config_paths().collect_vec();
+            let paths = config_env
+                .user_config_paths()
+                .map(|p| p.to_path_buf())
+                .collect_vec();
             if paths.is_empty() {
                 return Err(user_error("No user config path found"));
             }
             Ok(paths)
         } else if self.repo {
             config_env
-                .repo_config_path()
+                .repo_config_path(ui)?
                 .map(|p| vec![p])
                 .ok_or_else(|| user_error("No repo config path found"))
         } else if self.workspace {
             config_env
-                .workspace_config_path()
+                .workspace_config_path(ui)?
                 .map(|p| vec![p])
                 .ok_or_else(|| user_error("No workspace config path found"))
         } else {
@@ -124,12 +127,12 @@ impl ConfigLevelArgs {
             )
         } else if self.repo {
             pick_one(
-                config_env.repo_config_files(config)?,
+                config_env.repo_config_files(ui, config)?,
                 "No repo config path found to edit",
             )
         } else if self.workspace {
             pick_one(
-                config_env.workspace_config_files(config)?,
+                config_env.workspace_config_files(ui, config)?,
                 "No workspace config path found to edit",
             )
         } else {

@@ -52,6 +52,7 @@ use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetParseErrorKind;
 use jj_lib::revset::RevsetResolutionError;
+use jj_lib::secure_config::SecureConfigError;
 use jj_lib::str_util::StringPatternParseError;
 use jj_lib::trailer::TrailerParseError;
 use jj_lib::transaction::TransactionCommitError;
@@ -763,6 +764,12 @@ impl From<BisectionError> for CommandError {
         match err {
             BisectionError::RevsetEvaluationError(_) => user_error(err),
         }
+    }
+}
+
+impl From<SecureConfigError> for CommandError {
+    fn from(err: SecureConfigError) -> Self {
+        internal_error_with_message("Failed to determine the secure config for a repo", err)
     }
 }
 

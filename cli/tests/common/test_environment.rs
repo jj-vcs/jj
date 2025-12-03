@@ -138,6 +138,8 @@ impl TestEnvironment {
             // https://doc.rust-lang.org/stable/std/env/fn.temp_dir.html
             cmd.env("TMPDIR", &self.tmp_dir);
         } else {
+            // Ensure that our tests don't write to the real %APPDATA%.
+            cmd.env("APPDATA", self.home_dir.join(".config"));
             // On Windows, "/tmp" mounted in Git Bash appears to be leaked to
             // other Git Bash processes running concurrently, so the TEMP path
             // has to be stable.

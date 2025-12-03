@@ -29,8 +29,9 @@ $ jj git remote add gerrit https://review.gerrithub.io/yourname/yourproject
 $ jj git clone https://review.gerrithub.io/your/project
 ```
 
-If you used option 2 You can configure default values in your repository config
-by appending the below to `.jj/repo/config.toml`, like so:
+If you used option 2, you can configure default values in your repository config
+by appending the following lines to your config file, like so (to do this for
+a specific repo, run `jj config edit --repo`):
 
 ```toml
 [gerrit]

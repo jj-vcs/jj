@@ -31,7 +31,6 @@ use jj_lib::workspace::Workspace;
 
 use super::write_repository_level_trunk_alias;
 use crate::cli_util::CommandHelper;
-use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::start_repo_transaction;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
@@ -39,6 +38,7 @@ use crate::command_error::internal_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
 use crate::commands::git::maybe_add_gitignore;
+use crate::config::ConfigEnv;
 use crate::formatter::FormatterExt as _;
 use crate::git_util::is_colocated_git_workspace;
 use crate::git_util::load_git_import_options;
@@ -185,7 +185,7 @@ fn do_init(
         GitInitMode::Internal
     };
 
-    let settings = command.settings_for_new_workspace(workspace_root)?;
+    let (settings, config_env) = command.settings_for_new_workspace(ui, workspace_root)?;
     match &init_mode {
         GitInitMode::Colocate => {
             let (workspace, repo) = Workspace::init_colocated_git(&settings, workspace_root)?;
@@ -202,7 +202,11 @@ fn do_init(
             let mut workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
             workspace_command.maybe_snapshot(ui)?;
-            maybe_set_repository_level_trunk_alias(ui, &workspace_command)?;
+            maybe_set_repository_level_trunk_alias(
+                ui,
+                &git::get_git_repo(workspace_command.repo().store())?,
+                &config_env,
+            )?;
             if !workspace_command.working_copy_shared_with_git() {
                 let mut tx = workspace_command.start_transaction();
                 jj_lib::git::import_head(tx.repo_mut())?;
@@ -264,10 +268,9 @@ fn init_git_refs(
 // Checks "upstream" first, then "origin" as fallback.
 pub fn maybe_set_repository_level_trunk_alias(
     ui: &Ui,
-    workspace_command: &WorkspaceCommandHelper,
+    git_repo: &gix::Repository,
+    config_env: &ConfigEnv,
 ) -> Result<(), CommandError> {
-    let git_repo = git::get_git_repo(workspace_command.repo().store())?;
-
     // Try "upstream" first, then fall back to "origin"
     for remote in ["upstream", "origin"] {
         let ref_name = format!("refs/remotes/{remote}/HEAD");
@@ -287,7 +290,7 @@ pub fn maybe_set_repository_level_trunk_alias(
             {
                 // TODO: Can we assume the symbolic target points to the same remote?
                 let symbol = symbol.name.to_remote_symbol(remote.as_ref());
-                write_repository_level_trunk_alias(ui, workspace_command.repo_path(), symbol)?;
+                write_repository_level_trunk_alias(ui, config_env, symbol)?;
             }
             return Ok(());
         }

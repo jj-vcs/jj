@@ -20,6 +20,7 @@ fn main() -> Result<()> {
         "default_index.proto",
         "git_store.proto",
         "local_working_copy.proto",
+        "secure_config.proto",
         "simple_op_store.proto",
         "simple_store.proto",
     ];

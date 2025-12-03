@@ -1191,9 +1191,9 @@ fn test_default_revset_per_repo() {
 
     work_dir.write_file("file1", "foo\n");
     work_dir.run_jj(["describe", "-m", "add a file"]).success();
-
-    // Set configuration to only show the root commit.
-    work_dir.write_file(".jj/repo/config.toml", r#"revsets.log = "root()""#);
+    work_dir
+        .run_jj(["config", "set", "--repo", "revsets.log", "root()"])
+        .success();
 
     // Log should only contain one line (for the root commit), and not show the
     // commit created above.

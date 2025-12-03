@@ -90,6 +90,7 @@ mod revset_parser;
 pub mod rewrite;
 #[cfg(feature = "testing")]
 pub mod secret_backend;
+pub mod secure_config;
 pub mod settings;
 pub mod signing;
 pub mod tree_merge;
