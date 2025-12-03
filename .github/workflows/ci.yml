@@ -24,21 +24,27 @@ jobs:
         - build: linux-x86_64-gnu
           os: ubuntu-24.04
           cargo_flags: "--all-features"
+          extra_targets: ""
         - build: linux-aarch64-gnu
           os: ubuntu-24.04-arm
           cargo_flags: "--all-features"
+          extra_targets: ""
         - build: macos-x86_64
           os: macos-15
-          cargo_flags: ""
+          cargo_flags: "--target x86_64-apple-darwin"
+          extra_targets: "x86_64-apple-darwin"
         - build: macos-aarch64
           os: macos-15
           cargo_flags: ""
+          extra_targets: ""
         - build: windows-x86_64
           os: windows-2022
           cargo_flags: ""
+          extra_targets: ""
         - build: windows-aarch64
           os: windows-11-arm
           cargo_flags: ""
+          extra_targets: ""
     runs-on: ${{ matrix.os }}
 
     # TODO FIXME (aseipp): keep the timeout limit to ~20 minutes. this is long
@@ -69,6 +75,8 @@ jobs:
       uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
       with:
         toolchain: 1.89
+        # comma-separated list of extra targets to install
+        targets: ${{ matrix.extra_targets }}
     - uses: taiki-e/install-action@3575e532701a5fc614b0c842e4119af4cc5fd16d
       with:
         tool: nextest
