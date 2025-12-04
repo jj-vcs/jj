@@ -382,8 +382,9 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
                 assert!(metadata.is_dir(), "{path:?} should be a directory");
             }
             Kind::GitSubmodule => {
-                // Not supported for now
-                assert!(maybe_metadata.is_err(), "{path:?} should not exist");
+                assert!(maybe_metadata.is_ok(), "{path:?} should exist");
+                let metadata = maybe_metadata.unwrap();
+                assert!(metadata.is_dir(), "{path:?} should be a directory");
             }
         }
     }
@@ -1784,8 +1785,6 @@ fn test_git_submodule(gitignore_content: &str) {
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
 
-    std::fs::create_dir(submodule_path.to_fs_path_unchecked(&workspace_root)).unwrap();
-
     testutils::write_working_copy_file(
         &workspace_root,
         added_submodule_path,
@@ -1831,6 +1830,35 @@ fn test_git_submodule(gitignore_content: &str) {
         .check_out(repo.op_id().clone(), None, &store.root_commit())
         .unwrap();
     assert_eq!(stats.skipped_files, 1);
+
+    // Start with an empty submodule directory and check out a commit without
+    // the submodule
+    let ws = &mut test_workspace.workspace;
+    ws.check_out(repo.op_id().clone(), None, &commit1)
+        .unwrap();
+    std::fs::remove_file(added_submodule_path.to_fs_path_unchecked(&workspace_root)).unwrap();
+    let ws = &mut test_workspace.workspace;
+    ws.check_out(repo.op_id().clone(), None, &store.root_commit())
+        .unwrap();
+
+    // Check that the empty submodule directory was removed
+    let submodule_dir = submodule_path.to_fs_path_unchecked(&workspace_root);
+    assert!(
+        submodule_dir.metadata().is_err(),
+        "{submodule_dir:?} should not exist"
+    );
+
+    // Go back to a commit with the submodule
+    let ws = &mut test_workspace.workspace;
+    ws.check_out(repo.op_id().clone(), None, &commit2)
+        .unwrap();
+
+    // Check that the empty submodule directory was created
+    let submodule_dir = submodule_path.to_fs_path_unchecked(&workspace_root);
+    assert!(
+        submodule_dir.metadata().is_ok(),
+        "{submodule_dir:?} should exist"
+    );
 }
 
 #[test]
