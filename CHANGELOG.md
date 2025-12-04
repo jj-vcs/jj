@@ -45,6 +45,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Improved performance for snapshotting, visibly improving `jj status`
   speed for large repositories.
 
+* Pre-existing Git submodule directories are no longer considered conflicts in
+  checkouts. [#8065](https://github.com/jj-vcs/jj/issues/8065).
+
 ## [0.40.0] - 2026-04-01
 
 ### Release highlights
