@@ -8,11 +8,34 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-The documentation has moved from <https://jj-vcs.github.io/jj/> to
-<https://docs.jj-vcs.dev/>.
+### Breaking changes
 
-301 redirects are being issued towards the new domain, so any existing links
-should not be broken.
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.36.0] - 2025-12-03
+
+### Release highlights
+
+* The documentation has moved from <https://jj-vcs.github.io/jj/> to
+  <https://docs.jj-vcs.dev/>.
+
+  301 redirects are being issued towards the new domain, so any existing links
+  should not be broken.
+
+* Fixed race condition that could cause divergent operations when running
+  concurrent `jj` commands in colocated repositories. It is now safe to
+  continuously run e.g. `jj log` without `--ignore-working-copy` in one
+  terminal while you're running other commands in another terminal.
+  [#6830](https://github.com/jj-vcs/jj/issues/6830)
+
+* `jj` now ignores `$PAGER` set in the environment and uses `less -FRX` on most
+  platforms (`:builtin` on Windows). See [the docs](docs/config.md#pager) for
+  more information, and [#3502](https://github.com/jj-vcs/jj/issues/3502) for
+  motivation.
 
 ### Breaking changes
 
@@ -37,11 +60,6 @@ should not be broken.
 * Upgraded `scm-record` from v0.8.0 to v0.9.0. See release notes at
   <https://github.com/arxanas/scm-record/releases/tag/v0.9.0>.
 
-* `jj` now ignores `$PAGER` set in the environment and uses `less -FRX` on most
-  platforms (`:builtin` on Windows). See [the docs](docs/config.md#pager) for
-  more information, and [#3502](https://github.com/jj-vcs/jj/issues/3502) for
-  motivation.
-
 * The minimum supported Rust version (MSRV) is now 1.89.
 
 * On macOS, the deprecated config directory `~/Library/Application Support/jj`
@@ -49,14 +67,16 @@ should not be broken.
   `~/.config/jj`).
 
 * Sub-repos are no longer tracked. Any directory containing `.jj` or `.git`
-  is ignored. Note that git submodules are unaffected by this.
+  is ignored. Note that Git submodules are unaffected by this.
 
 ### Deprecations
 
 * The `--destination`/`-d` arguments for `jj rebase`, `jj split`, `jj revert`,
-  etc. were renamed to `--onto`/`-o`. The old names will be removed at some
-  point in the future, but we realize that they are deep in muscle memory, so
-  you can expect an unusually long deprecation period.
+  etc. were renamed to `--onto`/`-o`. The reasoning is that `--onto`,
+  `--insert-before`, and `--insert-after` are all destination arguments, so
+  calling one of them `--destination` was confusing and unclear. The old names
+  will be removed at some point in the future, but we realize that they are
+  deep in muscle memory, so you can expect an unusually long deprecation period.
 
 * `jj describe --edit` is deprecated in favor of `--editor`.
 
@@ -89,6 +109,12 @@ should not be broken.
 * All `jj` commands show a warning when the provided `fileset` expression
   doesn't match any files.
 
+* Added `files()` template function to `DiffStats`. This supports per-file stats
+  like `lines_added()` and `lines_removed()`
+
+* Added `join()` template function. This is different from `separate()` in that
+  it adds a separator between all arguments, even if empty.
+
 * `RepoPath` template type now has a `absolute() -> String` method that returns
   the absolute path as a string.
 
@@ -108,14 +134,8 @@ should not be broken.
   the specified remote. See
   [the docs](docs/config.md#automatic-tracking-of-bookmarks).
 
-* Added `join()` template function. This is different from `separate()` in that
-  it adds a separator between all arguments, even if empty.
-
 * `jj log` now supports a `--count` flag to print the number of commits instead
   of displaying them.
-
-* Added `files()` template function to `DiffStats`. This supports per-file stats
-  like `lines_added()` and `lines_removed()`
 
 ### Fixed bugs
 
@@ -133,16 +153,54 @@ should not be broken.
 * Unexpected keyword arguments now return a parse failure for the `coalesce()`
   and `concat()` templating functions.
 
-* Fixed race condition that could cause divergent operations when multiple jj
-  processes concurrently import/export Git HEAD in colocated repositories.
-  [#6830](https://github.com/jj-vcs/jj/issues/6830)
-
 * Nushell completion script documentation add `-f` option, to keep it up to
   date.
   [#8007](https://github.com/jj-vcs/jj/issues/8007)
 
-* Ensured that with git submodules, remnants of your submodules do not show up
-  in the working copy after running `jj new`
+* Ensured that with Git submodules, remnants of your submodules do not show up
+  in the working copy after running `jj new`.
+  [#4349](https://github.com/jj-vcs/jj/issues/4349)
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* abgox (@abgox)
+* ase (@adamse)
+* Björn Kautler (@Vampire)
+* Bryce Berger (@bryceberger)
+* Chase Naples (@cnaples79)
+* David Higgs (@higgsd)
+* edef (@edef1c)
+* Evan Mesterhazy (@emesterhazy)
+* Fedor (@sheremetyev)
+* Gaëtan Lehmann (@glehmann)
+* George Christou (@gechr)
+* Hubert Lefevre (@Paluche)
+* Ilya Grigoriev (@ilyagr)
+* Jonas Greitemann (@jgreitemann)
+* Joseph Lou (@josephlou5)
+* Julia DeMille (@judemille)
+* Kaiyi Li (@06393993)
+* Kyle Lippincott (@spectral54)
+* Lander Brandt (@landaire)
+* Lucio Franco (@LucioFranco)
+* Luke Randall (@lukerandall)
+* Martin von Zweigbergk (@martinvonz)
+* Matt Stark (@matts1)
+* Mitchell Skaggs (@magneticflux-)
+* Peter Schilling (@schpet)
+* Philip Metzger (@PhilipMetzger)
+* QingyaoLin (@QingyaoLin)
+* Remo Senekowitsch (@senekor)
+* Scott Taylor (@scott2000)
+* Stephen Jennings (@jennings)
+* Steve Klabnik (@steveklabnik)
+* Tejas Sanap (@whereistejas)
+* Tommi Virtanen (@tv42)
+* Velociraptor115 (@Velociraptor115)
+* Vincent Ging Ho Yim (@cenviity)
+* Yuya Nishihara (@yuja)
 
 ## [0.35.0] - 2025-11-05
 
@@ -4314,7 +4372,8 @@ No changes, only trying to get the automated build to work.
 Last release before this changelog started.
 
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.35.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.36.0...HEAD
+[0.36.0]: https://github.com/jj-vcs/jj/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/jj-vcs/jj/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/jj-vcs/jj/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/jj-vcs/jj/compare/v0.32.0...v0.33.0

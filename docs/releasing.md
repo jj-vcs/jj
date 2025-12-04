@@ -2,7 +2,7 @@
 
 ## Update changelog and Cargo versions
 
-Send a PR similar to <https://github.com/jj-vcs/jj/pull/5215>. Feel free to
+Send a PR similar to <https://github.com/jj-vcs/jj/pull/7954>. Feel free to
 copy-edit the changelog in order to:
 
 * Populate "Release highlights" if relevant
