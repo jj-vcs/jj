@@ -334,9 +334,21 @@ mod platform {
     /// Developer Mode setting, which is stored in the registry key below.
     pub fn check_symlink_support() -> io::Result<bool> {
         let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
-        let sideloading =
-            hklm.open_subkey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock")?;
-        let developer_mode: u32 = sideloading.get_value("AllowDevelopmentWithoutDevLicense")?;
+        let sideloading = match hklm
+            .open_subkey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock")
+        {
+            Ok(key) => key,
+            // This prevents crashes on machines where the `AppModelUnlock` key is entirely missing
+            // (common on non-developer/standard installs) rather than just having the value set to
+            // 0.
+            Err(ref e) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
+            Err(e) => return Err(e),
+        };
+        let developer_mode: u32 = match sideloading.get_value("AllowDevelopmentWithoutDevLicense") {
+            Ok(val) => val,
+            Err(ref e) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
+            Err(e) => return Err(e),
+        };
         Ok(developer_mode == 1)
     }
 

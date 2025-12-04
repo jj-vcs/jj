@@ -30,6 +30,8 @@ use std::mem;
 use std::ops::Range;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
+#[cfg(windows)]
+use std::os::windows::fs::MetadataExt as _;
 use std::path::Path;
 use std::path::PathBuf;
 use std::slice;
@@ -763,8 +765,34 @@ fn mtime_from_metadata(metadata: &Metadata) -> MillisSinceEpoch {
     )
 }
 
+/// On Windows, checks if a path is a reparse point (junction or symlink).
+/// Junctions have is_dir()=true but is_symlink()=false, so we need this
+/// separate check to avoid recursing into them and hitting "Access denied".
+#[cfg(windows)]
+fn is_reparse_point(metadata: &Metadata) -> bool {
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+    (metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT) != 0
+}
+
+#[cfg(windows)]
+fn is_normal_dir(entry: &DirEntry) -> Result<bool, SnapshotError> {
+    let metadata = entry.metadata().map_err(|err| SnapshotError::Other {
+        message: format!("Failed to stat file {}", entry.path().display()),
+        err: err.into(),
+    })?;
+    Ok(metadata.is_dir() && !is_reparse_point(&metadata))
+}
+
+#[cfg(not(windows))]
+fn is_normal_dir(entry: &DirEntry) -> Result<bool, SnapshotError> {
+    Ok(entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false))
+}
+
 fn file_state(metadata: &Metadata) -> Option<FileState> {
     let metadata_file_type = metadata.file_type();
+    // On Windows, junctions (created by tools like pnpm) have is_dir()=true
+    // but is_symlink()=false. They cannot be read as symlinks or regular files.
+    // Returning None causes jj to skip them as "special files".
     let file_type = if metadata_file_type.is_dir() {
         None
     } else if metadata_file_type.is_symlink() {
@@ -1351,7 +1379,6 @@ impl FileSnapshotter<'_> {
         entry: &DirEntry,
         scope: &rayon::Scope<'scope>,
     ) -> Result<Option<(PresentDirEntryKind, String)>, SnapshotError> {
-        let file_type = entry.file_type().unwrap();
         let file_name = entry.file_name();
         let name_string = file_name
             .into_string()
@@ -1369,7 +1396,7 @@ impl FileSnapshotter<'_> {
             return Ok(None);
         }
 
-        if file_type.is_dir() {
+        if is_normal_dir(entry)? {
             let file_states = file_states.prefixed_at(dir, name);
             // If a submodule was added in commit C, and a user decides to run
             // `jj new <something before C>` from after C, then the submodule

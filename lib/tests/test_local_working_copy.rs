@@ -1111,6 +1111,61 @@ fn test_snapshot_special_file() {
     );
 }
 
+#[cfg(windows)]
+#[test]
+fn test_snapshot_junction() {
+    // Tests that we ignore junctions (which look like directories but are reparse
+    // points).
+    let mut test_workspace = TestWorkspace::init();
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+    let ws = &mut test_workspace.workspace;
+
+    let file_path = repo_path("file");
+    let file_disk_path = file_path.to_fs_path_unchecked(&workspace_root);
+    std::fs::write(&file_disk_path, "contents".as_bytes()).unwrap();
+
+    let junction_path = workspace_root.join("junction");
+    let target_path = workspace_root.join("target");
+    std::fs::create_dir(&target_path).unwrap();
+    std::fs::write(target_path.join("file_in_target"), "contents".as_bytes()).unwrap();
+
+    // Create junction: mklink /J junction target
+    let status = std::process::Command::new("cmd")
+        .args([
+            "/C",
+            "mklink",
+            "/J",
+            junction_path.to_str().unwrap(),
+            target_path.to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert!(junction_path.exists());
+    assert!(junction_path.is_dir());
+
+    // Snapshot the working copy with the junction
+    let mut locked_ws = ws.start_working_copy_mutation().unwrap();
+    let (tree, _stats) = locked_ws
+        .locked_wc()
+        .snapshot(&empty_snapshot_options())
+        .block_on()
+        .unwrap();
+    locked_ws.finish(OperationId::from_hex("abc123")).unwrap();
+
+    // Only the regular file and target dir should be in the tree
+    let files = tree.entries().map(|(path, _value)| path).collect_vec();
+    assert!(files.contains(&file_path.to_owned()));
+    // The junction should NOT be traversed - files inside the junction should not
+    // appear. The junction itself may appear as a special file entry, but
+    // junction/file_in_target should NOT.
+    assert!(
+        !files
+            .iter()
+            .any(|p| p.as_internal_file_string().starts_with("junction/"))
+    );
+}
+
 #[test]
 fn test_gitignores() {
     // Tests that .gitignore files are respected.
