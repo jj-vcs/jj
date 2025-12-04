@@ -2208,6 +2208,12 @@ impl TreeState {
 
             // If not, create temporary file to test the path validity.
             if !present_file_deleted && !can_create_new_file(&disk_path)? {
+                /////// This should only print if files will be found as added --- so check if the submodule path is ignored? How? Can UI print it instead?
+                if matches!(before.as_normal(), Some(TreeValue::GitSubmodule(_))) {
+                    eprintln!(
+                        "Files from the submodule will appear as added. Add the submodule to `.git/info/exclude` and run `jj file untrack` to ignore the directory contents."
+                    );
+                }
                 if disk_path.is_dir() && matches!(after, MaterializedTreeValue::GitSubmodule(_)) {
                     // Failing to materalize submodule, over a directory which
                     // is presumably the submodule before it was added in a
