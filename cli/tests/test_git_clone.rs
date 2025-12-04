@@ -93,6 +93,27 @@ fn test_git_clone() {
     "#);
     assert!(!test_env.env_root().join("failed").exists());
 
+    // Failed initialization of the workspace should clean up the destination
+    // directory
+    let output = root_dir.run_jj([
+        "git",
+        "clone",
+        "--config=fsmonitor.backend=invalid",
+        "source",
+        "failed-init",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Internal error: Failed to access the repository
+    Caused by:
+    1: Failed to read the tree state settings
+    2: Invalid type or value for fsmonitor.backend
+    3: Unknown fsmonitor kind: invalid
+    [EOF]
+    [exit status: 255]
+    ");
+    assert!(!test_env.env_root().join("failed-init").exists());
+
     // Failed clone shouldn't remove the existing destination directory
     let failed_dir = root_dir.create_dir("failed");
     let output = root_dir.run_jj(["git", "clone", "bad", "failed"]);
@@ -152,7 +173,7 @@ fn test_git_clone() {
     Fetching into new repo in "$TEST_ENV/nested/path/to/repo"
     bookmark: main@origin [new] tracked
     Setting the revset alias `trunk()` to `main@origin`
-    Working copy  (@) now at: uuzqqzqu c871b515 (empty) (no description set)
+    Working copy  (@) now at: vzqnnsmr fea36bca (empty) (no description set)
     Parent commit (@-)      : qomsplrm ebeb70d8 main | message
     Added 1 files, modified 0 files, removed 0 files
     [EOF]

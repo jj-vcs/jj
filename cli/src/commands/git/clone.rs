@@ -202,9 +202,13 @@ pub fn cmd_git_clone(
     })();
     if clone_result.is_err() {
         let clean_up_dirs = || -> io::Result<()> {
-            fs::remove_dir_all(canonical_wc_path.join(".jj"))?;
-            if colocate {
-                fs::remove_dir_all(canonical_wc_path.join(".git"))?;
+            let sub_dirs = [Some(".jj"), colocate.then_some(".git")];
+            for &name in sub_dirs.iter().flatten() {
+                let dir = canonical_wc_path.join(name);
+                fs::remove_dir_all(&dir).or_else(|err| match err.kind() {
+                    io::ErrorKind::NotFound => Ok(()),
+                    _ => Err(err),
+                })?;
             }
             if !wc_path_existed {
                 fs::remove_dir(&canonical_wc_path)?;
