@@ -1739,6 +1739,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#respect-or-ignore-executable-bit-permission-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Respect or ignore executable bit permission changes
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3597,6 +3606,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#respect-or-ignore-executable-bit-permission-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Respect or ignore executable bit permission changes
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5110,6 +5128,37 @@ via a heuristics<sup id="fnref:1"><a class="footnote-ref" href="#fn:1">1</a></su
 <span class="c1"># core.autocrlf = true.</span>
 <span class="n">eol-conversion</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;input-output&quot;</span>
 </code></pre></div>
+<h3 id="respect-or-ignore-executable-bit-permission-changes">Respect or ignore executable bit permission changes<a class="headerlink" href="#respect-or-ignore-executable-bit-permission-changes" title="Permanent link">&para;</a></h3>
+<p>Whether to respect or ignore changes to the executable bit for files on Unix.
+This option is unused on Windows.</p>
+<div class="highlight"><pre><span></span><code><span class="k">[working-copy]</span>
+<span class="n">exec-bit-change</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;respect&quot;</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="s2">&quot;ignore&quot;</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="s2">&quot;auto&quot;</span><span class="w"> </span><span class="err">(</span><span class="n">default</span><span class="err">)</span>
+</code></pre></div>
+<p>On Unix systems, files have a permission bit for whether they are executable as
+scripts or binary code. Jujutsu stores this state in the repository and will
+update it for files as you operate on a repository. If you set your working
+copy to a commit where a file is recorded as executable or not, <code>jj</code> will
+adjust the permission of that file. If you change a file's executable bit
+through the filesystem, <code>jj</code> will record that change when taking a snapshot.</p>
+<p>Setting this to <code>"ignore"</code> will make Jujutsu ignore the executable bit on the
+filesystem when updating the state for the repository. In addition, <code>jj</code> will
+not attempt to modify a file's executable bit and will add new files as
+"not executable." This is already the behavior on Windows, and having the
+option to enable this behavior is useful for Unix users dual-booting Windows,
+Windows users accessing files from WSL, or anyone experimenting with other
+filesystem configurations.</p>
+<p>On Unix if <code>"auto"</code> is set (the default), <code>jj</code> will try to detect whether the
+filesystem supports changing executable bits to choose between <code>"respect"</code> or
+<code>"ignore"</code>. On errors, we assume <code>"respect"</code>, except if permission was denied
+which will assume <code>"ignore"</code>.</p>
+<p>On Windows, files have no executable bit so this option is unused.</p>
+<p>You can always use <code>jj file chmod</code> to update the recorded executable bit for a
+file manually. If this option is <code>"respect"</code>, <code>jj</code> will also attempt to
+propagate that change to the filesystem.</p>
+<p>Note that if you modify a file's executable bit before changing this setting
+from <code>"ignore"</code> or  <code>"auto"</code> to <code>"respect"</code>, <code>jj</code> may not update the stored
+executable bit until you modify the file's contents or update its modification
+time, e.g. with <code>touch</code>.</p>
 <h2 id="ways-to-specify-jj-config-details">Ways to specify <code>jj</code> config: details<a class="headerlink" href="#ways-to-specify-jj-config-details" title="Permanent link">&para;</a></h2>
 <h3 id="user-config-files">User config files<a class="headerlink" href="#user-config-files" title="Permanent link">&para;</a></h3>
 <p>An easy way to find the user config file/directory is:</p>

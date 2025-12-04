@@ -946,6 +946,16 @@
                         "none"
                     ],
                     "default": "none"
+                },
+                "exec-bit-change": {
+                    "type": "string",
+                    "description": "Whether to respect changes to executable bits on Unix. This is unused on Windows.",
+                    "enum": [
+                        "respect",
+                        "ignore",
+                        "auto"
+                    ],
+                    "default": "auto"
                 }
             }
         },
