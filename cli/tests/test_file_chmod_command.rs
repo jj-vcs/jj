@@ -17,6 +17,8 @@ use std::os::unix::fs::PermissionsExt;
 #[cfg(unix)]
 use std::path::Path;
 
+use jj_lib::file_util::check_symlink_support;
+use jj_lib::file_util::try_symlink;
 #[cfg(unix)]
 use regex::Regex;
 
@@ -144,6 +146,41 @@ fn test_chmod_regular_conflict() {
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including an executable
     [EOF]
+    ");
+}
+
+#[test]
+fn test_chmod_nonfile() {
+    if !check_symlink_support().unwrap() {
+        eprintln!("Skipping test because symlink isn't supported");
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    try_symlink("target", work_dir.root().join("symlink")).unwrap();
+    let output = work_dir.run_jj(["show"]);
+    insta::assert_snapshot!(output, @r"
+    Commit ID: 82976318a088d30054540d1a11ffb4c79fb5d47e
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:08)
+
+        (no description set)
+
+    Added symlink symlink:
+            1: target
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["file", "chmod", "n", "symlink"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Found neither a file nor a conflict at 'symlink'.
+    [EOF]
+    [exit status: 1]
     ");
 }
 
