@@ -2280,7 +2280,6 @@ impl TreeState {
 
                 disk_path
             };
-
             // If the path was present, check reserved path first and delete it.
             let present_file_deleted = before.is_present()
                 && if matches!(before.as_normal(), Some(TreeValue::GitSubmodule(_))) {
@@ -2291,9 +2290,21 @@ impl TreeState {
 
             // If not, create temporary file to test the path validity.
             if !present_file_deleted && !can_create_new_file(&disk_path)? {
-                changed_file_states.push((path, FileState::placeholder()));
-                stats.skipped_files += 1;
-                return Ok(());
+                if disk_path.is_dir() && matches!(after, MaterializedTreeValue::GitSubmodule(_)) {
+                    // Failing to materalize submodule, over a directory which
+                    // is presumably the submodule before it was added in a
+                    // commit, is ok.
+                } else if matches!(before.as_normal(), Some(TreeValue::GitSubmodule(_)))
+                    && after.is_absent()
+                {
+                    // Failing to delete un-tracked submodule directory is ok,
+                    // as the, possibly untracked, contents would otherwise be
+                    // lost.
+                } else {
+                    changed_file_states.push((path, FileState::placeholder()));
+                    stats.skipped_files += 1;
+                    return Ok(());
+                }
             }
 
             // We get the previous executable bit from the file states and not

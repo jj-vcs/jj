@@ -1771,7 +1771,7 @@ fn test_git_submodule(gitignore_content: &str) {
     );
 
     let tree_id1 = tree_builder.write_tree().unwrap();
-    let commit1 = commit_with_tree(repo.store(), tree_id1.clone());
+    let commit1_submod = commit_with_tree(repo.store(), tree_id1.clone());
 
     let mut tree_builder = MergedTreeBuilder::new(tree_id1.clone());
     let submodule_id2 = write_random_commit(tx.repo_mut()).id().clone();
@@ -1780,11 +1780,28 @@ fn test_git_submodule(gitignore_content: &str) {
         Merge::normal(TreeValue::GitSubmodule(submodule_id2)),
     );
     let tree_id2 = tree_builder.write_tree().unwrap();
-    let commit2 = commit_with_tree(repo.store(), tree_id2.clone());
+    let commit2_submod = commit_with_tree(repo.store(), tree_id2.clone());
+
+    // A commit with a file instead of the submodule at the same path
+    let mut tree_builder = MergedTreeBuilder::new(store.empty_merged_tree());
+    tree_builder.set_or_remove(
+        submodule_path.to_owned(),
+        Merge::normal(TreeValue::File {
+            id: testutils::write_file(
+                repo.store(),
+                submodule_path,
+                "file with same path as submodule\n",
+            ),
+            executable: false,
+            copy_id: CopyId::new(vec![]),
+        }),
+    );
+    let tree_id3 = tree_builder.write_tree().unwrap();
+    let commit3_file_clash = commit_with_tree(repo.store(), tree_id3.clone());
 
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
-
+    ws.check_out(repo.op_id().clone(), None, &commit1_submod)
+        .unwrap();
     testutils::write_working_copy_file(
         &workspace_root,
         added_submodule_path,
@@ -1808,7 +1825,8 @@ fn test_git_submodule(gitignore_content: &str) {
     // Check out new commit updating the submodule, which shouldn't fail because
     // of existing submodule files
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit2).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit2_submod)
+        .unwrap();
 
     // Check that the files in the submodule are not deleted
     let file_in_submodule_path = added_submodule_path.to_fs_path_unchecked(&workspace_root);
@@ -1829,12 +1847,12 @@ fn test_git_submodule(gitignore_content: &str) {
     let stats = ws
         .check_out(repo.op_id().clone(), None, &store.root_commit())
         .unwrap();
-    assert_eq!(stats.skipped_files, 1);
+    assert_eq!(stats.skipped_files, 0, "Empty tree should checkout cleanly");
 
     // Start with an empty submodule directory and check out a commit without
     // the submodule
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit1)
+    ws.check_out(repo.op_id().clone(), None, &commit1_submod)
         .unwrap();
     std::fs::remove_file(added_submodule_path.to_fs_path_unchecked(&workspace_root)).unwrap();
     let ws = &mut test_workspace.workspace;
@@ -1850,7 +1868,7 @@ fn test_git_submodule(gitignore_content: &str) {
 
     // Go back to a commit with the submodule
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit2)
+    ws.check_out(repo.op_id().clone(), None, &commit2_submod)
         .unwrap();
 
     // Check that the empty submodule directory was created
@@ -1858,6 +1876,58 @@ fn test_git_submodule(gitignore_content: &str) {
     assert!(
         submodule_dir.metadata().is_ok(),
         "{submodule_dir:?} should exist"
+    );
+    assert_eq!(stats.skipped_files, 0);
+
+    // Restore submodule contents (pretend that the user did `git submodule update`)
+    testutils::write_working_copy_file(
+        &workspace_root,
+        added_submodule_path,
+        "i am a file in a submodule\n",
+    );
+
+    // Check that the files in the submodule are not deleted after checking out
+    // a commit without the submodule
+    let ws = &mut test_workspace.workspace;
+    let stats = ws
+        .check_out(repo.op_id().clone(), None, &store.root_commit())
+        .unwrap();
+    let file_in_submodule_path = added_submodule_path.to_fs_path_unchecked(&workspace_root);
+    assert!(
+        file_in_submodule_path.metadata().is_ok(),
+        "{file_in_submodule_path:?} should exist"
+    );
+
+    // Check that checking out a submodule over an existing directory with the
+    // same path does not result in a conflict and that the submodule is still
+    // recorded as a submodule in the commit
+    let ws = &mut test_workspace.workspace;
+    ws.check_out(repo.op_id().clone(), None, &commit2_submod)
+        .unwrap();
+    assert_eq!(stats.skipped_files, 0);
+    let (new_tree, _stats) = test_workspace
+        .snapshot_with_options(&snapshot_options)
+        .unwrap();
+    assert_tree_eq!(new_tree, tree_id2);
+
+    // Restore submodule contents (pretend that the user did `git submodule update`)
+    testutils::write_working_copy_file(
+        &workspace_root,
+        added_submodule_path,
+        "i am a file in a submodule\n",
+    );
+
+    // Check out a commit which tries to place a file at the same path
+    let ws = &mut test_workspace.workspace;
+    ws.check_out(repo.op_id().clone(), None, &commit3_file_clash)
+        .unwrap();
+
+    // Check that the submodule is not replaced by the file, preserving the
+    // user's existing submodule files
+    let file_in_submodule_path = added_submodule_path.to_fs_path_unchecked(&workspace_root);
+    assert!(
+        file_in_submodule_path.metadata().is_ok(),
+        "{file_in_submodule_path:?} should exist"
     );
 }
 
