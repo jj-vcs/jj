@@ -41,7 +41,7 @@ impl<P: Ord, T: Ord> RevWalkQueue<P, T> {
 
     #[cfg_attr(not(test), expect(dead_code))]
     pub fn len(&self) -> usize {
-        self.items.len() + self.scratch_item.is_some() as usize
+        self.items.len() + usize::from(self.scratch_item.is_some())
     }
 
     pub fn push(&mut self, pos: P, value: T) {

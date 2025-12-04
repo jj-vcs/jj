@@ -363,7 +363,7 @@ impl<'a> FileStates<'a> {
 
     fn exact_position_at(&self, dir: &RepoPath, name: &RepoPathComponent) -> Option<usize> {
         debug_assert!(self.paths().all(|path| path.starts_with(dir)));
-        let slash_len = !dir.is_root() as usize;
+        let slash_len = usize::from(!dir.is_root());
         let prefix_len = dir.as_internal_file_string().len() + slash_len;
         self.data
             .binary_search_by(|entry| {
@@ -391,7 +391,7 @@ impl<'a> FileStates<'a> {
 
     fn prefixed_range_at(&self, dir: &RepoPath, base: &RepoPathComponent) -> Range<usize> {
         debug_assert!(self.paths().all(|path| path.starts_with(dir)));
-        let slash_len = !dir.is_root() as usize;
+        let slash_len = usize::from(!dir.is_root());
         let prefix_len = dir.as_internal_file_string().len() + slash_len;
         let start = self.data.partition_point(|entry| {
             let tail = entry.path.get(prefix_len..).unwrap_or("");
@@ -1521,7 +1521,7 @@ impl FileSnapshotter<'_> {
             // Extract <name> from <dir>, <dir>/<name>, or <dir>/<name>/**.
             // (file_states may contain <dir> file on file->dir transition.)
             debug_assert!(path.starts_with(dir));
-            let slash = !dir.is_root() as usize;
+            let slash = usize::from(!dir.is_root());
             let len = dir.as_internal_file_string().len() + slash;
             let tail = path.as_internal_file_string().get(len..).unwrap_or("");
             match tail.split_once('/') {

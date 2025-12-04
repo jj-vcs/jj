@@ -584,8 +584,8 @@ impl CommitIndexSegment for ReadonlyCommitIndexSegment {
         let graph_entry = self.graph_entry(local_pos);
         let pos1_or_overflow_pos = graph_entry.parent1_pos_or_overflow_pos();
         let pos2_or_overflow_len = graph_entry.parent2_pos_or_overflow_len();
-        let inlined_len1 = pos1_or_overflow_pos.as_inlined().is_some() as u32;
-        let inlined_len2 = pos2_or_overflow_len.as_inlined().is_some() as u32;
+        let inlined_len1 = u32::from(pos1_or_overflow_pos.as_inlined().is_some());
+        let inlined_len2 = u32::from(pos2_or_overflow_len.as_inlined().is_some());
         let overflow_len = pos2_or_overflow_len.as_overflow().unwrap_or(0);
         inlined_len1 + inlined_len2 + overflow_len
     }

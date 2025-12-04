@@ -1997,7 +1997,7 @@ pub fn show_diff_stats(
             //
             // Fractional space after scaling is given to whichever of adds/removes is
             // smaller, to show at least one tick for small (but nonzero) counts.
-            let bar_length = bar_length.max((added > 0) as usize + (removed > 0) as usize);
+            let bar_length = bar_length.max(usize::from(added > 0) + usize::from(removed > 0));
             let (bar_added, bar_removed) = if added < removed {
                 let len = (added as f64 * factor).ceil() as usize;
                 (len, bar_length - len)

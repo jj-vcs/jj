@@ -1293,7 +1293,7 @@ mod tests {
     fn test_try_map() {
         fn sqrt(i: &i32) -> Result<i32, ()> {
             if *i >= 0 {
-                Ok((*i as f64).sqrt() as i32)
+                Ok(f64::from(*i).sqrt() as i32)
             } else {
                 Err(())
             }
