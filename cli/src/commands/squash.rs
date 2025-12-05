@@ -74,6 +74,9 @@ use crate::ui::Ui;
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
 ///
+/// The name "squash" comes from the idea of combining (squashing) the changes
+/// from multiple revisions together.
+///
 /// EXPERIMENTAL FEATURES
 ///
 /// An alternative squashing UI is available via the `-o`, `-A`, and `-B`
