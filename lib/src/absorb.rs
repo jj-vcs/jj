@@ -39,6 +39,7 @@ use crate::copies::CopyRecords;
 use crate::diff::ContentDiff;
 use crate::diff::DiffHunkKind;
 use crate::matchers::Matcher;
+use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::MergedTreeBuilder;
@@ -102,7 +103,11 @@ pub async fn split_hunks_to_trees(
     // TODO: enable copy tracking if we add support for annotate and merge
     let copy_records = CopyRecords::default();
     let tree_diff = left_tree.diff_stream_with_copies(&right_tree, matcher, &copy_records);
-    let mut diff_stream = materialized_diff_stream(repo.store(), tree_diff);
+    let mut diff_stream = materialized_diff_stream(
+        repo.store(),
+        tree_diff,
+        Diff::new(left_tree.labels(), right_tree.labels()),
+    );
     while let Some(entry) = diff_stream.next().await {
         let left_path = entry.path.source();
         let right_path = entry.path.target();
@@ -317,7 +322,7 @@ pub fn absorb_hunks(
         let commit_builder = rewriter.rebase().await?;
         let destination_tree = commit_builder.tree();
         let new_tree = destination_tree
-            .merge(source.parent_tree.clone(), selected_tree)
+            .merge_unlabeled(source.parent_tree.clone(), selected_tree)
             .block_on()?;
         let mut predecessors = commit_builder.predecessors().to_vec();
         predecessors.push(source.commit.id().clone());

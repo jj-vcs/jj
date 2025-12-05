@@ -39,6 +39,7 @@ use crate::index::IndexResult;
 use crate::iter_util::fallible_any;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
+use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::MergedTreeBuilder;
@@ -75,16 +76,13 @@ pub async fn merge_commit_trees_no_resolve_without_repo(
         .map(|commit| commit.id().clone())
         .collect_vec();
     let commit_id_merge = find_recursive_merge_commits(store, index, commit_ids)?;
-    let tree_id_merge = commit_id_merge
+    let tree_merge: Merge<(MergedTree, String)> = commit_id_merge
         .try_map_async(async |commit_id| {
             let commit = store.get_commit_async(commit_id).await?;
-            Ok::<_, BackendError>(commit.tree_ids().clone())
+            Ok::<_, BackendError>((commit.tree(), commit.conflict_label()))
         })
         .await?;
-    Ok(MergedTree::new(
-        store.clone(),
-        tree_id_merge.flatten().simplify(),
-    ))
+    Ok(MergedTree::merge_no_resolve(tree_merge))
 }
 
 /// Find the commits to use as input to the recursive merge algorithm.
@@ -282,9 +280,21 @@ impl<'repo> CommitRewriter<'repo> {
             let new_base_tree_fut = merge_commit_trees(self.mut_repo, &new_parents);
             let old_tree = self.old_commit.tree();
             let (old_base_tree, new_base_tree) = try_join!(old_base_tree_fut, new_base_tree_fut)?;
+            let old_commit_label = self.old_commit.conflict_label();
             (
                 old_base_tree.tree_ids() == self.old_commit.tree_ids(),
-                new_base_tree.merge(old_base_tree, old_tree).await?,
+                MergedTree::merge(Merge::from_vec(vec![
+                    (
+                        new_base_tree,
+                        format!(
+                            "rebase destination ({})",
+                            new_parents.iter().map(Commit::conflict_label).join(", ")
+                        ),
+                    ),
+                    (old_base_tree, format!("parents of {old_commit_label}")),
+                    (old_tree, format!("rebased commit ({old_commit_label})")),
+                ]))
+                .await?,
             )
         };
         // Ensure we don't abandon commits with multiple parents (merge commits), even
@@ -381,7 +391,7 @@ pub fn rebase_to_dest_parent(
             let source_parent_tree = source.parent_tree(repo)?;
             let source_tree = source.tree();
             destination_tree
-                .merge(source_parent_tree, source_tree)
+                .merge_unlabeled(source_parent_tree, source_tree)
                 .block_on()
         },
     )
@@ -1146,6 +1156,20 @@ impl CommitWithSelection {
     pub fn is_empty_selection(&self) -> bool {
         self.selected_tree.tree_ids() == self.parent_tree.tree_ids()
     }
+
+    /// Returns conflict labels for the diff represented by this selection.
+    pub fn conflict_labels(&self) -> BackendResult<Diff<String>> {
+        let commit_label = self.commit.conflict_label();
+        let parent_label = format!("parents of {commit_label}");
+        if self.is_full_selection() {
+            Ok(Diff::new(parent_label, commit_label))
+        } else {
+            Ok(Diff::new(
+                parent_label,
+                format!("selected changes from {commit_label}"),
+            ))
+        }
+    }
 }
 
 /// Resulting commit builder and stats to be returned by [`squash_commits()`].
@@ -1168,6 +1192,7 @@ pub fn squash_commits<'repo>(
 ) -> BackendResult<Option<SquashedCommit<'repo>>> {
     struct SourceCommit<'a> {
         commit: &'a CommitWithSelection,
+        labels: Diff<String>,
         abandon: bool,
     }
     let mut source_commits = vec![];
@@ -1184,6 +1209,7 @@ pub fn squash_commits<'repo>(
         // squash -r`)? The source tree will be unchanged in that case.
         source_commits.push(SourceCommit {
             commit: source,
+            labels: source.conflict_labels()?,
             abandon,
         });
     }
@@ -1200,12 +1226,18 @@ pub fn squash_commits<'repo>(
         } else {
             let source_tree = source.commit.commit.tree();
             // Apply the reverse of the selected changes onto the source
-            let new_source_tree = source_tree
-                .merge(
+            let new_source_tree = MergedTree::merge(Merge::from_vec(vec![
+                (source_tree, source.commit.commit.conflict_label()),
+                (
                     source.commit.selected_tree.clone(),
+                    source.labels.after.clone(),
+                ),
+                (
                     source.commit.parent_tree.clone(),
-                )
-                .block_on()?;
+                    source.labels.before.clone(),
+                ),
+            ]))
+            .block_on()?;
             repo.rewrite_commit(&source.commit.commit)
                 .set_tree(new_source_tree)
                 .write()?;
@@ -1235,22 +1267,29 @@ pub fn squash_commits<'repo>(
             };
         })?;
     }
-    // Apply the selected changes onto the destination
-    let mut destination_tree = rewritten_destination.tree();
-    for source in &source_commits {
-        destination_tree = destination_tree
-            .merge(
-                source.commit.parent_tree.clone(),
-                source.commit.selected_tree.clone(),
-            )
-            .block_on()?;
-    }
     let mut predecessors = vec![destination.id().clone()];
     predecessors.extend(
         source_commits
             .iter()
             .map(|source| source.commit.commit.id().clone()),
     );
+    // Apply the selected changes onto the destination
+    let destination_tree = MergedTree::merge(Merge::from_diffs(
+        (
+            rewritten_destination.tree(),
+            format!("squash destination ({})", destination.conflict_label()),
+        ),
+        source_commits.into_iter().map(|source| {
+            Diff::new(
+                (source.commit.parent_tree.clone(), source.labels.before),
+                (
+                    source.commit.selected_tree.clone(),
+                    format!("squashed commit ({})", source.labels.after),
+                ),
+            )
+        }),
+    ))
+    .block_on()?;
 
     let commit_builder = repo
         .rewrite_commit(&rewritten_destination)

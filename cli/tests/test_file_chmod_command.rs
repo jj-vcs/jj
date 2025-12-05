@@ -83,13 +83,13 @@ fn test_chmod_regular_conflict() {
     "#);
     let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% royxmykx 02247291 compared with rlvkpnrz 1792382a
     -base
     +x
-    +++++++ Contents of side #2
+    +++++++ zsuskuln eb0ba805
     n
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
 
@@ -102,13 +102,13 @@ fn test_chmod_regular_conflict() {
     "#);
     let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% royxmykx 02247291 compared with rlvkpnrz 1792382a
     -base
     +x
-    +++++++ Contents of side #2
+    +++++++ zsuskuln eb0ba805
     n
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
     work_dir.run_jj(["file", "chmod", "n", "file"]).success();
@@ -119,13 +119,13 @@ fn test_chmod_regular_conflict() {
     "#);
     let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% royxmykx 02247291 compared with rlvkpnrz 1792382a
     -base
     +x
-    +++++++ Contents of side #2
+    +++++++ zsuskuln eb0ba805
     n
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
 
@@ -134,7 +134,7 @@ fn test_chmod_regular_conflict() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
-    Working copy  (@) now at: yostqsxw e5b18f6d conflict | (conflict) conflict
+    Working copy  (@) now at: yostqsxw 1a518549 conflict | (conflict) conflict
     Parent commit (@-)      : royxmykx 02247291 x | x
     Parent commit (@-)      : zsuskuln eb0ba805 n | n
     Added 0 files, modified 1 files, removed 0 files
@@ -213,25 +213,25 @@ fn test_chmod_file_dir_deletion_conflicts() {
     "#);
     let output = work_dir.run_jj(["file", "show", "-r=file_deletion", "file"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ zsuskuln bc9cdea1
     a
-    %%%%%%% Changes from base to side #2
+    %%%%%%% royxmykx d7d39332 compared with rlvkpnrz 1792382a
     -base
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_deletion"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kmkuslsw 849406ce file_deletion | (conflict) file_deletion
+    Working copy  (@) now at: kmkuslsw d05f6e6b file_deletion | (conflict) file_deletion
     Parent commit (@-)      : zsuskuln bc9cdea1 file | file
     Parent commit (@-)      : royxmykx d7d39332 deletion | deletion
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion and an executable
     New conflicts appeared in 1 commits:
-      kmkuslsw 849406ce file_deletion | (conflict) file_deletion
+      kmkuslsw d05f6e6b file_deletion | (conflict) file_deletion
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new kmkuslsw
@@ -239,7 +239,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
     let output = work_dir.run_jj(["debug", "tree", "-r=file_deletion"]);
     insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: true, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: true, copy_id: CopyId("") }), None]))
@@ -247,12 +247,12 @@ fn test_chmod_file_dir_deletion_conflicts() {
     "#);
     let output = work_dir.run_jj(["file", "show", "-r=file_deletion", "file"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ zsuskuln bc9cdea1
     a
-    %%%%%%% Changes from base to side #2
+    %%%%%%% royxmykx d7d39332 compared with rlvkpnrz 1792382a
     -base
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
 }
@@ -280,7 +280,7 @@ fn test_chmod_exec_bit_settings() {
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
     Current operation: OperationId("8c58a72d1118aa7d8b1295949a7fa8c6fcda63a3c89813faf2b8ca599ceebf8adcfcbeb8f0bbb6439c86b47dd68b9cf85074c9e57214c3fb4b632e0c9e87ad65")
-    Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), .. }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }             5 <timestamp> None "file"
     [EOF]
     "#); // in-repo: false, on-disk: false (1/4)
@@ -293,7 +293,7 @@ fn test_chmod_exec_bit_settings() {
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
     Current operation: OperationId("3a6a78820e6892164ed55680b92fa679fbb4d6acd4135c7413d1b815bedcd2c24c85ac8f4f96c96f76012f33d31ffbf50473b938feadf36fcd9c92997789aeca")
-    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), .. }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
     [EOF]
     "#); // in-repo: true, on-disk: true (2/4)
@@ -315,7 +315,7 @@ fn test_chmod_exec_bit_settings() {
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
     Current operation: OperationId("cab1801e16b54d5b413f638bdf74388520b51232c88db6b314ef64b054607ab82ae6ef0b1f707b52aa8d2131511f6f48f8ca52e465621ff38c442b0ec893f309")
-    Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), .. }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
     [EOF]
     "#); // in-repo: false, on-disk: true (3/4)
@@ -326,7 +326,7 @@ fn test_chmod_exec_bit_settings() {
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
     Current operation: OperationId("def8ce6211dcff6d2784d5309d36079c1cb6eeb70821ae144982c76d38ed76fedc8b84e4daddaac70f6a0aae1c301ff5b60e1baa6ac371dabd77cec3537d2c39")
-    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), .. }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }             5 <timestamp> None "file"
     [EOF]
     "#); // in-repo: true, on-disk: false (4/4) Yay! We've observed all possible states!
@@ -359,7 +359,7 @@ fn test_chmod_exec_bit_settings() {
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
     Current operation: OperationId("0cce4e44f0b47cc4404f74fe164536aa57f67b8981726ce6ec88c39d79e266a2586a79d51a065906b6d8b284b39fe0ab023547f65571d1b61a97916f7f7cf4d8")
-    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), .. }
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
     [EOF]
     "#);

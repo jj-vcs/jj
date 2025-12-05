@@ -338,12 +338,13 @@ impl MergeToolFile {
             Ok(Some(_)) => return Err(ConflictResolveError::NotAConflict(repo_path.to_owned())),
             Ok(None) => return Err(ConflictResolveError::PathNotFound(repo_path.to_owned())),
         };
-        let file = try_materialize_file_conflict_value(tree.store(), repo_path, &conflict)
-            .block_on()?
-            .ok_or_else(|| ConflictResolveError::NotNormalFiles {
-                path: repo_path.to_owned(),
-                summary: conflict.describe(),
-            })?;
+        let file =
+            try_materialize_file_conflict_value(tree.store(), repo_path, &conflict, tree.labels())
+                .block_on()?
+                .ok_or_else(|| ConflictResolveError::NotNormalFiles {
+                    path: repo_path.to_owned(),
+                    summary: conflict.describe(),
+                })?;
         // We only support conflicts with 2 sides (3-way conflicts)
         if file.ids.num_sides() > 2 {
             return Err(ConflictResolveError::ConflictTooComplicated {
