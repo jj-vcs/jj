@@ -346,9 +346,14 @@ impl MutableCommitIndexSegment {
         squashed
     }
 
-    pub(super) fn save_in(self, dir: &Path) -> Result<Arc<ReadonlyCommitIndexSegment>, PathError> {
-        if self.num_local_commits() == 0 && self.parent_file.is_some() {
-            return Ok(self.parent_file.unwrap());
+    pub(super) fn save_in(
+        mut self,
+        dir: &Path,
+    ) -> Result<Arc<ReadonlyCommitIndexSegment>, PathError> {
+        if self.num_local_commits() == 0
+            && let Some(parent_file) = self.parent_file.take()
+        {
+            return Ok(parent_file);
         }
 
         let mut buf = Vec::new();

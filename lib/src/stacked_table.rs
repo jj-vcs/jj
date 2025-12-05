@@ -331,9 +331,11 @@ impl MutableTable {
         squashed
     }
 
-    fn save_in(self, store: &TableStore) -> TableStoreResult<Arc<ReadonlyTable>> {
-        if self.entries.is_empty() && self.parent_file.is_some() {
-            return Ok(self.parent_file.unwrap());
+    fn save_in(mut self, store: &TableStore) -> TableStoreResult<Arc<ReadonlyTable>> {
+        if self.entries.is_empty()
+            && let Some(parent_file) = self.parent_file.take()
+        {
+            return Ok(parent_file);
         }
 
         let buf = self.maybe_squash_with_ancestors().serialize();
