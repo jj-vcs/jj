@@ -176,7 +176,7 @@ impl GpgBackend {
 }
 
 impl SigningBackend for GpgBackend {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "gpg"
     }
 
@@ -264,7 +264,7 @@ impl GpgsmBackend {
 }
 
 impl SigningBackend for GpgsmBackend {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "gpgsm"
     }
 

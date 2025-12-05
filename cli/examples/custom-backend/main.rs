@@ -114,7 +114,7 @@ impl JitBackend {
 
 #[async_trait]
 impl Backend for JitBackend {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "jit"
     }
 

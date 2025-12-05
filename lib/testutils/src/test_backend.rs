@@ -168,7 +168,7 @@ impl Debug for TestBackend {
 
 #[async_trait]
 impl Backend for TestBackend {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "test"
     }
 

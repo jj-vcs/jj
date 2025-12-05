@@ -30,7 +30,7 @@ pub struct TestSigningBackend;
 const PREFIX: &str = "--- JJ-TEST-SIGNATURE ---\nKEY: ";
 
 impl SigningBackend for TestSigningBackend {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "test"
     }
 

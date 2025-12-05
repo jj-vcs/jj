@@ -210,7 +210,7 @@ impl SshBackend {
 }
 
 impl SigningBackend for SshBackend {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "ssh"
     }
 
