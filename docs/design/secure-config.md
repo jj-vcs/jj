@@ -48,7 +48,8 @@ created the repo.
 
 1.  The victim uploads a zip file of a repository they have locally on their
     system
-2.  The attacker can now see stored in the repository
+2.  The attacker can now see any configs / config references stored in the
+    repository
 3.  The attacker runs
     `jj config set --repo fix.tools.foo ‘[“malicious”, “command”]’`
 4.  The attacker copies the victim’s cryptographic signature and puts it in
@@ -65,7 +66,7 @@ the repo was stored at.
 
 1.  The victim uploads a zip file of a repository they have locally on their
     system at `/path/to/repo`
-2.  The attacker can now see any cryptographic signatures stored in the
+2.  The attacker can now see any configs / config references stored in the
     repository
 3.  The attacker runs
     `jj config set --repo fix.tools.foo ‘[“malicious”, “command”]’`
@@ -86,7 +87,7 @@ untamperable.
 2.  The victim runs `jj config set --repo fix.tools.foo = [“$repo/format.py”]`
 3.  The victim uploads a zip file of a repository they have locally on their
     system at `/path/to/repo`
-4.  The attacker can now see any cryptographic signatures stored in the
+4.  The attacker can now see any configs / config references stored in the
     repository
 5.  The attacker modifies `format.py` to be malicious
 6.  The attacker zips up their repo and sends it to the victim
