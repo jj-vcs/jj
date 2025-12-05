@@ -152,7 +152,7 @@ impl MergedTreeInput {
             }
 
             let mut backend_trees = vec![];
-            for entries in conflict_entries.into_iter() {
+            for entries in conflict_entries {
                 let backend_tree = backend::Tree::from_sorted_entries(
                     self.resolved
                         .iter()
