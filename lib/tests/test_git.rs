@@ -184,10 +184,7 @@ fn test_import_refs() {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
-    let git_settings = GitSettings {
-        remotes: auto_track_all(),
-        ..GitSettings::from_settings(repo.settings()).unwrap()
-    };
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
 
     let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     git_ref(&git_repo, "refs/remotes/origin/main", commit1);
@@ -234,7 +231,7 @@ fn test_import_refs() {
         view.get_remote_bookmark(remote_symbol("main", "origin")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit1)),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::New,
         },
     );
     assert_eq!(
@@ -269,7 +266,7 @@ fn test_import_refs() {
     );
     assert_eq!(
         view.get_local_bookmark("feature3".as_ref()),
-        &RefTarget::normal(jj_id(commit6))
+        RefTarget::absent_ref()
     );
     assert_eq!(
         view.get_remote_bookmark(remote_symbol("feature3", "git")),
@@ -279,7 +276,7 @@ fn test_import_refs() {
         view.get_remote_bookmark(remote_symbol("feature3", "origin")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit6)),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::New,
         },
     );
 
@@ -328,10 +325,7 @@ fn test_import_refs_reimport() {
     let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_workspace.repo;
     let git_repo = get_git_repo(repo);
-    let git_settings = GitSettings {
-        remotes: auto_track_all(),
-        ..GitSettings::from_settings(repo.settings()).unwrap()
-    };
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
 
     let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
     git_ref(&git_repo, "refs/remotes/origin/main", commit1);
@@ -414,7 +408,7 @@ fn test_import_refs_reimport() {
         view.get_remote_bookmark(remote_symbol("main", "origin")),
         &RemoteRef {
             target: commit1_target.clone(),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::New,
         },
     );
     assert_eq!(
@@ -1311,10 +1305,7 @@ fn test_import_refs_reimport_conflicted_remote_bookmark() {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
     let git_repo = get_git_repo(repo);
-    let git_settings = GitSettings {
-        remotes: auto_track_all(),
-        ..GitSettings::from_settings(repo.settings()).unwrap()
-    };
+    let git_settings = GitSettings::from_settings(repo.settings()).unwrap();
 
     let commit1 = empty_git_commit(&git_repo, "refs/heads/commit1", &[]);
     git_ref(&git_repo, "refs/remotes/origin/main", commit1);
@@ -1337,7 +1328,7 @@ fn test_import_refs_reimport_conflicted_remote_bookmark() {
             .get_remote_bookmark(remote_symbol("main", "origin")),
         &RemoteRef {
             target: RefTarget::from_legacy_form([], [jj_id(commit1), jj_id(commit2)]),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::New,
         },
     );
 
@@ -1354,7 +1345,7 @@ fn test_import_refs_reimport_conflicted_remote_bookmark() {
             .get_remote_bookmark(remote_symbol("main", "origin")),
         &RemoteRef {
             target: RefTarget::normal(jj_id(commit2)),
-            state: RemoteRefState::Tracked,
+            state: RemoteRefState::New,
         },
     );
 }
@@ -3155,10 +3146,7 @@ fn test_fetch_empty_repo() {
 #[test]
 fn test_fetch_initial_commit_head_is_not_set() {
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings {
-        remotes: auto_track_all(),
-        ..GitSettings::from_settings(test_data.repo.settings()).unwrap()
-    };
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
     let mut tx = test_data.repo.start_transaction();
@@ -3180,7 +3168,7 @@ fn test_fetch_initial_commit_head_is_not_set() {
     let initial_commit_target = RefTarget::normal(jj_id(initial_git_commit));
     let initial_commit_remote_ref = RemoteRef {
         target: initial_commit_target.clone(),
-        state: RemoteRefState::Tracked,
+        state: RemoteRefState::New,
     };
     assert_eq!(
         *view.git_refs(),
@@ -3192,7 +3180,7 @@ fn test_fetch_initial_commit_head_is_not_set() {
         view.bookmarks().collect::<BTreeMap<_, _>>(),
         btreemap! {
             "main".as_ref() => LocalRemoteRefTarget {
-                local_target: &initial_commit_target,
+                local_target: RefTarget::absent_ref(),
                 remote_refs: vec![
                     ("origin".as_ref(), &initial_commit_remote_ref),
                 ],
@@ -3204,10 +3192,7 @@ fn test_fetch_initial_commit_head_is_not_set() {
 #[test]
 fn test_fetch_initial_commit_head_is_set() {
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings {
-        remotes: auto_track_all(),
-        ..GitSettings::from_settings(test_data.repo.settings()).unwrap()
-    };
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
     testutils::git::set_symbolic_reference(&test_data.origin_repo, "HEAD", "refs/heads/main");
     let new_git_commit = empty_git_commit(
@@ -3327,10 +3312,7 @@ fn test_fetch_success() {
 #[test]
 fn test_fetch_prune_deleted_ref() {
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings {
-        remotes: auto_track_all(),
-        ..GitSettings::from_settings(test_data.repo.settings()).unwrap()
-    };
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
     let commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
     let mut tx = test_data.repo.start_transaction();
@@ -3342,6 +3324,9 @@ fn test_fetch_prune_deleted_ref() {
         None,
     )
     .unwrap();
+    tx.repo_mut()
+        .track_remote_bookmark(remote_symbol("main", "origin"))
+        .unwrap();
     // Test the setup
     assert!(tx.repo().get_local_bookmark("main".as_ref()).is_present());
     assert!(
@@ -3377,10 +3362,7 @@ fn test_fetch_prune_deleted_ref() {
 #[test]
 fn test_fetch_no_default_branch() {
     let test_data = GitRepoData::create();
-    let git_settings = GitSettings {
-        remotes: auto_track_all(),
-        ..GitSettings::from_settings(test_data.repo.settings()).unwrap()
-    };
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
     let initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
 
     let mut tx = test_data.repo.start_transaction();
@@ -3709,10 +3691,7 @@ fn test_fetch_no_such_remote() {
 fn test_fetch_multiple_branches() {
     let test_data = GitRepoData::create();
     let _initial_git_commit = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
-    let git_settings = GitSettings {
-        remotes: auto_track_all(),
-        ..GitSettings::from_settings(test_data.repo.settings()).unwrap()
-    };
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
 
     let mut tx = test_data.repo.start_transaction();
     let fetch_stats = git_fetch(
@@ -3744,10 +3723,7 @@ fn test_fetch_with_fetch_tags_override() {
     let source_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let source_repo = &source_repo.repo;
     let source_git_repo = get_git_repo(source_repo);
-    let git_settings = GitSettings {
-        remotes: auto_track_all(),
-        ..GitSettings::from_settings(source_repo.settings()).unwrap()
-    };
+    let git_settings = GitSettings::from_settings(source_repo.settings()).unwrap();
 
     let commit1 = empty_git_commit(&source_git_repo, "refs/heads/main", &[]);
     git_ref(&source_git_repo, "refs/remotes/origin/main", commit1);
