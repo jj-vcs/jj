@@ -55,3 +55,6 @@ exec-bit-change = "auto"
 
 [experimental]
 record-predecessors-in-commit = true
+
+[trailer]
+separators = ":"

@@ -845,6 +845,17 @@
                 }
             }
         },
+        "trailer": {
+            "type": "object",
+            "description": "Trailer configuration",
+            "properties": {
+                "separators": {
+                    "type": "string",
+                    "description": "A set of characters recognized as trailer separators",
+                    "default": ":"
+                }
+            }
+        },
         "hints": {
             "type": "object",
             "description": "Various hints in jj's UI that can be disabled",
