@@ -80,6 +80,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   conflict came from (currently this is only supported for conflicts created by
   certain commands).
 
+* `jj git push --bookmark <name>` will now automatically track the bookmark in
+  cases where the user intent is unambiguous.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
