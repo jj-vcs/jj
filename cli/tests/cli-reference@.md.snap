@@ -1856,6 +1856,8 @@ Whenever any metadata is updated, the committer name, email, and timestamp are a
 * `--author <AUTHOR>` — Set author to the provided string
 
    This changes author name and email while retaining author timestamp for non-discardable commits.
+
+   ```shell $ jj metaedit --author "Foo Bar <foo@bar.com>" ```
 * `--author-timestamp <AUTHOR_TIMESTAMP>` — Set the author date to the given date either human readable, eg Sun, 23 Jan 2000 01:23:45 JST) or as a time stamp, eg 2000-01-23T01:23:45+09:00)
 * `--force-rewrite` — Rewrite the commit, even if no other metadata changed
 
