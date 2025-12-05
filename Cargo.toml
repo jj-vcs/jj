@@ -134,15 +134,21 @@ jj-lib-proc-macros = { path = "lib/proc-macros", version = "0.36.0" }
 testutils = { path = "lib/testutils" }
 
 [workspace.lints.clippy]
+borrow_as_ptr = "warn"
+cast_lossless = "warn"
+explicit_into_iter_loop = "warn"
 explicit_iter_loop = "warn"
 flat_map_option = "warn"
 implicit_clone = "warn"
 needless_for_each = "warn"
+ptr_as_ptr = "warn"
+ptr_cast_constness = "warn"
+ref_as_ptr = "warn"
 semicolon_if_nothing_returned = "warn"
 uninlined_format_args = "warn"
 unused_trait_names = "warn"
-useless_conversion = "warn"
 use_self = "warn"
+useless_conversion = "warn"
 
 [profile.dev.package]
 # Insta suggests compiling these packages in opt mode for faster testing.
