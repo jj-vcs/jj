@@ -5,6 +5,14 @@
 A [divergent change] occurs when multiple [visible commits] have the same change
 ID.
 
+These changes are displayed with a `??` after their change ID:
+
+```shell
+$ jj log
+@  mzvwutvl?? test.user@example.com 2001-02-03 08:05:12 29d07a2d
+│  a divergent change
+```
+
 Normally, when commits are rewritten, the original version (the "predecessor")
 becomes hidden and the new commit (the "successor") is visible. Thus, only one
 commit with a given change ID is visible at a time.
