@@ -135,6 +135,7 @@ jj-lib-proc-macros = { path = "lib/proc-macros", version = "0.37.0" }
 testutils = { path = "lib/testutils" }
 
 [workspace.lints.clippy]
+assigning_clones = "warn"
 borrow_as_ptr = "warn"
 cast_lossless = "warn"
 explicit_into_iter_loop = "warn"

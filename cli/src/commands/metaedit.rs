@@ -210,8 +210,10 @@ pub(crate) fn cmd_metaedit(
                     new_author.name = name;
                     new_author.email = email;
                 } else if args.update_author {
-                    new_author.name = commit_builder.committer().name.clone();
-                    new_author.email = commit_builder.committer().email.clone();
+                    new_author.name.clone_from(&commit_builder.committer().name);
+                    new_author
+                        .email
+                        .clone_from(&commit_builder.committer().email);
                 }
                 if args.update_author_timestamp {
                     new_author.timestamp = commit_builder.committer().timestamp;
