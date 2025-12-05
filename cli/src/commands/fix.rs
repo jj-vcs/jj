@@ -54,6 +54,8 @@ use crate::ui::Ui;
 /// code formatting tools to revisions that may not be properly formatted yet.
 /// It can also be used to modify files with other tools like `sed` or `sort`.
 ///
+/// The modification made by `jj fix` can be reviewed by `jj op show -p`.
+///
 /// ### How it works
 ///
 /// The changed files in the given revisions will be updated with any fixes
