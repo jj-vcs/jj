@@ -42,6 +42,7 @@ use crate::command_error::user_error_with_message;
 use crate::commands::git::maybe_add_gitignore;
 use crate::formatter::FormatterExt as _;
 use crate::git_util::is_colocated_git_workspace;
+use crate::git_util::load_git_import_options;
 use crate::git_util::print_git_export_stats;
 use crate::git_util::print_git_import_stats;
 use crate::ui::Ui;
@@ -234,11 +235,13 @@ fn init_git_refs(
     string_args: &[String],
     colocated: bool,
 ) -> Result<Arc<ReadonlyRepo>, CommandError> {
-    let mut git_settings = GitSettings::from_settings(repo.settings())?;
+    let git_settings = GitSettings::from_settings(repo.settings())?;
+    let remote_settings = repo.settings().remote_settings()?;
+    let mut import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
     let mut tx = start_repo_transaction(&repo, string_args);
     // There should be no old refs to abandon, but enforce it.
-    git_settings.abandon_unreachable_commits = false;
-    let stats = git::import_refs(tx.repo_mut(), &git_settings)?;
+    import_options.abandon_unreachable_commits = false;
+    let stats = git::import_refs(tx.repo_mut(), &import_options)?;
     print_git_import_stats(ui, tx.repo(), &stats, false)?;
     if !tx.repo().has_changes() {
         return Ok(repo);

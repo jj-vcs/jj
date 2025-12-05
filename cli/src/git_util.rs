@@ -34,13 +34,16 @@ use jj_lib::fmt_util::binary_prefix;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitExportStats;
+use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitImportStats;
 use jj_lib::git::GitRefKind;
+use jj_lib::git::GitSettings;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
+use jj_lib::settings::RemoteSettingsMap;
 use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr as _;
 
@@ -278,6 +281,21 @@ pub fn with_remote_git_callbacks<T>(ui: &Ui, f: impl FnOnce(git::RemoteCallbacks
     let result = f(callbacks);
     _ = sideband_progress_writer.flush(ui);
     result
+}
+
+pub fn load_git_import_options(
+    _ui: &Ui, // TODO: write parser warnings to ui
+    git_settings: &GitSettings,
+    remote_settings: &RemoteSettingsMap,
+) -> Result<GitImportOptions, CommandError> {
+    Ok(GitImportOptions {
+        auto_local_bookmark: git_settings.auto_local_bookmark,
+        abandon_unreachable_commits: git_settings.abandon_unreachable_commits,
+        remote_auto_track_bookmarks: remote_settings
+            .iter()
+            .map(|(name, settings)| (name.clone(), settings.auto_track_bookmarks.to_matcher()))
+            .collect(),
+    })
 }
 
 pub fn print_git_import_stats(

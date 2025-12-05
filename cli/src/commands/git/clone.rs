@@ -42,6 +42,7 @@ use crate::command_error::user_error_with_message;
 use crate::commands::git::FetchTagsMode;
 use crate::commands::git::maybe_add_gitignore;
 use crate::git_util::absolute_git_url;
+use crate::git_util::load_git_import_options;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
 use crate::revset_util::parse_union_name_patterns;
@@ -322,10 +323,12 @@ fn fetch_new_remote(
     )?;
     let settings = workspace_command.settings();
     let git_settings = GitSettings::from_settings(settings)?;
+    let remote_settings = settings.remote_settings()?;
+    let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
     let should_track_default = settings.get_bool("git.track-default-bookmark-on-clone")?;
     let mut tx = workspace_command.start_transaction();
     let (default_branch, import_stats) = {
-        let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
+        let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings, &import_options)?;
 
         let fetch_refspecs = expand_fetch_refspecs(remote_name, bookmark_expr.clone())?;
 

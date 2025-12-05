@@ -65,8 +65,6 @@ use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
 use crate::revset::RevsetExpression;
-use crate::settings::RemoteSettings;
-use crate::settings::RemoteSettingsMap;
 use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::str_util::StringExpression;
@@ -91,7 +89,6 @@ pub struct GitSettings {
     pub abandon_unreachable_commits: bool,
     pub executable_path: PathBuf,
     pub write_change_id_header: bool,
-    pub remotes: RemoteSettingsMap,
 }
 
 impl GitSettings {
@@ -101,7 +98,6 @@ impl GitSettings {
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             executable_path: settings.get("git.executable-path")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
-            remotes: RemoteSettings::table_from_settings(settings)?,
         })
     }
 }
@@ -425,6 +421,17 @@ impl GitImportError {
     }
 }
 
+/// Options for [`import_refs()`].
+#[derive(Debug)]
+pub struct GitImportOptions {
+    // TODO: Delete in jj 0.42.0+
+    pub auto_local_bookmark: bool,
+    /// Whether to abandon commits that became unreachable in Git.
+    pub abandon_unreachable_commits: bool,
+    /// Per-remote patterns whether to track bookmarks automatically.
+    pub remote_auto_track_bookmarks: HashMap<RemoteNameBuf, StringMatcher>,
+}
+
 /// Describes changes made by `import_refs()` or `fetch()`.
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct GitImportStats {
@@ -464,9 +471,9 @@ struct RefsToImport {
 /// records them in JJ's view.
 pub fn import_refs(
     mut_repo: &mut MutableRepo,
-    git_settings: &GitSettings,
+    options: &GitImportOptions,
 ) -> Result<GitImportStats, GitImportError> {
-    import_some_refs(mut_repo, git_settings, |_, _| true)
+    import_some_refs(mut_repo, options, |_, _| true)
 }
 
 /// Reflect changes made in the underlying Git repo in the Jujutsu repo.
@@ -475,7 +482,7 @@ pub fn import_refs(
 /// considered for addition, update, or deletion.
 pub fn import_some_refs(
     mut_repo: &mut MutableRepo,
-    git_settings: &GitSettings,
+    options: &GitImportOptions,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
 ) -> Result<GitImportStats, GitImportError> {
     let store = mut_repo.store();
@@ -555,7 +562,7 @@ pub fn import_some_refs(
             state: if old_remote_ref != RemoteRef::absent_ref() {
                 old_remote_ref.state
             } else {
-                default_remote_ref_state_for(GitRefKind::Bookmark, symbol, git_settings)
+                default_remote_ref_state_for(GitRefKind::Bookmark, symbol, options)
             },
         };
         if new_remote_ref.is_tracked() {
@@ -573,7 +580,7 @@ pub fn import_some_refs(
             state: if old_remote_ref != RemoteRef::absent_ref() {
                 old_remote_ref.state
             } else {
-                default_remote_ref_state_for(GitRefKind::Tag, symbol, git_settings)
+                default_remote_ref_state_for(GitRefKind::Tag, symbol, options)
             },
         };
         if new_remote_ref.is_tracked() {
@@ -584,7 +591,7 @@ pub fn import_some_refs(
         mut_repo.set_remote_tag(symbol, new_remote_ref);
     }
 
-    let abandoned_commits = if git_settings.abandon_unreachable_commits {
+    let abandoned_commits = if options.abandon_unreachable_commits {
         abandon_unreachable_commits(mut_repo, &changed_remote_bookmarks, &changed_remote_tags)
             .map_err(GitImportError::Backend)?
     } else {
@@ -778,20 +785,16 @@ fn collect_changed_refs_to_import(
 fn default_remote_ref_state_for(
     kind: GitRefKind,
     symbol: RemoteRefSymbol<'_>,
-    git_settings: &GitSettings,
+    options: &GitImportOptions,
 ) -> RemoteRefState {
     match kind {
         GitRefKind::Bookmark => {
             if symbol.remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
-                || git_settings.auto_local_bookmark
-                || git_settings
-                    .remotes
+                || options.auto_local_bookmark
+                || options
+                    .remote_auto_track_bookmarks
                     .get(symbol.remote)
-                    .is_some_and(|remote_settings| {
-                        remote_settings
-                            .auto_track_bookmarks
-                            .is_match(symbol.name.as_str())
-                    })
+                    .is_some_and(|matcher| matcher.is_match(symbol.name.as_str()))
             {
                 RemoteRefState::Tracked
             } else {
@@ -2551,7 +2554,7 @@ pub struct GitFetch<'a> {
     mut_repo: &'a mut MutableRepo,
     git_repo: Box<gix::Repository>,
     git_ctx: GitSubprocessContext<'a>,
-    git_settings: &'a GitSettings,
+    import_options: &'a GitImportOptions,
     fetched: Vec<FetchedBranches>,
 }
 
@@ -2559,6 +2562,7 @@ impl<'a> GitFetch<'a> {
     pub fn new(
         mut_repo: &'a mut MutableRepo,
         git_settings: &'a GitSettings,
+        import_options: &'a GitImportOptions,
     ) -> Result<Self, UnexpectedGitBackendError> {
         let git_backend = get_git_backend(mut_repo.store())?;
         let git_repo = Box::new(git_backend.git_repo());
@@ -2568,7 +2572,7 @@ impl<'a> GitFetch<'a> {
             mut_repo,
             git_repo,
             git_ctx,
-            git_settings,
+            import_options,
             fetched: vec![],
         })
     }
@@ -2676,7 +2680,7 @@ impl<'a> GitFetch<'a> {
         let import_stats =
             import_some_refs(
                 self.mut_repo,
-                self.git_settings,
+                self.import_options,
                 |kind, symbol| match kind {
                     GitRefKind::Bookmark => self
                         .fetched

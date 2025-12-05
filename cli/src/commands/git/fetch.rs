@@ -37,6 +37,7 @@ use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::commands::git::get_single_remote;
 use crate::complete;
+use crate::git_util::load_git_import_options;
 use crate::git_util::print_git_import_stats;
 use crate::git_util::with_remote_git_callbacks;
 use crate::revset_util::parse_union_name_patterns;
@@ -162,7 +163,9 @@ pub fn cmd_git_fetch(
     };
 
     let git_settings = GitSettings::from_settings(tx.settings())?;
-    let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings)?;
+    let remote_settings = tx.settings().remote_settings()?;
+    let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
+    let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings, &import_options)?;
 
     for (remote, expanded) in expansions {
         with_remote_git_callbacks(ui, |callbacks| {
