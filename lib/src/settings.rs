@@ -59,6 +59,8 @@ struct UserSettingsData {
     signing_key: Option<String>,
 }
 
+pub type RemoteSettingsMap = HashMap<RemoteNameBuf, RemoteSettings>;
+
 #[derive(Debug, Clone)]
 pub struct RemoteSettings {
     pub auto_track_bookmarks: StringPattern,
@@ -67,7 +69,7 @@ pub struct RemoteSettings {
 impl RemoteSettings {
     pub fn table_from_settings(
         settings: &UserSettings,
-    ) -> Result<HashMap<RemoteNameBuf, Self>, ConfigGetError> {
+    ) -> Result<RemoteSettingsMap, ConfigGetError> {
         settings
             .table_keys("remotes")
             .map(|name| {
@@ -228,9 +230,7 @@ impl UserSettings {
         &self.config
     }
 
-    pub fn remote_settings(
-        &self,
-    ) -> Result<HashMap<RemoteNameBuf, RemoteSettings>, ConfigGetError> {
+    pub fn remote_settings(&self) -> Result<RemoteSettingsMap, ConfigGetError> {
         RemoteSettings::table_from_settings(self)
     }
 

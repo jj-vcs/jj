@@ -66,6 +66,7 @@ use crate::repo::Repo;
 use crate::repo_path::RepoPath;
 use crate::revset::RevsetExpression;
 use crate::settings::RemoteSettings;
+use crate::settings::RemoteSettingsMap;
 use crate::settings::UserSettings;
 use crate::store::Store;
 use crate::str_util::StringExpression;
@@ -90,7 +91,7 @@ pub struct GitSettings {
     pub abandon_unreachable_commits: bool,
     pub executable_path: PathBuf,
     pub write_change_id_header: bool,
-    pub remotes: HashMap<RemoteNameBuf, RemoteSettings>,
+    pub remotes: RemoteSettingsMap,
 }
 
 impl GitSettings {
