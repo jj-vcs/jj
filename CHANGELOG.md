@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj git push --bookmark <name>` will now automatically track the bookmark if
+  it isn't tracked with any remote already.
+
 ### Fixed bugs
 
 * `jj git push` now ensures that tracked remote bookmarks are updated even if

@@ -1384,7 +1384,7 @@ fn test_git_push_mixed() {
         .success();
     work_dir.write_file("file", "modified again");
 
-    // --allow-new is not implied for --bookmark=.. and -r=..
+    // --allow-new is not implied for -r=..
     let output = work_dir.run_jj([
         "git",
         "push",
@@ -1395,10 +1395,14 @@ fn test_git_push_mixed() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
-    Error: Refusing to create new remote bookmark bookmark-1@origin
-    Hint: Run `jj bookmark track bookmark-1 --remote=origin` and try again.
+    Warning: Refusing to create new remote bookmark bookmark-2a@origin
+    Hint: Run `jj bookmark track bookmark-2a --remote=origin` and try again.
+    Warning: Refusing to create new remote bookmark bookmark-2b@origin
+    Hint: Run `jj bookmark track bookmark-2b --remote=origin` and try again.
+    Changes to push to origin:
+      Add bookmark push-yqosqzytrlsw to 0f8164cd580b
+      Add bookmark bookmark-1 to e76139e55e1e
     [EOF]
-    [exit status: 1]
     ");
 
     let output = work_dir.run_jj([
@@ -1412,13 +1416,69 @@ fn test_git_push_mixed() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: --allow-new is deprecated, track bookmarks manually or configure remotes.<name>.auto-track-bookmarks instead.
-    Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
+    Bookmark push-yqosqzytrlsw@origin already matches push-yqosqzytrlsw
+    Bookmark bookmark-1@origin already matches bookmark-1
     Changes to push to origin:
-      Add bookmark push-yqosqzytrlsw to 0f8164cd580b
-      Add bookmark bookmark-1 to e76139e55e1e
       Add bookmark bookmark-2a to 57d822f901bb
       Add bookmark bookmark-2b to 57d822f901bb
     [EOF]
+    ");
+}
+
+#[test]
+fn test_git_push_allow_new_bookmark_heuristics() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "upstream"])
+        .success();
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "upstream",
+            test_env
+                .work_dir("upstream")
+                .root()
+                .join(".git")
+                .to_str()
+                .unwrap(),
+        ])
+        .success();
+    work_dir.run_jj(["describe", "-m", "foo"]).success();
+    work_dir.write_file("file", "contents");
+
+    work_dir
+        .run_jj(["bookmark", "create", "untracked"])
+        .success();
+
+    let start_op = work_dir.current_operation_id();
+
+    // Pushing untracked bookmarks with --bookmark automatically trackes it.
+    let output = work_dir.run_jj(["git", "push", "--bookmark", "untracked"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark untracked to b9124726209b
+    [EOF]
+    ");
+
+    work_dir.run_jj(["op", "restore", &start_op]).success();
+    work_dir
+        .run_jj(["git", "push", "--bookmark=untracked", "--remote=upstream"])
+        .success();
+
+    // ...unless the bookmark is already tracked with a different remote, in
+    // which case the user may have simply forgotten to specify --remote.
+    let output = work_dir.run_jj(["git", "push", "--bookmark", "untracked"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Refusing to create new remote bookmark untracked@origin
+    Hint: Run `jj bookmark track untracked --remote=origin` and try again.
+    [EOF]
+    [exit status: 1]
     ");
 }
 

@@ -119,6 +119,9 @@ pub struct GitPushArgs {
     /// Push only this bookmark, or bookmarks matching a pattern (can be
     /// repeated)
     ///
+    /// If a bookmark isn't tracking anything yet, the remote bookmark will be
+    /// tracked automatically.
+    ///
     /// By default, the specified pattern matches bookmark names with glob
     /// syntax. You can also use other [string pattern syntax].
     ///
@@ -356,6 +359,10 @@ pub fn cmd_git_push(
                 continue;
             }
             let remote_symbol = name.to_remote_symbol(remote);
+            // Override allow_new if the bookmark is not tracked with any remote
+            // already. The user has specified --bookmark, so their intent which
+            // bookmarks to push is clear.
+            let allow_new = allow_new || !has_tracked_remote_bookmarks(tx.repo(), name);
             let allow_delete = true; // named explicitly, allow delete without --delete
             match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
                 Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),
