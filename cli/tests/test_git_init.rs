@@ -728,7 +728,7 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     Hint: The following remote bookmarks aren't associated with the existing local bookmarks:
       local-remote@origin
     Hint: Run the following command to keep local bookmarks updated on future pulls:
-      jj bookmark track local-remote@origin
+      jj bookmark track local-remote --remote=origin
     Initialized repo in "."
     [EOF]
     "#);
