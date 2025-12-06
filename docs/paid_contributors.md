@@ -30,6 +30,7 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * edre
 * emesterhazy
 * essiene
+* ffyuanda
 * honglooker
 * hooper
 * incognito124
