@@ -43,6 +43,7 @@ pub use crate::config_resolver::migrate;
 pub use crate::config_resolver::resolve;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
+use crate::secure_config::SecureConfigError;
 
 /// Config value or table node.
 pub type ConfigItem = toml_edit::Item;
@@ -68,6 +69,10 @@ pub enum ConfigLoadError {
         /// Source file path.
         source_path: Option<PathBuf>,
     },
+
+    /// Failed to determine the path to the repo files.
+    #[error(transparent)]
+    SecureConfigError(#[from] SecureConfigError),
 }
 
 /// Error that can occur when saving config variables to file.

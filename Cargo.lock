@@ -2426,6 +2426,7 @@ dependencies = [
  "gix",
  "globset",
  "hashbrown 0.16.1",
+ "hex",
  "ignore",
  "indexmap",
  "indoc",

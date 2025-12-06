@@ -354,7 +354,7 @@ impl CommandHelper {
     ///
     /// This may be different from the settings for new workspace created by
     /// e.g. `jj git init`. There may be conditional variables and repo config
-    /// `.jj/repo/config.toml` loaded for the cwd workspace.
+    /// loaded for the cwd workspace.
     pub fn settings(&self) -> &UserSettings {
         &self.data.settings
     }

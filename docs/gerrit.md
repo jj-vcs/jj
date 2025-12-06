@@ -30,12 +30,13 @@ $ jj git clone https://review.gerrithub.io/your/project
 ```
 
 If you used option 2 You can configure default values in your repository config
-by appending the below to `.jj/repo/config.toml`, like so:
+by running:
 
-```toml
-[gerrit]
-default-remote = "gerrit"       # name of the Git remote to push to
-default-remote-branch = "main"  # target branch in Gerrit
+```shell
+# Name of the Git remote to push to
+jj config set --repo gerrit.default-remote "gerrit" 
+# Target branch in Gerrit
+jj config set --repo gerrit.default-remote-branch "main"
 ```
 
 ## Basic workflow

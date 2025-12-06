@@ -18,6 +18,7 @@ use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use bstr::BString;
 use indoc::formatdoc;
@@ -31,6 +32,10 @@ use super::command_output::CommandOutputString;
 use super::fake_diff_editor_path;
 use super::fake_editor_path;
 use super::to_toml_value;
+
+static CONFIG_NAME: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(\$TEST_ENV/home/.config/jj/(:?repos|workspaces))/[0-9a-f]+"#).unwrap()
+});
 
 pub struct TestEnvironment {
     _temp_dir: TempDir,
@@ -159,6 +164,8 @@ impl TestEnvironment {
             if let Ok(tmp_var) = std::env::var("TEMP") {
                 cmd.env("TEMP", tmp_var);
             }
+            // Ensure that our tests don't write to the real %APPDATA%.
+            cmd.env("APPDATA", self.home_dir.join(".config"));
         }
 
         cmd
@@ -284,6 +291,9 @@ impl TestEnvironment {
                     .to_string();
             };
         }
+        normalized = CONFIG_NAME
+            .replace_all(&normalized, "$1/$$CONFIG_ID")
+            .to_string();
         CommandOutputString { raw, normalized }
     }
 

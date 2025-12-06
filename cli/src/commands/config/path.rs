@@ -41,7 +41,7 @@ pub fn cmd_config_path(
     args: &ConfigPathArgs,
 ) -> Result<(), CommandError> {
     for config_path in args.level.config_paths(command.config_env())? {
-        let path_bytes = file_util::path_to_bytes(config_path).map_err(user_error)?;
+        let path_bytes = file_util::path_to_bytes(&config_path).map_err(user_error)?;
         ui.stdout().write_all(path_bytes)?;
         writeln!(ui.stdout())?;
     }
