@@ -118,6 +118,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--editor`, which ensures an editor will be opened with the commit
   description even if one was provided via `--message`/`-m`.
 
+* `jj workspace root` now accepts an optional `--workspace` argument to show
+  the root path of the specified workspace (defaults to the current one). When
+  given a workspace that was created before this release, it errors out.
+
 * All `jj` commands show a warning when the provided `fileset` expression
   doesn't match any files.
 

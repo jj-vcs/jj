@@ -85,7 +85,8 @@ commit checked out.
 
 Having multiple workspaces can be useful for running long-running tests in a one
 while you continue developing in another, for example. If needed,
-`jj workspace root` prints the root path of the current workspace.
+`jj workspace root --workspace <workspace>` prints the root path of the specified
+workspace (defaults to the current one).
 
 When you're done using a workspace, use `jj workspace forget` to make the repo
 forget about it. The files can be deleted from disk separately (either before or

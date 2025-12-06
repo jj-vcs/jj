@@ -14,3 +14,6 @@ pub mod simple_op_store {
 pub mod simple_store {
     include!("simple_store.rs");
 }
+pub mod workspace_store {
+    include!("workspace_store.rs");
+}
