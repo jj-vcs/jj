@@ -34,7 +34,6 @@ use std::sync::MutexGuard;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
-use bstr::BStr;
 use futures::stream::BoxStream;
 use gix::bstr::BString;
 use gix::objs::CommitRefIter;
@@ -533,8 +532,14 @@ fn gix_open_opts_from_settings(settings: &UserSettings) -> gix::open::Options {
         .strict_config(true)
 }
 
-/// Parses the `jj:trees` header value.
-fn root_tree_from_git_extra_header(value: &BStr) -> Result<Merge<TreeId>, ()> {
+/// Parses the `jj:trees` header value if present, otherwise returns the
+/// resolved tree ID from Git.
+fn extract_root_tree_from_commit(commit: &gix::objs::CommitRef) -> Result<Merge<TreeId>, ()> {
+    let Some(value) = commit.extra_headers().find(JJ_TREES_COMMIT_HEADER) else {
+        let tree_id = TreeId::from_bytes(commit.tree().as_bytes());
+        return Ok(Merge::resolved(tree_id));
+    };
+
     let mut tree_ids = SmallVec::new();
     for hex in value.split(|b| *b == b' ') {
         let tree_id = TreeId::try_from_hex(hex).ok_or(())?;
@@ -581,16 +586,8 @@ fn commit_from_git_without_root_parent(
     // (~March 2024) may have the root trees stored in the extra metadata table
     // instead. For such commits, we'll update the root tree later when we read the
     // extra metadata.
-    let root_tree = commit
-        .extra_headers()
-        .find(JJ_TREES_COMMIT_HEADER)
-        .map(root_tree_from_git_extra_header)
-        .transpose()
-        .map_err(|()| to_read_object_err("Invalid jj:trees header", id))?
-        .unwrap_or_else(|| {
-            let tree_id = TreeId::from_bytes(commit.tree().as_bytes());
-            Merge::resolved(tree_id)
-        });
+    let root_tree = extract_root_tree_from_commit(&commit)
+        .map_err(|()| to_read_object_err("Invalid jj:trees header", id))?;
     // Use lossy conversion as commit message with "mojibake" is still better than
     // nothing.
     // TODO: what should we do with commit.encoding?
