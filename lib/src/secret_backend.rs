@@ -168,7 +168,10 @@ impl Backend for SecretBackend {
         ))
     }
 
-    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+    async fn get_related_copies(
+        &self,
+        _copy_id: &CopyId,
+    ) -> BackendResult<Vec<(CopyId, CopyHistory)>> {
         Err(BackendError::Unsupported(
             "The secret backend doesn't support copies".to_string(),
         ))
