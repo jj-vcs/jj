@@ -1,4 +1,6 @@
-# Revsets
+---
+title: Revsets
+---
 
 Jujutsu supports a functional language for selecting a set of revisions.
 Expressions in this language are called "revsets" (the idea comes from

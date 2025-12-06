@@ -1,4 +1,6 @@
-# Frequently asked questions
+---
+title: Frequently asked questions
+---
 
 ### Why does my bookmark not move to the new commit after `jj new/commit`?
 

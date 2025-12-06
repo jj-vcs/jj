@@ -1,4 +1,6 @@
-# Concurrency
+---
+title: Concurrency
+---
 
 ## Introduction
 

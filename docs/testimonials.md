@@ -1,4 +1,6 @@
-# Testimonials
+---
+title: Testimonials
+---
 
 You might not be ready to make the jump to Jujutsu yet. It's understandable; new
 tools come with new lessons, failures, and ideas to absorb. They require

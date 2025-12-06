@@ -1,4 +1,6 @@
-# Templates
+---
+title: Templates
+---
 
 Jujutsu supports a functional language to customize output of commands.
 The language consists of literals, keywords, operators, functions, and
@@ -263,20 +265,20 @@ The following methods are defined.
 * `.display() -> String`: The signature's display string (for GPG, this is the
   formatted primary user ID; for SSH, this is the principal).
 
-!!! warning
+:::caution
+Calling any of `.status()`, `.key()`, or `.display()` is slow, as it incurs
+the performance cost of verifying the signature (for example shelling out
+to `gpg` or `ssh-keygen`). Though consecutive calls will be faster, because
+the backend caches the verification result.
+:::
 
-    Calling any of `.status()`, `.key()`, or `.display()` is slow, as it incurs
-    the performance cost of verifying the signature (for example shelling out
-    to `gpg` or `ssh-keygen`). Though consecutive calls will be faster, because
-    the backend caches the verification result.
-
-!!! info
-
-    As opposed to calling any of `.status()`, `.key()`, or `.display()`,
-    checking for signature presence through boolean coercion is fast:
-    ```
-    if(commit.signature(), "commit has a signature", "commit is unsigned")
-    ```
+:::note
+As opposed to calling any of `.status()`, `.key()`, or `.display()`,
+checking for signature presence through boolean coercion is fast:
+```
+if(commit.signature(), "commit has a signature", "commit is unsigned")
+```
+:::
 
 ### `DiffStats` type
 
@@ -419,11 +421,11 @@ are defined.
 
 An expression that can be serialized in machine-readable format such as JSON.
 
-!!! note
-
-    Field names and value types in the serialized output are usually stable
-    across jj versions, but the backward compatibility isn't guaranteed. If the
-    underlying data model is updated, the serialized output may change.
+:::note
+Field names and value types in the serialized output are usually stable
+across jj versions, but the backward compatibility isn't guaranteed. If the
+underlying data model is updated, the serialized output may change.
+:::
 
 ### `ShortestIdPrefix` type
 

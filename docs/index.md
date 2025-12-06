@@ -1,4 +1,6 @@
-# Jujutsu—a version control system
+---
+title: "Jujutsu—a version control system"
+---
 
 <figure>
 <img title="jj logo" src="images/jj-logo.svg" width="320" height="320">

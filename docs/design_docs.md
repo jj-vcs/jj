@@ -1,4 +1,6 @@
-# Jujutsu Design Docs
+---
+title: Jujutsu Design Docs
+---
 
 Jujutsu uses Design Docs to drive technical decisions on large projects and it
 is the place to discuss your proposed design or new component. It is a very

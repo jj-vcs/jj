@@ -1,4 +1,6 @@
-# Getting Community Buy-in for Working Group Proposals
+---
+title: Getting Community Buy-in for Working Group Proposals
+---
 
 ## Introduction
 

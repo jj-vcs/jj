@@ -1,5 +1,6 @@
-# First-class conflicts
-
+---
+title: First-class conflicts
+---
 
 ## Introduction
 

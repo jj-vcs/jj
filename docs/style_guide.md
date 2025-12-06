@@ -1,4 +1,6 @@
-# Style guide
+---
+title: Style guide
+---
 
 ## Panics
 

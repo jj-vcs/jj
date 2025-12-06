@@ -1,4 +1,6 @@
-# Introducing JJ run
+---
+title: Introducing JJ run
+---
 
 Authors: [Philip Metzger](mailto:philipmetzger@bluewin.ch), [Martin von Zweigberk](mailto:martinvonz@google.com), [Danny Hooper](mailto:hooper@google.com), [Waleed Khan](mailto:me@waleedkhan.name)
 

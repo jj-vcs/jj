@@ -1,4 +1,6 @@
-# Git compatibility
+---
+title: Git compatibility
+---
 
 Jujutsu has two backends for storing commits. One of them uses a regular Git
 repo, which means that you can collaborate with Git users without them even
@@ -211,13 +213,13 @@ git config --unset core.bare
 jj new && jj undo
 ```
 
-!!! warning
+:::caution
+On Windows, the `echo` command will append line endings and cause `jj`
+to complain about the contents of `git_target`.
 
-    On Windows, the `echo` command will append line endings and cause `jj`
-    to complain about the contents of `git_target`.
-
-    Instead of the `echo -n ...` line, use:
-    `Set-Content -Path .jj/repo/store/git_target -Value ../../../.git -NoNewLine`
+Instead of the `echo -n ...` line, use:
+`Set-Content -Path .jj/repo/store/git_target -Value ../../../.git -NoNewLine`
+:::
 
 ## Branches
 

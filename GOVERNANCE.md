@@ -1,4 +1,6 @@
-# Jujutsu Governance
+---
+title: Jujutsu Governance
+---
 
 ## Overview
 

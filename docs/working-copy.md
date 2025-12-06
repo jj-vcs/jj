@@ -1,5 +1,6 @@
-# Working copy
-
+---
+title: Working copy
+---
 
 ## Introduction
 

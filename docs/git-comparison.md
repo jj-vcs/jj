@@ -1,4 +1,6 @@
-# Comparison with Git
+---
+title: Comparison with Git
+---
 
 ## Introduction
 

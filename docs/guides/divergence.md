@@ -1,4 +1,6 @@
-# Handling divergent changes
+---
+title: Handling divergent changes
+---
 
 ## What are divergent changes?
 

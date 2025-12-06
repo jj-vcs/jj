@@ -1,4 +1,6 @@
-# Related work
+---
+title: Related work
+---
 
 Similar tools:
 

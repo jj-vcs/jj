@@ -1,5 +1,6 @@
-# How to Contribute
-
+---
+title: How to Contribute
+---
 
 ## Policies
 
@@ -162,12 +163,12 @@ During development (adapt according to your preference):
     cargo nextest run --workspace # Occasionally
     cargo insta test --workspace --test-runner nextest # Occasionally
 
-!!! warning
-
-    Build artifacts from debug builds and especially from repeated
-    invocations of `cargo test` can quickly take up 10s of GB of disk space.
-    Cargo will happily use up your entire hard drive. If this happens, run
-    `cargo clean`.
+:::caution
+Build artifacts from debug builds and especially from repeated
+invocations of `cargo test` can quickly take up 10s of GB of disk space.
+Cargo will happily use up your entire hard drive. If this happens, run
+`cargo clean`.
+:::
 
 ### Explanation
 
@@ -455,10 +456,11 @@ Open <http://127.0.0.1:8000> in your browser to see the docs.
 As you edit the `.md` files in `docs/`, the website should be rebuilt and
 reloaded in your browser automatically.
 
-!!! note "If the docs are not updating"
-    Check the terminal from which you ran `uv run mkdocs serve` for any build
-    errors or warnings. Warnings about `"GET /versions.json HTTP/1.1" code 404`
-    are expected and harmless.
+:::note[If the docs are not updating]
+Check the terminal from which you ran `uv run mkdocs serve` for any build
+errors or warnings. Warnings about `"GET /versions.json HTTP/1.1" code 404`
+are expected and harmless.
+:::
 
 #### Offline distribution
 
@@ -471,12 +473,13 @@ MKDOCS_OFFLINE=true uv run mkdocs build
 
 ## Building the entire website
 
-!!! tip
-    Building the entire website is not usually necessary. If you are editing
-    documentation, the previous section is enough.
+:::tip
+Building the entire website is not usually necessary. If you are editing
+documentation, the previous section is enough.
 
-    These instructions are relevant if you are working on the versioning of the
-    documentation that we currently do with `mike`.
+These instructions are relevant if you are working on the versioning of the
+documentation that we currently do with `mike`.
+:::
 
 The full `jj` website includes the documentation for several `jj` versions
 (`prerelease`, latest release, and the older releases). The top-level

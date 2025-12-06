@@ -1,4 +1,6 @@
-# Working on Windows
+---
+title: Working on Windows
+---
 
 Jujutsu works the same on all platforms, but there are some caveats that Windows
 users should be aware of.
@@ -12,12 +14,12 @@ Git's [`core.autocrlf`][git-autocrlf][^1], but does not currently honor
 keep the `working-copy.eol-conversion` setting and the `core.autocrlf` git
 config in sync[^1].
 
-!!! note
-
-    If you created a colocated git workspace, forget to keep these 2 settings in
-    sync, and result in a dirty working copy with only EOL diffs, you can set
-    the `working-copy.eol-conversion` setting correctly and run `jj abandon` to
-    fix it.
+:::note
+If you created a colocated git workspace, forget to keep these 2 settings in
+sync, and result in a dirty working copy with only EOL diffs, you can set
+the `working-copy.eol-conversion` setting correctly and run `jj abandon` to
+fix it.
+:::
 
 The line endings conversion won't be applied to files detected as a binary files
 via a heuristics[^2] regardless of the settings. This behavior is subject to
@@ -28,11 +30,11 @@ line conversion incorrectly, but currently, Jujutsu doesn't support configuring
 line endings conversion for particular files. If this issue is hit, one should
 not enable the line conversion setting.
 
-!!! note
-
-    If Jujutsu applies line endings conversion on incorrect files, you should
-    not enable the line conversion setting and the git `core.autocrlf` setting.
-    See below.
+:::note
+If Jujutsu applies line endings conversion on incorrect files, you should
+not enable the line conversion setting and the git `core.autocrlf` setting.
+See below.
+:::
 
 To disable line conversion, set the `core.autocrlf` setting to `none` or just
 remove the setting.
@@ -60,6 +62,7 @@ especially IDEs, preserve LF line endings.
       in the file which is different from the algorithm of
       [`gitoxide`][gitoxide-is-binary] or [`git`][git-is-binary]. Jujutsu
       doesn't plan to align the binary detection logic with git.
+
 [git-autocrlf]: https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf
 [read-git-config-issue]: https://github.com/jj-vcs/jj/issues/4048
 [gitoxide-is-binary]: https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100

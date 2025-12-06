@@ -1,4 +1,6 @@
-# Copy Tracking and Tracing Design
+---
+title: Copy Tracking and Tracing Design
+---
 
 Authors: [Daniel Ploch](mailto:dploch@google.com), [Martin von Zweigbergk](mailto:martinvonz@google.com)
 

@@ -1,4 +1,6 @@
-# Architecture
+---
+title: Architecture
+---
 
 ## Data model
 

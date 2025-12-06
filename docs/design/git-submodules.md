@@ -1,4 +1,6 @@
-# Git submodules
+---
+title: Git submodules
+---
 
 This is an aspirational document that describes how jj _will_ support Git
 submodules. Readers are assumed to have some familiarity with Git and Git

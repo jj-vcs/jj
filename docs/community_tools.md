@@ -1,11 +1,14 @@
-# Community-built tools around Jujutsu
+---
+title: Community-built tools around Jujutsu
+---
 
 Many of these tools are not complete yet, just like Jujutsu itself. But they
 already simplify many workflows and can improve your experience.
 
-!!! warning
-    The listed tools are community‑maintained; the Jujutsu project does not
-    review, endorse, or guarantee their quality or security.
+:::caution
+The listed tools are community‑maintained; the Jujutsu project does not
+review, endorse, or guarantee their quality or security.
+:::
 
 ## Diffedit3
 

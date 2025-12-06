@@ -1,5 +1,6 @@
-# Installation and setup
-
+---
+title: Installation and setup
+---
 
 ## Installation
 
@@ -21,10 +22,10 @@ cargo binstall --strategies crate-meta-data jj-cli
 Without the `--strategies` option, you may get equivalent binaries that should
 be compiled from the same source code.
 
-!!! note
-
-    If you'd like to install a prerelease version, you'll need to use one of the
-    options below.
+:::note
+If you'd like to install a prerelease version, you'll need to use one of the
+options below.
+:::
 
 ### Linux
 
@@ -219,15 +220,15 @@ Dynamic completions are not the default/only option since the underlying engine
 default once the engine is stabilized. Please let us know if you encounter any
 issues with dynamic completions.
 
-!!! info "Which completion script should I use?"
+:::note[Which completion script should I use?]
+Generally, dynamic completions provide a much better completion experience.
+Although the underlying engine is deemed unstable, there have not been many
+issues in practice. Dynamic completions are the preferred option for many
+contributors and users.
 
-    Generally, dynamic completions provide a much better completion experience.
-    Although the underlying engine is deemed unstable, there have not been many
-    issues in practice. Dynamic completions are the preferred option for many
-    contributors and users.
-
-    We recommend using the dynamic completion script, and falling back to the
-    standard completion script if there are any issues.
+We recommend using the dynamic completion script, and falling back to the
+standard completion script if there are any issues.
+:::
 
 <!-- The content tabs formatting below is optimized for the website and not for GitHub. -->
 
@@ -263,9 +264,9 @@ issues with dynamic completions.
 
 ### Fish
 
-!!! note
-
-    No configuration is required with fish >= 4.0.2 which loads dynamic completions by default.
+:::note
+No configuration is required with fish >= 4.0.2 which loads dynamic completions by default.
+:::
 
 === "Standard"
 
@@ -315,11 +316,11 @@ issues with dynamic completions.
 Insert the above into your `$PROFILE` file
 (usually `$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`).
 
-!!! note
-
-    Note that to execute scripts in PowerShell on Windows, including `$PROFILE`,
-    the [execution policy][ExecutionPolicies] needs to be set to `RemoteSigned`
-    at minimum.
+:::note
+Note that to execute scripts in PowerShell on Windows, including `$PROFILE`,
+the [execution policy][ExecutionPolicies] needs to be set to `RemoteSigned`
+at minimum.
+:::
 
 
 [cargo-binstall]: https://github.com/cargo-bins/cargo-binstall

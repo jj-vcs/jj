@@ -1,4 +1,6 @@
-# Comparison with Sapling
+---
+title: Comparison with Sapling
+---
 
 ## Introduction
 

@@ -1,4 +1,6 @@
-# How to do a release
+---
+title: How to do a release
+---
 
 ## Update changelog and Cargo versions
 

@@ -1,4 +1,6 @@
-# Paying employers and their contributing employees
+---
+title: Paying employers and their contributing employees
+---
 
 This is the list of companies paying for contributions to Jujutsu. For each
 company, all employees who have contributed are listed, whether it's part of

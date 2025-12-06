@@ -1,4 +1,6 @@
-# Title
+---
+title: Design Doc Blueprint
+---
 
 > A cool name for your Project
 
