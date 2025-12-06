@@ -113,7 +113,11 @@ pub fn tracked_bookmarks() -> Vec<CompletionCandidate> {
         Ok(String::from_utf8_lossy(&output.stdout)
             .lines()
             .map(split_help_text)
-            .map(|(name, help)| CompletionCandidate::new(name).help(help))
+            .filter_map(|(symbol, help)| Some((symbol.split_once('@')?, help)))
+            // There may be multiple remote bookmarks to untrack. Just pick the
+            // first one for help text.
+            .dedup_by(|((name1, _), _), ((name2, _), _)| name1 == name2)
+            .map(|((name, _remote), help)| CompletionCandidate::new(name).help(help))
             .collect())
     })
 }
@@ -177,9 +181,13 @@ pub fn untracked_bookmarks() -> Vec<CompletionCandidate> {
             .retain(|(bookmark, _help)| !already_tracked_bookmarks.contains(&bookmark.as_str()));
 
         Ok(possible_bookmarks_to_track
-            .into_iter()
-            .map(|(bookmark, help)| {
-                CompletionCandidate::new(bookmark).help(Some(help.to_string().into()))
+            .iter()
+            .filter_map(|(symbol, help)| Some((symbol.split_once('@')?, help)))
+            // There may be multiple remote bookmarks to track. Just pick the
+            // first one for help text.
+            .dedup_by(|((name1, _), _), ((name2, _), _)| name1 == name2)
+            .map(|((name, _remote), help)| {
+                CompletionCandidate::new(name).help(Some(help.to_string().into()))
             })
             .collect())
     })
