@@ -41,6 +41,13 @@ use crate::ui::Ui;
 /// are provided, commits will be duplicated onto their existing parents or onto
 /// other newly duplicated commits.
 ///
+/// ```text
+/// C        C  C'
+/// |   =>   | /
+/// B        B
+/// ```
+/// (C is duplicated to C', both have the same parent B)
+///
 /// When any of the `--onto`, `--insert-after`, or `--insert-before` arguments
 /// are provided, the roots of the specified commits will be duplicated onto the
 /// destination indicated by the arguments. Other specified commits will be
@@ -48,9 +55,22 @@ use crate::ui::Ui;
 /// `--insert-before` arguments are provided, the new children indicated by the
 /// arguments will be rebased onto the heads of the specified commits.
 ///
+/// ```text
+/// Before:           After:
+/// C                 C   C'
+/// |                 |   |
+/// B   D             B   D
+/// |   |     =>      |   |
+/// A   E             A   E
+///  \ /               \ /
+///   root              root
+/// ```
+/// (duplicating C onto D with `jj duplicate C --onto D`; original C unchanged)
+///
 /// By default, the duplicated commits retain the descriptions of the originals.
 /// This can be customized with the `templates.duplicate_description` setting.
 #[derive(clap::Args, Clone, Debug)]
+#[command(verbatim_doc_comment)]
 pub(crate) struct DuplicateArgs {
     /// The revision(s) to duplicate (default: @)
     #[arg(
