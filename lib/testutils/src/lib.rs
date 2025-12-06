@@ -578,7 +578,7 @@ pub fn dump_tree(merged_tree: &MergedTree) -> String {
     use std::fmt::Write as _;
     let store = merged_tree.store();
     let mut buf = String::new();
-    let trees = merged_tree.trees_async().block_on().unwrap();
+    let trees = merged_tree.trees().block_on().unwrap();
     writeln!(&mut buf, "merged tree (sides: {})", trees.num_sides()).unwrap();
     for tree in &trees {
         writeln!(&mut buf, "  tree {}", tree.id()).unwrap();

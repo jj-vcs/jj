@@ -132,7 +132,7 @@ impl MergedTree {
     }
 
     /// Reads the merge of tree objects represented by this `MergedTree`.
-    pub async fn trees_async(&self) -> BackendResult<Merge<Tree>> {
+    pub async fn trees(&self) -> BackendResult<Merge<Tree>> {
         self.tree_ids
             .try_map_async(|id| self.store.get_tree_async(RepoPathBuf::root(), id))
             .await
@@ -222,7 +222,7 @@ impl MergedTree {
     pub async fn path_value_async(&self, path: &RepoPath) -> BackendResult<MergedTreeValue> {
         match path.split() {
             Some((dir, basename)) => {
-                let trees = self.trees_async().await?;
+                let trees = self.trees().await?;
                 match trees.sub_tree_recursive(dir).await? {
                     None => Ok(Merge::absent()),
                     Some(tree) => Ok(tree.value(basename).cloned()),
