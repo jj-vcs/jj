@@ -34,7 +34,9 @@ ID can also be used. It is an error to use a non-unique prefix.
 
 A full change ID refers to a visible commit with that change ID. A unique prefix
 of the full change ID can also be used. It is an error to use a non-unique
-prefix or [a divergent change ID][divergent-change].
+prefix or [a divergent change ID][divergent-change]. To refer to a
+[hidden](#hidden-revisions) commit or [divergent change][divergent-change], a
+[change offset][change-offset] can be added using `<change ID>/<offset>` syntax.
 
 Use [single or double quotes][string-literals] to prevent a symbol from being
 interpreted as an expression. For example, `"x-"` is the symbol `x-`, not the
@@ -42,6 +44,7 @@ parents of symbol `x`. Taking shell quoting into account, you may need to use
 something like `jj log -r '"x-"'`.
 
 [divergent-change]: glossary.md#divergent-change
+[change-offset]: glossary.md#change-offset
 [string-literals]: templates.md#string-literals
 
 ### Priority
