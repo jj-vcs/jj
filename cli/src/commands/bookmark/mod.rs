@@ -30,6 +30,7 @@ use jj_lib::iter_util::fallible_any;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RefName;
+use jj_lib::ref_name::RemoteName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo;
 use jj_lib::str_util::StringExpression;
@@ -215,6 +216,23 @@ fn warn_unmatched_local_or_remote_bookmarks(
     writeln!(
         ui.warning_default(),
         "No matching bookmarks for names: {}",
+        names.map(|name| name.as_symbol()).join(", ")
+    )
+}
+
+/// Warns about exact patterns that don't match remotes.
+fn warn_unmatched_remotes(ui: &Ui, view: &View, name_expr: &StringExpression) -> io::Result<()> {
+    let mut names = name_expr
+        .exact_strings()
+        .map(RemoteName::new)
+        .filter(|name| view.get_remote_view(name).is_none())
+        .peekable();
+    if names.peek().is_none() {
+        return Ok(());
+    }
+    writeln!(
+        ui.warning_default(),
+        "No matching remotes for names: {}",
         names.map(|name| name.as_symbol()).join(", ")
     )
 }

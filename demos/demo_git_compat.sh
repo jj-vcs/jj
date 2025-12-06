@@ -15,7 +15,7 @@ branch. Other remote branches are only available as remote-tracking bookmarks."
 run_command "jj bookmark list --all"
 comment "We can create a local bookmark tracking one of the remote branches we just
 fetched."
-run_command "jj bookmark track octocat-patch-1@origin"
+run_command "jj bookmark track octocat-patch-1 --remote=origin"
 
 comment "By default, \"jj log\" excludes untracked remote branches to focus on
 \"our\" commits."

@@ -557,17 +557,25 @@ Start tracking given remote bookmarks
 
 A tracking remote bookmark will be imported as a local bookmark of the same name. Changes to it will propagate to the existing local bookmark on future pulls.
 
-**Usage:** `jj bookmark track <BOOKMARK@REMOTE>...`
+**Usage:** `jj bookmark track [OPTIONS] <BOOKMARK>...`
 
 **Command Alias:** `t`
 
 ###### **Arguments:**
 
-* `<BOOKMARK@REMOTE>` — Remote bookmarks to track
+* `<BOOKMARK>` — Bookmark names to track
 
    By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
 
-   Examples: bookmark@remote, glob:main@*, glob:jjfan-*@upstream
+   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+
+###### **Options:**
+
+* `--remote <REMOTE>` — Remote names to track
+
+   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+
+   If no remote names are given, all remote bookmarks matching the bookmark names will be tracked.
 
    [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
@@ -581,15 +589,23 @@ A non-tracking remote bookmark is just a pointer to the last-fetched remote book
 
 If you want to forget a local bookmark while also untracking the corresponding remote bookmarks, use `jj bookmark forget` instead.
 
-**Usage:** `jj bookmark untrack <BOOKMARK@REMOTE>...`
+**Usage:** `jj bookmark untrack [OPTIONS] <BOOKMARK>...`
 
 ###### **Arguments:**
 
-* `<BOOKMARK@REMOTE>` — Remote bookmarks to untrack
+* `<BOOKMARK>` — Bookmark names to untrack
 
    By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
 
-   Examples: bookmark@remote, glob:main@*, glob:jjfan-*@upstream
+   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+
+###### **Options:**
+
+* `--remote <REMOTE>` — Remote names to untrack
+
+   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+
+   If no remote names are given, all remote bookmarks matching the bookmark names will be untracked.
 
    [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 

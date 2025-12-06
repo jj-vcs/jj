@@ -15,13 +15,19 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::repo::Repo as _;
+use jj_lib::str_util::StringExpression;
 
 use super::find_trackable_remote_bookmarks;
+use super::trackable_remote_bookmarks_matching;
+use super::warn_unmatched_local_or_remote_bookmarks;
+use super::warn_unmatched_remotes;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RemoteBookmarkNamePattern;
 use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
+use crate::command_error::cli_error;
 use crate::complete;
+use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
 /// Stop tracking given remote bookmarks
@@ -33,21 +39,32 @@ use crate::ui::Ui;
 /// corresponding remote bookmarks, use `jj bookmark forget` instead.
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkUntrackArgs {
-    /// Remote bookmarks to untrack
+    /// Bookmark names to untrack
     ///
     /// By default, the specified name matches exactly. Use `glob:` prefix to
     /// select bookmarks by [wildcard pattern].
-    ///
-    /// Examples: bookmark@remote, glob:main@*, glob:jjfan-*@upstream
     ///
     /// [wildcard pattern]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(
         required = true,
-        value_name = "BOOKMARK@REMOTE",
+        value_name = "BOOKMARK",
         add = ArgValueCandidates::new(complete::tracked_bookmarks)
     )]
-    names: Vec<RemoteBookmarkNamePattern>,
+    names: Vec<String>,
+
+    /// Remote names to untrack
+    ///
+    /// By default, the specified name matches exactly. Use `glob:` prefix to
+    /// select bookmarks by [wildcard pattern].
+    ///
+    /// If no remote names are given, all remote bookmarks matching the bookmark
+    /// names will be untracked.
+    ///
+    /// [wildcard pattern]:
+    ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+    #[arg(long = "remote", value_name = "REMOTE")]
+    remotes: Option<Vec<String>>,
 }
 
 pub fn cmd_bookmark_untrack(
@@ -57,9 +74,40 @@ pub fn cmd_bookmark_untrack(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
-    let ignored_remote = default_ignored_remote_name(repo.store());
+    let view = repo.view();
+    let ignored_remote = default_ignored_remote_name(repo.store())
+        // suppress unmatched remotes warning for default-ignored remote
+        .filter(|name| view.get_remote_view(name).is_some());
+    let matched_refs = if args.remotes.is_none() && args.names.iter().all(|s| s.contains('@')) {
+        // TODO: Delete in jj 0.43+
+        writeln!(
+            ui.warning_default(),
+            "<bookmark>@<remote> syntax is deprecated, use `<bookmark> --remote=<remote>` instead."
+        )?;
+        let name_patterns: Vec<RemoteBookmarkNamePattern> = args
+            .names
+            .iter()
+            .map(|s| s.parse())
+            .try_collect()
+            .map_err(cli_error)?;
+        find_trackable_remote_bookmarks(ui, view, &name_patterns)?
+    } else {
+        let bookmark_expr = parse_union_name_patterns(ui, &args.names)?;
+        let remote_expr = match (&args.remotes, ignored_remote) {
+            (Some(text), _) => parse_union_name_patterns(ui, text)?,
+            (None, Some(ignored)) => StringExpression::exact(ignored).negated(),
+            (None, None) => StringExpression::all(),
+        };
+        let bookmark_matcher = bookmark_expr.to_matcher();
+        let remote_matcher = remote_expr.to_matcher();
+        let matched_refs =
+            trackable_remote_bookmarks_matching(view, &bookmark_matcher, &remote_matcher).collect();
+        warn_unmatched_local_or_remote_bookmarks(ui, view, &bookmark_expr)?;
+        warn_unmatched_remotes(ui, view, &remote_expr)?;
+        matched_refs
+    };
     let mut symbols = Vec::new();
-    for (symbol, remote_ref) in find_trackable_remote_bookmarks(ui, repo.view(), &args.names)? {
+    for (symbol, remote_ref) in matched_refs {
         if ignored_remote.is_some_and(|ignored| symbol.remote == ignored) {
             // This restriction can be lifted if we want to support untracked @git
             // bookmarks.

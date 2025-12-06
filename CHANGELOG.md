@@ -13,6 +13,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `remotes.<name>.auto-track-bookmarks` is now parsed the same way they
   are in revsets and can be combined with logical operators.
 
+* `jj bookmark track`/`untrack` now accepts `--remote` argument. If omitted, all
+  remote bookmarks matching the bookmark names will be tracked/untracked. The
+  old `<bookmark>@<remote>` syntax is deprecated in favor of `<bookmark>
+  --remote=<remote>`.
+
 * On Windows, symlinks that point to a path with `/` won't be supported. This
   path is [invalid on Windows].
 

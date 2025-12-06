@@ -423,7 +423,7 @@ fn test_bookmark_track_untrack_revert() {
 
     // Track/untrack can be reverted so long as states can be trivially merged.
     work_dir
-        .run_jj(["bookmark", "untrack", "feature1@origin", "feature2@origin"])
+        .run_jj(["bookmark", "untrack", "feature1 | feature2"])
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qpvuntsm bab5b5ef (empty) commit
@@ -449,9 +449,7 @@ fn test_bookmark_track_untrack_revert() {
     [EOF]
     ");
 
-    work_dir
-        .run_jj(["bookmark", "track", "feature1@origin"])
-        .success();
+    work_dir.run_jj(["bookmark", "track", "feature1"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qpvuntsm bab5b5ef (empty) commit
       @origin: qpvuntsm bab5b5ef (empty) commit

@@ -276,7 +276,7 @@ fn test_git_push_other_remote_has_bookmark() {
     //
     // TODO: Saner test?
     work_dir
-        .run_jj(["bookmark", "track", "bookmark1@other"])
+        .run_jj(["bookmark", "track", "bookmark1", "--remote=other"])
         .success();
     let output = work_dir.run_jj(["git", "push", "--remote=other"]);
     insta::assert_snapshot!(output, @r"
@@ -624,7 +624,7 @@ fn test_git_push_locally_created_and_rewritten() {
     ");
     // Absent-tracked bookmark can be pushed without --allow-new
     work_dir
-        .run_jj(["bookmark", "track", "my@origin"])
+        .run_jj(["bookmark", "track", "my", "--remote=origin"])
         .success();
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @r"
@@ -1103,7 +1103,7 @@ fn test_git_push_changes_with_name_deleted_tracked() {
     // OK to push to a different remote once the bookmark is no longer tracked on
     // `origin`
     work_dir
-        .run_jj(["bookmark", "untrack", "b1@origin"])
+        .run_jj(["bookmark", "untrack", "b1", "--remote=origin"])
         .success();
     let output = work_dir
         .run_jj(["bookmark", "list", "--all", "b1"])
@@ -1150,9 +1150,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     work_dir
         .run_jj(["git", "push", "--named", "b1=@"])
         .success();
-    work_dir
-        .run_jj(["bookmark", "untrack", "b1@origin"])
-        .success();
+    work_dir.run_jj(["bookmark", "untrack", "b1"]).success();
     work_dir.run_jj(["bookmark", "delete", "b1"]).success();
 
     let output = work_dir
@@ -1799,7 +1797,7 @@ fn test_git_push_deleted_untracked() {
         .run_jj(["bookmark", "delete", "bookmark1"])
         .success();
     work_dir
-        .run_jj(["bookmark", "untrack", "bookmark1@origin"])
+        .run_jj(["bookmark", "untrack", "bookmark1"])
         .success();
     let output = work_dir.run_jj(["git", "push", "--deleted"]);
     insta::assert_snapshot!(output, @r"
@@ -1834,7 +1832,7 @@ fn test_git_push_tracked_vs_all() {
         .run_jj(["bookmark", "delete", "bookmark2"])
         .success();
     work_dir
-        .run_jj(["bookmark", "untrack", "bookmark1@origin"])
+        .run_jj(["bookmark", "untrack", "bookmark1"])
         .success();
     work_dir
         .run_jj(["bookmark", "create", "-r@", "bookmark3"])
@@ -1870,7 +1868,7 @@ fn test_git_push_tracked_vs_all() {
 
     // Untrack the last remaining tracked bookmark.
     work_dir
-        .run_jj(["bookmark", "untrack", "bookmark2@origin"])
+        .run_jj(["bookmark", "untrack", "bookmark2"])
         .success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     bookmark1: vruxwmqv d7607a25 (empty) moved bookmark1
@@ -1902,8 +1900,8 @@ fn test_git_push_tracked_vs_all() {
     // - Whatever we do should be consistent with what `jj bookmark list` does; it
     //   currently does *not* list bookmarks like bookmark2 as "about to be
     //   deleted", as can be seen above.
-    // - We could consider showing some hint on `jj bookmark untrack
-    //   bookmark2@origin` instead of showing an error here.
+    // - We could consider showing some hint on `jj bookmark untrack bookmark2
+    //   --remote=origin` instead of showing an error here.
     let output = work_dir.run_jj(["git", "push", "--all"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1928,7 +1926,7 @@ fn test_git_push_moved_forward_untracked() {
         .run_jj(["bookmark", "set", "bookmark1", "-r@"])
         .success();
     work_dir
-        .run_jj(["bookmark", "untrack", "bookmark1@origin"])
+        .run_jj(["bookmark", "untrack", "bookmark1"])
         .success();
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @r"
@@ -1953,7 +1951,7 @@ fn test_git_push_moved_sideways_untracked() {
         .run_jj(["bookmark", "set", "--allow-backwards", "bookmark1", "-r@"])
         .success();
     work_dir
-        .run_jj(["bookmark", "untrack", "bookmark1@origin"])
+        .run_jj(["bookmark", "untrack", "bookmark1"])
         .success();
     let output = work_dir.run_jj(["git", "push"]);
     insta::assert_snapshot!(output, @r"
