@@ -619,6 +619,11 @@ This type cannot be printed. The following methods are defined.
   points to the target (or right) entry.
 * `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`,
   `"copied"`, or `"renamed"`.
+* `.status_char() -> String`: Single-character status indicator: `"M"` for modified,
+  `"A"` for added, `"D"` for removed, `"C"` for copied, or `"R"` for renamed.
+* `.formatted_path() -> String`: Formatted path with common prefix/suffix extraction
+  for renames and copies. For example, `src/{old => new}/file.rs` instead of showing
+  full paths. For non-copy/rename operations, equivalent to `.path()`.
 * `.source() -> TreeEntry`: The source (or left) entry.
 * `.target() -> TreeEntry`: The target (or right) entry.
 

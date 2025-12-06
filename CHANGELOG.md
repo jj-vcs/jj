@@ -149,6 +149,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj log` now supports a `--count` flag to print the number of commits instead
   of displaying them.
 
+* `TreeDiffEntry` type now has `formatted_path()` and `status_char()` methods.
+  `formatted_path()` shows renames/copies with common prefix extraction (e.g.,
+  `src/{old => new}/file.rs`). `status_char()` returns single-character status
+  codes (M/A/D/C/R).
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.
