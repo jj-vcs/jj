@@ -200,6 +200,7 @@ concat(
 ```
 
 You can override only the `default_commit_description` value if you like, e.g.:
+
 ```toml
 [template-aliases]
 default_commit_description = '''
@@ -572,6 +573,7 @@ templates.
 - `templates.op_log_node` for operations (with `Operation` keywords)
 
 For example:
+
 ```toml
 [templates]
 log_node = '''

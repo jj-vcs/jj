@@ -94,10 +94,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The config options `git.auto-local-bookmark` and `git.push-new-bookmarks` are
   deprecated in favor of `remotes.<name>.auto-track-bookmarks`. For example:
+
   ```toml
   [remotes.origin]
   auto-track-bookmarks = "glob:*"
   ```
+
   For more details, refer to
   [the docs](docs/config.md#automatic-tracking-of-bookmarks).
 
@@ -105,10 +107,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bookmarks, please track them with `jj bookmark track`. Alternatively, consider
   setting up an auto-tracking configuration to avoid the chore of tracking
   bookmarks manually. For example:
+
   ```toml
   [remotes.origin]
   auto-track-bookmarks = "glob:*"
   ```
+
   For more details, refer to
   [the docs](docs/config.md#automatic-tracking-of-bookmarks).
 
