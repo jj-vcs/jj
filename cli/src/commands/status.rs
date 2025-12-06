@@ -235,7 +235,7 @@ async fn visit_collapsed_untracked_files(
     tree: MergedTree,
     mut on_path: impl FnMut(&RepoPath, bool) -> Result<(), CommandError>,
 ) -> Result<(), CommandError> {
-    let trees = tree.trees()?;
+    let trees = tree.trees_async().await?;
     let mut stack = vec![trees];
 
     // TODO: This loop can be improved with BTreeMap cursors once that's stable,

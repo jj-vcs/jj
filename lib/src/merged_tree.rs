@@ -132,11 +132,6 @@ impl MergedTree {
     }
 
     /// Reads the merge of tree objects represented by this `MergedTree`.
-    pub fn trees(&self) -> BackendResult<Merge<Tree>> {
-        self.trees_async().block_on()
-    }
-
-    /// Async version of `trees()`.
     pub async fn trees_async(&self) -> BackendResult<Merge<Tree>> {
         self.tree_ids
             .try_map_async(|id| self.store.get_tree_async(RepoPathBuf::root(), id))
