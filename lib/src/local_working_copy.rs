@@ -67,6 +67,7 @@ use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
 use crate::config::ConfigGetError;
+use crate::conflict_labels::ConflictLabels;
 use crate::conflicts;
 use crate::conflicts::ConflictMarkerStyle;
 use crate::conflicts::ConflictMaterializeOptions;
@@ -1109,7 +1110,11 @@ impl TreeState {
                 .iter()
                 .map(|id| TreeId::new(id.clone()))
                 .collect();
-            self.tree = MergedTree::new(self.store.clone(), tree_ids_builder.build());
+            self.tree = MergedTree::new(
+                self.store.clone(),
+                tree_ids_builder.build(),
+                ConflictLabels::from_vec(proto.conflict_labels),
+            );
         }
         self.file_states =
             FileStatesMap::from_proto(proto.file_states, proto.is_file_states_sorted);
@@ -1127,6 +1132,7 @@ impl TreeState {
             .iter()
             .map(|id| id.to_bytes())
             .collect();
+        proto.conflict_labels = self.tree.labels().as_slice().to_owned();
         proto.file_states = self.file_states.data.clone();
         // `FileStatesMap` is guaranteed to be sorted.
         proto.is_file_states_sorted = true;
@@ -1303,7 +1309,7 @@ impl TreeState {
         });
         trace_span!("write tree").in_scope(|| -> Result<(), BackendError> {
             let new_tree = tree_builder.write_tree()?;
-            is_dirty |= new_tree.tree_ids() != self.tree.tree_ids();
+            is_dirty |= new_tree.tree_ids_and_labels() != self.tree.tree_ids_and_labels();
             self.tree = new_tree.clone();
             Ok(())
         })?;
@@ -2647,7 +2653,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         // continue an interrupted update if we find such a file.
         let new_tree = commit.tree();
         let tree_state = self.wc.tree_state_mut()?;
-        if tree_state.tree.tree_ids() != new_tree.tree_ids() {
+        if tree_state.tree.tree_ids_and_labels() != new_tree.tree_ids_and_labels() {
             let stats = tree_state.check_out(&new_tree)?;
             self.tree_state_dirty = true;
             Ok(stats)
@@ -2697,7 +2703,10 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         mut self: Box<Self>,
         operation_id: OperationId,
     ) -> Result<Box<dyn WorkingCopy>, WorkingCopyStateError> {
-        assert!(self.tree_state_dirty || self.old_tree.tree_ids() == self.wc.tree()?.tree_ids());
+        assert!(
+            self.tree_state_dirty
+                || self.old_tree.tree_ids_and_labels() == self.wc.tree()?.tree_ids_and_labels()
+        );
         if self.tree_state_dirty {
             self.wc
                 .tree_state_mut()?

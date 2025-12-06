@@ -49,6 +49,9 @@ pub struct Commit {
     /// Alternating positive and negative terms
     #[prost(bytes = "vec", repeated, tag = "3")]
     pub root_tree: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+    /// Labels for the terms of a conflict.
+    #[prost(string, repeated, tag = "10")]
+    pub conflict_labels: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(bytes = "vec", tag = "4")]
     pub change_id: ::prost::alloc::vec::Vec<u8>,
     #[prost(string, tag = "5")]

@@ -543,10 +543,12 @@ pub fn commit_with_tree(store: &Arc<Store>, tree: MergedTree) -> Commit {
             tz_offset: 0,
         },
     };
+    let (root_tree, conflict_labels) = tree.into_tree_ids_and_labels();
     let commit = backend::Commit {
         parents: vec![store.root_commit_id().clone()],
         predecessors: vec![],
-        root_tree: tree.into_tree_ids(),
+        root_tree,
+        conflict_labels,
         change_id: ChangeId::from_hex("abcd"),
         description: "description".to_string(),
         author: signature.clone(),
@@ -599,8 +601,8 @@ macro_rules! assert_tree_eq {
         let left_tree: &::jj_lib::merged_tree::MergedTree = &$left_tree;
         let right_tree: &::jj_lib::merged_tree::MergedTree = &$right_tree;
         assert_eq!(
-            left_tree.tree_ids(),
-            right_tree.tree_ids(),
+            left_tree.tree_ids_and_labels(),
+            right_tree.tree_ids_and_labels(),
             "{}:\n left: {}\nright: {}",
             format_args!($($args)*),
             $crate::dump_tree(left_tree),
