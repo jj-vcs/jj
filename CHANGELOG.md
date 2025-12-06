@@ -24,6 +24,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   filesystem's behavior, but this can be overridden manually by setting
   `working-copy.exec-bit-change = "respect" | "ignore"`.
 
+* `jj workspace add` now also works for empty destination directories.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

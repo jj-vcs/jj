@@ -19,9 +19,9 @@ use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
-/// Test adding a second workspace
+/// Test adding a second and a third workspace
 #[test]
-fn test_workspaces_add_second_workspace() {
+fn test_workspaces_add_second_and_third_workspace() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "main"]).success();
     let main_dir = test_env.work_dir("main");
@@ -72,6 +72,18 @@ fn test_workspaces_add_second_workspace() {
     second: rzvqmyuk bcc858e1 (empty) (no description set)
     [EOF]
     ");
+
+    // Check that a workspace can be created in an existing empty directory
+    main_dir.create_dir("../third");
+    let output = main_dir.run_jj(["workspace", "add", "--name", "third", "../third"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created workspace in "../third"
+    Working copy  (@) now at: nuwvvtmy d55e769c (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
 }
 
 /// Test how sparse patterns are inherited
@@ -1181,7 +1193,7 @@ fn test_workspaces_forget() {
     let output = main_dir.run_jj(["workspace", "add", "."]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Workspace already exists
+    Error: Destination path exists and is not an empty directory
     [EOF]
     [exit status: 1]
     ");

@@ -85,10 +85,12 @@ pub fn cmd_workspace_add(
 ) -> Result<(), CommandError> {
     let old_workspace_command = command.workspace_helper(ui)?;
     let destination_path = command.cwd().join(&args.destination);
-    if destination_path.exists() {
-        return Err(user_error("Workspace already exists"));
-    } else {
+    if !destination_path.exists() {
         fs::create_dir(&destination_path).context(&destination_path)?;
+    } else if !file_util::is_empty_dir(&destination_path)? {
+        return Err(user_error(
+            "Destination path exists and is not an empty directory",
+        ));
     }
     let workspace_name = if let Some(name) = &args.name {
         name.to_owned()
