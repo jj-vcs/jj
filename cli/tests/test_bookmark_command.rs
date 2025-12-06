@@ -227,7 +227,7 @@ fn test_bookmark_bad_name() {
       |    ^---
       |
       = expected <EOI>
-    Hint: Looks like remote bookmark. Run `jj bookmark track foo@bar` to track it.
+    Hint: Looks like remote bookmark. Run `jj bookmark track foo --remote=bar` to track it.
     [EOF]
     [exit status: 2]
     ");
@@ -659,7 +659,7 @@ fn test_bookmark_rename() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Tracked remote bookmarks for bookmark bremote exist.
-    Hint: Run `jj bookmark untrack 'glob:bremote@*'` to disassociate them.
+    Hint: Run `jj bookmark untrack bremote` to disassociate them.
     [EOF]
     ");
     work_dir
@@ -682,7 +682,7 @@ fn test_bookmark_rename() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: The renamed bookmark already exists on the remote 'origin', tracking state was dropped.
-    Hint: To track the existing remote bookmark, run `jj bookmark track bremote-untracked@origin`
+    Hint: To track the existing remote bookmark, run `jj bookmark track bremote-untracked --remote=origin`
     Warning: Tracked remote bookmarks for bookmark bremote2 were not renamed.
     Hint: To rename the bookmark on the remote, you can `jj git push --bookmark bremote2` first (to delete it on the remote), and then `jj git push --bookmark bremote-untracked`. `jj git push --all --deleted` would also be sufficient.
     [EOF]
