@@ -792,7 +792,9 @@ fn classify_bookmark_update(
         BookmarkPushAction::RemoteUntracked => Err(RejectedBookmarkUpdateReason {
             message: format!("Non-tracking remote bookmark {remote_symbol} exists"),
             hint: Some(format!(
-                "Run `jj bookmark track {remote_symbol}` to import the remote bookmark."
+                "Run `jj bookmark track {name} --remote={remote}` to import the remote bookmark.",
+                name = remote_symbol.name.as_symbol(),
+                remote = remote_symbol.remote.as_symbol()
             )),
         }),
         // TODO: deprecate --allow-new and make classify_bookmark_push_action()
@@ -801,7 +803,9 @@ fn classify_bookmark_update(
             Err(RejectedBookmarkUpdateReason {
                 message: format!("Refusing to create new remote bookmark {remote_symbol}"),
                 hint: Some(format!(
-                    "Run `jj bookmark track {remote_symbol}` and try again."
+                    "Run `jj bookmark track {name} --remote={remote}` and try again.",
+                    name = remote_symbol.name.as_symbol(),
+                    remote = remote_symbol.remote.as_symbol()
                 )),
             })
         }
@@ -835,7 +839,7 @@ fn ensure_new_bookmark_name(repo: &dyn Repo, name: &RefName) -> Result<(), Comma
             format!("Tracked remote bookmarks exist for deleted bookmark: {symbol}"),
             format!(
                 "Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack \
-                 'glob:{symbol}@*'` to disassociate them."
+                 {symbol}` to disassociate them."
             ),
         ));
     }

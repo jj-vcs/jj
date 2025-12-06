@@ -656,9 +656,7 @@ fn test_log_bookmarks() {
 
     // Track all remote bookmarks, rewrite bookmark1, move bookmark2 forward,
     // create conflict in bookmark3, add new-bookmark
-    work_dir
-        .run_jj(["bookmark", "track", "glob:*@origin"])
-        .success();
+    work_dir.run_jj(["bookmark", "track", "glob:*"]).success();
     work_dir
         .run_jj(["describe", "bookmark1", "-m", "modified bookmark1 commit"])
         .success();

@@ -47,7 +47,7 @@ $ jj config set --repo git.fetch '["upstream", "origin"]'
 $ jj config set --repo git.push origin
 
 # Track both remote bookmarks
-$ jj bookmark track main@upstream main@origin
+$ jj bookmark track main
 
 # The upstream repository defines the trunk
 $ jj config set --repo 'revset-aliases."trunk()"' main@upstream
@@ -86,8 +86,8 @@ $ jj config set --repo git.fetch '["origin"]'
 $ jj config set --repo git.push origin
 
 # Track only the origin bookmark
-$ jj bookmark track main@origin
-$ jj bookmark untrack main@upstream
+$ jj bookmark track main --remote=origin
+$ jj bookmark untrack main --remote=upstream
 
 # The origin repository defines the trunk
 $ jj config set --repo 'revset-aliases."trunk()"' main@origin

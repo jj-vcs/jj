@@ -1950,7 +1950,7 @@ fn test_git_fetch_tracked() {
 
     // Now untrack feature1
     work_dir
-        .run_jj(["bookmark", "untrack", "feature1@origin"])
+        .run_jj(["bookmark", "untrack", "feature1"])
         .success();
 
     // Verify feature1 is untracked
@@ -2023,9 +2023,7 @@ fn test_git_fetch_tracked_no_tracked_bookmarks() {
     work_dir.run_jj(["git", "fetch"]).success();
 
     // Untrack all bookmarks
-    work_dir
-        .run_jj(["bookmark", "untrack", "glob:*@origin"])
-        .success();
+    work_dir.run_jj(["bookmark", "untrack", "glob:*"]).success();
 
     // Fetch with --tracked should indicate nothing changed
     let output = work_dir.run_jj(["git", "fetch", "--tracked"]);
@@ -2072,18 +2070,18 @@ fn test_git_fetch_tracked_multiple_remotes() {
 
     // Track different branches from different remotes
     work_dir
-        .run_jj(["bookmark", "track", "feature1@origin"])
+        .run_jj(["bookmark", "track", "feature1", "--remote=origin"])
         .success();
     work_dir
-        .run_jj(["bookmark", "track", "develop@upstream"])
+        .run_jj(["bookmark", "track", "develop", "--remote=upstream"])
         .success();
 
     // Untrack some branches to test --tracked behavior
     work_dir
-        .run_jj(["bookmark", "untrack", "feature2@origin"])
+        .run_jj(["bookmark", "untrack", "feature2", "--remote=origin"])
         .success();
     work_dir
-        .run_jj(["bookmark", "untrack", "hotfix@upstream"])
+        .run_jj(["bookmark", "untrack", "hotfix", "--remote=upstream"])
         .success();
 
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
