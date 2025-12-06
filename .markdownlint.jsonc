@@ -1,0 +1,4 @@
+{
+    // MD031/blanks-around-fences : Fenced code blocks should be surrounded by blank lines
+    "MD031": true
+}

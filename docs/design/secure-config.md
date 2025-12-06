@@ -158,6 +158,7 @@ message Metadata {
 ```
 
 The function to load repository configuration, will roughly speaking, look like:
+
 ```rust
 enum ConfigLoadError { NoRepoId, NoConfig, PathMismatch, }
 
