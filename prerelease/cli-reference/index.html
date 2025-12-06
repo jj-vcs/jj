@@ -8443,6 +8443,7 @@ Martin von Zweigbergk</p>
 <p>The primary use case for this command is to apply the results of automatic
 code formatting tools to revisions that may not be properly formatted yet.
 It can also be used to modify files with other tools like <code>sed</code> or <code>sort</code>.</p>
+<p>The modification made by <code>jj fix</code> can be reviewed by <code>jj op show -p</code>.</p>
 <h3 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h3>
 <p>The changed files in the given revisions will be updated with any fixes
 determined by passing their file content through any external tools the user
