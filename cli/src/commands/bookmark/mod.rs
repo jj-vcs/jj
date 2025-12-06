@@ -33,6 +33,7 @@ use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteRefSymbol;
 use jj_lib::repo::Repo;
 use jj_lib::str_util::StringExpression;
+use jj_lib::str_util::StringMatcher;
 use jj_lib::view::View;
 
 use self::create::BookmarkCreateArgs;
@@ -116,16 +117,9 @@ fn find_trackable_remote_bookmarks<'a>(
     for pattern in name_patterns {
         let bookmark_matcher = pattern.bookmark.to_matcher();
         let remote_matcher = pattern.remote.to_matcher();
-        let present_or_tracked_matches =
-            view.remote_bookmarks_matching(&bookmark_matcher, &remote_matcher);
-        let absent_matches =
-            view.remote_views_matching(&remote_matcher)
-                .flat_map(|(remote, remote_view)| {
-                    view.local_bookmarks_matching(&bookmark_matcher)
-                        .filter(|&(name, _)| !remote_view.bookmarks.contains_key(name))
-                        .map(|(name, _)| (name.to_remote_symbol(remote), RemoteRef::absent_ref()))
-                });
-        let mut matches = itertools::chain(present_or_tracked_matches, absent_matches).peekable();
+        let mut matches =
+            trackable_remote_bookmarks_matching(view, &bookmark_matcher, &remote_matcher)
+                .peekable();
         if matches.peek().is_none() {
             unmatched_symbols.extend(pattern.as_exact());
         }
@@ -141,6 +135,23 @@ fn find_trackable_remote_bookmarks<'a>(
         )?;
     }
     Ok(matching_bookmarks)
+}
+
+fn trackable_remote_bookmarks_matching<'a>(
+    view: &'a View,
+    bookmark_matcher: &StringMatcher,
+    remote_matcher: &StringMatcher,
+) -> impl Iterator<Item = (RemoteRefSymbol<'a>, &'a RemoteRef)> {
+    let present_or_tracked_matches =
+        view.remote_bookmarks_matching(bookmark_matcher, remote_matcher);
+    let absent_matches =
+        view.remote_views_matching(remote_matcher)
+            .flat_map(move |(remote, remote_view)| {
+                view.local_bookmarks_matching(bookmark_matcher)
+                    .filter(|&(name, _)| !remote_view.bookmarks.contains_key(name))
+                    .map(|(name, _)| (name.to_remote_symbol(remote), RemoteRef::absent_ref()))
+            });
+    itertools::chain(present_or_tracked_matches, absent_matches)
 }
 
 fn is_fast_forward(
