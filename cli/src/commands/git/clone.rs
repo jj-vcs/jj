@@ -19,6 +19,7 @@ use std::num::NonZeroU32;
 use std::path::Path;
 
 use itertools::Itertools as _;
+use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
@@ -124,14 +125,6 @@ fn clone_destination_for_source(source: &str) -> Option<&str> {
         .map(|(_, name)| name)
 }
 
-fn is_empty_dir(path: &Path) -> bool {
-    if let Ok(mut entries) = path.read_dir() {
-        entries.next().is_none()
-    } else {
-        false
-    }
-}
-
 pub fn cmd_git_clone(
     ui: &mut Ui,
     command: &CommandHelper,
@@ -150,7 +143,7 @@ pub fn cmd_git_clone(
     let wc_path = command.cwd().join(wc_path_str);
 
     let wc_path_existed = wc_path.exists();
-    if wc_path_existed && !is_empty_dir(&wc_path) {
+    if wc_path_existed && !file_util::is_empty_dir(&wc_path)? {
         return Err(user_error(
             "Destination path exists and is not an empty directory",
         ));

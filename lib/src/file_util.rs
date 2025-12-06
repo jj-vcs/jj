@@ -19,6 +19,7 @@ use std::ffi::OsString;
 use std::fs;
 use std::fs::File;
 use std::io;
+use std::io::ErrorKind;
 use std::io::Read;
 use std::io::Write;
 use std::path::Component;
@@ -82,6 +83,18 @@ pub fn remove_dir_contents(dirname: &Path) -> Result<(), PathError> {
         fs::remove_file(&path).context(&path)?;
     }
     Ok(())
+}
+
+/// Checks if path points at an empty directory.
+pub fn is_empty_dir(path: &Path) -> Result<bool, PathError> {
+    match path.read_dir() {
+        Ok(mut entries) => Ok(entries.next().is_none()),
+        Err(error) => match error.kind() {
+            ErrorKind::NotADirectory => Ok(false),
+            ErrorKind::NotFound => Ok(false),
+            _ => Err(error).context(path)?,
+        },
+    }
 }
 
 #[derive(Debug, Error)]
