@@ -159,6 +159,18 @@ new working-copy commit.
             "The given paths do not match any file: {}",
             args.paths.join(" ")
         )?;
+
+        if args.message_paragraphs.is_empty() {
+            let error = format!(
+                "Did you mean `commit --message \"{}\"` ?",
+                args.paths.join(" ")
+            );
+
+            return Err(CommandError::new(
+                crate::command_error::CommandErrorKind::User,
+                error,
+            ));
+        }
     }
 
     let mut commit_builder = tx.repo_mut().rewrite_commit(&commit).detach();
