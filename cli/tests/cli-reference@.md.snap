@@ -2853,6 +2853,8 @@ Splitting an empty commit is not supported because the same effect can be achiev
 
 Move changes from a revision into another revision
 
+Without any options, moves the changes from the working-copy revision to the parent revision.
+
 With the `-r` option, moves the changes from the specified revision to the parent revision. Fails if there are several parent revisions (i.e., the given revision is a merge).
 
 With the `--from` and/or `--into` options, moves changes from/to the given revisions. If either is left out, it defaults to the working-copy commit. For example, `jj squash --into @--` moves changes from the working-copy commit to the grandparent.

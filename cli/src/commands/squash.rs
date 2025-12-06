@@ -51,6 +51,9 @@ use crate::ui::Ui;
 
 /// Move changes from a revision into another revision
 ///
+/// Without any options, moves the changes from the working-copy revision to the
+/// parent revision.
+///
 /// With the `-r` option, moves the changes from the specified revision to the
 /// parent revision. Fails if there are several parent revisions (i.e., the
 /// given revision is a merge).
