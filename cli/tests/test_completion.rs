@@ -136,14 +136,14 @@ fn test_bookmark_names() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    test_env.run_jj_in(".", ["git", "init", "origin"]).success();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "origin"])
+        .success();
     let origin_dir = test_env.work_dir("origin");
-    let origin_git_repo_path = origin_dir
-        .root()
-        .join(".jj")
-        .join("repo")
-        .join("store")
-        .join("git");
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "upstream"])
+        .success();
+    let _upstream_dir = test_env.work_dir("upstream");
 
     work_dir
         .run_jj(["bookmark", "create", "-r@", "aaa-local"])
@@ -154,13 +154,10 @@ fn test_bookmark_names() {
 
     // add various remote branches
     work_dir
-        .run_jj([
-            "git",
-            "remote",
-            "add",
-            "origin",
-            origin_git_repo_path.to_str().unwrap(),
-        ])
+        .run_jj(["git", "remote", "add", "origin", "../origin"])
+        .success();
+    work_dir
+        .run_jj(["git", "remote", "add", "upstream", "../upstream"])
         .success();
     work_dir
         .run_jj(["bookmark", "create", "-r@", "aaa-tracked"])
@@ -174,8 +171,18 @@ fn test_bookmark_names() {
     work_dir
         .run_jj(["desc", "-r", "bbb-tracked", "-m", "x"])
         .success();
+
     work_dir
-        .run_jj(["git", "push", "--allow-new", "--bookmark", "glob:*-tracked"])
+        .run_jj(["bookmark", "track", "--remote=origin", "glob:*-tracked"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "track", "--remote=upstream", "aaa-tracked"])
+        .success();
+    work_dir
+        .run_jj(["git", "push", "--remote=origin", "--tracked"])
+        .success();
+    work_dir
+        .run_jj(["git", "push", "--remote=upstream", "--tracked"])
         .success();
 
     origin_dir
@@ -190,8 +197,20 @@ fn test_bookmark_names() {
     origin_dir
         .run_jj(["desc", "-r", "bbb-untracked", "-m", "x"])
         .success();
-    origin_dir.run_jj(["git", "export"]).success();
-    work_dir.run_jj(["git", "fetch"]).success();
+    work_dir.run_jj(["git", "fetch", "--all-remotes"]).success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "list", "--all"]), @r"
+    aaa-local: qpvuntsm fe38a82d (empty) x
+    aaa-tracked: qpvuntsm fe38a82d (empty) x
+      @origin: qpvuntsm fe38a82d (empty) x
+      @upstream: qpvuntsm fe38a82d (empty) x
+    aaa-untracked@origin: rlvkpnrz 434ae005 (empty) x
+    bbb-local: qpvuntsm fe38a82d (empty) x
+    bbb-tracked: qpvuntsm fe38a82d (empty) x
+      @origin: qpvuntsm fe38a82d (empty) x
+    bbb-untracked@origin: rlvkpnrz 434ae005 (empty) x
+    [EOF]
+    ");
 
     // Every shell hook is a little different, e.g. the zsh hooks add some
     // additional environment variables. But this is irrelevant for the purpose
@@ -264,14 +283,14 @@ fn test_bookmark_names() {
 
     let output = work_dir.complete_fish(["bookmark", "track", "a"]);
     insta::assert_snapshot!(output, @r"
-    aaa-local@origin	 x
-    aaa-untracked@origin	 x
+    aaa-local	 x
+    aaa-untracked	 x
     [EOF]
     ");
 
     let output = work_dir.complete_fish(["bookmark", "untrack", "a"]);
     insta::assert_snapshot!(output, @r"
-    aaa-tracked@origin	x
+    aaa-tracked	x
     [EOF]
     ");
 
