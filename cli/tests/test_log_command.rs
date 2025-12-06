@@ -1800,9 +1800,7 @@ fn test_log_anonymize() {
         .run_jj_in(".", ["git", "clone", origin_git_repo, "local"])
         .success();
     let work_dir = test_env.work_dir("local");
-    work_dir
-        .run_jj(["bookmark", "track", "b1@origin", "b2@origin"])
-        .success();
+    work_dir.run_jj(["bookmark", "track", "b1 | b2"]).success();
     work_dir.run_jj(["new", "b1"]).success();
     work_dir.run_jj(["bookmark", "move", "b1", "-t@"]).success();
 

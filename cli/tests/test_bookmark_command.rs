@@ -368,9 +368,7 @@ fn test_bookmark_move() {
     ");
 
     // Untracked remote bookmark shouldn't block creation of local bookmark
-    work_dir
-        .run_jj(["bookmark", "untrack", "foo@origin"])
-        .success();
+    work_dir.run_jj(["bookmark", "untrack", "foo"]).success();
     work_dir.run_jj(["bookmark", "delete", "foo"]).success();
     let output = work_dir.run_jj(["bookmark", "create", "foo"]);
     insta::assert_snapshot!(output, @r"
@@ -692,7 +690,7 @@ fn test_bookmark_rename() {
 
     // rename an untracked bookmark
     work_dir
-        .run_jj(["bookmark", "untrack", "buntracked@origin"])
+        .run_jj(["bookmark", "untrack", "buntracked"])
         .success();
     let output = work_dir.run_jj(["bookmark", "rename", "buntracked", "buntracked2"]);
     insta::assert_snapshot!(output, @"");
@@ -819,9 +817,7 @@ fn test_bookmark_delete_glob() {
     work_dir.run_jj(["git", "push", "--all"]).success();
     // Add absent-tracked bookmark
     work_dir.run_jj(["bookmark", "create", "foo-5"]).success();
-    work_dir
-        .run_jj(["bookmark", "track", "foo-5@origin"])
-        .success();
+    work_dir.run_jj(["bookmark", "track", "foo-5"]).success();
     let setup_opid = work_dir.current_operation_id();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
@@ -1245,9 +1241,13 @@ fn test_bookmark_track_untrack() {
     ");
 
     // Track new bookmark. Local bookmark should be created.
-    work_dir
-        .run_jj(["bookmark", "track", "feature1@origin", "main@origin"])
-        .success();
+    let output = work_dir.run_jj(["bookmark", "track", "feature1@origin", "main@origin"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: <bookmark>@<remote> syntax is deprecated, use `<bookmark> --remote=<remote>` instead.
+    Started tracking 2 remote bookmarks.
+    [EOF]
+    ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qxxqrkql bd843888 commit 1
       @origin: qxxqrkql bd843888 commit 1
@@ -1258,10 +1258,10 @@ fn test_bookmark_track_untrack() {
     ");
 
     // Track non-existent remote bookmark
-    let output = work_dir.run_jj(["bookmark", "track", "feature3@origin"]);
+    let output = work_dir.run_jj(["bookmark", "track", "feature3", "--remote=origin"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: No matching remote bookmarks for names: feature3@origin
+    Warning: No matching bookmarks for names: feature3
     Nothing changed.
     [EOF]
     ");
@@ -1270,9 +1270,7 @@ fn test_bookmark_track_untrack() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "feature2"])
         .success();
-    work_dir
-        .run_jj(["bookmark", "track", "feature2@origin"])
-        .success();
+    work_dir.run_jj(["bookmark", "track", "feature2"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qxxqrkql bd843888 commit 1
       @origin: qxxqrkql bd843888 commit 1
@@ -1290,9 +1288,13 @@ fn test_bookmark_track_untrack() {
     work_dir
         .run_jj(["bookmark", "delete", "feature2"])
         .success();
-    work_dir
-        .run_jj(["bookmark", "untrack", "feature1@origin", "feature2@origin"])
-        .success();
+    let output = work_dir.run_jj(["bookmark", "untrack", "feature1@origin", "feature2@origin"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: <bookmark>@<remote> syntax is deprecated, use `<bookmark> --remote=<remote>` instead.
+    Stopped tracking 2 remote bookmarks.
+    [EOF]
+    ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: qxxqrkql bd843888 commit 1
     feature1@origin: qxxqrkql bd843888 commit 1
@@ -1438,9 +1440,9 @@ fn test_bookmark_track_conflict() {
     // stop and retrack origin; creates conflict
     // origin2 and origin3 are not shown
     work_dir
-        .run_jj(["bookmark", "untrack", "main@origin"])
+        .run_jj(["bookmark", "untrack", "main", "--remote=origin"])
         .success();
-    let output = work_dir.run_jj(["bookmark", "track", "main@origin"]);
+    let output = work_dir.run_jj(["bookmark", "track", "main", "--remote=origin"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Started tracking 1 remote bookmarks.
@@ -1464,9 +1466,9 @@ fn test_bookmark_track_conflict() {
 
     // retracking origin2 adds to the conflict
     work_dir
-        .run_jj(["bookmark", "untrack", "main@origin2"])
+        .run_jj(["bookmark", "untrack", "main", "--remote=origin2"])
         .success();
-    let output = work_dir.run_jj(["bookmark", "track", "main@origin2"]);
+    let output = work_dir.run_jj(["bookmark", "track", "main", "--remote=origin2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Started tracking 1 remote bookmarks.
@@ -1510,30 +1512,20 @@ fn test_bookmark_track_untrack_patterns() {
     [EOF]
     ");
 
-    // Track local bookmark
+    // Track/untrack new bookmark that doesn't exist at remote
     work_dir.run_jj(["bookmark", "create", "main"]).success();
     insta::assert_snapshot!(work_dir.run_jj(["bookmark", "track", "main"]), @r"
-    ------- stderr -------
-    error: invalid value 'main' for '<BOOKMARK@REMOTE>...': remote bookmark must be specified in bookmark@remote form
-
-    For more information, try '--help'.
-    [EOF]
-    [exit status: 2]
-    ");
-
-    // Track/untrack new bookmark that doesn't exist at remote
-    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "track", "main@origin"]), @r"
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "untrack", "main@origin"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "untrack", "main"]), @r"
     ------- stderr -------
     Stopped tracking 1 remote bookmarks.
     [EOF]
     ");
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "untrack", "main@origin", "glob:main@o*"]), @r"
+        work_dir.run_jj(["bookmark", "untrack", "main", "--remote=glob:o*"]), @r"
     ------- stderr -------
     Warning: Remote bookmark not tracked yet: main@origin
     Nothing changed.
@@ -1541,24 +1533,23 @@ fn test_bookmark_track_untrack_patterns() {
     ");
 
     // Track/untrack unknown bookmark
-    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "track", "glob:maine@*"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "track", "glob:maine*"]), @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "untrack", "maine@origin", "glob:maine@o*"]), @r"
+        work_dir.run_jj(["bookmark", "untrack", "maine", "--remote=glob:o* | unknown"]), @r"
     ------- stderr -------
-    Warning: No matching remote bookmarks for names: maine@origin
+    Warning: No matching bookmarks for names: maine
+    Warning: No matching remotes for names: unknown
     Nothing changed.
     [EOF]
     ");
 
     // Track already tracked bookmark
-    work_dir
-        .run_jj(["bookmark", "track", "feature1@origin"])
-        .success();
-    let output = work_dir.run_jj(["bookmark", "track", "feature1@origin"]);
+    work_dir.run_jj(["bookmark", "track", "feature1"]).success();
+    let output = work_dir.run_jj(["bookmark", "track", "feature1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Remote bookmark already tracked: feature1@origin
@@ -1567,7 +1558,7 @@ fn test_bookmark_track_untrack_patterns() {
     ");
 
     // Untrack non-tracking bookmark
-    let output = work_dir.run_jj(["bookmark", "untrack", "feature2@origin"]);
+    let output = work_dir.run_jj(["bookmark", "untrack", "feature2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Remote bookmark not tracked yet: feature2@origin
@@ -1575,9 +1566,16 @@ fn test_bookmark_track_untrack_patterns() {
     [EOF]
     ");
 
-    // Untrack Git-tracking bookmark
+    // Track/untrack Git-tracking bookmark
     work_dir.run_jj(["git", "export"]).success();
-    let output = work_dir.run_jj(["bookmark", "untrack", "main@git"]);
+    let output = work_dir.run_jj(["bookmark", "track", "main", "--remote=git"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Remote bookmark already tracked: main@git
+    Nothing changed.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["bookmark", "untrack", "main", "--remote=git"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Git-tracking bookmark cannot be untracked: main@git
@@ -1594,14 +1592,20 @@ fn test_bookmark_track_untrack_patterns() {
     [EOF]
     ");
 
+    // Git-tracking remote should not be warned by default
+    let output = work_dir.run_jj(["bookmark", "track", "main"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Started tracking 1 remote bookmarks.
+    [EOF]
+    ");
+
     // Untrack by pattern
-    let output = work_dir.run_jj(["bookmark", "untrack", "glob:*@*"]);
+    let output = work_dir.run_jj(["bookmark", "untrack", "~glob:main", "--remote=glob:*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Git-tracking bookmark cannot be untracked: feature1@git
     Warning: Remote bookmark not tracked yet: feature2@origin
-    Warning: Git-tracking bookmark cannot be untracked: main@git
-    Warning: Remote bookmark not tracked yet: main@origin
     Stopped tracking 1 remote bookmarks.
     [EOF]
     ");
@@ -1612,13 +1616,20 @@ fn test_bookmark_track_untrack_patterns() {
     feature2@origin: yrnqsqlx 41e7a49d commit
     main: qpvuntsm e8849ae1 (empty) (no description set)
       @git: qpvuntsm e8849ae1 (empty) (no description set)
+      @origin (not created yet)
     [EOF]
     ");
 
     // Track by pattern
-    let output = work_dir.run_jj(["bookmark", "track", "glob:feature?@origin"]);
+    let output = work_dir.run_jj([
+        "bookmark",
+        "track",
+        "glob:'feature?' | main",
+        "--remote=~git",
+    ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: Remote bookmark already tracked: main@origin
     Started tracking 2 remote bookmarks.
     [EOF]
     ");
@@ -1630,6 +1641,90 @@ fn test_bookmark_track_untrack_patterns() {
       @origin: yrnqsqlx 41e7a49d commit
     main: qpvuntsm e8849ae1 (empty) (no description set)
       @git: qpvuntsm e8849ae1 (empty) (no description set)
+      @origin (not created yet)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bookmark_track_absent() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Set up remotes
+    let git_repo1 = {
+        let git_repo_path = test_env.env_root().join("remote1");
+        let git_repo = git::init(git_repo_path);
+        work_dir
+            .run_jj(["git", "remote", "add", "remote1", "../remote1"])
+            .success();
+        git_repo
+    };
+    let _git_repo2 = {
+        let git_repo_path = test_env.env_root().join("remote2");
+        let git_repo = git::init(git_repo_path);
+        work_dir
+            .run_jj(["git", "remote", "add", "remote2", "../remote2"])
+            .success();
+        git_repo
+    };
+
+    // Create feature1@remote1
+    create_commit_with_refs(&git_repo1, "commit", b"", &["refs/heads/feature1"]);
+
+    let output = work_dir.run_jj(["git", "fetch", "--all-remotes"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    bookmark: feature1@remote1 [new] untracked
+    [EOF]
+    ");
+
+    // Track feature1: remote2 isn't tracked because there's no local bookmark
+    insta::assert_snapshot!(
+        work_dir.run_jj(["bookmark", "track", "feature1", "--remote=glob:*"]), @r"
+    ------- stderr -------
+    Started tracking 1 remote bookmarks.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    feature1: quutswnw 3fb14832 commit
+      @remote1: quutswnw 3fb14832 commit
+    [EOF]
+    ");
+
+    // Track feature1 again: remote2 is now tracked
+    insta::assert_snapshot!(
+        work_dir.run_jj(["bookmark", "track", "feature1", "--remote=glob:*"]), @r"
+    ------- stderr -------
+    Warning: Remote bookmark already tracked: feature1@remote1
+    Started tracking 1 remote bookmarks.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    feature1: quutswnw 3fb14832 commit
+      @remote1: quutswnw 3fb14832 commit
+      @remote2 (not created yet)
+    [EOF]
+    ");
+
+    // Track newly-created bookmark: both remotes are tracked
+    work_dir
+        .run_jj(["bookmark", "create", "new-feature"])
+        .success();
+    insta::assert_snapshot!(
+        work_dir.run_jj(["bookmark", "track", "new-feature", "--remote=glob:*"]), @r"
+    ------- stderr -------
+    Started tracking 2 remote bookmarks.
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    feature1: quutswnw 3fb14832 commit
+      @remote1: quutswnw 3fb14832 commit
+      @remote2 (not created yet)
+    new-feature: qpvuntsm e8849ae1 (empty) (no description set)
+      @remote1 (not created yet)
+      @remote2 (not created yet)
     [EOF]
     ");
 }
@@ -1689,10 +1784,10 @@ fn test_bookmark_list() {
         .run_jj(["bookmark", "delete", "remote-untrack"])
         .success();
     local_dir
-        .run_jj(["bookmark", "track", "absent-tracked@origin"])
+        .run_jj(["bookmark", "track", "absent-tracked"])
         .success();
     local_dir
-        .run_jj(["bookmark", "untrack", "remote-untrack@origin"])
+        .run_jj(["bookmark", "untrack", "remote-untrack"])
         .success();
     local_dir
         .run_jj(["bookmark", "set", "--allow-backwards", "remote-unsync"])
@@ -2329,7 +2424,7 @@ fn test_bookmark_list_tracked() {
         .run_jj(["bookmark", "delete", "remote-untrack"])
         .success();
     local_dir
-        .run_jj(["bookmark", "untrack", "remote-untrack@origin"])
+        .run_jj(["bookmark", "untrack", "remote-untrack", "--remote=origin"])
         .success();
     local_dir
         .run_jj([
@@ -2412,7 +2507,7 @@ fn test_bookmark_list_tracked() {
     insta::assert_snapshot!(output, @"");
 
     local_dir
-        .run_jj(["bookmark", "untrack", "remote-unsync@upstream"])
+        .run_jj(["bookmark", "untrack", "remote-unsync", "--remote=upstream"])
         .success();
 
     let output = local_dir.run_jj(["bookmark", "list", "--tracked", "remote-unsync"]);
