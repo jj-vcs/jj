@@ -57,8 +57,9 @@ pub enum TrailerParseError {
 ///
 /// In this case, there are four trailers: two `Co-authored-by` lines, one
 /// `Reviewed-by` line, and one `Change-Id` line.
-pub fn parse_description_trailers(body: &str) -> Vec<Trailer> {
-    let (trailers, blank, found_git_trailer, non_trailer) = parse_trailers_impl(body);
+pub fn parse_description_trailers(body: &str, separators: &str) -> Vec<Trailer> {
+    let (trailers, _, blank, found_git_trailer, non_trailer) =
+        parse_trailers_impl(body, separators);
     if !blank {
         // no blank found, this means there was a single paragraph, so whatever
         // was found can't come from the trailer
@@ -76,26 +77,34 @@ pub fn parse_description_trailers(body: &str) -> Vec<Trailer> {
 /// Parse the trailers from a trailer paragraph. This function behaves like
 /// `parse_description_trailer`, but will return an error if a blank or
 /// non trailer line is found.
-pub fn parse_trailers(body: &str) -> Result<Vec<Trailer>, TrailerParseError> {
-    let (trailers, blank, _, non_trailer) = parse_trailers_impl(body);
+pub fn parse_trailers(
+    body: &str,
+    separators: &str,
+) -> Result<(Vec<Trailer>, Vec<String>), TrailerParseError> {
+    let (trailers, raw_trailers, blank, _, non_trailer) = parse_trailers_impl(body, separators);
     if blank {
         return Err(TrailerParseError::BlankLine);
     }
     if let Some(line) = non_trailer {
         return Err(TrailerParseError::NonTrailerLine { line });
     }
-    Ok(trailers)
+    Ok((trailers, raw_trailers))
 }
 
-fn parse_trailers_impl(body: &str) -> (Vec<Trailer>, bool, bool, Option<String>) {
+fn parse_trailers_impl(
+    body: &str,
+    separators: &str,
+) -> (Vec<Trailer>, Vec<String>, bool, bool, Option<String>) {
     // a trailer always comes at the end of a message; we can split the message
     // by newline, but we need to immediately reverse the order of the lines
     // to ensure we parse the trailer in an unambiguous manner; this avoids cases
     // where a colon in the body of the message is mistaken for a trailer
     let lines = body.trim_ascii_end().lines().rev();
-    let trailer_re =
-        regex::Regex::new(r"^([a-zA-Z0-9-]+) *: *(.*)$").expect("Trailer regex should be valid");
+    let separators_re = regex::escape(separators);
+    let trailer_re = regex::Regex::new(&format!("^([a-zA-Z0-9-]+?) *[{separators_re}] *(.*)$"))
+        .expect("Trailer regex should be valid");
     let mut trailers: Vec<Trailer> = Vec::new();
+    let mut raw_trailers: Vec<String> = Vec::new();
     let mut multiline_value = vec![];
     let mut found_blank = false;
     let mut found_git_trailer = false;
@@ -104,6 +113,13 @@ fn parse_trailers_impl(body: &str) -> (Vec<Trailer>, bool, bool, Option<String>)
         if line.starts_with(' ') {
             multiline_value.push(line);
         } else if let Some(groups) = trailer_re.captures(line) {
+            let raw_trailer = [&groups[0]]
+                .iter()
+                .chain(multiline_value.iter().rev())
+                .map(|l| format!("{l}\n"))
+                .collect();
+            raw_trailers.push(raw_trailer);
+
             let key = groups[1].to_string();
             multiline_value.push(groups.get(2).unwrap().as_str());
             // trim the end of the multiline value
@@ -133,7 +149,14 @@ fn parse_trailers_impl(body: &str) -> (Vec<Trailer>, bool, bool, Option<String>)
     }
     // reverse the insert order, since we parsed the trailer in reverse
     trailers.reverse();
-    (trailers, found_blank, found_git_trailer, non_trailer_line)
+    raw_trailers.reverse();
+    (
+        trailers,
+        raw_trailers,
+        found_blank,
+        found_git_trailer,
+        non_trailer_line,
+    )
 }
 
 #[cfg(test)]
@@ -157,7 +180,7 @@ mod tests {
             Change-Id: I1234567890abcdef1234567890abcdef12345678
         "#};
 
-        let trailers = parse_description_trailers(descriptions);
+        let trailers = parse_description_trailers(descriptions, ":");
         assert_eq!(trailers.len(), 4);
 
         assert_eq!(trailers[0].key, "Co-authored-by");
@@ -187,7 +210,7 @@ mod tests {
             Change-Id: I1234567890abcdef1234567890abcdef12345678
         "#};
 
-        let trailers = parse_description_trailers(descriptions);
+        let trailers = parse_description_trailers(descriptions, ":");
 
         // should only have Change-Id
         assert_eq!(trailers.len(), 1);
@@ -203,7 +226,7 @@ mod tests {
               newlines in it.
         "#};
 
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
 
         // should only have Change-Id
         assert_eq!(trailers.len(), 1);
@@ -226,14 +249,14 @@ mod tests {
             Signed-off-by: Lucky K Maintainer <lucky@maintainer.example.org>
         "#};
 
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 2);
     }
 
     #[test]
     fn test_trailers_with_single_line_description() {
         let description = r#"chore: update itertools to version 0.14.0"#;
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 0);
     }
 
@@ -243,13 +266,16 @@ mod tests {
             foo: 1
             bar: 2
         "#};
-        let res = parse_trailers(trailers_txt);
-        let trailers = res.expect("trailers to be valid");
+        let res = parse_trailers(trailers_txt, ":");
+        let (trailers, raw_trailers) = res.expect("trailers to be valid");
         assert_eq!(trailers.len(), 2);
         assert_eq!(trailers[0].key, "foo");
         assert_eq!(trailers[0].value, "1");
         assert_eq!(trailers[1].key, "bar");
         assert_eq!(trailers[1].value, "2");
+        assert_eq!(raw_trailers.len(), 2);
+        assert_eq!(raw_trailers[0], "foo: 1\n");
+        assert_eq!(raw_trailers[1], "bar: 2\n");
     }
 
     #[test]
@@ -259,7 +285,7 @@ mod tests {
 
             foo: 2
         "#};
-        let res = parse_trailers(trailers);
+        let res = parse_trailers(trailers, ":");
         assert!(matches!(res, Err(TrailerParseError::BlankLine)));
     }
 
@@ -269,7 +295,7 @@ mod tests {
             bar
             foo: 1
         "#};
-        let res = parse_trailers(trailers);
+        let res = parse_trailers(trailers, ":");
         assert!(matches!(
             res,
             Err(TrailerParseError::NonTrailerLine { line: _ })
@@ -284,7 +310,7 @@ mod tests {
             foo: 1
 
         "#};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 1);
     }
 
@@ -297,7 +323,7 @@ mod tests {
 
             bar: 2
         "#};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 1);
     }
 
@@ -307,7 +333,7 @@ mod tests {
             subject: whatever
             foo: 1
         "#};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 0);
     }
 
@@ -318,7 +344,7 @@ mod tests {
 
              foo: 1
         "#};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 0);
     }
 
@@ -329,7 +355,7 @@ mod tests {
 
             foo : 1
         "#};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 1);
         assert_eq!(trailers[0].key, "foo");
     }
@@ -341,7 +367,7 @@ mod tests {
 
             foo:  1\x20
         "};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 1);
         assert_eq!(trailers[0].value, "1");
     }
@@ -354,7 +380,7 @@ mod tests {
             foo:  1\x20
              2\x20
         "};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 1);
         assert_eq!(trailers[0].value, "1 \n 2");
     }
@@ -367,7 +393,7 @@ mod tests {
             foo:  1\x20
             bar:  2\x20
         "};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 2);
         assert_eq!(trailers[0].value, "1");
         assert_eq!(trailers[1].value, "2");
@@ -380,7 +406,7 @@ mod tests {
 
             foo:1
         "#};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 1);
     }
 
@@ -391,7 +417,7 @@ mod tests {
 
             foo:
         "#};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 1);
     }
 
@@ -402,7 +428,7 @@ mod tests {
 
             f_o_o: bar
         "#};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 0);
     }
 
@@ -414,7 +440,7 @@ mod tests {
             foo: bar
             baz
         "#};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 0);
     }
 
@@ -427,14 +453,14 @@ mod tests {
 
             baz
         "#};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 0);
     }
 
     #[test]
     fn test_empty_description() {
         let description = "";
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 0);
     }
 
@@ -447,9 +473,31 @@ mod tests {
             foo: bar
             (cherry picked from commit 72bb9f9cf4bbb6bbb11da9cda4499c55c44e87b9)
         "#};
-        let trailers = parse_description_trailers(description);
+        let trailers = parse_description_trailers(description, ":");
         assert_eq!(trailers.len(), 1);
         assert_eq!(trailers[0].key, "foo");
         assert_eq!(trailers[0].value, "bar");
+    }
+
+    #[test]
+    fn test_trailer_separators() {
+        let description = indoc! {r#"
+            subject
+
+            BUG-13
+            key|value
+            foo: bar
+            toto > titi
+        "#};
+        let trailers = parse_description_trailers(description, ":-|>");
+        assert_eq!(trailers.len(), 4);
+        assert_eq!(trailers[0].key, "BUG");
+        assert_eq!(trailers[0].value, "13");
+        assert_eq!(trailers[1].key, "key");
+        assert_eq!(trailers[1].value, "value");
+        assert_eq!(trailers[2].key, "foo");
+        assert_eq!(trailers[2].value, "bar");
+        assert_eq!(trailers[3].key, "toto");
+        assert_eq!(trailers[3].value, "titi");
     }
 }
