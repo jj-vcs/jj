@@ -64,6 +64,7 @@ fn test_integrate_sibling_operation() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Internal error: The repo was loaded at operation 5959e60d9534, which seems to be a sibling of the working copy's operation 98a299ea1b9b
+    Hint: Run `jj op integrate 98a299ea1b9b` to add the working copy's operation to the operation log.
     [EOF]
     [exit status: 255]
     ");
