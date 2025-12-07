@@ -77,6 +77,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj operation`↴](#jj-operation)
 * [`jj operation abandon`↴](#jj-operation-abandon)
 * [`jj operation diff`↴](#jj-operation-diff)
+* [`jj operation integrate`↴](#jj-operation-integrate)
 * [`jj operation log`↴](#jj-operation-log)
 * [`jj operation restore`↴](#jj-operation-restore)
 * [`jj operation revert`↴](#jj-operation-revert)
@@ -2112,6 +2113,7 @@ See the [operation log documentation] for more information.
 
 * `abandon` — Abandon operation history
 * `diff` — Compare changes to the repository between two operations
+* `integrate` — Make an operation part of the operation log
 * `log` — Show the operation log
 * `restore` — Create a new operation that restores the repo to an earlier state
 * `revert` — Create a new operation that reverts an earlier operation
@@ -2168,6 +2170,24 @@ Compare changes to the repository between two operations
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
+
+
+
+## `jj operation integrate`
+
+Make an operation part of the operation log
+
+Sometimes an operation does not make it into the operation log for some reason. This command can then be used for making that operation part of the operation log.
+
+Running this command on an operation that is already in the operation log (`jj op log`) has no effect. Since operations should currently always be integrated into the operation log (until e.g. [#2562] gets implemented), this command should always be a no-op. It would indicate a bug if this command is not a no-op. Only use it if you are told to by an error message.
+
+[#2562]: https://github.com/jj-vcs/jj/issues/2562
+
+**Usage:** `jj operation integrate <OPERATION>`
+
+###### **Arguments:**
+
+* `<OPERATION>` — The operation to integrate
 
 
 
