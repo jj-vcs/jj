@@ -1938,6 +1938,11 @@
 <h2 id="what-are-divergent-changes">What are divergent changes?<a class="headerlink" href="#what-are-divergent-changes" title="Permanent link">&para;</a></h2>
 <p>A <a href="../../glossary/#divergent-change">divergent change</a> occurs when multiple <a href="../../glossary/#visible-commits">visible commits</a> have the same change
 ID.</p>
+<p>These changes are displayed with a <code>??</code> after their change ID:</p>
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>jj<span class="w"> </span>log
+@<span class="w">  </span>mzvwutvl??<span class="w"> </span>test.user@example.com<span class="w"> </span><span class="m">2001</span>-02-03<span class="w"> </span><span class="m">08</span>:05:12<span class="w"> </span>29d07a2d
+│<span class="w">  </span>a<span class="w"> </span>divergent<span class="w"> </span>change
+</code></pre></div>
 <p>Normally, when commits are rewritten, the original version (the "predecessor")
 becomes hidden and the new commit (the "successor") is visible. Thus, only one
 commit with a given change ID is visible at a time.</p>
