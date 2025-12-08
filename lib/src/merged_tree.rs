@@ -1013,7 +1013,7 @@ impl MergedTreeBuilder {
 
     /// Create new tree(s) from the base tree(s) and overrides.
     pub fn write_tree(self) -> BackendResult<MergedTree> {
-        let store = self.base_tree.store.clone();
+        let store = self.base_tree.store().clone();
         let labels = self.base_tree.labels().clone();
         let new_tree_ids = self.write_merged_trees()?;
         match new_tree_ids.simplify().into_resolved() {
@@ -1035,8 +1035,8 @@ impl MergedTreeBuilder {
     }
 
     fn write_merged_trees(self) -> BackendResult<Merge<TreeId>> {
-        let store = self.base_tree.store;
-        let mut base_tree_ids = self.base_tree.tree_ids;
+        let store = self.base_tree.store().clone();
+        let mut base_tree_ids = self.base_tree.into_tree_ids();
         let num_sides = self
             .overrides
             .values()
