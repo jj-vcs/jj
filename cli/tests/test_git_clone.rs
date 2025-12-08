@@ -608,7 +608,7 @@ fn test_git_clone_remote_default_bookmark() {
     // "trunk()" alias should be set to default bookmark "main"
     let output = clone_dir1.run_jj(["config", "list", "--repo", "revset-aliases.'trunk()'"]);
     insta::assert_snapshot!(output, @r#"
-    revset-aliases.'trunk()' = "main@origin"
+    revset-aliases.'trunk()' = "present(main@origin)"
     [EOF]
     "#);
 
@@ -659,7 +659,7 @@ fn test_git_clone_remote_default_bookmark() {
     // "trunk()" alias should be set to new default bookmark "feature1"
     let output = clone_dir3.run_jj(["config", "list", "--repo", "revset-aliases.'trunk()'"]);
     insta::assert_snapshot!(output, @r#"
-    revset-aliases.'trunk()' = "feature1@origin"
+    revset-aliases.'trunk()' = "present(feature1@origin)"
     [EOF]
     "#);
 
@@ -761,7 +761,7 @@ fn test_git_clone_remote_default_bookmark_with_escape() {
     let clone_dir = test_env.work_dir("clone");
     let output = clone_dir.run_jj(["config", "list", "--repo", "revset-aliases.'trunk()'"]);
     insta::assert_snapshot!(output, @r#"
-    revset-aliases.'trunk()' = '"\""@origin'
+    revset-aliases.'trunk()' = 'present("\""@origin)'
     [EOF]
     "#);
 }
@@ -903,8 +903,6 @@ fn test_git_clone_trunk_deleted() {
     ------- stderr -------
     Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
-    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
-    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     [EOF]
     ");
 
@@ -915,10 +913,6 @@ fn test_git_clone_trunk_deleted() {
     ○  qomsplrm someone@example.org 1970-01-01 11:00:00 ebeb70d8
     │  message
     ◆  zzzzzzzz root() 00000000
-    [EOF]
-    ------- stderr -------
-    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
-    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     [EOF]
     ");
 }

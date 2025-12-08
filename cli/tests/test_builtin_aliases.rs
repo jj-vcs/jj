@@ -141,10 +141,7 @@ fn test_builtin_alias_trunk_no_match() {
     let work_dir = test_env.work_dir("local");
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(output, @r"
-    ◆  zzzzzzzz root() 00000000
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
 }
 
 #[test]
@@ -153,10 +150,7 @@ fn test_builtin_alias_trunk_no_match_only_exact() {
     let work_dir = test_env.work_dir("local");
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);
-    insta::assert_snapshot!(output, @r"
-    ◆  zzzzzzzz root() 00000000
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
 }
 
 #[test]
