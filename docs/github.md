@@ -169,8 +169,9 @@ local bookmarks. This means that if you want to iterate or test another
 contributor's bookmark, you'll need to do `jj new <bookmark>@<remote>` onto it.
 
 If you want to import all remote bookmarks including inactive ones, set
-`remotes.<name>.auto-track-bookmarks = "glob:*"` in the config file. Then you can specify a
-contributor's bookmark as `jj new <bookmark>` instead of `jj new <bookmark>@<remote>`.
+`remotes.<name>.auto-track-bookmarks = "*"` in the config file. Then you can
+specify a contributor's bookmark as `jj new <bookmark>` instead of `jj new
+<bookmark>@<remote>`.
 
 You can find more information on that setting [here][auto-bookmark].
 

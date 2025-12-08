@@ -1521,12 +1521,12 @@ jj config set --repo git.fetch "upstream"
 jj config set --repo git.fetch '["origin", "upstream"]'
 ```
 
-By default, the specified remote names matches exactly. You can also use a
-[string pattern](revsets.md#string-patterns) to select remotes using patterns:
+By default, the specified pattern matches remote names with glob syntax. You can
+also use other [string pattern syntax](revsets.md#string-patterns):
 
 ```sh
-jj config set --repo git.fetch "glob:*"
-jj config set --repo git.fetch '["glob:remote*", "glob:upstream*"]'
+jj config set --repo git.fetch "regex:'^(remote|upstream)'"
+jj config set --repo git.fetch '["remote*", "upstream*"]'
 ```
 
 Similarly, you can also set the variable `git.push` to cause `jj git push` to
@@ -1550,7 +1550,7 @@ created locally and ones fetched from the remote. For example:
 
 ```toml
 [remotes.origin]
-auto-track-bookmarks = "glob:*"
+auto-track-bookmarks = "*"
 ```
 
 This will simply track all bookmarks for the remote "origin". There are various
@@ -1566,7 +1566,7 @@ reasons to restrict which bookmarks to track:
 
   ```toml
   [remotes.origin]
-  auto-track-bookmarks = "glob:alice/*"
+  auto-track-bookmarks = "alice/*"
   ```
 
   That way, bookmarks pushed by other people (who probably use a different
@@ -1585,7 +1585,7 @@ reasons to restrict which bookmarks to track:
 
   ```toml
   [remotes.origin]
-  auto-track-bookmarks = "glob:*"
+  auto-track-bookmarks = "*"
   [remotes.upstream]
   auto-track-bookmarks = "main"
   ```

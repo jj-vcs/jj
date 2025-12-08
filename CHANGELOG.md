@@ -10,8 +10,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
-* [String patterns](docs/revsets.md#string-patterns) in revsets are now parsed
-  as globs by default. Use `substring:` prefix as needed.
+* [String patterns](docs/revsets.md#string-patterns) in revsets, command
+  arguments, and configuration are now parsed as globs by default. Use
+  `substring:` or `exact:` prefix as needed.
 
 * `remotes.<name>.auto-track-bookmarks` is now parsed the same way they
   are in revsets and can be combined with logical operators.

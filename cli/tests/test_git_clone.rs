@@ -43,7 +43,7 @@ fn set_up_git_repo_with_file(git_repo: &gix::Repository, filename: &str) {
 fn test_git_clone() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
 
@@ -208,7 +208,7 @@ fn test_git_clone_bad_source() {
 fn test_git_clone_colocate() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
 
@@ -582,8 +582,8 @@ fn test_git_clone_remote_default_bookmark() {
         )
         .unwrap();
 
-    // All fetched bookmarks will be imported if auto-track-bookmarks = 'glob:*'
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    // All fetched bookmarks will be imported if auto-track-bookmarks = '*'
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let output = root_dir.run_jj(["git", "clone", "source", "clone1"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -612,9 +612,8 @@ fn test_git_clone_remote_default_bookmark() {
     [EOF]
     "#);
 
-    // Only the default bookmark will be imported if auto-track-bookmarks =
-    // '~glob:*'
-    test_env.add_config("remotes.origin.auto-track-bookmarks = '~glob:*'");
+    // Only the default bookmark will be imported if auto-track-bookmarks = '~*'
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '~*'");
     let output = root_dir.run_jj(["git", "clone", "source", "clone2"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -703,7 +702,7 @@ fn test_git_clone_remote_default_bookmark() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Warning: Deprecated CLI-provided config: `git.auto-local-bookmark` is deprecated; use `remotes.<name>.auto-track-bookmarks` instead.
-    Example: jj config set --user remotes.origin.auto-track-bookmarks 'glob:*'
+    Example: jj config set --user remotes.origin.auto-track-bookmarks '*'
     For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks
     Fetching into new repo in "$TEST_ENV/clone5"
     bookmark: feature1@origin [new] tracked
@@ -827,7 +826,7 @@ fn test_git_clone_at_operation() {
 fn test_git_clone_with_remote_name() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
     set_up_non_empty_git_repo(&git_repo);
@@ -1013,7 +1012,7 @@ fn test_git_clone_conditional_config() {
 fn test_git_clone_with_depth() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let clone_dir = test_env.work_dir("clone");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(git_repo_path);
@@ -1198,7 +1197,7 @@ fn test_git_clone_no_git_executable_with_path() {
 fn test_git_clone_branch() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(&git_repo_path);
     set_up_non_empty_git_repo(&git_repo);
@@ -1230,7 +1229,7 @@ fn test_git_clone_branch() {
         "clone",
         "source",
         "clone_no_such_branch",
-        "--branch=(nonexistent1 | glob:nonexistent*) & ~nonexistent2",
+        "--branch=(nonexistent1 | nonexistent*) & ~nonexistent2",
     ]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -1269,7 +1268,7 @@ fn test_git_clone_branch() {
     ");
 
     // Clone all branches explicitly, the default branch should be checked out
-    let output = root_dir.run_jj(["git", "clone", "source", "clone_all", "--branch=glob:*"]);
+    let output = root_dir.run_jj(["git", "clone", "source", "clone_all", "--branch=*"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Fetching into new repo in "$TEST_ENV/clone_all"
@@ -1318,7 +1317,7 @@ fn test_git_clone_auto_track_bookmarks() {
     test_env.add_config(
         "
         [remotes.origin]
-        auto-track-bookmarks = 'glob:mine/*'
+        auto-track-bookmarks = 'mine/*'
         ",
     );
 

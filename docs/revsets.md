@@ -473,7 +473,7 @@ revsets (expressions) as arguments.
 Functions that perform string matching support the following pattern syntax (the
 quotes are optional).
 
-By default, `"string"` is parsed as a `glob:` pattern in revsets.
+By default, `"string"` is parsed as a `glob:` pattern.
 
 * `exact:"string"`: Matches strings exactly equal to `string`.
 * `glob:"pattern"`: Matches strings with Unix-style shell [wildcard

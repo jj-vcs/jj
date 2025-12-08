@@ -173,7 +173,7 @@ fn test_bookmark_names() {
         .success();
 
     work_dir
-        .run_jj(["bookmark", "track", "--remote=origin", "glob:*-tracked"])
+        .run_jj(["bookmark", "track", "--remote=origin", "*-tracked"])
         .success();
     work_dir
         .run_jj(["bookmark", "track", "--remote=upstream", "aaa-tracked"])

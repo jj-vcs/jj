@@ -53,7 +53,7 @@ fn set_up(test_env: &TestEnvironment) {
             [
                 "git",
                 "clone",
-                "--config=remotes.origin.auto-track-bookmarks='glob:*'",
+                "--config=remotes.origin.auto-track-bookmarks='*'",
                 origin_git_repo_path.to_str().unwrap(),
                 "local",
             ],
@@ -87,7 +87,7 @@ fn test_git_push_nothing() {
 fn test_git_push_current_bookmark() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let work_dir = test_env.work_dir("local");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     // Update some bookmarks. `bookmark1` is not a current bookmark, but
@@ -537,7 +537,7 @@ fn test_git_push_unexpectedly_deleted() {
 fn test_git_push_creation_unexpectedly_already_exists() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let work_dir = test_env.work_dir("local");
 
     // Forget bookmark1 locally
@@ -581,7 +581,7 @@ fn test_git_push_locally_created_and_rewritten() {
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     // Ensure that remote bookmarks aren't tracked automatically
-    test_env.add_config("remotes.origin.auto-track-bookmarks = '~glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '~*'");
 
     // Push locally-created bookmark
     work_dir.run_jj(["new", "root()", "-mlocal 1"]).success();
@@ -615,7 +615,7 @@ fn test_git_push_locally_created_and_rewritten() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Deprecated CLI-provided config: `git.push-new-bookmarks` is deprecated; use `remotes.<name>.auto-track-bookmarks` instead.
-    Example: jj config set --user remotes.origin.auto-track-bookmarks 'glob:*'
+    Example: jj config set --user remotes.origin.auto-track-bookmarks '*'
     For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks
     Changes to push to origin:
       Add bookmark my to e0cba5e497ee
@@ -659,7 +659,7 @@ fn test_git_push_locally_created_and_rewritten() {
 fn test_git_push_multiple() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let work_dir = test_env.work_dir("local");
     work_dir
         .run_jj(["bookmark", "delete", "bookmark1"])
@@ -709,7 +709,7 @@ fn test_git_push_multiple() {
         "-b=bookmark1",
         "-b=my-bookmark",
         "-b=bookmark1",
-        "-b=glob:my-*",
+        "-b=my-*",
         "--dry-run",
     ]);
     insta::assert_snapshot!(output, @r"
@@ -721,7 +721,7 @@ fn test_git_push_multiple() {
     [EOF]
     ");
     // Dry run with glob pattern
-    let output = work_dir.run_jj(["git", "push", "-b=glob:'bookmark?'", "--dry-run"]);
+    let output = work_dir.run_jj(["git", "push", "-b='bookmark?'", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Changes to push to origin:
@@ -739,7 +739,7 @@ fn test_git_push_multiple() {
     Nothing changed.
     [EOF]
     ");
-    let output = work_dir.run_jj(["git", "push", "-b=foo", "-b=glob:'?bookmark'"]);
+    let output = work_dir.run_jj(["git", "push", "-b=foo", "-b='?bookmark'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No matching bookmarks for names: foo
@@ -1257,7 +1257,7 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
 fn test_git_push_revisions() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let work_dir = test_env.work_dir("local");
     work_dir.run_jj(["describe", "-m", "foo"]).success();
     work_dir.write_file("file", "contents");
@@ -1433,7 +1433,7 @@ fn test_git_push_conflict() {
 fn test_git_push_no_description() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let work_dir = test_env.work_dir("local");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
@@ -1462,7 +1462,7 @@ fn test_git_push_no_description() {
 fn test_git_push_no_description_in_immutable() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let work_dir = test_env.work_dir("local");
     work_dir
         .run_jj(["bookmark", "create", "-r@", "imm"])
@@ -1498,7 +1498,7 @@ fn test_git_push_no_description_in_immutable() {
 fn test_git_push_missing_author() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
         work_dir
@@ -1531,7 +1531,7 @@ fn test_git_push_missing_author() {
 fn test_git_push_missing_author_in_immutable() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
         work_dir
@@ -1573,7 +1573,7 @@ fn test_git_push_missing_author_in_immutable() {
 fn test_git_push_missing_committer() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
         work_dir
@@ -1623,7 +1623,7 @@ fn test_git_push_missing_committer() {
 fn test_git_push_missing_committer_in_immutable() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let work_dir = test_env.work_dir("local");
     let run_without_var = |var: &str, args: &[&str]| {
         work_dir
@@ -1702,7 +1702,7 @@ fn test_git_push_conflicting_bookmarks() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let git_repo = {
         let mut git_repo_path = work_dir.root().to_owned();
         git_repo_path.extend([".jj", "repo", "store", "git"]);

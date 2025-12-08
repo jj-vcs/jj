@@ -598,16 +598,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                     err,
                     "Specify patterns in `(positive | ...) & ~(negative | ...)` form.",
                 ),
-                GitRefExpansionError::InvalidBranchPattern(pattern) => {
-                    if pattern.as_exact().is_some_and(|s| s.contains('*')) {
-                        user_error_with_hint(
-                            "Branch names may not include `*`.",
-                            "Prefix the pattern with `glob:` to expand `*` as a glob",
-                        )
-                    } else {
-                        user_error(err)
-                    }
-                }
+                GitRefExpansionError::InvalidBranchPattern(_) => user_error(err),
             }
         }
     }

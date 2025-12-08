@@ -109,11 +109,17 @@ pub struct GitCloneArgs {
     /// If not present, all branches are fetched and the repository's default
     /// branch is used as parent of the working-copy change.
     ///
-    /// By default, the specified name matches exactly. Use `glob:` prefix to
-    /// expand `*` as a glob, e.g. `--branch 'glob:push-*'`. Other wildcard
-    /// characters such as `?` are *not* supported. Can be repeated to specify
-    /// multiple branches, in which case the first exact branch name is used as
-    /// the working-copy parent.
+    /// By default, the specified pattern matches branch names with glob syntax,
+    /// but only `*` is expanded. Other wildcard characters such as `?` are
+    /// *not* supported. Patterns can be repeated or combined with [logical
+    /// operators] to specify multiple branches, but only union and negative
+    /// intersection are supported. If there are multiple matching branches, the
+    /// first exact branch name is used as the working-copy parent.
+    ///
+    /// Examples: `push-*`, `(push-* | foo/*) ~ foo/unwanted`
+    ///
+    /// [logical operators]:
+    ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(long, short, alias = "bookmark")]
     branch: Option<Vec<String>>,
 }
