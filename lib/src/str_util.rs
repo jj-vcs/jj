@@ -42,21 +42,13 @@ pub enum StringPatternParseError {
     Regex(regex::Error),
 }
 
-/// A wrapper for [`Glob`] and its matcher with a more concise `Debug` impl.
+/// A wrapper for [`Glob`] with a more concise `Debug` impl.
 #[derive(Clone)]
 pub struct GlobPattern {
     glob: Glob,
-    // TODO: Maybe better to add StringPattern::to_matcher(), and move regex
-    // compilation there.
-    regex: regex::bytes::Regex,
 }
 
 impl GlobPattern {
-    /// Returns true if this pattern matches `haystack`.
-    pub fn is_match(&self, haystack: &[u8]) -> bool {
-        self.regex.is_match(haystack)
-    }
-
     /// Returns the original glob pattern.
     pub fn as_str(&self) -> &str {
         self.glob.glob()
@@ -64,7 +56,12 @@ impl GlobPattern {
 
     /// Converts this glob pattern to a bytes regex.
     pub fn to_regex(&self) -> regex::bytes::Regex {
-        self.regex.clone()
+        // Based on new_regex() in globset. We don't use GlobMatcher::is_match(path)
+        // because the input string shouldn't be normalized as path.
+        regex::bytes::RegexBuilder::new(self.glob.regex())
+            .dot_matches_new_line(true)
+            .build()
+            .expect("glob regex should be valid")
     }
 }
 
@@ -83,13 +80,7 @@ fn parse_glob(src: &str, icase: bool) -> Result<GlobPattern, StringPatternParseE
         .backslash_escape(true)
         .build()
         .map_err(StringPatternParseError::GlobPattern)?;
-    // Based on new_regex() in globset. We don't use GlobMatcher::is_match(path)
-    // because the input string shouldn't be normalized as path.
-    let regex = regex::bytes::RegexBuilder::new(glob.regex())
-        .dot_matches_new_line(true)
-        .build()
-        .expect("glob regex should be valid");
-    Ok(GlobPattern { glob, regex })
+    Ok(GlobPattern { glob })
 }
 
 fn is_glob_char(c: char) -> bool {
@@ -311,7 +302,7 @@ impl StringPattern {
             // callers might want to translate these to backend-specific query
             // differently.
             Self::Glob(pattern) | Self::GlobI(pattern) => {
-                let pattern = pattern.clone();
+                let pattern = pattern.to_regex();
                 Box::new(move |haystack| pattern.is_match(haystack))
             }
             Self::Regex(pattern) | Self::RegexI(pattern) => {
