@@ -34,11 +34,18 @@ use crate::backend::CommitId;
 use crate::commit::Commit;
 use crate::commit::CommitIteratorExt as _;
 use crate::commit_builder::CommitBuilder;
+use crate::conflict_labels::ConflictLabels;
+use crate::conflicts::materialized_diff_stream;
+use crate::copies::CopyRecords;
+use crate::diff_presentation::LineCompareMode;
+use crate::diff_presentation::unified::unified_diff_hunks;
 use crate::index::Index;
 use crate::index::IndexResult;
 use crate::iter_util::fallible_any;
+use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
+use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::MergedTreeBuilder;
@@ -1262,6 +1269,74 @@ pub fn squash_commits<'repo>(
         commit_builder,
         abandoned_commits,
     }))
+}
+
+/// Find commits from the target that are already present with identical
+/// contents in the destination. These commits should be able to be safely
+/// abandoned.
+pub fn find_different_changeid_commits(
+    repo: &dyn Repo,
+    new_parent_ids: &[CommitId],
+    target: &MoveCommitsTarget,
+) -> BackendResult<Vec<Commit>> {
+    let target_commits: Vec<Commit> = match target {
+        MoveCommitsTarget::Commits(commit_ids) => commit_ids
+            .iter()
+            .map(|commit_id| repo.store().get_commit(commit_id))
+            .try_collect()?,
+        MoveCommitsTarget::Roots(root_ids) => RevsetExpression::commits(root_ids.clone())
+            .descendants()
+            .evaluate(repo)
+            .map_err(|err| err.into_backend_error())?
+            .iter()
+            .commits(repo.store())
+            .try_collect()
+            .map_err(|err| err.into_backend_error())?,
+    };
+
+    // // FIXME: this is basically a copy of merge_tools::generate_diff, but that is
+    // // for displaying this and it requires a formatter, etc.
+    // let diff_wc = check_out_trees(trees, matcher, DiffType::TwoWay,
+    // ConflictMarkerStyle::Diff)?; diff_wc.set_left_readonly()?;
+    // diff_wc.set_right_readonly()?;
+    // let mut patterns = diff_wc.to_command_variables(true);
+
+    let target_commit_patch_ids: HashSet<&CommitId> =
+        target_commits.iter().map(Commit::id).collect();
+
+    // For each duplicate change being rebased, we want to find all of the other
+    // commits in target that are not in  our commits the with the same changes.
+    let duplicate_changes: Vec<(&Commit, Vec<CommitId>)> = target_commits
+        .iter()
+        .map(|target_commit| -> Result<_, BackendError> {
+            let target_tree = target_commit.tree();
+            let copy_records = CopyRecords::default();
+            let parent = target_commit.parent_tree(repo)?;
+            // let parent_tree = parent.tree();
+            let matcher = EverythingMatcher {};
+            let tree_diff = parent.diff_stream_with_copies(&target_tree, &matcher, &copy_records);
+            let conflict_labels = ConflictLabels::unlabeled();
+            let materialized = materialized_diff_stream(
+                repo.store(),
+                tree_diff,
+                Diff::new(&conflict_labels, &conflict_labels),
+            );
+
+            let context = 3; // FIXME: Check what to use
+            let diff_hunks = unified_diff_hunks(materialized.into(), context, LineCompareMode::Exact);
+
+            let mut ancestor_candidates = repo
+                .resolve_change_id(target_commit.change_id())
+                // TODO: indexing error shouldn't be a "BackendError"
+                .map_err(|err| BackendError::Other(err.into()))?
+                .unwrap_or_default();
+            // ancestor_candidates.retain(|commit_id|
+            // !target_commit_ids.contains(commit_id));
+            Ok((target_commit, ancestor_candidates))
+        })
+        .filter_ok(|(_, candidates)| !candidates.is_empty())
+        .try_collect()?;
+    Ok(duplicate_changes)
 }
 
 /// Find divergent commits from the target that are already present with
