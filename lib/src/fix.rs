@@ -312,7 +312,7 @@ pub async fn fix_files(
         summary.num_checked_commits += 1;
         if has_changes {
             summary.num_fixed_commits += 1;
-            let new_tree = tree_builder.write_tree()?;
+            let new_tree = tree_builder.write_tree().await?;
             let builder = rewriter.reparent();
             let new_commit = builder.set_tree(new_tree).write().await?;
             summary

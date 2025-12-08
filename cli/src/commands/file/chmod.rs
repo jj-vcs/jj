@@ -115,7 +115,7 @@ pub(crate) fn cmd_file_chmod(
         tree_builder.set_or_remove(repo_path, tree_value);
     }
 
-    let new_tree = tree_builder.write_tree()?;
+    let new_tree = tree_builder.write_tree().block_on()?;
     tx.repo_mut()
         .rewrite_commit(&commit)
         .set_tree(new_tree)

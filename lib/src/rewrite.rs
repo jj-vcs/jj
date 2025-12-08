@@ -128,7 +128,7 @@ pub async fn restore_tree(
     }
 
     let select_matching =
-        |tree: &MergedTree, labels: ConflictLabels| -> BackendResult<MergedTree> {
+        async |tree: &MergedTree, labels: ConflictLabels| -> BackendResult<MergedTree> {
             let empty_tree_ids = Merge::repeated(
                 tree.store().empty_tree_id().clone(),
                 tree.tree_ids().num_sides(),
@@ -142,7 +142,7 @@ pub async fn restore_tree(
                 // to expand resolved conflicts into `Merge::repeated(value, num_sides)`.
                 builder.set_or_remove(path, value?);
             }
-            builder.write_tree()
+            builder.write_tree().await
         };
 
     const RESTORE_BASE_LABEL: &str = "base files for restore";
@@ -174,11 +174,11 @@ pub async fn restore_tree(
             format!("{destination_label} (restore destination)"),
         ),
         (
-            select_matching(destination, base_labels)?,
+            select_matching(destination, base_labels).await?,
             format!("{RESTORE_BASE_LABEL} (from {destination_label})"),
         ),
         (
-            select_matching(source, source.labels().clone())?,
+            select_matching(source, source.labels().clone()).await?,
             format!("restored files (from {source_label})"),
         ),
     ]))

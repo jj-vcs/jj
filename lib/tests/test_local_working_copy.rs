@@ -301,8 +301,8 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
             files.push((*left_kind, *right_kind, path.clone()));
         }
     }
-    let left_tree = left_tree_builder.write_tree().unwrap();
-    let right_tree = right_tree_builder.write_tree().unwrap();
+    let left_tree = left_tree_builder.write_tree().block_on().unwrap();
+    let right_tree = right_tree_builder.write_tree().block_on().unwrap();
     let left_commit = commit_with_tree(&store, left_tree);
     let right_commit = commit_with_tree(&store, right_tree.clone());
 
@@ -1767,7 +1767,7 @@ fn test_git_submodule(gitignore_content: &str) {
         Merge::normal(TreeValue::GitSubmodule(submodule_id1)),
     );
 
-    let tree_id1 = tree_builder.write_tree().unwrap();
+    let tree_id1 = tree_builder.write_tree().block_on().unwrap();
     let commit1 = commit_with_tree(repo.store(), tree_id1.clone());
 
     let mut tree_builder = MergedTreeBuilder::new(tree_id1.clone());
@@ -1776,7 +1776,7 @@ fn test_git_submodule(gitignore_content: &str) {
         submodule_path.to_owned(),
         Merge::normal(TreeValue::GitSubmodule(submodule_id2)),
     );
-    let tree_id2 = tree_builder.write_tree().unwrap();
+    let tree_id2 = tree_builder.write_tree().block_on().unwrap();
     let commit2 = commit_with_tree(repo.store(), tree_id2.clone());
 
     let ws = &mut test_workspace.workspace;

@@ -460,7 +460,7 @@ fn apply_diff_builtin(
             Ok(new_value)
         },
     )?;
-    tree_builder.write_tree()
+    tree_builder.write_tree().block_on()
 }
 
 fn apply_changes(
@@ -755,7 +755,7 @@ fn apply_merge_builtin(
             }))
         },
     )?;
-    tree_builder.write_tree()
+    tree_builder.write_tree().block_on()
 }
 
 #[cfg(test)]

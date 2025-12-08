@@ -65,7 +65,7 @@ pub(crate) fn cmd_file_untrack(
     for (path, _value) in wc_tree.entries_matching(matcher.as_ref()) {
         tree_builder.set_or_remove(path, Merge::absent());
     }
-    let new_tree = tree_builder.write_tree()?;
+    let new_tree = tree_builder.write_tree().block_on()?;
     let new_commit = tx
         .repo_mut()
         .rewrite_commit(&wc_commit)

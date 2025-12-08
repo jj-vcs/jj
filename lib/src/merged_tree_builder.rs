@@ -18,7 +18,6 @@ use std::collections::BTreeMap;
 use std::iter::zip;
 
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 
 use crate::backend::BackendResult;
 use crate::backend::TreeId;
@@ -59,7 +58,7 @@ impl MergedTreeBuilder {
     }
 
     /// Create new tree(s) from the base tree(s) and overrides.
-    pub fn write_tree(self) -> BackendResult<MergedTree> {
+    pub async fn write_tree(self) -> BackendResult<MergedTree> {
         let store = self.base_tree.store().clone();
         let labels = self.base_tree.labels().clone();
         let new_tree_ids = self.write_merged_trees()?;
@@ -77,7 +76,7 @@ impl MergedTreeBuilder {
             Ok(single_tree_id) => Ok(MergedTree::resolved(store, single_tree_id)),
             Err(tree_ids) => {
                 let tree = MergedTree::new(store, tree_ids, labels);
-                tree.resolve().block_on()
+                tree.resolve().await
             }
         }
     }

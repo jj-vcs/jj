@@ -1353,12 +1353,14 @@ impl TreeState {
             self.file_states
                 .merge_in(changed_file_states, &deleted_files);
         });
-        trace_span!("write tree").in_scope(|| -> Result<(), BackendError> {
-            let new_tree = tree_builder.write_tree()?;
-            is_dirty |= new_tree.tree_ids_and_labels() != self.tree.tree_ids_and_labels();
-            self.tree = new_tree.clone();
-            Ok(())
-        })?;
+        trace_span!("write tree")
+            .in_scope(async || -> Result<(), BackendError> {
+                let new_tree = tree_builder.write_tree().await?;
+                is_dirty |= new_tree.tree_ids_and_labels() != self.tree.tree_ids_and_labels();
+                self.tree = new_tree.clone();
+                Ok(())
+            })
+            .await?;
         if cfg!(debug_assertions) {
             let tree_paths: HashSet<_> = self
                 .tree

@@ -91,7 +91,7 @@ fn test_merged_tree_builder_resolves_conflict() {
         ConflictLabels::from_vec(vec!["tree 2".into(), "tree 1".into(), "tree 3".into()]),
     );
     let tree_builder = MergedTreeBuilder::new(base_tree);
-    let tree = tree_builder.write_tree().unwrap();
+    let tree = tree_builder.write_tree().block_on().unwrap();
     assert_eq!(*tree.tree_ids(), Merge::resolved(tree2.id().clone()));
 }
 
