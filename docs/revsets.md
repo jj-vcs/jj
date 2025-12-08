@@ -286,11 +286,6 @@ revsets (expressions) as arguments.
   tags `v123` and `rev1` but not the tag `v2`. If a tag is
   in a conflicted state, all its possible targets are included.
 
-* `git_refs()`:  All Git ref targets as of the last import. If a Git ref
-  is in a conflicted state, all its possible targets are included.
-
-* `git_head()`: The Git `HEAD` target as of the last import.
-
 * `visible_heads()`: All visible heads (same as `heads(all())` if no hidden
   revisions are mentioned).
 

@@ -161,8 +161,6 @@ This type cannot be printed. The following methods are defined.
   local one.
 * `.local_tags() -> List<CommitRef>`: All local tags pointing to the commit.
 * `.remote_tags() -> List<CommitRef>`: All remote tags pointing to the commit.
-* `.git_refs() -> List<CommitRef>`
-* `.git_head() -> Boolean`: True for the Git `HEAD` commit.
 * `.divergent() -> Boolean`: True if the commit's change id corresponds to multiple
   visible commits.
 * `.hidden() -> Boolean`: True if the commit is not visible (a.k.a. abandoned).

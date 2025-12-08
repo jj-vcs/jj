@@ -1162,18 +1162,28 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             Ok(out_property.into_dyn_wrapped())
         },
     );
+    // TODO: Remove in jj 0.43+
     map.insert(
         "git_refs",
-        |language, _diagnostics, _build_ctx, self_property, function| {
+        |language, diagnostics, _build_ctx, self_property, function| {
+            diagnostics.add_warning(TemplateParseError::expression(
+                "commit.git_refs() is deprecated; use .remote_bookmarks()/tags() instead",
+                function.name_span,
+            ));
             function.expect_no_arguments()?;
             let index = language.keyword_cache.git_refs_index(language.repo).clone();
             let out_property = self_property.map(move |commit| index.get(commit.id()).to_vec());
             Ok(out_property.into_dyn_wrapped())
         },
     );
+    // TODO: Remove in jj 0.43+
     map.insert(
         "git_head",
-        |language, _diagnostics, _build_ctx, self_property, function| {
+        |language, diagnostics, _build_ctx, self_property, function| {
+            diagnostics.add_warning(TemplateParseError::expression(
+                "commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead",
+                function.name_span,
+            ));
             function.expect_no_arguments()?;
             let repo = language.repo;
             let out_property = self_property.map(|commit| {

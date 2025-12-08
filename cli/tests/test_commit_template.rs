@@ -795,6 +795,15 @@ fn test_log_git_head() {
     ○  true
     ◆  false
     [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 1:1
+      |
+    1 | git_head
+      | ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "--color=always"]);

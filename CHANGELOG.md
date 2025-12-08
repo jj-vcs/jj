@@ -20,6 +20,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* The `git_head()` and `git_refs()` functions will be removed from revsets and
+  templates. `git_head()` should point to the `first_parent(@)` revision in
+  colocated repositories. `git_refs()` can be approximated as
+  `remote_bookmarks(remote=glob:*) | tags()`.
+
 ### New features
 
 * Updated the executable bit representation in the local working copy to allow

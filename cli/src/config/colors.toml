@@ -31,6 +31,7 @@
 "remote_bookmarks" = "magenta"
 "tag" = "magenta"
 "tags" = "magenta"
+# TODO: remove git_refs and git_head (but not git_ref) in jj 0.43+
 "git_ref" = "green"
 "git_refs" = "green"
 "git_head" = "green"

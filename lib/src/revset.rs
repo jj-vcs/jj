@@ -932,11 +932,21 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         };
         Ok(RevsetExpression::tags(expr))
     });
-    map.insert("git_refs", |_diagnostics, function, _context| {
+    // TODO: Remove in jj 0.43+
+    map.insert("git_refs", |diagnostics, function, _context| {
+        diagnostics.add_warning(RevsetParseError::expression(
+            "git_refs() is deprecated; use remote_bookmarks()/tags() instead",
+            function.name_span,
+        ));
         function.expect_no_arguments()?;
         Ok(RevsetExpression::git_refs())
     });
-    map.insert("git_head", |_diagnostics, function, _context| {
+    // TODO: Remove in jj 0.43+
+    map.insert("git_head", |diagnostics, function, _context| {
+        diagnostics.add_warning(RevsetParseError::expression(
+            "git_head() is deprecated; use first_parent(@) instead",
+            function.name_span,
+        ));
         function.expect_no_arguments()?;
         Ok(RevsetExpression::git_head())
     });
