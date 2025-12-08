@@ -921,11 +921,38 @@ See `jj restore` if you want to move entire files from one revision to another. 
 
 Create new changes with the same content as existing ones
 
-When none of the `--onto`, `--insert-after`, or `--insert-before` arguments are provided, commits will be duplicated onto their existing parents or onto other newly duplicated commits.
+When none of the `--onto`, `--insert-after`, or `--insert-before` arguments
+are provided, commits will be duplicated onto their existing parents or onto
+other newly duplicated commits.
 
-When any of the `--onto`, `--insert-after`, or `--insert-before` arguments are provided, the roots of the specified commits will be duplicated onto the destination indicated by the arguments. Other specified commits will be duplicated onto these newly duplicated commits. If the `--insert-after` or `--insert-before` arguments are provided, the new children indicated by the arguments will be rebased onto the heads of the specified commits.
+```text
+C        C  C'
+|   =>   | /
+B        B
+```
+(C is duplicated to C', both have the same parent B)
 
-By default, the duplicated commits retain the descriptions of the originals. This can be customized with the `templates.duplicate_description` setting.
+When any of the `--onto`, `--insert-after`, or `--insert-before` arguments
+are provided, the roots of the specified commits will be duplicated onto the
+destination indicated by the arguments. Other specified commits will be
+duplicated onto these newly duplicated commits. If the `--insert-after` or
+`--insert-before` arguments are provided, the new children indicated by the
+arguments will be rebased onto the heads of the specified commits.
+
+```text
+Before:           After:
+C                 C   C'
+|                 |   |
+B   D             B   D
+|   |     =>      |   |
+A   E             A   E
+ \ /               \ /
+  root              root
+```
+(duplicating C onto D with `jj duplicate C --onto D`; original C unchanged)
+
+By default, the duplicated commits retain the descriptions of the originals.
+This can be customized with the `templates.duplicate_description` setting.
 
 **Usage:** `jj duplicate [OPTIONS] [REVSETS]...`
 
@@ -1728,7 +1755,26 @@ Print this message or the help of the given subcommand(s)
 
 Compare the changes of two commits
 
-This excludes changes from other commits by temporarily rebasing `--from` onto `--to`'s parents. If you wish to compare the same change across versions, consider `jj evolog -p` instead.
+This excludes changes from other commits by temporarily rebasing `--from`
+onto `--to`'s parents. If you wish to compare the same change across
+versions, consider `jj evolog -p` instead.
+
+For example, with `jj interdiff --from A --to C`:
+
+```text
+    D
+    |
+C   C
+|   |
+B   A'  (A rebased onto C's parent)
+|   |
+A   B
+ \ /
+  root
+```
+
+The command compares A' (A rebased onto B) with C, effectively showing
+what changed between the two commits independent of their different bases.
 
 **Usage:** `jj interdiff [OPTIONS] <--from <REVSET>|--to <REVSET>> [FILESETS]...`
 
@@ -2853,19 +2899,44 @@ Splitting an empty commit is not supported because the same effect can be achiev
 
 Move changes from a revision into another revision
 
-With the `-r` option, moves the changes from the specified revision to the parent revision. Fails if there are several parent revisions (i.e., the given revision is a merge).
+With the `-r` option, moves the changes from the specified revision to the
+parent revision. Fails if there are several parent revisions (i.e., the
+given revision is a merge).
 
-With the `--from` and/or `--into` options, moves changes from/to the given revisions. If either is left out, it defaults to the working-copy commit. For example, `jj squash --into @--` moves changes from the working-copy commit to the grandparent.
+```text
+Before:    After:
+D          D
+|          |
+C          B' (B' has both B's and C's changes)
+|          |
+B          A
+|
+A
+```
+(C is abandoned after its changes are moved into B)
 
-If, after moving changes out, the source revision is empty compared to its parent(s), and `--keep-emptied` is not set, it will be abandoned. Without `--interactive` or paths, the source revision will always be empty.
+With the `--from` and/or `--into` options, moves changes from/to the given
+revisions. If either is left out, it defaults to the working-copy commit.
+For example, `jj squash --into @--` moves changes from the working-copy
+commit to the grandparent.
 
-If the source was abandoned and both the source and destination had a non-empty description, you will be asked for the combined description. If either was empty, then the other one will be used.
+If, after moving changes out, the source revision is empty compared to its
+parent(s), and `--keep-emptied` is not set, it will be abandoned. Without
+`--interactive` or paths, the source revision will always be empty.
 
-If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.
+If the source was abandoned and both the source and destination had a
+non-empty description, you will be asked for the combined description. If
+either was empty, then the other one will be used.
+
+If a working-copy commit gets abandoned, it will be given a new, empty
+commit. This is true in general; it is not specific to this command.
 
 EXPERIMENTAL FEATURES
 
-An alternative squashing UI is available via the `-o`, `-A`, and `-B` options. Using any of these options creates a new commit. They can be used together with one or more `--from` options (if no `--from` is specified, `--from @` is assumed).
+An alternative squashing UI is available via the `-o`, `-A`, and `-B`
+options. Using any of these options creates a new commit. They can be used
+together with one or more `--from` options (if no `--from` is specified,
+`--from @` is assumed).
 
 **Usage:** `jj squash [OPTIONS] [FILESETS]...`
 
