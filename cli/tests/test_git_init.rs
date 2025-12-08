@@ -60,6 +60,17 @@ fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     work_dir.run_jj(["log", "-T", template, "-r=all()"])
 }
 
+#[must_use]
+fn get_colocation_status(work_dir: &TestWorkDir) -> CommandOutput {
+    work_dir.run_jj([
+        "git",
+        "colocation",
+        "status",
+        "--ignore-working-copy",
+        "--quiet", // suppress hint
+    ])
+}
+
 fn read_git_target(work_dir: &TestWorkDir) -> String {
     String::from_utf8(work_dir.read_file(".jj/repo/store/git_target").into()).unwrap()
 }
@@ -167,6 +178,11 @@ fn test_git_init_external(bare: bool) {
         @  ed6b513890ae
         ○  e80a42cccd06 my-bookmark git_head() My commit message
         ◆  000000000000
+        [EOF]
+        ");
+        insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+        Workspace is currently not colocated with Git.
+        Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
         [EOF]
         ");
     }
@@ -425,14 +441,24 @@ fn test_git_init_colocated_via_git_repo_path() {
     ◆  000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
+    [EOF]
+    ");
 
     // Check that the Git repo's HEAD moves
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  0c77f9e21b55
+    @  bacc067e7740
     ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
     [EOF]
     ");
 }
@@ -463,14 +489,24 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
     ◆  000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
+    [EOF]
+    ");
 
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
-    @  0c77f9e21b55
+    @  bacc067e7740
     ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
     [EOF]
     ");
 }
@@ -501,14 +537,24 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
     ◆  000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
+    [EOF]
+    ");
 
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
-    @  0c77f9e21b55
+    @  bacc067e7740
     ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
     [EOF]
     ");
 }
@@ -543,14 +589,24 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
     ◆  000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
+    [EOF]
+    ");
 
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
-    @  0c77f9e21b55
+    @  bacc067e7740
     ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
     [EOF]
     ");
 }
@@ -588,14 +644,24 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
     ◆  000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
+    [EOF]
+    ");
 
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&jj_work_dir), @r"
-    @  0c77f9e21b55
+    @  bacc067e7740
     ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
     [EOF]
     ");
 }
@@ -841,6 +907,11 @@ fn test_git_init_external_but_git_dir_exists() {
     ◆  000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently not colocated with Git.
+    Last imported/exported Git HEAD: (none)
+    [EOF]
+    ");
 }
 
 #[test]
@@ -865,14 +936,24 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
     ◆  000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
+    [EOF]
+    ");
 
     // Check that the Git repo's HEAD moves
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  0c77f9e21b55
+    @  bacc067e7740
     ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
     [EOF]
     ");
 }
@@ -901,14 +982,24 @@ fn test_git_init_colocated_via_config_git_dir_exists() {
     ◆  000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
+    [EOF]
+    ");
 
     // Check that the Git repo's HEAD moves
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  0c77f9e21b55
+    @  bacc067e7740
     ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
     [EOF]
     ");
 }
@@ -947,6 +1038,11 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     ◆  000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: (none)
+    [EOF]
+    ");
 
     // Create the default bookmark (create both in case we change the default)
     work_dir
@@ -958,6 +1054,11 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  e8849ae12c70 main master
     ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: (none)
     [EOF]
     ");
 }

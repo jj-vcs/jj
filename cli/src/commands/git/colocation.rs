@@ -15,6 +15,7 @@
 use std::io::ErrorKind;
 use std::io::Write as _;
 
+use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::file_util::IoResultExt as _;
 use jj_lib::git;
@@ -98,20 +99,40 @@ fn cmd_git_colocation_status(
     // Make sure that the workspace supports git colocation commands
     workspace_supports_git_colocation_commands(&workspace_command)?;
 
-    let is_colocated =
-        is_colocated_git_workspace(workspace_command.workspace(), workspace_command.repo());
+    let repo = workspace_command.repo();
+    let is_colocated = is_colocated_git_workspace(workspace_command.workspace(), repo);
+    let git_head = repo.view().git_head();
 
     if is_colocated {
         writeln!(ui.stdout(), "Workspace is currently colocated with Git.")?;
-        writeln!(
-            ui.hint_default(),
-            "To disable colocation, run: `jj git colocation disable`"
-        )?;
     } else {
         writeln!(
             ui.stdout(),
             "Workspace is currently not colocated with Git."
         )?;
+    }
+
+    // git_head should be absent in non-colocated workspace, but print the
+    // actual status so we can debug problems.
+    writeln!(
+        ui.stdout(),
+        "Last imported/exported Git HEAD: {}",
+        git_head
+            .as_merge()
+            .iter()
+            .map(|maybe_id| match maybe_id {
+                Some(id) => id.to_string(),
+                None => "(none)".to_owned(),
+            })
+            .join(", ")
+    )?;
+
+    if is_colocated {
+        writeln!(
+            ui.hint_default(),
+            "To disable colocation, run: `jj git colocation disable`"
+        )?;
+    } else {
         writeln!(
             ui.hint_default(),
             "To enable colocation, run: `jj git colocation enable`"

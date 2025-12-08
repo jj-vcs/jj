@@ -12,7 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
+use crate::common::TestWorkDir;
+
+#[must_use]
+fn get_colocation_status(work_dir: &TestWorkDir) -> CommandOutput {
+    work_dir.run_jj([
+        "git",
+        "colocation",
+        "status",
+        "--ignore-working-copy",
+        "--quiet", // suppress hint
+    ])
+}
 
 fn read_git_target(workspace_root: &std::path::Path) -> String {
     let mut path = workspace_root.to_path_buf();
@@ -41,14 +54,10 @@ fn test_git_colocation_enable_success() {
     assert!(!workspace_root.join(".git").exists());
     assert_eq!(read_git_target(workspace_root), "git");
 
-    // And that there is no git_head() yet
-    let output = work_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output, @r"
-    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 43444d88
-    │  (empty) (no description set)
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
-    │  (empty) (no description set)
-    ◆  zzzzzzzz root() 00000000
+    // And that there is no Git HEAD yet
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently not colocated with Git.
+    Last imported/exported Git HEAD: (none)
     [EOF]
     ");
 
@@ -77,14 +86,10 @@ fn test_git_colocation_enable_success() {
         std::fs::read_to_string(workspace_root.join(".jj").join(".gitignore")).unwrap();
     assert_eq!(gitignore_content, "/*\n");
 
-    // Verify that git_head() was set correctly
-    let output = work_dir.run_jj(["log", "--ignore-working-copy"]);
-    insta::assert_snapshot!(output, @r"
-    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 43444d88
-    │  (empty) (no description set)
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 git_head() e8849ae1
-    │  (empty) (no description set)
-    ◆  zzzzzzzz root() 00000000
+    // Verify that Git HEAD was set correctly
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
 }
@@ -150,14 +155,10 @@ fn test_git_colocation_disable_success() {
     // Need at least one commit to be able to set git HEAD later
     work_dir.run_jj(["new"]).success();
 
-    // Verify that git_head() is set and visible in the log
-    let output = work_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output, @r"
-    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 43444d88
-    │  (empty) (no description set)
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 git_head() e8849ae1
-    │  (empty) (no description set)
-    ◆  zzzzzzzz root() 00000000
+    // Verify that Git HEAD is set
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
 
@@ -186,14 +187,10 @@ fn test_git_colocation_disable_success() {
     assert_eq!(read_git_target(workspace_root), "git");
     assert!(!workspace_root.join(".jj").join(".gitignore").exists());
 
-    // Verify that git_head() was removed correctly
-    let output = work_dir.run_jj(["log", "--ignore-working-copy"]);
-    insta::assert_snapshot!(output, @r"
-    @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 43444d88
-    │  (empty) (no description set)
-    ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
-    │  (empty) (no description set)
-    ◆  zzzzzzzz root() 00000000
+    // Verify that Git HEAD was removed correctly
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently not colocated with Git.
+    Last imported/exported Git HEAD: (none)
     [EOF]
     ");
 }
@@ -237,6 +234,7 @@ fn test_git_colocation_status_non_colocated() {
     let output = work_dir.run_jj(["git", "colocation", "status"]);
     insta::assert_snapshot!(output, @r"
     Workspace is currently not colocated with Git.
+    Last imported/exported Git HEAD: (none)
     [EOF]
     ------- stderr -------
     Hint: To enable colocation, run: `jj git colocation enable`
@@ -258,6 +256,7 @@ fn test_git_colocation_status_colocated() {
     let output = work_dir.run_jj(["git", "colocation", "status"]);
     insta::assert_snapshot!(output, @r"
     Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: (none)
     [EOF]
     ------- stderr -------
     Hint: To disable colocation, run: `jj git colocation disable`

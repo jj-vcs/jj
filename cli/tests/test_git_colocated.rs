@@ -58,12 +58,17 @@ fn test_git_colocated() {
         git_repo.head_id().unwrap().to_string(),
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: 97358f54806c7cd005ed5ade68a779595efbae7e
+    [EOF]
+    ");
 
     // Modify the working copy. The working-copy commit should changed, but the Git
     // HEAD commit should not
     work_dir.write_file("file", "modified");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  f40534d1cfee0e0916dcfbc65c31970b3c705269
+    @  9dfe8c7005c8dff6078ecdfd953c6bfddc633c90
     ○  97358f54806c7cd005ed5ade68a779595efbae7e master git_head() initial
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -72,12 +77,17 @@ fn test_git_colocated() {
         git_repo.head_id().unwrap().to_string(),
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: 97358f54806c7cd005ed5ade68a779595efbae7e
+    [EOF]
+    ");
 
     // Create a new change from jj and check that it's reflected in Git
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  b369903b66e2dba03f3f6b24433670784f6180d7
-    ○  f40534d1cfee0e0916dcfbc65c31970b3c705269 git_head()
+    @  4ddddef596e9d68f729f1be9e1b2cdaaf45bef08
+    ○  9dfe8c7005c8dff6078ecdfd953c6bfddc633c90 git_head()
     ○  97358f54806c7cd005ed5ade68a779595efbae7e master initial
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -85,8 +95,13 @@ fn test_git_colocated() {
     assert!(git_repo.head().unwrap().is_detached());
     insta::assert_snapshot!(
         git_repo.head_id().unwrap().to_string(),
-        @"f40534d1cfee0e0916dcfbc65c31970b3c705269"
+        @"9dfe8c7005c8dff6078ecdfd953c6bfddc633c90"
     );
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: 9dfe8c7005c8dff6078ecdfd953c6bfddc633c90
+    [EOF]
+    ");
 }
 
 #[test]
@@ -195,13 +210,18 @@ fn test_git_colocated_unborn_bookmark() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: (none)
+    [EOF]
+    ");
 
     // Stage some change, and check out root. This shouldn't clobber the HEAD.
     add_file_to_index("file0", "");
     let output = work_dir.run_jj(["new", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kkmpptxz 2b17ac71 (empty) (no description set)
+    Working copy  (@) now at: zsuskuln c2934cfb (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
@@ -212,17 +232,22 @@ fn test_git_colocated_unborn_bookmark() {
         b"refs/heads/master"
     );
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  2b17ac719c7db025e2514f5708d2b0328fc6b268
-    │ ○  1d68db605e7f3722d6869beab15183f0e41fd45c
+    @  c2934cfbfb196d2c473959667beffcc19e71e5e8
+    │ ○  e6669bb3438ef218fa618e1047a1911d2b3410dd
     ├─╯
     ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: (none)
     [EOF]
     ");
     // Staged change shouldn't persist.
     checkout_index();
     insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
     The working copy has no changes.
-    Working copy  (@) : kkmpptxz 2b17ac71 (empty) (no description set)
+    Working copy  (@) : zsuskuln c2934cfb (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -233,29 +258,34 @@ fn test_git_colocated_unborn_bookmark() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: royxmykx c5b52bf2 (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 54ca7830 (no description set)
+    Working copy  (@) now at: vruxwmqv 2d7a8abb (empty) (no description set)
+    Parent commit (@-)      : zsuskuln ff536684 (no description set)
     [EOF]
     ");
     assert!(git_repo.head().unwrap().is_detached());
     insta::assert_snapshot!(
         git_repo.head_id().unwrap().to_string(),
-        @"54ca78301ccd2e0da397694ab34160d539a40e86"
+        @"ff5366846b039b25c6c4998fa74dca821c246243"
     );
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  c5b52bf20a14ca728cbb2a56b9dffabc266251bd
-    ○  54ca78301ccd2e0da397694ab34160d539a40e86 git_head()
-    │ ○  1d68db605e7f3722d6869beab15183f0e41fd45c
+    @  2d7a8abb601ebf559df4037279e9f2e851a75e63
+    ○  ff5366846b039b25c6c4998fa74dca821c246243 git_head()
+    │ ○  e6669bb3438ef218fa618e1047a1911d2b3410dd
     ├─╯
     ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: ff5366846b039b25c6c4998fa74dca821c246243
     [EOF]
     ");
     // Staged change shouldn't persist.
     checkout_index();
     insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
     The working copy has no changes.
-    Working copy  (@) : royxmykx c5b52bf2 (empty) (no description set)
-    Parent commit (@-): kkmpptxz 54ca7830 (no description set)
+    Working copy  (@) : vruxwmqv 2d7a8abb (empty) (no description set)
+    Parent commit (@-): zsuskuln ff536684 (no description set)
     [EOF]
     ");
 
@@ -270,27 +300,32 @@ fn test_git_colocated_unborn_bookmark() {
     let output = work_dir.run_jj(["new", "root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: znkkpsqq 2b2f7cb0 (empty) (no description set)
+    Working copy  (@) now at: wqnwkozp 88e8407a (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
     assert!(git_repo.head().unwrap().is_unborn());
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  2b2f7cb00d53f5c0675efb09cbe1a826ce1167a4
-    │ ○  6c3d40f5a3260d762cd52a8ff6d09883c88d8db5
-    │ ○  54ca78301ccd2e0da397694ab34160d539a40e86 master
+    @  88e8407a4f0a5e6f40a7c6c494106764adc00fed
+    │ ○  2dd7385602e703388fd266b939bba6f57a1439d3
+    │ ○  ff5366846b039b25c6c4998fa74dca821c246243 master
     ├─╯
-    │ ○  1d68db605e7f3722d6869beab15183f0e41fd45c
+    │ ○  e6669bb3438ef218fa618e1047a1911d2b3410dd
     ├─╯
     ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: (none)
     [EOF]
     ");
     // Staged change shouldn't persist.
     checkout_index();
     insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
     The working copy has no changes.
-    Working copy  (@) : znkkpsqq 2b2f7cb0 (empty) (no description set)
+    Working copy  (@) : wqnwkozp 88e8407a (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -300,19 +335,24 @@ fn test_git_colocated_unborn_bookmark() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: wqnwkozp 4253b9c0 (empty) (no description set)
-    Parent commit (@-)      : znkkpsqq b8df84db (no description set)
+    Working copy  (@) now at: uyznsvlq 2fb16499 (empty) (no description set)
+    Parent commit (@-)      : wqnwkozp bb21bc2d (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  4253b9c0f70fd5287c2af4e96b779da6066757fd
-    ○  b8df84db65f6a75ace38ceebca6ed8be781ec754 git_head()
-    │ ○  6c3d40f5a3260d762cd52a8ff6d09883c88d8db5
-    │ ○  54ca78301ccd2e0da397694ab34160d539a40e86 master
+    @  2fb16499a987e632407402e38976ed250c939c42
+    ○  bb21bc2dce2af92973fdd6d42686d77bd16bc466 git_head()
+    │ ○  2dd7385602e703388fd266b939bba6f57a1439d3
+    │ ○  ff5366846b039b25c6c4998fa74dca821c246243 master
     ├─╯
-    │ ○  1d68db605e7f3722d6869beab15183f0e41fd45c
+    │ ○  e6669bb3438ef218fa618e1047a1911d2b3410dd
     ├─╯
     ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: bb21bc2dce2af92973fdd6d42686d77bd16bc466
     [EOF]
     ");
 }
@@ -634,6 +674,11 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: 97358f54806c7cd005ed5ade68a779595efbae7e
+    [EOF]
+    ");
 }
 
 #[test]
@@ -951,6 +996,11 @@ fn test_git_colocated_undo_head_move() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: e8849ae12c709f2321908879bc724fdb2ab8a781
+    [EOF]
+    ");
 
     // HEAD should be unset
     work_dir.run_jj(["undo"]).success();
@@ -960,28 +1010,38 @@ fn test_git_colocated_undo_head_move() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: (none)
+    [EOF]
+    ");
 
     // Create commit on non-root commit
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  47762194c5b3d9a9280ee7cfd2b9db16158b1b3c
-    ○  e7d0d5fdaf96051d0dacec1e74d9413d64a15822 git_head()
+    @  5e37f1b8313299eb1b62221eefcf32881b0dc4c6
+    ○  23e6e06a7471634da3567ef975fadf883082658f git_head()
     ○  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: 23e6e06a7471634da3567ef975fadf883082658f
     [EOF]
     ");
     assert!(git_repo.head().unwrap().is_detached());
     insta::assert_snapshot!(
         git_repo.head_id().unwrap().to_string(),
-        @"e7d0d5fdaf96051d0dacec1e74d9413d64a15822");
+        @"23e6e06a7471634da3567ef975fadf883082658f");
 
     // HEAD should be moved back
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Restored to operation: 28f10852fc94 (2001-02-03 08:05:12) new empty commit
-    Working copy  (@) now at: royxmykx e7d0d5fd (empty) (no description set)
+    Restored to operation: b528a8c9176f (2001-02-03 08:05:14) new empty commit
+    Working copy  (@) now at: vruxwmqv 23e6e06a (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
@@ -990,9 +1050,14 @@ fn test_git_colocated_undo_head_move() {
         git_repo.head_id().unwrap().to_string(),
         @"e8849ae12c709f2321908879bc724fdb2ab8a781");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  e7d0d5fdaf96051d0dacec1e74d9413d64a15822
+    @  23e6e06a7471634da3567ef975fadf883082658f
     ○  e8849ae12c709f2321908879bc724fdb2ab8a781 git_head()
     ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
 }
@@ -1637,6 +1702,11 @@ fn test_git_colocated_operation_cleanup() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: cf3bb116ded416d9b202e71303f260e504c2eeb9
+    [EOF]
+    ");
 
     // Check that the operation was correctly aborted.
     assert!(!std::fs::exists(work_dir.root().join(".git").join("rebase-merge")).unwrap());
@@ -1653,4 +1723,15 @@ fn test_git_colocated_operation_cleanup() {
 fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
     // --quiet to suppress deleted bookmarks hint
     work_dir.run_jj(["bookmark", "list", "--all-remotes", "--quiet"])
+}
+
+#[must_use]
+fn get_colocation_status(work_dir: &TestWorkDir) -> CommandOutput {
+    work_dir.run_jj([
+        "git",
+        "colocation",
+        "status",
+        "--ignore-working-copy",
+        "--quiet", // suppress hint
+    ])
 }
