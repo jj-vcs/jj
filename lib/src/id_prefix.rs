@@ -283,8 +283,8 @@ fn disambiguate_prefix_with_refs(view: &View, id_sym: &str, min_len: usize) -> u
     debug_assert!(id_sym.is_ascii());
     (min_len..id_sym.len())
         .find(|&n| {
-            // Tags, bookmarks, and Git refs have higher priority, but Git refs
-            // should include "/" char. Extension symbols have lower priority.
+            // Tags and bookmarks have higher priority. Extension symbols have
+            // lower priority.
             let prefix = &id_sym[..n];
             view.get_local_tag(prefix.as_ref()).is_absent()
                 && view.get_local_bookmark(prefix.as_ref()).is_absent()

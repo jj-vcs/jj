@@ -2683,27 +2683,7 @@ impl PartialSymbolResolver for BookmarkResolver {
     }
 }
 
-struct GitRefResolver;
-
-impl PartialSymbolResolver for GitRefResolver {
-    fn resolve_symbol(
-        &self,
-        repo: &dyn Repo,
-        symbol: &str,
-    ) -> Result<Option<CommitId>, RevsetResolutionError> {
-        let view = repo.view();
-        for git_ref_prefix in &["", "refs/"] {
-            let target = view.get_git_ref([git_ref_prefix, symbol].concat().as_ref());
-            if let Some(id) = to_resolved_ref("git_ref", symbol, target)? {
-                return Ok(Some(id));
-            }
-        }
-        Ok(None)
-    }
-}
-
-const DEFAULT_RESOLVERS: &[&dyn PartialSymbolResolver] =
-    &[&TagResolver, &BookmarkResolver, &GitRefResolver];
+const DEFAULT_RESOLVERS: &[&dyn PartialSymbolResolver] = &[&TagResolver, &BookmarkResolver];
 
 struct CommitPrefixResolver<'a> {
     context_repo: &'a dyn Repo,

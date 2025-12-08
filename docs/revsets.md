@@ -53,8 +53,7 @@ Jujutsu attempts to resolve a symbol in the following order:
 
 1. Tag name
 2. Bookmark name
-3. Git ref
-4. Commit ID or change ID
+3. Commit ID or change ID
 
 To override the priority, use the appropriate [revset function](#functions). For
 example, to resolve `abc` as a commit ID even if there happens to be a bookmark

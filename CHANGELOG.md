@@ -20,6 +20,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The deprecated `git_head()` and `git_refs()` functions have been removed from
   revsets and templates.
 
+* Git-like symbols (e.g. `refs/heads/main`) are no longer resolved to
+  revisions. Use the bookmark/tag `<name>` or `<name>@<remote>` syntax instead.
+
 * The deprecated `ui.revsets-use-glob-by-default` option has been removed.
 
 * `jj bookmark track`/`untrack` no longer supports `<kind>:<bookmark>@<remote>`
