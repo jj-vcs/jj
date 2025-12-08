@@ -99,7 +99,7 @@ fn test_tag_set_delete() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["tag", "delete", "glob:b*"]);
+    let output = work_dir.run_jj(["tag", "delete", "b*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Deleted 2 tags.
@@ -219,7 +219,7 @@ fn test_tag_unknown() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["tag", "delete", "glob:unknown*"]);
+    let output = work_dir.run_jj(["tag", "delete", "unknown*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No tags to delete.
@@ -292,7 +292,7 @@ fn test_tag_list() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "glob:'test_tag?'"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "'test_tag?'"]), @r"
     test_tag2: zsuskuln 76abdd20 (empty) commit2
     [EOF]
     ");
@@ -300,7 +300,7 @@ fn test_tag_list() {
     // Unmatched exact name pattern should be warned. "test_tag2" exists, but
     // isn't included in the match.
     insta::assert_snapshot!(
-        work_dir.run_jj(["tag", "list", "glob:test* & ~glob:*2", "unknown ~ test_tag2"]), @r"
+        work_dir.run_jj(["tag", "list", "test* & ~*2", "unknown ~ test_tag2"]), @r"
     test_tag: rlvkpnrz 893e67dc (empty) commit1
     [EOF]
     ------- stderr -------

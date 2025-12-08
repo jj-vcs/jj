@@ -1,4 +1,4 @@
 #:schema ../../../src/config-schema.json
 [experimental-advance-branches]
-enabled-branches = ["glob:push-*"]
+enabled-branches = ["push-*"]
 disabled-branches = ["exact:main", "exact:master", "exact:trunk"]

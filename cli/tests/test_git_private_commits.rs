@@ -38,7 +38,7 @@ fn set_up(test_env: &TestEnvironment) {
             [
                 "git",
                 "clone",
-                "--config=remotes.origin.auto-track-bookmarks='glob:*'",
+                "--config=remotes.origin.auto-track-bookmarks='*'",
                 origin_git_repo_path.to_str().unwrap(),
                 "local",
             ],
@@ -179,7 +179,7 @@ fn test_git_private_commits_are_not_checked_if_immutable() {
 fn test_git_private_commits_not_directly_in_line_block_pushing() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let work_dir = test_env.work_dir("local");
 
     // New private commit descended from root()
@@ -230,7 +230,7 @@ fn test_git_private_commits_descending_from_commits_pushed_do_not_block_pushing(
 fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let work_dir = test_env.work_dir("local");
 
     // Start a bookmark before a "private" commit lands in main

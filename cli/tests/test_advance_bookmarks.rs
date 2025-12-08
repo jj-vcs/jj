@@ -30,7 +30,7 @@ fn set_advance_bookmarks(test_env: &TestEnvironment, enabled: bool) {
     if enabled {
         test_env.add_config(
             r#"[experimental-advance-branches]
-        enabled-branches = ["glob:*"]
+        enabled-branches = ["*"]
         "#,
         );
     } else {

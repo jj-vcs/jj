@@ -498,7 +498,7 @@
                     "auto-track-bookmarks": {
                         "type": "string",
                         "description": "A string pattern describing the bookmarks to automatically track with this remote. It will be applied to any new bookmark, created or fetched. See https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks",
-                        "default": "~glob:*"
+                        "default": "~*"
                     }
                 }
             }

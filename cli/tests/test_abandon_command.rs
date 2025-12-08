@@ -484,7 +484,7 @@ fn test_abandon_tracking_bookmarks() {
                 "git",
                 "clone",
                 "--colocate",
-                "--config=remotes.origin.auto-track-bookmarks='glob:*'",
+                "--config=remotes.origin.auto-track-bookmarks='*'",
                 "remote/.jj/repo/store/git",
                 "local",
             ],

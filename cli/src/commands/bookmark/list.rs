@@ -64,10 +64,10 @@ pub struct BookmarkListArgs {
     /// Can be combined with `--tracked` or `--conflicted` to filter the
     /// bookmarks shown (can be repeated.)
     ///
-    /// By default, the specified remote name matches exactly. Use `glob:`
-    /// prefix to select remotes by [wildcard pattern].
+    /// By default, the specified pattern matches remote names with glob syntax.
+    /// You can also use other [string pattern syntax].
     ///
-    /// [wildcard pattern]:
+    /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(
         long = "remote",
@@ -88,10 +88,10 @@ pub struct BookmarkListArgs {
 
     /// Show bookmarks whose local name matches
     ///
-    /// By default, the specified name matches exactly. Use `glob:` prefix to
-    /// select bookmarks by [wildcard pattern].
+    /// By default, the specified pattern matches bookmark names with glob
+    /// syntax. You can also use other [string pattern syntax].
     ///
-    /// [wildcard pattern]:
+    /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(add = ArgValueCandidates::new(complete::bookmarks))]
     names: Option<Vec<String>>,

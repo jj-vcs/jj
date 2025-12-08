@@ -684,7 +684,7 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
 #[test]
 fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
     let test_env = TestEnvironment::default();
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let origin_dir = test_env.work_dir("origin");
     git::init(origin_dir.root());
     origin_dir.run_jj(["git", "init", "--git-repo=."]).success();

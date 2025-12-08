@@ -668,7 +668,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
 #[test]
 fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     let test_env = TestEnvironment::default();
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
 
     // Set up remote refs
     test_env.run_jj_in(".", ["git", "init", "remote"]).success();
@@ -697,7 +697,7 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
             .unwrap();
     };
 
-    // With remotes.origin.auto-track-bookmarks = 'glob:*'
+    // With remotes.origin.auto-track-bookmarks = '*'
     let local_dir = test_env.work_dir("local1");
     set_up_local_repo(local_dir.root());
     let output = local_dir.run_jj(["git", "init", "--git-repo=."]);
@@ -717,8 +717,8 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     [EOF]
     ");
 
-    // With remotes.origin.auto-track-bookmarks = '~glob:*'
-    test_env.add_config("remotes.origin.auto-track-bookmarks = '~glob:*'");
+    // With remotes.origin.auto-track-bookmarks = '~*'
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '~*'");
     let local_dir = test_env.work_dir("local2");
     set_up_local_repo(local_dir.root());
     let output = local_dir.run_jj(["git", "init", "--git-repo=."]);

@@ -1168,7 +1168,7 @@ pub fn expect_string_expression(
 fn expect_string_expression_inner(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
-    // TODO: enable glob matching by default and remove this parameter
+    // TODO: remove this parameter with ui.revsets-use-glob-by-default
     default_kind: &str,
 ) -> Result<StringExpression, RevsetParseError> {
     revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
@@ -1426,7 +1426,7 @@ pub fn parse_string_expression(
     text: &str,
 ) -> Result<StringExpression, RevsetParseError> {
     let node = parse_program(text)?;
-    let default_kind = "exact"; // TODO: use "glob" by default
+    let default_kind = "glob";
     expect_string_expression_inner(diagnostics, &node, default_kind)
 }
 
