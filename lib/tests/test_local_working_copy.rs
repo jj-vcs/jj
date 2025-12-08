@@ -46,7 +46,7 @@ use jj_lib::local_working_copy::TreeStateSettings;
 use jj_lib::merge::Merge;
 use jj_lib::merge::SameChange;
 use jj_lib::merged_tree::MergedTree;
-use jj_lib::merged_tree::MergedTreeBuilder;
+use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::op_store::OperationId;
 use jj_lib::ref_name::WorkspaceName;
 use jj_lib::repo::ReadonlyRepo;

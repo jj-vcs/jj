@@ -22,7 +22,7 @@ use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
-use jj_lib::merged_tree::MergedTreeBuilder;
+use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;

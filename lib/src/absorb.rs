@@ -43,7 +43,7 @@ use crate::matchers::Matcher;
 use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
-use crate::merged_tree::MergedTreeBuilder;
+use crate::merged_tree_builder::MergedTreeBuilder;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPathBuf;

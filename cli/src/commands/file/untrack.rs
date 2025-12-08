@@ -17,7 +17,7 @@ use std::io::Write as _;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::merge::Merge;
-use jj_lib::merged_tree::MergedTreeBuilder;
+use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use pollster::FutureExt as _;
 use tracing::instrument;
 

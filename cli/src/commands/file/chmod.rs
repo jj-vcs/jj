@@ -14,7 +14,7 @@
 
 use clap_complete::ArgValueCompleter;
 use jj_lib::backend::TreeValue;
-use jj_lib::merged_tree::MergedTreeBuilder;
+use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;
 
