@@ -38,7 +38,6 @@ use crate::config::ToConfigNamePath;
 use crate::fmt_util::binary_prefix;
 use crate::ref_name::RemoteNameBuf;
 use crate::signing::SignBehavior;
-use crate::str_util::StringPattern;
 
 #[derive(Debug, Clone)]
 pub struct UserSettings {
@@ -61,9 +60,12 @@ struct UserSettingsData {
 
 pub type RemoteSettingsMap = HashMap<RemoteNameBuf, RemoteSettings>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct RemoteSettings {
-    pub auto_track_bookmarks: StringPattern,
+    /// String matcher expression whether to track bookmarks automatically.
+    #[serde(default)]
+    pub auto_track_bookmarks: Option<String>,
 }
 
 impl RemoteSettings {
@@ -72,23 +74,7 @@ impl RemoteSettings {
     ) -> Result<RemoteSettingsMap, ConfigGetError> {
         settings
             .table_keys("remotes")
-            .map(|name| {
-                Ok((
-                    name.into(),
-                    Self {
-                        auto_track_bookmarks: settings.get_value_with(
-                            ["remotes", name, "auto-track-bookmarks"],
-                            |value| -> Result<_, Box<dyn std::error::Error + Send + Sync>> {
-                                Ok(StringPattern::parse(
-                                    value
-                                        .as_str()
-                                        .ok_or_else(|| "expected a string".to_string())?,
-                                )?)
-                            },
-                        )?,
-                    },
-                ))
-            })
+            .map(|name| Ok((name.into(), settings.get(["remotes", name])?)))
             .try_collect()
     }
 }

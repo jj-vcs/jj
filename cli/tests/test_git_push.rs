@@ -581,7 +581,7 @@ fn test_git_push_locally_created_and_rewritten() {
     set_up(&test_env);
     let work_dir = test_env.work_dir("local");
     // Ensure that remote bookmarks aren't tracked automatically
-    test_env.add_config("remotes.origin.auto-track-bookmarks = ''");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '~glob:*'");
 
     // Push locally-created bookmark
     work_dir.run_jj(["new", "root()", "-mlocal 1"]).success();

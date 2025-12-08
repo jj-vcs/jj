@@ -82,12 +82,14 @@ pub fn cmd_bookmark_create(
 
     let mut tx = workspace_command.start_transaction();
     let remote_settings = tx.settings().remote_settings()?;
+    let remote_auto_track_matchers =
+        revset_util::parse_remote_auto_track_bookmarks_map(ui, &remote_settings)?;
     let readonly_repo = tx.base_repo().clone();
     for name in bookmark_names {
         tx.repo_mut()
             .set_local_bookmark_target(name, RefTarget::normal(target_commit.id().clone()));
-        for (remote_name, settings) in &remote_settings {
-            if !settings.auto_track_bookmarks.is_match(name.as_str()) {
+        for (remote_name, matcher) in &remote_auto_track_matchers {
+            if !matcher.is_match(name.as_str()) {
                 continue;
             }
             let Some(view) = readonly_repo.view().get_remote_view(remote_name) else {

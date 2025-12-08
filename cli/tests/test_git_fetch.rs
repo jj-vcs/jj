@@ -1794,8 +1794,8 @@ fn test_git_fetch_remote_only_bookmark() {
         &[],
     );
 
-    // Fetch using remotes.origin.auto-track-bookmarks = ''
-    test_env.add_config("remotes.origin.auto-track-bookmarks = ''");
+    // Fetch using remotes.origin.auto-track-bookmarks = '~glob:*'
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '~glob:*'");
     work_dir
         .run_jj(["git", "fetch", "--remote=origin"])
         .success();

@@ -1221,7 +1221,7 @@ fn test_bookmark_track_untrack() {
             "refs/heads/feature2",
         ],
     );
-    test_env.add_config("remotes.origin.auto-track-bookmarks = ''");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '~glob:*'");
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1501,7 +1501,7 @@ fn test_bookmark_track_untrack_patterns() {
     );
 
     // Fetch new commit without auto tracking
-    test_env.add_config("remotes.origin.auto-track-bookmarks = ''");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '~glob:*'");
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1673,7 +1673,7 @@ fn test_bookmark_list() {
         .success();
     local_dir
         .run_jj([
-            "--config=remotes.origin.auto-track-bookmarks=''",
+            "--config=remotes.origin.auto-track-bookmarks='~glob:*'",
             "bookmark",
             "create",
             "local-only",
@@ -1926,7 +1926,7 @@ fn test_bookmark_list_filtered() {
         .success();
     local_dir
         .run_jj([
-            "--config=remotes.origin.auto-track-bookmarks=''",
+            "--config=remotes.origin.auto-track-bookmarks='~glob:*'",
             "bookmark",
             "create",
             "local-keep",
@@ -2213,7 +2213,7 @@ fn test_bookmark_list_much_remote_divergence() {
     }
     local_dir
         .run_jj([
-            "--config=remotes.origin.auto-track-bookmarks=''",
+            "--config=remotes.origin.auto-track-bookmarks='~glob:*'",
             "bookmark",
             "create",
             "local-only",
@@ -2313,8 +2313,8 @@ fn test_bookmark_list_tracked() {
         .success();
     local_dir
         .run_jj([
-            "--config=remotes.origin.auto-track-bookmarks=''",
-            "--config=remotes.upstream.auto-track-bookmarks=''",
+            "--config=remotes.origin.auto-track-bookmarks='~glob:*'",
+            "--config=remotes.upstream.auto-track-bookmarks='~glob:*'",
             "bookmark",
             "create",
             "local-only",
@@ -2588,7 +2588,7 @@ fn test_create_and_set_auto_track_bookmarks() {
         [remotes.origin]
         auto-track-bookmarks = 'glob:mine/*'
         [remotes.fork]
-        auto-track-bookmarks = 'glob:*'
+        auto-track-bookmarks = 'glob:mine/* | glob:not-mine/*'
         ",
     );
 
@@ -2657,6 +2657,75 @@ fn test_create_and_set_auto_track_bookmarks() {
     Warning: Auto-tracking bookmark that exists on the remote: mine/set@origin
     Created 1 bookmarks pointing to znkkpsqq 2e899fb8 mine/create* mine/set* | (empty) (no description set)
     [EOF]
+    ");
+}
+
+#[test]
+fn test_bad_auto_track_bookmarks() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // silence "Target revision is empty" warning
+    work_dir.write_file("file", "");
+
+    let output = work_dir.run_jj([
+        "bookmark",
+        "create",
+        "a",
+        "--config=remotes.origin.auto-track-bookmarks=''",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Config error: Invalid `remotes.origin.auto-track-bookmarks`: Syntax error
+    Caused by:  --> 1:1
+      |
+    1 | 
+      | ^---
+      |
+      = expected <expression>
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj([
+        "bookmark",
+        "create",
+        "a",
+        "--config=remotes.origin.auto-track-bookmarks='foo &'",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Config error: Invalid `remotes.origin.auto-track-bookmarks`: Syntax error
+    Caused by:  --> 1:6
+      |
+    1 | foo &
+      |      ^---
+      |
+      = expected `::`, `..`, `~`, or <primary>
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj([
+        "bookmark",
+        "create",
+        "a",
+        "--config=remotes.origin.auto-track-bookmarks=[{}]",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Config error: Invalid type or value for remotes.origin
+    Caused by: invalid type: sequence, expected a string
+    in `auto-track-bookmarks`
+
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
     ");
 }
 

@@ -612,8 +612,9 @@ fn test_git_clone_remote_default_bookmark() {
     [EOF]
     "#);
 
-    // Only the default bookmark will be imported if auto-track-bookmarks = ''
-    test_env.add_config("remotes.origin.auto-track-bookmarks = ''");
+    // Only the default bookmark will be imported if auto-track-bookmarks =
+    // '~glob:*'
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '~glob:*'");
     let output = root_dir.run_jj(["git", "clone", "source", "clone2"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------

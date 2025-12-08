@@ -10,6 +10,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* `remotes.<name>.auto-track-bookmarks` is now parsed the same way they
+  are in revsets and can be combined with logical operators.
+
 * On Windows, symlinks that point to a path with `/` won't be supported. This
   path is [invalid on Windows].
 

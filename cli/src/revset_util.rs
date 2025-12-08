@@ -14,6 +14,7 @@
 
 //! Utility for parsing and evaluating user-provided revset expressions.
 
+use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
 
@@ -26,6 +27,7 @@ use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::ref_name::RefNameBuf;
+use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::repo::Repo;
 use jj_lib::revset;
 use jj_lib::revset::ResolvedRevsetExpression;
@@ -42,10 +44,13 @@ use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::settings::RemoteSettingsMap;
 use jj_lib::str_util::StringExpression;
+use jj_lib::str_util::StringMatcher;
 use thiserror::Error;
 
 use crate::command_error::CommandError;
+use crate::command_error::config_error_with_message;
 use crate::command_error::print_parse_diagnostics;
 use crate::command_error::revset_parse_error_hint;
 use crate::command_error::user_error;
@@ -369,4 +374,38 @@ where
         })?;
     print_parse_diagnostics(ui, "In name pattern", &diagnostics)?;
     Ok(StringExpression::union_all(expressions))
+}
+
+/// Parses the given `remotes.<name>.auto-track-bookmarks` settings into a map
+/// of string matchers.
+pub fn parse_remote_auto_track_bookmarks_map(
+    ui: &Ui,
+    remote_settings: &RemoteSettingsMap,
+) -> Result<HashMap<RemoteNameBuf, StringMatcher>, CommandError> {
+    let mut matchers = HashMap::new();
+    for (name, settings) in remote_settings {
+        let Some(text) = &settings.auto_track_bookmarks else {
+            continue;
+        };
+        let mut diagnostics = RevsetDiagnostics::new();
+        let expr = revset::parse_string_expression(&mut diagnostics, text).map_err(|err| {
+            // From<RevsetParseError>, but with different message and error kind
+            let hint = revset_parse_error_hint(&err);
+            let message = format!(
+                "Invalid `remotes.{}.auto-track-bookmarks`: {}",
+                name.as_symbol(),
+                err.kind()
+            );
+            let mut cmd_err = config_error_with_message(message, err);
+            cmd_err.extend_hints(hint);
+            cmd_err
+        })?;
+        print_parse_diagnostics(
+            ui,
+            &format!("In `remotes.{}.auto-track-bookmarks`", name.as_symbol()),
+            &diagnostics,
+        )?;
+        matchers.insert(name.clone(), expr.to_matcher());
+    }
+    Ok(matchers)
 }

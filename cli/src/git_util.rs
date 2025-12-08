@@ -53,6 +53,7 @@ use crate::command_error::cli_error;
 use crate::command_error::user_error;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
+use crate::revset_util::parse_remote_auto_track_bookmarks_map;
 use crate::ui::ProgressOutput;
 use crate::ui::Ui;
 
@@ -284,17 +285,14 @@ pub fn with_remote_git_callbacks<T>(ui: &Ui, f: impl FnOnce(git::RemoteCallbacks
 }
 
 pub fn load_git_import_options(
-    _ui: &Ui, // TODO: write parser warnings to ui
+    ui: &Ui,
     git_settings: &GitSettings,
     remote_settings: &RemoteSettingsMap,
 ) -> Result<GitImportOptions, CommandError> {
     Ok(GitImportOptions {
         auto_local_bookmark: git_settings.auto_local_bookmark,
         abandon_unreachable_commits: git_settings.abandon_unreachable_commits,
-        remote_auto_track_bookmarks: remote_settings
-            .iter()
-            .map(|(name, settings)| (name.clone(), settings.auto_track_bookmarks.to_matcher()))
-            .collect(),
+        remote_auto_track_bookmarks: parse_remote_auto_track_bookmarks_map(ui, remote_settings)?,
     })
 }
 
