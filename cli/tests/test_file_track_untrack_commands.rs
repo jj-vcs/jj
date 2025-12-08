@@ -23,6 +23,7 @@ fn test_track_untrack() {
     work_dir.write_file("file1", "initial");
     work_dir.write_file("file1.bak", "initial");
     work_dir.write_file("file2.bak", "initial");
+    work_dir.write_file("file3.bak", "initial");
     let target_dir = work_dir.create_dir("target");
     target_dir.write_file("file2", "initial");
     target_dir.write_file("file3", "initial");
@@ -55,32 +56,38 @@ fn test_track_untrack() {
     [EOF]
     [exit status: 2]
     ");
-    // Errors out when a specified file is not ignored
+    // Succeeds with a warning when some files are not ignored
     let output = work_dir.run_jj(["file", "untrack", "file1", "file1.bak"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: 'file1' is not ignored.
-    Hint: Files that are not ignored will be added back by the next command.
-    Make sure they're ignored, then try again.
+    Warning: 'file1' is not ignored and so will not be untracked.
     [EOF]
-    [exit status: 1]
     ");
     let files_after = work_dir.run_jj(["file", "list"]).success();
     // There should be no changes to the state when there was an error
-    assert_eq!(files_after, files_before);
+    insta::assert_snapshot!(files_after, @r"
+    .gitignore
+    file1
+    file2.bak
+    file3.bak
+    target/file2
+    target/file3
+    [EOF]
+    ");
 
     // Can untrack a single file
-    assert!(files_before.stdout.raw().contains("file1.bak\n"));
-    let output = work_dir.run_jj(["file", "untrack", "file1.bak"]);
-    insta::assert_snapshot!(output, @r"");
+    assert!(files_before.stdout.raw().contains("file2.bak\n"));
+    let output = work_dir.run_jj(["file", "untrack", "file2.bak"]);
+    insta::assert_snapshot!(output, @"");
     let files_after = work_dir.run_jj(["file", "list"]).success();
     // The file is no longer tracked
-    assert!(!files_after.stdout.raw().contains("file1.bak"));
+    assert!(!files_after.stdout.raw().contains("file2.bak"));
     // Other files that match the ignore pattern are not untracked
-    assert!(files_after.stdout.raw().contains("file2.bak"));
+    assert!(files_after.stdout.raw().contains("file3.bak"));
     // The files still exist on disk
     assert!(work_dir.root().join("file1.bak").exists());
     assert!(work_dir.root().join("file2.bak").exists());
+    assert!(work_dir.root().join("file3.bak").exists());
 
     // Warns if path doesn't exist
     let output = work_dir.run_jj(["file", "untrack", "nonexistent"]);
@@ -94,11 +101,8 @@ fn test_track_untrack() {
     let output = work_dir.run_jj(["file", "untrack", "target"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     ------- stderr -------
-    Error: 'target/file2' and 1 other files are not ignored.
-    Hint: Files that are not ignored will be added back by the next command.
-    Make sure they're ignored, then try again.
+    Warning: 'target/file2' and 1 other files are not ignored and will not be untracked.
     [EOF]
-    [exit status: 1]
     ");
 
     // Can untrack after adding to ignore patterns
@@ -201,6 +205,68 @@ fn test_auto_track() {
     insta::assert_snapshot!(output.normalize_backslash(), @r"
     ../file1.rs
     file1.rs
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_untrack_ignored() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Add two files
+    work_dir.write_file("file1", "initial");
+    work_dir.write_file("file1.bak", "initial");
+    work_dir.run_jj(["commit", "-m", "add files"]).success();
+
+    // Add one of them to .gitignore
+    work_dir.write_file(".gitignore", "*.bak\n");
+    work_dir.run_jj(["commit", "-m", "add gitignore"]).success();
+
+    // Ensure the file in .gitignore is still tracked
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @r"
+    .gitignore
+    file1
+    file1.bak
+    [EOF]
+    ");
+
+    // Untrack everything, only the bak file is actually removed
+    let output = work_dir.run_jj(["file", "untrack", "."]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: '.gitignore' and 1 other files are not ignored and will not be untracked.
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @r"
+    .gitignore
+    file1
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["op", "log"]);
+    insta::assert_snapshot!(output, @r"
+    @  94e22b45e319 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    │  untrack paths
+    │  args: jj file untrack .
+    ○  65830d1d7f18 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │  commit e599c59286bb2b876dfa6826daea38d3557e73a0
+    │  args: jj commit -m 'add gitignore'
+    ○  8ce7f8736703 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │  snapshot working copy
+    │  args: jj commit -m 'add gitignore'
+    ○  122623a48de0 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  commit 64e525f96fd5eca78f2a57dc08b0f0fe658ad9f4
+    │  args: jj commit -m 'add files'
+    ○  7b136d251889 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  snapshot working copy
+    │  args: jj commit -m 'add files'
+    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    │  add workspace 'default'
+    ○  000000000000 root()
     [EOF]
     ");
 }
