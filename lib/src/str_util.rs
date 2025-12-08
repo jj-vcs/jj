@@ -272,16 +272,7 @@ impl StringPattern {
         }
     }
 
-    /// Returns true if this pattern matches the `haystack` string.
-    ///
-    /// When matching against a case‐insensitive pattern, only ASCII case
-    /// differences are currently folded. This may change in the future.
-    pub fn is_match(&self, haystack: &str) -> bool {
-        self.is_match_bytes(haystack.as_bytes())
-    }
-
-    /// Returns true if this pattern matches the `haystack` bytes.
-    pub fn is_match_bytes(&self, haystack: &[u8]) -> bool {
+    fn to_match_fn(&self) -> Box<DynMatchFn> {
         // TODO: Unicode case folding is complicated and can be
         // locale‐specific. The `globset` crate and Gitoxide only deal with
         // ASCII case folding, so we do the same here; a more elaborate case
@@ -300,19 +291,33 @@ impl StringPattern {
         // For some discussion of this topic, see:
         // <https://github.com/unicode-org/icu4x/issues/3151>
         match self {
-            Self::Exact(literal) => haystack == literal.as_bytes(),
-            Self::ExactI(literal) => haystack.eq_ignore_ascii_case(literal.as_bytes()),
-            Self::Substring(needle) => haystack.contains_str(needle),
-            Self::SubstringI(needle) => haystack
-                .to_ascii_lowercase()
-                .contains_str(needle.to_ascii_lowercase()),
+            Self::Exact(literal) => {
+                let literal = literal.clone();
+                Box::new(move |haystack| haystack == literal.as_bytes())
+            }
+            Self::ExactI(literal) => {
+                let literal = literal.clone();
+                Box::new(move |haystack| haystack.eq_ignore_ascii_case(literal.as_bytes()))
+            }
+            Self::Substring(needle) => {
+                let needle = needle.clone();
+                Box::new(move |haystack| haystack.contains_str(&needle))
+            }
+            Self::SubstringI(needle) => {
+                let needle = needle.to_ascii_lowercase();
+                Box::new(move |haystack| haystack.to_ascii_lowercase().contains_str(&needle))
+            }
             // (Glob, GlobI) and (Regex, RegexI) pairs are identical here, but
             // callers might want to translate these to backend-specific query
             // differently.
-            Self::Glob(pattern) => pattern.is_match(haystack),
-            Self::GlobI(pattern) => pattern.is_match(haystack),
-            Self::Regex(pattern) => pattern.is_match(haystack),
-            Self::RegexI(pattern) => pattern.is_match(haystack),
+            Self::Glob(pattern) | Self::GlobI(pattern) => {
+                let pattern = pattern.clone();
+                Box::new(move |haystack| pattern.is_match(haystack))
+            }
+            Self::Regex(pattern) | Self::RegexI(pattern) => {
+                let pattern = pattern.clone();
+                Box::new(move |haystack| pattern.is_match(haystack))
+            }
         }
     }
 
@@ -323,10 +328,7 @@ impl StringPattern {
         } else if let Some(literal) = self.as_exact() {
             StringMatcher::Exact(literal.to_owned())
         } else {
-            // TODO: fully migrate is_match*() to StringMatcher, and add
-            // pattern.to_match_fn()?
-            let pattern = self.clone();
-            StringMatcher::Fn(Box::new(move |haystack| pattern.is_match_bytes(haystack)))
+            StringMatcher::Fn(self.to_match_fn())
         }
     }
 
@@ -719,46 +721,42 @@ mod tests {
 
     #[test]
     fn test_glob_is_match() {
-        assert!(StringPattern::glob("foo").unwrap().is_match("foo"));
-        assert!(!StringPattern::glob("foo").unwrap().is_match("foobar"));
+        let glob = |src: &str| StringPattern::glob(src).unwrap().to_matcher();
+        let glob_i = |src: &str| StringPattern::glob_i(src).unwrap().to_matcher();
+
+        assert!(glob("foo").is_match("foo"));
+        assert!(!glob("foo").is_match("foobar"));
 
         // "." in string isn't any special
-        assert!(StringPattern::glob("*").unwrap().is_match(".foo"));
+        assert!(glob("*").is_match(".foo"));
 
         // "/" in string isn't any special
-        assert!(StringPattern::glob("*").unwrap().is_match("foo/bar"));
-        assert!(StringPattern::glob(r"*/*").unwrap().is_match("foo/bar"));
-        assert!(!StringPattern::glob(r"*/*").unwrap().is_match(r"foo\bar"));
+        assert!(glob("*").is_match("foo/bar"));
+        assert!(glob(r"*/*").is_match("foo/bar"));
+        assert!(!glob(r"*/*").is_match(r"foo\bar"));
 
         // "\" is an escape character
-        assert!(!StringPattern::glob(r"*\*").unwrap().is_match("foo/bar"));
-        assert!(StringPattern::glob(r"*\*").unwrap().is_match("foo*"));
-        assert!(StringPattern::glob(r"\\").unwrap().is_match(r"\"));
+        assert!(!glob(r"*\*").is_match("foo/bar"));
+        assert!(glob(r"*\*").is_match("foo*"));
+        assert!(glob(r"\\").is_match(r"\"));
 
         // "*" matches newline
-        assert!(StringPattern::glob(r"*").unwrap().is_match("foo\nbar"));
+        assert!(glob(r"*").is_match("foo\nbar"));
 
-        assert!(!StringPattern::glob("f?O").unwrap().is_match("Foo"));
-        assert!(StringPattern::glob_i("f?O").unwrap().is_match("Foo"));
+        assert!(!glob("f?O").is_match("Foo"));
+        assert!(glob_i("f?O").is_match("Foo"));
     }
 
     #[test]
     fn test_regex_is_match() {
+        let regex = |src: &str| StringPattern::regex(src).unwrap().to_matcher();
         // Unicode mode is enabled by default
-        assert!(StringPattern::regex(r"^\w$").unwrap().is_match("\u{c0}"));
-        assert!(StringPattern::regex(r"^.$").unwrap().is_match("\u{c0}"));
+        assert!(regex(r"^\w$").is_match("\u{c0}"));
+        assert!(regex(r"^.$").is_match("\u{c0}"));
         // ASCII-compatible mode should also work
-        assert!(StringPattern::regex(r"^(?-u)\w$").unwrap().is_match("a"));
-        assert!(
-            !StringPattern::regex(r"^(?-u)\w$")
-                .unwrap()
-                .is_match("\u{c0}")
-        );
-        assert!(
-            StringPattern::regex(r"^(?-u).{2}$")
-                .unwrap()
-                .is_match("\u{c0}")
-        );
+        assert!(regex(r"^(?-u)\w$").is_match("a"));
+        assert!(!regex(r"^(?-u)\w$").is_match("\u{c0}"));
+        assert!(regex(r"^(?-u).{2}$").is_match("\u{c0}"));
     }
 
     #[test]
