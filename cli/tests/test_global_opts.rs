@@ -961,7 +961,7 @@ fn test_default_config() {
     insta::assert_snapshot!(output, @r"
     @  <change-id> (no email set) <date-time> <id>
     │  (empty) (no description set)
-    ○  <change-id> (no email set) <date-time> git_head() <id>
+    ○  <change-id> (no email set) <date-time> <id>
     │  (empty) (no description set)
     ◆  <change-id> root() <id>
     [EOF]

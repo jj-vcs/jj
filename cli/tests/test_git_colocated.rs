@@ -50,7 +50,7 @@ fn test_git_colocated() {
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  524826059adc6f74de30f6be8f8eb86715d75b62
-    ○  97358f54806c7cd005ed5ade68a779595efbae7e master git_head() initial
+    ○  97358f54806c7cd005ed5ade68a779595efbae7e master initial
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -69,7 +69,7 @@ fn test_git_colocated() {
     work_dir.write_file("file", "modified");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  9dfe8c7005c8dff6078ecdfd953c6bfddc633c90
-    ○  97358f54806c7cd005ed5ade68a779595efbae7e master git_head() initial
+    ○  97358f54806c7cd005ed5ade68a779595efbae7e master initial
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -87,7 +87,7 @@ fn test_git_colocated() {
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  4ddddef596e9d68f729f1be9e1b2cdaaf45bef08
-    ○  9dfe8c7005c8dff6078ecdfd953c6bfddc633c90 git_head()
+    ○  9dfe8c7005c8dff6078ecdfd953c6bfddc633c90
     ○  97358f54806c7cd005ed5ade68a779595efbae7e master initial
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -269,7 +269,7 @@ fn test_git_colocated_unborn_bookmark() {
     );
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  2d7a8abb601ebf559df4037279e9f2e851a75e63
-    ○  ff5366846b039b25c6c4998fa74dca821c246243 git_head()
+    ○  ff5366846b039b25c6c4998fa74dca821c246243
     │ ○  e6669bb3438ef218fa618e1047a1911d2b3410dd
     ├─╯
     ◆  0000000000000000000000000000000000000000
@@ -341,7 +341,7 @@ fn test_git_colocated_unborn_bookmark() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  2fb16499a987e632407402e38976ed250c939c42
-    ○  bb21bc2dce2af92973fdd6d42686d77bd16bc466 git_head()
+    ○  bb21bc2dce2af92973fdd6d42686d77bd16bc466
     │ ○  2dd7385602e703388fd266b939bba6f57a1439d3
     │ ○  ff5366846b039b25c6c4998fa74dca821c246243 master
     ├─╯
@@ -437,7 +437,7 @@ fn test_git_colocated_rebase_on_import() {
         .unwrap();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  d46583362b91d0e172aec469ea1689995540de81
-    ○  cbd6c887108743a4abb0919305646a6a914a665e master git_head() add a file
+    ○  cbd6c887108743a4abb0919305646a6a914a665e master add a file
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ------- stderr -------
@@ -465,7 +465,7 @@ fn test_git_colocated_bookmarks() {
     @  95e79774f8e7c785fc36da2b798ecfe0dc864e02 bar
     │ ○  b51ab2e2c88fe2d38bd7ca6946c4d87f281ce7e2 foo
     ├─╯
-    ○  e8849ae12c709f2321908879bc724fdb2ab8a781 git_head()
+    ○  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -503,7 +503,7 @@ fn test_git_colocated_bookmarks() {
     @  507c0edcfc028f714f3c7a3027cb141f6610e867
     │ ○  b51ab2e2c88fe2d38bd7ca6946c4d87f281ce7e2 master foo
     ├─╯
-    ○  e8849ae12c709f2321908879bc724fdb2ab8a781 git_head()
+    ○  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ------- stderr -------
@@ -529,7 +529,7 @@ fn test_git_colocated_bookmark_forget() {
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  43444d88b0096888ebfd664c0cf792c9d15e3f14 foo
-    ○  e8849ae12c709f2321908879bc724fdb2ab8a781 git_head()
+    ○  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -670,7 +670,7 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     @  986aa548466ed43b48c059854720e70d8ec2bf71 new
     │ ○  6b0f7d59e0749d3a6ff2ecf686d5fa48023b7b93 two
     ├─╯
-    ○  97358f54806c7cd005ed5ade68a779595efbae7e master git_head() initial
+    ○  97358f54806c7cd005ed5ade68a779595efbae7e master initial
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -711,7 +711,7 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
     ├─╯
     │ ○  b2ea51c027e11c0f2871cce2a52e648e194df771 B_to_delete B_to_delete
     ├─╯
-    ◆  8777db25171cace71ad014598663d5ffc4fae6b1 A git_head() A
+    ◆  8777db25171cace71ad014598663d5ffc4fae6b1 A A
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -737,7 +737,7 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
     @  0060713e4c7c46c4ce0d69a43ac16451582eda79
     │ ○  fb297975e4ef98dc057f65b761aed2cdb0386598 C_to_move moved C
     ├─╯
-    ◆  8777db25171cace71ad014598663d5ffc4fae6b1 A git_head() A
+    ◆  8777db25171cace71ad014598663d5ffc4fae6b1 A A
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -785,7 +785,7 @@ fn test_git_colocated_rebase_dirty_working_copy() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  e23559e3bc6f22a5562297696fc357e2c581df77 feature??
-    ○  f99015d7d9b82a5912ec4d96a18d2a4afbd8dd49 git_head()
+    ○  f99015d7d9b82a5912ec4d96a18d2a4afbd8dd49
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -820,7 +820,7 @@ fn test_git_colocated_external_checkout() {
     // Checked out anonymous bookmark
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  6f8612f0e7f6d52efd8a72615796df06f8d64cdc
-    ○  319eaafc8fd04c763a0683a000bba5452082feb3 git_head() B
+    ○  319eaafc8fd04c763a0683a000bba5452082feb3 B
     │ ○  8777db25171cace71ad014598663d5ffc4fae6b1 master A
     ├─╯
     ◆  0000000000000000000000000000000000000000
@@ -834,7 +834,7 @@ fn test_git_colocated_external_checkout() {
     // be abandoned. (#1042)
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  7ceeaaae54c8ac99ad34eeed7fe1e896f535be99
-    ○  8777db25171cace71ad014598663d5ffc4fae6b1 master git_head() A
+    ○  8777db25171cace71ad014598663d5ffc4fae6b1 master A
     │ ○  319eaafc8fd04c763a0683a000bba5452082feb3 B
     ├─╯
     ◆  0000000000000000000000000000000000000000
@@ -850,7 +850,7 @@ fn test_git_colocated_external_checkout() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  823204bc895aad19d46b895bc510fb3e9d0c97c7 C
     @  c6abf242550b7c4116d3821b69c79326889aeba0
-    ○  319eaafc8fd04c763a0683a000bba5452082feb3 git_head() B
+    ○  319eaafc8fd04c763a0683a000bba5452082feb3 B
     │ ○  8777db25171cace71ad014598663d5ffc4fae6b1 master A
     ├─╯
     ◆  0000000000000000000000000000000000000000
@@ -863,7 +863,7 @@ fn test_git_colocated_external_checkout() {
     // The old working-copy commit shouldn't be abandoned. (#3747)
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  277b693c61dcdea59ac26d6982370f78751f6ef5
-    ○  8777db25171cace71ad014598663d5ffc4fae6b1 master git_head() A
+    ○  8777db25171cace71ad014598663d5ffc4fae6b1 master A
     │ ○  823204bc895aad19d46b895bc510fb3e9d0c97c7 C
     │ ○  c6abf242550b7c4116d3821b69c79326889aeba0
     │ ○  319eaafc8fd04c763a0683a000bba5452082feb3 B
@@ -911,7 +911,7 @@ fn test_git_colocated_concurrent_checkout() {
     │  (empty) (no description set)
     ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b6786455
     │  (empty) commit3
-    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 git_head() dc0b92df
+    ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 dc0b92df
     │  commit2
     │  A file2
     ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 091e39fe
@@ -932,7 +932,7 @@ fn test_git_colocated_concurrent_checkout() {
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 dc0b92df
     ├─╯  commit2
     │    A file2
-    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 git_head() 091e39fe
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 091e39fe
     │  commit1
     │  A file1
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
@@ -955,7 +955,7 @@ fn test_git_colocated_squash_undo() {
     // Test the setup
     insta::assert_snapshot!(get_log_output_divergence(&work_dir), @r"
     @  rlvkpnrzqnoo 682c866b0a2f
-    ○  qpvuntsmwlqt 8777db25171c A git_head()
+    ○  qpvuntsmwlqt 8777db25171c A
     ◆  zzzzzzzzzzzz 000000000000
     [EOF]
     ");
@@ -963,7 +963,7 @@ fn test_git_colocated_squash_undo() {
     work_dir.run_jj(["squash"]).success();
     insta::assert_snapshot!(get_log_output_divergence(&work_dir), @r"
     @  zsuskulnrvyr e1c3034f23b9
-    ○  qpvuntsmwlqt ba304e200f4f A git_head()
+    ○  qpvuntsmwlqt ba304e200f4f A
     ◆  zzzzzzzzzzzz 000000000000
     [EOF]
     ");
@@ -971,7 +971,7 @@ fn test_git_colocated_squash_undo() {
     // There should be no divergence here (#922)
     insta::assert_snapshot!(get_log_output_divergence(&work_dir), @r"
     @  rlvkpnrzqnoo 682c866b0a2f
-    ○  qpvuntsmwlqt 8777db25171c A git_head()
+    ○  qpvuntsmwlqt 8777db25171c A
     ◆  zzzzzzzzzzzz 000000000000
     [EOF]
     ");
@@ -992,7 +992,7 @@ fn test_git_colocated_undo_head_move() {
         @"e8849ae12c709f2321908879bc724fdb2ab8a781");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  43444d88b0096888ebfd664c0cf792c9d15e3f14
-    ○  e8849ae12c709f2321908879bc724fdb2ab8a781 git_head()
+    ○  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1021,7 +1021,7 @@ fn test_git_colocated_undo_head_move() {
     work_dir.run_jj(["new"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  5e37f1b8313299eb1b62221eefcf32881b0dc4c6
-    ○  23e6e06a7471634da3567ef975fadf883082658f git_head()
+    ○  23e6e06a7471634da3567ef975fadf883082658f
     ○  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -1051,7 +1051,7 @@ fn test_git_colocated_undo_head_move() {
         @"e8849ae12c709f2321908879bc724fdb2ab8a781");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  23e6e06a7471634da3567ef975fadf883082658f
-    ○  e8849ae12c709f2321908879bc724fdb2ab8a781 git_head()
+    ○  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1090,7 +1090,7 @@ fn test_git_colocated_update_index_preserves_timestamps() {
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  a1886a45815f0dcca5cefcc334d11ffb908a1eb8
-    ○  8b0c962ef1fea901fb16f8a484e692a1f0dcbc59 commit2 git_head()
+    ○  8b0c962ef1fea901fb16f8a484e692a1f0dcbc59 commit2
     ○  d37eac5eea00fa74a41c1512839711f42aca2c35 commit1
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -1119,7 +1119,7 @@ fn test_git_colocated_update_index_preserves_timestamps() {
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  8b0c962ef1fea901fb16f8a484e692a1f0dcbc59 commit2
-    ○  d37eac5eea00fa74a41c1512839711f42aca2c35 commit1 git_head()
+    ○  d37eac5eea00fa74a41c1512839711f42aca2c35 commit1
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1139,7 +1139,7 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     @  d9c7f1932e1135856d5905f1a0fc194ce2657065
     │ ○  8b0c962ef1fea901fb16f8a484e692a1f0dcbc59 commit2
     ├─╯
-    ○  d37eac5eea00fa74a41c1512839711f42aca2c35 commit1 git_head()
+    ○  d37eac5eea00fa74a41c1512839711f42aca2c35 commit1
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1203,7 +1203,7 @@ fn test_git_colocated_update_index_merge_conflict() {
     @    985fe3b46a6caecb44b6a12d22fc2b1fc33c219d
     ├─╮
     │ ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
-    ○ │  d0f55ffafa1e0e72980202c349af23d093f825be left git_head()
+    ○ │  d0f55ffafa1e0e72980202c349af23d093f825be left
     ├─╯
     ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
@@ -1225,7 +1225,7 @@ fn test_git_colocated_update_index_merge_conflict() {
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  4e86bd16fa83ac6276701bfa361c683e258a653b
-    ×    985fe3b46a6caecb44b6a12d22fc2b1fc33c219d git_head()
+    ×    985fe3b46a6caecb44b6a12d22fc2b1fc33c219d
     ├─╮
     │ ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
     ○ │  d0f55ffafa1e0e72980202c349af23d093f825be left
@@ -1281,7 +1281,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
     @  d0f55ffafa1e0e72980202c349af23d093f825be left
     │ ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
     ├─╯
-    ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base git_head()
+    ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1308,7 +1308,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  b641af6d56002585b3152e84d4bd92f8181d7909 left
-    ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right git_head()
+    ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
     ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -1327,7 +1327,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  3118c1f8fb0a6279d411eb484906e7274ab5c8f7
-    ×  b641af6d56002585b3152e84d4bd92f8181d7909 left git_head()
+    ×  b641af6d56002585b3152e84d4bd92f8181d7909 left
     ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
     ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
@@ -1408,7 +1408,7 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     │ │ ○  5008c8807feaa955d02e96cb1b0dcf51536fefb8 side-3
     │ ○ │  da6e0a03f8b72f6868a9ea33836123fe965c0cb4 side-2
     │ ├─╯
-    ○ │  ad7eaf61b769dce99884d2ceb0ddf48fc4eac463 side-1 git_head()
+    ○ │  ad7eaf61b769dce99884d2ceb0ddf48fc4eac463 side-1
     ├─╯
     ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
     ◆  0000000000000000000000000000000000000000
@@ -1430,7 +1430,7 @@ fn test_git_colocated_update_index_3_sided_conflict() {
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  b16ae318909e9bf70fc312217988f2ca0abccb62
-    ×      3b8792248f224ce8e3f6652681e518a4f3cb3a0f git_head()
+    ×      3b8792248f224ce8e3f6652681e518a4f3cb3a0f
     ├─┬─╮
     │ │ ○  5008c8807feaa955d02e96cb1b0dcf51536fefb8 side-3
     │ ○ │  da6e0a03f8b72f6868a9ea33836123fe965c0cb4 side-2
@@ -1474,7 +1474,6 @@ fn get_log_output_divergence(work_dir: &TestWorkDir) -> CommandOutput {
       commit_id.short(),
       description.first_line(),
       bookmarks,
-      if(git_head, "git_head()"),
       if(divergent, "!divergence!"),
     )
     "#;
@@ -1487,7 +1486,6 @@ fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     separate(" ",
       commit_id,
       bookmarks,
-      if(git_head, "git_head()"),
       description,
     )
     "#;
@@ -1592,7 +1590,7 @@ fn test_git_colocated_unreachable_commits() {
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  f3677b3e3b95a34e7017655ab612e1d11b59c713
-    ○  cd740e230992f334de13a0bd0b35709b3f7a89af master git_head() initial
+    ○  cd740e230992f334de13a0bd0b35709b3f7a89af master initial
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1644,7 +1642,7 @@ fn test_git_colocated_operation_cleanup() {
 
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  40638ce20b8b74e94460e95709cb077f4307ad7c
-    ○  a50e55141dcd5f8f8d549acd2232ce4839eaa798 feature git_head() 3
+    ○  a50e55141dcd5f8f8d549acd2232ce4839eaa798 feature 3
     │ ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main 2
     ├─╯
     ○  87f64775047d7ce62b7ee81412b8e4cc07aea40a 1
@@ -1671,7 +1669,7 @@ fn test_git_colocated_operation_cleanup() {
     insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @"UU file");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  588c505e689d116180684778b29c540fe7180268
-    ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main git_head() 2
+    ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main 2
     │ ○  a50e55141dcd5f8f8d549acd2232ce4839eaa798 feature 3
     ├─╯
     ○  87f64775047d7ce62b7ee81412b8e4cc07aea40a 1
@@ -1695,7 +1693,7 @@ fn test_git_colocated_operation_cleanup() {
     @  aa14563cf5d892238f1e60260c5c284627d76e7c
     │ ○  588c505e689d116180684778b29c540fe7180268
     ├─╯
-    ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main git_head() 2
+    ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main 2
     │ ○  a50e55141dcd5f8f8d549acd2232ce4839eaa798 feature 3
     ├─╯
     ○  87f64775047d7ce62b7ee81412b8e4cc07aea40a 1

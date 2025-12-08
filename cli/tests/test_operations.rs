@@ -1004,7 +1004,7 @@ fn test_op_recover_from_bad_gc() {
     │  (empty) 4
     │ ○  mzvwutvl?? test.user@example.com 2001-02-03 08:05:15 bc027e2c
     ├─╯  (empty) 4.1
-    ○  zsuskuln test.user@example.com 2001-02-03 08:05:10 git_head() c2934cfb
+    ○  zsuskuln test.user@example.com 2001-02-03 08:05:10 c2934cfb
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
     [EOF]
