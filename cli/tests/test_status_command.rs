@@ -259,7 +259,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     ");
 
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy  (@) : yqosqzyt 6e3ffaa1 (conflict) (empty) boom-cont-2
     Parent commit (@-): royxmykx 7f9e90e6 (conflict) (empty) boom-cont
@@ -272,10 +272,10 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     let output = work_dir.run_jj(["status", "--color=always"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     The working copy has no changes.
     Working copy  (@) : [1m[38;5;13my[38;5;8mqosqzyt[39m [38;5;12m6[38;5;8me3ffaa1[39m [38;5;9m(conflict)[39m [38;5;10m(empty)[39m boom-cont-2[0m
     Parent commit (@-): [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4m7[0m[38;5;8mf9e90e6[39m [38;5;1m(conflict)[39m [38;5;2m(empty)[39m boom-cont
@@ -288,7 +288,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     [39mOnce the conflicts are resolved, you can inspect the result with `jj diff`.[39m
     [39mThen run `jj squash` to move the resolution into the conflicted commit.[39m
     [EOF]
-    "###);
+    ");
 
     let output = work_dir.run_jj(["status", "--config=hints.resolving-conflicts=false"]);
     insta::assert_snapshot!(output, @r"
@@ -441,7 +441,7 @@ fn test_status_simplify_conflict_sides() {
     create_commit_with_files(&work_dir, "conflict", &["conflictA", "conflictB"], &[]);
 
     insta::assert_snapshot!(work_dir.run_jj(["status"]),
-    @r###"
+    @r"
     The working copy has no changes.
     Working copy  (@) : nkmrtpmo 14a0b4b7 conflict | (conflict) (empty) conflict
     Parent commit (@-): kmkuslsw 73b61e6e conflictA | (conflict) (empty) conflictA
@@ -457,7 +457,7 @@ fn test_status_simplify_conflict_sides() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 }
 
 #[test]

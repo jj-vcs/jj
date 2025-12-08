@@ -402,12 +402,12 @@ fn test_git_remote_named_git() {
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "remote", "list"]);
     insta::assert_snapshot!(output, @"");
-    insta::assert_snapshot!(read_git_config(work_dir.root()), @r#"
+    insta::assert_snapshot!(read_git_config(work_dir.root()), @r"
     [core]
     	repositoryformatversion = 0
     	bare = false
     	logallrefupdates = true
-    "#);
+    ");
     // @git bookmark shouldn't be removed.
     let output = work_dir.run_jj(["log", "-rmain@git", "-Tbookmarks"]);
     insta::assert_snapshot!(output, @r"

@@ -28,7 +28,7 @@ fn test_report_conflicts() {
     work_dir.run_jj(["commit", "-m=C"]).success();
 
     let output = work_dir.run_jj(["rebase", "-s=subject(glob:B)", "-d=root()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
     Working copy  (@) now at: zsuskuln 1f0443b9 (conflict) (empty) (no description set)
@@ -46,7 +46,7 @@ fn test_report_conflicts() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     let output = work_dir.run_jj(["rebase", "-d=subject(glob:A)"]);
     insta::assert_snapshot!(output, @r"
@@ -61,7 +61,7 @@ fn test_report_conflicts() {
 
     // Can get hint about multiple root commits
     let output = work_dir.run_jj(["rebase", "-r=subject(glob:B)", "-d=root()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
     Rebased 2 descendant commits
@@ -81,7 +81,7 @@ fn test_report_conflicts() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     // Resolve one of the conflicts by (mostly) following the instructions
     let output = work_dir.run_jj(["new", "rlvkpnrzqnoo"]);
@@ -123,7 +123,7 @@ fn test_report_conflicts_with_divergent_commits() {
         .success();
 
     let output = work_dir.run_jj(["rebase", "-s=subject(glob:B)", "-d=root()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 3 commits to destination
@@ -143,7 +143,7 @@ fn test_report_conflicts_with_divergent_commits() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     let output = work_dir.run_jj(["rebase", "-d=subject(glob:A)"]);
     insta::assert_snapshot!(output, @r"
@@ -158,7 +158,7 @@ fn test_report_conflicts_with_divergent_commits() {
 
     // Same thing when rebasing the divergent commits one at a time
     let output = work_dir.run_jj(["rebase", "-s=subject(glob:C2)", "-d=root()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
     Working copy  (@) now at: zsuskuln?? 151c23fc (conflict) C2
@@ -175,10 +175,10 @@ fn test_report_conflicts_with_divergent_commits() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     let output = work_dir.run_jj(["rebase", "-s=subject(glob:C3)", "-d=root()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
     New conflicts appeared in 1 commits:
@@ -190,7 +190,7 @@ fn test_report_conflicts_with_divergent_commits() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     let output = work_dir.run_jj(["rebase", "-s=subject(glob:C2)", "-d=subject(glob:B)"]);
     insta::assert_snapshot!(output, @r"

@@ -447,12 +447,12 @@ fn test_config_layer_override_default() {
         "--config",
         &format!("{config_key}={value}", value = to_toml_value("command-arg")),
     ]);
-    insta::assert_snapshot!(output, @r##"
+    insta::assert_snapshot!(output, @r#"
     # merge-tools.vimdiff.program = "user"
     # merge-tools.vimdiff.program = "repo"
     merge-tools.vimdiff.program = "command-arg"
     [EOF]
-    "##);
+    "#);
 
     let output = work_dir.run_jj([
         "config",
@@ -536,14 +536,14 @@ fn test_config_layer_override_env() {
         "--config",
         &format!("{config_key}={value}", value = to_toml_value("command-arg")),
     ]);
-    insta::assert_snapshot!(output, @r##"
+    insta::assert_snapshot!(output, @r#"
     # ui.editor = "env-base"
     # ui.editor = "user"
     # ui.editor = "repo"
     # ui.editor = "env-override"
     ui.editor = "command-arg"
     [EOF]
-    "##);
+    "#);
 }
 
 #[test]
@@ -1106,7 +1106,8 @@ fn test_config_edit_invalid_config() {
     let output = work_dir.run_jj(["config", "get", "test"]);
     insta::assert_snapshot!(output, @r"
     success
-    [EOF]"
+    [EOF]
+    "
     );
 
     // Test the restore previous config
@@ -1135,7 +1136,8 @@ fn test_config_edit_invalid_config() {
     let output = work_dir.run_jj(["config", "get", "test"]);
     insta::assert_snapshot!(output, @r"
     success
-    [EOF]"
+    [EOF]
+    "
     );
 }
 

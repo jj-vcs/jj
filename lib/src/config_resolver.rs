@@ -1005,10 +1005,10 @@ mod tests {
             hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
-        insta::assert_snapshot!(resolved_config.layers()[0].data, @r#"
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"
         a = 'a none'
         b = 'b none'
-        "#);
+        ");
         if cfg!(target_os = "linux") {
             assert_eq!(resolved_config.layers().len(), 3);
             insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a linux'");

@@ -159,7 +159,7 @@ fn test_util_exec_fail() {
         ],
     );
     // Ensures only stdout contains text
-    insta::assert_snapshot!(output.normalize_stderr_with(|s| s.replace(".exe", "")), @r###"
+    insta::assert_snapshot!(output.normalize_stderr_with(|s| s.replace(".exe", "")), @r"
     ------- stderr -------
     error: unexpected argument '--badopt' found
 
@@ -168,7 +168,7 @@ fn test_util_exec_fail() {
     For more information, try '--help'.
     [EOF]
     [exit status: 2]
-    "###);
+    ");
 }
 
 #[test]
@@ -201,8 +201,8 @@ fn test_util_exec_sets_env() {
             r#"echo "$JJ_WORKSPACE_ROOT""#,
         ],
     );
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     $TEST_ENV/repo
     [EOF]
-    "###);
+    ");
 }

@@ -49,7 +49,8 @@ fn test_git_colocation_enable_success() {
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
-    [EOF]");
+    [EOF]
+    ");
 
     // Run colocate command
     let output = work_dir.run_jj(["git", "colocation", "enable"]);
@@ -84,7 +85,8 @@ fn test_git_colocation_enable_success() {
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 git_head() e8849ae1
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
-    [EOF]");
+    [EOF]
+    ");
 }
 
 #[test]
@@ -130,7 +132,8 @@ fn test_git_colocation_enable_with_existing_git_dir() {
     ------- stderr -------
     Error: A .git directory already exists in the workspace root. Cannot colocate.
     [EOF]
-    [exit status: 1]");
+    [exit status: 1]
+    ");
 }
 
 #[test]
@@ -155,7 +158,8 @@ fn test_git_colocation_disable_success() {
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 git_head() e8849ae1
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
-    [EOF]");
+    [EOF]
+    ");
 
     // Verify it's colocated
     assert!(workspace_root.join(".git").exists());
@@ -190,7 +194,8 @@ fn test_git_colocation_disable_success() {
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
     ◆  zzzzzzzz root() 00000000
-    [EOF]");
+    [EOF]
+    ");
 }
 
 #[test]

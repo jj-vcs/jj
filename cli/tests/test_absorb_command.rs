@@ -173,7 +173,7 @@ fn test_absorb_replace_single_line_hunk() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "2a\n1A\n2b\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 19034586 (conflict) 1
@@ -189,7 +189,7 @@ fn test_absorb_replace_single_line_hunk() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
     @  mzvwutvl f9c426f2 (empty) (no description set)
@@ -421,7 +421,7 @@ fn test_absorb_conflict() {
     work_dir.run_jj(["new", "root()"]).success();
     work_dir.write_file("file1", "2a\n2b\n");
     let output = work_dir.run_jj(["rebase", "-r@", "-dsubject(glob:1)"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
     Working copy  (@) now at: kkmpptxz 01e6cd99 (conflict) (no description set)
@@ -438,7 +438,7 @@ fn test_absorb_conflict() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
 
     let conflict_content = work_dir.read_file("file1");
     insta::assert_snapshot!(conflict_content, @r"
@@ -547,7 +547,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     work_dir.remove_file("file1");
     work_dir.remove_file("file2");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Absorbed changes into 2 revisions:
       kkmpptxz 9210e16d (conflict) 2
@@ -567,7 +567,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     Remaining changes:
     D file2
     [EOF]
-    "###);
+    ");
 
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
     @  zsuskuln f8744d38 (no description set)

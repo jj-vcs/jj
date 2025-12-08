@@ -3839,14 +3839,14 @@ mod tests {
             @"1----true--test--");
 
         // Separator is required.
-        insta::assert_snapshot!(env.parse_err(r#"join()"#), @r#"
+        insta::assert_snapshot!(env.parse_err(r#"join()"#), @r"
          --> 1:6
           |
         1 | join()
           |      ^
           |
           = Function `join`: Expected at least 1 arguments
-        "#);
+        ");
 
         // Labeled.
         insta::assert_snapshot!(

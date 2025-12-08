@@ -205,12 +205,12 @@ fn test_concurrent_snapshot_wc_reloadable() {
     .unwrap();
     work_dir.write_file("child2", "");
     let output = work_dir.run_jj(["describe", "-m", "new child2"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 493da83e new child2
     Parent commit (@-)      : rlvkpnrz 15bd889d new child1
     [EOF]
-    "###);
+    ");
 
     // Since the repo can be reloaded before snapshotting, "child2" should be
     // a child of "child1", not of "initial".

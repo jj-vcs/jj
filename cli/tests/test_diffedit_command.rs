@@ -335,7 +335,7 @@ fn test_diffedit_existing_instructions() {
     ");
     // Test that we didn't delete or overwrite the "JJ-INSTRUCTIONS" file.
     let content = work_dir.read_file("JJ-INSTRUCTIONS");
-    insta::assert_snapshot!(content, @r"modified");
+    insta::assert_snapshot!(content, @"modified");
 }
 
 #[test]

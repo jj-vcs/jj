@@ -2879,7 +2879,7 @@ fn test_op_log_parents() {
         .success();
     let template = r#"id.short() ++ "\nP: " ++ parents.len() ++ " " ++ parents.map(|o| o.id().short()) ++ "\n""#;
     let output = work_dir.run_jj(["op", "log", "-T", template]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     @    ea1c99c7c4a9
     ├─╮  P: 2 12f7cbba4278 dd1534c4b064
     ○ │  12f7cbba4278
@@ -2894,7 +2894,7 @@ fn test_op_log_parents() {
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     [EOF]
-    "###);
+    ");
 }
 
 #[test]

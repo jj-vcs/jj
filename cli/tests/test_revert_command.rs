@@ -206,11 +206,11 @@ fn test_revert() {
 
     // Revert nothing
     let output = work_dir.run_jj(["revert", "-r", "none()", "-d", "@"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No revisions to revert.
     [EOF]
-    "#);
+    ");
 }
 
 #[test]

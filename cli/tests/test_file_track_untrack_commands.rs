@@ -72,7 +72,7 @@ fn test_track_untrack() {
     // Can untrack a single file
     assert!(files_before.stdout.raw().contains("file1.bak\n"));
     let output = work_dir.run_jj(["file", "untrack", "file1.bak"]);
-    insta::assert_snapshot!(output, @r"");
+    insta::assert_snapshot!(output, @"");
     let files_after = work_dir.run_jj(["file", "list"]).success();
     // The file is no longer tracked
     assert!(!files_after.stdout.raw().contains("file1.bak"));

@@ -714,7 +714,7 @@ mod tests {
         assert_snapshot!(update(Duration::from_millis(10), 0.12), @"");
         assert_snapshot!(update(Duration::from_millis(10), 0.13), @"");
         // We get an update now that we go over the threshold
-        assert_snapshot!(update(Duration::from_millis(100), 0.30), @" 30% [█████▍            ][K");
+        assert_snapshot!(update(Duration::from_millis(100), 0.30), @"\r 30% [█████▍            ]\u{1b}[K");
         // Even though we went over by quite a bit, the new threshold is relative to the
         // previous output, so we don't get an update here
         assert_snapshot!(update(Duration::from_millis(30), 0.40), @"");

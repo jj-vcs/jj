@@ -453,11 +453,11 @@ fn test_workspaces_add_workspace_in_current_workspace() {
 
     // Workspace created despite warning
     let output = main_dir.run_jj(["workspace", "list"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     default: rlvkpnrz 504e3d8c (empty) (no description set)
     secondary: pmmvwywv 058f604d (empty) (no description set)
     [EOF]
-    "###);
+    ");
 
     // Use explicit path instead (no warning)
     let output = main_dir.run_jj(["workspace", "add", "./third"]);
@@ -472,18 +472,18 @@ fn test_workspaces_add_workspace_in_current_workspace() {
 
     // Both workspaces created
     let output = main_dir.run_jj(["workspace", "list"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     default: rlvkpnrz 504e3d8c (empty) (no description set)
     secondary: pmmvwywv 058f604d (empty) (no description set)
     third: zxsnswpr 1c1effec (empty) (no description set)
     [EOF]
-    "###);
+    ");
 
     let output = main_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r###"
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     file
     [EOF]
-    "###);
+    ");
 }
 
 /// Test making changes to the working copy in a workspace as it gets rewritten

@@ -519,7 +519,7 @@ fn test_default_string_pattern() {
 
     // substring match by default as of jj 0.35
     let output = work_dir.run_jj(["log", "-rauthor('test.user')"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r###"
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
     ~
@@ -533,7 +533,7 @@ fn test_default_string_pattern() {
       |
       = Default pattern syntax will be changed to `glob:` / `exact:` (depending on whether it looks like a glob) in a future release; use `substring:` prefix or set ui.revsets-use-glob-by-default=true to suppress this warning
     [EOF]
-    "###);
+    ");
 
     // with default flipped
     let output = work_dir.run_jj([

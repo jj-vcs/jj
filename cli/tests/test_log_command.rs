@@ -919,11 +919,11 @@ fn test_log_filtered_by_path() {
 
     // The output filtered to a non-existent file should display a warning.
     let output = work_dir.run_jj(["log", "-r", "@-", "-T", "description", "nonexistent"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     [EOF]
-    "#);
+    ");
 
     // The output filtered to a non-existent file should display a warning.
     // The warning should be displayed at the beginning of the output.
@@ -1134,7 +1134,7 @@ fn test_log_warn_path_might_be_revset() {
     // been added to the working copy, yet.
     let sub_dir = work_dir.create_dir_all("dir");
     let output = sub_dir.run_jj(["log", "."]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No matching entries for paths: .
     [EOF]
@@ -1160,7 +1160,7 @@ fn test_log_warn_path_might_be_revset() {
 
     // If an explicit revision is provided, then suppress the warning.
     let output = work_dir.run_jj(["log", "@", "-r", "@", "-T", "description"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No matching entries for paths: @
     [EOF]

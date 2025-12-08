@@ -634,12 +634,12 @@ fn test_describe_stdin_description() {
             .args(["describe", "--stdin"])
             .write_stdin("first stdin\nsecond stdin")
     });
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm b9990801 (empty) first stdin
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
-    "#);
+    ");
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
     insta::assert_snapshot!(output, @r"
     first stdin
@@ -669,6 +669,8 @@ fn test_describe_default_description() {
     "#);
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+
+
     TESTED=TODO
 
     JJ: Change ID: qpvuntsm
@@ -767,6 +769,7 @@ fn test_describe_author() {
     ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+
     JJ: Author: Super Seeder <super.seeder@example.com> (2001-02-03 08:05:12)
     JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:12)
 

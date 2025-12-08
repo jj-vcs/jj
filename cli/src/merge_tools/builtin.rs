@@ -962,7 +962,7 @@ mod tests {
             "executable_file",
         ]
         "#);
-        insta::assert_debug_snapshot!(files, @r###"
+        insta::assert_debug_snapshot!(files, @r#"
         [
             File {
                 old_path: None,
@@ -987,7 +987,7 @@ mod tests {
                 ],
             },
         ]
-        "###);
+        "#);
         let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
@@ -1316,7 +1316,7 @@ mod tests {
             "file_with_content",
         ]
         "#);
-        insta::assert_debug_snapshot!(files, @r###"
+        insta::assert_debug_snapshot!(files, @r#"
         [
             File {
                 old_path: None,
@@ -1341,7 +1341,7 @@ mod tests {
                 ],
             },
         ]
-        "###);
+        "#);
         let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 
@@ -1472,7 +1472,7 @@ mod tests {
             "file_with_content",
         ]
         "#);
-        insta::assert_debug_snapshot!(files, @r###"
+        insta::assert_debug_snapshot!(files, @r#"
         [
             File {
                 old_path: None,
@@ -1493,7 +1493,7 @@ mod tests {
                 ],
             },
         ]
-        "###);
+        "#);
         let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
         assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
 

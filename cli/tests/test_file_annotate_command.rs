@@ -246,6 +246,7 @@ fn test_annotate_with_template() {
 
     let output = work_dir.run_jj(["file", "annotate", "file.txt", "-T", template]);
     insta::assert_snapshot!(output, @r"
+
     qpvuntsm initial
     2001-02-03 08:05:08 Test User <test.user@example.com>
        2 ->   1: initial 2

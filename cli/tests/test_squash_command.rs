@@ -334,12 +334,12 @@ fn test_squash_partial() {
     // No warning if we pass a positional argument does not parse as a revset
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
     let output = work_dir.run_jj(["squash", ".tmp"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: No matching entries for paths: .tmp
     Nothing changed.
     [EOF]
-    "#);
+    ");
 
     // we can use --interactive and fileset together
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
@@ -900,7 +900,7 @@ fn test_squash_from_multiple() {
 
     // Squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b", "--from=c", "--into=d"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kpqxywon 0b695306 f | (no description set)
@@ -914,7 +914,7 @@ fn test_squash_from_multiple() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  0b6953066ee0 f
     ○    ff064d529578 e
@@ -1044,7 +1044,7 @@ fn test_squash_from_multiple_partial() {
 
     // Partially squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b|c", "--into=d", "file1"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kpqxywon a724910c f | (no description set)
@@ -1058,7 +1058,7 @@ fn test_squash_from_multiple_partial() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  a724910cd361 f
     ○      1bc405e12b68 e
@@ -2435,6 +2435,7 @@ fn test_squash_with_editor_and_empty_message() {
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
 
+
     Trailer: value
 
     JJ: Change ID: qpvuntsm
@@ -2444,7 +2445,6 @@ fn test_squash_with_editor_and_empty_message() {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
-
     Trailer: value
     [EOF]
     ");

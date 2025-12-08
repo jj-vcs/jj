@@ -3948,7 +3948,7 @@ mod tests {
         }
         "#);
         // Parse the nullary "range" operator
-        insta::assert_debug_snapshot!(parse("..").unwrap(), @r#"NotIn(Root)"#);
+        insta::assert_debug_snapshot!(parse("..").unwrap(), @"NotIn(Root)");
         // Parse the "negate" operator
         insta::assert_debug_snapshot!(
             parse("~ foo").unwrap(),

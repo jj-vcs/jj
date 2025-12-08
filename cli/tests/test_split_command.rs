@@ -340,13 +340,13 @@ fn test_split_with_descendants() {
     // Third commit.
     work_dir.write_file("file4", "foobarbaz\n");
     work_dir.run_jj(["describe", "-m", "Add file4"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r###"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  kkmpptxzrspx false Add file4
     ○  rlvkpnrzqnoo false Add file3
     ○  qpvuntsmwlqt false Add file1 & file2
     ◆  zzzzzzzzzzzz true
     [EOF]
-    "###);
+    ");
 
     // Set up the editor and do the split.
     std::fs::write(

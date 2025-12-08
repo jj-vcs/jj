@@ -25,30 +25,30 @@ fn test_gerrit_upload_dryrun() {
     create_commit(&work_dir, "b", &["a"]);
     create_commit(&work_dir, "c", &["a"]);
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No remote specified, and no 'gerrit' remote was found
     [EOF]
     [exit status: 1]
-    "###);
+    ");
 
     // With remote specified but.
     test_env.add_config(r#"gerrit.default-remote="origin""#);
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: The remote 'origin' (configured via `gerrit.default-remote`) does not exist
     [EOF]
     [exit status: 1]
-    "###);
+    ");
 
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--remote=origin"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: The remote 'origin' (specified via `--remote`) does not exist
     [EOF]
     [exit status: 1]
-    "###);
+    ");
 
     let output = work_dir.run_jj([
         "git",
@@ -59,33 +59,33 @@ fn test_gerrit_upload_dryrun() {
     ]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--remote=origin"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No target branch specified via --remote-branch, and no 'gerrit.default-remote-branch' was found
     [EOF]
     [exit status: 1]
-    "###);
+    ");
 
     test_env.add_config(r#"gerrit.default-remote-branch="main""#);
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--dry-run"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
 
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
 
     Dry-run: Would push zsuskuln 123b4d91 b | b
     [EOF]
-    "###);
+    ");
 
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--dry-run", "-b", "other"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
 
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'other'
 
     Dry-run: Would push zsuskuln 123b4d91 b | b
     [EOF]
-    "###);
+    ");
 }
 
 #[test]
@@ -107,7 +107,7 @@ fn test_gerrit_upload_local() {
     // The output should only mentioned commit IDs from the log output above (no
     // temporary commits)
     let output = local_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:14 c 9590bf26
     │  c
     ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
@@ -116,22 +116,22 @@ fn test_gerrit_upload_local() {
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
-    "###);
+    ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
 
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
 
     Pushing yqosqzyt 9590bf26 c | c
     [EOF]
-    "###);
+    ");
 
     // The output should be unchanged because we only add Change-Id trailers
     // transiently
     let output = local_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:14 c 9590bf26
     │  c
     ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
@@ -140,12 +140,12 @@ fn test_gerrit_upload_local() {
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
-    "###);
+    ");
 
     // There's no particular reason to run this with jj util exec, it's just that
     // the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     commit ab6776c073b82fbbd2cd0858482a9646afd56f85
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:13 2001 +0700
@@ -168,5 +168,5 @@ fn test_gerrit_upload_local() {
 
         a
     [EOF]
-    "###);
+    ");
 }

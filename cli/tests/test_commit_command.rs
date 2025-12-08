@@ -138,6 +138,8 @@ fn test_commit_with_empty_description_from_editor() {
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(),
         @r#"
+
+
     JJ: Change ID: qpvuntsm
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
@@ -313,6 +315,8 @@ fn test_commit_with_default_description() {
     "#);
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+
+
     TESTED=TODO
 
     JJ: Change ID: qpvuntsm
@@ -361,6 +365,7 @@ fn test_commit_with_description_template() {
     work_dir.run_jj(["commit", "file1"]).success();
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+
     JJ: Author: Test User <test.user@example.com> (2001-02-03 08:05:08)
     JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:08)
 
@@ -381,6 +386,7 @@ fn test_commit_with_description_template() {
         .success();
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+
     JJ: Author: Another User <another.user@example.com> (2001-02-03 08:05:08)
     JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
 
@@ -394,6 +400,7 @@ fn test_commit_with_description_template() {
     work_dir.run_jj(["commit", "--reset-author"]).success();
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+
     JJ: Author: Test User <test.user@example.com> (2001-02-03 08:05:10)
     JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:10)
 
@@ -647,6 +654,7 @@ fn test_commit_with_editor_and_empty_message() {
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
 
+
     Trailer: value
 
     JJ: Change ID: qpvuntsm
@@ -673,6 +681,8 @@ fn test_commit_with_editor_without_message() {
     // Verify editor was opened
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+
+
     JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
     JJ:     A file1

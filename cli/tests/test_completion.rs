@@ -1543,12 +1543,12 @@ fn test_files() {
     insta::assert_snapshot!(
         output.normalize_stdout_with(|s| s.replace(std::path::MAIN_SEPARATOR, "→")),
         @r"
-        f_dir→dir_file_1	Added
-        f_dir→dir_file_2	Added
-        f_dir→dir_file_3	Added
-        f_dir→f_renamed_3	Renamed
-        [EOF]
-        ");
+    f_dir→dir_file_1	Added
+    f_dir→dir_file_2	Added
+    f_dir→dir_file_3	Added
+    f_dir→f_renamed_3	Renamed
+    [EOF]
+    ");
 
     let output = work_dir.complete_fish(["diff", "--from", "root()", "--to", "@-", "f_"]);
     insta::assert_snapshot!(output, @r"

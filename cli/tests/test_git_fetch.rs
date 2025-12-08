@@ -1940,13 +1940,13 @@ fn test_git_fetch_tracked() {
         .success();
 
     // Both should be tracked
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r###"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: txqvqkwm fc8f3f42 message
       @origin: txqvqkwm fc8f3f42 message
     main: kmpysrkw 0130f303 message
       @origin: kmpysrkw 0130f303 message
     [EOF]
-    "###);
+    ");
 
     // Now untrack feature1
     work_dir
@@ -1954,13 +1954,13 @@ fn test_git_fetch_tracked() {
         .success();
 
     // Verify feature1 is untracked
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r###"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: txqvqkwm fc8f3f42 message
     feature1@origin: txqvqkwm fc8f3f42 message
     main: kmpysrkw 0130f303 message
       @origin: kmpysrkw 0130f303 message
     [EOF]
-    "###);
+    ");
 
     // Add new commits to all bookmarks on the remote
     add_commit_to_branch(&remote_repo, "main", "message");
@@ -2029,11 +2029,11 @@ fn test_git_fetch_tracked_no_tracked_bookmarks() {
 
     // Fetch with --tracked should indicate nothing changed
     let output = work_dir.run_jj(["git", "fetch", "--tracked"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
-    "#);
+    ");
 }
 
 #[test]

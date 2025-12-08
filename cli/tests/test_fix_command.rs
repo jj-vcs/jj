@@ -456,9 +456,15 @@ fn test_config_filesets() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "b1", "-r", "@"]);
-    insta::assert_snapshot!(output, @"1b[EOF]");
+    insta::assert_snapshot!(output, @r"
+
+    1b[EOF]
+    ");
     let output = work_dir.run_jj(["file", "show", "b2", "-r", "@"]);
-    insta::assert_snapshot!(output, @"2b[EOF]");
+    insta::assert_snapshot!(output, @r"
+
+    2b[EOF]
+    ");
 }
 
 #[test]
@@ -583,15 +589,15 @@ fn test_relative_tool_path_from_subdirectory() {
     ");
 
     let output = work_dir.run_jj(["file", "show", "test.txt", "-r", "@"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     HELLO WORLD
     [EOF]
-    "###);
+    ");
     let output = work_dir.run_jj(["file", "show", "subdir/nested.txt", "-r", "@"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     NESTED CONTENT
     [EOF]
-    "###);
+    ");
 
     // Reset so the fix tools should have an effect again
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -608,15 +614,15 @@ fn test_relative_tool_path_from_subdirectory() {
     ");
 
     let output = work_dir.run_jj(["file", "show", "test.txt", "-r", "@"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     HELLO WORLD
     [EOF]
-    "###);
+    ");
     let output = work_dir.run_jj(["file", "show", "subdir/nested.txt", "-r", "@"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     NESTED CONTENT
     [EOF]
-    "###);
+    ");
 }
 
 #[test]
@@ -1006,7 +1012,10 @@ fn test_fix_cyclic() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
-    insta::assert_snapshot!(output, @"tnetnoc[EOF]");
+    insta::assert_snapshot!(output, @r"
+
+    tnetnoc[EOF]
+    ");
 
     let output = work_dir.run_jj(["fix"]);
     insta::assert_snapshot!(output, @r"
@@ -1018,7 +1027,10 @@ fn test_fix_cyclic() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
-    insta::assert_snapshot!(output, @"content[EOF]");
+    insta::assert_snapshot!(output, @r"
+
+    content[EOF]
+    ");
 }
 
 #[test]
@@ -1286,7 +1298,7 @@ fn test_fix_executable() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"CONTENT[EOF]");
+    insta::assert_snapshot!(output, @"CONTENT[EOF]");
     let executable = std::fs::metadata(&path).unwrap().permissions().mode() & 0o111;
     assert_eq!(executable, 0o111);
 }

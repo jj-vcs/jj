@@ -498,12 +498,12 @@ fn test_submodule_ignored() {
         &format!("{}/submodule", test_env.env_root().display()),
         "sub",
     ]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Cloning into '$TEST_ENV/repo/sub'...
     done.
     [EOF]
-    "###);
+    ");
     // Use git to commit since jj won't play nice with the submodule.
     work_dir
         .run_jj([
@@ -523,12 +523,12 @@ fn test_submodule_ignored() {
 
     // This should be empty. We shouldn't track the submodule itself.
     let output = work_dir.run_jj(["diff", "--summary"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     ignoring git submodule at "sub"
     Done importing changes from the underlying Git repo.
     [EOF]
-    "###);
+    "#);
 
     // Switch to a historical commit before the submodule was checked in.
     work_dir.run_jj(["prev"]).success();

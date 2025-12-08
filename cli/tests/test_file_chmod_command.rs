@@ -222,7 +222,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_deletion"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw 849406ce file_deletion | (conflict) file_deletion
     Parent commit (@-)      : zsuskuln bc9cdea1 file | file
@@ -239,7 +239,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
-    "###);
+    ");
     let output = work_dir.run_jj(["debug", "tree", "-r=file_deletion"]);
     insta::assert_snapshot!(output, @r#"
     file: Ok(Conflicted([Some(File { id: FileId("78981922613b2afb6025042ff6bd878ac1994e85"), executable: true, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: true, copy_id: CopyId("") }), None]))
@@ -418,13 +418,13 @@ fn test_chmod_exec_bit_ignore_then_respect() {
 
     // Set the in-repo executable bit to true.
     let output = work_dir.run_jj(["file", "chmod", "x", "file"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz cb3f99cb base | base
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
-    "#);
+    ");
     assert_file_executable(path, false);
 
     test_env.add_config(r#"working-copy.exec-bit-change = "respect""#);
