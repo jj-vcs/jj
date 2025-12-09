@@ -3,9 +3,8 @@
 ## What are divergent changes?
 
 A [divergent change] occurs when multiple [visible commits] have the same change
-ID.
-
-These changes are displayed with a [change offset] after their change ID:
+ID. These changes are displayed with a [change offset] after their change ID and
+a label of "divergent":
 
 ```shell
 $ jj log

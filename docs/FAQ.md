@@ -352,10 +352,10 @@ $ jj evolog
 @  lnvvtrzo jjfan@example.org 2025-02-28 21:01:10 31a347e0
 │  featureA
 │  -- operation 3cb7392c092c snapshot working copy
-○  lnvvtrzo/1 hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8
+○  lnvvtrzo/1 jjfan@example.org 2025-02-28 21:00:51 b8004ab8 hidden
 │  featureA
 │  -- operation 1280bfaec893 snapshot working copy
-○  lnvvtrzo/2 hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d
+○  lnvvtrzo/2 jjfan@example.org 2025-02-28 20:50:05 e4d831d hidden
    (no description set)
    -- operation 0418a5aa94b5 snapshot working copy
 ```
@@ -385,7 +385,7 @@ $ jj evolog --patch --git  # We use `--git` to make diffs clear without colors
 │  @@ -1,1 +1,2 @@
 │   Done with feature A
 │  +Working on feature B
-○  lnvvtrzo/1 hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8
+○  lnvvtrzo/1 jjfan@example.org 2025-02-28 21:00:51 b8004ab8 hidden
 │  featureA
 │  -- operation 1280bfaec893 snapshot working copy
 │  diff --git a/file b/file
@@ -395,7 +395,7 @@ $ jj evolog --patch --git  # We use `--git` to make diffs clear without colors
 │  @@ -1,1 +1,1 @@
 │  -Working on feature A
 │  +Done with feature A
-○  lnvvtrzo/2 hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d
+○  lnvvtrzo/2 jjfan@example.org 2025-02-28 20:50:05 e4d831d hidden
    (no description set)
    -- operation 0418a5aa94b5 snapshot working copy
    diff --git a/file b/file

@@ -169,6 +169,7 @@ fn test_templater_alias() {
     'recurse2()' = 'recurse'
     'identity(x)' = 'x'
     'coalesce(x, y)' = 'if(x, x, y)'
+    'format_commit_summary_with_refs(x, y)' = 'x.commit_id()'
     'builtin_log_node' = '"#"'
     'builtin_op_log_node' = '"#"'
     'builtin_log_node_ascii' = '"#"'

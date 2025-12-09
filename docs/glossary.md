@@ -116,8 +116,8 @@ call that a [divergent change](#divergent-change).
 ## Divergent change
 
 A divergent change is a [change](#change) that has more than one
-[visible commit](#visible-commits). These changes are displayed with a
-[change offset](#change-offset) after their change ID.
+[visible commit](#visible-commits). These changes are displayed with a label of
+"divergent" in the log.
 
 ## Head
 
