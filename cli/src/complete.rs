@@ -390,7 +390,16 @@ fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionC
             .arg("--revisions")
             .arg(revisions)
             .arg("--template")
-            .arg(r#"change_id.shortest() ++ " " ++ if(description, description.first_line(), "(no description set)") ++ "\n""#)
+            .arg(
+                r#"
+                join(" ",
+                    separate("/",
+                        change_id.shortest(),
+                        if(hidden || divergent, change_offset),
+                    ),
+                    if(description, description.first_line(), "(no description set)"),
+                ) ++ "\n""#,
+            )
             .output()
             .map_err(user_error)?;
         let stdout = String::from_utf8_lossy(&output.stdout);

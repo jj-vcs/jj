@@ -809,14 +809,16 @@ fn test_revisions() {
     );
 
     work_dir.write_file("file", "A");
-    work_dir
-        .run_jj(["b", "c", "-r@", "mutable_bookmark"])
-        .success();
     work_dir.run_jj(["describe", "-m", "mutable 1"]).success();
+    work_dir.run_jj(["describe", "-m", "mutable 2"]).success();
+    // Create divergent change
+    work_dir
+        .run_jj(["b", "c", "-r=at_operation(@-, @)", "mutable_bookmark"])
+        .success();
 
     work_dir.run_jj(["new", "immutable_bookmark"]).success();
     work_dir.write_file("file", "B");
-    work_dir.run_jj(["describe", "-m", "mutable 2"]).success();
+    work_dir.run_jj(["describe", "-m", "mutable 3"]).success();
     work_dir.run_jj(["new", "@", "mutable_bookmark"]).success();
     work_dir
         .run_jj(["b", "c", "-r@", "conflicted_bookmark"])
@@ -840,10 +842,11 @@ fn test_revisions() {
     conflicted_bookmark	conflicted
     immutable_bookmark	immutable
     mutable_bookmark	mutable 1
-    u	working_copy
-    l	conflicted
-    k	mutable 2
-    y	mutable 1
+    x	working_copy
+    k	conflicted
+    w	mutable 3
+    y/0	mutable 2
+    y/1	mutable 1
     q	immutable
     r	remote_commit
     z	(no description set)
@@ -859,10 +862,11 @@ fn test_revisions() {
     ..conflicted_bookmark	conflicted
     ..immutable_bookmark	immutable
     ..mutable_bookmark	mutable 1
-    ..u	working_copy
-    ..l	conflicted
-    ..k	mutable 2
-    ..y	mutable 1
+    ..x	working_copy
+    ..k	conflicted
+    ..w	mutable 3
+    ..y/0	mutable 2
+    ..y/1	mutable 1
     ..q	immutable
     ..r	remote_commit
     ..z	(no description set)
@@ -877,10 +881,11 @@ fn test_revisions() {
     insta::assert_snapshot!(output, @r"
     conflicted_bookmark	conflicted
     mutable_bookmark	mutable 1
-    u	working_copy
-    l	conflicted
-    k	mutable 2
-    y	mutable 1
+    x	working_copy
+    k	conflicted
+    w	mutable 3
+    y/0	mutable 2
+    y/1	mutable 1
     r	remote_commit
     alias_with_newline	    roots(
     siblings	@-+ ~@
@@ -892,10 +897,11 @@ fn test_revisions() {
     insta::assert_snapshot!(output, @r"
     y::conflicted_bookmark	conflicted
     y::mutable_bookmark	mutable 1
-    y::u	working_copy
-    y::l	conflicted
-    y::k	mutable 2
-    y::y	mutable 1
+    y::x	working_copy
+    y::k	conflicted
+    y::w	mutable 3
+    y::y/0	mutable 2
+    y::y/1	mutable 1
     y::r	remote_commit
     y::alias_with_newline	    roots(
     y::siblings	@-+ ~@
@@ -913,7 +919,7 @@ fn test_revisions() {
     let output = work_dir.complete_fish(["resolve", "-r", ""]);
     insta::assert_snapshot!(output, @r"
     conflicted_bookmark	conflicted
-    l	conflicted
+    k	conflicted
     alias_with_newline	    roots(
     siblings	@-+ ~@
     [EOF]
@@ -926,10 +932,11 @@ fn test_revisions() {
     conflicted_bookmark	conflicted
     immutable_bookmark	immutable
     mutable_bookmark	mutable 1
-    u	working_copy
-    l	conflicted
-    k	mutable 2
-    y	mutable 1
+    x	working_copy
+    k	conflicted
+    w	mutable 3
+    y/0	mutable 2
+    y/1	mutable 1
     q	immutable
     r	remote_commit
     z	(no description set)
@@ -953,10 +960,11 @@ fn test_revisions() {
     a=conflicted_bookmark	conflicted
     a=immutable_bookmark	immutable
     a=mutable_bookmark	mutable 1
-    a=u	working_copy
-    a=l	conflicted
-    a=k	mutable 2
-    a=y	mutable 1
+    a=x	working_copy
+    a=k	conflicted
+    a=w	mutable 3
+    a=y/0	mutable 2
+    a=y/1	mutable 1
     a=q	immutable
     a=r	remote_commit
     a=z	(no description set)
