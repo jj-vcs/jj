@@ -25,6 +25,7 @@ fn test_show() {
     work_dir.write_file("file1", "b\n");
     work_dir.create_dir("dir");
     work_dir.write_file("dir/file2", "c\n");
+    work_dir.write_file("file3", "d\n");
 
     // Can print the contents of a file in a commit
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "@-"]);
@@ -84,6 +85,18 @@ fn test_show() {
     c
     --- file1
     b
+    --- file3
+    d
+    [EOF]
+    ");
+
+    // Can glob for multiple files too
+    let output = work_dir.run_jj(["file", "show", "-T", template, "file*"]);
+    insta::assert_snapshot!(output, @r"
+    --- file1
+    b
+    --- file3
+    d
     [EOF]
     ");
 
@@ -106,11 +119,11 @@ fn test_show() {
     let output = work_dir.run_jj(["file", "show", "file1"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: rlvkpnrz d506fcb9 (parents of rebased revision)
+    %%%%%%% diff from: rlvkpnrz fc7b369e (parents of rebased revision)
     \\\\\\\        to: qpvuntsm eb7b8a1f (rebase destination)
     -b
     +a
-    +++++++ kpqxywon 9433f7fb (rebased revision)
+    +++++++ kmkuslsw f74f80c5 (rebased revision)
     c
     >>>>>>> conflict 1 of 1 ends
     [EOF]
