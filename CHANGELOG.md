@@ -458,6 +458,9 @@ Thanks to the people who made this release happen!
 
 * `jj util exec` sets the environment variable `JJ_WORKSPACE_ROOT`
 
+* `jj util exec` supports running commands within the workspace by prefixing
+  the command with `$root/`
+
 ### Fixed bugs
 
 * Fetching repositories that have submodules no longer errors even if
