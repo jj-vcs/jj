@@ -632,7 +632,6 @@ jj log -r 'tags() | bookmarks()'
 Show local commits leading up to the working copy, as well as descendants of
 those commits:
 
-
 ```shell
 jj log -r '(remote_bookmarks()..@)::'
 ```

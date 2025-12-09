@@ -2,7 +2,6 @@
 
 These are the config settings available to jj/Jujutsu.
 
-
 ## Config files and TOML
 
 `jj` loads several types of config settings:
@@ -72,7 +71,6 @@ then use whichever suits you in your config. If you mix dotted keys and headings
 
 That's probably enough TOML to keep you out of trouble but the [syntax guide] is
 very short if you ever need to check.
-
 
 ## User settings
 
@@ -493,7 +491,6 @@ you can add this to your config:
 config_list = "builtin_config_list_detailed"
 ```
 
-
 ## Log
 
 ### Default revisions
@@ -806,7 +803,6 @@ show-ruler = true # (default)
 show-ruler = false
 ```
 
-
 ### Processing contents to be paged
 
 If you'd like to pass the output through a formatter e.g.
@@ -972,7 +968,6 @@ diff-editor = ["/path/to/binary", "--be-helpful", "$left", "$right"]
 diff-editor = "binary"
 ```
 
-
 ### Experimental 3-pane diff editing
 
 We offer two special "3-pane" diff editor configs:
@@ -1027,7 +1022,6 @@ Host myhost
 With that configuration, you should be able to simply `ssh myhost`.
 
 </details>
-
 
 Setting either `ui.diff-editor = "meld-3"` or `ui.diff-editor = "diffedit3"`
 will result in the diff editor showing 3 panes: the diff on the left and right,

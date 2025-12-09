@@ -1,6 +1,5 @@
 # How to Contribute
 
-
 ## Policies
 
 We'd love to accept your patches and contributions to this project. There are
@@ -202,7 +201,6 @@ These are listed roughly in order of decreasing importance.
 
    On Linux, you may be able to speed up `nextest` even further by using
    the `mold` linker, as explained below.
-
 
 ### Configuring `jj fix` to run `rustfmt`
 
@@ -557,7 +555,6 @@ Previously, the version switcher would not work unless the value of the
 served from. This bug should now be fixed, but if you are not serving the site
 from <https://docs.jj-vcs.dev/> and something fails weirdly, you might want
 to adjust the `site_url` to something like `https://jjfan.github.io/jj`.
-
 
 ## Modifying protobuffers (this is not common)
 

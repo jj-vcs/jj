@@ -1,6 +1,5 @@
 # Working copy
 
-
 ## Introduction
 
 The working copy is where the current working-copy commit's files are written so
@@ -28,7 +27,6 @@ tracked with `jj file track`.
 You can use `jj file untrack` to untrack a file while keeping it in the working
 copy. However, first [ignore](#ignored-files) them or remove them from the
 `snapshot.auto-track` patterns; otherwise they will be immediately tracked again.
-
 
 ## Conflicts
 
@@ -59,7 +57,6 @@ resolving conflicts between directories, files, and symlinks
 one side of the conflict, but there's no way to even see where the involved
 parts came from.
 
-
 ## Ignored files
 
 You probably don't want build outputs and temporary files to be under version
@@ -73,7 +70,6 @@ Ignored files are never tracked automatically (regardless of the value of
 `snapshot.auto-track`), but files that were already tracked will remain tracked
 even if they match ignore patterns. You can untrack such files with the
 `jj file untrack` command.
-
 
 ## Workspaces
 

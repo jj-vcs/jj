@@ -1,6 +1,5 @@
 # Bookmarks
 
-
 ## Introduction
 
 Bookmarks are named pointers to revisions (just like branches are in Git). You
@@ -131,7 +130,6 @@ This command omits local Git-tracking bookmarks by default.
 
 You can see if a specific bookmark is tracked with `jj bookmark list --tracked <bookmark name>`.
 
-
 ### Automatic tracking of bookmarks & `auto-track-bookmarks` option
 
 There are two situations where `jj` tracks bookmarks automatically. `jj git
@@ -198,7 +196,6 @@ makes several safety checks.
 
 [^known-issue]: See "A general note on safety" in
     <https://git-scm.com/docs/git-push#Documentation/git-push.txt---no-force-with-lease>
-
 
 ## Conflicts
 

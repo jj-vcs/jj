@@ -75,7 +75,6 @@ $ jj rebase -r C -o A
 $ jj rebase -r C -o B # Takes us back to the state above
 ```
 
-
 #### Reverting the parent commit should be a no-op
 
 Patches should be reversible so you can make a change and then revert it, and
@@ -531,7 +530,6 @@ A add foo
 $ jj rebase -r C -o A
 ```
 
-
 ```console
 $ jj log
 C rename foo->baz
@@ -642,7 +640,6 @@ $ jj new D E -m F
 ```
 
 If F is empty (auto-merged), it should have the same state as E before.
-
 
 ### Log
 
@@ -825,7 +822,6 @@ That works for calculating the resulting tree, but it does not seem to allow for
 doing the conflict algebra we currently do. That means that things like
 parallelizing commits and then serializing them again would lose copy
 information.
-
 
 [same_change_rule]: https://github.com/martinvonz/jj/blob/560d66ecee5a9904b42dbc0b89333f0c27c683de/lib/src/merge.rs#L98-L111
 

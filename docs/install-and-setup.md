@@ -1,6 +1,5 @@
 # Installation and setup
 
-
 ## Installation
 
 ### Download pre-built binaries for a release
@@ -186,7 +185,6 @@ via scoop:
 scoop install main/jj
 ```
 
-
 ## Initial configuration
 
 You may want to configure your name and email so commits are made in your name.
@@ -320,7 +318,6 @@ Insert the above into your `$PROFILE` file
     Note that to execute scripts in PowerShell on Windows, including `$PROFILE`,
     the [execution policy][ExecutionPolicies] needs to be set to `RemoteSigned`
     at minimum.
-
 
 [cargo-binstall]: https://github.com/cargo-bins/cargo-binstall
 [clap]: https://github.com/clap-rs/clap/issues/3166

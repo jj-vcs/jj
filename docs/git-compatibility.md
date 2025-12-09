@@ -8,7 +8,6 @@ See `jj help git` for help about the `jj git` family of commands, and e.g.
 `jj help git push` for help about a specific command (use `jj git push -h` for
 briefer help).
 
-
 ## Supported features
 
 The following list describes which Git features Jujutsu is compatible with. For
@@ -71,7 +70,6 @@ a comparison with Git, including how workflows are different, see the
   You can sign commits automatically [by configuration](config.md#commit-signing),
   or use the `jj sign` command.
 * **Git LFS: No.** ([#80](https://github.com/jj-vcs/jj/issues/80))
-
 
 ## Creating an empty repo
 
@@ -222,7 +220,6 @@ jj new && jj undo
 ## Branches
 
 TODO: Describe how branches are mapped
-
 
 ## Format mapping details
 

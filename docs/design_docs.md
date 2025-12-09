@@ -18,7 +18,6 @@ Jujutsu, you'll need to go through this process.
 1. Wait for the Maintainers and Stakeholders to show up.
 1. Iterate until everyone accepts the change in normal codereview fashion.
 
-
 [Rust RFCs]: https://github.com/rust-lang/rfcs
 
 ## Blueprint (Template)

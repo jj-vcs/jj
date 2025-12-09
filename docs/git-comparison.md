@@ -7,7 +7,6 @@ This document attempts to describe how Jujutsu is different from Git. See
 the `jj` command interoperates with Git repos. See
 [the Git command table](git-command-table.md) for a table of similar commands.
 
-
 ## Overview
 
 Here is a list of conceptual differences between Jujutsu and Git, along with
@@ -90,6 +89,5 @@ changes into the parent commit, which you might normally use
 `git add -p; git commit --amend` for, you can instead use `jj squash -i` to
 choose which changes to move into the parent commit, or `jj squash <file>` to
 move a specific file.
-
 
 [evil merges]: https://git-scm.com/docs/gitglossary#Documentation/gitglossary.txt-evilmerge

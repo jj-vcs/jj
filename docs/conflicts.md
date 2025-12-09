@@ -1,6 +1,5 @@
 # First-class conflicts
 
-
 ## Introduction
 
 Conflicts happen when Jujutsu can't figure out how to merge different changes
@@ -17,7 +16,6 @@ rebased, merged, or backed out. Note that what's stored in the commit is a
 logical representation of the conflict, not conflict *markers*; rebasing a
 conflict doesn't result in a nested conflict markers (see
 [technical doc](technical/conflicts.md) for how this works).
-
 
 ## Advantages
 
@@ -52,7 +50,6 @@ The deeper understanding of conflicts has many advantages:
 
 For information about how conflicts are handled in the working copy, see
 [here](working-copy.md#conflicts).
-
 
 ## Conflict markers
 

@@ -82,7 +82,6 @@ We have talked about somehow using content-defined chunking (CDC) to reduce
 storage and transfer costs for large files. Maybe we will store files in our
 future cloud-based server using the same model as [XetHub][xet-storage].
 
-
 [api-design-doc]: https://docs.google.com/document/d/1rOKvutee5TVYpFhh_UDNZDxfUKyrJ8rjCNpFaNHOHwU/edit?usp=sharing&resourcekey=0-922ApyoAjuXN_uTKqmCqjg
 [copy-design-doc]: design/copy-tracking.md
 [gg]: https://github.com/gulbanana/gg

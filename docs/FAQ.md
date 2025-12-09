@@ -489,7 +489,6 @@ $ jj diff --from b80 --to @- # No output means these are identical
 $ jj diff --from 31a --to @  # No output means these are identical
 ```
 
-
 ### How do I resume working on an existing change?
 
 There are two ways to resume working on an earlier change: `jj new` then `jj squash`,

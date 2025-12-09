@@ -60,7 +60,6 @@ should be safe, concurrent modification of a repository from different computers
 might conceivably lose some bookmark pointers. Note that, unlike in pure
 Git, losing a bookmark pointer does not lead to losing commits.
 
-
 ## Operation log
 
 The most important piece in the lock-free design is the "operation log". That is

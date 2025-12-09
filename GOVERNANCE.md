@@ -54,7 +54,6 @@ exclusively limited to):
 - Practicing transparency in the project, communicating decisions and their
   rationale when appropriate.
 
-
 This is not an exhaustive list, nor is it intended that every Maintainer does
 each and every one of these individual tasks to equal amounts. Rather this is
 only a guideline for what Maintainers are expected to conceptually do.
