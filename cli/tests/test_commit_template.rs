@@ -1528,23 +1528,6 @@ fn test_file_list_entries() {
 
     work_dir.run_jj(["new", "visible_heads()"]).success();
 
-    let template = indoc! {r#"
-        separate(" ",
-          path,
-          "[" ++ file_type ++ "]",
-          "conflict=" ++ conflict,
-          "executable=" ++ executable,
-        ) ++ "\n"
-    "#};
-    let output = work_dir.run_jj(["file", "list", "-T", template]);
-    insta::assert_snapshot!(output, @r"
-    conflict-exec-file [conflict] conflict=true executable=true
-    conflict-file [conflict] conflict=true executable=false
-    dir/file [file] conflict=false executable=false
-    exec-file [file] conflict=false executable=true
-    [EOF]
-    ");
-
     let template = r#"if(files, files.map(|e| e.path()), "(empty)") ++ "\n""#;
     let output = work_dir.run_jj(["log", "-T", template]);
     insta::assert_snapshot!(output, @r"
