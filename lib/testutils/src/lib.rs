@@ -773,7 +773,6 @@ pub fn assert_no_forgotten_test_files(test_dir: &Path) {
 /// UTF-8 validation, as on ZFS with the `utf8only=on` property set.
 #[cfg(unix)]
 pub fn check_strict_utf8_fs(dir: &Path) -> bool {
-    use std::ffi::OsStr;
     use std::os::unix::ffi::OsStrExt as _;
 
     let test_file_normal = tempfile::Builder::new()

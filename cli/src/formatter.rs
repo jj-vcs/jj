@@ -751,7 +751,6 @@ mod tests {
     use indoc::indoc;
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;
-    use jj_lib::config::StackedConfig;
 
     use super::*;
 

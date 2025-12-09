@@ -2822,7 +2822,6 @@ mod tests {
     use std::path::Component;
     use std::path::Path;
     use std::path::PathBuf;
-    use std::sync::Arc;
 
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;

@@ -151,6 +151,9 @@ unused_trait_names = "warn"
 use_self = "warn"
 useless_conversion = "warn"
 
+[workspace.lints.rust]
+redundant_imports = "warn"
+
 [profile.dev.package]
 # Insta suggests compiling these packages in opt mode for faster testing.
 # See https://docs.rs/insta/latest/insta/#optional-faster-runs.

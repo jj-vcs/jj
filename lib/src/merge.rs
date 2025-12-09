@@ -20,7 +20,6 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fmt::Write as _;
-use std::future::Future;
 use std::hash::Hash;
 use std::iter::zip;
 use std::slice;

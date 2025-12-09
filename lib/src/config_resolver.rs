@@ -433,7 +433,6 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
-    use crate::config::ConfigSource;
 
     #[test]
     fn test_expand_home() {
