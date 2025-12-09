@@ -24,6 +24,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   filesystem's behavior, but this can be overridden manually by setting
   `working-copy.exec-bit-change = "respect" | "ignore"`.
 
+* `jj git push --bookmark <name>` will now automatically track the bookmark in
+  cases where the user intent is unambiguous.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
