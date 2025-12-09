@@ -35,7 +35,6 @@ use jj_lib::config::ConfigResolutionContext;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
-use jj_lib::dsl_util;
 use regex::Captures;
 use regex::Regex;
 use serde::Serialize as _;
@@ -44,7 +43,6 @@ use tracing::instrument;
 use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::config_error_with_message;
-use crate::text_util;
 
 // TODO(#879): Consider generating entire schema dynamically vs. static file.
 pub const CONFIG_SCHEMA: &str = include_str!("config-schema.json");
@@ -725,39 +723,6 @@ fn parse_config_arg_item(item_str: &str) -> Result<(ConfigNamePathBuf, ConfigVal
 /// List of rules to migrate deprecated config variables.
 pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
     vec![
-        // TODO: Delete in jj 0.35.0+
-        ConfigMigrationRule::rename_update_value(
-            "ui.default-description",
-            "template-aliases.default_commit_description",
-            |old_value| {
-                let value = old_value.as_str().ok_or("expected a string")?;
-                // Trailing newline would be padded by templater (in jj < 0.31)
-                let value = text_util::complete_newline(value);
-                let escaped = dsl_util::escape_string(&value);
-                Ok(format!(r#""{escaped}""#).into())
-            },
-        ),
-        // TODO: Delete in jj 0.36+
-        ConfigMigrationRule::rename_value("ui.diff.tool", "ui.diff-formatter"),
-        // TODO: Delete in jj 0.36+
-        ConfigMigrationRule::rename_update_value(
-            "ui.diff.format",
-            "ui.diff-formatter",
-            |old_value| {
-                let value = old_value.as_str().ok_or("expected a string")?;
-                Ok(format!(":{value}").into())
-            },
-        ),
-        // TODO: Delete in jj 0.37+
-        ConfigMigrationRule::rename_update_value(
-            "git.push-bookmark-prefix",
-            "templates.git_push_bookmark",
-            |old_value| {
-                let value = old_value.as_str().ok_or("expected a string")?;
-                let escaped = dsl_util::escape_string(value);
-                Ok(format!(r#""{escaped}" ++ change_id.short()"#).into())
-            },
-        ),
         // TODO: Delete in jj 0.38.0+
         ConfigMigrationRule::rename_value("core.fsmonitor", "fsmonitor.backend"),
         // TODO: Delete in jj 0.38.0+

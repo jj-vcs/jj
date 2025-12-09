@@ -653,20 +653,19 @@ fn test_describe_default_description() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
+    test_env.add_config(r#"template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'"#);
     let work_dir = test_env.work_dir("repo");
 
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
     let output = work_dir.run_jj(["describe"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     Working copy  (@) now at: qpvuntsm 7276dfff TESTED=TODO
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
-    "#);
+    ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
 
@@ -684,15 +683,14 @@ fn test_describe_default_description() {
     // Default description shouldn't be used if --no-edit
     work_dir.run_jj(["new", "root()"]).success();
     let output = work_dir.run_jj(["describe", "--no-edit", "--reset-author"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
     Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Warning: `jj describe --reset-author` is deprecated; use `jj metaedit --update-author` instead
     Working copy  (@) now at: kkmpptxz 7118bcb8 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
-    "#);
+    ");
 }
 
 #[test]

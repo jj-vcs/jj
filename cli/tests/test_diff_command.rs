@@ -276,25 +276,6 @@ fn test_diff_basic() {
     let output = work_dir.run_jj(["diff", "-s", "--from=@", "file2"]);
     insta::assert_snapshot!(output, @"");
 
-    // Deprecated config key
-    let output = work_dir.run_jj(["diff", "--config=ui.diff.format=git", "file2"]);
-    insta::assert_snapshot!(output, @r#"
-    diff --git a/file2 b/file2
-    index 94ebaf9001..1ffc51b472 100644
-    --- a/file2
-    +++ b/file2
-    @@ -1,4 +1,3 @@
-     1
-    -2
-    +5
-     3
-    -4
-    [EOF]
-    ------- stderr -------
-    Warning: Deprecated CLI-provided config: ui.diff.format is updated to ui.diff-formatter = ":git"
-    [EOF]
-    "#);
-
     // --tool=:<builtin>
     let output = work_dir.run_jj(["diff", "--tool=:summary", "--color-words", "file2"]);
     insta::assert_snapshot!(output, @r"
@@ -3221,30 +3202,6 @@ fn test_diff_external_tool() {
     [EOF]
     ------- stderr -------
     Warning: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
-    [EOF]
-    ");
-
-    // Deprecated config key
-    std::fs::write(
-        &edit_script,
-        "print-files-before\0print --\0print-files-after",
-    )
-    .unwrap();
-    let output = work_dir.run_jj([
-        "diff",
-        "--config=ui.diff.format=git",
-        "--config=ui.diff.tool=fake-diff-editor",
-    ]);
-    insta::assert_snapshot!(output, @r"
-    file1
-    file2
-    --
-    file2
-    file3
-    [EOF]
-    ------- stderr -------
-    Warning: Deprecated CLI-provided config: ui.diff.tool is renamed to ui.diff-formatter
-    Warning: Deprecated CLI-provided config: ui.diff.format is deleted (superseded by ui.diff-formatter)
     [EOF]
     ");
 

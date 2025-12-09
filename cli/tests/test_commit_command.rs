@@ -296,7 +296,7 @@ fn test_commit_with_default_description() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
-    test_env.add_config(r#"ui.default-description = "\n\nTESTED=TODO""#);
+    test_env.add_config(r#"template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'"#);
     let work_dir = test_env.work_dir("repo");
 
     work_dir.write_file("file1", "foo\n");
@@ -304,15 +304,12 @@ fn test_commit_with_default_description() {
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
     work_dir.run_jj(["commit"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  cba559ac1a48
     ○  7276dfff8027 TESTED=TODO
     ◆  000000000000
     [EOF]
-    ------- stderr -------
-    Warning: Deprecated user-level config: ui.default-description is updated to template-aliases.default_commit_description = '"\n\nTESTED=TODO\n"'
-    [EOF]
-    "#);
+    ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
 

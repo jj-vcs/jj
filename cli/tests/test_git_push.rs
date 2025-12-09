@@ -902,21 +902,6 @@ fn test_git_push_changes() {
     [EOF]
     ");
 
-    // Try again with the deprecated config
-    let output = work_dir.run_jj([
-        "git",
-        "push",
-        "--config=git.push-bookmark-prefix=test-",
-        "--change=@",
-    ]);
-    insta::assert_snapshot!(output, @r#"
-    ------- stderr -------
-    Warning: Deprecated CLI-provided config: git.push-bookmark-prefix is updated to templates.git_push_bookmark = '"test-" ++ change_id.short()'
-    Bookmark test-yostqsxwqrlt@origin already matches test-yostqsxwqrlt
-    Nothing changed.
-    [EOF]
-    "#);
-
     // Bad `git_push_bookmark` templates
     let output = work_dir.run_jj([
         "git",

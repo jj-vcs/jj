@@ -18,6 +18,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 [invalid on Windows]: https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
 
+* The following deprecated config options have been removed:
+  - `git.push-bookmark-prefix`
+  - `ui.default-description`
+  - `ui.diff.format`
+  - `ui.diff.tool`
+
 ### Deprecations
 
 ### New features
