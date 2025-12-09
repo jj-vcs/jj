@@ -355,6 +355,39 @@ We recommend at least these settings:
 extraArgs = ["+nightly"]
 ```
 
+### Alternative development setup with Nix
+
+If you have [Nix](https://nixos.org/) installed, you can use the provided
+`flake.nix` to get a development environment with all necessary tools
+pre-configured:
+
+```shell
+nix develop
+```
+
+Once inside the shell, you can run `cargo build`, `cargo test` etc. as usual.
+Other tools like `uv`, `cargo-insta`, `cargo-nextest` and more are installed,
+and so you should be able to follow any other recommendations in this guide as
+needed.
+
+!!! tip "Editor integration"
+
+    Launch your editor from within the `nix develop` shell so that
+    rust-analyzer and other LSP tools can find the correct toolchain. For
+    example:
+
+    ```shell
+    nix develop
+    code .  # or your editor of choice
+    ```
+
+!!! note "direnv users"
+
+    If you use [direnv](https://direnv.net/) with
+    [nix-direnv](https://github.com/nix-community/nix-direnv), you can `echo
+    "source_env .envrc.recommended" >> .envrc` to automatically activate the
+    development environment when entering the directory.
+
 ### Alternative development setup with `mise`
 
 An experimental development setup is available using
