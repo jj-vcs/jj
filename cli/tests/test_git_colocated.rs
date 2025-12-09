@@ -431,7 +431,7 @@ fn test_git_colocated_bookmarks() {
     ");
 
     // Create a bookmark in jj. It should be exported to Git even though it points
-    // to the working- copy commit.
+    // to the working-copy commit.
     work_dir
         .run_jj(["bookmark", "create", "-r@", "master"])
         .success();
@@ -923,8 +923,7 @@ fn test_git_colocated_squash_undo() {
     [EOF]
     ");
     work_dir.run_jj(["undo"]).success();
-    // TODO: There should be no divergence here; 2f376ea1478c should be hidden
-    // (#922)
+    // There should be no divergence here (#922)
     insta::assert_snapshot!(get_log_output_divergence(&work_dir), @r"
     @  rlvkpnrzqnoo 682c866b0a2f
     ○  qpvuntsmwlqt 8777db25171c A git_head()
