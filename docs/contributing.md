@@ -590,6 +590,56 @@ turns on `debug` log level for `jj-lib` and `jj-cli` only.
 
 ## Profiling
 
+### Introduction
+
+jj provides two main approaches to profiling:
+
+1. **Tracing-based profiling** - Uses the Rust `tracing` crate to record spans
+   and events. Good for understanding control flow and finding where time is spent
+   in instrumented code.
+2. **Sampling-based profiling** - Uses system profilers (perf, dtrace) to sample
+   the call stack. Good for finding hot spots including in uninstrumented code and
+   external libraries.
+
+### Tracing-based profiling
+
+jj uses the `tracing` crate with Chrome Trace Format output.
+
+Set the `JJ_TRACE` environment variable to generate a trace file:
+
+```shell
+# Generate trace with auto-generated filename (jj-trace-{timestamp}.json)
+JJ_TRACE= jj st
+
+# Generate trace with specific filename
+JJ_TRACE=/tmp/trace.json jj st
+```
+
+To include function argument values in the trace (useful for detailed
+debugging):
+
+```shell
+JJ_TRACE_INCLUDE_ARGS=1 JJ_TRACE=/tmp/trace.json jj log -r 'ancestors(@, 10)'
+```
+
+The produced profiles can be imported into chrome://tracing (on Google Chrome)
+or https://ui.perfetto.dev/ (all browsers).
+
+Only functions annotated with `#[tracing::instrument]` or explicit `trace_span!`
+macros appear in traces. If you need to profile a specific area that isn't
+instrumented, you can add `#[instrument]` attributes to the relevant functions.
+
+### Sampling-based profiling
+
+Sampling profilers periodically capture the call stack to identify hot spots. This approach:
+
+- Has lower overhead than tracing
+- Captures all code, including uninstrumented functions and external libraries (like gitoxide)
+- May miss short-lived function calls since it samples rather than traces every
+  call
+
+#### Using samply
+
 One easy-to-use sampling profiler
 is [samply](https://github.com/mstange/samply). For example:
 
@@ -600,12 +650,14 @@ samply record jj diff
 
 Then just open the link it prints.
 
-Another option is to use the instrumentation we've added manually (using
-`tracing::instrument`) in various places. For example:
+#### Using cargo-flamegraph
+
+[cargo-flamegraph](https://github.com/flamegraph-rs/flamegraph) generates flamegraph visualizations using system profilers:
 
 ```shell
-JJ_TRACE=/tmp/trace.json jj diff
+cargo install flamegraph
+cargo flamegraph --bin jj -- diff
 ```
 
-Then go to `https://ui.perfetto.dev/` in Chrome and load `/tmp/trace.json` from
-there.
+You may need to use `sudo` or install `perf` on your system, see flamegraph's
+documentation for more.
