@@ -81,6 +81,7 @@ pub(super) trait CommitIndexSegment: Send + Sync {
         change_id: &ChangeId,
     ) -> (Option<ChangeId>, Option<ChangeId>);
 
+    // Returns positions in ascending order.
     fn resolve_change_id_prefix(
         &self,
         prefix: &HexPrefix,
@@ -256,7 +257,7 @@ impl CompositeCommitIndex {
     /// Resolves the given change id `prefix` to the associated entries. The
     /// returned entries may be hidden.
     ///
-    /// The returned index positions are sorted in ascending order.
+    /// The returned index positions are sorted in descending order.
     pub(super) fn resolve_change_id_prefix(
         &self,
         prefix: &HexPrefix,
@@ -274,15 +275,14 @@ impl CompositeCommitIndex {
                 // Similar to PrefixResolution::plus(), but merges matches of the same id.
                 match (acc_match, segment.resolve_change_id_prefix(prefix)) {
                     (NoMatch, local_match) => local_match.map(|(id, positions)| {
-                        (id, positions.into_iter().map(to_global_pos).collect())
+                        (id, positions.into_iter().rev().map(to_global_pos).collect())
                     }),
                     (acc_match, NoMatch) => acc_match,
                     (AmbiguousMatch, _) => AmbiguousMatch,
                     (_, AmbiguousMatch) => AmbiguousMatch,
                     (SingleMatch((id1, _)), SingleMatch((id2, _))) if id1 != id2 => AmbiguousMatch,
                     (SingleMatch((id, mut acc_positions)), SingleMatch((_, local_positions))) => {
-                        acc_positions
-                            .insert_many(0, local_positions.into_iter().map(to_global_pos));
+                        acc_positions.extend(local_positions.into_iter().rev().map(to_global_pos));
                         SingleMatch((id, acc_positions))
                     }
                 }
@@ -663,10 +663,10 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
         let prefix = match index.resolve_change_id_prefix(prefix) {
             PrefixResolution::NoMatch => PrefixResolution::NoMatch,
             PrefixResolution::SingleMatch((_change_id, positions)) => {
-                debug_assert!(positions.is_sorted_by(|a, b| a < b));
+                debug_assert!(positions.is_sorted_by(|a, b| a > b));
                 let mut reachable_set = self.reachable_set.lock().unwrap();
-                reachable_set.visit_until(index, *positions.first().unwrap());
-                let mut targets: Vec<_> = positions
+                reachable_set.visit_until(index, *positions.last().unwrap());
+                let targets = positions
                     .iter()
                     .map(|&pos| {
                         let commit_id = index.entry_by_pos(pos).commit_id();
@@ -677,12 +677,10 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
                         };
                         (commit_id, state)
                     })
-                    .collect();
+                    .collect_vec();
                 if targets.is_empty() {
                     PrefixResolution::NoMatch
                 } else {
-                    // Most recent commits should appear first, so we need to reverse these.
-                    targets.reverse();
                     PrefixResolution::SingleMatch(ResolvedChangeTargets { targets })
                 }
             }

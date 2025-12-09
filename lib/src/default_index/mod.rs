@@ -752,15 +752,15 @@ mod tests {
         );
         assert_eq!(
             index.resolve_change_id_prefix(&HexPrefix::from_id(&id_1)),
-            PrefixResolution::SingleMatch((id_1.clone(), index_positions_vec(&[1, 3, 9])))
+            PrefixResolution::SingleMatch((id_1.clone(), index_positions_vec(&[9, 3, 1])))
         );
         assert_eq!(
             index.resolve_change_id_prefix(&HexPrefix::from_id(&id_2)),
-            PrefixResolution::SingleMatch((id_2.clone(), index_positions_vec(&[2, 4, 5])))
+            PrefixResolution::SingleMatch((id_2.clone(), index_positions_vec(&[5, 4, 2])))
         );
         assert_eq!(
             index.resolve_change_id_prefix(&HexPrefix::from_id(&id_3)),
-            PrefixResolution::SingleMatch((id_3.clone(), index_positions_vec(&[6, 7])))
+            PrefixResolution::SingleMatch((id_3.clone(), index_positions_vec(&[7, 6])))
         );
         assert_eq!(
             index.resolve_change_id_prefix(&HexPrefix::from_id(&id_4)),
@@ -794,7 +794,7 @@ mod tests {
         // Global lookup with globally unique prefix stored in both parts
         assert_eq!(
             index.resolve_change_id_prefix(&HexPrefix::try_from_hex("009").unwrap()),
-            PrefixResolution::SingleMatch((id_1.clone(), index_positions_vec(&[1, 3, 9])))
+            PrefixResolution::SingleMatch((id_1.clone(), index_positions_vec(&[9, 3, 1])))
         );
 
         // Global lookup with locally ambiguous prefix
