@@ -24,6 +24,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `ui.diff.format`
   - `ui.diff.tool`
 
+* The deprecated `commit_id.normal_hex()` template method has been removed.
+
 ### Deprecations
 
 ### New features

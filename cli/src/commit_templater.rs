@@ -2005,21 +2005,7 @@ impl Template for CommitId {
 }
 
 fn builtin_commit_id_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, CommitId> {
-    let mut map = builtin_commit_or_change_id_methods::<CommitId>();
-    // TODO: Remove in jj 0.36+
-    map.insert(
-        "normal_hex",
-        |_language, diagnostics, _build_ctx, self_property, function| {
-            diagnostics.add_warning(TemplateParseError::expression(
-                "commit_id.normal_hex() is deprecated; use stringify(commit_id) instead",
-                function.name_span,
-            ));
-            function.expect_no_arguments()?;
-            let out_property = self_property.map(|id| id.hex());
-            Ok(out_property.into_dyn_wrapped())
-        },
-    );
-    map
+    builtin_commit_or_change_id_methods::<CommitId>()
 }
 
 fn builtin_commit_or_change_id_methods<'repo, O>() -> CommitTemplateBuildMethodFnMap<'repo, O>
@@ -3060,8 +3046,6 @@ mod tests {
         let id = CommitId::from_hex("08a70ab33d7143b7130ed8594d8216ef688623c0");
         insta::assert_snapshot!(
             env.render_ok("self", &id), @"08a70ab33d7143b7130ed8594d8216ef688623c0");
-        insta::assert_snapshot!(
-            env.render_ok("self.normal_hex()", &id), @"08a70ab33d7143b7130ed8594d8216ef688623c0");
 
         insta::assert_snapshot!(env.render_ok("self.short()", &id), @"08a70ab33d71");
         insta::assert_snapshot!(env.render_ok("self.short(0)", &id), @"");
