@@ -2528,7 +2528,7 @@ to file contents. It may indicate that renamed file have different history.</p>
 <p>Except for the <a href="https://github.com/martinvonz/jj/blob/560d66ecee5a9904b42dbc0b89333f0c27c683de/lib/src/merge.rs#L98-L111"><code>A+(A-B)=A</code> rule</a>, rebasing is currently never
 lossy; rebasing a commit and then rebasing it back yields the same content. We
 should ideally preserve this property when possible.</p>
-<p>For example:
+<p>For example:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
 <span class="go">C rename bar-&gt;baz</span>
 <span class="go">|</span>
@@ -2538,11 +2538,11 @@ should ideally preserve this property when possible.</p>
 
 <span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>C<span class="w"> </span>-o<span class="w"> </span>A
 <span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>C<span class="w"> </span>-o<span class="w"> </span>B<span class="w"> </span><span class="c1"># Takes us back to the state above</span>
-</code></pre></div></p>
+</code></pre></div>
 <h4 id="reverting-the-parent-commit-should-be-a-no-op">Reverting the parent commit should be a no-op<a class="headerlink" href="#reverting-the-parent-commit-should-be-a-no-op" title="Permanent link">&para;</a></h4>
 <p>Patches should be reversible so you can make a change and then revert it, and
 end up with an empty diff across both commits.</p>
-<p>For example:
+<p>For example:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
 <span class="go">B rename foo-&gt;bar</span>
 <span class="go">|</span>
@@ -2550,9 +2550,9 @@ end up with an empty diff across both commits.</p>
 
 <span class="gp">$ </span>jj<span class="w"> </span>revert<span class="w"> </span>-r<span class="w"> </span>B<span class="w"> </span>-o<span class="w"> </span>B
 <span class="gp">$ </span>jj<span class="w"> </span>diff<span class="w"> </span>--from<span class="w"> </span>B-<span class="w"> </span>--to<span class="w"> </span>B+<span class="w"> </span><span class="c1"># Should be empty</span>
-</code></pre></div></p>
+</code></pre></div>
 <h4 id="parallelizeserialize">Parallelize/serialize<a class="headerlink" href="#parallelizeserialize" title="Permanent link">&para;</a></h4>
-<p>This is a special case of the lossless rebase.
+<p>This is a special case of the lossless rebase.</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
 <span class="go">E edit qux</span>
 <span class="go">|</span>
@@ -2570,9 +2570,9 @@ end up with an empty diff across both commits.</p>
 <span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>C<span class="w"> </span>-A<span class="w"> </span>B
 <span class="gp">$ </span>jj<span class="w"> </span>rebase<span class="w"> </span>-r<span class="w"> </span>D<span class="w"> </span>-A<span class="w"> </span>C
 <span class="gp"># </span>Now<span class="w"> </span>we<span class="err">&#39;</span>re<span class="w"> </span>back<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>same<span class="w"> </span>graph<span class="w"> </span>as<span class="w"> </span>before.
-</code></pre></div></p>
+</code></pre></div>
 <h4 id="copies-inside-merge-commit">Copies inside merge commit<a class="headerlink" href="#copies-inside-merge-commit" title="Permanent link">&para;</a></h4>
-<p>We should be able to resolve a naming conflict:
+<p>We should be able to resolve a naming conflict:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
 <span class="go">D  resolve naming conflict by choosing `foo` as the source</span>
 <span class="go">|\</span>
@@ -2583,10 +2583,10 @@ end up with an empty diff across both commits.</p>
 <span class="go">A add foo and bar</span>
 
 <span class="gp">$ </span>jj<span class="w"> </span>file<span class="w"> </span>annotate<span class="w"> </span>baz<span class="w"> </span><span class="c1"># Should not include changes from C</span>
-</code></pre></div></p>
+</code></pre></div>
 <p>We should also be able to back out that resolution and get back into the
 name-conflicted state.</p>
-<p>We should be able to rename files that exist on only one side:
+<p>We should be able to rename files that exist on only one side:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
 <span class="go">D  rename foo2-&gt;foo3 and bar2-&gt;bar3</span>
 <span class="go">|\</span>
@@ -2595,7 +2595,7 @@ name-conflicted state.</p>
 <span class="go">| B rename foo-&gt;foo2</span>
 <span class="go">|/</span>
 <span class="go">A add foo and bar</span>
-</code></pre></div></p>
+</code></pre></div>
 <h4 id="copies-across-merge-commit">Copies across merge commit<a class="headerlink" href="#copies-across-merge-commit" title="Permanent link">&para;</a></h4>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
 <span class="go">D delete baz</span>
@@ -2636,7 +2636,7 @@ have copy ID <code>123</code> in the previous commit and when the file gets rewr
 the current commit, it gets copy ID <code>456</code> even though there was no copy from an
 existing file involved. That makes logical sense, but I'm not sure how useful
 it will be.</p>
-<p>The data structure might look like this:
+<p>The data structure might look like this:</p>
 <div class="highlight"><pre><span></span><code><span class="c1">// Current `TreeValue::File` variant:</span>
 <span class="n">File</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="nc">FileId</span><span class="p">,</span><span class="w"> </span><span class="n">executable</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="p">},</span>
 <span class="c1">// New `TreeValue::File` variant:</span>
@@ -2647,7 +2647,7 @@ it will be.</p>
 <span class="w">    </span><span class="n">path</span><span class="p">:</span><span class="w"> </span><span class="nc">RepoPath</span><span class="p">,</span>
 <span class="w">    </span><span class="n">parents</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">CopyId</span><span class="o">&gt;</span>
 <span class="p">}</span>
-</code></pre></div></p>
+</code></pre></div>
 <p>Should we support copy tracking for symlinks? Their history is not very useful
 for annotation purposes, but knowing the history may at least be useful for
 detecting directory renames (if all files and symlinks in a directory were
@@ -2676,7 +2676,8 @@ Notation:</p>
 <li><code>id</code>is the hash of the contents (the <code>FileId</code>)</li>
 <li>The <code>2:bar-&gt;1:foo</code> means that copy ID 2 (i.e. hash of the <code>CopyHistory</code>
   struct) has file <code>bar</code>, which was copied from copy ID <code>1</code>, where it was
-  called <code>foo</code>.
+  called <code>foo</code>.</li>
+</ul>
 <div class="highlight"><pre><span></span><code><span class="go">Commit K:</span>
 <span class="go">name: foo, id: K, copy_id: 1:foo</span>
 
@@ -2688,10 +2689,9 @@ Notation:</p>
 <span class="go">Commit M:</span>
 <span class="go">name: bar, id: M, copy_id: 4:bar</span>
 <span class="go">name: baz, id: M, copy_id: 5:baz-&gt;1:foo</span>
-</code></pre></div></li>
-</ul>
+</code></pre></div>
 <p>This graph also shows the relationship between the copy IDs and which commits
-they appear in:
+they appear in:</p>
 <pre class="mermaid"><code>graph LR
 
     subgraph L["Commit L"]
@@ -2708,7 +2708,7 @@ they appear in:
     end
 
     2 --&gt; 1
-    5 --&gt; 1</code></pre></p>
+    5 --&gt; 1</code></pre>
 <p>Let's first consider the diff from <code>K</code> to <code>M</code>. Looking at just the trees, that
 diff finds that copy IDs 1,4,5 were affected. By walking their graphs, we find
 1 and 5 are related, while 4 is not. Considering that copy graph (involving IDs
@@ -2794,13 +2794,13 @@ apply those renames to both <code>C</code> and <code>B</code>. This may result i
 <p>If a file has a conflict in the copy ID, it will appear as if it doesn't exist
 when materialized. It will therefore not show up in the working copy until the
 user has resolved the conflict.</p>
-<p>For example:
+<p>For example:</p>
 <div class="highlight"><pre><span></span><code><span class="go">M set foo=&quot;bye&quot;</span>
 <span class="go">|</span>
 <span class="go">| L rename foo-&gt;bar</span>
 <span class="go">|/</span>
 <span class="go">K add foo=&quot;hello&quot;</span>
-</code></pre></div></p>
+</code></pre></div>
 <p>When rebasing <code>M</code> onto <code>L</code>, we apply the <code>foo-&gt;bar</code> rename to the trees in <code>M</code>
 and its parent.</p>
 <p>Another example:</p>
@@ -2868,7 +2868,7 @@ resolved automatically per the usual conflict simplification.</p>
 <p>Let's say we rebase <code>M</code> onto <code>N</code>. The changes to <code>foo</code>, <code>foo2</code>, and<code>foo3</code> will
 then all apply to <code>foo</code>, which means we get a 4-sided conflict.</p>
 <h4 id="example-convergent-renames">Example: Convergent renames<a class="headerlink" href="#example-convergent-renames" title="Permanent link">&para;</a></h4>
-<p>Consider this "convergent copy/rename" scenario:
+<p>Consider this "convergent copy/rename" scenario:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
 <span class="go">C rename bar-&gt;baz</span>
 <span class="go">|</span>
@@ -2877,9 +2877,9 @@ then all apply to <code>foo</code>, which means we get a 4-sided conflict.</p>
 <span class="go">A add foo, add bar</span>
 
 <span class="gp">$ </span>jj<span class="w"> </span>new<span class="w"> </span>B<span class="w"> </span>C
-</code></pre></div></p>
+</code></pre></div>
 <p>It seems clear that <code>baz</code>'s copy graph should inherit from both <code>foo</code> and <code>bar</code>,
-producing a merge in copy graph. The trees would look like this:
+producing a merge in copy graph. The trees would look like this:</p>
 <div class="highlight"><pre><span></span><code>Commit A:
 name: foo, id: aaa111, copy_id: 1:foo
 name: bar, id: aaa111, copy_id: 2:bar
@@ -2894,7 +2894,7 @@ name: baz, id: aaa111, copy_id: 4:baz-&gt;2:bar
 
 Merge commit:
 name: baz, id: aaa111, copy_id: 5:baz-&gt;{3:baz-&gt;1:foo,4:baz-&gt;2:bar}
-</code></pre></div></p>
+</code></pre></div>
 <p>We used the same content for both <code>foo</code> and <code>bar</code> above to simplify. If they
 had been different, we would have had a conflict in the contents but the copy
 ID would still have been clear.</p>
@@ -2934,7 +2934,7 @@ above handles this case because we keep the copy ID of <code>bar</code> after sq
 so we can detect that the modifications to <code>foo</code> in commit B should be
 propagated to <code>bar</code>.</p>
 <h4 id="example-divergent-renames">Example: Divergent renames<a class="headerlink" href="#example-divergent-renames" title="Permanent link">&para;</a></h4>
-<p>Consider this "divergent rename" scenario:
+<p>Consider this "divergent rename" scenario:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
 <span class="go">C rename foo-&gt;baz</span>
 <span class="go">|</span>
@@ -2943,7 +2943,7 @@ propagated to <code>bar</code>.</p>
 <span class="go">A add foo</span>
 
 <span class="gp">$ </span>jj<span class="w"> </span>new<span class="w"> </span>B<span class="w"> </span>C
-</code></pre></div></p>
+</code></pre></div>
 <p>In this scenario, the regular 3-way merge of the trees without considering copy
 info results in a tree without conflicts. However, the user might reasonably
 expect to have to choose between the <code>bar</code> and <code>baz</code> names. Here's what Git says

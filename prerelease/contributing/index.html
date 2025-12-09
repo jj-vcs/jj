@@ -2894,16 +2894,16 @@ enabled for all targets. You can also use the <code>--debug</code> global option
 turns on <code>debug</code> log level for <code>jj-lib</code> and <code>jj-cli</code> only.</p>
 <h2 id="profiling">Profiling<a class="headerlink" href="#profiling" title="Permanent link">&para;</a></h2>
 <p>One easy-to-use sampling profiler
-is <a href="https://github.com/mstange/samply">samply</a>. For example:
+is <a href="https://github.com/mstange/samply">samply</a>. For example:</p>
 <div class="highlight"><pre><span></span><code>cargo<span class="w"> </span>install<span class="w"> </span>samply
 samply<span class="w"> </span>record<span class="w"> </span>jj<span class="w"> </span>diff
 </code></pre></div>
-Then just open the link it prints.</p>
+<p>Then just open the link it prints.</p>
 <p>Another option is to use the instrumentation we've added manually (using
-<code>tracing::instrument</code>) in various places. For example:
+<code>tracing::instrument</code>) in various places. For example:</p>
 <div class="highlight"><pre><span></span><code><span class="nv">JJ_TRACE</span><span class="o">=</span>/tmp/trace.json<span class="w"> </span>jj<span class="w"> </span>diff
 </code></pre></div>
-Then go to <code>https://ui.perfetto.dev/</code> in Chrome and load <code>/tmp/trace.json</code> from
+<p>Then go to <code>https://ui.perfetto.dev/</code> in Chrome and load <code>/tmp/trace.json</code> from
 there.</p>
 
 

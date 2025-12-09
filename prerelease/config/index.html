@@ -3874,7 +3874,7 @@ object</a>.</p>
 <span class="s1">)</span>
 <span class="s1">&#39;&#39;&#39;</span>
 </code></pre></div>
-<p>You can override only the <code>default_commit_description</code> value if you like, e.g.:
+<p>You can override only the <code>default_commit_description</code> value if you like, e.g.:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[template-aliases]</span>
 <span class="n">default_commit_description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
 <span class="s1">&quot;</span>
@@ -3882,7 +3882,7 @@ object</a>.</p>
 <span class="s1">Closes #NNNN</span>
 <span class="s1">&quot;</span>
 <span class="s1">&#39;&#39;&#39;</span>
-</code></pre></div></p>
+</code></pre></div>
 <h3 id="duplicate-commit-description">Duplicate commit description<a class="headerlink" href="#duplicate-commit-description" title="Permanent link">&para;</a></h3>
 <p>By default, <code>jj duplicate</code> copies the descriptions from the original commits.
 You can customize this behavior by specifying the <code>duplicate_description</code>
@@ -4163,7 +4163,7 @@ templates.</p>
 <li><code>templates.log_node</code> for commits (with <code>Option&lt;Commit&gt;</code> keywords)</li>
 <li><code>templates.op_log_node</code> for operations (with <code>Operation</code> keywords)</li>
 </ul>
-<p>For example:
+<p>For example:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
 <span class="n">log_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
 <span class="s1">coalesce(</span>
@@ -4174,7 +4174,7 @@ templates.</p>
 <span class="s1">)</span>
 <span class="s1">&#39;&#39;&#39;</span>
 <span class="n">op_log_node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;if(current_operation, &quot;@&quot;, &quot;○&quot;)&#39;</span>
-</code></pre></div></p>
+</code></pre></div>
 <h3 id="wrap-log-content">Wrap log content<a class="headerlink" href="#wrap-log-content" title="Permanent link">&para;</a></h3>
 <p>If enabled, <code>log</code>/<code>evolog</code>/<code>op log</code> content will be wrapped based on
 the terminal width.</p>
