@@ -247,7 +247,7 @@ fn test_rewrite_immutable_commands() {
     insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:14 55c97dc7
     │  (no description set)
-    │ ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:12 main 7065a923 conflict
+    │ ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:12 main 7065a923 (conflict)
     ╭─┤  merge
     │ │
     │ ~

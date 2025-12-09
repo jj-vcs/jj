@@ -561,7 +561,7 @@ fn test_workspaces_conflicting_edits() {
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 1 descendant commits onto commits rewritten by other operation
-    Working copy  (@) now at: pmmvwywv/2 90f3d42e (empty) (no description set)
+    Working copy  (@) now at: pmmvwywv/2 90f3d42e (divergent) (empty) (no description set)
     Parent commit (@-)      : qpvuntsm b853f7c8 (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Updated working copy to fresh commit 90f3d42e0bff
@@ -900,7 +900,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
         │  -- operation 0a26da4b0149 snapshot working copy
-        ○  kmkuslsw/1 hidden test.user@example.com 2001-02-03 08:05:18 866928d1
+        ○  kmkuslsw/1 test.user@example.com 2001-02-03 08:05:18 866928d1 (hidden)
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
            -- operation 83f707034db1 recovery commit
         [EOF]
@@ -910,7 +910,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
         │  -- operation 0f876590219e snapshot working copy
-        ○  kmkuslsw/1 hidden test.user@example.com 2001-02-03 08:05:18 866928d1
+        ○  kmkuslsw/1 test.user@example.com 2001-02-03 08:05:18 866928d1 (hidden)
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
            -- operation 83f707034db1 recovery commit
         [EOF]

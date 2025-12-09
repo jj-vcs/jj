@@ -61,19 +61,11 @@ use crate::ui::Ui;
 /// [Immutable revisions] have a `◆` symbol. Other commits have a `○` symbol.
 /// All of these symbols can be [customized].
 ///
-/// Visible changes with a [change offset] after their ID are [divergent].
-///
 /// [Immutable revisions]:
 ///     https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
 ///
 /// [customized]:
 ///     https://docs.jj-vcs.dev/latest/config/#node-style
-///
-/// [change offset]:
-///     https://docs.jj-vcs.dev/latest/glossary/#change-offset
-///
-/// [divergent]:
-///     https://docs.jj-vcs.dev/latest/guides/divergence/
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct LogArgs {
     /// Which revisions to show

@@ -1318,7 +1318,7 @@ fn test_resolve_change_delete_executable() {
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["log", "--git"]), @r"
-    @    kmkuslsw test.user@example.com 2001-02-03 08:05:18 conflict 2cdaed10 conflict
+    @    kmkuslsw test.user@example.com 2001-02-03 08:05:18 conflict 2cdaed10 (conflict)
     ├─╮  (empty) conflict
     │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:17 b 888b6cc3
     │ │  b

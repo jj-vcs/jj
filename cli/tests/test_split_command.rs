@@ -407,13 +407,13 @@ fn test_split_with_descendants() {
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 74306e35
     │  Add file1
     │  -- operation 994b490f285d split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
-    ○  qpvuntsm/1 hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
+    ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 1d2499e7 (hidden)
     │  Add file1 & file2
     │  -- operation adf4f33386c9 commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
-    ○  qpvuntsm/2 hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
+    ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
     │  -- operation 78ead2155fcc snapshot working copy
-    ○  qpvuntsm/3 hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    ○  qpvuntsm/3 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
        -- operation 8f47435a3990 add workspace 'default'
     [EOF]
@@ -426,13 +426,13 @@ fn test_split_with_descendants() {
     ○  royxmykx test.user@example.com 2001-02-03 08:05:12 0a37745e
     │  Add file2
     │  -- operation 994b490f285d split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
-    ○  qpvuntsm/1 hidden test.user@example.com 2001-02-03 08:05:08 1d2499e7
+    ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 1d2499e7 (hidden)
     │  Add file1 & file2
     │  -- operation adf4f33386c9 commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
-    ○  qpvuntsm/2 hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
+    ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
     │  -- operation 78ead2155fcc snapshot working copy
-    ○  qpvuntsm/3 hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    ○  qpvuntsm/3 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
        -- operation 8f47435a3990 add workspace 'default'
     [EOF]
@@ -563,10 +563,10 @@ fn test_split_parallel_no_descendants() {
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 7bcd474c
     │  TESTED=TODO
     │  -- operation 2b21c33e1596 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
-    ○  qpvuntsm/1 hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
+    ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
     │  -- operation 1663cd1cc445 snapshot working copy
-    ○  qpvuntsm/2 hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
        -- operation 8f47435a3990 add workspace 'default'
     [EOF]
@@ -579,10 +579,10 @@ fn test_split_parallel_no_descendants() {
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 431886f6
     │  (no description set)
     │  -- operation 2b21c33e1596 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
-    ○  qpvuntsm/1 hidden test.user@example.com 2001-02-03 08:05:08 f5700f8e
+    ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
     │  -- operation 1663cd1cc445 snapshot working copy
-    ○  qpvuntsm/2 hidden test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
        -- operation 8f47435a3990 add workspace 'default'
     [EOF]

@@ -352,10 +352,10 @@ $ jj evolog
 @  lnvvtrzo jjfan@example.org 2025-02-28 21:01:10 31a347e0
 │  featureA
 │  -- operation 3cb7392c092c snapshot working copy
-○  lnvvtrzo/1 hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8
+○  lnvvtrzo/1 jjfan@example.org 2025-02-28 21:00:51 b8004ab8 (hidden)
 │  featureA
 │  -- operation 1280bfaec893 snapshot working copy
-○  lnvvtrzo/2 hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d
+○  lnvvtrzo/2 jjfan@example.org 2025-02-28 20:50:05 e4d831d (hidden)
    (no description set)
    -- operation 0418a5aa94b5 snapshot working copy
 ```
@@ -385,7 +385,7 @@ $ jj evolog --patch --git  # We use `--git` to make diffs clear without colors
 │  @@ -1,1 +1,2 @@
 │   Done with feature A
 │  +Working on feature B
-○  lnvvtrzo/1 hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8
+○  lnvvtrzo/1 jjfan@example.org 2025-02-28 21:00:51 b8004ab8 (hidden)
 │  featureA
 │  -- operation 1280bfaec893 snapshot working copy
 │  diff --git a/file b/file
@@ -395,7 +395,7 @@ $ jj evolog --patch --git  # We use `--git` to make diffs clear without colors
 │  @@ -1,1 +1,1 @@
 │  -Working on feature A
 │  +Done with feature A
-○  lnvvtrzo/2 hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d
+○  lnvvtrzo/2 jjfan@example.org 2025-02-28 20:50:05 e4d831d (hidden)
    (no description set)
    -- operation 0418a5aa94b5 snapshot working copy
    diff --git a/file b/file
@@ -431,7 +431,7 @@ First, we create a new empty child commit on top of `b80`:
 ```console
 $ jj new b80 -m "featureB"
 Working copy  (@) now at: pvnrkl 47171aa (empty) featureB
-Parent commit (@-)      : lnvvtr/1 b8004ab featureA
+Parent commit (@-)      : lnvvtr/1 b8004ab (divergent) featureA
 ```
 
 There are now two visible commits with change ID `lnvvtr` (commit `b8004ab`
@@ -449,7 +449,7 @@ Next, restore the contents of `31a347e0` into the working copy:
 ```console
 $ jj restore --from 31a347e0
 Working copy  (@) now at: pvnrkl 468104c featureB
-Parent commit (@-)      : lnvvtr/1 b8004ea featureA
+Parent commit (@-)      : lnvvtr/1 b8004ea (divergent) featureA
 $ cat file
 Done with feature A
 Working on feature B

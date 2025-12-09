@@ -139,7 +139,7 @@ fn test_status_conflicted_bookmarks() {
     let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : qpvuntsm/1 99025a24 local_bookmark?? | (empty) a
+    Working copy  (@) : qpvuntsm/1 99025a24 local_bookmark?? | (divergent) (empty) a
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     Warning: These bookmarks have conflicts:
       local_bookmark
@@ -182,7 +182,7 @@ fn test_status_conflicted_bookmarks() {
     let output = work_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @r"
     The working copy has no changes.
-    Working copy  (@) : qpvuntsm/1 99025a24 local_bookmark?? | (empty) a
+    Working copy  (@) : qpvuntsm/1 99025a24 local_bookmark?? | (divergent) (empty) a
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     Warning: These bookmarks have conflicts:
       local_bookmark
@@ -242,11 +242,11 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     let output = work_dir.run_jj(["log", "-r", "::"]);
 
     insta::assert_snapshot!(output, @r"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 94a62648 conflict
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 94a62648 (conflict)
     │  (empty) boom-cont-2
-    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 23973408 conflict
+    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 23973408 (conflict)
     │  (empty) boom-cont
-    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 2dd6c136 conflict
+    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 2dd6c136 (conflict)
     ├─╮  (empty) boom
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 bb11a679
     │ │  First part of conflicting change
@@ -316,11 +316,11 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     │  fixed 2
     ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 34c4a9b1
     │  fixed 1
-    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 94a62648 conflict
+    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 94a62648 (conflict)
     │  (empty) boom-cont-2
-    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 23973408 conflict
+    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 23973408 (conflict)
     │  (empty) boom-cont
-    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 2dd6c136 conflict
+    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 2dd6c136 (conflict)
     ├─╮  (empty) boom
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 bb11a679
     │ │  First part of conflicting change
@@ -352,11 +352,11 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     │  fixed 2
     @  kmkuslsw test.user@example.com 2001-02-03 08:05:19 34c4a9b1
     │  fixed 1
-    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 94a62648 conflict
+    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 94a62648 (conflict)
     │  (empty) boom-cont-2
-    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 23973408 conflict
+    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 23973408 (conflict)
     │  (empty) boom-cont
-    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 2dd6c136 conflict
+    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 2dd6c136 (conflict)
     ├─╮  (empty) boom
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 bb11a679
     │ │  First part of conflicting change
@@ -390,11 +390,11 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     │  fixed 2
     ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 34c4a9b1
     │  fixed 1
-    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 94a62648 conflict
+    ×  yqosqzyt test.user@example.com 2001-02-03 08:05:13 94a62648 (conflict)
     │  (empty) boom-cont-2
-    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 23973408 conflict
+    ×  royxmykx test.user@example.com 2001-02-03 08:05:12 23973408 (conflict)
     │  (empty) boom-cont
-    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 2dd6c136 conflict
+    ×    mzvwutvl test.user@example.com 2001-02-03 08:05:11 2dd6c136 (conflict)
     ├─╮  (empty) boom
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 bb11a679
     │ │  First part of conflicting change

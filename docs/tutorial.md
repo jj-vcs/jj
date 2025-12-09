@@ -287,9 +287,9 @@ Once the conflicts are resolved, you can inspect the result with `jj diff`.
 Then run `jj squash` to move the resolution into the conflicted commit.
 
 $ jj log
-@  qzvqqupx martinvonz@google.com 2023-02-12 15:08:33 1978b534 conflict
+@  qzvqqupx martinvonz@google.com 2023-02-12 15:08:33 1978b534 (conflict)
 │  C
-×  puqltutt martinvonz@google.com 2023-02-12 15:08:33 f7fb5943 conflict
+×  puqltutt martinvonz@google.com 2023-02-12 15:08:33 f7fb5943 (conflict)
 │  B2
 │ ○  ovknlmro martinvonz@google.com 2023-02-12 15:07:24 7d7c6e6b
 ├─╯  B1
@@ -428,9 +428,9 @@ Then run `jj squash` to move the resolution into the conflicted commit.
 $ jj log
 @  zxoosnnp martinvonz@google.com 2023-02-12 19:34:09 63874fe6
 │  (no description set)
-│ ×  qzvqqupx martinvonz@google.com 2023-02-12 15:08:33 1978b534 conflict
+│ ×  qzvqqupx martinvonz@google.com 2023-02-12 15:08:33 1978b534 (conflict)
 ├─╯  C
-×  puqltutt martinvonz@google.com 2023-02-12 15:08:33 f7fb5943 conflict
+×  puqltutt martinvonz@google.com 2023-02-12 15:08:33 f7fb5943 (conflict)
 │  B2
 │ ○  ovknlmro martinvonz@google.com 2023-02-12 15:07:24 7d7c6e6b
 ├─╯  B1

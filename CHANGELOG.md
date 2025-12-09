@@ -25,6 +25,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * On Windows, symlinks that point to a path with `/` won't be supported. This
   path is [invalid on Windows].
 
+* The template alias `format_short_change_id_with_hidden_and_divergent_info(commit)`
+  has been replaced by `format_short_change_id_with_change_offset(commit)`.
+
 [invalid on Windows]: https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
 
 * The following deprecated config options have been removed:
