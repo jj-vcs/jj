@@ -79,6 +79,15 @@ use crate::ui::Ui;
 /// bookmarks. Use `--all` to push all bookmarks. Use `--change` to generate
 /// bookmark names based on the change IDs of specific commits.
 ///
+/// When pushing a bookmark, the command pushes all commits in the range from
+/// the remote's current position up to and including the bookmark's target
+/// commit. Any descendant commits beyond the bookmark are not pushed.
+///
+/// If the local bookmark has changed from the last fetch, push will update the
+/// remote bookmark to the new position after passing safety checks. This is
+/// similar to `git push --force-with-lease` - the remote is updated only if its
+/// current state matches what Jujutsu last fetched.
+///
 /// Unlike in Git, the remote to push to is not derived from the tracked remote
 /// bookmarks. Use `--remote` to select the remote Git repository by name. There
 /// is no option to push to multiple remotes.
