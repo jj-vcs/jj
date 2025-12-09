@@ -536,6 +536,24 @@ impl<T> IntoIterator for Merge<T> {
     }
 }
 
+impl<'a, T> IntoIterator for &'a Merge<T> {
+    type Item = &'a T;
+    type IntoIter = slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut Merge<T> {
+    type Item = &'a mut T;
+    type IntoIter = slice::IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
+
 impl<T> FromIterator<T> for MergeBuilder<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut builder = Self::default();
@@ -761,7 +779,7 @@ where
     /// `FileId` values may differ.
     pub fn with_new_file_ids(&self, file_ids: &Merge<Option<FileId>>) -> Merge<Option<TreeValue>> {
         assert_eq!(self.values.len(), file_ids.values.len());
-        let values = zip(self.iter(), file_ids.iter().cloned())
+        let values = zip(self, file_ids.iter().cloned())
             .map(
                 |(tree_value, file_id)| match (borrow_tree_value(tree_value.as_ref()), file_id) {
                     (

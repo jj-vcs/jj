@@ -437,7 +437,7 @@ fn collect_merged<'input>(hunks: impl IntoIterator<Item = MergeHunk<'input>>) ->
     let mut maybe_resolved = Merge::resolved(BString::default());
     for hunk in hunks {
         if let Some(content) = hunk.as_resolved() {
-            for buf in maybe_resolved.iter_mut() {
+            for buf in &mut maybe_resolved {
                 buf.extend_from_slice(content);
             }
         } else {
@@ -446,7 +446,7 @@ fn collect_merged<'input>(hunks: impl IntoIterator<Item = MergeHunk<'input>>) ->
                 Err(conflict) => conflict,
             };
             assert_eq!(maybe_resolved.as_slice().len(), hunk.len());
-            for (buf, s) in iter::zip(maybe_resolved.iter_mut(), hunk.iter()) {
+            for (buf, s) in iter::zip(&mut maybe_resolved, hunk.iter()) {
                 buf.extend_from_slice(s);
             }
         }

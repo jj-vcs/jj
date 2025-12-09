@@ -17,6 +17,7 @@
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
+use std::iter::zip;
 use std::sync::Arc;
 use std::vec;
 
@@ -144,7 +145,7 @@ impl MergedTreeInput {
             let mut conflict_entries = self.conflicts.first_key_value().unwrap().1.map(|_| vec![]);
             for (basename, value) in self.conflicts {
                 assert_eq!(value.num_sides(), conflict_entries.num_sides());
-                for (entries, value) in conflict_entries.iter_mut().zip(value.into_iter()) {
+                for (entries, value) in zip(&mut conflict_entries, value) {
                     if let Some(value) = value {
                         entries.push((basename.clone(), value));
                     }

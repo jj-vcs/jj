@@ -564,7 +564,7 @@ pub fn dump_tree(merged_tree: &MergedTree) -> String {
     let mut buf = String::new();
     let trees = merged_tree.trees().unwrap();
     writeln!(&mut buf, "merged tree (sides: {})", trees.num_sides()).unwrap();
-    for tree in trees.iter() {
+    for tree in &trees {
         writeln!(&mut buf, "  tree {}", tree.id()).unwrap();
         for (path, entry) in tree.entries_matching(&EverythingMatcher) {
             match entry {

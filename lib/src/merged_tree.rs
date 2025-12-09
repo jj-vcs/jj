@@ -1048,7 +1048,7 @@ impl MergedTreeBuilder {
                 Ok(value) => {
                     // This path was overridden with a resolved value. Apply that to all
                     // builders.
-                    for builder in tree_builders.iter_mut() {
+                    for builder in &mut tree_builders {
                         builder.set_or_remove(path.clone(), value.clone());
                     }
                 }
@@ -1056,7 +1056,7 @@ impl MergedTreeBuilder {
                     values.pad_to(num_sides, &None);
                     // This path was overridden with a conflicted value. Apply each term to
                     // its corresponding builder.
-                    for (builder, value) in zip(tree_builders.iter_mut(), values) {
+                    for (builder, value) in zip(&mut tree_builders, values) {
                         builder.set_or_remove(path.clone(), value);
                     }
                 }

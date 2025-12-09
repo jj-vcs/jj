@@ -802,7 +802,7 @@ fn show_color_words_conflict_hunks(
 ) -> io::Result<DiffLineNumber> {
     let num_lefts = contents.before.as_slice().len();
     let line_diff = diff_by_line(
-        contents.before.iter().chain(contents.after.iter()),
+        itertools::chain(contents.before, contents.after),
         &options.line_diff.compare_mode,
     );
     // Matching entries shouldn't appear consecutively in diff of two inputs.

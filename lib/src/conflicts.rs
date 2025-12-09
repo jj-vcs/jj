@@ -964,7 +964,7 @@ pub async fn update_from_content(
         .and_then(|hunks| hunks.last_mut())
         .filter(|hunk| !hunk.is_resolved())
     {
-        for (original_content, term) in old_contents.iter().zip_eq(last_hunk.iter_mut()) {
+        for (original_content, term) in itertools::zip_eq(&old_contents, last_hunk) {
             if term.last() == Some(&b'\n') && has_no_eol(original_content) {
                 term.pop();
             }
@@ -991,11 +991,11 @@ pub async fn update_from_content(
     let mut contents = simplified_file_ids.map(|_| vec![]);
     for hunk in hunks {
         if let Some(slice) = hunk.as_resolved() {
-            for content in contents.iter_mut() {
+            for content in &mut contents {
                 content.extend_from_slice(slice);
             }
         } else {
-            for (content, slice) in zip(contents.iter_mut(), hunk.into_iter()) {
+            for (content, slice) in zip(&mut contents, hunk) {
                 content.extend(Vec::from(slice));
             }
         }
@@ -1003,7 +1003,7 @@ pub async fn update_from_content(
 
     // If the user edited the empty placeholder for an absent side, we consider the
     // conflict resolved.
-    if zip(contents.iter(), simplified_file_ids.iter())
+    if zip(&contents, &simplified_file_ids)
         .any(|(content, file_id)| file_id.is_none() && !content.is_empty())
     {
         let file_id = store.write_file(path, &mut &content[..]).await?;
@@ -1013,7 +1013,7 @@ pub async fn update_from_content(
     // Now write the new files contents we found by parsing the file with conflict
     // markers.
     // TODO: Write these concurrently
-    let new_file_ids: Vec<Option<FileId>> = zip(contents.iter(), simplified_file_ids.iter())
+    let new_file_ids: Vec<Option<FileId>> = zip(&contents, &simplified_file_ids)
         .map(|(content, file_id)| -> BackendResult<Option<FileId>> {
             match file_id {
                 Some(_) => {

@@ -1412,7 +1412,7 @@ fn diff_match_lines(
         let rights: Merge<BString> = rights.map(|text| match_lines(text, matcher).collect());
         let lefts = files::merge(&lefts, merge_options);
         let rights = files::merge(&rights, merge_options);
-        let diff = ContentDiff::by_line(lefts.iter().chain(rights.iter()));
+        let diff = ContentDiff::by_line(itertools::chain(&lefts, &rights));
         let different = files::conflict_diff_hunks(diff.hunks(), lefts.as_slice().len())
             .any(|hunk| hunk.kind == DiffHunkKind::Different);
         Ok(different)
