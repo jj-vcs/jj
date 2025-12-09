@@ -6281,10 +6281,15 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Updated the executable bit representation in the local working copy to allow
+<li>
+<p>Updated the executable bit representation in the local working copy to allow
   ignoring executable bit changes on Unix. By default we try to detect the
   filesystem's behavior, but this can be overridden manually by setting
-  <code>working-copy.exec-bit-change = "respect" | "ignore"</code>.</li>
+  <code>working-copy.exec-bit-change = "respect" | "ignore"</code>.</p>
+</li>
+<li>
+<p><code>jj workspace add</code> now also works for empty destination directories.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
