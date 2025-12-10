@@ -29,6 +29,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj workspace add` now also works for empty destination directories.
 
+* `jj git remote` family of commands now supports different fetch and push URLs.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
@@ -53,8 +55,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   platforms (`:builtin` on Windows). See [the docs](docs/config.md#pager) for
   more information, and [#3502](https://github.com/jj-vcs/jj/issues/3502) for
   motivation.
-
-* `jj git remote` family of commands now supports different fetch and push URLs.
 
 ### Breaking changes
 
