@@ -233,7 +233,7 @@ command)
 
 `jj log`: No special handling needed
 `jj diff`: No special handling needed
-`jj st`: For now reprint the final output of `jj run`
+`jj status`: For now reprint the final output of `jj run`
 `jj op log`: No special handling needed, but awaits further discussion in
 [#963][issue]
 `jj undo/jj op revert`: No special handling needed
@@ -255,7 +255,7 @@ to materialize.
 - Customized failure messages, this maybe useful for bots, it could be similar
 to Bazel's `select(..., message = "arch not supported for $project")`.
 - Make `jj run` asynchronous by spawning a `main` process, directly return to the
-user and incrementally updating the output of `jj st`.
+user and incrementally updating the output of `jj status`.
 
 [git-branchless]: https://github.com/arxanas/git-branchless
 [issue]: https://github.com/jj-vcs/jj/issues/963
