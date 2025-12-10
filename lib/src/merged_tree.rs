@@ -203,11 +203,18 @@ impl MergedTree {
     /// Recurses into subtrees and yields conflicts in those, but only if
     /// all sides are trees, so tree/file conflicts will be reported as a single
     /// conflict, not one for each path in the tree.
-    // TODO: Restrict this by a matcher (or add a separate method for that).
     pub fn conflicts(
         &self,
     ) -> impl Iterator<Item = (RepoPathBuf, BackendResult<MergedTreeValue>)> + use<> {
-        ConflictIterator::new(self)
+        self.conflicts_matching(&EverythingMatcher)
+    }
+
+    /// Like `conflicts()` but restricted by a matcher.
+    pub fn conflicts_matching<'matcher>(
+        &self,
+        matcher: &'matcher dyn Matcher,
+    ) -> impl Iterator<Item = (RepoPathBuf, BackendResult<MergedTreeValue>)> + use<'matcher> {
+        ConflictIterator::new(self, matcher)
     }
 
     /// Whether this tree has conflicts.
@@ -521,41 +528,52 @@ struct ConflictsDirItem {
     entries: Vec<(RepoPathBuf, MergedTreeValue)>,
 }
 
-impl From<&Merge<Tree>> for ConflictsDirItem {
-    fn from(trees: &Merge<Tree>) -> Self {
-        let dir = trees.first().dir();
+impl ConflictsDirItem {
+    fn new(trees: &Merge<Tree>, matcher: &dyn Matcher) -> Self {
         if trees.is_resolved() {
             return Self { entries: vec![] };
         }
 
+        let dir = trees.first().dir();
         let mut entries = vec![];
         for (basename, value) in all_tree_entries(trees) {
-            if !value.is_resolved() {
-                entries.push((dir.join(basename), value.cloned()));
+            if value.is_resolved() {
+                continue;
             }
+            let path = dir.join(basename);
+            if value.is_tree() {
+                if matcher.visit(&path).is_nothing() {
+                    continue;
+                }
+            } else if !matcher.matches(&path) {
+                continue;
+            }
+            entries.push((path, value.cloned()));
         }
         entries.reverse();
         Self { entries }
     }
 }
 
-struct ConflictIterator {
+struct ConflictIterator<'matcher> {
     store: Arc<Store>,
     stack: Vec<ConflictsDirItem>,
+    matcher: &'matcher dyn Matcher,
 }
 
-impl ConflictIterator {
-    fn new(tree: &MergedTree) -> Self {
+impl<'matcher> ConflictIterator<'matcher> {
+    fn new(tree: &MergedTree, matcher: &'matcher dyn Matcher) -> Self {
         Self {
             store: tree.store().clone(),
             stack: vec![ConflictsDirItem {
                 entries: vec![(RepoPathBuf::root(), tree.to_merged_tree_value())],
             }],
+            matcher,
         }
     }
 }
 
-impl Iterator for ConflictIterator {
+impl Iterator for ConflictIterator<'_> {
     type Item = (RepoPathBuf, BackendResult<MergedTreeValue>);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -564,7 +582,7 @@ impl Iterator for ConflictIterator {
                 match tree_values.to_tree_merge(&self.store, &path).block_on() {
                     Ok(Some(trees)) => {
                         // If all sides are trees or missing, descend into the merged tree
-                        self.stack.push(ConflictsDirItem::from(&trees));
+                        self.stack.push(ConflictsDirItem::new(&trees, self.matcher));
                     }
                     Ok(None) => {
                         // Otherwise this is a conflict between files, trees, etc. If they could

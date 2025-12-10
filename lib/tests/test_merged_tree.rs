@@ -511,6 +511,22 @@ fn test_conflict_iterator() {
         ]
     );
 
+    // We can filter conflicts using a matcher
+    let conflicts = tree
+        .conflicts_matching(&PrefixMatcher::new([file_conflict_path, dir_file_path]))
+        .map(|(path, conflict)| (path, conflict.unwrap()))
+        .collect_vec();
+    assert_eq!(
+        conflicts,
+        vec![
+            (dir_file_path.to_owned(), conflict_at(dir_file_path)),
+            (
+                file_conflict_path.to_owned(),
+                conflict_at(file_conflict_path)
+            ),
+        ]
+    );
+
     // After we resolve conflicts, there are only non-trivial conflicts left
     let tree = tree.resolve().block_on().unwrap();
     let conflicts = tree
