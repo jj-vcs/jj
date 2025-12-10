@@ -6275,8 +6275,14 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased"><a href="https://github.com/jj-vcs/jj/compare/v0.36.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
-<li>On Windows, symlinks that point to a path with <code>/</code> won't be supported. This
-  path is <a href="https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions">invalid on Windows</a>.</li>
+<li>
+<p><code>remotes.&lt;name&gt;.auto-track-bookmarks</code> is now parsed the same way they
+  are in revsets and can be combined with logical operators.</p>
+</li>
+<li>
+<p>On Windows, symlinks that point to a path with <code>/</code> won't be supported. This
+  path is <a href="https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions">invalid on Windows</a>.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
