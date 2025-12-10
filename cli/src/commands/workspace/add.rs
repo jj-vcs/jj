@@ -114,10 +114,12 @@ pub fn cmd_workspace_add(
     // If we add per-workspace configuration, we'll need to reload settings for
     // the new workspace.
     let (new_workspace, repo) = Workspace::init_workspace_with_existing_repo(
+        command.settings(),
         &destination_path,
         repo_path,
         repo,
         working_copy_factory,
+        command.get_store_factories(),
         workspace_name.clone(),
     )?;
     writeln!(

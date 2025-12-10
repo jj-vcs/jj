@@ -130,7 +130,8 @@ fn test_git_colocation_enable_with_existing_git_dir() {
     let output = work_dir.run_jj(["git", "colocation", "enable"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
     ------- stderr -------
-    Error: A .git directory already exists in the workspace root. Cannot colocate.
+    Warning: Workspace has a .git directory that is not managed by JJ
+    Warning: Workspace has a .git directory that is not managed by JJ
     [EOF]
     [exit status: 1]
     ");
