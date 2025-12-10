@@ -9856,6 +9856,7 @@ J           J
 <p>If, after moving changes out, the source revision is empty compared to its parent(s), and <code>--keep-emptied</code> is not set, it will be abandoned. Without <code>--interactive</code> or paths, the source revision will always be empty.</p>
 <p>If the source was abandoned and both the source and destination had a non-empty description, you will be asked for the combined description. If either was empty, then the other one will be used.</p>
 <p>If a working-copy commit gets abandoned, it will be given a new, empty commit. This is true in general; it is not specific to this command.</p>
+<p>The name "squash" comes from the idea of combining (squashing) the changes from multiple revisions together.</p>
 <p>EXPERIMENTAL FEATURES</p>
 <p>An alternative squashing UI is available via the <code>-o</code>, <code>-A</code>, and <code>-B</code> options. Using any of these options creates a new commit. They can be used together with one or more <code>--from</code> options (if no <code>--from</code> is specified, <code>--from @</code> is assumed).</p>
 <p><strong>Usage:</strong> <code>jj squash [OPTIONS] [FILESETS]...</code></p>
