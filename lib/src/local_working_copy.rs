@@ -16,6 +16,7 @@
 
 use std::borrow::Cow;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
@@ -2092,21 +2093,12 @@ impl TreeState {
         };
         let mut changed_file_states = Vec::new();
         let mut deleted_files = HashSet::new();
-        let mut diff_stream = old_tree
-            .diff_stream_for_file_system(new_tree, matcher)
-            .map(async |TreeDiffEntry { path, values }| match values {
-                Ok(diff) => {
-                    let result = materialize_tree_value(&self.store, &path, diff.after).await;
-                    (path, result.map(|value| (diff.before, value)))
-                }
-                Err(err) => (path, Err(err)),
-            })
-            .buffered(self.store.concurrency().max(1));
-
         let mut prev_created_path: RepoPathBuf = RepoPathBuf::root();
 
-        while let Some((path, data)) = diff_stream.next().await {
-            let (before, after) = data?;
+        let mut process_diff_entry = async |path: RepoPathBuf,
+                                            before: MergedTreeValue,
+                                            after: MaterializedTreeValue|
+               -> Result<(), CheckoutError> {
             if after.is_absent() {
                 stats.removed_files += 1;
             } else if before.is_absent() {
@@ -2128,7 +2120,7 @@ impl TreeState {
                 eprintln!("ignoring git submodule at {path:?}");
                 // Not updating the file state as if there were no diffs. Leave
                 // the state type as FileType::GitSubmodule if it was before.
-                continue;
+                return Ok(());
             }
 
             // This path and the previous one we did work for may have a common prefix. We
@@ -2165,7 +2157,7 @@ impl TreeState {
                 else {
                     changed_file_states.push((path, FileState::placeholder()));
                     stats.skipped_files += 1;
-                    continue;
+                    return Ok(());
                 };
 
                 // Cache this path for the next iteration. This must occur after
@@ -2186,7 +2178,7 @@ impl TreeState {
             if !present_file_deleted && !can_create_new_file(&disk_path)? {
                 changed_file_states.push((path, FileState::placeholder()));
                 stats.skipped_files += 1;
-                continue;
+                return Ok(());
             }
 
             // We get the previous executable bit from the file states and not
@@ -2211,7 +2203,7 @@ impl TreeState {
                         parent_dir = parent_dir.parent().unwrap();
                     }
                     deleted_files.insert(path);
-                    continue;
+                    return Ok(());
                 }
                 MaterializedTreeValue::File(file) => {
                     let exec_bit =
@@ -2266,7 +2258,58 @@ impl TreeState {
                 }
             };
             changed_file_states.push((path, file_state));
+            Ok(())
+        };
+
+        let mut diff_stream = old_tree
+            .diff_stream_for_file_system(new_tree, matcher)
+            .map(async |TreeDiffEntry { path, values }| match values {
+                Ok(diff) => {
+                    let result = materialize_tree_value(&self.store, &path, diff.after).await;
+                    (path, result.map(|value| (diff.before, value)))
+                }
+                Err(err) => (path, Err(err)),
+            })
+            .buffered(self.store.concurrency().max(1));
+
+        // If a conflicted file didn't change between the two trees, but the conflict
+        // labels did, we still need to re-materialize it in the working copy. We don't
+        // need to do this if the conflicts have different numbers of sides though since
+        // these conflicts are considered different, so they will be materialized by
+        // `MergedTree::diff_stream_for_file_system` already.
+        let mut conflicts_to_rematerialize: HashMap<RepoPathBuf, MergedTreeValue> =
+            if old_tree.tree_ids().num_sides() == new_tree.tree_ids().num_sides()
+                && old_tree.labels() != new_tree.labels()
+            {
+                // TODO: it might be better to use an async stream here and merge it with the
+                // other diff stream, but it could be difficult since the diff stream is not
+                // sorted in the same order as the conflicts iterator.
+                new_tree
+                    .conflicts_matching(matcher)
+                    .map(|(path, value)| value.map(|value| (path, value)))
+                    .try_collect()?
+            } else {
+                HashMap::new()
+            };
+
+        while let Some((path, data)) = diff_stream.next().await {
+            let (before, after) = data?;
+            conflicts_to_rematerialize.remove(&path);
+            process_diff_entry(path, before, after).await?;
         }
+
+        if !conflicts_to_rematerialize.is_empty() {
+            for (path, conflict) in conflicts_to_rematerialize {
+                let materialized =
+                    materialize_tree_value(&self.store, &path, conflict.clone()).await?;
+                process_diff_entry(path, conflict, materialized).await?;
+            }
+
+            // We need to re-sort the changed file states since we may have inserted a
+            // conflicted file out of order.
+            changed_file_states.sort_unstable_by(|(path1, _), (path2, _)| path1.cmp(path2));
+        }
+
         self.file_states
             .merge_in(changed_file_states, &deleted_files);
         Ok(stats)

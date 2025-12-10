@@ -28,6 +28,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::TreeId;
 use jj_lib::backend::TreeValue;
+use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::file_util;
 use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::try_symlink;
@@ -1014,6 +1015,31 @@ fn test_materialize_snapshot_unchanged_conflicts() {
     line 4
     ");
 
+    let merged_tree_with_labels = MergedTree::new(
+        merged_tree.store().clone(),
+        merged_tree.tree_ids().clone(),
+        ConflictLabels::from_vec(vec![
+            "left label".into(),
+            "base label".into(),
+            "right label".into(),
+        ]),
+    );
+    let commit_with_labels = commit_with_tree(repo.store(), merged_tree_with_labels.clone());
+
+    // When checking out a commit with the same conflicts but different labels, the
+    // file should still be updated.
+    let stats = test_workspace
+        .workspace
+        .check_out(repo.op_id().clone(), None, &commit_with_labels)
+        .unwrap();
+    assert_eq!(
+        stats,
+        CheckoutStats {
+            updated_files: 1,
+            ..CheckoutStats::default()
+        }
+    );
+
     // Update mtime to bypass file state comparison.
     let file = File::options().write(true).open(&disk_path).unwrap();
     file.set_modified(SystemTime::now() + Duration::from_secs(1))
@@ -1023,7 +1049,7 @@ fn test_materialize_snapshot_unchanged_conflicts() {
     // Unchanged snapshot should be identical to the original even if "line 5"
     // could be deleted from all sides.
     let snapshotted_tree = test_workspace.snapshot().unwrap();
-    assert_tree_eq!(snapshotted_tree, merged_tree);
+    assert_tree_eq!(snapshotted_tree, merged_tree_with_labels);
 }
 
 #[test]
