@@ -89,7 +89,7 @@ pub fn cmd_debug_watchman(
                 }
             };
             let wc = check_local_disk_wc(workspace_command.working_copy())?;
-            let _ = wc.query_watchman(&config)?;
+            wc.query_watchman(&config)?;
             writeln!(
                 ui.stdout(),
                 "The watchman server seems to be installed and working correctly."

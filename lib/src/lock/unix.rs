@@ -81,7 +81,7 @@ impl Drop for FileLock {
     #[instrument(skip_all)]
     fn drop(&mut self) {
         // Removing the file isn't strictly necessary, but reduces confusion.
-        _ = std::fs::remove_file(&self.path);
+        std::fs::remove_file(&self.path).ok();
         // Unblock any processes that tried to acquire the lock while we held it.
         // They're responsible for creating and locking a new lockfile, since we
         // just deleted this one.

@@ -773,7 +773,7 @@ fn can_create_new_file(disk_path: &Path) -> Result<bool, CheckoutError> {
     if let Some(new_file) = new_file {
         reject_reserved_existing_file(new_file, disk_path).inspect_err(|_| {
             // We keep the error from `reject_reserved_existing_file`
-            let _ = fs::remove_file(disk_path);
+            fs::remove_file(disk_path).ok();
         })?;
 
         fs::remove_file(disk_path).map_err(|err| CheckoutError::Other {

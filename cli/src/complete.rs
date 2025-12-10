@@ -1061,12 +1061,12 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
     // No config migration for completion. Simply ignore deprecated variables.
     let mut config_env = ConfigEnv::from_environment();
     let maybe_cwd_workspace_loader = DefaultWorkspaceLoaderFactory.create(find_workspace_dir(&cwd));
-    let _ = config_env.reload_user_config(&mut raw_config);
+    config_env.reload_user_config(&mut raw_config).ok();
     if let Ok(loader) = &maybe_cwd_workspace_loader {
         config_env.reset_repo_path(loader.repo_path());
-        let _ = config_env.reload_repo_config(&mut raw_config);
+        config_env.reload_repo_config(&mut raw_config).ok();
         config_env.reset_workspace_path(loader.workspace_root());
-        let _ = config_env.reload_workspace_config(&mut raw_config);
+        config_env.reload_workspace_config(&mut raw_config).ok();
     }
     let mut config = config_env.resolve_config(&raw_config)?;
     // skip 2 because of the clap_complete prelude: jj -- jj <actual args...>
@@ -1084,9 +1084,9 @@ fn get_jj_command() -> Result<(JjBuilder, UserSettings), CommandError> {
         // Try to update repo-specific config on a best-effort basis.
         if let Ok(loader) = DefaultWorkspaceLoaderFactory.create(&cwd.join(&repository)) {
             config_env.reset_repo_path(loader.repo_path());
-            let _ = config_env.reload_repo_config(&mut raw_config);
+            config_env.reload_repo_config(&mut raw_config).ok();
             config_env.reset_workspace_path(loader.workspace_root());
-            let _ = config_env.reload_workspace_config(&mut raw_config);
+            config_env.reload_workspace_config(&mut raw_config).ok();
             if let Ok(new_config) = config_env.resolve_config(&raw_config) {
                 config = new_config;
             }
@@ -1340,7 +1340,7 @@ mod tests {
     #[test]
     fn test_config_keys() {
         // Just make sure the schema is parsed without failure.
-        let _ = config_keys();
+        config_keys();
     }
 
     #[test]

@@ -763,7 +763,7 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
             }
 
             for (dir, tree_diff) in tree_diffs {
-                let _ = self.pending_trees.remove_entry(&dir).unwrap();
+                drop(self.pending_trees.remove_entry(&dir).unwrap());
                 match tree_diff {
                     Ok((trees1, trees2)) => {
                         self.add_dir_diff_items(&dir, &trees1, &trees2);

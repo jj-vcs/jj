@@ -324,7 +324,7 @@ impl Workspace {
             Ok((workspace, repo))
         })()
         .inspect_err(|_err| {
-            let _ = std::fs::remove_dir_all(jj_dir);
+            std::fs::remove_dir_all(jj_dir).ok();
         })
     }
 

@@ -152,6 +152,7 @@ use_self = "warn"
 useless_conversion = "warn"
 
 [workspace.lints.rust]
+let_underscore_drop = "warn"
 redundant_imports = "warn"
 
 [profile.dev.package]

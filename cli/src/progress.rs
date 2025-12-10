@@ -56,11 +56,12 @@ pub fn snapshot_progress(ui: &Ui) -> Option<impl Fn(&RepoPath) + use<>> {
         let (display_path, _) =
             text_util::elide_start(fs_path.to_str().unwrap(), "...", max_path_width);
 
-        _ = write!(
+        write!(
             state.output,
             "\r{}Snapshotting {display_path}",
             Clear(ClearType::CurrentLine),
-        );
-        _ = state.output.flush();
+        )
+        .ok();
+        state.output.flush().ok();
     })
 }

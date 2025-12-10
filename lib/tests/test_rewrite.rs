@@ -766,7 +766,7 @@ fn test_rebase_descendants_multiple_swap() {
         .set_rewritten_commit(commit_b.id().clone(), commit_d.id().clone());
     tx.repo_mut()
         .set_rewritten_commit(commit_d.id().clone(), commit_b.id().clone());
-    let _ = tx.repo_mut().rebase_descendants(); // Panics because of the cycle
+    tx.repo_mut().rebase_descendants().ok(); // Panics because of the cycle
 }
 
 #[test]

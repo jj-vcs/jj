@@ -135,7 +135,7 @@ fn pinentry_get_pw(url: &str) -> Option<String> {
         Ok(out)
     };
     let maybe_out = interact();
-    _ = pinentry.wait();
+    pinentry.wait().ok();
     for line in maybe_out.ok()?.split('\n') {
         if !line.starts_with("D ") {
             continue;
@@ -255,14 +255,14 @@ pub fn with_remote_git_callbacks<T>(ui: &Ui, f: impl FnOnce(git::RemoteCallbacks
     if let Some(mut output) = ui.progress_output() {
         let mut progress = Progress::new(Instant::now());
         progress_callback = move |x: &git::Progress| {
-            _ = progress.update(Instant::now(), x, &mut output);
+            progress.update(Instant::now(), x, &mut output).ok();
         };
         callbacks.progress = Some(&mut progress_callback);
     }
 
     let mut sideband_progress_writer = GitSidebandProgressMessageWriter::new(ui);
     let mut sideband_progress_callback = |progress_message: &[u8]| {
-        _ = sideband_progress_writer.write(ui, progress_message);
+        sideband_progress_writer.write(ui, progress_message).ok();
     };
     callbacks.sideband_progress = Some(&mut sideband_progress_callback);
 
@@ -276,7 +276,7 @@ pub fn with_remote_git_callbacks<T>(ui: &Ui, f: impl FnOnce(git::RemoteCallbacks
     callbacks.get_username_password = Some(&mut get_user_pw);
 
     let result = f(callbacks);
-    _ = sideband_progress_writer.flush(ui);
+    sideband_progress_writer.flush(ui).ok();
     result
 }
 
@@ -387,7 +387,7 @@ impl Progress {
             let guard = CleanupGuard::new(move || {
                 drop(guard);
             });
-            _ = write!(output, "{}", crossterm::cursor::Hide);
+            write!(output, "{}", crossterm::cursor::Hide).ok();
             self.guard = Some(guard);
         }
 
