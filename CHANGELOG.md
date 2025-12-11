@@ -48,6 +48,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
 
+* `jj gerrit upload` now correctly handles mixed explicit and implicit
+  Change-Ids in chains of commits ([#8219](https://github.com/jj-vcs/jj/pull/8219))
+
 ## [0.36.0] - 2025-12-03
 
 ### Release highlights

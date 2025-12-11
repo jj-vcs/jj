@@ -54,3 +54,6 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * steadmon
 * tbodt
 * zygoloid
+
+## IMC Trading
+* HoelzelJon
