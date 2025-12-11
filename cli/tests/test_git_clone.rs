@@ -1202,7 +1202,7 @@ fn test_git_clone_branch() {
     let git_repo_path = test_env.env_root().join("source");
     let git_repo = git::init(&git_repo_path);
     set_up_non_empty_git_repo(&git_repo);
-    let _ = git::add_commit(
+    git::add_commit(
         &git_repo,
         "refs/heads/feature1",
         "file",

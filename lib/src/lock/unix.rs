@@ -85,6 +85,6 @@ impl Drop for FileLock {
         // Unblock any processes that tried to acquire the lock while we held it.
         // They're responsible for creating and locking a new lockfile, since we
         // just deleted this one.
-        _ = rustix::fs::flock(&self.file, FlockOperation::Unlock);
+        rustix::fs::flock(&self.file, FlockOperation::Unlock).ok();
     }
 }

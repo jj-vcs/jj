@@ -2959,7 +2959,6 @@ pub fn default_ignored_remote_name(store: &Store) -> Option<&'static RemoteName>
             return Some(git::REMOTE_NAME_FOR_LOCAL_GIT_REPO);
         }
     }
-    let _ = store;
     None
 }
 

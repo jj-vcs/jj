@@ -810,7 +810,7 @@ fn test_read_legacy_operation_link_file() {
 
     // Reload repo and index
     let repo = repo.reload_at(repo.operation()).unwrap();
-    let _ = repo.readonly_index();
+    repo.readonly_index();
     // Existing index should still be readable, so new operation link file won't
     // be created
     assert!(!op_links_dir.join(repo.op_id().hex()).exists());
