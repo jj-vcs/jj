@@ -265,26 +265,30 @@ fn cmd_git_colocation_disable(
 
 /// Set the Git repository at `path` to be bare or non-bare
 fn set_git_repo_bare(path: &std::path::Path, bare: bool) -> Result<(), CommandError> {
-    // TODO: use gix rather than shelling out
     let bare_str = if bare { "true" } else { "false" };
-    let output = std::process::Command::new("git")
-        .arg("-C")
-        .arg(path)
-        .args(["config", "core.bare", bare_str])
-        .output()
-        .map_err(|e| {
+    let config_path = path.join("config");
+    let mut config_file =
+        gix::config::File::from_path_no_includes(config_path.clone(), gix::config::Source::Local)
+            .map_err(|err| user_error_with_message("Failed to open Git config file.", err))?;
+
+    config_file
+        .set_raw_value(&"core.bare", bare_str)
+        .map_err(|err| {
             user_error_with_message(
-                format!("Failed to run Git config command to set core.bare to {bare_str}."),
-                e,
+                format!("Failed to set core.bare to {bare_str} in Git config."),
+                err,
             )
         })?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(user_error_with_message(
-            format!("Failed to set core.bare to {bare_str} in Git config."),
-            format!("Git config failed: {}", stderr.trim()),
-        ));
-    }
+
+    git::save_git_config(&config_file).map_err(|err| {
+        user_error_with_message(
+            format!(
+                "Failed to write to Git config file at {}.",
+                config_path.display()
+            ),
+            err,
+        )
+    })?;
     Ok(())
 }
 

@@ -1828,7 +1828,7 @@ fn remove_ref(reference: gix::Reference) -> gix::refs::transaction::RefEdit {
 /// Note that the resulting configuration changes are *not* persisted to the
 /// originating [`gix::Repository`]! The repository must be reloaded with the
 /// new configuration if necessary.
-fn save_git_config(config: &gix::config::File) -> std::io::Result<()> {
+pub fn save_git_config(config: &gix::config::File) -> std::io::Result<()> {
     let mut config_file = File::create(
         config
             .meta()
