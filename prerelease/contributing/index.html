@@ -1522,6 +1522,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#alternative-development-setup-with-nix" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alternative development setup with Nix
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#alternative-development-setup-with-mise" class="md-nav__link">
     <span class="md-ellipsis">
       Alternative development setup with mise
@@ -2272,6 +2281,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#alternative-development-setup-with-nix" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alternative development setup with Nix
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#alternative-development-setup-with-mise" class="md-nav__link">
     <span class="md-ellipsis">
       Alternative development setup with mise
@@ -2701,6 +2719,32 @@ automatically. If you succeed with this, let us (and Ilya in particular) know!
 <span class="k">[language-server.rust-analyzer.config.rustfmt]</span>
 <span class="n">extraArgs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;+nightly&quot;</span><span class="p">]</span>
 </code></pre></div>
+<h3 id="alternative-development-setup-with-nix">Alternative development setup with Nix<a class="headerlink" href="#alternative-development-setup-with-nix" title="Permanent link">&para;</a></h3>
+<p>If you have <a href="https://nixos.org/">Nix</a> installed, you can use the provided
+<code>flake.nix</code> to get a development environment with all necessary tools
+pre-configured:</p>
+<div class="highlight"><pre><span></span><code>nix<span class="w"> </span>develop
+</code></pre></div>
+<p>Once inside the shell, you can run <code>cargo build</code>, <code>cargo test</code> etc. as usual.
+Other tools like <code>uv</code>, <code>cargo-insta</code>, <code>cargo-nextest</code> and more are installed,
+and so you should be able to follow any other recommendations in this guide as
+needed.</p>
+<div class="admonition tip">
+<p class="admonition-title">Editor integration</p>
+<p>Launch your editor from within the <code>nix develop</code> shell so that
+rust-analyzer and other LSP tools can find the correct toolchain. For
+example:</p>
+<div class="highlight"><pre><span></span><code>nix<span class="w"> </span>develop
+code<span class="w"> </span>.<span class="w">  </span><span class="c1"># or your editor of choice</span>
+</code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">direnv users</p>
+<p>If you use <a href="https://direnv.net/">direnv</a> with
+<a href="https://github.com/nix-community/nix-direnv">nix-direnv</a>, you can <code>echo
+"source_env .envrc.recommended" &gt;&gt; .envrc</code> to automatically activate the
+development environment when entering the directory.</p>
+</div>
 <h3 id="alternative-development-setup-with-mise">Alternative development setup with <code>mise</code><a class="headerlink" href="#alternative-development-setup-with-mise" title="Permanent link">&para;</a></h3>
 <p>An experimental development setup is available using
 <a href="https://mise.jdx.dev/"><code>mise</code></a>. If you try it, file bugs,
