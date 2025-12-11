@@ -1026,15 +1026,18 @@ fn show_color_words_context_lines(
     let show = |formatter: &mut dyn Formatter,
                 [left_lines, right_lines]: [&[&[u8]]; 2],
                 mut line_number: DiffLineNumber| {
+        // Whether or not left/right lines differ in whitespace, they are
+        // "context" lines.
+        let mut formatter = formatter.labeled("context");
         if left_lines == right_lines {
             for line in left_lines {
                 show_color_words_line_number(
-                    formatter,
+                    *formatter,
                     Diff::new(Some(line_number.left), Some(line_number.right)),
                     labels,
                 )?;
                 show_color_words_inline_hunks(
-                    formatter,
+                    *formatter,
                     &[(DiffLineHunkSide::Both, line.as_ref())],
                     labels,
                 )?;
@@ -1046,7 +1049,7 @@ fn show_color_words_context_lines(
             let left = left_lines.concat();
             let right = right_lines.concat();
             show_color_words_diff_lines(
-                formatter,
+                *formatter,
                 Diff::new(&left, &right).map(BStr::new),
                 line_number,
                 labels,

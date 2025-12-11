@@ -64,9 +64,9 @@ fn test_diff_basic() {
     let output = work_dir.run_jj(["diff", "--color=debug"]);
     insta::assert_snapshot!(output, @r"
     [38;5;3m<<diff header::Modified regular file file2:>>[39m
-    [38;5;1m<<diff removed line_number::   1>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   1>>[39m<<diff::: 1>>
+    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: 1>>
     [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: >>[4m[38;5;1m<<diff removed token::2>>[38;5;2m<<diff added token::5>>[24m[39m<<diff::>>
-    [38;5;1m<<diff removed line_number::   3>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   3>>[39m<<diff::: 3>>
+    [2m[38;5;1m<<diff context removed line_number::   3>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   3>>[0m<<diff context::: 3>>
     [38;5;1m<<diff removed line_number::   4>>[39m<<diff::     : >>[4m[38;5;1m<<diff removed token::4>>[24m[39m
     [38;5;3m<<diff header::Modified regular file file3 (file1 => file3):>>[39m
     [38;5;3m<<diff header::Modified regular file file4 (file2 => file4):>>[39m
@@ -907,7 +907,7 @@ fn test_diff_hunks() {
     [38;5;3m<<diff header::Modified regular file file2:>>[39m
     [38;5;1m<<diff removed line_number::   1>>[39m<<diff::     : >>[4m[38;5;1m<<diff removed token::foo>>[24m[39m
     [38;5;3m<<diff header::Modified regular file file3:>>[39m
-    [38;5;1m<<diff removed line_number::   1>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   1>>[39m<<diff::: foo>>
+    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: foo>>
     <<diff::     >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::bar>>[24m[39m
     [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   3>>[39m<<diff::: baz >>[4m[38;5;1m<<diff removed token::qux>>[38;5;2m<<diff added token::quux>>[24m[39m<<diff:: blah blah>>
     [EOF]
@@ -1419,45 +1419,45 @@ fn test_diff_color_words_inlining_threshold() {
     // context words in added/removed lines should be labeled as such
     insta::assert_snapshot!(render_diff(2, &["--color=always"]), @r"
     [38;5;3mModified regular file file1-single-line:[39m
-    [38;5;1m   1[39m [38;5;2m   1[39m: == adds ==
+    [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: == adds ==
     [38;5;1m   2[39m [38;5;2m   2[39m: a [4m[38;5;2mX [24m[39mb [4m[38;5;2mY Z [24m[39mc
-    [38;5;1m   3[39m [38;5;2m   3[39m: == removes ==
+    [2m[38;5;1m   3[0m [2m[38;5;2m   3[0m: == removes ==
     [38;5;1m   4[39m [38;5;2m   4[39m: a [4m[38;5;1mb [24m[39mc [4m[38;5;1md e [24m[39mf[4m[38;5;1m g[24m[39m
-    [38;5;1m   5[39m [38;5;2m   5[39m: == adds + removes ==
+    [2m[38;5;1m   5[0m [2m[38;5;2m   5[0m: == adds + removes ==
     [38;5;1m   6[39m [38;5;2m   6[39m: a [4m[38;5;2mX [24m[39mb [4m[38;5;1mc [24m[39md[4m[38;5;1m e[24m[39m
-    [38;5;1m   7[39m [38;5;2m   7[39m: == adds + removes + adds ==
+    [2m[38;5;1m   7[0m [2m[38;5;2m   7[0m: == adds + removes + adds ==
     [38;5;1m   8[39m     : [38;5;1ma b [4mc [24md [4me[24m[39m
          [38;5;2m   8[39m: [38;5;2ma [4mX [24mb d [4mY[24m[39m
-    [38;5;1m   9[39m [38;5;2m   9[39m: == adds + removes + adds + removes ==
+    [2m[38;5;1m   9[0m [2m[38;5;2m   9[0m: == adds + removes + adds + removes ==
     [38;5;1m  10[39m     : [38;5;1ma b [4mc [24md e[4m f g[24m[39m
          [38;5;2m  10[39m: [4m[38;5;2mX [24ma [4mY [24mb d [4mZ [24me[39m
     [38;5;3mModified regular file file2-multiple-lines-in-single-hunk:[39m
-    [38;5;1m   1[39m [38;5;2m   1[39m: == adds; removes; adds + removes ==
+    [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: == adds; removes; adds + removes ==
     [38;5;1m   2[39m [38;5;2m   2[39m: a [4m[38;5;2mX [24m[39mb [4m[38;5;2mY Z [24m[39mc
     [38;5;1m   3[39m [38;5;2m   3[39m: a [4m[38;5;1mb [24m[39mc [4m[38;5;1md e [24m[39mf[4m[38;5;1m g[24m[39m
     [38;5;1m   4[39m [38;5;2m   4[39m: a [4m[38;5;2mX [24m[39mb [4m[38;5;1mc [24m[39md[4m[38;5;1m e[24m[39m
-    [38;5;1m   5[39m [38;5;2m   5[39m: == adds + removes + adds; adds + removes + adds + removes ==
+    [2m[38;5;1m   5[0m [2m[38;5;2m   5[0m: == adds + removes + adds; adds + removes + adds + removes ==
     [38;5;1m   6[39m     : [38;5;1ma b [4mc [24md [4me[24m[39m
     [38;5;1m   7[39m     : [38;5;1ma b [4mc [24md e[4m f g[24m[39m
          [38;5;2m   6[39m: [38;5;2ma [4mX [24mb d [4mY[24m[39m
          [38;5;2m   7[39m: [4m[38;5;2mX [24ma [4mY [24mb d [4mZ [24me[39m
     [38;5;3mModified regular file file3-changes-across-lines:[39m
-    [38;5;1m   1[39m [38;5;2m   1[39m: == adds ==
+    [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: == adds ==
     [38;5;1m   2[39m [38;5;2m   2[39m: a [4m[38;5;2mX [24m[39mb[4m[38;5;2m[24m[39m
     [38;5;1m   2[39m [38;5;2m   3[39m: [4m[38;5;2mY Z[24m[39m c
-    [38;5;1m   3[39m [38;5;2m   4[39m: == removes ==
+    [2m[38;5;1m   3[0m [2m[38;5;2m   4[0m: == removes ==
     [38;5;1m   4[39m [38;5;2m   5[39m: a [4m[38;5;1mb [24m[39mc [4m[38;5;1md[24m[39m
     [38;5;1m   5[39m [38;5;2m   5[39m: [4m[38;5;1me [24m[39mf[4m[38;5;1m g[24m[39m
-    [38;5;1m   6[39m [38;5;2m   6[39m: == adds + removes ==
+    [2m[38;5;1m   6[0m [2m[38;5;2m   6[0m: == adds + removes ==
     [38;5;1m   7[39m [38;5;2m   7[39m: a[4m[38;5;2m[24m[39m
     [38;5;1m   7[39m [38;5;2m   8[39m: [4m[38;5;2mX[24m[39m b [4m[38;5;1mc[24m[39m
     [38;5;1m   8[39m [38;5;2m   8[39m: d[4m[38;5;1m e[24m[39m
-    [38;5;1m   9[39m [38;5;2m   9[39m: == adds + removes + adds ==
+    [2m[38;5;1m   9[0m [2m[38;5;2m   9[0m: == adds + removes + adds ==
     [38;5;1m  10[39m     : [38;5;1ma b [4mc[24m[39m
     [38;5;1m  11[39m     : [38;5;1md[4m e[24m[39m
          [38;5;2m  10[39m: [38;5;2ma [4mX [24mb d[4m[24m[39m
          [38;5;2m  11[39m: [4m[38;5;2mY[24m[39m
-    [38;5;1m  12[39m [38;5;2m  12[39m: == adds + removes + adds + removes ==
+    [2m[38;5;1m  12[0m [2m[38;5;2m  12[0m: == adds + removes + adds + removes ==
     [38;5;1m  13[39m     : [38;5;1ma b[4m[24m[39m
     [38;5;1m  14[39m     : [4m[38;5;1mc[24m d e[4m f g[24m[39m
          [38;5;2m  13[39m: [4m[38;5;2mX [24ma [4mY [24mb d[4m[24m[39m
@@ -1466,45 +1466,45 @@ fn test_diff_color_words_inlining_threshold() {
     ");
     insta::assert_snapshot!(render_diff(2, &["--color=debug"]), @r"
     [38;5;3m<<diff header::Modified regular file file1-single-line:>>[39m
-    [38;5;1m<<diff removed line_number::   1>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   1>>[39m<<diff::: == adds ==>>
+    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: == adds ==>>
     [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: a >>[4m[38;5;2m<<diff added token::X >>[24m[39m<<diff::b >>[4m[38;5;2m<<diff added token::Y Z >>[24m[39m<<diff::c>>
-    [38;5;1m<<diff removed line_number::   3>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   3>>[39m<<diff::: == removes ==>>
+    [2m[38;5;1m<<diff context removed line_number::   3>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   3>>[0m<<diff context::: == removes ==>>
     [38;5;1m<<diff removed line_number::   4>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   4>>[39m<<diff::: a >>[4m[38;5;1m<<diff removed token::b >>[24m[39m<<diff::c >>[4m[38;5;1m<<diff removed token::d e >>[24m[39m<<diff::f>>[4m[38;5;1m<<diff removed token:: g>>[24m[39m<<diff::>>
-    [38;5;1m<<diff removed line_number::   5>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   5>>[39m<<diff::: == adds + removes ==>>
+    [2m[38;5;1m<<diff context removed line_number::   5>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   5>>[0m<<diff context::: == adds + removes ==>>
     [38;5;1m<<diff removed line_number::   6>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   6>>[39m<<diff::: a >>[4m[38;5;2m<<diff added token::X >>[24m[39m<<diff::b >>[4m[38;5;1m<<diff removed token::c >>[24m[39m<<diff::d>>[4m[38;5;1m<<diff removed token:: e>>[24m[39m<<diff::>>
-    [38;5;1m<<diff removed line_number::   7>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   7>>[39m<<diff::: == adds + removes + adds ==>>
+    [2m[38;5;1m<<diff context removed line_number::   7>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   7>>[0m<<diff context::: == adds + removes + adds ==>>
     [38;5;1m<<diff removed line_number::   8>>[39m<<diff::     : >>[38;5;1m<<diff removed::a b >>[4m<<diff removed token::c >>[24m<<diff removed::d >>[4m<<diff removed token::e>>[24m<<diff removed::>>[39m
     <<diff::     >>[38;5;2m<<diff added line_number::   8>>[39m<<diff::: >>[38;5;2m<<diff added::a >>[4m<<diff added token::X >>[24m<<diff added::b d >>[4m<<diff added token::Y>>[24m<<diff added::>>[39m
-    [38;5;1m<<diff removed line_number::   9>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   9>>[39m<<diff::: == adds + removes + adds + removes ==>>
+    [2m[38;5;1m<<diff context removed line_number::   9>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   9>>[0m<<diff context::: == adds + removes + adds + removes ==>>
     [38;5;1m<<diff removed line_number::  10>>[39m<<diff::     : >>[38;5;1m<<diff removed::a b >>[4m<<diff removed token::c >>[24m<<diff removed::d e>>[4m<<diff removed token:: f g>>[24m<<diff removed::>>[39m
     <<diff::     >>[38;5;2m<<diff added line_number::  10>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::X >>[24m<<diff added::a >>[4m<<diff added token::Y >>[24m<<diff added::b d >>[4m<<diff added token::Z >>[24m<<diff added::e>>[39m
     [38;5;3m<<diff header::Modified regular file file2-multiple-lines-in-single-hunk:>>[39m
-    [38;5;1m<<diff removed line_number::   1>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   1>>[39m<<diff::: == adds; removes; adds + removes ==>>
+    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: == adds; removes; adds + removes ==>>
     [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: a >>[4m[38;5;2m<<diff added token::X >>[24m[39m<<diff::b >>[4m[38;5;2m<<diff added token::Y Z >>[24m[39m<<diff::c>>
     [38;5;1m<<diff removed line_number::   3>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   3>>[39m<<diff::: a >>[4m[38;5;1m<<diff removed token::b >>[24m[39m<<diff::c >>[4m[38;5;1m<<diff removed token::d e >>[24m[39m<<diff::f>>[4m[38;5;1m<<diff removed token:: g>>[24m[39m<<diff::>>
     [38;5;1m<<diff removed line_number::   4>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   4>>[39m<<diff::: a >>[4m[38;5;2m<<diff added token::X >>[24m[39m<<diff::b >>[4m[38;5;1m<<diff removed token::c >>[24m[39m<<diff::d>>[4m[38;5;1m<<diff removed token:: e>>[24m[39m<<diff::>>
-    [38;5;1m<<diff removed line_number::   5>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   5>>[39m<<diff::: == adds + removes + adds; adds + removes + adds + removes ==>>
+    [2m[38;5;1m<<diff context removed line_number::   5>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   5>>[0m<<diff context::: == adds + removes + adds; adds + removes + adds + removes ==>>
     [38;5;1m<<diff removed line_number::   6>>[39m<<diff::     : >>[38;5;1m<<diff removed::a b >>[4m<<diff removed token::c >>[24m<<diff removed::d >>[4m<<diff removed token::e>>[24m<<diff removed::>>[39m
     [38;5;1m<<diff removed line_number::   7>>[39m<<diff::     : >>[38;5;1m<<diff removed::a b >>[4m<<diff removed token::c >>[24m<<diff removed::d e>>[4m<<diff removed token:: f g>>[24m<<diff removed::>>[39m
     <<diff::     >>[38;5;2m<<diff added line_number::   6>>[39m<<diff::: >>[38;5;2m<<diff added::a >>[4m<<diff added token::X >>[24m<<diff added::b d >>[4m<<diff added token::Y>>[24m<<diff added::>>[39m
     <<diff::     >>[38;5;2m<<diff added line_number::   7>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::X >>[24m<<diff added::a >>[4m<<diff added token::Y >>[24m<<diff added::b d >>[4m<<diff added token::Z >>[24m<<diff added::e>>[39m
     [38;5;3m<<diff header::Modified regular file file3-changes-across-lines:>>[39m
-    [38;5;1m<<diff removed line_number::   1>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   1>>[39m<<diff::: == adds ==>>
+    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: == adds ==>>
     [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: a >>[4m[38;5;2m<<diff added token::X >>[24m[39m<<diff::b>>[4m[38;5;2m<<diff added token::>>[24m[39m
     [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   3>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::Y Z>>[24m[39m<<diff:: c>>
-    [38;5;1m<<diff removed line_number::   3>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   4>>[39m<<diff::: == removes ==>>
+    [2m[38;5;1m<<diff context removed line_number::   3>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   4>>[0m<<diff context::: == removes ==>>
     [38;5;1m<<diff removed line_number::   4>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   5>>[39m<<diff::: a >>[4m[38;5;1m<<diff removed token::b >>[24m[39m<<diff::c >>[4m[38;5;1m<<diff removed token::d>>[24m[39m
     [38;5;1m<<diff removed line_number::   5>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   5>>[39m<<diff::: >>[4m[38;5;1m<<diff removed token::e >>[24m[39m<<diff::f>>[4m[38;5;1m<<diff removed token:: g>>[24m[39m<<diff::>>
-    [38;5;1m<<diff removed line_number::   6>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   6>>[39m<<diff::: == adds + removes ==>>
+    [2m[38;5;1m<<diff context removed line_number::   6>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   6>>[0m<<diff context::: == adds + removes ==>>
     [38;5;1m<<diff removed line_number::   7>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   7>>[39m<<diff::: a>>[4m[38;5;2m<<diff added token::>>[24m[39m
     [38;5;1m<<diff removed line_number::   7>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   8>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::X>>[24m[39m<<diff:: b >>[4m[38;5;1m<<diff removed token::c>>[24m[39m
     [38;5;1m<<diff removed line_number::   8>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   8>>[39m<<diff::: d>>[4m[38;5;1m<<diff removed token:: e>>[24m[39m<<diff::>>
-    [38;5;1m<<diff removed line_number::   9>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   9>>[39m<<diff::: == adds + removes + adds ==>>
+    [2m[38;5;1m<<diff context removed line_number::   9>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   9>>[0m<<diff context::: == adds + removes + adds ==>>
     [38;5;1m<<diff removed line_number::  10>>[39m<<diff::     : >>[38;5;1m<<diff removed::a b >>[4m<<diff removed token::c>>[24m[39m
     [38;5;1m<<diff removed line_number::  11>>[39m<<diff::     : >>[38;5;1m<<diff removed::d>>[4m<<diff removed token:: e>>[24m<<diff removed::>>[39m
     <<diff::     >>[38;5;2m<<diff added line_number::  10>>[39m<<diff::: >>[38;5;2m<<diff added::a >>[4m<<diff added token::X >>[24m<<diff added::b d>>[4m<<diff added token::>>[24m[39m
     <<diff::     >>[38;5;2m<<diff added line_number::  11>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::Y>>[24m<<diff added::>>[39m
-    [38;5;1m<<diff removed line_number::  12>>[39m<<diff:: >>[38;5;2m<<diff added line_number::  12>>[39m<<diff::: == adds + removes + adds + removes ==>>
+    [2m[38;5;1m<<diff context removed line_number::  12>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::  12>>[0m<<diff context::: == adds + removes + adds + removes ==>>
     [38;5;1m<<diff removed line_number::  13>>[39m<<diff::     : >>[38;5;1m<<diff removed::a b>>[4m<<diff removed token::>>[24m[39m
     [38;5;1m<<diff removed line_number::  14>>[39m<<diff::     : >>[4m[38;5;1m<<diff removed token::c>>[24m<<diff removed:: d e>>[4m<<diff removed token:: f g>>[24m<<diff removed::>>[39m
     <<diff::     >>[38;5;2m<<diff added line_number::  13>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::X >>[24m<<diff added::a >>[4m<<diff added token::Y >>[24m<<diff added::b d>>[4m<<diff added token::>>[24m[39m
@@ -1956,11 +1956,11 @@ fn test_diff_ignore_whitespace() {
     insta::assert_snapshot!(output, @r"
     [38;5;3mModified regular file file1:[39m
          [38;5;2m   1[39m: [4m[38;5;2m{[24m[39m
-    [38;5;1m   1[39m [38;5;2m   2[39m: [4m[38;5;2m    [24m[39mfoo {
-    [38;5;1m   2[39m [38;5;2m   3[39m:     [4m[38;5;2m    [24m[39mbar;
-    [38;5;1m   3[39m [38;5;2m   4[39m: [4m[38;5;2m    [24m[39m}
+    [2m[38;5;1m   1[0m [2m[38;5;2m   2[0m: [4m[38;5;2m    [24m[39mfoo {
+    [2m[38;5;1m   2[0m [2m[38;5;2m   3[0m:     [4m[38;5;2m    [24m[39mbar;
+    [2m[38;5;1m   3[0m [2m[38;5;2m   4[0m: [4m[38;5;2m    [24m[39m}
          [38;5;2m   5[39m: [4m[38;5;2m}[24m[39m
-    [38;5;1m   4[39m [38;5;2m   6[39m: baz {[4m[38;5;2m  [24m[39m}
+    [2m[38;5;1m   4[0m [2m[38;5;2m   6[0m: baz {[4m[38;5;2m  [24m[39m}
     [EOF]
     ");
     let output = work_dir.run_jj([
@@ -1973,9 +1973,9 @@ fn test_diff_ignore_whitespace() {
     [38;5;3mModified regular file file1:[39m
          [38;5;2m   1[39m: [4m[38;5;2m{[24m[39m
     [38;5;1m   1[39m [38;5;2m   2[39m: [4m[38;5;2m    [24m[39mfoo {
-    [38;5;1m   2[39m [38;5;2m   3[39m:     [4m[38;5;2m    [24m[39mbar;
+    [2m[38;5;1m   2[0m [2m[38;5;2m   3[0m:     [4m[38;5;2m    [24m[39mbar;
          [38;5;2m   4[39m: [4m[38;5;2m    }[24m[39m
-    [38;5;1m   3[39m [38;5;2m   5[39m: }
+    [2m[38;5;1m   3[0m [2m[38;5;2m   5[0m: }
     [38;5;1m   4[39m [38;5;2m   6[39m: baz {[4m[38;5;2m  [24m[39m}
     [EOF]
     ");
@@ -2554,8 +2554,8 @@ fn test_diff_conflict_sides_differ() {
     ");
     insta::assert_snapshot!(diff_color_words_materialized("base", "left1+right1"), @r"
     [38;5;3mCreated conflict in file:[39m
-    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
-    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+    [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
+    [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
          [38;5;2m   3[39m: [4m[38;5;2m<<<<<<< Conflict 1 of 1[24m[39m
          [38;5;2m   4[39m: [4m[38;5;2m+++++++ Contents of side #1[24m[39m
          [38;5;2m   5[39m: [4m[38;5;2mleft 3.1[24m[39m
@@ -2565,26 +2565,26 @@ fn test_diff_conflict_sides_differ() {
     [38;5;1m   3[39m [38;5;2m   9[39m: [4m[38;5;2m-[24m[39mline 3
          [38;5;2m  10[39m: [4m[38;5;2m+right 3.1[24m[39m
          [38;5;2m  11[39m: [4m[38;5;2m>>>>>>> Conflict 1 of 1 ends[24m[39m
-    [38;5;1m   4[39m [38;5;2m  12[39m: line 4
-    [38;5;1m   5[39m [38;5;2m  13[39m: line 5
+    [2m[38;5;1m   4[0m [2m[38;5;2m  12[0m: line 4
+    [2m[38;5;1m   5[0m [2m[38;5;2m  13[0m: line 5
     [EOF]
     ");
     insta::assert_snapshot!(diff_color_words_conflict_pair("base", "left1+right1"), @r"
     [38;5;3mCreated conflict in file:[39m
-    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
-    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+    [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
+    [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
     [38;5;6m<<<<<<< Created conflict[39m
     [38;5;6m+++++++ left side #1 to right side #1[39m
     [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m3.1[24m[39m
          [38;5;2m   4[39m: [4m[38;5;2mleft 3.2[24m[39m
     [38;5;1m   3[39m [38;5;2m   5[39m: [4m[38;5;2mleft 3.[24m[39m3
     [38;5;6m------- left side #1 to right base #1[39m
-    [38;5;2m   3[39m [38;5;1m   3[39m: line 3
+    [2m[38;5;2m   3[0m [2m[38;5;1m   3[0m: line 3
     [38;5;6m+++++++ left side #1 to right side #2[39m
     [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mline[38;5;2mright[24m[39m 3[4m[38;5;2m.1[24m[39m
     [38;5;6m>>>>>>> Conflict ends[39m
-    [38;5;1m   4[39m [38;5;2m   6[39m: line 4
-    [38;5;1m   5[39m [38;5;2m   7[39m: line 5
+    [2m[38;5;1m   4[0m [2m[38;5;2m   6[0m: line 4
+    [2m[38;5;1m   5[0m [2m[38;5;2m   7[0m: line 5
     [EOF]
     ");
 
@@ -2611,8 +2611,8 @@ fn test_diff_conflict_sides_differ() {
     ");
     insta::assert_snapshot!(diff_color_words_materialized("left1+right1", "base"), @r"
     [38;5;3mResolved conflict in file:[39m
-    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
-    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+    [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
+    [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
     [38;5;1m   3[39m     : [4m[38;5;1m<<<<<<< Conflict 1 of 1[24m[39m
     [38;5;1m   4[39m     : [4m[38;5;1m+++++++ Contents of side #1[24m[39m
     [38;5;1m   5[39m     : [4m[38;5;1mleft 3.1[24m[39m
@@ -2622,26 +2622,26 @@ fn test_diff_conflict_sides_differ() {
     [38;5;1m   9[39m [38;5;2m   3[39m: [4m[38;5;1m-[24m[39mline 3
     [38;5;1m  10[39m     : [4m[38;5;1m+right 3.1[24m[39m
     [38;5;1m  11[39m     : [4m[38;5;1m>>>>>>> Conflict 1 of 1 ends[24m[39m
-    [38;5;1m  12[39m [38;5;2m   4[39m: line 4
-    [38;5;1m  13[39m [38;5;2m   5[39m: line 5
+    [2m[38;5;1m  12[0m [2m[38;5;2m   4[0m: line 4
+    [2m[38;5;1m  13[0m [2m[38;5;2m   5[0m: line 5
     [EOF]
     ");
     insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "base"), @r"
     [38;5;3mResolved conflict in file:[39m
-    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
-    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+    [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
+    [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
     [38;5;6m<<<<<<< Resolved conflict[39m
     [38;5;6m+++++++ left side #1 to right side #1[39m
     [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mleft[38;5;2mline[24m[39m [4m[38;5;1m3.1[24m[39m
     [38;5;1m   4[39m     : [4m[38;5;1mleft 3.2[24m[39m
     [38;5;1m   5[39m [38;5;2m   3[39m: [4m[38;5;1mleft 3.[24m[39m3
     [38;5;6m------- left base #1 to right side #1[39m
-    [38;5;2m   3[39m [38;5;1m   3[39m: line 3
+    [2m[38;5;2m   3[0m [2m[38;5;1m   3[0m: line 3
     [38;5;6m+++++++ left side #2 to right side #1[39m
     [38;5;1m   3[39m [38;5;2m   3[39m: [4m[38;5;1mright[38;5;2mline[24m[39m 3[4m[38;5;1m.1[24m[39m
     [38;5;6m>>>>>>> Conflict ends[39m
-    [38;5;1m   6[39m [38;5;2m   4[39m: line 4
-    [38;5;1m   7[39m [38;5;2m   5[39m: line 5
+    [2m[38;5;1m   6[0m [2m[38;5;2m   4[0m: line 4
+    [2m[38;5;1m   7[0m [2m[38;5;2m   5[0m: line 5
     [EOF]
     ");
 
@@ -2666,31 +2666,31 @@ fn test_diff_conflict_sides_differ() {
     insta::assert_snapshot!(diff_color_words_materialized("left1+right1", "left2+right2"), @r"
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m [38;5;2m   1[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m1.[24m[39m1
-    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+    [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
         ...
-    [38;5;1m   7[39m [38;5;2m   7[39m: left 3.3
+    [2m[38;5;1m   7[0m [2m[38;5;2m   7[0m: left 3.3
          [38;5;2m   8[39m: [4m[38;5;2mleft 3.4[24m[39m
-    [38;5;1m   8[39m [38;5;2m   9[39m: %%%%%%% Changes from base to side #2
+    [2m[38;5;1m   8[0m [2m[38;5;2m   9[0m: %%%%%%% Changes from base to side #2
         ...
-    [38;5;1m  12[39m [38;5;2m  13[39m: line 4
+    [2m[38;5;1m  12[0m [2m[38;5;2m  13[0m: line 4
     [38;5;1m  13[39m     : [4m[38;5;1mline 5[24m[39m
     [EOF]
     ");
     insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @r"
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m [38;5;2m   1[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m1.[24m[39m1
-    [38;5;1m   2[39m [38;5;2m   2[39m: line 2
+    [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
     [38;5;6m<<<<<<< Modified conflict[39m
     [38;5;6m+++++++ left side #1 to right side #1[39m
         ...
-    [38;5;1m   5[39m [38;5;2m   5[39m: left 3.3
+    [2m[38;5;1m   5[0m [2m[38;5;2m   5[0m: left 3.3
          [38;5;2m   6[39m: [4m[38;5;2mleft 3.4[24m[39m
     [38;5;6m------- left base #1 to right base #1[39m
-    [38;5;2m   3[39m [38;5;1m   3[39m: line 3
+    [2m[38;5;2m   3[0m [2m[38;5;1m   3[0m: line 3
     [38;5;6m+++++++ left side #2 to right side #2[39m
-    [38;5;1m   3[39m [38;5;2m   3[39m: right 3.1
+    [2m[38;5;1m   3[0m [2m[38;5;2m   3[0m: right 3.1
     [38;5;6m>>>>>>> Conflict ends[39m
-    [38;5;1m   6[39m [38;5;2m   7[39m: line 4
+    [2m[38;5;1m   6[0m [2m[38;5;2m   7[0m: line 4
     [38;5;1m   7[39m     : [4m[38;5;1mline 5[24m[39m
     [EOF]
     ");
@@ -2833,19 +2833,19 @@ fn test_diff_conflict_bases_differ() {
     insta::assert_snapshot!(diff_color_words_materialized("left1+right1", "left2+right2"), @r"
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m     : [4m[38;5;1mline 1[24m[39m
-    [38;5;1m   2[39m [38;5;2m   1[39m: line 2
+    [2m[38;5;1m   2[0m [2m[38;5;2m   1[0m: line 2
         ...
-    [38;5;1m   8[39m [38;5;2m   7[39m: %%%%%%% Changes from base to side #2
+    [2m[38;5;1m   8[0m [2m[38;5;2m   7[0m: %%%%%%% Changes from base to side #2
     [38;5;1m   9[39m [38;5;2m   8[39m: -line 3[4m[38;5;2m.1[24m[39m
     [38;5;1m   9[39m [38;5;2m   9[39m: [4m[38;5;2m-line 3.2[24m[39m
-    [38;5;1m  10[39m [38;5;2m  10[39m: +right 3.1
+    [2m[38;5;1m  10[0m [2m[38;5;2m  10[0m: +right 3.1
         ...
     [EOF]
     ");
     insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @r"
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m     : [4m[38;5;1mline 1[24m[39m
-    [38;5;1m   2[39m [38;5;2m   1[39m: line 2
+    [2m[38;5;1m   2[0m [2m[38;5;2m   1[0m: line 2
     [38;5;6m<<<<<<< Modified conflict[39m
     [38;5;6m+++++++ left side #1 to right side #1[39m
         ...
@@ -2853,9 +2853,9 @@ fn test_diff_conflict_bases_differ() {
     [38;5;2m   3[39m [38;5;1m   2[39m: line 3[4m[38;5;1m.1[24m[39m
     [38;5;2m   3[39m [38;5;1m   3[39m: [4m[38;5;1mline 3.2[24m[39m
     [38;5;6m+++++++ left side #2 to right side #2[39m
-    [38;5;1m   3[39m [38;5;2m   2[39m: right 3.1
+    [2m[38;5;1m   3[0m [2m[38;5;2m   2[0m: right 3.1
     [38;5;6m>>>>>>> Conflict ends[39m
-    [38;5;1m   6[39m [38;5;2m   5[39m: line 4
+    [2m[38;5;1m   6[0m [2m[38;5;2m   5[0m: line 4
     [EOF]
     ");
 }
@@ -2996,22 +2996,22 @@ fn test_diff_conflict_three_sides() {
     ");
     insta::assert_snapshot!(diff_color_words_materialized("side1+side2", "side1+side2+side3"), @r"
     [38;5;3mModified conflict in file:[39m
-    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
-    [38;5;1m   2[39m [38;5;2m   2[39m: <<<<<<< Conflict 1 of 1
+    [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
+    [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: <<<<<<< Conflict 1 of 1
     [38;5;1m   3[39m [38;5;2m   3[39m: %%%%%%% Changes from base [4m[38;5;2m#1 [24m[39mto side #1
-    [38;5;1m   4[39m [38;5;2m   4[39m: -line 2 base
+    [2m[38;5;1m   4[0m [2m[38;5;2m   4[0m: -line 2 base
         ...
-    [38;5;1m  12[39m [38;5;2m  12[39m: line 4 b.2
+    [2m[38;5;1m  12[0m [2m[38;5;2m  12[0m: line 4 b.2
          [38;5;2m  13[39m: [4m[38;5;2m%%%%%%% Changes from base #2 to side #3[24m[39m
          [38;5;2m  14[39m: [4m[38;5;2m line 2 base[24m[39m
          [38;5;2m  15[39m: [4m[38;5;2m+line 3 c.2[24m[39m
-    [38;5;1m  13[39m [38;5;2m  16[39m: >>>>>>> Conflict 1 of 1 ends
-    [38;5;1m  14[39m [38;5;2m  17[39m: line 5
+    [2m[38;5;1m  13[0m [2m[38;5;2m  16[0m: >>>>>>> Conflict 1 of 1 ends
+    [2m[38;5;1m  14[0m [2m[38;5;2m  17[0m: line 5
     [EOF]
     ");
     insta::assert_snapshot!(diff_color_words_conflict_pair("side1+side2", "side1+side2+side3"), @r"
     [38;5;3mModified conflict in file:[39m
-    [38;5;1m   1[39m [38;5;2m   1[39m: line 1
+    [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
     [38;5;6m<<<<<<< Modified conflict[39m
     [38;5;6m+++++++ left side #1 to right side #1[39m
         ...
@@ -3029,7 +3029,7 @@ fn test_diff_conflict_three_sides() {
     [38;5;1m   4[39m [38;5;2m   2[39m: [4m[38;5;1mline 4 [24m[39mbase
          [38;5;2m   3[39m: [4m[38;5;2mline 3 c.2[24m[39m
     [38;5;6m>>>>>>> Conflict ends[39m
-    [38;5;1m   5[39m [38;5;2m   5[39m: line 5
+    [2m[38;5;1m   5[0m [2m[38;5;2m   5[0m: line 5
     [EOF]
     ");
 }

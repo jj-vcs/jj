@@ -46,6 +46,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `[colors]` table now supports `dim = true` attribute.
 
+* In color-words diffs, context line numbers are now rendered with decreased
+  intensity.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

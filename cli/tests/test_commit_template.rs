@@ -1155,8 +1155,8 @@ fn test_log_diff_predefined_formats() {
     insta::assert_snapshot!(output, @r"
     === color_words ===
     [38;5;3mModified regular file file1:[39m
-    [38;5;1m   1[39m [38;5;2m   1[39m: a
-    [38;5;1m   2[39m [38;5;2m   2[39m: b
+    [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: a
+    [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: b
          [38;5;2m   3[39m: [4m[38;5;2mc[24m[39m
     [38;5;3mModified regular file file2:[39m
     [38;5;1m   1[39m [38;5;2m   1[39m: [4m[38;5;1ma[38;5;2mb[24m[39m
@@ -1199,8 +1199,8 @@ fn test_log_diff_predefined_formats() {
     insta::assert_snapshot!(output, @r"
     <<log commit::=== color_words ===>>
     [38;5;3m<<log commit diff color_words header::Modified regular file file1:>>[39m
-    [38;5;1m<<log commit diff color_words removed line_number::   1>>[39m<<log commit diff color_words:: >>[38;5;2m<<log commit diff color_words added line_number::   1>>[39m<<log commit diff color_words::: a>>
-    [38;5;1m<<log commit diff color_words removed line_number::   2>>[39m<<log commit diff color_words:: >>[38;5;2m<<log commit diff color_words added line_number::   2>>[39m<<log commit diff color_words::: b>>
+    [2m[38;5;1m<<log commit diff color_words context removed line_number::   1>>[0m<<log commit diff color_words context:: >>[2m[38;5;2m<<log commit diff color_words context added line_number::   1>>[0m<<log commit diff color_words context::: a>>
+    [2m[38;5;1m<<log commit diff color_words context removed line_number::   2>>[0m<<log commit diff color_words context:: >>[2m[38;5;2m<<log commit diff color_words context added line_number::   2>>[0m<<log commit diff color_words context::: b>>
     <<log commit diff color_words::     >>[38;5;2m<<log commit diff color_words added line_number::   3>>[39m<<log commit diff color_words::: >>[4m[38;5;2m<<log commit diff color_words added token::c>>[24m[39m
     [38;5;3m<<log commit diff color_words header::Modified regular file file2:>>[39m
     [38;5;1m<<log commit diff color_words removed line_number::   1>>[39m<<log commit diff color_words:: >>[38;5;2m<<log commit diff color_words added line_number::   1>>[39m<<log commit diff color_words::: >>[4m[38;5;1m<<log commit diff color_words removed token::a>>[38;5;2m<<log commit diff color_words added token::b>>[24m[39m<<log commit diff color_words::>>

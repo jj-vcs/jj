@@ -92,7 +92,7 @@ fn test_show_basic() {
     [38;5;3m<<show commit description placeholder::    (no description set)>>[39m<<show commit::>>
     <<show commit::>>
     [38;5;3m<<diff header::Modified regular file file2:>>[39m
-    [38;5;1m<<diff removed line_number::   1>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   1>>[39m<<diff::: foo>>
+    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: foo>>
     <<diff::     >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::bar>>[24m[39m
     [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   3>>[39m<<diff::: baz >>[4m[38;5;1m<<diff removed token::qux>>[38;5;2m<<diff added token::quux>>[24m[39m<<diff::>>
     [38;5;3m<<diff header::Modified regular file file3 (file1 => file3):>>[39m

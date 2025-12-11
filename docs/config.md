@@ -290,6 +290,18 @@ can override the default style with the following keys:
 "diff token" = { reverse = true, underline = false }
 ```
 
+In color-words diffs, line numbers of context lines are rendered with decreased
+intensity to highlight changed lines. You can also decrease intensity of context
+contents.
+
+```toml
+[colors]
+# Dim context line numbers (default)
+"diff context line_number" = { dim = true }
+# Dim context line numbers and contents (applies to color-words and git diffs)
+"diff context" = { dim = true }
+```
+
 ### Diff format
 
 ```toml
