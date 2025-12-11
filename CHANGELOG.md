@@ -44,6 +44,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj git remote` family of commands now supports different fetch and push URLs.
 
+* `[colors]` table now supports `dim = true` attribute.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

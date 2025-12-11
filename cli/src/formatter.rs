@@ -279,6 +279,7 @@ pub struct Style {
     #[serde(deserialize_with = "deserialize_color_opt")]
     pub bg: Option<Color>,
     pub bold: Option<bool>,
+    pub dim: Option<bool>,
     pub italic: Option<bool>,
     pub underline: Option<bool>,
     pub reverse: Option<bool>,
@@ -289,6 +290,7 @@ impl Style {
         self.fg = other.fg.or(self.fg);
         self.bg = other.bg.or(self.bg);
         self.bold = other.bold.or(self.bold);
+        self.dim = other.dim.or(self.dim);
         self.italic = other.italic.or(self.italic);
         self.underline = other.underline.or(self.underline);
         self.reverse = other.reverse.or(self.reverse);
@@ -387,18 +389,28 @@ impl<W: Write> ColorFormatter<W> {
         };
         let new_style = self.requested_style();
         if new_style != self.current_style {
-            if new_style.bold != self.current_style.bold {
-                if new_style.bold.unwrap_or_default() {
-                    queue!(self.output, SetAttribute(Attribute::Bold))?;
-                } else {
-                    // NoBold results in double underlining on some terminals, so we use reset
-                    // instead. However, that resets other attributes as well, so we reset
-                    // our record of the current style so we re-apply the other attributes
-                    // below.
-                    queue!(self.output, SetAttribute(Attribute::Reset))?;
-                    self.current_style = Style::default();
-                }
+            // Bold and Dim change intensity, and NormalIntensity would reset
+            // both. Also, NoBold results in double underlining on some
+            // terminals. Therefore, we use Reset instead. However, that resets
+            // other attributes as well, so we reset our record of the current
+            // style so we re-apply the other attributes below. Maybe we can use
+            // NormalIntensity instead of Reset, but let's simply reset all
+            // attributes to work around potential terminal incompatibility.
+            let new_bold = new_style.bold.unwrap_or_default();
+            let new_dim = new_style.dim.unwrap_or_default();
+            if (new_style.bold != self.current_style.bold && !new_bold)
+                || (new_style.dim != self.current_style.dim && !new_dim)
+            {
+                queue!(self.output, SetAttribute(Attribute::Reset))?;
+                self.current_style = Style::default();
+            };
+            if new_style.bold != self.current_style.bold && new_bold {
+                queue!(self.output, SetAttribute(Attribute::Bold))?;
             }
+            if new_style.dim != self.current_style.dim && new_dim {
+                queue!(self.output, SetAttribute(Attribute::Dim))?;
+            }
+
             if new_style.italic != self.current_style.italic {
                 if new_style.italic.unwrap_or_default() {
                     queue!(self.output, SetAttribute(Attribute::Italic))?;
@@ -458,6 +470,7 @@ fn rules_from_config(config: &StackedConfig) -> Result<Rules, ConfigGetError> {
                         fg: Some(deserialize_color(value.into_deserializer())?),
                         bg: None,
                         bold: None,
+                        dim: None,
                         italic: None,
                         underline: None,
                         reverse: None,
@@ -957,6 +970,7 @@ mod tests {
         colors.red_fg = { fg = "red" }
         colors.blue_bg = { bg = "blue" }
         colors.bold_font = { bold = true }
+        colors.dim_font = { dim = true }
         colors.italic_text = { italic = true }
         colors.underlined_text = { underline = true }
         colors.reversed_colors = { reverse = true }
@@ -975,6 +989,10 @@ mod tests {
         writeln!(formatter).unwrap();
         formatter.push_label("bold_font");
         write!(formatter, " bold only ").unwrap();
+        formatter.pop_label();
+        writeln!(formatter).unwrap();
+        formatter.push_label("dim_font");
+        write!(formatter, " dim only ").unwrap();
         formatter.pop_label();
         writeln!(formatter).unwrap();
         formatter.push_label("italic_text");
@@ -1004,6 +1022,7 @@ mod tests {
         [38;5;1m fg only [39m
         [48;5;4m bg only [49m
         [1m bold only [0m
+        [2m dim only [0m
         [3m italic only [23m
         [4m underlined only [24m
         [7m reverse only [27m
@@ -1016,12 +1035,11 @@ mod tests {
     #[test]
     fn test_color_formatter_bold_reset() {
         // Test that we don't lose other attributes when we reset the bold attribute.
-        let config = config_from_string(
-            r#"
-        colors.not_bold = { fg = "red", bg = "blue", italic = true, underline = true }
-        colors.bold_font = { bold = true }
-        "#,
-        );
+        let config = config_from_string(indoc! {"
+            [colors]
+            not_bold = { fg = 'red', bg = 'blue', italic = true, underline = true }
+            bold_font = { bold = true }
+        "});
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
         formatter.push_label("not_bold");
@@ -1035,6 +1053,52 @@ mod tests {
         insta::assert_snapshot!(
             to_snapshot_string(output),
             @"[3m[4m[38;5;1m[48;5;4m not bold [1m bold [0m[3m[4m[38;5;1m[48;5;4m not bold again [23m[24m[39m[49m[EOF]");
+    }
+
+    #[test]
+    fn test_color_formatter_dim_reset() {
+        // Test that we don't lose other attributes when we reset the dim attribute.
+        let config = config_from_string(indoc! {"
+            [colors]
+            not_dim = { fg = 'red', bg = 'blue', italic = true, underline = true }
+            dim_font = { dim = true }
+        "});
+        let mut output: Vec<u8> = vec![];
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        formatter.push_label("not_dim");
+        write!(formatter, " not dim ").unwrap();
+        formatter.push_label("dim_font");
+        write!(formatter, " dim ").unwrap();
+        formatter.pop_label();
+        write!(formatter, " not dim again ").unwrap();
+        formatter.pop_label();
+        drop(formatter);
+        insta::assert_snapshot!(
+            to_snapshot_string(output),
+            @"[3m[4m[38;5;1m[48;5;4m not dim [2m dim [0m[3m[4m[38;5;1m[48;5;4m not dim again [23m[24m[39m[49m[EOF]");
+    }
+
+    #[test]
+    fn test_color_formatter_bold_to_dim() {
+        // Test that we don't lose bold when we reset the dim attribute.
+        let config = config_from_string(indoc! {"
+            [colors]
+            bold_font = { bold = true }
+            dim_font = { dim = true }
+        "});
+        let mut output: Vec<u8> = vec![];
+        let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
+        formatter.push_label("bold_font");
+        write!(formatter, " bold ").unwrap();
+        formatter.push_label("dim_font");
+        write!(formatter, " bold&dim ").unwrap();
+        formatter.pop_label();
+        write!(formatter, " bold again ").unwrap();
+        formatter.pop_label();
+        drop(formatter);
+        insta::assert_snapshot!(
+            to_snapshot_string(output),
+            @"[1m bold [2m bold&dim [0m[1m bold again [0m[EOF]");
     }
 
     #[test]

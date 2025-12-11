@@ -141,13 +141,13 @@ commit_id = "ansi-color-81"
 
 If you use a string value for a color, as in the examples above, it will be used
 for the foreground color. You can also set the background color, reverse colors
-(swap foreground and background), or make the text bold, italic, or underlined.
-For that, you need to use a table:
+(swap foreground and background), or make the text bold, dim, italic, or
+underlined. For that, you need to use a table:
 
 ```toml
 [colors]
 commit_id = { fg = "green", bg = "#ff1525", bold = true, underline = true }
-change_id = { reverse = true, italic = true }
+change_id = { reverse = true, dim = false, italic = true }
 ```
 
 The key names are called "labels". The above used `commit_id` as label. You can
