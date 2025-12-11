@@ -468,7 +468,7 @@ Added 0 files, modified 0 files, removed 1 files
 
 $ jj new -m ABC; printf 'A\nB\nc\n' > file
 Working copy  (@) now at: kwtuwqnm 6f30cd1f (empty) ABC
-Parent commit (@-)      : ztqrpvnw 51002261 ab
+Parent commit (@-)      : ztqrpvnw 51002261 abc
 
 $ jj new -m ABCD; printf 'A\nB\nC\nD\n' > file
 Working copy  (@) now at: mrxqplyk a6749154 (empty) ABCD
