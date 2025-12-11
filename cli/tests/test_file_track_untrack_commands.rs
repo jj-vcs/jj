@@ -102,7 +102,7 @@ fn test_track_untrack() {
     ");
 
     // Can untrack after adding to ignore patterns
-    work_dir.write_file(".gitignore", ".bak\ntarget/\n");
+    work_dir.write_file(".gitignore", "*.bak\ntarget/\n");
     let output = work_dir.run_jj(["file", "untrack", "target"]);
     insta::assert_snapshot!(output, @"");
     let files_after = work_dir.run_jj(["file", "list"]).success();
