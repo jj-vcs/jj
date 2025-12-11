@@ -48,6 +48,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
 
+* Pre-existing Git submodule directories are no longer considered conflicts in
+  checkouts. [#8065](https://github.com/jj-vcs/jj/issues/8065).
+
 ## [0.36.0] - 2025-12-03
 
 ### Release highlights
