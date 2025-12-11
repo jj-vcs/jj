@@ -37,7 +37,6 @@ use jj_lib::local_working_copy::LocalWorkingCopy;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateSettings;
 use jj_lib::merge::Merge;
-use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::MergedTreeBuilder;
 use jj_lib::op_store::OperationId;
@@ -106,12 +105,6 @@ fn check_vfat(dir: &Path) -> bool {
 
 fn to_owned_path_vec(paths: &[&RepoPath]) -> Vec<RepoPathBuf> {
     paths.iter().map(|&path| path.to_owned()).collect()
-}
-
-fn tree_entries(tree: &MergedTree) -> Vec<(RepoPathBuf, Option<MergedTreeValue>)> {
-    tree.entries()
-        .map(|(path, result)| (path, result.ok()))
-        .collect_vec()
 }
 
 #[test]
@@ -1030,7 +1023,7 @@ fn test_materialize_snapshot_unchanged_conflicts() {
     // Unchanged snapshot should be identical to the original even if "line 5"
     // could be deleted from all sides.
     let snapshotted_tree = test_workspace.snapshot().unwrap();
-    assert_eq!(tree_entries(&snapshotted_tree), tree_entries(&merged_tree));
+    assert_tree_eq!(snapshotted_tree, merged_tree);
 }
 
 #[test]
@@ -1196,7 +1189,7 @@ fn test_gitignores_in_ignored_dir() {
     testutils::write_working_copy_file(&workspace_root, ignored_path, "contents");
 
     let new_tree = test_workspace.snapshot().unwrap();
-    assert_eq!(tree_entries(&new_tree), tree_entries(&tree1));
+    assert_tree_eq!(new_tree, tree1);
 
     // The nested .gitignore is ignored even if it's tracked
     let tree2 = create_tree(
@@ -1215,7 +1208,7 @@ fn test_gitignores_in_ignored_dir() {
     locked_ws.finish(OperationId::from_hex("abc123")).unwrap();
 
     let new_tree = test_workspace.snapshot().unwrap();
-    assert_eq!(tree_entries(&new_tree), tree_entries(&tree2));
+    assert_tree_eq!(new_tree, tree2);
 }
 
 #[test]
@@ -1329,7 +1322,7 @@ fn test_gitignores_ignored_directory_already_tracked() {
         builder.symlink(unchanged_symlink_path, "contents");
         builder.symlink(modified_symlink_path, "modified");
     });
-    assert_eq!(tree_entries(&new_tree), tree_entries(&expected_tree));
+    assert_tree_eq!(new_tree, expected_tree);
 }
 
 #[test]
