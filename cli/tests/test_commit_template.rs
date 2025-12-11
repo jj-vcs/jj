@@ -1450,6 +1450,109 @@ fn test_log_diff_predefined_formats() {
 }
 
 #[test]
+fn test_log_diff_formatted_path() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a structure with nested directories.
+    work_dir.create_dir("src");
+    work_dir.create_dir("src/old");
+    work_dir.create_dir("src/new");
+    work_dir.write_file("src/old/file.rs", "content");
+    work_dir.write_file("src/common.rs", "content");
+    work_dir.write_file("top.txt", "content");
+    work_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    // Rename within nested directory (common prefix/suffix).
+    work_dir
+        .run_jj(["file", "track", "src/new/file.rs"])
+        .success();
+    work_dir.write_file("src/new/file.rs", "content");
+    std::fs::remove_file(work_dir.root().join("src/old/file.rs")).unwrap();
+    work_dir.run_jj(["commit", "-m", "rename nested"]).success();
+
+    // Rename at top level.
+    work_dir.run_jj(["file", "track", "renamed.txt"]).success();
+    work_dir.write_file("renamed.txt", "content");
+    std::fs::remove_file(work_dir.root().join("top.txt")).unwrap();
+    work_dir.run_jj(["commit", "-m", "rename top"]).success();
+
+    // Test formatted_path() shows compact format for renames.
+    let template = indoc! {r#"
+        concat(
+          description.first_line() ++ ":\n",
+          diff.files().map(|e| 
+            e.formatted_path() ++ " [" ++ e.status() ++ "]\n"
+          ).join(""),
+        )
+    "#};
+    let output = work_dir.run_jj(["log", "--no-graph", "-r", "::@- & ~root()", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    rename top:
+    {top.txt => renamed.txt} [renamed]
+    rename nested:
+    src/{old => new}/file.rs [renamed]
+    initial:
+    src/common.rs [added]
+    src/old/file.rs [added]
+    top.txt [added]
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_log_diff_status_char() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a structure with nested directories.
+    work_dir.create_dir("src");
+    work_dir.create_dir("src/old");
+    work_dir.create_dir("src/new");
+    work_dir.write_file("src/old/file.rs", "content");
+    work_dir.write_file("src/common.rs", "content");
+    work_dir.write_file("top.txt", "content");
+    work_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    // Rename within nested directory (common prefix/suffix).
+    work_dir
+        .run_jj(["file", "track", "src/new/file.rs"])
+        .success();
+    work_dir.write_file("src/new/file.rs", "content");
+    std::fs::remove_file(work_dir.root().join("src/old/file.rs")).unwrap();
+    work_dir.run_jj(["commit", "-m", "rename nested"]).success();
+
+    // Rename at top level.
+    work_dir.run_jj(["file", "track", "renamed.txt"]).success();
+    work_dir.write_file("renamed.txt", "content");
+    std::fs::remove_file(work_dir.root().join("top.txt")).unwrap();
+    work_dir.run_jj(["commit", "-m", "rename top"]).success();
+
+    let template = indoc! {r#"
+        concat(
+          description.first_line() ++ ":\n",
+          diff.files().map(|e| 
+            e.status_char() ++ " " ++ e.path() ++ "\n"
+          ).join(""),
+        )
+    "#};
+    let output = work_dir.run_jj(["log", "--no-graph", "-r", "::@- & ~root()", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    rename top:
+    R renamed.txt
+    rename nested:
+    R src/new/file.rs
+    initial:
+    A src/common.rs
+    A src/old/file.rs
+    A top.txt
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_file_list_entries() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
