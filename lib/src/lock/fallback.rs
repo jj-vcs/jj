@@ -59,6 +59,7 @@ impl Iterator for BackoffIterator {
 #[cfg_attr(all(unix, not(test)), expect(dead_code))]
 impl FileLock {
     pub fn lock(path: PathBuf) -> Result<Self, FileLockError> {
+        tracing::info!("Attempting to lock {path:?}");
         let mut options = OpenOptions::new();
         options.create_new(true);
         options.write(true);
@@ -91,6 +92,7 @@ impl FileLock {
                     });
                 }
             }
+            tracing::info!("Locked {path:?}");
         }
     }
 }

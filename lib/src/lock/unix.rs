@@ -29,6 +29,7 @@ pub struct FileLock {
 
 impl FileLock {
     pub fn lock(path: PathBuf) -> Result<Self, FileLockError> {
+        tracing::info!("Attempting to lock {path:?}");
         loop {
             // Create lockfile, or open pre-existing one
             let file = File::create(&path).map_err(|err| FileLockError {
@@ -72,6 +73,7 @@ impl FileLock {
                 }
             }
 
+            tracing::info!("Locked {path:?}");
             return Ok(Self { path, file });
         }
     }
