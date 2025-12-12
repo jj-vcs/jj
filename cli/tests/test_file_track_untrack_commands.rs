@@ -212,18 +212,51 @@ fn test_track_ignored() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
+    // Trackable files exist but auto-tracking is not enabled
     work_dir.write_file(".gitignore", "*.bak\n");
     work_dir.write_file("file1", "initial");
     work_dir.write_file("file1.bak", "initial");
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @"");
+
+    // Create a descendant, updates will be seen as rebases
+    work_dir.run_jj(["new", "--no-edit"]).success();
 
     // Track an unignored path
+    // TODO: fix GH #8298 so tracking is immediate
     let output = work_dir.run_jj(["file", "track", "file1"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1
     [EOF]
+    ------- stderr -------
+    Rebased 1 descendant commits onto updated working copy
+    [EOF]
     ");
+
+    // Track another unignored path
+    work_dir.write_file("file2", "initial");
+    let output = work_dir.run_jj(["file", "track", "file2"]);
+    insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @"
+    file1
+    file2
+    [EOF]
+    ------- stderr -------
+    Rebased 1 descendant commits onto updated working copy
+    [EOF]
+    ");
+
+    // Now untrack the file; eviction is immediate and affects descendants
+    let output = work_dir.run_jj(["file", "untrack", "file2"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Rebased 1 descendant commits
+    [EOF]
+    ");
+
     // Track an ignored path without --include-ignored (should not work)
     let output = work_dir.run_jj(["file", "track", "file1.bak"]);
     insta::assert_snapshot!(output, @"");
