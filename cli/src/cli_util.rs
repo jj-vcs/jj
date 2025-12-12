@@ -1123,6 +1123,7 @@ impl WorkspaceCommandHelper {
         // Acquire git import/export lock once for the entire import/snapshot/export
         // cycle. This prevents races with other processes during Git HEAD and
         // refs import/export.
+        #[cfg_attr(not(feature = "git"), allow(unused_variables))]
         let git_import_export_lock = self
             .lock_git_import_export()
             .map_err(snapshot_command_error)?;
@@ -2951,6 +2952,7 @@ pub fn update_working_copy(
 }
 
 /// Returns the special remote name that should be ignored by default.
+#[cfg_attr(not(feature = "git"), expect(unused_variables))]
 pub fn default_ignored_remote_name(store: &Store) -> Option<&'static RemoteName> {
     #[cfg(feature = "git")]
     {
