@@ -29,6 +29,9 @@ use crate::ui::Ui;
 
 /// Start tracking given remote bookmarks
 ///
+/// This command can be used to track remote bookmarks that already exist on the
+/// remote, or to set up tracking for local bookmarks before pushing them.
+///
 /// A tracking remote bookmark will be imported as a local bookmark of the same
 /// name. Changes to it will propagate to the existing local bookmark on future
 /// pulls.
