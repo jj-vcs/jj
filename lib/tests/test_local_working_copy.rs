@@ -883,24 +883,24 @@ fn test_materialize_snapshot_conflicted_files() {
     insta::assert_snapshot!(
         std::fs::read_to_string(file1_path.to_fs_path_unchecked(&workspace_root)).ok().unwrap(),
         @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% side #1 compared with base
     -b
     +a
-    +++++++ Contents of side #2
+    +++++++ side #2
     c
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     ");
     insta::assert_snapshot!(
         std::fs::read_to_string(file2_path.to_fs_path_unchecked(&workspace_root)).ok().unwrap(),
         @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% side #1 compared with base
     -2
     +1
-    +++++++ Contents of side #2
+    +++++++ side #2
     4
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     ");
 
     // Editing a conflicted file should correctly propagate updates to each of
@@ -909,13 +909,13 @@ fn test_materialize_snapshot_conflicted_files() {
         &workspace_root,
         file1_path,
         indoc! {"
-            <<<<<<< Conflict 1 of 1
-            %%%%%%% Changes from base to side #1
+            <<<<<<< conflict 1 of 1
+            %%%%%%% side #1 compared with base
             -b_edited
             +a_edited
-            +++++++ Contents of side #2
+            +++++++ side #2
             c_edited
-            >>>>>>> Conflict 1 of 1 ends
+            >>>>>>> conflict 1 of 1 ends
         "},
     );
 
@@ -1003,15 +1003,15 @@ fn test_materialize_snapshot_unchanged_conflicts() {
     insta::assert_snapshot!(materialized_content, @r"
     line 1
     line 2
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ side #1
     left 3.1
     left 3.2
     left 3.3
-    %%%%%%% Changes from base to side #2
+    %%%%%%% side #2 compared with base
     -line 3
     +right 3.1
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 4
     ");
 
@@ -1039,6 +1039,22 @@ fn test_materialize_snapshot_unchanged_conflicts() {
             ..CheckoutStats::default()
         }
     );
+    let disk_path = file_path.to_fs_path_unchecked(&workspace_root);
+    let materialized_content = std::fs::read_to_string(&disk_path).unwrap();
+    insta::assert_snapshot!(materialized_content, @r"
+    line 1
+    line 2
+    <<<<<<< conflict 1 of 1
+    +++++++ left label
+    left 3.1
+    left 3.2
+    left 3.3
+    %%%%%%% right label compared with base label
+    -line 3
+    +right 3.1
+    >>>>>>> conflict 1 of 1 ends
+    line 4
+    ");
 
     // Update mtime to bypass file state comparison.
     let file = File::options().write(true).open(&disk_path).unwrap();
