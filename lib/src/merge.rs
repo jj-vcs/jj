@@ -68,6 +68,14 @@ impl<T> Diff<T> {
         }
     }
 
+    /// Combine a `Diff<T>` and a `Diff<U>` into a `Diff<(T, U)>`.
+    pub fn zip<U>(self, other: Diff<U>) -> Diff<(T, U)> {
+        Diff {
+            before: (self.before, other.before),
+            after: (self.after, other.after),
+        }
+    }
+
     /// Convert a `&Diff<T>` into a `Diff<&T>`.
     pub fn as_ref(&self) -> Diff<&T> {
         Diff {
@@ -930,6 +938,31 @@ mod tests {
     use test_case::test_case;
 
     use super::*;
+
+    #[test]
+    fn test_diff_map() {
+        let diff = Diff::new(1, 2);
+        assert_eq!(diff.map(|x| x + 2), Diff::new(3, 4));
+    }
+
+    #[test]
+    fn test_diff_zip() {
+        let diff1 = Diff::new(1, 2);
+        let diff2 = Diff::new(3, 4);
+        assert_eq!(diff1.zip(diff2), Diff::new((1, 3), (2, 4)));
+    }
+
+    #[test]
+    fn test_diff_as_ref() {
+        let diff = Diff::new(1, 2);
+        assert_eq!(diff.as_ref(), Diff::new(&1, &2));
+    }
+
+    #[test]
+    fn test_diff_into_array() {
+        let diff = Diff::new(1, 2);
+        assert_eq!(diff.into_array(), [1, 2]);
+    }
 
     fn c<T: Clone>(terms: &[T]) -> Merge<T> {
         Merge::from_vec(terms.to_vec())
