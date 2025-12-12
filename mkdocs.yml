@@ -138,6 +138,7 @@ nav: # This lists all the files that become part of the documentation
       - Glossary: 'glossary.md'
 
   - Guides:
+      - Configuring revsets.log: 'guides/revsets.md'
       - Divergent changes: 'guides/divergence.md'
       - Multiple remotes: 'guides/multiple-remotes.md'
 
