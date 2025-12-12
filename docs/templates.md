@@ -353,9 +353,10 @@ The following methods are defined. See also the `List` type.
 
 _Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
 
-The following methods are defined. See also the `List` type.
+The following methods are defined.
 
-* `.join(separator: Template) -> Template`
+* `.join(separator: Template) -> Template`: Concatenate elements with
+  the given `separator`.
 
 ### `Operation` type
 
