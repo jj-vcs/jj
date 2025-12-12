@@ -67,6 +67,7 @@ impl FileLock {
         loop {
             match options.open(&path) {
                 Ok(file) => {
+                    tracing::info!("Locked {path:?}");
                     return Ok(Self { path, _file: file });
                 }
                 Err(err)
@@ -92,7 +93,6 @@ impl FileLock {
                     });
                 }
             }
-            tracing::info!("Locked {path:?}");
         }
     }
 }
