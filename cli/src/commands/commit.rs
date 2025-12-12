@@ -37,7 +37,10 @@ use crate::ui::Ui;
 /// When called without path arguments or `--interactive`, `jj commit` is
 /// equivalent to `jj describe` followed by `jj new`.
 ///
-/// Otherwise, this command is very similar to `jj split`. Differences include:
+/// When using `--interactive` or path arguments, the selected changes stay in
+/// the current commit while the remaining changes are moved to a new
+/// working-copy commit on top. This is very similar to `jj split`. Differences
+/// include:
 ///
 /// * `jj commit` is not interactive by default (it selects all changes).
 ///
@@ -51,7 +54,7 @@ use crate::ui::Ui;
 ///   destination with `-d/-A/-B`.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct CommitArgs {
-    /// Interactively choose which changes to include in the first commit
+    /// Interactively choose which changes to include in the current commit
     #[arg(short, long)]
     interactive: bool,
     /// Specify diff editor to be used (implies --interactive)
@@ -70,7 +73,7 @@ pub(crate) struct CommitArgs {
     /// message to be edited afterwards.
     #[arg(long)]
     editor: bool,
-    /// Put these paths in the first commit
+    /// Put these paths in the current commit
     #[arg(
         value_name = "FILESETS",
         value_hint = clap::ValueHint::AnyPath,
