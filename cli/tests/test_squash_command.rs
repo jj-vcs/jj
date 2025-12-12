@@ -903,10 +903,10 @@ fn test_squash_from_multiple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon 0b695306 f | (no description set)
-    Parent commit (@-)      : yostqsxw ff064d52 e | (no description set)
+    Working copy  (@) now at: kpqxywon fa5b07b0 f | (no description set)
+    Parent commit (@-)      : yostqsxw 965f3271 e | (no description set)
     New conflicts appeared in 1 commits:
-      yqosqzyt 61130da4 d | (conflict) (no description set)
+      yqosqzyt 3c1ddba3 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yqosqzyt
@@ -916,10 +916,10 @@ fn test_squash_from_multiple() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  0b6953066ee0 f
-    ○    ff064d529578 e
+    @  fa5b07b07641 f
+    ○    965f327168e5 e
     ├─╮
-    × │  61130da4e714 d
+    × │  3c1ddba3d22a d
     ├─╯
     ○  e88768e65e67 a b c
     ◆  000000000000 (empty)
@@ -1047,10 +1047,10 @@ fn test_squash_from_multiple_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon a724910c f | (no description set)
-    Parent commit (@-)      : yostqsxw 1bc405e1 e | (no description set)
+    Working copy  (@) now at: kpqxywon 13b389e0 f | (no description set)
+    Parent commit (@-)      : yostqsxw 33ae56e6 e | (no description set)
     New conflicts appeared in 1 commits:
-      yqosqzyt 7ddfe685 d | (conflict) (no description set)
+      yqosqzyt 94f41295 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yqosqzyt
@@ -1060,13 +1060,13 @@ fn test_squash_from_multiple_partial() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  a724910cd361 f
-    ○      1bc405e12b68 e
+    @  13b389e04d73 f
+    ○      33ae56e662fa e
     ├─┬─╮
     │ │ ○  e9db15b956c4 b
     │ ○ │  83cbe51db94d c
     │ ├─╯
-    × │  7ddfe6857387 d
+    × │  94f41295b5b2 d
     ├─╯
     ○  64ea60be8d77 a
     ◆  000000000000 (empty)

@@ -34,10 +34,10 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
-    │  -- operation ae9fa2e2ea1c snapshot working copy
-    ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 1d598134 conflict
+    │  -- operation fcc7231dc6f4 snapshot working copy
+    ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 df4e3d3f conflict
     │  my description
-    │  -- operation b5bfb716eb6f rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    │  -- operation 332441aa1cc4 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
     │  my description
     │  -- operation 826347115e2d snapshot working copy
@@ -52,10 +52,10 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:10[39m [38;5;12m3[38;5;8m3c10ace[39m[0m
     │  [1mmy description[0m
-    │  [38;5;8m--[39m operation [38;5;4mae9fa2e2ea1c[39m snapshot working copy
-    [1m[38;5;1m×[0m  [1m[39mr[0m[38;5;8mlvkpnrz[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:09[39m [1m[38;5;4m1[0m[38;5;8md598134[39m [38;5;1mconflict[39m
+    │  [38;5;8m--[39m operation [38;5;4mfcc7231dc6f4[39m snapshot working copy
+    [1m[38;5;1m×[0m  [1m[39mr[0m[38;5;8mlvkpnrz[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:09[39m [1m[38;5;4md[0m[38;5;8mf4e3d3f[39m [38;5;1mconflict[39m
     │  my description
-    │  [38;5;8m--[39m operation [38;5;4mb5bfb716eb6f[39m rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    │  [38;5;8m--[39m operation [38;5;4m332441aa1cc4[39m rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     ○  [1m[39mr[0m[38;5;8mlvkpnrz[39m hidden [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:09[39m [1m[38;5;4m5[0m[38;5;8m1e08f95[39m
     │  my description
     │  [38;5;8m--[39m operation [38;5;4m826347115e2d[39m snapshot working copy
@@ -71,7 +71,7 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
-    │  -- operation ae9fa2e2ea1c snapshot working copy
+    │  -- operation fcc7231dc6f4 snapshot working copy
     │  Resolved conflict in file1:
     │     1     : <<<<<<< Conflict 1 of 1
     │     2     : %%%%%%% Changes from base to side #1
@@ -80,9 +80,9 @@ fn test_evolog_with_or_without_diff() {
     │     5     : foo
     │     6     : bar
     │     7    1: >>>>>>> Conflict 1 of 1 endsresolved
-    ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 1d598134 conflict
+    ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 df4e3d3f conflict
     │  my description
-    │  -- operation b5bfb716eb6f rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    │  -- operation 332441aa1cc4 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
     │  my description
     │  -- operation 826347115e2d snapshot working copy
@@ -104,10 +104,10 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
-    │  -- operation ae9fa2e2ea1c snapshot working copy
-    ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 1d598134 conflict
+    │  -- operation fcc7231dc6f4 snapshot working copy
+    ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 df4e3d3f conflict
     │  my description
-    │  -- operation b5bfb716eb6f rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    │  -- operation 332441aa1cc4 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     ○  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
     │  my description
     │  -- operation 826347115e2d snapshot working copy
@@ -128,10 +128,10 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
-    │  -- operation ae9fa2e2ea1c snapshot working copy
-    ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 1d598134 conflict
+    │  -- operation fcc7231dc6f4 snapshot working copy
+    ×  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 df4e3d3f conflict
     │  my description
-    │  -- operation b5bfb716eb6f rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    │  -- operation 332441aa1cc4 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     [EOF]
     ");
 
@@ -140,10 +140,10 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     my description
-    -- operation ae9fa2e2ea1c snapshot working copy
-    rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 1d598134 conflict
+    -- operation fcc7231dc6f4 snapshot working copy
+    rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 df4e3d3f conflict
     my description
-    -- operation b5bfb716eb6f rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    -- operation 332441aa1cc4 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
     my description
     -- operation 826347115e2d snapshot working copy
@@ -158,7 +158,7 @@ fn test_evolog_with_or_without_diff() {
     insta::assert_snapshot!(output, @r"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     my description
-    -- operation ae9fa2e2ea1c snapshot working copy
+    -- operation fcc7231dc6f4 snapshot working copy
     diff --git a/file1 b/file1
     index 0000000000..2ab19ae607 100644
     --- a/file1
@@ -172,9 +172,9 @@ fn test_evolog_with_or_without_diff() {
     -bar
     ->>>>>>> Conflict 1 of 1 ends
     +resolved
-    rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 1d598134 conflict
+    rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 df4e3d3f conflict
     my description
-    -- operation b5bfb716eb6f rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    -- operation 332441aa1cc4 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
     my description
     -- operation 826347115e2d snapshot working copy
@@ -293,10 +293,10 @@ fn test_evolog_with_custom_symbols() {
     insta::assert_snapshot!(output, @r"
     $  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
-    │  -- operation a51c9c093002 snapshot working copy
-    ┝  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 1d598134 conflict
+    │  -- operation b9ca3f788a15 snapshot working copy
+    ┝  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 df4e3d3f conflict
     │  my description
-    │  -- operation b5bfb716eb6f rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
+    │  -- operation 332441aa1cc4 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
     ┝  rlvkpnrz hidden test.user@example.com 2001-02-03 08:05:09 51e08f95
     │  my description
     │  -- operation 826347115e2d snapshot working copy

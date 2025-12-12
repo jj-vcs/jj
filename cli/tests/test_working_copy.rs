@@ -360,7 +360,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // Working copy should contain conflict marker length
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("53f0bb27f3ac96896abd48a5fb0fdfcf4e61389a70290468a2e1ec1db5389661fc6e4aec6c1d03f1bd7db07cafa9f6a802dc5e78c936c09e7dbd9aea1b4ea2fa")
+    Current operation: OperationId("59ba1be8db3688eece33e958b8b0713ca0c1f9211d65257664c105a152effb91d2b99141f9eb59b88a6206086e179a88dd35db6e5b5c6a449a964fbde2aeabe8")
     Current tree: MergedTree { tree_ids: Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("f56b8223da0dab22b03b8323ced4946329aeb4e0")]), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }           249 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
     [EOF]
@@ -394,7 +394,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     insta::assert_snapshot!(output, @r"
     Working copy changes:
     M file
-    Working copy  (@) : mzvwutvl 0cb93a38 (conflict) (no description set)
+    Working copy  (@) : mzvwutvl 45f2eb9f (conflict) (no description set)
     Parent commit (@-): rlvkpnrz ccf9527c side-a
     Parent commit (@-): zsuskuln d7acaf48 side-b
     Warning: There are unresolved conflicts at these paths:
@@ -423,7 +423,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // Working copy should still contain conflict marker length
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("d9ace267ba6a972d19d345fadcfa2177f42e4ea6c11ff4a44e70c034322c233372edfe6169e14292f0cc5d43d43c42329a7a0fa8231b524a43a73fba96b8f114")
+    Current operation: OperationId("614158230874ac3f9fe3c613cc816c709b59bbb42a1e8ae35c6f369ce3b45e13d9756e972d4a2b2442c5bac0469e2397d4f955a8661bb4aba029c3554a81dad3")
     Current tree: MergedTree { tree_ids: Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("3329c18c95f7b7a55c278c2259e9c4ce711fae59")]), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }           289 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
     [EOF]
@@ -458,7 +458,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // working copy
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("77a5650168d075d4b3171483acafab04e2822ae3ff1d30d2cdb1ae4bcb6d7739439847891752cc9408a356438e0762a8acc4ae9473c0a9c06619ea71d60984a0")
+    Current operation: OperationId("10477d6aa0830aa2c2b451802cb108a3a9952735d9b13ef34eb01ccefaef162620d27380e88489ed6114ed7bdf6763915907a814a6c5afbf92c85924507179f7")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("6120567b3cb2472d549753ed3e4b84183d52a650")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }           130 <timestamp> None "file"
     [EOF]
@@ -536,4 +536,80 @@ fn test_submodule_ignored() {
     // copy.
     let output = work_dir.run_jj(["diff", "--summary"]);
     insta::assert_snapshot!(output, @"");
+}
+
+#[test]
+fn test_snapshot_jjconflict_trees() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "repo", "--colocate"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a conflict in the working copy
+    work_dir.write_file(
+        "file",
+        indoc! {"
+            line 1
+            line 2
+            line 3
+        "},
+    );
+    work_dir.run_jj(["new", "-m", "side-a"]).success();
+    work_dir.write_file(
+        "file",
+        indoc! {"
+            line 1
+            line 2 - left
+            line 3 - left
+        "},
+    );
+    work_dir
+        .run_jj(["new", "description(side-a)-", "-m", "side-b"])
+        .success();
+    work_dir.write_file(
+        "file",
+        indoc! {"
+            line 1
+            line 2 - right
+            line 3
+        "},
+    );
+    work_dir.run_jj(["new"]).success();
+    work_dir
+        .run_jj([
+            "rebase",
+            "-s",
+            "description(side-b)",
+            "-o",
+            "description(side-a)",
+        ])
+        .success();
+
+    // Run `git reset --hard HEAD` to simulate checking out the branch with Git.
+    let output = std::process::Command::new("git")
+        .current_dir(work_dir.root())
+        .args(["reset", "--hard", "HEAD"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    // We should see a warning regarding '.jjconflict' trees being checked out.
+    let output = work_dir.run_jj(["st"]);
+    insta::assert_snapshot!(output.to_string().replace('\\', "/"), @r"
+    Working copy changes:
+    A .jjconflict-base-0/file
+    A .jjconflict-side-0/file
+    A .jjconflict-side-1/file
+    A JJ-CONFLICT-README
+    M file
+    Working copy  (@) : zsuskuln 861b04e9 (no description set)
+    Parent commit (@-): kkmpptxz 3cf34b9e (conflict) side-b
+    Hint: Conflict in parent commit has been resolved in working copy
+    [EOF]
+    ------- stderr -------
+    Warning: The working copy contains '.jjconflict' files, which probably means that you used a regular `git` command to check out a conflicted commit.
+    Hint: You can use `jj abandon` to discard the working copy changes.
+    [EOF]
+    ");
 }
