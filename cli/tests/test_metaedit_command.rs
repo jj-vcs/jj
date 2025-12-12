@@ -641,10 +641,10 @@ fn test_new_change_id() {
     ○  yqosqzyt test.user@example.com 2001-02-03 08:05:13 b 01d6741e
     │  (no description set)
     │  -- operation adf0af78a0fd edit commit metadata for commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
-    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:11 75591b18
+    ○  kkmpptxz/0 hidden test.user@example.com 2001-02-03 08:05:11 75591b18
     │  (no description set)
     │  -- operation 4b33c26502f8 snapshot working copy
-    ○  kkmpptxz hidden test.user@example.com 2001-02-03 08:05:09 acebf2bd
+    ○  kkmpptxz/1 hidden test.user@example.com 2001-02-03 08:05:09 acebf2bd
        (empty) (no description set)
        -- operation 686c6e44c08d new empty commit
     [EOF]
@@ -653,10 +653,10 @@ fn test_new_change_id() {
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:13 c 0c3fe2d8
     │  (no description set)
     │  -- operation adf0af78a0fd edit commit metadata for commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
-    ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:13 22be6c4e
+    ○  mzvwutvl/1 hidden test.user@example.com 2001-02-03 08:05:13 22be6c4e
     │  (no description set)
     │  -- operation 92fee3ece32c snapshot working copy
-    ○  mzvwutvl hidden test.user@example.com 2001-02-03 08:05:11 b9f5490a
+    ○  mzvwutvl/2 hidden test.user@example.com 2001-02-03 08:05:11 b9f5490a
        (empty) (no description set)
        -- operation e3fbc5040416 new empty commit
     [EOF]

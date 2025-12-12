@@ -18,6 +18,7 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::backend::ChangeId;
@@ -196,13 +197,87 @@ impl dyn MutableIndex {
     }
 }
 
+/// The state of a commit with a given change ID.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum ResolvedChangeState {
+    /// The commit is visible (reachable from the visible heads).
+    Visible,
+    /// The commit is hidden (not reachable from the visible heads).
+    Hidden,
+}
+
+/// Represents the possible target commits of a resolved change ID. If the
+/// change is divergent, there may be multiple visible commits. Hidden commits
+/// can also be returned to allow showing a change offset number in the evolog.
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct ResolvedChangeTargets {
+    /// All indexed commits with this change ID. The sort order of the commits
+    /// is determined by the index implementation, but it is preferred that more
+    /// recent commits should be sorted before later commits when possible. All
+    /// visible commits must be included, but some hidden commits may be omitted
+    /// if it would be inefficient for the index to support them.
+    pub targets: Vec<(CommitId, ResolvedChangeState)>,
+}
+
+impl ResolvedChangeTargets {
+    /// Returns an iterator over all visible commits for this change ID, as well
+    /// as their offsets.
+    pub fn visible_with_offsets(&self) -> impl Iterator<Item = (usize, &CommitId)> {
+        self.targets
+            .iter()
+            .enumerate()
+            .filter_map(|(i, (target, state))| {
+                (*state == ResolvedChangeState::Visible).then_some((i, target))
+            })
+    }
+
+    /// Returns true if the commit ID is one of the visible targets of this
+    /// change ID.
+    pub fn has_visible(&self, commit: &CommitId) -> bool {
+        self.visible_with_offsets()
+            .any(|(_, target)| target == commit)
+    }
+
+    /// Returns true if there are multiple visible targets for this change ID.
+    pub fn is_divergent(&self) -> bool {
+        self.visible_with_offsets().take(2).count() > 1
+    }
+
+    /// Returns the commit ID at a given offset. The change offset of a commit
+    /// can be found using [`ResolvedChangeTargets::find_offset`].
+    pub fn at_offset(&self, offset: usize) -> Option<&CommitId> {
+        self.targets.get(offset).map(|(target, _state)| target)
+    }
+
+    /// Finds the change offset corresponding to a commit. Newer commits should
+    /// generally have a lower offset than older commits, but this is not
+    /// guaranteed. Hidden commits may not have an offset at all.
+    pub fn find_offset(&self, commit_id: &CommitId) -> Option<usize> {
+        self.targets
+            .iter()
+            .position(|(target, _state)| target == commit_id)
+    }
+
+    /// Extracts the visible commits for this change ID. Returns `None` if there
+    /// are no visible commits with this change ID.
+    pub fn into_visible(self) -> Option<Vec<CommitId>> {
+        let visible = self
+            .targets
+            .into_iter()
+            .filter_map(|(target, state)| (state == ResolvedChangeState::Visible).then_some(target))
+            .collect_vec();
+        (!visible.is_empty()).then_some(visible)
+    }
+}
+
 /// Defines the interface for types that provide an index of the commits in a
 /// repository by [`ChangeId`].
 pub trait ChangeIdIndex: Send + Sync {
     /// Resolve an unambiguous change ID prefix to the commit IDs in the index.
-    ///
-    /// The order of the returned commit IDs is unspecified.
-    fn resolve_prefix(&self, prefix: &HexPrefix) -> IndexResult<PrefixResolution<Vec<CommitId>>>;
+    fn resolve_prefix(
+        &self,
+        prefix: &HexPrefix,
+    ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>>;
 
     /// This function returns the shortest length of a prefix of `key` that
     /// disambiguates it from every other key in the index.

@@ -36,6 +36,7 @@ use crate::commit::CommitIteratorExt as _;
 use crate::commit_builder::CommitBuilder;
 use crate::index::Index;
 use crate::index::IndexResult;
+use crate::index::ResolvedChangeTargets;
 use crate::iter_util::fallible_any;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
@@ -1297,6 +1298,7 @@ pub fn find_duplicate_divergent_commits(
                 .resolve_change_id(target_commit.change_id())
                 // TODO: indexing error shouldn't be a "BackendError"
                 .map_err(|err| BackendError::Other(err.into()))?
+                .and_then(ResolvedChangeTargets::into_visible)
                 .unwrap_or_default();
             ancestor_candidates.retain(|commit_id| !target_commit_ids.contains(commit_id));
             Ok((target_commit, ancestor_candidates))

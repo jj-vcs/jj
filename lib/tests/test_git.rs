@@ -58,6 +58,7 @@ use jj_lib::git::expand_default_fetch_refspecs;
 use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::hex_util;
+use jj_lib::index::ResolvedChangeTargets;
 use jj_lib::merge::Merge;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::LocalRemoteRefTarget;
@@ -4623,11 +4624,15 @@ fn test_rewrite_imported_commit() {
 
     // The index should be consistent with the store.
     assert_eq!(
-        repo.resolve_change_id(imported_commit.change_id()).unwrap(),
+        repo.resolve_change_id(imported_commit.change_id())
+            .unwrap()
+            .and_then(ResolvedChangeTargets::into_visible),
         Some(vec![imported_commit.id().clone()]),
     );
     assert_eq!(
-        repo.resolve_change_id(authored_commit.change_id()).unwrap(),
+        repo.resolve_change_id(authored_commit.change_id())
+            .unwrap()
+            .and_then(ResolvedChangeTargets::into_visible),
         Some(vec![authored_commit.id().clone()]),
     );
 }
@@ -4689,7 +4694,9 @@ fn test_concurrent_write_commit() {
         assert!(repo.index().has_id(commit_id).unwrap());
         let commit = repo.store().get_commit(commit_id).unwrap();
         assert_eq!(
-            repo.resolve_change_id(commit.change_id()).unwrap(),
+            repo.resolve_change_id(commit.change_id())
+                .unwrap()
+                .and_then(ResolvedChangeTargets::into_visible),
             Some(vec![commit_id.clone()]),
         );
     }
@@ -4815,7 +4822,9 @@ fn test_concurrent_read_write_commit() {
         assert!(repo.index().has_id(commit_id).unwrap());
         let commit = repo.store().get_commit(commit_id).unwrap();
         assert_eq!(
-            repo.resolve_change_id(commit.change_id()).unwrap(),
+            repo.resolve_change_id(commit.change_id())
+                .unwrap()
+                .and_then(ResolvedChangeTargets::into_visible),
             Some(vec![commit_id.clone()]),
         );
     }

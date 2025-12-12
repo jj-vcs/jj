@@ -352,18 +352,20 @@ $ jj evolog
 @  lnvvtrzo jjfan@example.org 2025-02-28 21:01:10 31a347e0
 │  featureA
 │  -- operation 3cb7392c092c snapshot working copy
-○  lnvvtrzo hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8
+○  lnvvtrzo/1 hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8
 │  featureA
 │  -- operation 1280bfaec893 snapshot working copy
-○  lnvvtrzo hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d
+○  lnvvtrzo/2 hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d
    (no description set)
    -- operation 0418a5aa94b5 snapshot working copy
 ```
 
 Since commit `b800` is hidden, it is considered obsolete and `jj log` (without
-arguments) will not show it, nor can it be accessed by its change ID `lnvvtrzo`.
-However, most `jj` operations work normally on such commits if you refer to them
-by their commit ID.
+arguments) will not show it. However, most `jj` operations work normally on
+such commits if you refer to them by their commit ID. Hidden commits can also
+be referred to by their change ID, but they require a
+[change offset][glossary_change_offset] to distinguish them (e.g. `b800` can
+also be referred to as `lnv/1`, as shown in the evolog).
 
 To find out which of these versions is the last time before we started working
 on feature B (the point where we should have created a new change, but failed to
@@ -383,7 +385,7 @@ $ jj evolog --patch --git  # We use `--git` to make diffs clear without colors
 │  @@ -1,1 +1,2 @@
 │   Done with feature A
 │  +Working on feature B
-○  lnvvtrzo hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8
+○  lnvvtrzo/1 hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8
 │  featureA
 │  -- operation 1280bfaec893 snapshot working copy
 │  diff --git a/file b/file
@@ -393,7 +395,7 @@ $ jj evolog --patch --git  # We use `--git` to make diffs clear without colors
 │  @@ -1,1 +1,1 @@
 │  -Working on feature A
 │  +Done with feature A
-○  lnvvtrzo hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d
+○  lnvvtrzo/2 hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d
    (no description set)
    -- operation 0418a5aa94b5 snapshot working copy
    diff --git a/file b/file
@@ -429,22 +431,25 @@ First, we create a new empty child commit on top of `b80`:
 ```console
 $ jj new b80 -m "featureB"
 Working copy  (@) now at: pvnrkl 47171aa (empty) featureB
-Parent commit (@-)      : lnvvtr?? b8004ab featureA
+Parent commit (@-)      : lnvvtr/1 b8004ab featureA
 ```
 
-Notice the change ID has "??" appended to it. This indicates that change ID
-`lnvvtr` is now [divergent][glossary_divergence]: There are two visible commits
-with the same change ID (commit `b8004ab` and `31a347e0`). This is okay and will
-be resolved in the next steps.
+There are now two visible commits with change ID `lnvvtr` (commit `b8004ab`
+and `31a347e0`), so we call these [divergent][glossary_divergence]. Similarly
+to hidden commits, divergent commits also require a
+[change offset][glossary_change_offset] when using the change ID to refer to
+them, so you can see that `b8004ab` is still shown as `lnvvtr/1` in the output.
+This temporary divergence is okay and will be resolved in the next steps.
 
 [glossary_divergence]: glossary.md#divergent-change
+[glossary_change_offset]: glossary.md#change-offset
 
 Next, restore the contents of `31a347e0` into the working copy:
 
 ```console
 $ jj restore --from 31a347e0
 Working copy  (@) now at: pvnrkl 468104c featureB
-Parent commit (@-)      : lnvvtr?? b8004ea featureA
+Parent commit (@-)      : lnvvtr/1 b8004ea featureA
 $ cat file
 Done with feature A
 Working on feature B
@@ -547,7 +552,7 @@ with something like `jj desc -m "Revert the merge of D into B`. Now, commit `@`
 undoes the merge of `D` into  `B`. If necessary, you can now rebase it
 elsewhere, e.g. `jj rebase -r @ -o main`.
 
-### How do I deal with divergent changes ('??' after the [change ID])?
+### How do I deal with divergent changes?
 
 See: [Handling divergent commits](guides/divergence.md).
 

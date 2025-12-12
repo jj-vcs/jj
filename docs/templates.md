@@ -161,9 +161,11 @@ This type cannot be printed. The following methods are defined.
   local one.
 * `.local_tags() -> List<CommitRef>`: All local tags pointing to the commit.
 * `.remote_tags() -> List<CommitRef>`: All remote tags pointing to the commit.
-* `.divergent() -> Boolean`: True if the commit's change id corresponds to multiple
+* `.divergent() -> Boolean`: True if the commit's change ID corresponds to multiple
   visible commits.
 * `.hidden() -> Boolean`: True if the commit is not visible (a.k.a. abandoned).
+* `.change_offset() -> Option<Integer>`: The [change offset](glossary.md#change-offset)
+  of this commit. May not be available for some commits.
 * `.immutable() -> Boolean`: True if the commit is included in [the set of
   immutable commits](config.md#set-of-immutable-commits).
 * `.contained_in(revset: String) -> Boolean`: True if the commit is included in

@@ -127,14 +127,14 @@ fn test_report_conflicts_with_divergent_commits() {
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 3 commits to destination
-    Working copy  (@) now at: zsuskuln?? e91a430b (conflict) C2
+    Working copy  (@) now at: zsuskuln/1 e91a430b (conflict) C2
     Parent commit (@-)      : kkmpptxz fcd54aca (conflict) B
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in 3 commits:
-      zsuskuln?? 33d16252 (conflict) C3
-      zsuskuln?? e91a430b (conflict) C2
+      zsuskuln/0 33d16252 (conflict) C3
+      zsuskuln/1 e91a430b (conflict) C2
       kkmpptxz fcd54aca (conflict) B
     Hint: To resolve the conflicts, start by creating a commit on top of
     the first conflicted commit:
@@ -149,7 +149,7 @@ fn test_report_conflicts_with_divergent_commits() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
-    Working copy  (@) now at: zsuskuln?? 27ef05d9 C2
+    Working copy  (@) now at: zsuskuln/1 27ef05d9 C2
     Parent commit (@-)      : kkmpptxz 9039ed49 B
     Added 0 files, modified 1 files, removed 0 files
     Existing conflicts were resolved or abandoned from 3 commits.
@@ -161,13 +161,13 @@ fn test_report_conflicts_with_divergent_commits() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
-    Working copy  (@) now at: zsuskuln?? 151c23fc (conflict) C2
+    Working copy  (@) now at: zsuskuln/0 151c23fc (conflict) C2
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in 1 commits:
-      zsuskuln?? 151c23fc (conflict) C2
+      zsuskuln/0 151c23fc (conflict) C2
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new zsuskuln
@@ -182,7 +182,7 @@ fn test_report_conflicts_with_divergent_commits() {
     ------- stderr -------
     Rebased 1 commits to destination
     New conflicts appeared in 1 commits:
-      zsuskuln?? d59fa233 (conflict) C3
+      zsuskuln/0 d59fa233 (conflict) C3
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new zsuskuln
@@ -196,7 +196,7 @@ fn test_report_conflicts_with_divergent_commits() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
-    Working copy  (@) now at: zsuskuln?? 3fcf2fd2 C2
+    Working copy  (@) now at: zsuskuln/0 3fcf2fd2 C2
     Parent commit (@-)      : kkmpptxz 9039ed49 B
     Added 0 files, modified 1 files, removed 0 files
     Existing conflicts were resolved or abandoned from 1 commits.

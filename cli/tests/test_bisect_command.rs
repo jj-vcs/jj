@@ -424,12 +424,12 @@ fn test_bisect_run_jj_command() {
     Working copy  (@) now at: kmkuslsw 17e2a972 (empty) (no description set)
     Parent commit (@-)      : zsuskuln 123b4d91 b | b
     Added 0 files, modified 0 files, removed 3 files
-    Working copy  (@) now at: kmkuslsw?? 55b3b4a8 (empty) testing
-    Parent commit (@-)      : kmkuslsw?? 17e2a972 (empty) (no description set)
+    Working copy  (@) now at: kmkuslsw/0 55b3b4a8 (empty) testing
+    Parent commit (@-)      : kmkuslsw/1 17e2a972 (empty) (no description set)
     Working copy  (@) now at: msksykpx 2f6e298d (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 1 files
-    Working copy  (@) now at: kmkuslsw?? 2f80658c (empty) testing
+    Working copy  (@) now at: kmkuslsw/0 2f80658c (empty) testing
     Parent commit (@-)      : msksykpx 2f6e298d (empty) (no description set)
     [EOF]
     ");

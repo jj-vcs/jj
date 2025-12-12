@@ -112,7 +112,7 @@ fn test_git_push_revert() {
     //    remote-tracking  | AA      |   AA   | AA
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 hidden 3a44d6c5 (empty) AA
     [EOF]
     ");
     let pre_push_opid = work_dir.current_operation_id();
@@ -139,7 +139,7 @@ fn test_git_push_revert() {
     //    remote-tracking  | AA      |   AA   | BB
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 hidden 3a44d6c5 (empty) AA
     [EOF]
     ");
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
@@ -156,10 +156,10 @@ fn test_git_push_revert() {
     // become a no-op.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main (conflicted):
-      - qpvuntsm hidden 3a44d6c5 (empty) AA
-      + qpvuntsm?? 1e742089 (empty) CC
-      + qpvuntsm?? d9a9f6a0 (empty) BB
-      @origin (behind by 1 commits): qpvuntsm?? d9a9f6a0 (empty) BB
+      - qpvuntsm/2 hidden 3a44d6c5 (empty) AA
+      + qpvuntsm/0 1e742089 (empty) CC
+      + qpvuntsm/1 d9a9f6a0 (empty) BB
+      @origin (behind by 1 commits): qpvuntsm/1 d9a9f6a0 (empty) BB
     [EOF]
     ");
 }
@@ -194,7 +194,7 @@ fn test_git_push_revert_with_import() {
     //    remote-tracking  | AA      |   AA   | AA
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 hidden 3a44d6c5 (empty) AA
     [EOF]
     ");
     let pre_push_opid = work_dir.current_operation_id();
@@ -221,7 +221,7 @@ fn test_git_push_revert_with_import() {
     //    remote-tracking  | AA      |   AA   | BB
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 hidden 3a44d6c5 (empty) AA
     [EOF]
     ");
 
@@ -247,7 +247,7 @@ fn test_git_push_revert_with_import() {
     // was essentially a no-op.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm 1e742089 (empty) CC
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden d9a9f6a0 (empty) BB
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 hidden d9a9f6a0 (empty) BB
     [EOF]
     ");
 }
@@ -283,7 +283,7 @@ fn test_git_push_revert_colocated() {
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @git: qpvuntsm d9a9f6a0 (empty) BB
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 hidden 3a44d6c5 (empty) AA
     [EOF]
     ");
     let pre_push_opid = work_dir.current_operation_id();
@@ -320,7 +320,7 @@ fn test_git_push_revert_colocated() {
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @git: qpvuntsm d9a9f6a0 (empty) BB
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 hidden 3a44d6c5 (empty) AA
     [EOF]
     ");
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
@@ -330,11 +330,11 @@ fn test_git_push_revert_colocated() {
     // same result in a seemingly different way?
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main (conflicted):
-      - qpvuntsm hidden 3a44d6c5 (empty) AA
-      + qpvuntsm?? 1e742089 (empty) CC
-      + qpvuntsm?? d9a9f6a0 (empty) BB
-      @git (behind by 1 commits): qpvuntsm?? 1e742089 (empty) CC
-      @origin (behind by 1 commits): qpvuntsm?? d9a9f6a0 (empty) BB
+      - qpvuntsm/2 hidden 3a44d6c5 (empty) AA
+      + qpvuntsm/0 1e742089 (empty) CC
+      + qpvuntsm/1 d9a9f6a0 (empty) BB
+      @git (behind by 1 commits): qpvuntsm/0 1e742089 (empty) CC
+      @origin (behind by 1 commits): qpvuntsm/1 d9a9f6a0 (empty) BB
     [EOF]
     ");
 }
@@ -368,7 +368,7 @@ fn test_git_push_revert_repo_only() {
     work_dir.run_jj(["describe", "-m", "BB"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm d9a9f6a0 (empty) BB
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden 3a44d6c5 (empty) AA
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 hidden 3a44d6c5 (empty) AA
     [EOF]
     ");
     let pre_push_opid = work_dir.current_operation_id();
@@ -389,7 +389,7 @@ fn test_git_push_revert_repo_only() {
     // This currently gives an identical result to `test_git_push_revert_import`.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm 1e742089 (empty) CC
-      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm hidden d9a9f6a0 (empty) BB
+      @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 hidden d9a9f6a0 (empty) BB
     [EOF]
     ");
 }
