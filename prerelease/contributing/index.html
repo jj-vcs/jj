@@ -1641,6 +1641,63 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Profiling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tracing-based-profiling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tracing-based profiling
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sampling-based-profiling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sampling-based profiling
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sampling-based profiling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-samply" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using samply
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-cargo-flamegraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using cargo-flamegraph
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -2400,6 +2457,63 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Profiling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#introduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tracing-based-profiling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tracing-based profiling
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sampling-based-profiling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sampling-based profiling
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sampling-based profiling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-samply" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using samply
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-cargo-flamegraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using cargo-flamegraph
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -2937,18 +3051,56 @@ environment variable, frequent in Rust codebases, and accepts one or more
 enabled for all targets. You can also use the <code>--debug</code> global option, which
 turns on <code>debug</code> log level for <code>jj-lib</code> and <code>jj-cli</code> only.</p>
 <h2 id="profiling">Profiling<a class="headerlink" href="#profiling" title="Permanent link">&para;</a></h2>
+<h3 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permanent link">&para;</a></h3>
+<p>jj provides two main approaches to profiling:</p>
+<ol>
+<li><strong>Tracing-based profiling</strong> - Uses the Rust <code>tracing</code> crate to record spans
+   and events. Good for understanding control flow and finding where time is spent
+   in instrumented code.</li>
+<li><strong>Sampling-based profiling</strong> - Uses system profilers (perf, dtrace) to sample
+   the call stack. Good for finding hot spots including in uninstrumented code and
+   external libraries.</li>
+</ol>
+<h3 id="tracing-based-profiling">Tracing-based profiling<a class="headerlink" href="#tracing-based-profiling" title="Permanent link">&para;</a></h3>
+<p>jj uses the <code>tracing</code> crate with Chrome Trace Format output.</p>
+<p>Set the <code>JJ_TRACE</code> environment variable to generate a trace file:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Generate trace with auto-generated filename (jj-trace-{timestamp}.json)</span>
+<span class="nv">JJ_TRACE</span><span class="o">=</span><span class="w"> </span>jj<span class="w"> </span>st
+
+<span class="c1"># Generate trace with specific filename</span>
+<span class="nv">JJ_TRACE</span><span class="o">=</span>/tmp/trace.json<span class="w"> </span>jj<span class="w"> </span>st
+</code></pre></div>
+<p>To include function argument values in the trace (useful for detailed
+debugging):</p>
+<div class="highlight"><pre><span></span><code><span class="nv">JJ_TRACE_INCLUDE_ARGS</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="nv">JJ_TRACE</span><span class="o">=</span>/tmp/trace.json<span class="w"> </span>jj<span class="w"> </span>log<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;ancestors(@, 10)&#39;</span>
+</code></pre></div>
+<p>The produced profiles can be imported into chrome://tracing (on Google Chrome)
+or https://ui.perfetto.dev/ (all browsers).</p>
+<p>Only functions annotated with <code>#[tracing::instrument]</code> or explicit <code>trace_span!</code>
+macros appear in traces. If you need to profile a specific area that isn't
+instrumented, you can add <code>#[instrument]</code> attributes to the relevant functions.</p>
+<h3 id="sampling-based-profiling">Sampling-based profiling<a class="headerlink" href="#sampling-based-profiling" title="Permanent link">&para;</a></h3>
+<p>Sampling profilers periodically capture the call stack to identify hot spots. This approach:</p>
+<ul>
+<li>Has lower overhead than tracing</li>
+<li>Captures all code, including uninstrumented functions and external libraries (like gitoxide)</li>
+<li>May miss short-lived function calls since it samples rather than traces every
+  call</li>
+</ul>
+<h4 id="using-samply">Using samply<a class="headerlink" href="#using-samply" title="Permanent link">&para;</a></h4>
 <p>One easy-to-use sampling profiler
 is <a href="https://github.com/mstange/samply">samply</a>. For example:</p>
 <div class="highlight"><pre><span></span><code>cargo<span class="w"> </span>install<span class="w"> </span>samply
 samply<span class="w"> </span>record<span class="w"> </span>jj<span class="w"> </span>diff
 </code></pre></div>
 <p>Then just open the link it prints.</p>
-<p>Another option is to use the instrumentation we've added manually (using
-<code>tracing::instrument</code>) in various places. For example:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">JJ_TRACE</span><span class="o">=</span>/tmp/trace.json<span class="w"> </span>jj<span class="w"> </span>diff
+<h4 id="using-cargo-flamegraph">Using cargo-flamegraph<a class="headerlink" href="#using-cargo-flamegraph" title="Permanent link">&para;</a></h4>
+<p><a href="https://github.com/flamegraph-rs/flamegraph">cargo-flamegraph</a> generates flamegraph visualizations using system profilers:</p>
+<div class="highlight"><pre><span></span><code>cargo<span class="w"> </span>install<span class="w"> </span>flamegraph
+cargo<span class="w"> </span>flamegraph<span class="w"> </span>--bin<span class="w"> </span>jj<span class="w"> </span>--<span class="w"> </span>diff
 </code></pre></div>
-<p>Then go to <code>https://ui.perfetto.dev/</code> in Chrome and load <code>/tmp/trace.json</code> from
-there.</p>
+<p>You may need to use <code>sudo</code> or install <code>perf</code> on your system, see flamegraph's
+documentation for more.</p>
 
 
 
