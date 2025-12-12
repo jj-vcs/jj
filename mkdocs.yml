@@ -179,6 +179,8 @@ nav: # This lists all the files that become part of the documentation
       - Tracking branches: 'design/tracking-branches.md'
       - Copy tracking and tracing: 'design/copy-tracking.md'
       - Secure config: 'design/secure-config.md'
+      - Supporting Git Attributes in Jujutsu: 'design/gitattributes.md'
+      - Supporting the `text` and `eol` Git Attributes in Jujutsu: 'design/gitattributes-eol.md'
 
   - Development roadmap: 'roadmap.md'
   - Changelog: 'changelog.md'
