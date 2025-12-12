@@ -27,17 +27,41 @@ use crate::complete;
 use crate::diff_util::DiffFormatArgs;
 use crate::ui::Ui;
 
-/// Compare the changes of two commits
+/// Show differences between the diffs of two revisions
 ///
-/// This excludes changes from other commits by temporarily rebasing `--from`
-/// onto `--to`'s parents. If you wish to compare the same change across
-/// versions, consider `jj evolog -p` instead.
+/// This is like running `jj diff -r` on each change, then comparing those
+/// results. It answers: "How do the modifications introduced by revision A
+/// differ from the modifications introduced by revision B?"
+///
+/// For example, if two changes both add a feature but implement it
+/// differently, `jj interdiff --from @- --to other` shows what one
+/// implementation adds or removes that the other doesn't.
+///
+/// A common use of this command is to compare how a change has changed
+/// since the last push to a remote:
+///
+/// ```sh
+/// $ jj interdiff --from push-xyz@origin --to push-xyz
+/// ```
+///
+/// This command is different from `jj diff --from A --to B`, which compares
+/// file contents directly. `interdiff` compares what the changes do in terms of
+/// their patches, rather than their file contents. This makes a difference when
+/// the two revisions have different parents: `jj diff --from A --to B` will
+/// include the changes between their parents while `jj interdiff --from A --to
+/// B` will not.
+///
+/// Technically, this works by rebasing `--from` onto `--to`'s parents and
+/// comparing the result to `--to`.
+///
+/// To see the changes throughout the whole evolution of a change instead of
+/// between just two revisions, use `jj evolog -p instead`.
 #[derive(clap::Args, Clone, Debug)]
 #[command(group(ArgGroup::new("to_diff").args(&["from", "to"]).multiple(true).required(true)))]
 #[command(mut_arg("ignore_all_space", |a| a.short('w')))]
 #[command(mut_arg("ignore_space_change", |a| a.short('b')))]
 pub(crate) struct InterdiffArgs {
-    /// Show changes from this revision
+    /// The first revision to compare (default: @)
     #[arg(
         long,
         short,
@@ -45,7 +69,7 @@ pub(crate) struct InterdiffArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     from: Option<RevisionArg>,
-    /// Show changes to this revision
+    /// The second revision to compare (default: @)
     #[arg(
         long,
         short,
