@@ -286,14 +286,6 @@ issues with dynamic completions.
     use completions-jj.nu *  # Or `source completions-jj.nu`
     ```
 
-### Xonsh
-
-=== "Standard"
-
-    ```shell
-    source-bash $(jj util completion)
-    ```
-
 ### Powershell
 
 === "Standard"
