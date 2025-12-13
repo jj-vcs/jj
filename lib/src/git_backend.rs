@@ -1460,10 +1460,16 @@ impl Backend for GitBackend {
             .map_err(|err| BackendError::Other(err.into()))?
             .filter(|id| *id != self.root_commit_id);
         recreate_no_gc_refs(&git_repo, new_heads, keep_newer)?;
+
+        // No locking is needed since we aren't going to add new "commits".
+        let table = self.cached_extra_metadata_table()?;
         // TODO: remove unreachable entries from extras table if segment file
         // mtime <= keep_newer? (it won't be consistent with no-gc refs
         // preserved by the keep_newer timestamp though)
-        // TODO: remove unreachable extras table segments
+        self.extra_metadata_store
+            .gc(&table, keep_newer)
+            .map_err(|err| BackendError::Other(err.into()))?;
+
         run_git_gc(
             self.git_executable.as_ref(),
             self.git_repo_path(),

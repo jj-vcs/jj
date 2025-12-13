@@ -20,6 +20,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use futures::executor::block_on_stream;
+use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::commit::Commit;
@@ -33,6 +34,8 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::stacked_table::TableSegment as _;
+use jj_lib::stacked_table::TableStore;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use maplit::hashmap;
@@ -90,6 +93,14 @@ fn make_commit(
 ) -> Commit {
     let tree = create_tree(tx.base_repo(), content);
     tx.repo_mut().new_commit(parents, tree).write().unwrap()
+}
+
+fn list_dir(dir: &Path) -> Vec<String> {
+    std::fs::read_dir(dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_str().unwrap().to_owned())
+        .sorted()
+        .collect()
 }
 
 #[test]
@@ -237,6 +248,68 @@ fn test_gc() {
     // All unreachable
     repo.store().gc(base_index.as_index(), now()).unwrap();
     assert_eq!(collect_no_gc_refs(git_repo_path), hashset! {});
+}
+
+#[test]
+fn test_gc_extra_table() {
+    if !is_external_tool_installed("git") {
+        eprintln!("Skipping because git command might fail to run");
+        return;
+    }
+
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let extra_path = test_repo.repo_path().join("store").join("extra");
+    let extra_key_size = test_repo.repo.store().root_commit_id().as_bytes().len();
+    let load_repo = || {
+        test_repo
+            .env
+            .load_repo_at_head(test_repo.repo.settings(), test_repo.repo_path())
+    };
+    let load_extra_table = || {
+        TableStore::load(extra_path.clone(), extra_key_size)
+            .get_head()
+            .unwrap()
+    };
+    let collect_extra_segment_num_entries = || {
+        let mut num_entries = load_extra_table()
+            .ancestor_segments()
+            .map(|table| table.segment_num_entries())
+            .collect_vec();
+        num_entries.reverse();
+        num_entries
+    };
+
+    // Sanity check for the initial state
+    assert_eq!(collect_extra_segment_num_entries(), [0]);
+    assert_eq!(list_dir(&extra_path).len(), 1 + 1); // empty segment + "heads"
+
+    // Write 4 commits
+    let mut tx = test_repo.repo.start_transaction();
+    for _ in 0..4 {
+        write_random_commit(tx.repo_mut());
+    }
+    tx.commit("test").unwrap();
+    // The first 3 will be squashed into one table segment
+    assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
+    assert_eq!(list_dir(&extra_path).len(), 5 + 1);
+
+    // Reload repo to invalidate cache in TableStore
+    let repo = load_repo();
+    let index = repo.readonly_index().as_index();
+
+    // All segments should be kept by modification time
+    repo.store().gc(index, SystemTime::UNIX_EPOCH).unwrap();
+    assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
+    assert_eq!(list_dir(&extra_path).len(), 5 + 1);
+
+    // All unreachable segments should be removed
+    let now = SystemTime::now() + Duration::from_secs(1);
+    repo.store().gc(index, now).unwrap();
+    assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
+    assert_eq!(list_dir(&extra_path).len(), 2 + 1);
+
+    // Ensure that repo is still loadable
+    load_repo();
 }
 
 #[test]

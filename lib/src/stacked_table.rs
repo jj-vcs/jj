@@ -25,6 +25,8 @@
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::fs;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -33,16 +35,22 @@ use std::iter;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
+use std::time::SystemTime;
 
 use blake2::Blake2b512;
 use blake2::Digest as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 
+use crate::file_util::IoResultExt as _;
+use crate::file_util::PathError;
 use crate::file_util::persist_content_addressed_temp_file;
 use crate::hex_util;
 use crate::lock::FileLock;
 use crate::lock::FileLockError;
+
+// BLAKE2b-512 hash length in hex string
+const SEGMENT_FILE_NAME_LENGTH: usize = 64 * 2;
 
 pub trait TableSegment {
     fn segment_num_entries(&self) -> usize;
@@ -555,6 +563,65 @@ impl TableStore {
             self.remove_head(table);
         }
         Ok((merged_table, lock))
+    }
+
+    /// Prunes unreachable table segments.
+    ///
+    /// All table segments reachable from the `head` won't be removed. In
+    /// addition to that, segments created after `keep_newer` will be
+    /// preserved. This mitigates a risk of deleting new segments created
+    /// concurrently by another process.
+    ///
+    /// The caller may decide whether to lock the store by `get_head_locked()`.
+    /// It's generally safe to run `gc()` without locking so long as the
+    /// `keep_newer` time is reasonably old, and all writers reload table
+    /// segments by `get_head_locked()` before adding new entries.
+    #[tracing::instrument(skip(self, head))]
+    pub fn gc(&self, head: &Arc<ReadonlyTable>, keep_newer: SystemTime) -> Result<(), PathError> {
+        let read_locked_cache = self.cached_tables.read().unwrap();
+        let reachable_tables: HashSet<&str> = itertools::chain(
+            head.ancestor_segments(),
+            // Also preserve cached segments so these segments can still be
+            // loaded from the disk.
+            read_locked_cache.values(),
+        )
+        .map(|table| table.name())
+        .collect();
+
+        let remove_file_if_not_new = |entry: &fs::DirEntry| -> Result<(), PathError> {
+            let path = entry.path();
+            // Check timestamp, but there's still TOCTOU problem if an existing
+            // file is replaced with new file of the same name.
+            let metadata = entry.metadata().context(&path)?;
+            let mtime = metadata.modified().expect("unsupported platform?");
+            if mtime > keep_newer {
+                tracing::trace!(?path, "not removing");
+                Ok(())
+            } else {
+                tracing::trace!(?path, "removing");
+                fs::remove_file(&path).context(&path)
+            }
+        };
+
+        for entry in self.dir.read_dir().context(&self.dir)? {
+            let entry = entry.context(&self.dir)?;
+            let file_name = entry.file_name();
+            if file_name == "heads" || file_name == "lock" {
+                continue;
+            }
+            let Some(table_name) = file_name
+                .to_str()
+                .filter(|name| name.len() == SEGMENT_FILE_NAME_LENGTH)
+            else {
+                tracing::trace!(?entry, "skipping invalid file name");
+                continue;
+            };
+            if reachable_tables.contains(table_name) {
+                continue;
+            }
+            remove_file_if_not_new(&entry)?;
+        }
+        Ok(())
     }
 }
 
