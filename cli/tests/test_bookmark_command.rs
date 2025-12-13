@@ -348,7 +348,7 @@ fn test_bookmark_move() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Tracked remote bookmarks exist for deleted bookmark: foo
-    Hint: Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack 'glob:foo@*'` to disassociate them.
+    Hint: Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack foo` to disassociate them.
     [EOF]
     [exit status: 1]
     ");
