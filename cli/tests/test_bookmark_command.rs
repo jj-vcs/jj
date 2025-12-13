@@ -348,7 +348,7 @@ fn test_bookmark_move() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Tracked remote bookmarks exist for deleted bookmark: foo
-    Hint: Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack 'glob:foo@*'` to disassociate them.
+    Hint: Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack foo` to disassociate them.
     [EOF]
     [exit status: 1]
     ");
@@ -411,7 +411,7 @@ fn test_bookmark_move_matching() {
     ");
     let setup_opid = work_dir.current_operation_id();
 
-    // The default could be considered "--from=all() glob:*", but is disabled
+    // The default could be considered "--from=all() *", but is disabled
     let output = work_dir.run_jj(["bookmark", "move"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -434,7 +434,7 @@ fn test_bookmark_move_matching() {
     ");
 
     // No matching bookmarks within the source revisions
-    let output = work_dir.run_jj(["bookmark", "move", "--from=::@", "glob:'a?'"]);
+    let output = work_dir.run_jj(["bookmark", "move", "--from=::@", "'a?'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No bookmarks to update.
@@ -489,7 +489,7 @@ fn test_bookmark_move_matching() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // Try to move multiple bookmarks, but one of them isn't fast-forward
-    let output = work_dir.run_jj(["bookmark", "move", "glob:'?1'"]);
+    let output = work_dir.run_jj(["bookmark", "move", "'?1'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: a1
@@ -509,7 +509,7 @@ fn test_bookmark_move_matching() {
     ");
 
     // Select by revision and name
-    let output = work_dir.run_jj(["bookmark", "move", "--from=::a1+", "--to=a1+", "glob:'?1'"]);
+    let output = work_dir.run_jj(["bookmark", "move", "--from=::a1+", "--to=a1+", "'?1'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Moved 1 bookmarks to kkmpptxz 9328ecc5 a1 | (empty) head1
@@ -540,22 +540,14 @@ fn test_bookmark_move_conflicting() {
     work_dir.run_jj(["new", "root()", "-mA0"]).success();
     work_dir.run_jj(["new", "root()", "-mB0"]).success();
     work_dir.run_jj(["new", "root()", "-mC0"]).success();
-    work_dir
-        .run_jj(["new", "subject(glob:A0)", "-mA1"])
-        .success();
+    work_dir.run_jj(["new", "subject(A0)", "-mA1"]).success();
 
     // Set up conflicting bookmark.
     work_dir
-        .run_jj(["bookmark", "create", "-rsubject(glob:A0)", "foo"])
+        .run_jj(["bookmark", "create", "-rsubject(A0)", "foo"])
         .success();
     work_dir
-        .run_jj([
-            "bookmark",
-            "create",
-            "--at-op=@-",
-            "-rsubject(glob:B0)",
-            "foo",
-        ])
+        .run_jj(["bookmark", "create", "--at-op=@-", "-rsubject(B0)", "foo"])
         .success();
     insta::assert_snapshot!(get_log(), @r"
     @  A1
@@ -572,7 +564,7 @@ fn test_bookmark_move_conflicting() {
     ");
 
     // Can't move the bookmark to C0 since it's sibling.
-    let output = work_dir.run_jj(["bookmark", "set", "-rsubject(glob:C0)", "foo"]);
+    let output = work_dir.run_jj(["bookmark", "set", "-rsubject(C0)", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: foo
@@ -583,7 +575,7 @@ fn test_bookmark_move_conflicting() {
 
     // Can move the bookmark to A1 since it's descendant of A0. It's not
     // descendant of B0, though.
-    let output = work_dir.run_jj(["bookmark", "set", "-rsubject(glob:A1)", "foo"]);
+    let output = work_dir.run_jj(["bookmark", "set", "-rsubject(A1)", "foo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Moved 1 bookmarks to mzvwutvl 0f5f3e2c foo | (empty) A1
@@ -729,14 +721,14 @@ fn test_bookmark_forget_glob() {
     ◆   000000000000
     [EOF]
     ");
-    let output = work_dir.run_jj(["bookmark", "forget", "glob:'foo-[1-3]'"]);
+    let output = work_dir.run_jj(["bookmark", "forget", "'foo-[1-3]'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Forgot 2 local bookmarks.
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let output = work_dir.run_jj(["bookmark", "forget", "glob:'foo-[1-3]'"]);
+    let output = work_dir.run_jj(["bookmark", "forget", "'foo-[1-3]'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Forgot 2 local bookmarks.
@@ -750,7 +742,7 @@ fn test_bookmark_forget_glob() {
 
     // Forgetting a bookmark via both explicit name and glob pattern, or with
     // multiple glob patterns, shouldn't produce an error.
-    let output = work_dir.run_jj(["bookmark", "forget", "foo-4", "glob:foo-*", "glob:foo-*"]);
+    let output = work_dir.run_jj(["bookmark", "forget", "foo-4", "foo-*", "foo-*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Forgot 1 local bookmarks.
@@ -780,7 +772,7 @@ fn test_bookmark_forget_glob() {
     ");
 
     // None of the globs match anything
-    let output = work_dir.run_jj(["bookmark", "forget", "glob:baz*", "glob:boom*"]);
+    let output = work_dir.run_jj(["bookmark", "forget", "baz*", "boom*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No bookmarks to forget.
@@ -825,14 +817,14 @@ fn test_bookmark_delete_glob() {
     ◆   000000000000
     [EOF]
     ");
-    let output = work_dir.run_jj(["bookmark", "delete", "glob:'foo-[1-3]'"]);
+    let output = work_dir.run_jj(["bookmark", "delete", "'foo-[1-3]'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Deleted 2 bookmarks.
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    let output = work_dir.run_jj(["bookmark", "delete", "glob:'foo-[1-3]'"]);
+    let output = work_dir.run_jj(["bookmark", "delete", "'foo-[1-3]'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Deleted 2 bookmarks.
@@ -846,7 +838,7 @@ fn test_bookmark_delete_glob() {
 
     // We get an error if none of the globs match live bookmarks. Unlike `jj
     // bookmark forget`, it's not allowed to delete already deleted bookmarks.
-    let output = work_dir.run_jj(["bookmark", "delete", "glob:'foo-[1-3]'"]);
+    let output = work_dir.run_jj(["bookmark", "delete", "'foo-[1-3]'"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No bookmarks to delete.
@@ -855,7 +847,7 @@ fn test_bookmark_delete_glob() {
 
     // Deleting a bookmark via both explicit name and glob pattern, or with
     // multiple glob patterns, shouldn't produce an error.
-    let output = work_dir.run_jj(["bookmark", "delete", "foo-4", "glob:foo-*", "glob:foo-*"]);
+    let output = work_dir.run_jj(["bookmark", "delete", "foo-4", "foo-*", "foo-*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Deleted 2 bookmarks.
@@ -992,7 +984,7 @@ fn test_bookmark_forget_fetched_bookmark() {
 
     // Set up a git repo with a bookmark and a jj repo that has it as a remote.
     let test_env = TestEnvironment::default();
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     let git_repo_path = test_env.env_root().join("git-repo");
@@ -1139,7 +1131,7 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
     // ======== Beginning of test setup ========
     // Set up a git repo with a bookmark and a jj repo that has it as a remote.
     let test_env = TestEnvironment::default();
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     let git_repo_path = test_env.env_root().join("git-repo");
@@ -1217,7 +1209,7 @@ fn test_bookmark_track_untrack() {
             "refs/heads/feature2",
         ],
     );
-    test_env.add_config("remotes.origin.auto-track-bookmarks = '~glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '~*'");
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1361,7 +1353,7 @@ fn test_bookmark_track_untrack() {
             "refs/heads/feature3",
         ],
     );
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1503,7 +1495,7 @@ fn test_bookmark_track_untrack_patterns() {
     );
 
     // Fetch new commit without auto tracking
-    test_env.add_config("remotes.origin.auto-track-bookmarks = '~glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '~*'");
     let output = work_dir.run_jj(["git", "fetch"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
@@ -1525,7 +1517,7 @@ fn test_bookmark_track_untrack_patterns() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "untrack", "main", "--remote=glob:o*"]), @r"
+        work_dir.run_jj(["bookmark", "untrack", "main", "--remote=o*"]), @r"
     ------- stderr -------
     Warning: Remote bookmark not tracked yet: main@origin
     Nothing changed.
@@ -1533,13 +1525,13 @@ fn test_bookmark_track_untrack_patterns() {
     ");
 
     // Track/untrack unknown bookmark
-    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "track", "glob:maine*"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "track", "maine*"]), @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "untrack", "maine", "--remote=glob:o* | unknown"]), @r"
+        work_dir.run_jj(["bookmark", "untrack", "maine", "--remote=o* | unknown"]), @r"
     ------- stderr -------
     Warning: No matching bookmarks for names: maine
     Warning: No matching remotes for names: unknown
@@ -1601,7 +1593,7 @@ fn test_bookmark_track_untrack_patterns() {
     ");
 
     // Untrack by pattern
-    let output = work_dir.run_jj(["bookmark", "untrack", "~glob:main", "--remote=glob:*"]);
+    let output = work_dir.run_jj(["bookmark", "untrack", "~main", "--remote=*"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Git-tracking bookmark cannot be untracked: feature1@git
@@ -1621,12 +1613,7 @@ fn test_bookmark_track_untrack_patterns() {
     ");
 
     // Track by pattern
-    let output = work_dir.run_jj([
-        "bookmark",
-        "track",
-        "glob:'feature?' | main",
-        "--remote=~git",
-    ]);
+    let output = work_dir.run_jj(["bookmark", "track", "'feature?' | main", "--remote=~git"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Remote bookmark already tracked: main@origin
@@ -1682,7 +1669,7 @@ fn test_bookmark_track_absent() {
 
     // Track feature1: remote2 isn't tracked because there's no local bookmark
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "track", "feature1", "--remote=glob:*"]), @r"
+        work_dir.run_jj(["bookmark", "track", "feature1", "--remote=*"]), @r"
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     [EOF]
@@ -1695,7 +1682,7 @@ fn test_bookmark_track_absent() {
 
     // Track feature1 again: remote2 is now tracked
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "track", "feature1", "--remote=glob:*"]), @r"
+        work_dir.run_jj(["bookmark", "track", "feature1", "--remote=*"]), @r"
     ------- stderr -------
     Warning: Remote bookmark already tracked: feature1@remote1
     Started tracking 1 remote bookmarks.
@@ -1713,7 +1700,7 @@ fn test_bookmark_track_absent() {
         .run_jj(["bookmark", "create", "new-feature"])
         .success();
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "track", "new-feature", "--remote=glob:*"]), @r"
+        work_dir.run_jj(["bookmark", "track", "new-feature", "--remote=*"]), @r"
     ------- stderr -------
     Started tracking 2 remote bookmarks.
     [EOF]
@@ -1732,7 +1719,7 @@ fn test_bookmark_track_absent() {
 #[test]
 fn test_bookmark_list() {
     let test_env = TestEnvironment::default();
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
 
     // Initialize remote refs
     test_env.run_jj_in(".", ["git", "init", "remote"]).success();
@@ -1768,7 +1755,7 @@ fn test_bookmark_list() {
         .success();
     local_dir
         .run_jj([
-            "--config=remotes.origin.auto-track-bookmarks='~glob:*'",
+            "--config=remotes.origin.auto-track-bookmarks='~*'",
             "bookmark",
             "create",
             "local-only",
@@ -1989,7 +1976,7 @@ fn test_bookmark_list() {
 #[test]
 fn test_bookmark_list_filtered() {
     let test_env = TestEnvironment::default();
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
 
     // Initialize remote refs
@@ -2021,7 +2008,7 @@ fn test_bookmark_list_filtered() {
         .success();
     local_dir
         .run_jj([
-            "--config=remotes.origin.auto-track-bookmarks='~glob:*'",
+            "--config=remotes.origin.auto-track-bookmarks='~*'",
             "bookmark",
             "create",
             "local-keep",
@@ -2096,7 +2083,7 @@ fn test_bookmark_list_filtered() {
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
     [EOF]
     ");
-    insta::assert_snapshot!(query(&["-rbookmarks(glob:remote-rewrite)"]), @r"
+    insta::assert_snapshot!(query(&["-rbookmarks(remote-rewrite)"]), @r"
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
     [EOF]
@@ -2110,7 +2097,7 @@ fn test_bookmark_list_filtered() {
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
     [EOF]
     ");
-    insta::assert_snapshot!(query(&["--all-remotes", "-rbookmarks(glob:remote-rewrite)"]), @r"
+    insta::assert_snapshot!(query(&["--all-remotes", "-rbookmarks(remote-rewrite)"]), @r"
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @git: royxmykx e6970e0e (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
@@ -2130,7 +2117,7 @@ fn test_bookmark_list_filtered() {
     Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
     [EOF]
     ");
-    insta::assert_snapshot!(query(&["--remote", "glob:'gi?'"]), @r"
+    insta::assert_snapshot!(query(&["--remote", "'gi?'"]), @r"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
       @git: kpqxywon 4b2bc95c (empty) local-keep
     remote-keep: rlvkpnrz c2f2ee40 (empty) remote-keep
@@ -2165,7 +2152,7 @@ fn test_bookmark_list_filtered() {
     Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
     [EOF]
     ");
-    insta::assert_snapshot!(query(&["-rbookmarks(glob:remote-delete)"]), @"");
+    insta::assert_snapshot!(query(&["-rbookmarks(remote-delete)"]), @"");
     insta::assert_snapshot!(query(&["-rremote-delete"]), @r"
     ------- stderr -------
     Error: Revision `remote-delete` doesn't exist
@@ -2175,7 +2162,7 @@ fn test_bookmark_list_filtered() {
     ");
 
     // Name patterns are OR-ed.
-    insta::assert_snapshot!(query(&["glob:*-keep", "glob:remote-* & glob:*-delete"]), @r"
+    insta::assert_snapshot!(query(&["*-keep", "remote-* & *-delete"]), @r"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-delete (deleted)
       @origin: zsuskuln 0e6b7968 (empty) remote-delete
@@ -2189,7 +2176,7 @@ fn test_bookmark_list_filtered() {
     // Unmatched exact name pattern should be warned. "remote-delete" exists in
     // remote. "remote-rewrite" exists, but isn't included in the match.
     insta::assert_snapshot!(
-        query(&["local-keep", "glob:push-*", "unknown | remote-delete ~ remote-rewrite"]), @r"
+        query(&["local-keep", "push-*", "unknown | remote-delete ~ remote-rewrite"]), @r"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-delete (deleted)
       @origin: zsuskuln 0e6b7968 (empty) remote-delete
@@ -2201,7 +2188,7 @@ fn test_bookmark_list_filtered() {
     ");
 
     // Name pattern and revset are OR-ed.
-    insta::assert_snapshot!(query(&["local-keep", "-rbookmarks(glob:remote-rewrite)"]), @r"
+    insta::assert_snapshot!(query(&["local-keep", "-rbookmarks(remote-rewrite)"]), @r"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx hidden 331d500d (empty) remote-rewrite
@@ -2211,7 +2198,7 @@ fn test_bookmark_list_filtered() {
     // … but still filtered by --remote
     insta::assert_snapshot!(query(&[
         "local-keep",
-        "-rbookmarks(glob:remote-rewrite)",
+        "-rbookmarks(remote-rewrite)",
         "--remote",
         "git",
     ]), @r"
@@ -2273,7 +2260,7 @@ fn test_bookmark_list_quoted_name() {
 #[test]
 fn test_bookmark_list_much_remote_divergence() {
     let test_env = TestEnvironment::default();
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
 
     // Initialize remote refs
     test_env.run_jj_in(".", ["git", "init", "remote"]).success();
@@ -2308,7 +2295,7 @@ fn test_bookmark_list_much_remote_divergence() {
     }
     local_dir
         .run_jj([
-            "--config=remotes.origin.auto-track-bookmarks='~glob:*'",
+            "--config=remotes.origin.auto-track-bookmarks='~*'",
             "bookmark",
             "create",
             "local-only",
@@ -2332,8 +2319,8 @@ fn test_bookmark_list_much_remote_divergence() {
 #[test]
 fn test_bookmark_list_tracked() {
     let test_env = TestEnvironment::default();
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
-    test_env.add_config("remotes.upstream.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    test_env.add_config("remotes.upstream.auto-track-bookmarks = '*'");
 
     // Initialize remote refs
     test_env.run_jj_in(".", ["git", "init", "remote"]).success();
@@ -2408,8 +2395,8 @@ fn test_bookmark_list_tracked() {
         .success();
     local_dir
         .run_jj([
-            "--config=remotes.origin.auto-track-bookmarks='~glob:*'",
-            "--config=remotes.upstream.auto-track-bookmarks='~glob:*'",
+            "--config=remotes.origin.auto-track-bookmarks='~*'",
+            "--config=remotes.upstream.auto-track-bookmarks='~*'",
             "bookmark",
             "create",
             "local-only",
@@ -2529,16 +2516,10 @@ fn test_bookmark_list_conflicted() {
     work_dir.run_jj(["new", "root()", "-m", "b"]).success();
     work_dir.run_jj(["bookmark", "create", "bar"]).success();
     work_dir
-        .run_jj(["bookmark", "create", "foo", "-rsubject(glob:a)"])
+        .run_jj(["bookmark", "create", "foo", "-rsubject(a)"])
         .success();
     work_dir
-        .run_jj([
-            "bookmark",
-            "create",
-            "foo",
-            "-rsubject(glob:b)",
-            "--at-op=@-",
-        ])
+        .run_jj(["bookmark", "create", "foo", "-rsubject(b)", "--at-op=@-"])
         .success();
     work_dir.run_jj(["status"]).success();
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
@@ -2681,9 +2662,9 @@ fn test_create_and_set_auto_track_bookmarks() {
     test_env.add_config(
         "
         [remotes.origin]
-        auto-track-bookmarks = 'glob:mine/*'
+        auto-track-bookmarks = 'mine/*'
         [remotes.fork]
-        auto-track-bookmarks = 'glob:mine/* | glob:not-mine/*'
+        auto-track-bookmarks = 'mine/* | not-mine/*'
         ",
     );
 

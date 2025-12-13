@@ -749,7 +749,7 @@ pub struct AdvanceableBookmark {
 /// ```toml
 /// [experimental-advance-branches]
 /// # Enable the feature for all branches except "main".
-/// enabled-branches = ["glob:*"]
+/// enabled-branches = ["*"]
 /// disabled-branches = ["main"]
 /// ```
 fn load_advance_bookmarks_matcher(
@@ -3133,7 +3133,7 @@ impl FromStr for RemoteBookmarkNamePattern {
             if let Some(kind) = maybe_kind {
                 StringPattern::from_str_kind(pat, kind).map_err(|err| err.to_string())
             } else {
-                Ok(StringPattern::exact(pat))
+                StringPattern::glob(pat).map_err(|err| err.to_string())
             }
         };
         // TODO: maybe reuse revset parser to handle bookmark/remote name containing @

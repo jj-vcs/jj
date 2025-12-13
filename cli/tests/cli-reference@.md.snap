@@ -392,9 +392,9 @@ If you don't want the deletion of the local bookmark to propagate to any tracked
 
 * `<NAMES>` — The bookmarks to delete
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+   By default, the specified pattern matches bookmark names with glob syntax. You can also use other [string pattern syntax].
 
-   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 
 
@@ -412,9 +412,9 @@ If a local bookmark is forgotten, any corresponding remote bookmarks will become
 
 * `<NAMES>` — The bookmarks to forget
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+   By default, the specified pattern matches bookmark names with glob syntax. You can also use other [string pattern syntax].
 
-   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 ###### **Options:**
 
@@ -442,9 +442,9 @@ See [`jj help -k bookmarks`] for more information.
 
 * `<NAMES>` — Show bookmarks whose local name matches
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+   By default, the specified pattern matches bookmark names with glob syntax. You can also use other [string pattern syntax].
 
-   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 ###### **Options:**
 
@@ -453,9 +453,9 @@ See [`jj help -k bookmarks`] for more information.
 
    Can be combined with `--tracked` or `--conflicted` to filter the bookmarks shown (can be repeated.)
 
-   By default, the specified remote name matches exactly. Use `glob:` prefix to select remotes by [wildcard pattern].
+   By default, the specified pattern matches remote names with glob syntax. You can also use other [string pattern syntax].
 
-   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 * `-t`, `--tracked` — Show remote tracked bookmarks only. Omits local Git-tracking bookmarks by default
 * `-c`, `--conflicted` — Show conflicted bookmarks only
 * `-r`, `--revisions <REVSETS>` — Show bookmarks whose local targets are in the given revisions
@@ -499,9 +499,9 @@ $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 
 * `<NAMES>` — Move bookmarks matching the given name patterns
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+   By default, the specified pattern matches bookmark names with glob syntax. You can also use other [string pattern syntax].
 
-   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 ###### **Options:**
 
@@ -565,19 +565,19 @@ A tracking remote bookmark will be imported as a local bookmark of the same name
 
 * `<BOOKMARK>` — Bookmark names to track
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+   By default, the specified pattern matches bookmark names with glob syntax. You can also use other [string pattern syntax].
 
-   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 ###### **Options:**
 
 * `--remote <REMOTE>` — Remote names to track
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+   By default, the specified pattern matches remote names with glob syntax. You can also use other [string pattern syntax].
 
    If no remote names are given, all remote bookmarks matching the bookmark names will be tracked.
 
-   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 
 
@@ -595,19 +595,19 @@ If you want to forget a local bookmark while also untracking the corresponding r
 
 * `<BOOKMARK>` — Bookmark names to untrack
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+   By default, the specified pattern matches bookmark names with glob syntax. You can also use other [string pattern syntax].
 
-   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 ###### **Options:**
 
 * `--remote <REMOTE>` — Remote names to untrack
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+   By default, the specified pattern matches remote names with glob syntax. You can also use other [string pattern syntax].
 
    If no remote names are given, all remote bookmarks matching the bookmark names will be untracked.
 
-   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 
 
@@ -1416,7 +1416,11 @@ Create a new repo backed by a clone of a Git repo
 
    If not present, all branches are fetched and the repository's default branch is used as parent of the working-copy change.
 
-   By default, the specified name matches exactly. Use `glob:` prefix to expand `*` as a glob, e.g. `--branch 'glob:push-*'`. Other wildcard characters such as `?` are *not* supported. Can be repeated to specify multiple branches, in which case the first exact branch name is used as the working-copy parent.
+   By default, the specified pattern matches branch names with glob syntax, but only `*` is expanded. Other wildcard characters such as `?` are *not* supported. Patterns can be repeated or combined with [logical operators] to specify multiple branches, but only union and negative intersection are supported. If there are multiple matching branches, the first exact branch name is used as the working-copy parent.
+
+   Examples: `push-*`, `(push-* | foo/*) ~ foo/unwanted`
+
+   [logical operators]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 
 
@@ -1484,7 +1488,11 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
 * `-b`, `--branch <BRANCH>` — Fetch only some of the branches
 
-   By default, the specified name matches exactly. Use `glob:` prefix to expand `*` as a glob, e.g. `--branch 'glob:push-*'`. Other wildcard characters such as `?` are *not* supported. Can be repeated to specify multiple branches.
+   By default, the specified pattern matches branch names with glob syntax, but only `*` is expanded. Other wildcard characters such as `?` are *not* supported. Patterns can be repeated or combined with [logical operators] to specify multiple branches, but only union and negative intersection are supported.
+
+   Examples: `push-*`, `(push-* | foo/*) ~ foo/unwanted`
+
+   [logical operators]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 * `--tracked` — Fetch only tracked bookmarks
 
    This fetches only bookmarks that are already tracked from the specified remote(s).
@@ -1492,9 +1500,9 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
    This defaults to the `git.fetch` setting. If that is not configured, and if there are multiple remotes, the remote named "origin" will be used.
 
-   By default, the specified remote names matches exactly. Use a [string pattern], e.g. `--remote 'glob:*'`, to select remotes using patterns.
+   By default, the specified pattern matches remote names with glob syntax, e.g. `--remote '*'`. You can also use other [string pattern syntax].
 
-   [string pattern]: https://docs.jj-vcs.dev/latest/revsets#string-patterns
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 * `--all-remotes` — Fetch from all remotes
 
 
@@ -1576,9 +1584,9 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
    This defaults to the `git.push` setting. If that is not configured, and if there are multiple remotes, the remote named "origin" will be used.
 * `-b`, `--bookmark <BOOKMARK>` — Push only this bookmark, or bookmarks matching a pattern (can be repeated)
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select bookmarks by [wildcard pattern].
+   By default, the specified pattern matches bookmark names with glob syntax. You can also use other [string pattern syntax].
 
-   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets#string-patterns
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 * `--all` — Push all bookmarks (including new bookmarks)
 * `--tracked` — Push all tracked bookmarks
 
@@ -2980,9 +2988,9 @@ Revisions referred to by the deleted tags are not abandoned.
 
 * `<NAMES>` — Tag names to delete
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select tags by [wildcard pattern].
+   By default, the specified pattern matches tag names with glob syntax. You can also use other [string pattern syntax].
 
-   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 
 
@@ -2998,9 +3006,9 @@ List tags
 
 * `<NAMES>` — Show tags whose local name matches
 
-   By default, the specified name matches exactly. Use `glob:` prefix to select tags by [wildcard pattern].
+   By default, the specified pattern matches tag names with glob syntax. You can also use other [string pattern syntax].
 
-   [wildcard pattern]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+   [string pattern syntax]: https://docs.jj-vcs.dev/latest/revsets/#string-patterns
 
 ###### **Options:**
 

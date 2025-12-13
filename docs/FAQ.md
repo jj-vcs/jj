@@ -306,7 +306,7 @@ To avoid pushing change _wwwwwwww_ by mistake, use the configuration
 [git.private-commits](config.md#set-of-private-commits):
 
 ```shell
-jj config set --user git.private-commits "'''description(glob:'private:*')'''"
+jj config set --user git.private-commits "'''description('private:*')'''"
 ```
 
 ### I accidentally changed files in the wrong commit, how do I move the recent changes into another commit?

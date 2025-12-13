@@ -70,7 +70,7 @@ pub fn cmd_bookmark_create(
                 ),
                 format!(
                     "Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark \
-                     untrack 'glob:{name}@*'` to disassociate them.",
+                     untrack {name}` to disassociate them.",
                     name = name.as_symbol()
                 ),
             ));

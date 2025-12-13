@@ -741,7 +741,7 @@ pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
             |_| {
                 Ok("`git.auto-local-bookmark` is deprecated; use \
                     `remotes.<name>.auto-track-bookmarks` instead.
-Example: jj config set --user remotes.origin.auto-track-bookmarks 'glob:*'
+Example: jj config set --user remotes.origin.auto-track-bookmarks '*'
 For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks"
                     .into())
             },
@@ -757,7 +757,7 @@ For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-b
             |_| {
                 Ok("`git.push-new-bookmarks` is deprecated; use \
                     `remotes.<name>.auto-track-bookmarks` instead.
-Example: jj config set --user remotes.origin.auto-track-bookmarks 'glob:*'
+Example: jj config set --user remotes.origin.auto-track-bookmarks '*'
 For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks"
                     .into())
             },

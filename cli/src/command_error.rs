@@ -598,16 +598,7 @@ jj currently does not support partial clones. To use jj with this repository, tr
                     err,
                     "Specify patterns in `(positive | ...) & ~(negative | ...)` form.",
                 ),
-                GitRefExpansionError::InvalidBranchPattern(pattern) => {
-                    if pattern.as_exact().is_some_and(|s| s.contains('*')) {
-                        user_error_with_hint(
-                            "Branch names may not include `*`.",
-                            "Prefix the pattern with `glob:` to expand `*` as a glob",
-                        )
-                    } else {
-                        user_error(err)
-                    }
-                }
+                GitRefExpansionError::InvalidBranchPattern(_) => user_error(err),
             }
         }
     }
@@ -935,7 +926,7 @@ fn revset_resolution_error_hints(err: &RevsetResolutionError) -> Vec<String> {
             targets,
         } => vec![
             multiple_targets_hint(targets),
-            format!("Use `bookmarks(exact:{symbol})` to select all revisions"),
+            format!("Use `bookmarks({symbol})` to select all revisions"),
             format!(
                 "To set which revision the bookmark points to, run `jj bookmark set {symbol} -r \
                  <REVISION>`"

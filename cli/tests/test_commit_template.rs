@@ -656,7 +656,7 @@ fn test_log_bookmarks() {
 
     // Track all remote bookmarks, rewrite bookmark1, move bookmark2 forward,
     // create conflict in bookmark3, add new-bookmark
-    work_dir.run_jj(["bookmark", "track", "glob:*"]).success();
+    work_dir.run_jj(["bookmark", "track", "*"]).success();
     work_dir
         .run_jj(["describe", "bookmark1", "-m", "modified bookmark1 commit"])
         .success();
@@ -945,12 +945,7 @@ fn test_log_contained_in() {
         )
     };
 
-    let output = work_dir.run_jj([
-        "log",
-        "-r::",
-        "-T",
-        &template_for_revset("subject(glob:A)::"),
-    ]);
+    let output = work_dir.run_jj(["log", "-r::", "-T", &template_for_revset("subject(A)::")]);
     insta::assert_snapshot!(output, @r"
     @  D
     │ ○  C [contained_in]
@@ -1048,7 +1043,7 @@ fn test_short_prefix_in_transaction() {
 
     test_env.add_config(r#"
         [revsets]
-        log = '::subject(glob:test)'
+        log = '::subject(test)'
 
         [templates]
         log = 'summary ++ "\n"'
@@ -1071,9 +1066,7 @@ fn test_short_prefix_in_transaction() {
     }
     // Create 2^4 duplicates of the chain
     for _ in 0..4 {
-        work_dir
-            .run_jj(["duplicate", "subject(glob:commit*)"])
-            .success();
+        work_dir.run_jj(["duplicate", "subject(commit*)"]).success();
     }
 
     // Short prefix should be used for commit summary inside the transaction

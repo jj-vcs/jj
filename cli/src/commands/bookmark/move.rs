@@ -48,10 +48,10 @@ use crate::ui::Ui;
 pub struct BookmarkMoveArgs {
     /// Move bookmarks matching the given name patterns
     ///
-    /// By default, the specified name matches exactly. Use `glob:` prefix to
-    /// select bookmarks by [wildcard pattern].
+    /// By default, the specified pattern matches bookmark names with glob
+    /// syntax. You can also use other [string pattern syntax].
     ///
-    /// [wildcard pattern]:
+    /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(
         group = "source",

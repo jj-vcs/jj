@@ -45,7 +45,7 @@ fn set_up(trunk_name: &str) -> TestEnvironment {
             [
                 "git",
                 "clone",
-                "--config=remotes.origin.auto-track-bookmarks='glob:*'",
+                "--config=remotes.origin.auto-track-bookmarks='*'",
                 origin_git_repo_path.to_str().unwrap(),
                 "local",
             ],
@@ -123,7 +123,7 @@ fn test_builtin_alias_trunk_override_alias() {
     let work_dir = test_env.work_dir("local");
 
     test_env.add_config(
-        r#"revset-aliases.'trunk()' = 'latest(remote_bookmarks(exact:"override-trunk", exact:"origin"))'"#,
+        r#"revset-aliases.'trunk()' = 'latest(remote_bookmarks("override-trunk", "origin"))'"#,
     );
 
     let output = work_dir.run_jj(["log", "-r", "trunk()"]);

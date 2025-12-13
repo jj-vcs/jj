@@ -131,7 +131,7 @@ fn test_snapshot_large_file_restore() {
     // working-copy content shouldn't be overwritten.
     work_dir.run_jj(["new", "root()"]).success();
     work_dir.write_file("file", "a lot of text");
-    let output = work_dir.run_jj(["restore", "--from=subject(glob:committed)"]);
+    let output = work_dir.run_jj(["restore", "--from=subject(committed)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Refused to snapshot some files:
@@ -193,7 +193,7 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
     );
     work_dir.run_jj(["commit", "-m", "side-a"]).success();
     work_dir
-        .run_jj(["new", "subject(glob:base)", "-m", "side-b"])
+        .run_jj(["new", "subject(base)", "-m", "side-b"])
         .success();
     work_dir.write_file(
         "file",
@@ -204,7 +204,7 @@ fn test_materialize_and_snapshot_different_conflict_markers() {
         "},
     );
     work_dir
-        .run_jj(["new", "subject(glob:side-a)", "subject(glob:side-b)"])
+        .run_jj(["new", "subject(side-a)", "subject(side-b)"])
         .success();
 
     // File should have Git-style conflict markers
@@ -316,7 +316,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     );
     work_dir.run_jj(["commit", "-m", "side-a"]).success();
     work_dir
-        .run_jj(["new", "subject(glob:base)", "-m", "side-b"])
+        .run_jj(["new", "subject(base)", "-m", "side-b"])
         .success();
     work_dir.write_file(
         "file",
@@ -329,7 +329,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
         "},
     );
     work_dir
-        .run_jj(["new", "subject(glob:side-a)", "subject(glob:side-b)"])
+        .run_jj(["new", "subject(side-a)", "subject(side-b)"])
         .success();
 
     // File should be materialized with long conflict markers
@@ -360,7 +360,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // Working copy should contain conflict marker length
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("53f0bb27f3ac96896abd48a5fb0fdfcf4e61389a70290468a2e1ec1db5389661fc6e4aec6c1d03f1bd7db07cafa9f6a802dc5e78c936c09e7dbd9aea1b4ea2fa")
+    Current operation: OperationId("55ecb9538ef55d4e5e9b777471fc1e8b6b13211a33a286a7a0440b6c0a047412d3d6a3281cc57c54e702c6ad7c69098fa39c9358b13468677bfd799a0877a827")
     Current tree: MergedTree { tree_ids: Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("f56b8223da0dab22b03b8323ced4946329aeb4e0")]), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }           249 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
     [EOF]
@@ -423,7 +423,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // Working copy should still contain conflict marker length
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("d9ace267ba6a972d19d345fadcfa2177f42e4ea6c11ff4a44e70c034322c233372edfe6169e14292f0cc5d43d43c42329a7a0fa8231b524a43a73fba96b8f114")
+    Current operation: OperationId("384bb2f70e28818b136ef65415dcbd68b43bd4bb74ada9932b42a8e34bc8729394b13ca43bd085ff07331e251cea0589a0fb7b5558ed5696d521ab946207e1e7")
     Current tree: MergedTree { tree_ids: Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("3329c18c95f7b7a55c278c2259e9c4ce711fae59")]), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }           289 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
     [EOF]
@@ -458,7 +458,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     // working copy
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("77a5650168d075d4b3171483acafab04e2822ae3ff1d30d2cdb1ae4bcb6d7739439847891752cc9408a356438e0762a8acc4ae9473c0a9c06619ea71d60984a0")
+    Current operation: OperationId("bd95b7a5c0805289bf610dfde89a651e4f0d30e77c940106dabf2325225fbe6b214d436a50199c3cdf936c688810f236db2f71539451b1de08c6d02060ecd5c1")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("6120567b3cb2472d549753ed3e4b84183d52a650")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }           130 <timestamp> None "file"
     [EOF]

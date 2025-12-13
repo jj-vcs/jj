@@ -44,10 +44,10 @@ use crate::ui::Ui;
 pub struct BookmarkTrackArgs {
     /// Bookmark names to track
     ///
-    /// By default, the specified name matches exactly. Use `glob:` prefix to
-    /// select bookmarks by [wildcard pattern].
+    /// By default, the specified pattern matches bookmark names with glob
+    /// syntax. You can also use other [string pattern syntax].
     ///
-    /// [wildcard pattern]:
+    /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(
         required = true,
@@ -58,13 +58,13 @@ pub struct BookmarkTrackArgs {
 
     /// Remote names to track
     ///
-    /// By default, the specified name matches exactly. Use `glob:` prefix to
-    /// select bookmarks by [wildcard pattern].
+    /// By default, the specified pattern matches remote names with glob syntax.
+    /// You can also use other [string pattern syntax].
     ///
     /// If no remote names are given, all remote bookmarks matching the bookmark
     /// names will be tracked.
     ///
-    /// [wildcard pattern]:
+    /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(long = "remote", value_name = "REMOTE")]
     remotes: Option<Vec<String>>,

@@ -487,7 +487,7 @@ fn test_git_colocated_bookmarks() {
 
     // Update the bookmark in Git
     let target_id = work_dir
-        .run_jj(["log", "--no-graph", "-T=commit_id", "-r=subject(glob:foo)"])
+        .run_jj(["log", "--no-graph", "-T=commit_id", "-r=subject(foo)"])
         .success()
         .stdout
         .into_raw();
@@ -684,7 +684,7 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
 #[test]
 fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
     let test_env = TestEnvironment::default();
-    test_env.add_config("remotes.origin.auto-track-bookmarks = 'glob:*'");
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let origin_dir = test_env.work_dir("origin");
     git::init(origin_dir.root());
     origin_dir.run_jj(["git", "init", "--git-repo=."]).success();
@@ -845,7 +845,7 @@ fn test_git_colocated_external_checkout() {
     ");
 
     // Edit non-head commit
-    work_dir.run_jj(["new", "subject(glob:B)"]).success();
+    work_dir.run_jj(["new", "subject(B)"]).success();
     work_dir.run_jj(["new", "-m=C", "--no-edit"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○  823204bc895aad19d46b895bc510fb3e9d0c97c7 C

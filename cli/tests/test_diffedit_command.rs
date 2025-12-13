@@ -371,7 +371,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     );
     work_dir.run_jj(["describe", "-m", "side-a"]).success();
     work_dir
-        .run_jj(["new", "subject(glob:base)", "-m", "side-b"])
+        .run_jj(["new", "subject(base)", "-m", "side-b"])
         .success();
     work_dir.write_file(
         file_path,
@@ -387,7 +387,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
 
     // Resolve one of the conflicts in the working copy
     work_dir
-        .run_jj(["new", "subject(glob:side-a)", "subject(glob:side-b)"])
+        .run_jj(["new", "subject(side-a)", "subject(side-b)"])
         .success();
     work_dir.write_file(
         file_path,
@@ -931,12 +931,7 @@ fn test_diffedit_external_tool_eol_conversion() {
         .run_jj(["new", "root()", "--config", eol_conversion_none_config])
         .success();
     work_dir
-        .run_jj([
-            "new",
-            "subject(glob:2)",
-            "--config",
-            eol_conversion_none_config,
-        ])
+        .run_jj(["new", "subject(2)", "--config", eol_conversion_none_config])
         .success();
     let file_content = work_dir.read_file(file_path);
     assert_eq!(file_content, b"\n\n\n");

@@ -31,10 +31,10 @@ use crate::ui::Ui;
 pub struct TagListArgs {
     /// Show tags whose local name matches
     ///
-    /// By default, the specified name matches exactly. Use `glob:` prefix to
-    /// select tags by [wildcard pattern].
+    /// By default, the specified pattern matches tag names with glob syntax.
+    /// You can also use other [string pattern syntax].
     ///
-    /// [wildcard pattern]:
+    /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     pub names: Option<Vec<String>>,
     /// Render each tag using the given template

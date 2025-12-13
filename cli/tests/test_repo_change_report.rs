@@ -27,7 +27,7 @@ fn test_report_conflicts() {
     work_dir.write_file("file", "C\n");
     work_dir.run_jj(["commit", "-m=C"]).success();
 
-    let output = work_dir.run_jj(["rebase", "-s=subject(glob:B)", "-d=root()"]);
+    let output = work_dir.run_jj(["rebase", "-s=subject(B)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
@@ -48,7 +48,7 @@ fn test_report_conflicts() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-d=subject(glob:A)"]);
+    let output = work_dir.run_jj(["rebase", "-d=subject(A)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
@@ -60,7 +60,7 @@ fn test_report_conflicts() {
     ");
 
     // Can get hint about multiple root commits
-    let output = work_dir.run_jj(["rebase", "-r=subject(glob:B)", "-d=root()"]);
+    let output = work_dir.run_jj(["rebase", "-r=subject(B)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -122,7 +122,7 @@ fn test_report_conflicts_with_divergent_commits() {
         .run_jj(["describe", "-m=C3", "--at-op=@-"])
         .success();
 
-    let output = work_dir.run_jj(["rebase", "-s=subject(glob:B)", "-d=root()"]);
+    let output = work_dir.run_jj(["rebase", "-s=subject(B)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
@@ -145,7 +145,7 @@ fn test_report_conflicts_with_divergent_commits() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-d=subject(glob:A)"]);
+    let output = work_dir.run_jj(["rebase", "-d=subject(A)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
@@ -157,7 +157,7 @@ fn test_report_conflicts_with_divergent_commits() {
     ");
 
     // Same thing when rebasing the divergent commits one at a time
-    let output = work_dir.run_jj(["rebase", "-s=subject(glob:C2)", "-d=root()"]);
+    let output = work_dir.run_jj(["rebase", "-s=subject(C2)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -177,7 +177,7 @@ fn test_report_conflicts_with_divergent_commits() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-s=subject(glob:C3)", "-d=root()"]);
+    let output = work_dir.run_jj(["rebase", "-s=subject(C3)", "-d=root()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -192,7 +192,7 @@ fn test_report_conflicts_with_divergent_commits() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-s=subject(glob:C2)", "-d=subject(glob:B)"]);
+    let output = work_dir.run_jj(["rebase", "-s=subject(C2)", "-d=subject(B)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -203,7 +203,7 @@ fn test_report_conflicts_with_divergent_commits() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["rebase", "-s=subject(glob:C3)", "-d=subject(glob:B)"]);
+    let output = work_dir.run_jj(["rebase", "-s=subject(C3)", "-d=subject(B)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
@@ -227,7 +227,7 @@ fn test_report_conflicts_with_resolving_conflicts_hint_disabled() {
 
     let output = work_dir.run_jj([
         "rebase",
-        "-s=subject(glob:B)",
+        "-s=subject(B)",
         "-d=root()",
         "--config=hints.resolving-conflicts=false",
     ]);

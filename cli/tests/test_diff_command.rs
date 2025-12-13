@@ -582,7 +582,7 @@ fn test_diff_types() {
     work_dir.run_jj(["new", "root()"]).success();
     work_dir.write_file(file_path, "bar");
     work_dir
-        .run_jj(["squash", "--into=subject(glob:conflict)"])
+        .run_jj(["squash", "--into=subject(conflict)"])
         .success();
 
     #[cfg(unix)]
@@ -610,8 +610,8 @@ fn test_diff_types() {
         work_dir.run_jj([
             "diff",
             "--types",
-            &format!(r#"--from=subject(glob:"{from}")"#),
-            &format!(r#"--to=subject(glob:"{to}")"#),
+            &format!(r#"--from=subject("{from}")"#),
+            &format!(r#"--to=subject("{to}")"#),
         ])
     };
     insta::assert_snapshot!(diff("missing", "file"), @r"
@@ -3485,7 +3485,7 @@ fn test_diff_external_tool_conflict_marker_style() {
     );
     work_dir.run_jj(["describe", "-m", "side-a"]).success();
     work_dir
-        .run_jj(["new", "subject(glob:base)", "-m", "side-b"])
+        .run_jj(["new", "subject(base)", "-m", "side-b"])
         .success();
     work_dir.write_file(
         file_path,
@@ -3501,7 +3501,7 @@ fn test_diff_external_tool_conflict_marker_style() {
 
     // Resolve one of the conflicts in the working copy
     work_dir
-        .run_jj(["new", "subject(glob:side-a)", "subject(glob:side-b)"])
+        .run_jj(["new", "subject(side-a)", "subject(side-b)"])
         .success();
     work_dir.write_file(
         file_path,

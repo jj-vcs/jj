@@ -112,10 +112,10 @@ fn test_identical_commits_by_convergent_rewrite() {
     work_dir.run_jj(["new", "root()", "-m=test1"]).success();
     work_dir.run_jj(["new", "root()", "-m=test2"]).success();
     work_dir
-        .run_jj(["describe", "-m=test3", "subject(glob:test1)"])
+        .run_jj(["describe", "-m=test3", "subject(test1)"])
         .success();
     // TODO: Should not fail
-    insta::assert_snapshot!(work_dir.run_jj(["describe", "-m=test3", "subject(glob:test2)"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["describe", "-m=test3", "subject(test2)"]), @r"
     ------- stderr -------
     Internal error: Unexpected error from backend
     Caused by: Newly-created commit 460733f1f6f9283d5a810b231dd3f846fd3a6f04 already exists
