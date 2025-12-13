@@ -29,6 +29,7 @@ use std::fs::File;
 use std::io;
 use std::io::Read;
 use std::io::Write as _;
+use std::iter;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -115,6 +116,15 @@ impl ReadonlyTable {
             index,
             values,
         }))
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Iterates ancestor table segments including `self`.
+    pub fn ancestor_segments(self: &Arc<Self>) -> impl Iterator<Item = &Arc<Self>> {
+        iter::successors(Some(self), |table| table.segment_parent_file())
     }
 
     pub fn start_mutation(self: &Arc<Self>) -> MutableTable {

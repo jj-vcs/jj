@@ -254,6 +254,35 @@ fn test_debug_reindex() {
 }
 
 #[test]
+fn test_debug_stacked_table() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["new"]).success();
+
+    let output = work_dir.run_jj([
+        "debug",
+        "stacked-table",
+        ".jj/repo/store/extra",
+        "--key-size=20", // HASH_LENGTH
+    ]);
+    assert_snapshot!(filter_index_stats(output), @r"
+    Number of entries: 4
+    Stats per level:
+      Level 0:
+        Number of entries: 3
+        Name: [hash]
+      Level 1:
+        Number of entries: 1
+        Name: [hash]
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_debug_tree() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

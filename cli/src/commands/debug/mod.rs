@@ -22,6 +22,7 @@ mod object;
 mod reindex;
 mod revset;
 mod snapshot;
+mod stacked_table;
 mod template;
 mod tree;
 mod watchman;
@@ -51,6 +52,8 @@ use self::revset::DebugRevsetArgs;
 use self::revset::cmd_debug_revset;
 use self::snapshot::DebugSnapshotArgs;
 use self::snapshot::cmd_debug_snapshot;
+use self::stacked_table::DebugStackedTableArgs;
+use self::stacked_table::cmd_debug_stacked_table;
 use self::template::DebugTemplateArgs;
 use self::template::cmd_debug_template;
 use self::tree::DebugTreeArgs;
@@ -79,6 +82,7 @@ pub enum DebugCommand {
     Reindex(DebugReindexArgs),
     Revset(DebugRevsetArgs),
     Snapshot(DebugSnapshotArgs),
+    StackedTable(DebugStackedTableArgs),
     Template(DebugTemplateArgs),
     Tree(DebugTreeArgs),
     #[command(subcommand)]
@@ -102,6 +106,7 @@ pub fn cmd_debug(
         DebugCommand::Reindex(args) => cmd_debug_reindex(ui, command, args),
         DebugCommand::Revset(args) => cmd_debug_revset(ui, command, args),
         DebugCommand::Snapshot(args) => cmd_debug_snapshot(ui, command, args),
+        DebugCommand::StackedTable(args) => cmd_debug_stacked_table(ui, command, args),
         DebugCommand::Template(args) => cmd_debug_template(ui, command, args),
         DebugCommand::Tree(args) => cmd_debug_tree(ui, command, args),
         DebugCommand::Watchman(args) => cmd_debug_watchman(ui, command, args),
