@@ -27,17 +27,31 @@ use crate::complete;
 use crate::diff_util::DiffFormatArgs;
 use crate::ui::Ui;
 
-/// Compare the changes of two commits
+/// Show differences between the diffs of two changes
 ///
-/// This excludes changes from other commits by temporarily rebasing `--from`
-/// onto `--to`'s parents. If you wish to compare the same change across
-/// versions, consider `jj evolog -p` instead.
+/// This is like running `jj diff -r` on each change, then comparing those
+/// results. It answers: "How do the modifications introduced by change A
+/// differ from the modifications introduced by change B?"
+///
+/// For example, if two changes both add a feature but implement it
+/// differently, `jj interdiff --from @- --to other` shows what one
+/// implementation adds or removes that the other doesn't.
+///
+/// This is different from `jj diff --from A --to B`, which compares file
+/// contents directly. `interdiff` compares what each change does to its
+/// parent—their patches, not their trees.
+///
+/// Technically, this works by rebasing `--from` onto `--to`'s parents and
+/// comparing the result to `--to`.
+///
+/// To compare different versions of the *same* change (e.g., before and after
+/// amending), use `jj evolog -p` instead.
 #[derive(clap::Args, Clone, Debug)]
 #[command(group(ArgGroup::new("to_diff").args(&["from", "to"]).multiple(true).required(true)))]
 #[command(mut_arg("ignore_all_space", |a| a.short('w')))]
 #[command(mut_arg("ignore_space_change", |a| a.short('b')))]
 pub(crate) struct InterdiffArgs {
-    /// Show changes from this revision
+    /// The first change to compare (default: @)
     #[arg(
         long,
         short,
@@ -45,7 +59,7 @@ pub(crate) struct InterdiffArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     from: Option<RevisionArg>,
-    /// Show changes to this revision
+    /// The second change to compare (default: @)
     #[arg(
         long,
         short,

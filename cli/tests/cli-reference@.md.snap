@@ -154,7 +154,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `gerrit` — Interact with Gerrit Code Review
 * `git` — Commands for working with Git remotes and the underlying Git repo
 * `help` — Print this message or the help of the given subcommand(s)
-* `interdiff` — Compare the changes of two commits
+* `interdiff` — Show differences between the diffs of two changes
 * `log` — Show revision history
 * `metaedit` — Modify the metadata of a revision without changing its content
 * `new` — Create a new, empty change and (by default) edit it in the working copy
@@ -1756,9 +1756,17 @@ Print this message or the help of the given subcommand(s)
 
 ## `jj interdiff`
 
-Compare the changes of two commits
+Show differences between the diffs of two changes
 
-This excludes changes from other commits by temporarily rebasing `--from` onto `--to`'s parents. If you wish to compare the same change across versions, consider `jj evolog -p` instead.
+This is like running `jj diff -r` on each change, then comparing those results. It answers: "How do the modifications introduced by change A differ from the modifications introduced by change B?"
+
+For example, if two changes both add a feature but implement it differently, `jj interdiff --from @- --to other` shows what one implementation adds or removes that the other doesn't.
+
+This is different from `jj diff --from A --to B`, which compares file contents directly. `interdiff` compares what each change does to its parent—their patches, not their trees.
+
+Technically, this works by rebasing `--from` onto `--to`'s parents and comparing the result to `--to`.
+
+To compare different versions of the *same* change (e.g., before and after amending), use `jj evolog -p` instead.
 
 **Usage:** `jj interdiff [OPTIONS] <--from <REVSET>|--to <REVSET>> [FILESETS]...`
 
@@ -1768,8 +1776,8 @@ This excludes changes from other commits by temporarily rebasing `--from` onto `
 
 ###### **Options:**
 
-* `-f`, `--from <REVSET>` — Show changes from this revision
-* `-t`, `--to <REVSET>` — Show changes to this revision
+* `-f`, `--from <REVSET>` — The first change to compare (default: @)
+* `-t`, `--to <REVSET>` — The second change to compare (default: @)
 * `-s`, `--summary` — For each path, show only whether it was modified, added, or deleted
 * `--stat` — Show a histogram of the changes
 * `--types` — For each path, show only its type before and after
