@@ -224,6 +224,31 @@ store arbitrary files in `<your-git-repo>/scratch/`.
 
 You can find more details on `gitignore` files [here][gitignore].
 
+### How can I avoid accidentally tracking new files I didn't mean to track?
+
+Users with habits from a different VCS like Git may be used to new files needing to be explicitly tracked.
+To them, it can be surprising that newly added files are "silently" tracked in the working copy.
+In the worst case scenario, files with sensitive information are accidentally pushed to a public repository.
+
+You can configure jj to [not automatically track certain files](config.md/#paths-to-automatically-track).
+For example, you can disable auto-tracking entirely with the following command:
+```sh
+jj config set --user snapshot.auto-track 'none()'
+```
+
+However, we strongly recommend trying to get used to this behavior.
+Here are some arguments in favor of the default:
+- Untracked files do not appear in the operation log.
+  That means Jujutsu won't be able to restore a previous state of the file for you.
+  Accidentally pushing a commit which contains sensitive information is bad, but losing work in an unrecoverable way is also bad.
+- It is conceptually simpler.
+  Files are either tracked by Jujutsu or explicitly untracked with an entry in `.gitignore` or `.git/info/exclude`.
+  If you turn off auto-tracking, there is a third category of files that are not-yet-explicitly-tracked.
+- When you push commits to a public repository, you should know what they contain.
+  Use `jj show` to double-check the content of a commit you're unsure about before pushing it.
+  Use `jj log --stat` to get an overview over which of your commits is touching which files.
+- If you regularly create files that shouldn't be tracked in any repository, consider adding them to your global `.gitignore` file.
+
 ### How can I avoid committing my local-only changes to tracked files?
 
 Suppose your repository tracks a file like `secret_config.json`, and you make
