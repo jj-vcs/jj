@@ -6280,6 +6280,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   are in revsets and can be combined with logical operators.</p>
 </li>
 <li>
+<p><code>jj bookmark track</code>/<code>untrack</code> now accepts <code>--remote</code> argument. If omitted, all
+  remote bookmarks matching the bookmark names will be tracked/untracked. The
+  old <code>&lt;bookmark&gt;@&lt;remote&gt;</code> syntax is deprecated in favor of <code>&lt;bookmark&gt;
+  --remote=&lt;remote&gt;</code>.</p>
+</li>
+<li>
 <p>On Windows, symlinks that point to a path with <code>/</code> won't be supported. This
   path is <a href="https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions">invalid on Windows</a>.</p>
 </li>

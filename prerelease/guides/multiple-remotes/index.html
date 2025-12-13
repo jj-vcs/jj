@@ -1923,7 +1923,7 @@ $<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span
 $<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.push<span class="w"> </span>origin
 
 <span class="c1"># Track both remote bookmarks</span>
-$<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>track<span class="w"> </span>main@upstream<span class="w"> </span>main@origin
+$<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>track<span class="w"> </span>main
 
 <span class="c1"># The upstream repository defines the trunk</span>
 $<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span><span class="s1">&#39;revset-aliases.&quot;trunk()&quot;&#39;</span><span class="w"> </span>main@upstream
@@ -1959,8 +1959,8 @@ $<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span
 $<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.push<span class="w"> </span>origin
 
 <span class="c1"># Track only the origin bookmark</span>
-$<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>track<span class="w"> </span>main@origin
-$<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>untrack<span class="w"> </span>main@upstream
+$<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>track<span class="w"> </span>main<span class="w"> </span>--remote<span class="o">=</span>origin
+$<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>untrack<span class="w"> </span>main<span class="w"> </span>--remote<span class="o">=</span>upstream
 
 <span class="c1"># The origin repository defines the trunk</span>
 $<span class="w"> </span>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span><span class="s1">&#39;revset-aliases.&quot;trunk()&quot;&#39;</span><span class="w"> </span>main@origin

@@ -12,8 +12,8 @@
     `jj git clone <source> <destination> [--remote <remote name>]`
   Notes: There is no support for cloning non-Git repos yet.
 
-# TODO: Mention that you might need to do a `jj bookmark track branch@remote` to see the
-# bookmark in `jj log`.
+# TODO: Mention that you might need to do a `jj bookmark track branch` to see
+# the bookmark in `jj log`.
 - Use case: Update the local repo with all bookmarks/branches from a remote
   Git command: >
     `git fetch [<remote>]`

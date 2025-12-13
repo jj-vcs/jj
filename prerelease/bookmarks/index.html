@@ -2104,27 +2104,27 @@ some remote.</p>
 <li>A <strong>tracked (remote) bookmark</strong> is defined above. You can make a remote bookmark
   tracked with the <a href="#manually-tracking-a-bookmark"><code>jj bookmark track</code> command</a>, for
   example.</li>
-<li>A <strong>tracking (local) bookmark</strong> is the local bookmark that <code>jj</code> tries to keep in
-  sync with the tracked remote bookmark. For example, after <code>jj bookmark track
-  mybookmark@origin</code>, there will be a local bookmark <code>mybookmark</code> that's tracking the
-  remote <code>mybookmark@origin</code> bookmark. A local bookmark can track a bookmark of the same
-  name on 0 or more remotes.</li>
+<li>A <strong>tracking (local) bookmark</strong> is the local bookmark that <code>jj</code> tries to keep
+  in sync with the tracked remote bookmark. For example, after <code>jj bookmark
+  track mybookmark --remote=origin</code>, there will be a local bookmark <code>mybookmark</code>
+  that's tracking the remote <code>mybookmark@origin</code> bookmark. A local bookmark can
+  track a bookmark of the same name on 0 or more remotes.</li>
 </ul>
 <p>The notion of tracked bookmarks serves a similar function to the Git notion of an
 "upstream branch". Unlike Git, a single local bookmark can be tracking remote
 bookmarks on multiple remotes, and the names of the local and remote bookmarks
 must match.</p>
 <h3 id="manually-tracking-a-bookmark">Manually tracking a bookmark<a class="headerlink" href="#manually-tracking-a-bookmark" title="Permanent link">&para;</a></h3>
-<p>To track a bookmark permanently use <code>jj bookmark track &lt;bookmark name&gt;@&lt;remote name&gt;</code>.
-It will now be imported as a local bookmark until you untrack it or it is deleted
-on the remote.</p>
+<p>To track a bookmark permanently use <code>jj bookmark track &lt;bookmark name&gt;
+--remote=&lt;remote name&gt;</code>. It will now be imported as a local bookmark until you
+untrack it or it is deleted on the remote.</p>
 <p>Example:</p>
 <div class="highlight"><pre><span></span><code>$<span class="w"> </span><span class="c1"># List all available bookmarks, as we want our colleague&#39;s bookmark.</span>
 $<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>list<span class="w"> </span>--all
 $<span class="w"> </span><span class="c1"># Find the bookmark.</span>
 $<span class="w"> </span><span class="c1"># [...]</span>
 $<span class="w"> </span><span class="c1"># Actually track the bookmark.</span>
-$<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>track<span class="w"> </span>&lt;bookmark<span class="w"> </span>name&gt;@&lt;remote<span class="w"> </span>name&gt;<span class="w"> </span><span class="c1"># Example: jj bookmark track my-feature@origin</span>
+$<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>track<span class="w"> </span>&lt;bookmark<span class="w"> </span>name&gt;<span class="w"> </span>--remote<span class="o">=</span>&lt;remote<span class="w"> </span>name&gt;<span class="w"> </span><span class="c1"># Example: jj bookmark track my-feature --remote=origin</span>
 $<span class="w"> </span><span class="c1"># From this point on, &lt;bookmark name&gt; will be imported when fetching from &lt;remote name&gt;.</span>
 $<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>fetch<span class="w"> </span>--remote<span class="w"> </span>&lt;remote<span class="w"> </span>name&gt;
 $<span class="w"> </span><span class="c1"># A local bookmark &lt;bookmark name&gt; should have been created or updated while fetching.</span>
@@ -2140,7 +2140,7 @@ $<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </sp
 $<span class="w"> </span><span class="c1"># Find the bookmark we no longer want to track.</span>
 $<span class="w"> </span><span class="c1"># [...]</span>
 <span class="c1"># # Actually untrack it.</span>
-$<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>untrack<span class="w"> </span>&lt;bookmark<span class="w"> </span>name&gt;@&lt;remote<span class="w"> </span>name&gt;<span class="w"> </span><span class="c1"># Example: jj bookmark untrack stuff@origin</span>
+$<span class="w"> </span>jj<span class="w"> </span>bookmark<span class="w"> </span>untrack<span class="w"> </span>&lt;bookmark<span class="w"> </span>name&gt;<span class="w"> </span>--remote<span class="o">=</span>&lt;remote<span class="w"> </span>name&gt;<span class="w"> </span><span class="c1"># Example: jj bookmark untrack stuff --remote=origin</span>
 $<span class="w"> </span><span class="c1"># From this point on, this remote bookmark won&#39;t be imported anymore.</span>
 $<span class="w"> </span><span class="c1"># The local bookmark (e.g. stuff) is unaffected. It may or may not still</span>
 $<span class="w"> </span><span class="c1"># be tracking bookmarks on other remotes (e.g. stuff@upstream).</span>
