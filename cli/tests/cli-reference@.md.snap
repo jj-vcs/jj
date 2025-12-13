@@ -617,7 +617,7 @@ Update the description and create a new change on top [default alias: ci]
 
 When called without path arguments or `--interactive`, `jj commit` is equivalent to `jj describe` followed by `jj new`.
 
-Otherwise, this command is very similar to `jj split`. Differences include:
+When using `--interactive` or path arguments, the selected changes stay in the current commit while the remaining changes are moved to a new working-copy commit on top. This is very similar to `jj split`. Differences include:
 
 * `jj commit` is not interactive by default (it selects all changes).
 
@@ -631,11 +631,11 @@ Otherwise, this command is very similar to `jj split`. Differences include:
 
 ###### **Arguments:**
 
-* `<FILESETS>` — Put these paths in the first commit
+* `<FILESETS>` — Put these paths in the current commit
 
 ###### **Options:**
 
-* `-i`, `--interactive` — Interactively choose which changes to include in the first commit
+* `-i`, `--interactive` — Interactively choose which changes to include in the current commit
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `-m`, `--message <MESSAGE>` — The change description to use (don't open editor)
 * `--editor` — Open an editor to edit the change description
