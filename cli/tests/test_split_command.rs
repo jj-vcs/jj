@@ -1955,3 +1955,56 @@ fn test_split_with_editor_without_message() -> TestResult {
     ");
     Ok(())
 }
+
+#[test]
+fn test_split_no_editor_uses_default_descriptions() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir
+        .run_jj(["describe", "-m", "original description"])
+        .success();
+
+    work_dir
+        .run_jj(["split", "--no-editor", "--config", "ui.editor=42", "file1"])
+        .success();
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  kkmpptxzrspx false
+    ○  qpvuntsmwlqt false original description
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_split_no_editor_uses_message() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+
+    work_dir
+        .run_jj([
+            "split",
+            "--no-editor",
+            "--message",
+            "selected description",
+            "--config",
+            "ui.editor=42",
+            "file1",
+        ])
+        .success();
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  rlvkpnrzqnoo false
+    ○  qpvuntsmwlqt false selected description
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+}
