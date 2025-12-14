@@ -362,6 +362,66 @@ fn test_revert_description_template() {
     "#);
 }
 
+#[test]
+fn test_revert_with_conflict() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(&work_dir, "a", &[], &[("a", "a\n")]);
+    create_commit_with_files(&work_dir, "b", &["a"], &[("a", "a\nb\n")]);
+    create_commit_with_files(&work_dir, "c", &["b"], &[("a", "a\nb\nc\n")]);
+
+    // Test the setup
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  48b910edc43e c
+    ○  f93a910dbdf0 b
+    ○  7d980be7a1d4 a
+    ◆  000000000000
+    [EOF]
+    ");
+
+    // Create a conflict by reverting B onto C
+    let output = work_dir.run_jj(["revert", "-r=b", "--onto=c"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Reverted 1 commits as follows:
+      yostqsxw 0b3e98ea (conflict) Revert "b"
+    New conflicts appeared in 1 commits:
+      yostqsxw 0b3e98ea (conflict) Revert "b"
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the conflicted commit:
+      jj new yostqsxw
+    Then use `jj resolve`, or edit the conflict markers in the file directly.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
+    Then run `jj squash` to move the resolution into the conflicted commit.
+    [EOF]
+    "#);
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
+    ×  0b3e98eae4a9 Revert "b"
+    │
+    │  This reverts commit f93a910dbdf0f841e6cf2bc0ab0ba4c336d6f436.
+    @  48b910edc43e c
+    ○  f93a910dbdf0 b
+    ○  7d980be7a1d4 a
+    ◆  000000000000
+    [EOF]
+    "#);
+    // Reverted commit should contain conflict markers
+    let output = work_dir.run_jj(["file", "show", "-r=@+", "a"]);
+    insta::assert_snapshot!(output, @r#"
+    a
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from: zsuskuln f93a910d "b" (reverted revision)
+    \\\\\\\        to: royxmykx 48b910ed "c" (revert destination)
+     b
+    +c
+    +++++++ rlvkpnrz 7d980be7 "a" (parents of reverted revision)
+    >>>>>>> conflict 1 of 1 ends
+    [EOF]
+    "#);
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"commit_id.short() ++ " " ++ description"#;
