@@ -8,28 +8,28 @@
       
       
       
-        <link rel="canonical" href="https://docs.jj-vcs.dev/latest/design_doc_blueprint/">
+        <link rel="canonical" href="https://docs.jj-vcs.dev/latest/guides/cli-revision-options/">
       
       
-        <link rel="prev" href="../design_docs/">
+        <link rel="prev" href="../../glossary/">
       
       
-        <link rel="next" href="../releasing/">
+        <link rel="next" href="../divergence/">
       
       
-      <link rel="icon" href="../images/favicon-96x96.png">
+      <link rel="icon" href="../../images/favicon-96x96.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
     
     
       
-        <title>Design doc blueprint - Jujutsu docs (prerelease)</title>
+        <title>CLI options for specifying revisions - Jujutsu docs (prerelease)</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.84d31ad4.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.84d31ad4.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -48,7 +48,7 @@
       
     
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#title" class="md-skip">
+        <a href="#cli-options-for-specifying-revisions" class="md-skip">
           Skip to content
         </a>
       
@@ -94,7 +94,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="Jujutsu docs (prerelease)" class="md-header__button md-logo" aria-label="Jujutsu docs (prerelease)" data-md-component="logo">
+    <a href="../.." title="Jujutsu docs (prerelease)" class="md-header__button md-logo" aria-label="Jujutsu docs (prerelease)" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Design doc blueprint
+              CLI options for specifying revisions
             
           </span>
         </div>
@@ -240,7 +240,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="Jujutsu docs (prerelease)" class="md-nav__button md-logo" aria-label="Jujutsu docs (prerelease)" data-md-component="logo">
+    <a href="../.." title="Jujutsu docs (prerelease)" class="md-nav__button md-logo" aria-label="Jujutsu docs (prerelease)" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -270,7 +270,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -330,7 +330,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../install-and-setup/" class="md-nav__link">
+      <a href="../../install-and-setup/" class="md-nav__link">
         
   
   
@@ -353,7 +353,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tutorial/" class="md-nav__link">
+      <a href="../../tutorial/" class="md-nav__link">
         
   
   
@@ -376,7 +376,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../gerrit/" class="md-nav__link">
+      <a href="../../gerrit/" class="md-nav__link">
         
   
   
@@ -399,7 +399,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../github/" class="md-nav__link">
+      <a href="../../github/" class="md-nav__link">
         
   
   
@@ -422,7 +422,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../windows/" class="md-nav__link">
+      <a href="../../windows/" class="md-nav__link">
         
   
   
@@ -452,7 +452,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../FAQ/" class="md-nav__link">
+      <a href="../../FAQ/" class="md-nav__link">
         
   
   
@@ -474,7 +474,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../cli-reference/" class="md-nav__link">
+      <a href="../../cli-reference/" class="md-nav__link">
         
   
   
@@ -496,7 +496,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../testimonials/" class="md-nav__link">
+      <a href="../../testimonials/" class="md-nav__link">
         
   
   
@@ -518,7 +518,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../community_tools/" class="md-nav__link">
+      <a href="../../community_tools/" class="md-nav__link">
         
   
   
@@ -578,7 +578,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../working-copy/" class="md-nav__link">
+      <a href="../../working-copy/" class="md-nav__link">
         
   
   
@@ -601,7 +601,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../bookmarks/" class="md-nav__link">
+      <a href="../../bookmarks/" class="md-nav__link">
         
   
   
@@ -624,7 +624,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../conflicts/" class="md-nav__link">
+      <a href="../../conflicts/" class="md-nav__link">
         
   
   
@@ -647,7 +647,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../operation-log/" class="md-nav__link">
+      <a href="../../operation-log/" class="md-nav__link">
         
   
   
@@ -670,7 +670,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../glossary/" class="md-nav__link">
+      <a href="../../glossary/" class="md-nav__link">
         
   
   
@@ -697,18 +697,20 @@
       
   
   
+    
   
   
+  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
         
           
           <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
@@ -724,7 +726,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             Guides
@@ -735,10 +737,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../guides/cli-revision-options/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    CLI options for specifying revisions
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -749,6 +773,101 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Summary
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manipulating-revisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Manipulating revisions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Manipulating revisions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#specifying-destinations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Specifying destinations
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manipulating-diffs-and-file-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      Manipulating diffs and file contents
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Manipulating diffs and file contents">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#special-cases-that-use-r" class="md-nav__link">
+    <span class="md-ellipsis">
+      Special cases that use -r
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#special-cases-that-dont-use-any-option" class="md-nav__link">
+    <span class="md-ellipsis">
+      Special cases that don't use any option
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#other-special-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Other special cases
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -761,7 +880,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guides/divergence/" class="md-nav__link">
+      <a href="../divergence/" class="md-nav__link">
         
   
   
@@ -784,7 +903,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guides/multiple-remotes/" class="md-nav__link">
+      <a href="../multiple-remotes/" class="md-nav__link">
         
   
   
@@ -852,7 +971,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../config/" class="md-nav__link">
+      <a href="../../config/" class="md-nav__link">
         
   
   
@@ -875,7 +994,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../filesets/" class="md-nav__link">
+      <a href="../../filesets/" class="md-nav__link">
         
   
   
@@ -898,7 +1017,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../revsets/" class="md-nav__link">
+      <a href="../../revsets/" class="md-nav__link">
         
   
   
@@ -921,7 +1040,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../templates/" class="md-nav__link">
+      <a href="../../templates/" class="md-nav__link">
         
   
   
@@ -989,7 +1108,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../git-comparison/" class="md-nav__link">
+      <a href="../../git-comparison/" class="md-nav__link">
         
   
   
@@ -1012,7 +1131,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../git-command-table/" class="md-nav__link">
+      <a href="../../git-command-table/" class="md-nav__link">
         
   
   
@@ -1035,7 +1154,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../git-compatibility/" class="md-nav__link">
+      <a href="../../git-compatibility/" class="md-nav__link">
         
   
   
@@ -1058,7 +1177,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../git-experts/" class="md-nav__link">
+      <a href="../../git-experts/" class="md-nav__link">
         
   
   
@@ -1081,7 +1200,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sapling-comparison/" class="md-nav__link">
+      <a href="../../sapling-comparison/" class="md-nav__link">
         
   
   
@@ -1104,7 +1223,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../related-work/" class="md-nav__link">
+      <a href="../../related-work/" class="md-nav__link">
         
   
   
@@ -1172,7 +1291,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../core_tenets/" class="md-nav__link">
+      <a href="../../core_tenets/" class="md-nav__link">
         
   
   
@@ -1195,7 +1314,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../technical/architecture/" class="md-nav__link">
+      <a href="../../technical/architecture/" class="md-nav__link">
         
   
   
@@ -1218,7 +1337,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../technical/concurrency/" class="md-nav__link">
+      <a href="../../technical/concurrency/" class="md-nav__link">
         
   
   
@@ -1241,7 +1360,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../technical/conflicts/" class="md-nav__link">
+      <a href="../../technical/conflicts/" class="md-nav__link">
         
   
   
@@ -1268,20 +1387,18 @@
       
   
   
-    
   
   
-  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
         
           
           <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
@@ -1297,7 +1414,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_12">
             <span class="md-nav__icon md-icon"></span>
             Contributing
@@ -1311,7 +1428,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../contributing/" class="md-nav__link">
+      <a href="../../contributing/" class="md-nav__link">
         
   
   
@@ -1334,7 +1451,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../code-of-conduct/" class="md-nav__link">
+      <a href="../../code-of-conduct/" class="md-nav__link">
         
   
   
@@ -1357,7 +1474,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../style_guide/" class="md-nav__link">
+      <a href="../../style_guide/" class="md-nav__link">
         
   
   
@@ -1380,7 +1497,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design_docs/" class="md-nav__link">
+      <a href="../../design_docs/" class="md-nav__link">
         
   
   
@@ -1400,32 +1517,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Design doc blueprint
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../design_doc_blueprint/" class="md-nav__link">
         
   
   
@@ -1436,122 +1531,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#summary" class="md-nav__link">
-    <span class="md-ellipsis">
-      Summary
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#state-of-the-feature-as-of-version-optional" class="md-nav__link">
-    <span class="md-ellipsis">
-      State of the Feature as of $VERSION (optional)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#prior-work-optional" class="md-nav__link">
-    <span class="md-ellipsis">
-      Prior work (optional)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#goals-and-non-goals" class="md-nav__link">
-    <span class="md-ellipsis">
-      Goals and non-goals
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      Overview
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Overview">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#detailed-design" class="md-nav__link">
-    <span class="md-ellipsis">
-      Detailed Design
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#alternatives-considered-optional" class="md-nav__link">
-    <span class="md-ellipsis">
-      Alternatives considered (optional)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#issues-addressed-optional" class="md-nav__link">
-    <span class="md-ellipsis">
-      Issues addressed (optional)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#related-work-optional" class="md-nav__link">
-    <span class="md-ellipsis">
-      Related Work (optional)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#future-possibilities" class="md-nav__link">
-    <span class="md-ellipsis">
-      Future Possibilities
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1564,7 +1543,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../releasing/" class="md-nav__link">
+      <a href="../../releasing/" class="md-nav__link">
         
   
   
@@ -1587,7 +1566,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../governance/temporary-voting/" class="md-nav__link">
+      <a href="../../governance/temporary-voting/" class="md-nav__link">
         
   
   
@@ -1610,7 +1589,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../governance/GOVERNANCE/" class="md-nav__link">
+      <a href="../../governance/GOVERNANCE/" class="md-nav__link">
         
   
   
@@ -1678,7 +1657,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design/git-submodules/" class="md-nav__link">
+      <a href="../../design/git-submodules/" class="md-nav__link">
         
   
   
@@ -1701,7 +1680,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design/git-submodule-storage/" class="md-nav__link">
+      <a href="../../design/git-submodule-storage/" class="md-nav__link">
         
   
   
@@ -1724,7 +1703,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design/run/" class="md-nav__link">
+      <a href="../../design/run/" class="md-nav__link">
         
   
   
@@ -1747,7 +1726,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design/sparse-v2/" class="md-nav__link">
+      <a href="../../design/sparse-v2/" class="md-nav__link">
         
   
   
@@ -1770,7 +1749,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design/tracking-branches/" class="md-nav__link">
+      <a href="../../design/tracking-branches/" class="md-nav__link">
         
   
   
@@ -1793,7 +1772,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design/copy-tracking/" class="md-nav__link">
+      <a href="../../design/copy-tracking/" class="md-nav__link">
         
   
   
@@ -1816,7 +1795,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../design/secure-config/" class="md-nav__link">
+      <a href="../../design/secure-config/" class="md-nav__link">
         
   
   
@@ -1846,7 +1825,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../roadmap/" class="md-nav__link">
+      <a href="../../roadmap/" class="md-nav__link">
         
   
   
@@ -1868,7 +1847,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../changelog/" class="md-nav__link">
+      <a href="../../changelog/" class="md-nav__link">
         
   
   
@@ -1919,46 +1898,19 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#state-of-the-feature-as-of-version-optional" class="md-nav__link">
+  <a href="#manipulating-revisions" class="md-nav__link">
     <span class="md-ellipsis">
-      State of the Feature as of $VERSION (optional)
+      Manipulating revisions
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#prior-work-optional" class="md-nav__link">
-    <span class="md-ellipsis">
-      Prior work (optional)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#goals-and-non-goals" class="md-nav__link">
-    <span class="md-ellipsis">
-      Goals and non-goals
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      Overview
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Overview">
+    <nav class="md-nav" aria-label="Manipulating revisions">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#detailed-design" class="md-nav__link">
+  <a href="#specifying-destinations" class="md-nav__link">
     <span class="md-ellipsis">
-      Detailed Design
+      Specifying destinations
     </span>
   </a>
   
@@ -1970,36 +1922,42 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#alternatives-considered-optional" class="md-nav__link">
+  <a href="#manipulating-diffs-and-file-contents" class="md-nav__link">
     <span class="md-ellipsis">
-      Alternatives considered (optional)
+      Manipulating diffs and file contents
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Manipulating diffs and file contents">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#special-cases-that-use-r" class="md-nav__link">
+    <span class="md-ellipsis">
+      Special cases that use -r
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#issues-addressed-optional" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#special-cases-that-dont-use-any-option" class="md-nav__link">
     <span class="md-ellipsis">
-      Issues addressed (optional)
+      Special cases that don't use any option
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#related-work-optional" class="md-nav__link">
-    <span class="md-ellipsis">
-      Related Work (optional)
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#future-possibilities" class="md-nav__link">
+  <a href="#other-special-cases" class="md-nav__link">
     <span class="md-ellipsis">
-      Future Possibilities
+      Other special cases
     </span>
   </a>
   
@@ -2021,7 +1979,7 @@
 
 
   
-    <a href="https://github.com/jj-vcs/jj/edit/main/docs/design_doc_blueprint.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/jj-vcs/jj/edit/main/docs/guides/cli-revision-options.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
     </a>
@@ -2029,44 +1987,169 @@
   
 
 
-<h1 id="title">Title<a class="headerlink" href="#title" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p>A cool name for your Project</p>
-</blockquote>
-<p>Author: <a href="mailto:your-name@reachable.com">Your-Name</a></p>
-<blockquote>
-<p>If there are multiple authors, just list them all</p>
-</blockquote>
+<h1 id="cli-options-for-specifying-revisions">CLI options for specifying revisions<a class="headerlink" href="#cli-options-for-specifying-revisions" title="Permanent link">&para;</a></h1>
+<p>Jujutsu has several CLI options for selecting revisions. They are used
+consistently, but it can be difficult to remember when each one is used.</p>
+<p>This document explains the difference between each option.</p>
 <h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
-<p>A short summary of your project/re-design/component and what problems it
-addresses in about 3-10 sentences.</p>
-<h2 id="state-of-the-feature-as-of-version-optional">State of the Feature as of <code>$VERSION</code> (optional)<a class="headerlink" href="#state-of-the-feature-as-of-version-optional" title="Permanent link">&para;</a></h2>
-<p>The state of the feature you want to improve and where it currently falls
-short. If there's nothing to compare to, leave it out.</p>
-<h2 id="prior-work-optional">Prior work (optional)<a class="headerlink" href="#prior-work-optional" title="Permanent link">&para;</a></h2>
-<p>Does this feature exist somewhere else and which tradeoffs it made.</p>
-<blockquote>
-<p>If there's no prior work, then use the related work section below.</p>
-</blockquote>
-<h2 id="goals-and-non-goals">Goals and non-goals<a class="headerlink" href="#goals-and-non-goals" title="Permanent link">&para;</a></h2>
-<p>Direct goals of the project and features deemed not worth pursuing.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>A detailed overview of the project and the improvements it brings.</p>
-<h3 id="detailed-design">Detailed Design<a class="headerlink" href="#detailed-design" title="Permanent link">&para;</a></h3>
-<p>The place to describe all new interfaces and interactions and how it plays into
-the existing code and behavior. This is the place for all nitty-gritty details
-which interact with the system.</p>
-<h2 id="alternatives-considered-optional">Alternatives considered (optional)<a class="headerlink" href="#alternatives-considered-optional" title="Permanent link">&para;</a></h2>
-<p>Other alternatives to your suggested approach, and why they fall short.</p>
-<h2 id="issues-addressed-optional">Issues addressed (optional)<a class="headerlink" href="#issues-addressed-optional" title="Permanent link">&para;</a></h2>
-<p>A list of issues which are addressed by this design.</p>
-<h2 id="related-work-optional">Related Work (optional)<a class="headerlink" href="#related-work-optional" title="Permanent link">&para;</a></h2>
-<p>If there's a feature in another VCS which shares some similarities to your
-proposed work, it belongs here. An example would be Jujutsu sparse workspaces
-and Perforce client workspaces.</p>
-<h2 id="future-possibilities">Future Possibilities<a class="headerlink" href="#future-possibilities" title="Permanent link">&para;</a></h2>
-<p>The section for things which could be added to it or deemed out of scope during
-the discussion.</p>
+<p>These flags are used to specify the sources of the operation:</p>
+<table>
+<thead>
+<tr>
+<th>Long flag</th>
+<th>Short flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--revision</code> (or <code>--revisions</code>)</td>
+<td><code>-r</code></td>
+<td>The default, especially for commands that don't need to specify a destination.</td>
+</tr>
+<tr>
+<td><code>--source</code></td>
+<td><code>-s</code></td>
+<td>The specified revision and all its descendants.</td>
+</tr>
+<tr>
+<td><code>--from</code></td>
+<td><code>-f</code></td>
+<td>The <em>contents</em> of a revision.</td>
+</tr>
+<tr>
+<td><code>--branch</code></td>
+<td><code>-b</code></td>
+<td>A whole branch, relative to the destination.</td>
+</tr>
+</tbody>
+</table>
+<p>These flags are used when commands need both a "source" revision and a
+"destination" revision:</p>
+<table>
+<thead>
+<tr>
+<th>Long flag</th>
+<th>Short flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--onto</code></td>
+<td><code>-o</code></td>
+<td>Create children of the specified revisions.</td>
+</tr>
+<tr>
+<td><code>--insert-after</code></td>
+<td><code>-A</code></td>
+<td>Insert <em>between</em> the specified revisions and their children.</td>
+</tr>
+<tr>
+<td><code>--insert-before</code></td>
+<td><code>-B</code></td>
+<td>Insert <em>between</em> the specified revisions and their parents.</td>
+</tr>
+<tr>
+<td><code>--to</code>, <code>--into</code></td>
+<td><code>-t</code></td>
+<td>Which revision to place the selected <em>contents</em>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="manipulating-revisions">Manipulating revisions<a class="headerlink" href="#manipulating-revisions" title="Permanent link">&para;</a></h2>
+<p>Most commands accept a revset with <code>-r</code>. This selects the revisions in the
+revset, and no more. Examples: <code>jj log -r REV</code> displays revisions in <code>REV</code>, <code>jj
+split -r REV</code> splits revision <code>REV</code> into multiple revisions.</p>
+<p><code>--source</code> (<code>-s</code>) is used with commands that manipulate revisions <em>and their
+descendants</em>. <code>-s REV</code> is essentially identical to <code>-r REV::</code>.</p>
+<p>Examples of <code>-r</code> and <code>-s</code>:</p>
+<ul>
+<li>
+<p><code>jj log -r xyz</code> displays revision <code>xyz</code>.</p>
+</li>
+<li>
+<p><code>jj fix -s xyz</code> runs fix tools on files in <code>xyz</code> and all of its descendants.
+  This command <em>must</em> operate on all of a revision's descendants, so it accepts
+  <code>-s</code> and not <code>-r</code> to communicate this fact.</p>
+</li>
+</ul>
+<h3 id="specifying-destinations">Specifying destinations<a class="headerlink" href="#specifying-destinations" title="Permanent link">&para;</a></h3>
+<p>Commands that move revisions around also need to specify the destinations.</p>
+<ul>
+<li><code>--onto REV</code> (<code>-o REV</code>) places revisions as children of <code>REV</code>.</li>
+<li><code>--insert-after REV</code> (<code>-A REV</code>) inserts revisions as children of <code>REV</code> and parents of <code>REV+</code>.</li>
+<li><code>--insert-before REV</code> (<code>-B REV</code>) inserts revisions as the children of <code>REV-</code> and parents of <code>REV</code>.</li>
+</ul>
+<p>Examples:</p>
+<ul>
+<li><code>jj rebase -r REV -o main</code> rebases revisions in <code>REV</code> as children of <code>main</code>.</li>
+<li><code>jj rebase -r REV -B yyy</code> inserts revisions <code>REV</code> between <code>yyy</code> and its parents.</li>
+<li><code>jj rebase -r REV -A main -B yyy</code> inserts revisions <code>REV</code> between <code>main</code> and <code>yyy</code>.</li>
+<li><code>jj revert -r xyz -o main</code> creates a revision that reverts <code>xyz</code> then rebases it on top of <code>main</code>.</li>
+</ul>
+<h2 id="manipulating-diffs-and-file-contents">Manipulating diffs and file contents<a class="headerlink" href="#manipulating-diffs-and-file-contents" title="Permanent link">&para;</a></h2>
+<p>Commands that view or manipulate the <em>contents</em> of revisions use <code>--from</code> and
+<code>--to</code> (or <code>--into</code>).</p>
+<p>Examples:</p>
+<ul>
+<li>
+<p><code>jj diff --from F --to T</code> compares the files at revision <code>F</code> to the files at
+  revision <code>T</code>.</p>
+</li>
+<li>
+<p><code>jj restore --from F --to T</code> copies file contents from <code>F</code> to <code>T</code>.</p>
+</li>
+<li>
+<p><code>jj squash --from F --into T</code> moves the file changes from <code>F</code> to <code>T</code>.</p>
+</li>
+</ul>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>Commands that accept <code>--into</code> also accept <code>--to</code>. You can always use <code>--to</code>
+if you're not sure which to use.</p>
+<p>They both exist because "into" makes some commands read more clearly in
+English. For example, <code>jj squash --from X --into Y</code>.</p>
+</div>
+<h3 id="special-cases-that-use-r">Special cases that use <code>-r</code><a class="headerlink" href="#special-cases-that-use-r" title="Permanent link">&para;</a></h3>
+<p>Some commands manipulate revision contents but allow for <code>-r</code>. This means
+"compared with its parent". For example, <code>jj diff -r R</code> means "compare revision
+<code>R</code> to its parent <code>R-</code>".</p>
+<h3 id="special-cases-that-dont-use-any-option">Special cases that don't use any option<a class="headerlink" href="#special-cases-that-dont-use-any-option" title="Permanent link">&para;</a></h3>
+<p>Most commands accept revisions as options and paths as positional parameters.
+For example, the command to display the diff of a specific file in a specific
+revision is:</p>
+<div class="highlight"><pre><span></span><code>$ jj diff -r REV file.txt
+</code></pre></div>
+<p>However, some commands cannot accept paths, so they allow omitting the <code>-r</code>
+flag. For example, the canonical command would be <code>jj new -r xyz</code>, but this
+command is so common that Jujutsu allows <code>jj new xyz</code>.</p>
+<p>The commands that allow omitting the <code>-r</code> are:</p>
+<ul>
+<li><code>jj abandon</code></li>
+<li><code>jj describe</code></li>
+<li><code>jj duplicate</code></li>
+<li><code>jj metaedit</code></li>
+<li><code>jj new</code></li>
+<li><code>jj parallelize</code></li>
+<li><code>jj show</code></li>
+</ul>
+<h2 id="other-special-cases">Other special cases<a class="headerlink" href="#other-special-cases" title="Permanent link">&para;</a></h2>
+<p><code>jj git push --change REV</code> (<code>-c REV</code>) means (a) create a new bookmark with a
+generated name, and (b) immediately push it to the remote.</p>
+<p><code>jj restore --changes-in REV</code> (<code>-c REV</code>) means, "remove any changes to the given
+files in <code>REV</code>". This doesn't use <code>-r</code> because <code>jj restore -r REV</code> might seem
+like it would restore files <em>from</em> <code>REV</code> into the working copy.</p>
+<p><code>jj rebase --branch REV</code> (<code>-b REV</code>) rebases a topological branch of revisions
+with respect to some base. This is a convenience for a very common operation.
+These commands are equivalent:</p>
+<ul>
+<li><code>jj rebase -o main -b @</code></li>
+<li><code>jj rebase -o main -r (main..@)::</code></li>
+<li><code>jj rebase -o main -s roots(main..@)</code></li>
+<li><code>jj rebase -o main</code> (this is so common that <code>-b @</code> is the default "source" of
+  a rebase if unspecified)</li>
+</ul>
 
 
 
@@ -2117,10 +2200,10 @@ the discussion.</p>
     
     
       
-      <script id="__config" type="application/json">{"base": "..", "features": ["content.action.edit", "content.code.copy", "content.tabs.link", "navigation.instant"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["content.action.edit", "content.code.copy", "content.tabs.link", "navigation.instant"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
       
     
   </body>
