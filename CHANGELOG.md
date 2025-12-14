@@ -186,6 +186,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj log` now supports a `--count` flag to print the number of commits instead
   of displaying them.
 
+* Dynamic command-line completion of path parameters now supports fileset operators,
+  so for example typing `jj log ~RE` and pressing Tab could complete to `~README.md`.
+  Workspace-relative patterns (e.g. `root:foo`) will also autocomplete correctly
+  from subdirectories.
+
 ### Fixed bugs
 
 * `jj fix` now prints a warning if a tool failed to run on a file.

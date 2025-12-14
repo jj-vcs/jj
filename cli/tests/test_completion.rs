@@ -1420,6 +1420,20 @@ fn test_files() {
     [EOF]
     ");
 
+    let output = work_dir.complete_fish(["file", "show", "~f_"]);
+    insta::assert_snapshot!(output, @r"
+    ~f_added
+    ~f_added_2
+    ~f_another_renamed_2
+    ~f_copied
+    ~f_dir/
+    ~f_modified
+    ~f_not_yet_copied
+    ~f_renamed
+    ~f_unchanged
+    [EOF]
+    ");
+
     let output = work_dir.complete_fish(["file", "show", "./f_"]);
     insta::assert_snapshot!(output, @r"
     ./f_added
@@ -1481,6 +1495,23 @@ fn test_files() {
     [EOF]
     ");
 
+    let output = subdir.complete_fish(["file", "show", "root:dir_"]);
+    insta::assert_snapshot!(output, @"");
+
+    let output = subdir.complete_fish(["file", "show", "root:"]);
+    insta::assert_snapshot!(output, @r"
+    root:f_added
+    root:f_added_2
+    root:f_another_renamed_2
+    root:f_copied
+    root:f_dir/
+    root:f_modified
+    root:f_not_yet_copied
+    root:f_renamed
+    root:f_unchanged
+    [EOF]
+    ");
+
     let output = subdir.complete_fish(["file", "show", "./"]);
     insta::assert_snapshot!(output, @r"
     ./dir_file_1
@@ -1532,6 +1563,13 @@ fn test_files() {
     [EOF]
     ");
 
+    let output = work_dir.complete_fish(["diff", "-r", "@-", "glob:f_a"]);
+    insta::assert_snapshot!(output, @r"
+    glob:f_added	Added
+    glob:f_another_renamed_2	Renamed
+    [EOF]
+    ");
+
     let output = work_dir.complete_fish(["diff", "-r", "@-", "f_dir/../"]);
     insta::assert_snapshot!(output, @r"
     f_dir/../f_added	Added
@@ -1545,6 +1583,32 @@ fn test_files() {
     f_dir/../f_not_yet_renamed_2	Renamed
     f_dir/../f_not_yet_renamed_3	Renamed
     f_dir/../f_renamed	Renamed
+    [EOF]
+    ");
+
+    let output = subdir.complete_fish(["diff", "-r", "@-", "./"]);
+    insta::assert_snapshot!(output, @r"
+    ./../
+    ./dir_file_1	Added
+    ./dir_file_2	Added
+    ./dir_file_3	Added
+    ./f_renamed_3	Renamed
+    [EOF]
+    ");
+
+    let output = subdir.complete_fish(["diff", "-r", "@-", "~root-glob-i:"]);
+    insta::assert_snapshot!(output, @r"
+    ~root-glob-i:f_added	Added
+    ~root-glob-i:f_another_renamed_2	Renamed
+    ~root-glob-i:f_copied	Copied
+    ~root-glob-i:f_deleted	Deleted
+    ~root-glob-i:f_dir/
+    ~root-glob-i:f_modified	Modified
+    ~root-glob-i:f_not_yet_copied	Modified
+    ~root-glob-i:f_not_yet_renamed	Renamed
+    ~root-glob-i:f_not_yet_renamed_2	Renamed
+    ~root-glob-i:f_not_yet_renamed_3	Renamed
+    ~root-glob-i:f_renamed	Renamed
     [EOF]
     ");
 
@@ -1643,6 +1707,14 @@ fn test_files() {
     insta::assert_snapshot!(output, @r"
     f_dir/
     f_modified
+    [EOF]
+    ");
+
+    let output = work_dir.complete_fish(["resolve", "-r=conflicted", "root:f_dir/d"]);
+    insta::assert_snapshot!(output, @r"
+    root:f_dir/dir_file_1
+    root:f_dir/dir_file_2
+    root:f_dir/dir_file_3
     [EOF]
     ");
 
