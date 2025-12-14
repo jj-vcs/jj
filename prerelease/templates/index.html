@@ -2877,6 +2877,7 @@ type</a> are available as keywords. For example,
 <li><code>.files([files: String]) -&gt; List&lt;TreeEntry&gt;</code>: Files that exist in this commit,
   matching <a href="../filesets/">the <code>files</code> expression</a>. Use <code>.diff().files()</code> to list
   changed files.</li>
+<li><code>.conflicted_files() -&gt; List&lt;TreeEntry&gt;</code>: Conflicted files in this commit.</li>
 <li><code>.root() -&gt; Boolean</code>: True if the commit is the root commit.</li>
 </ul>
 <h3 id="commitevolutionentry-type"><code>CommitEvolutionEntry</code> type<a class="headerlink" href="#commitevolutionentry-type" title="Permanent link">&para;</a></h3>
@@ -3251,6 +3252,8 @@ only occur directly in the call site they are used in.</p>
 <ul>
 <li><code>.path() -&gt; RepoPath</code>: Path to the entry.</li>
 <li><code>.conflict() -&gt; Boolean</code>: True if the entry is a merge conflict.</li>
+<li><code>.conflict_side_count() -&gt; Integer</code>: Number of sides in the merge conflict (1 if not
+  conflicted, 2 or more for multi-way merges).</li>
 <li><code>.file_type() -&gt; String</code>: One of <code>"file"</code>, <code>"symlink"</code>, <code>"tree"</code>,
   <code>"git-submodule"</code>, or <code>"conflict"</code>.</li>
 <li><code>.executable() -&gt; Boolean</code>: True if the entry is an executable file.</li>

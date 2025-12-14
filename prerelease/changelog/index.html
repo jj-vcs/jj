@@ -6510,6 +6510,15 @@ should not be broken.</p>
 <p><code>jj log</code> now supports a <code>--count</code> flag to print the number of commits instead
   of displaying them.</p>
 </li>
+<li>
+<p><code>Commit</code> type now has a <code>conflicted_files()</code> method that returns a list of
+  files with merge conflicts.</p>
+</li>
+<li>
+<p><code>TreeEntry</code> type now has a <code>conflict_side_count()</code> method that returns the number
+  of sides in a merge conflict (1 for non-conflicted files, 2 or more for
+  conflicts).</p>
+</li>
 </ul>
 <h3 id="fixed-bugs_1">Fixed bugs<a class="headerlink" href="#fixed-bugs_1" title="Permanent link">&para;</a></h3>
 <ul>
