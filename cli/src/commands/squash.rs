@@ -43,6 +43,7 @@ use crate::command_error::user_error_with_hint;
 use crate::complete;
 use crate::description_util::add_trailers;
 use crate::description_util::combine_messages_for_editing;
+use crate::description_util::cleanup_description;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::join_message_paragraphs;
@@ -171,6 +172,13 @@ pub(crate) struct SquashArgs {
     /// message to be edited afterwards.
     #[arg(long)]
     editor: bool,
+
+    /// Do not open an editor to combine descriptions
+    ///
+    /// Useful for non-interactive runs (agents, scripts). Accepts the default combined description
+    /// instead of launching an editor when multiple commit messages need to be merged.
+    #[arg(long, conflicts_with = "editor")]
+    no_editor: bool,
 
     /// Interactively choose which parts to squash
     #[arg(long, short)]
@@ -380,12 +388,16 @@ pub(crate) fn cmd_squash(
                 (!insert_destination_commit).then_some(&destination),
                 &commit_builder,
             )?;
-            // It's weird that commit.description() contains "JJ: " lines, but works.
-            commit_builder.set_description(combined);
-            let temp_commit = commit_builder.write_hidden()?;
-            let intro = "Enter a description for the combined commit.";
-            let template = description_template(ui, &tx, intro, &temp_commit)?;
-            edit_description(&text_editor, &template)?
+            if args.no_editor {
+                cleanup_description(&combined)
+            } else {
+                // It's weird that commit.description() contains "JJ: " lines, but works.
+                commit_builder.set_description(combined);
+                let temp_commit = commit_builder.write_hidden()?;
+                let intro = "Enter a description for the combined commit.";
+                let template = description_template(ui, &tx, intro, &temp_commit)?;
+                edit_description(&text_editor, &template)?
+            }
         };
         commit_builder.set_description(description);
         if insert_destination_commit {
