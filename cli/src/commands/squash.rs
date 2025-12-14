@@ -42,8 +42,8 @@ use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
 use crate::complete;
 use crate::description_util::add_trailers;
-use crate::description_util::combine_messages_for_editing;
 use crate::description_util::cleanup_description;
+use crate::description_util::combine_messages_for_editing;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::join_message_paragraphs;
@@ -175,8 +175,9 @@ pub(crate) struct SquashArgs {
 
     /// Do not open an editor to combine descriptions
     ///
-    /// Useful for non-interactive runs (agents, scripts). Accepts the default combined description
-    /// instead of launching an editor when multiple commit messages need to be merged.
+    /// Useful for non-interactive runs (agents, scripts). Accepts the default
+    /// combined description instead of launching an editor when multiple
+    /// commit messages need to be merged.
     #[arg(long, conflicts_with = "editor")]
     no_editor: bool,
 

@@ -43,6 +43,7 @@ use crate::command_error::CommandError;
 use crate::command_error::user_error_with_hint;
 use crate::complete;
 use crate::description_util::add_trailers;
+use crate::description_util::cleanup_description;
 use crate::description_util::description_template;
 use crate::description_util::edit_description;
 use crate::description_util::join_message_paragraphs;
@@ -135,6 +136,13 @@ pub(crate) struct SplitArgs {
     /// message to be edited afterwards.
     #[arg(long)]
     editor: bool,
+    /// Do not open an editor for descriptions
+    ///
+    /// Useful for non-interactive runs (agents, scripts). Keeps the selected
+    /// commit’s description and leaves the other split commit empty instead
+    /// of opening an editor.
+    #[arg(long, conflicts_with = "editor")]
+    no_editor: bool,
     /// Split the revision into two parallel revisions instead of a parent and
     /// child
     #[arg(long, short)]
@@ -255,6 +263,7 @@ pub(crate) fn cmd_split(
             // become divergent.
             commit_builder.generate_new_change_id();
         }
+        let show_editor = !args.no_editor && (args.editor || args.message_paragraphs.is_empty());
         let description = if args.message_paragraphs.is_empty() {
             commit_builder.description().to_owned()
         } else {
@@ -266,7 +275,7 @@ pub(crate) fn cmd_split(
         } else {
             description
         };
-        let description = if args.editor || args.message_paragraphs.is_empty() {
+        let description = if show_editor {
             commit_builder.set_description(description);
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the selected changes.";
@@ -300,7 +309,7 @@ pub(crate) fn cmd_split(
         };
         let mut commit_builder = tx.repo_mut().rewrite_commit(&target.commit).detach();
         commit_builder.set_parents(parents).set_tree(new_tree);
-        let mut show_editor = args.editor;
+        let mut show_editor = args.editor && !args.no_editor;
         if !use_move_flags {
             commit_builder.clear_rewrite_source();
             // Generate a new change id so that the commit being split doesn't
@@ -310,6 +319,8 @@ pub(crate) fn cmd_split(
         let description = if target.commit.description().is_empty() {
             // If there was no description before, don't ask for one for the
             // second commit.
+            "".to_string()
+        } else if args.no_editor {
             "".to_string()
         } else {
             show_editor = show_editor || args.message_paragraphs.is_empty();
@@ -324,7 +335,7 @@ pub(crate) fn cmd_split(
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
         } else {
-            description
+            cleanup_description(&description)
         };
         commit_builder.set_description(description);
         commit_builder.write(tx.repo_mut())?

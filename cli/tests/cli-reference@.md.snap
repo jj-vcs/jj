@@ -2879,6 +2879,9 @@ Splitting an empty commit is not supported because the same effect can be achiev
 * `--editor` — Open an editor to edit the change description
 
    Forces an editor to open when using `--message` to allow the message to be edited afterwards.
+* `--no-editor` — Do not open an editor for descriptions
+
+   Useful for non-interactive runs (agents, scripts). Keeps the selected commit’s description and leaves the other split commit empty instead of opening an editor.
 * `-p`, `--parallel` — Split the revision into two parallel revisions instead of a parent and child
 
 
@@ -2924,6 +2927,9 @@ An alternative squashing UI is available via the `-o`, `-A`, and `-B` options. U
 * `--editor` — Open an editor to edit the change description
 
    Forces an editor to open when using `--message` to allow the message to be edited afterwards.
+* `--no-editor` — Do not open an editor to combine descriptions
+
+   Useful for non-interactive runs (agents, scripts). Accepts the default combined description instead of launching an editor when multiple commit messages need to be merged.
 * `-i`, `--interactive` — Interactively choose which parts to squash
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `-k`, `--keep-emptied` — The source revision will not be abandoned

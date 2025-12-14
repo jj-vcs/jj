@@ -100,12 +100,15 @@ Alternatively, you can use [jj-fzf](https://github.com/tim-janik/jj-fzf), where 
 
 The wiki lists additional TUIs and GUIs beyond the terminal: [GUI-and-TUI](https://github.com/jj-vcs/jj/wiki/GUI-and-TUI)
 
-### How do I keep `jj squash` non-interactive for scripts or agents?
+### How do I keep `jj squash`/`jj split` non-interactive for scripts or agents?
 
 Pass `--no-editor` to accept the default combined description when `jj squash` would otherwise open
 an editor (for example, when both the source and destination commits have descriptions). You can
 also keep the editor closed by providing a description directly with `--message` or by reusing the
 destination description with `--use-destination-message`.
+
+Use `--no-editor` with `jj split` to avoid description prompts; the selected commit keeps its
+current description and the other split commit is left empty.
 
 ### <a name="should-i-co-locate-my-repository"></a>Should I colocate my repository?
 

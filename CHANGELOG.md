@@ -54,10 +54,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * In color-words diffs, context line numbers are now rendered with decreased
   intensity.
 
-* `jj squash` learned `--no-editor` to keep non-interactive runs (scripts, agents) from
-  launching an editor when combining descriptions; it uses the default combined message
-  instead.
-
+* `jj squash` and `jj split` learned `--no-editor` to keep non-interactive runs (scripts,
+  agents) from launching an editor; they use default descriptions instead.
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
