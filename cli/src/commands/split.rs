@@ -20,6 +20,8 @@ use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
+use jj_lib::merge::Merge;
+use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::rewrite::CommitWithSelection;
 use jj_lib::rewrite::EmptyBehavior;
@@ -338,9 +340,19 @@ pub(crate) fn cmd_split(
             // Merge the original commit tree with its parent using the tree
             // containing the user selected changes as the base for the merge.
             // This results in a tree with the changes the user didn't select.
-            target_tree
-                .merge_unlabeled(target.selected_tree.clone(), target.parent_tree.clone())
-                .block_on()?
+            let selected_diff = target.diff_with_labels(
+                "parents of split revision",
+                "selected changes for split",
+                "split revision",
+            )?;
+            MergedTree::merge(Merge::from_diffs(
+                (
+                    target_tree,
+                    format!("split revision ({})", target.commit.conflict_label()),
+                ),
+                [selected_diff.invert()],
+            ))
+            .block_on()?
         } else {
             target_tree
         };
