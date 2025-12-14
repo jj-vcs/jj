@@ -3387,6 +3387,9 @@ achieved with `jj new`.
 * `--editor` — Open an editor to edit the change description(s)
 
    Forces an editor to open when using `--message` to allow the message to be edited afterward.
+* `--no-editor` — Do not open an editor for descriptions
+
+   The selected commit uses `--message` when supplied, or keeps the original description. The other split commit is left empty.
 * `-p`, `--parallel` — Split the revision into two parallel revisions instead of a parent and child
 
 
