@@ -193,6 +193,9 @@ pub struct GitPushArgs {
     /// Only display what will change on the remote
     #[arg(long)]
     dry_run: bool,
+    /// Git push options
+    #[arg(long, short)]
+    option: Vec<String>,
 }
 
 fn make_bookmark_term(bookmark_names: &[impl fmt::Display]) -> String {
@@ -453,7 +456,14 @@ pub fn cmd_git_push(
     };
     let git_settings = GitSettings::from_settings(tx.settings())?;
     let push_stats = with_remote_git_callbacks(ui, |cb| {
-        git::push_branches(tx.repo_mut(), &git_settings, remote, &targets, cb)
+        git::push_branches(
+            tx.repo_mut(),
+            &git_settings,
+            remote,
+            &targets,
+            &args.option.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+            cb,
+        )
     })?;
     process_push_stats(&push_stats)?;
     tx.finish(ui, tx_description)?;
