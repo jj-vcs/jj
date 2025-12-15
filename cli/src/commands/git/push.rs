@@ -201,6 +201,9 @@ pub struct GitPushArgs {
     /// Only display what will change on the remote
     #[arg(long)]
     dry_run: bool,
+    /// Git push options
+    #[arg(long, short)]
+    option: Vec<String>,
 }
 
 fn make_bookmark_term(bookmark_names: &[impl fmt::Display]) -> String {
@@ -475,6 +478,7 @@ pub fn cmd_git_push(
         remote,
         &targets,
         &mut GitSubprocessUi::new(ui),
+        &args.option.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
     )?;
     print_push_stats(ui, &push_stats)?;
     // TODO: On partial success, locally-created --change/--named bookmarks will
