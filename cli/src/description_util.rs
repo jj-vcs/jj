@@ -171,6 +171,11 @@ where
     text_util::complete_newline(description.trim_matches('\n'))
 }
 
+/// Clean up a description template without opening an editor.
+pub fn cleanup_description(description: &str) -> String {
+    cleanup_description_lines(description.lines())
+}
+
 pub fn edit_description(editor: &TextEditor, description: &str) -> Result<String, CommandError> {
     let mut description = description.to_owned();
     append_blank_line(&mut description);

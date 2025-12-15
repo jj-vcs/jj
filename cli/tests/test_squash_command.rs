@@ -2372,6 +2372,29 @@ fn test_squash_with_editor_combine_messages() {
 }
 
 #[test]
+fn test_squash_no_editor_combines_messages() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    std::fs::write(&edit_script, "fail").unwrap();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "destination"]).success();
+    work_dir.write_file("file1", "a\n");
+    work_dir.run_jj(["new", "-m", "source"]).success();
+    work_dir.write_file("file1", "b\n");
+
+    work_dir.run_jj(["squash", "--no-editor"]).success();
+
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+destination
+
+source
+[EOF]
+    ");
+}
+
+#[test]
 fn test_squash_with_editor_and_message_args() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();

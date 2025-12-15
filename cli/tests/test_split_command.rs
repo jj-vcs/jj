@@ -1757,3 +1757,27 @@ fn test_split_with_editor_without_message() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_split_no_editor_uses_default_descriptions() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    std::fs::write(&edit_script, "fail").unwrap();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.write_file("file2", "bar\n");
+    work_dir
+        .run_jj(["describe", "-m", "original description"])
+        .success();
+
+    work_dir.run_jj(["split", "--no-editor", "file1"]).success();
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  kkmpptxzrspx false
+    ○  qpvuntsmwlqt false original description
+    ◆  zzzzzzzzzzzz true
+    [EOF]
+    ");
+}
