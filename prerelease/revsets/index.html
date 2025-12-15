@@ -2302,8 +2302,8 @@ indicates that all of the following usages are valid:</p>
 <code>push-123@origin</code> and <code>repushed@private</code> but not <code>push-123@upstream</code> or
 <code>main@origin</code> or <code>main@upstream</code>. If a bookmark is in a conflicted state, all
 its possible targets are included.</p>
-<p>Git-tracking bookmarks are excluded by default. Use <code>remote=exact:"git"</code> or
-<code>remote=glob:"*"</code> to select bookmarks including <code>@git</code> ones.</p>
+<p>Git-tracking bookmarks are excluded by default. Use <code>remote="git"</code> or
+<code>remote="*"</code> to select bookmarks including <code>@git</code> ones.</p>
 </li>
 <li>
 <p><code>tracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])</code>: All
@@ -2369,8 +2369,8 @@ its possible targets are included.</p>
 <p><code>description(pattern)</code>: Commits that have a description matching the given
   <a href="#string-patterns">string pattern</a>.</p>
 <p>A non-empty description is usually terminated with newline character. For
-example, <code>description(exact:"")</code> matches commits without description, and
-<code>description(exact:"foo\n")</code> matches commits with description <code>"foo\n"</code>.</p>
+example, <code>description("")</code> matches commits without description, and
+<code>description("foo\n")</code> matches commits with description <code>"foo\n"</code>.</p>
 </li>
 <li>
 <p><code>subject(pattern)</code>: Commits that have a subject matching the given <a href="#string-patterns">string
@@ -2527,9 +2527,7 @@ o root()
 <h2 id="string-patterns">String patterns<a class="headerlink" href="#string-patterns" title="Permanent link">&para;</a></h2>
 <p>Functions that perform string matching support the following pattern syntax (the
 quotes are optional).</p>
-<p>By default, <code>"string"</code> is parsed as a <code>substring:</code> pattern in revsets. The
-default will be changed to <code>glob:</code> in a future release. The new behavior can be
-enabled by: <code>ui.revsets-use-glob-by-default=true</code>.</p>
+<p>By default, <code>"string"</code> is parsed as a <code>glob:</code> pattern.</p>
 <ul>
 <li><code>exact:"string"</code>: Matches strings exactly equal to <code>string</code>.</li>
 <li><code>glob:"pattern"</code>: Matches strings with Unix-style shell <a href="https://docs.rs/globset/latest/globset/#syntax">wildcard
@@ -2660,7 +2658,7 @@ those commits:</p>
 </code></pre></div>
 <p>Show commits authored by "martinvonz" and containing the word "reset" in the
 description:</p>
-<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;author(martinvonz) &amp; description(reset)&#39;</span>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>log<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;author(*martinvonz*) &amp; description(*reset*)&#39;</span>
 </code></pre></div>
 
 

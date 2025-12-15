@@ -2180,7 +2180,7 @@ marked as tracked.</p>
 <p>By default, every other remote bookmark is marked as "not tracked" when it's
 fetched. If desired, you need to manually <code>jj bookmark track</code> them. This works
 well for repositories where multiple people work on a large number of bookmarks.</p>
-<p>The default can be changed by setting the config <code>remotes.&lt;name&gt;.auto-track-bookmarks = "glob:*"</code>.
+<p>The default can be changed by setting the config <code>remotes.&lt;name&gt;.auto-track-bookmarks = "*"</code>.
 Then, <code>jj git fetch</code> tracks every <em>newly fetched</em> bookmark with a local bookmark.
 Branches that already existed before the <code>jj git fetch</code> are not affected. This
 is similar to Mercurial, which fetches all its bookmarks (equivalent to Git's

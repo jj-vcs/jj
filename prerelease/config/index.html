@@ -4948,10 +4948,10 @@ single remote, or a list of remotes to fetch from multiple places:</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.fetch<span class="w"> </span><span class="s2">&quot;upstream&quot;</span>
 jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.fetch<span class="w"> </span><span class="s1">&#39;[&quot;origin&quot;, &quot;upstream&quot;]&#39;</span>
 </code></pre></div>
-<p>By default, the specified remote names matches exactly. You can also use a
-<a href="../revsets/#string-patterns">string pattern</a> to select remotes using patterns:</p>
-<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.fetch<span class="w"> </span><span class="s2">&quot;glob:*&quot;</span>
-jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.fetch<span class="w"> </span><span class="s1">&#39;[&quot;glob:remote*&quot;, &quot;glob:upstream*&quot;]&#39;</span>
+<p>By default, the specified pattern matches remote names with glob syntax. You can
+also use other <a href="../revsets/#string-patterns">string pattern syntax</a>:</p>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.fetch<span class="w"> </span><span class="s2">&quot;regex:&#39;^(remote|upstream)&#39;&quot;</span>
+jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--repo<span class="w"> </span>git.fetch<span class="w"> </span><span class="s1">&#39;[&quot;remote*&quot;, &quot;upstream*&quot;]&#39;</span>
 </code></pre></div>
 <p>Similarly, you can also set the variable <code>git.push</code> to cause <code>jj git push</code> to
 push to a different remote:</p>
@@ -4967,7 +4967,7 @@ demand.</p>
 bookmarks to track. This setting is applied to all new bookmarks, including ones
 created locally and ones fetched from the remote. For example:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[remotes.origin]</span>
-<span class="n">auto-track-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;glob:*&quot;</span>
+<span class="n">auto-track-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;*&quot;</span>
 </code></pre></div>
 <p>This will simply track all bookmarks for the remote "origin". There are various
 reasons to restrict which bookmarks to track:</p>
@@ -4981,7 +4981,7 @@ reasons to restrict which bookmarks to track:</p>
   and push only bookmarks with that prefix. For example, Alice may set her
   configuration like so:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[remotes.origin]</span>
-<span class="n">auto-track-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;glob:alice/*&quot;</span>
+<span class="n">auto-track-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;alice/*&quot;</span>
 </code></pre></div>
 <p>That way, bookmarks pushed by other people (who probably use a different
 prefix or none at all) are not tracked automatically. At the same time, Alice
@@ -4998,7 +4998,7 @@ section
   In that case, you may want to track all bookmarks from your fork, but only the
   "main" bookmark from upstream. Here's an example how to achieve that:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[remotes.origin]</span>
-<span class="n">auto-track-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;glob:*&quot;</span>
+<span class="n">auto-track-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;*&quot;</span>
 <span class="k">[remotes.upstream]</span>
 <span class="n">auto-track-bookmarks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;main&quot;</span>
 </code></pre></div>
@@ -5043,7 +5043,7 @@ a revset. The value is a revset of commits that Jujutsu will refuse to push. If
 unset, all commits are eligible to be pushed.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[git]</span>
 <span class="c1"># Prevent pushing work in progress or anything explicitly labeled &quot;private&quot;</span>
-<span class="n">private-commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;description(glob:&#39;wip:*&#39;) | description(glob:&#39;private:*&#39;)&quot;</span>
+<span class="n">private-commits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;description(&#39;wip:*&#39;) | description(&#39;private:*&#39;)&quot;</span>
 </code></pre></div>
 <p>If a commit is in <code>git.private-commits</code> but is already on the remote, then it is
 not considered a private commit. Commits that are immutable are also excluded
@@ -5355,7 +5355,7 @@ The behavior of conditions are the same as when using <code>[[--scope]]</code> t
 <span class="n">email</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;YOUR_WORK_EMAIL@workplace.com&quot;</span>
 
 <span class="k">[revset-aliases]</span>
-<span class="n">work</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;heads(::@ ~ description(exact:&#39;&#39;))::&quot;</span>
+<span class="n">work</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;heads(::@ ~ description(&#39;&#39;))::&quot;</span>
 
 <span class="k">[aliases]</span>
 <span class="n">wip</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;log&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;-r&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;work&quot;</span><span class="p">]</span>

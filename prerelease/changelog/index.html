@@ -6299,6 +6299,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p><a href="../revsets/#string-patterns">String patterns</a> in revsets, command
+  arguments, and configuration are now parsed as globs by default. Use
+  <code>substring:</code> or <code>exact:</code> prefix as needed.</p>
+</li>
+<li>
 <p><code>remotes.&lt;name&gt;.auto-track-bookmarks</code> is now parsed the same way they
   are in revsets and can be combined with logical operators.</p>
 </li>

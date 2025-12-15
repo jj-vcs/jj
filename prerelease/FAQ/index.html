@@ -2555,7 +2555,7 @@ Parent<span class="w"> </span>commit<span class="w"> </span><span class="o">(</s
 </code></pre></div>
 <p>To avoid pushing change <em>wwwwwwww</em> by mistake, use the configuration
 <a href="../config/#set-of-private-commits">git.private-commits</a>:</p>
-<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--user<span class="w"> </span>git.private-commits<span class="w"> </span><span class="s2">&quot;&#39;&#39;&#39;description(glob:&#39;private:*&#39;)&#39;&#39;&#39;&quot;</span>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>--user<span class="w"> </span>git.private-commits<span class="w"> </span><span class="s2">&quot;&#39;&#39;&#39;description(&#39;private:*&#39;)&#39;&#39;&#39;&quot;</span>
 </code></pre></div>
 <h3 id="i-accidentally-changed-files-in-the-wrong-commit-how-do-i-move-the-recent-changes-into-another-commit">I accidentally changed files in the wrong commit, how do I move the recent changes into another commit?<a class="headerlink" href="#i-accidentally-changed-files-in-the-wrong-commit-how-do-i-move-the-recent-changes-into-another-commit" title="Permanent link">&para;</a></h3>
 <p>Let's say we are editing a commit for "featureA", and we forgot to run <code>jj
