@@ -290,3 +290,57 @@ keep your own bookmarks synchronized through your `origin` repository:
 fetch = ["upstream", "origin"]
 push = "origin"
 ```
+
+## Git push options
+
+`jj git push` supports passing Git “push options” to the server via
+`-o/--option`. These are forwarded to the remote and interpreted by the hosting
+platform, if it supports them. You can repeat `-o` to send multiple options.
+
+- Syntax: `jj git push -o <push_option>` or `jj git push --option <push_option>`
+- Multiple options: `jj git push -o foo -o bar=val`
+- Quoting: If the option’s value has spaces, wrap it in double quotes.
+
+Support is server-dependent. GitLab supports push options for CI and merge
+requests; other platforms may not. Refer to your host’s documentation for the
+full list and behavior.
+
+Examples with GitLab push options (see GitLab docs for details):
+
+- Skip CI for a push:
+  ```shell
+  jj git push -o ci.skip
+  ```
+- Pass CI variables to the created pipeline:
+  ```shell
+  jj git push -o 'ci.variable=MAX_RETRIES=10' -o 'ci.variable=MAX_TIME=600'
+  ```
+- Create a merge request with metadata on push:
+  ```shell
+  jj git push --allow-new \
+    -o merge_request.create \
+    -o merge_request.target=main \
+    -o 'merge_request.title=Add feature X' \
+    -o 'merge_request.description=Implements X with tests' \
+    -o merge_request.draft
+  ```
+- Auto-merge when pipeline succeeds and remove the source branch:
+  ```shell
+  jj git push \
+    -o merge_request.merge_when_pipeline_succeeds \
+    -o merge_request.remove_source_branch
+  ```
+- Add and remove labels:
+  ```shell
+  jj git push \
+    -o 'merge_request.label=label1' \
+    -o 'merge_request.label=label2' \
+    -o 'merge_request.unlabel=label3'
+  ```
+- Assign and unassign users:
+  ```shell
+  jj git push \
+    -o 'merge_request.assign=user1' \
+    -o 'merge_request.assign=user2' \
+    -o 'merge_request.unassign=user3'
+  ```
