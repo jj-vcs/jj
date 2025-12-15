@@ -43,6 +43,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj file annotate`↴](#jj-file-annotate)
 * [`jj file chmod`↴](#jj-file-chmod)
 * [`jj file list`↴](#jj-file-list)
+* [`jj file search`↴](#jj-file-search)
 * [`jj file show`↴](#jj-file-show)
 * [`jj file track`↴](#jj-file-track)
 * [`jj file untrack`↴](#jj-file-untrack)
@@ -1034,6 +1035,7 @@ File operations
 * `annotate` — Show the source change for each line of the target file
 * `chmod` — Sets or removes the executable bit for paths in the repo
 * `list` — List files in a revision
+* `search` — Search for content in files
 * `show` — Print contents of files in a revision
 * `track` — Start tracking specified paths in the working copy
 * `untrack` — Stop tracking specified paths in the working copy
@@ -1117,6 +1119,31 @@ List files in a revision
    [`TreeEntry` type]: https://docs.jj-vcs.dev/latest/templates/#treeentry-type
 
    [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
+
+
+
+## `jj file search`
+
+Search for content in files
+
+Lists files containing the specified pattern.
+
+This is an early version of the command. It only supports glob matching for now, it doesn't search files concurrently, and it doesn't indicate where in the file the match was found.
+
+**Usage:** `jj file search [OPTIONS] --pattern <PATTERN> [FILESETS]...`
+
+###### **Arguments:**
+
+* `<FILESETS>` — Only search files matching these prefixes (instead of all files)
+
+###### **Options:**
+
+* `-r`, `--revision <REVSET>` — The revision to search files in
+
+  Default value: `@`
+* `-p`, `--pattern <PATTERN>` — The glob pattern to search for
+
+   The whole line must match the pattern, so you may want to pass something like `--pattern '*foo*'`.
 
 
 

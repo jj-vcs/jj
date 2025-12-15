@@ -67,6 +67,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj util gc` now prunes unreachable files in `.jj/repo/store/extra` to save
   disk space.
 
+* Early version of a `jj file search` command for searching for a pattern in
+  files (like `git grep`).
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
