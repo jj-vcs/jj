@@ -38,6 +38,7 @@ See [contribution docs](contributing.md#code-reviews) for details on this policy
 * jonathantanmy
 * josephlou5
 * kevincliao
+* kiranani
 * lukegb
 * martinvonz
 * matts1
