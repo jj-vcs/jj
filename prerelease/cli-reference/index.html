@@ -8074,7 +8074,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <h2 id="jj-commit"><code>jj commit</code><a class="headerlink" href="#jj-commit" title="Permanent link">&para;</a></h2>
 <p>Update the description and create a new change on top [default alias: ci]</p>
 <p>When called without path arguments or <code>--interactive</code>, <code>jj commit</code> is equivalent to <code>jj describe</code> followed by <code>jj new</code>.</p>
-<p>Otherwise, this command is very similar to <code>jj split</code>. Differences include:</p>
+<p>When using <code>--interactive</code> or path arguments, the selected changes stay in the current commit while the remaining changes are moved to a new working-copy commit on top. This is very similar to <code>jj split</code>. Differences include:</p>
 <ul>
 <li>
 <p><code>jj commit</code> is not interactive by default (it selects all changes).</p>
@@ -8092,11 +8092,11 @@ does not match the <code>jj help</code> output exactly.</p>
 <p><strong>Usage:</strong> <code>jj commit [OPTIONS] [FILESETS]...</code></p>
 <h6 id="arguments_12"><strong>Arguments:</strong><a class="headerlink" href="#arguments_12" title="Permanent link">&para;</a></h6>
 <ul>
-<li><code>&lt;FILESETS&gt;</code> — Put these paths in the first commit</li>
+<li><code>&lt;FILESETS&gt;</code> — Put these paths in the current commit</li>
 </ul>
 <h6 id="options_11"><strong>Options:</strong><a class="headerlink" href="#options_11" title="Permanent link">&para;</a></h6>
 <ul>
-<li><code>-i</code>, <code>--interactive</code> — Interactively choose which changes to include in the first commit</li>
+<li><code>-i</code>, <code>--interactive</code> — Interactively choose which changes to include in the current commit</li>
 <li><code>--tool &lt;NAME&gt;</code> — Specify diff editor to be used (implies --interactive)</li>
 <li><code>-m</code>, <code>--message &lt;MESSAGE&gt;</code> — The change description to use (don't open editor)</li>
 <li>
