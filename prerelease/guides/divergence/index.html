@@ -1961,9 +1961,9 @@
 <h2 id="what-are-divergent-changes">What are divergent changes?<a class="headerlink" href="#what-are-divergent-changes" title="Permanent link">&para;</a></h2>
 <p>A <a href="../../glossary/#divergent-change">divergent change</a> occurs when multiple <a href="../../glossary/#visible-commits">visible commits</a> have the same change
 ID.</p>
-<p>These changes are displayed with a <code>??</code> after their change ID:</p>
+<p>These changes are displayed with a <a href="../../glossary/#change-offset">change offset</a> after their change ID:</p>
 <div class="highlight"><pre><span></span><code>$<span class="w"> </span>jj<span class="w"> </span>log
-@<span class="w">  </span>mzvwutvl??<span class="w"> </span>test.user@example.com<span class="w"> </span><span class="m">2001</span>-02-03<span class="w"> </span><span class="m">08</span>:05:12<span class="w"> </span>29d07a2d
+@<span class="w">  </span>mzvwutvl/0<span class="w"> </span>test.user@example.com<span class="w"> </span><span class="m">2001</span>-02-03<span class="w"> </span><span class="m">08</span>:05:12<span class="w"> </span>29d07a2d<span class="w"> </span>divergent
 │<span class="w">  </span>a<span class="w"> </span>divergent<span class="w"> </span>change
 </code></pre></div>
 <p>Normally, when commits are rewritten, the original version (the "predecessor")
@@ -2011,12 +2011,13 @@ change, creating two visible successors. This can happen when:</p>
 <p>When you encounter divergent changes, you have several strategies to choose
 from. The best approach depends on whether you want to keep the content from one
 commit, both commits, or merge them together.</p>
-<p>Note that revsets must refer to the divergent commit using its commit ID since
-the change ID is ambiguous.</p>
+<p>Note that revsets must refer to the divergent commit either using its commit ID
+or using its change ID with a <a href="../../glossary/#change-offset">change offset</a> like <code>/0</code> or <code>/1</code> as shown in the
+log, since the change ID is ambiguous by itself.</p>
 <h3 id="strategy-1-abandon-one-of-the-commits">Strategy 1: Abandon one of the commits<a class="headerlink" href="#strategy-1-abandon-one-of-the-commits" title="Permanent link">&para;</a></h3>
 <p>If one of the divergent commits is clearly obsolete or incorrect, simply abandon
 it:</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># Abandon the unwanted commit using its commit ID</span>
+<div class="highlight"><pre><span></span><code><span class="c1"># Abandon the unwanted commit using its commit ID (or change ID with offset)</span>
 jj<span class="w"> </span>abandon<span class="w"> </span>&lt;unwanted-commit-id&gt;
 
 <span class="c1"># You can abandon several at once with:</span>
@@ -2042,7 +2043,7 @@ commit will be abandoned.</p>
 you can leave it as-is. If both commits are part of immutable history, this may
 be your only option.</p>
 <p>However, it can be inconvenient since you cannot refer to divergent changes
-unambiguously using their change ID.</p>
+unambiguously using their change ID alone.</p>
 
 
 

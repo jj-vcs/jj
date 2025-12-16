@@ -697,9 +697,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#how-do-i-deal-with-divergent-changes-after-the-change-id" class="md-nav__link">
+  <a href="#how-do-i-deal-with-divergent-changes" class="md-nav__link">
     <span class="md-ellipsis">
-      How do I deal with divergent changes ('??' after the change ID)?
+      How do I deal with divergent changes?
     </span>
   </a>
   
@@ -2247,9 +2247,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#how-do-i-deal-with-divergent-changes-after-the-change-id" class="md-nav__link">
+  <a href="#how-do-i-deal-with-divergent-changes" class="md-nav__link">
     <span class="md-ellipsis">
-      How do I deal with divergent changes ('??' after the change ID)?
+      How do I deal with divergent changes?
     </span>
   </a>
   
@@ -2587,17 +2587,19 @@ the same change:</p>
 <span class="go">@  lnvvtrzo jjfan@example.org 2025-02-28 21:01:10 31a347e0</span>
 <span class="go">│  featureA</span>
 <span class="go">│  -- operation 3cb7392c092c snapshot working copy</span>
-<span class="go">○  lnvvtrzo hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8</span>
+<span class="go">○  lnvvtrzo/1 hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8</span>
 <span class="go">│  featureA</span>
 <span class="go">│  -- operation 1280bfaec893 snapshot working copy</span>
-<span class="go">○  lnvvtrzo hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d</span>
+<span class="go">○  lnvvtrzo/2 hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d</span>
 <span class="go">   (no description set)</span>
 <span class="go">   -- operation 0418a5aa94b5 snapshot working copy</span>
 </code></pre></div>
 <p>Since commit <code>b800</code> is hidden, it is considered obsolete and <code>jj log</code> (without
-arguments) will not show it, nor can it be accessed by its change ID <code>lnvvtrzo</code>.
-However, most <code>jj</code> operations work normally on such commits if you refer to them
-by their commit ID.</p>
+arguments) will not show it. However, most <code>jj</code> operations work normally on
+such commits if you refer to them by their commit ID. Hidden commits can also
+be referred to by their change ID, but they require a
+<a href="../glossary/#change-offset">change offset</a> to distinguish them (e.g. <code>b800</code> can
+also be referred to as <code>lnv/1</code>, as shown in the evolog).</p>
 <p>To find out which of these versions is the last time before we started working
 on feature B (the point where we should have created a new change, but failed to
 do so), we can look at the actual changes between the <code>evolog</code> commits by
@@ -2614,7 +2616,7 @@ running <code>jj evolog --patch</code>:</p>
 <span class="go">│  @@ -1,1 +1,2 @@</span>
 <span class="go">│   Done with feature A</span>
 <span class="go">│  +Working on feature B</span>
-<span class="go">○  lnvvtrzo hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8</span>
+<span class="go">○  lnvvtrzo/1 hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8</span>
 <span class="go">│  featureA</span>
 <span class="go">│  -- operation 1280bfaec893 snapshot working copy</span>
 <span class="go">│  diff --git a/file b/file</span>
@@ -2624,7 +2626,7 @@ running <code>jj evolog --patch</code>:</p>
 <span class="go">│  @@ -1,1 +1,1 @@</span>
 <span class="go">│  -Working on feature A</span>
 <span class="go">│  +Done with feature A</span>
-<span class="go">○  lnvvtrzo hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d</span>
+<span class="go">○  lnvvtrzo/2 hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d</span>
 <span class="go">   (no description set)</span>
 <span class="go">   -- operation 0418a5aa94b5 snapshot working copy</span>
 <span class="go">   diff --git a/file b/file</span>
@@ -2651,16 +2653,18 @@ state at commit <code>b80</code> (see step 1 above for how we found that commit 
 <p>First, we create a new empty child commit on top of <code>b80</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>new<span class="w"> </span>b80<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;featureB&quot;</span>
 <span class="go">Working copy  (@) now at: pvnrkl 47171aa (empty) featureB</span>
-<span class="go">Parent commit (@-)      : lnvvtr?? b8004ab featureA</span>
+<span class="go">Parent commit (@-)      : lnvvtr/1 b8004ab featureA</span>
 </code></pre></div>
-<p>Notice the change ID has "??" appended to it. This indicates that change ID
-<code>lnvvtr</code> is now <a href="../glossary/#divergent-change">divergent</a>: There are two visible commits
-with the same change ID (commit <code>b8004ab</code> and <code>31a347e0</code>). This is okay and will
-be resolved in the next steps.</p>
+<p>There are now two visible commits with change ID <code>lnvvtr</code> (commit <code>b8004ab</code>
+and <code>31a347e0</code>), so we call these <a href="../glossary/#divergent-change">divergent</a>. Similarly
+to hidden commits, divergent commits also require a
+<a href="../glossary/#change-offset">change offset</a> when using the change ID to refer to
+them, so you can see that <code>b8004ab</code> is still shown as <code>lnvvtr/1</code> in the output.
+This temporary divergence is okay and will be resolved in the next steps.</p>
 <p>Next, restore the contents of <code>31a347e0</code> into the working copy:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>restore<span class="w"> </span>--from<span class="w"> </span>31a347e0
 <span class="go">Working copy  (@) now at: pvnrkl 468104c featureB</span>
-<span class="go">Parent commit (@-)      : lnvvtr?? b8004ea featureA</span>
+<span class="go">Parent commit (@-)      : lnvvtr/1 b8004ea featureA</span>
 <span class="gp">$ </span>cat<span class="w"> </span>file
 <span class="go">Done with feature A</span>
 <span class="go">Working on feature B</span>
@@ -2741,7 +2745,7 @@ then <code>jj restore --from B</code>, and then describe the message
 with something like <code>jj desc -m "Revert the merge of D into B</code>. Now, commit <code>@</code>
 undoes the merge of <code>D</code> into  <code>B</code>. If necessary, you can now rebase it
 elsewhere, e.g. <code>jj rebase -r @ -o main</code>.</p>
-<h3 id="how-do-i-deal-with-divergent-changes-after-the-change-id">How do I deal with divergent changes ('??' after the <a href="../glossary/#change-id">change ID</a>)?<a class="headerlink" href="#how-do-i-deal-with-divergent-changes-after-the-change-id" title="Permanent link">&para;</a></h3>
+<h3 id="how-do-i-deal-with-divergent-changes">How do I deal with divergent changes?<a class="headerlink" href="#how-do-i-deal-with-divergent-changes" title="Permanent link">&para;</a></h3>
 <p>See: <a href="../guides/divergence/">Handling divergent commits</a>.</p>
 <h3 id="how-do-i-deal-with-conflicted-bookmarks-after-bookmark-name">How do I deal with conflicted bookmarks ('??' after bookmark name)?<a class="headerlink" href="#how-do-i-deal-with-conflicted-bookmarks-after-bookmark-name" title="Permanent link">&para;</a></h3>
 <p>A <a href="../bookmarks/#conflicts">conflicted bookmark</a> is a bookmark that refers to multiple

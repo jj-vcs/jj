@@ -2862,9 +2862,11 @@ type</a> are available as keywords. For example,
   local one.</li>
 <li><code>.local_tags() -&gt; List&lt;CommitRef&gt;</code>: All local tags pointing to the commit.</li>
 <li><code>.remote_tags() -&gt; List&lt;CommitRef&gt;</code>: All remote tags pointing to the commit.</li>
-<li><code>.divergent() -&gt; Boolean</code>: True if the commit's change id corresponds to multiple
+<li><code>.divergent() -&gt; Boolean</code>: True if the commit's change ID corresponds to multiple
   visible commits.</li>
 <li><code>.hidden() -&gt; Boolean</code>: True if the commit is not visible (a.k.a. abandoned).</li>
+<li><code>.change_offset() -&gt; Option&lt;Integer&gt;</code>: The <a href="../glossary/#change-offset">change offset</a>
+  of this commit. May not be available for some commits.</li>
 <li><code>.immutable() -&gt; Boolean</code>: True if the commit is included in <a href="../config/#set-of-immutable-commits">the set of
   immutable commits</a>.</li>
 <li><code>.contained_in(revset: String) -&gt; Boolean</code>: True if the commit is included in

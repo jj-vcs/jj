@@ -6358,6 +6358,13 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p>In color-words diffs, context line numbers are now rendered with decreased
   intensity.</p>
 </li>
+<li>
+<p>Hidden and divergent commits can now be unambiguously selected using their
+  change ID combined with a numeric suffix. For instance, if there are two
+  commits with change ID <code>xyz</code>, then one can be referred to as <code>xyz/0</code> and the
+  other can be referred to as <code>xyz/1</code>. These suffixes are shown in the log when
+  necessary to make a change ID unambiguous.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>

@@ -776,6 +776,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#change-offset" class="md-nav__link">
+    <span class="md-ellipsis">
+      Change offset
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#commit" class="md-nav__link">
     <span class="md-ellipsis">
       Commit
@@ -2120,6 +2129,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#change-offset" class="md-nav__link">
+    <span class="md-ellipsis">
+      Change offset
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#commit" class="md-nav__link">
     <span class="md-ellipsis">
       Commit
@@ -2381,6 +2399,13 @@ ID is a property of a commit.</p>
 16 bytes long and are often randomly generated. By default, <code>jj log</code> presents
 them as a sequence of 12 letters in the k-z range, at the beginning of a line.
 These are actually hexadecimal numbers that use "digits" z-k instead of 0-9a-f.</p>
+<h2 id="change-offset">Change offset<a class="headerlink" href="#change-offset" title="Permanent link">&para;</a></h2>
+<p>Sometimes a change ID might not unambiguously identify a commit, such as if the
+commit is hidden or if the change ID is [divergent][divergent-change]. In these
+cases, you can add an offset after the change ID to make it clear which commit
+you are referring to, with the most recent commit having an offset of 0. For
+instance, the most recent commit with change ID <code>xyz</code> could be referred to as
+<code>xyz/0</code>, while the one before it would be <code>xyz/1</code>, and so on.</p>
 <h2 id="commit">Commit<a class="headerlink" href="#commit" title="Permanent link">&para;</a></h2>
 <p>A snapshot of the files in the repository at a given point in time (technically
 a <a href="#tree">tree object</a>), together with some metadata. The metadata includes the
@@ -2420,8 +2445,8 @@ and remotely, for example, then the change will be in a conflicted state. We
 call that a <a href="#divergent-change">divergent change</a>.</p>
 <h2 id="divergent-change">Divergent change<a class="headerlink" href="#divergent-change" title="Permanent link">&para;</a></h2>
 <p>A divergent change is a <a href="#change">change</a> that has more than one
-<a href="#visible-commits">visible commit</a>. These changes are displayed with a <code>??</code>
-after their change ID.</p>
+<a href="#visible-commits">visible commit</a>. These changes are displayed with a
+<a href="#change-offset">change offset</a> after their change ID.</p>
 <h2 id="head">Head<a class="headerlink" href="#head" title="Permanent link">&para;</a></h2>
 <p>A head is a commit with no descendants. The context in which it has no
 descendants varies. For example, the <code>heads(X)</code>
