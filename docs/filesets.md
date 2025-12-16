@@ -21,7 +21,7 @@ required:
 
 * `jj diff '~glob:**/*.rs'`
 
-[string-literals]: templates.md#string-literals
+[string-literals]: templates.md#stringliteral-type
 
 ## File patterns
 

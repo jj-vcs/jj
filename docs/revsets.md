@@ -45,7 +45,7 @@ something like `jj log -r '"x-"'`.
 
 [divergent-change]: glossary.md#divergent-change
 [change-offset]: glossary.md#change-offset
-[string-literals]: templates.md#string-literals
+[string-literals]: templates.md#stringliteral-type
 
 ### Priority
 
