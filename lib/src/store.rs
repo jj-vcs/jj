@@ -54,7 +54,7 @@ const TREE_CACHE_CAPACITY: usize = 1000;
 /// Wraps the low-level backend and makes it return more convenient types. Also
 /// adds caching.
 pub struct Store {
-    backend: Box<dyn Backend>,
+    backend: Arc<dyn Backend>,
     signer: Signer,
     commit_cache: Mutex<CLruCache<CommitId, Arc<backend::Commit>>>,
     tree_cache: Mutex<CLruCache<(RepoPathBuf, TreeId), Arc<backend::Tree>>>,
@@ -71,7 +71,7 @@ impl Debug for Store {
 
 impl Store {
     pub fn new(
-        backend: Box<dyn Backend>,
+        backend: Arc<dyn Backend>,
         signer: Signer,
         merge_options: MergeOptions,
     ) -> Arc<Self> {

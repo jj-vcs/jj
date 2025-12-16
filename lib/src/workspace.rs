@@ -189,7 +189,7 @@ impl Workspace {
         workspace_root: &Path,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer =
-            &|_settings, store_path| Ok(Box::new(SimpleBackend::init(store_path)));
+            &|_settings, store_path| Ok(Arc::new(SimpleBackend::init(store_path)));
         let signer = Signer::from_settings(user_settings)?;
         Self::init_with_backend(user_settings, workspace_root, backend_initializer, signer)
     }
@@ -202,7 +202,7 @@ impl Workspace {
         workspace_root: &Path,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer: &BackendInitializer = &|settings, store_path| {
-            Ok(Box::new(crate::git_backend::GitBackend::init_internal(
+            Ok(Arc::new(crate::git_backend::GitBackend::init_internal(
                 settings, store_path,
             )?))
         };
@@ -219,7 +219,7 @@ impl Workspace {
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer = |settings: &UserSettings,
                                    store_path: &Path|
-         -> Result<Box<dyn crate::backend::Backend>, _> {
+         -> Result<Arc<dyn crate::backend::Backend>, _> {
             // TODO: Clean up path normalization. store_path is canonicalized by
             // ReadonlyRepo::init(). workspace_root will be canonicalized by
             // Workspace::new(), but it's not yet here.
@@ -234,7 +234,7 @@ impl Workspace {
                 store_path,
                 &store_relative_workspace_root,
             )?;
-            Ok(Box::new(backend))
+            Ok(Arc::new(backend))
         };
         let signer = Signer::from_settings(user_settings)?;
         Self::init_with_backend(user_settings, workspace_root, &backend_initializer, signer)
@@ -252,7 +252,7 @@ impl Workspace {
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let backend_initializer = |settings: &UserSettings,
                                    store_path: &Path|
-         -> Result<Box<dyn crate::backend::Backend>, _> {
+         -> Result<Arc<dyn crate::backend::Backend>, _> {
             // If the git repo is inside the workspace, use a relative path to it so the
             // whole workspace can be moved without breaking.
             // TODO: Clean up path normalization. store_path is canonicalized by
@@ -274,7 +274,7 @@ impl Workspace {
                 store_path,
                 &store_relative_git_repo_path,
             )?;
-            Ok(Box::new(backend))
+            Ok(Arc::new(backend))
         };
         let signer = Signer::from_settings(user_settings)?;
         Self::init_with_backend(user_settings, workspace_root, &backend_initializer, signer)

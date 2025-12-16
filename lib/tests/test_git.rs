@@ -1582,7 +1582,7 @@ impl GitRepoData {
             &settings,
             &jj_repo_dir,
             &|settings, store_path| {
-                Ok(Box::new(GitBackend::init_external(
+                Ok(Arc::new(GitBackend::init_external(
                     settings,
                     store_path,
                     git_repo.path(),
@@ -3158,7 +3158,7 @@ fn test_init() {
         &settings,
         &jj_repo_dir,
         &|settings, store_path| {
-            Ok(Box::new(GitBackend::init_external(
+            Ok(Arc::new(GitBackend::init_external(
                 settings,
                 store_path,
                 git_repo.path(),
@@ -3952,7 +3952,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         settings,
         &jj_repo_dir,
         &|settings, store_path| {
-            Ok(Box::new(GitBackend::init_external(
+            Ok(Arc::new(GitBackend::init_external(
                 settings,
                 store_path,
                 clone_repo.path(),

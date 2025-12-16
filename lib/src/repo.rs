@@ -376,7 +376,7 @@ impl Repo for ReadonlyRepo {
 }
 
 pub type BackendInitializer<'a> =
-    dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendInitError> + 'a;
+    dyn Fn(&UserSettings, &Path) -> Result<Arc<dyn Backend>, BackendInitError> + 'a;
 #[rustfmt::skip] // auto-formatted line would exceed the maximum width
 pub type OpStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendInitError>
@@ -389,7 +389,7 @@ pub type SubmoduleStoreInitializer<'a> =
     dyn Fn(&UserSettings, &Path) -> Result<Box<dyn SubmoduleStore>, BackendInitError> + 'a;
 
 type BackendFactory =
-    Box<dyn Fn(&UserSettings, &Path) -> Result<Box<dyn Backend>, BackendLoadError>>;
+    Box<dyn Fn(&UserSettings, &Path) -> Result<Arc<dyn Backend>, BackendLoadError>>;
 type OpStoreFactory = Box<
     dyn Fn(&UserSettings, &Path, RootOperationData) -> Result<Box<dyn OpStore>, BackendLoadError>,
 >;
@@ -428,13 +428,13 @@ impl Default for StoreFactories {
         // Backends
         factories.add_backend(
             SimpleBackend::name(),
-            Box::new(|_settings, store_path| Ok(Box::new(SimpleBackend::load(store_path)))),
+            Box::new(|_settings, store_path| Ok(Arc::new(SimpleBackend::load(store_path)))),
         );
         #[cfg(feature = "git")]
         factories.add_backend(
             crate::git_backend::GitBackend::name(),
             Box::new(|settings, store_path| {
-                Ok(Box::new(crate::git_backend::GitBackend::load(
+                Ok(Arc::new(crate::git_backend::GitBackend::load(
                     settings, store_path,
                 )?))
             }),
@@ -443,7 +443,7 @@ impl Default for StoreFactories {
         factories.add_backend(
             crate::secret_backend::SecretBackend::name(),
             Box::new(|settings, store_path| {
-                Ok(Box::new(crate::secret_backend::SecretBackend::load(
+                Ok(Arc::new(crate::secret_backend::SecretBackend::load(
                     settings, store_path,
                 )?))
             }),
@@ -535,7 +535,7 @@ impl StoreFactories {
         &self,
         settings: &UserSettings,
         store_path: &Path,
-    ) -> Result<Box<dyn Backend>, StoreLoadError> {
+    ) -> Result<Arc<dyn Backend>, StoreLoadError> {
         let backend_type = read_store_type("commit", store_path.join("type"))?;
         let backend_factory = self.backend_factories.get(&backend_type).ok_or_else(|| {
             StoreLoadError::UnsupportedType {

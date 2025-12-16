@@ -14,6 +14,7 @@
 
 use std::path::Path;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -60,7 +61,7 @@ fn create_store_factories() -> StoreFactories {
     // must match `Backend::name()`.
     store_factories.add_backend(
         "jit",
-        Box::new(|settings, store_path| Ok(Box::new(JitBackend::load(settings, store_path)?))),
+        Box::new(|settings, store_path| Ok(Arc::new(JitBackend::load(settings, store_path)?))),
     );
     store_factories
 }
@@ -78,7 +79,7 @@ fn run_custom_command(
             Workspace::init_with_backend(
                 &settings,
                 wc_path,
-                &|settings, store_path| Ok(Box::new(JitBackend::init(settings, store_path)?)),
+                &|settings, store_path| Ok(Arc::new(JitBackend::init(settings, store_path)?)),
                 Signer::from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
             )?;
             Ok(())

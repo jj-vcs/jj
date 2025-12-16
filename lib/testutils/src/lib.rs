@@ -179,12 +179,12 @@ impl TestEnvironment {
         let mut factories = StoreFactories::default();
         factories.add_backend("test", {
             let factory = self.test_backend_factory.clone();
-            Box::new(move |_settings, store_path| Ok(Box::new(factory.load(store_path))))
+            Box::new(move |_settings, store_path| Ok(Arc::new(factory.load(store_path))))
         });
         factories.add_backend(
             SecretBackend::name(),
             Box::new(|settings, store_path| {
-                Ok(Box::new(SecretBackend::load(settings, store_path)?))
+                Ok(Arc::new(SecretBackend::load(settings, store_path)?))
             }),
         );
         factories
@@ -221,11 +221,11 @@ impl TestRepoBackend {
         env: &TestEnvironment,
         settings: &UserSettings,
         store_path: &Path,
-    ) -> Result<Box<dyn Backend>, BackendInitError> {
+    ) -> Result<Arc<dyn Backend>, BackendInitError> {
         match self {
-            Self::Git => Ok(Box::new(GitBackend::init_internal(settings, store_path)?)),
-            Self::Simple => Ok(Box::new(SimpleBackend::init(store_path))),
-            Self::Test => Ok(Box::new(env.test_backend_factory.init(store_path))),
+            Self::Git => Ok(Arc::new(GitBackend::init_internal(settings, store_path)?)),
+            Self::Simple => Ok(Arc::new(SimpleBackend::init(store_path))),
+            Self::Test => Ok(Arc::new(env.test_backend_factory.init(store_path))),
         }
     }
 }

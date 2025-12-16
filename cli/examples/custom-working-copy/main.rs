@@ -65,8 +65,8 @@ fn run_custom_command(
             let wc_path = command_helper.cwd();
             let settings = command_helper.settings_for_new_workspace(wc_path)?;
             let backend_initializer = |settings: &UserSettings, store_path: &Path| {
-                let backend: Box<dyn Backend> =
-                    Box::new(GitBackend::init_internal(settings, store_path)?);
+                let backend: Arc<dyn Backend> =
+                    Arc::new(GitBackend::init_internal(settings, store_path)?);
                 Ok(backend)
             };
             Workspace::init_with_factories(
