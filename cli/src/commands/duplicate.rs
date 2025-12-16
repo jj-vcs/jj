@@ -52,7 +52,7 @@ use crate::ui::Ui;
 /// This can be customized with the `templates.duplicate_description` setting.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct DuplicateArgs {
-    /// The revision(s) to duplicate (default: @)
+    /// The revision(s) to duplicate (default: @) [aliases: -r]
     #[arg(
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),

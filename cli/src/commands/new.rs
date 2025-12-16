@@ -48,7 +48,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 #[command(group(clap::ArgGroup::new("revisions").multiple(true)))]
 pub(crate) struct NewArgs {
-    /// Parent(s) of the new change [default: @]
+    /// Parent(s) of the new change [default: @] [aliases: -o, -r]
     #[arg(
         group = "revisions",
         value_name = "REVSETS",

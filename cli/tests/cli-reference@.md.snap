@@ -239,7 +239,7 @@ If a working-copy commit gets abandoned, it will be given a new, empty commit. T
 
 ###### **Arguments:**
 
-* `<REVSETS>` — The revision(s) to abandon (default: @)
+* `<REVSETS>` — The revision(s) to abandon (default: @) [aliases: -r]
 
 ###### **Options:**
 
@@ -823,7 +823,7 @@ Starts an editor to let you edit the description of changes. The editor will be 
 
 ###### **Arguments:**
 
-* `<REVSETS>` — The revision(s) whose description to edit (default: @)
+* `<REVSETS>` — The revision(s) whose description to edit (default: @) [aliases: -r]
 
 ###### **Options:**
 
@@ -948,7 +948,7 @@ By default, the duplicated commits retain the descriptions of the originals. Thi
 
 ###### **Arguments:**
 
-* `<REVSETS>` — The revision(s) to duplicate (default: @)
+* `<REVSETS>` — The revision(s) to duplicate (default: @) [aliases: -r]
 
 ###### **Options:**
 
@@ -970,7 +970,7 @@ Note: it is [generally recommended] to instead use `jj new` and `jj squash`.
 
 ###### **Arguments:**
 
-* `<REVSET>` — The commit to edit
+* `<REVSET>` — The commit to edit [aliases: -r]
 
 
 
@@ -1904,7 +1904,7 @@ Whenever any metadata is updated, the committer name, email, and timestamp are a
 
 ###### **Arguments:**
 
-* `<REVSETS>` — The revision(s) to modify (default: @)
+* `<REVSETS>` — The revision(s) to modify (default: @) [aliases: -r]
 
 ###### **Options:**
 
@@ -1956,7 +1956,7 @@ Note that you can create a merge commit by specifying multiple revisions as argu
 
 ###### **Arguments:**
 
-* `<REVSETS>` — Parent(s) of the new change [default: @]
+* `<REVSETS>` — Parent(s) of the new change [default: @] [aliases: -o, -r]
 
 ###### **Options:**
 
@@ -2744,7 +2744,7 @@ Show commit description and changes in a revision
 
 ###### **Arguments:**
 
-* `<REVSET>` — Show changes in this revision, compared to its parent(s) [default: @]
+* `<REVSET>` — Show changes in this revision, compared to its parent(s) [default: @] [aliases: -r]
 
 ###### **Options:**
 

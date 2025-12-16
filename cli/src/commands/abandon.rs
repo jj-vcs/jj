@@ -43,7 +43,7 @@ use crate::ui::Ui;
 /// commit. This is true in general; it is not specific to this command.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct AbandonArgs {
-    /// The revision(s) to abandon (default: @)
+    /// The revision(s) to abandon (default: @) [aliases: -r]
     #[arg(
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_mutable),

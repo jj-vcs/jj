@@ -47,7 +47,7 @@ use crate::ui::Ui;
 /// will be $EDITOR, or `nano` if that's not defined (`Notepad` on Windows).
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct DescribeArgs {
-    /// The revision(s) whose description to edit (default: @)
+    /// The revision(s) whose description to edit (default: @) [aliases: -r]
     #[arg(
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_mutable)

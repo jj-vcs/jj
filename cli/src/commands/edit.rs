@@ -34,7 +34,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 #[command(group(clap::ArgGroup::new("revision").required(true)))]
 pub(crate) struct EditArgs {
-    /// The commit to edit
+    /// The commit to edit [aliases: -r]
     #[arg(
         group = "revision",
         value_name = "REVSET",

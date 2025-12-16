@@ -32,6 +32,7 @@ use crate::ui::Ui;
 #[command(mut_arg("ignore_space_change", |a| a.short('b')))]
 pub(crate) struct ShowArgs {
     /// Show changes in this revision, compared to its parent(s) [default: @]
+    /// [aliases: -r]
     #[arg(
         group = "revision",
         value_name = "REVSET",
