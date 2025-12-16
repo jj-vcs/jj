@@ -253,7 +253,7 @@ pub fn cmd_gerrit_upload(
         // there is.
         if change_id_trailers.len() > 1 {
             return Err(user_error(format!(
-                "multiple Change-Id footers in revision {}",
+                "Multiple Change-Id footers in revision {}",
                 short_change_hash(original_commit.change_id())
             )));
         }
@@ -266,7 +266,7 @@ pub fn cmd_gerrit_upload(
                 // Intentionally leave the invalid change IDs as-is.
                 writeln!(
                     ui.warning_default(),
-                    "warning: invalid Change-Id footer in revision {}",
+                    "Invalid Change-Id footer in revision {}",
                     short_change_hash(original_commit.change_id()),
                 )?;
             }
@@ -316,41 +316,34 @@ pub fn cmd_gerrit_upload(
 
         old_to_new.insert(original_commit.id().clone(), new_commit);
     }
-    writeln!(ui.stderr())?;
 
     let remote_ref = format!("refs/for/{remote_branch}");
     writeln!(
-        ui.stderr(),
+        ui.status(),
         "Found {} heads to push to Gerrit (remote '{}'), target branch '{}'",
         old_heads.len(),
         remote,
         remote_branch,
     )?;
 
-    writeln!(ui.stderr())?;
-
     // NOTE (aseipp): because we are pushing everything to the same remote ref,
     // we have to loop and push each commit one at a time, even though
     // push_updates in theory supports multiple GitRefUpdates at once, because
     // we obviously can't push multiple heads to the same ref.
     for head in &old_heads {
-        write!(
-            ui.stderr(),
-            "{}",
+        if let Some(mut formatter) = ui.status_formatter() {
             if args.dry_run {
-                "Dry-run: Would push "
+                write!(formatter, "Dry-run: Would push ")?;
             } else {
-                "Pushing "
+                write!(formatter, "Pushing ")?;
             }
-        )?;
-        // We have to write the old commit here, because until we finish
-        // the transaction (which we don't), the new commit is labeled as
-        // "hidden".
-        tx.base_workspace_helper().write_commit_summary(
-            ui.stderr_formatter().as_mut(),
-            &store.get_commit(head).unwrap(),
-        )?;
-        writeln!(ui.stderr())?;
+            // We have to write the old commit here, because until we finish
+            // the transaction (which we don't), the new commit is labeled as
+            // "hidden".
+            tx.base_workspace_helper()
+                .write_commit_summary(formatter.as_mut(), &store.get_commit(head).unwrap())?;
+            writeln!(formatter)?;
+        }
 
         if args.dry_run {
             continue;

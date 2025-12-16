@@ -70,9 +70,7 @@ fn test_gerrit_upload_dryrun() {
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--dry-run"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-
     Dry-run: Would push zsuskuln 123b4d91 b | b
     [EOF]
     ");
@@ -80,9 +78,7 @@ fn test_gerrit_upload_dryrun() {
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--dry-run", "-b", "other"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'other'
-
     Dry-run: Would push zsuskuln 123b4d91 b | b
     [EOF]
     ");
@@ -121,9 +117,7 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-
     Pushing yqosqzyt 9590bf26 c | c
     [EOF]
     ");
@@ -231,14 +225,12 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     "###);
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-
     Pushing vruxwmqv 27c0bdd0 c | c
     [EOF]
-    "###);
+    ");
 
     // The output should be unchanged because no temporary commits should have
     // been created
@@ -328,14 +320,12 @@ fn test_gerrit_upload_local_mixed_change_ids() {
     "###);
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-
     Pushing yqosqzyt 8d46d915 c | c
     [EOF]
-    "###);
+    ");
 
     // The output should be unchanged because commits created within 'upload'
     // should all be temporary
@@ -378,4 +368,54 @@ fn test_gerrit_upload_local_mixed_change_ids() {
         a
     [EOF]
     "###);
+}
+
+#[test]
+fn test_gerrit_upload_bad_change_ids() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "a", &[]);
+
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    create_commit(&local_dir, "b", &["a@origin"]);
+    create_commit(&local_dir, "c", &["a@origin"]);
+
+    local_dir
+        .run_jj(["describe", "-rb", "-m\n\nChange-Id: malformed\n"])
+        .success();
+    local_dir
+        .run_jj([
+            "describe",
+            "-rc",
+            "-m",
+            concat!(
+                "\n\n",
+                "Change-Id: I1111111111111111111111111111111111111111\n",
+                "Change-Id: I2222222222222222222222222222222222222222\n",
+            ),
+        ])
+        .success();
+
+    let output = local_dir.run_jj(["gerrit", "upload", "-rc", "--remote-branch=main"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Multiple Change-Id footers in revision yqosqzytrlsw
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = local_dir.run_jj(["gerrit", "upload", "-rb", "--remote-branch=main"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: Invalid Change-Id footer in revision mzvwutvlkqwt
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Pushing mzvwutvl 360bfd4f b
+    [EOF]
+    ");
 }
