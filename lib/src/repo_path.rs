@@ -687,73 +687,12 @@ impl RepoPathUiConverter {
     ///
     /// If `before == after`, this is equivalent to `format_file_path()`.
     pub fn format_copied_path(&self, paths: Diff<&RepoPath>) -> String {
-        if !paths.is_changed() {
-            return self.format_file_path(paths.after);
-        }
-        let mut formatted = String::new();
         match self {
-            Self::Fs { cwd, base } => {
-                let Diff {
-                    before: source_path,
-                    after: target_path,
-                } = paths.map(|path| {
-                    let fs_path = path.to_fs_path_unchecked(base);
-                    file_util::relative_path(cwd, &fs_path)
-                });
-
-                let source_components = source_path.components().collect_vec();
-                let target_components = target_path.components().collect_vec();
-
-                let prefix_count = source_components
-                    .iter()
-                    .zip(target_components.iter())
-                    .take_while(|(source_component, target_component)| {
-                        source_component == target_component
-                    })
-                    .count()
-                    .min(source_components.len().saturating_sub(1))
-                    .min(target_components.len().saturating_sub(1));
-
-                let suffix_count = source_components
-                    .iter()
-                    .skip(prefix_count)
-                    .rev()
-                    .zip(target_components.iter().skip(prefix_count).rev())
-                    .take_while(|(source_component, target_component)| {
-                        source_component == target_component
-                    })
-                    .count()
-                    .min(source_components.len().saturating_sub(1))
-                    .min(target_components.len().saturating_sub(1));
-
-                fn format_components(c: &[std::path::Component]) -> String {
-                    c.iter().collect::<PathBuf>().display().to_string()
-                }
-
-                if prefix_count > 0 {
-                    formatted.push_str(&format_components(&source_components[0..prefix_count]));
-                    formatted.push_str(std::path::MAIN_SEPARATOR_STR);
-                }
-                formatted.push('{');
-                formatted.push_str(&format_components(
-                    &source_components
-                        [prefix_count..(source_components.len() - suffix_count).max(prefix_count)],
-                ));
-                formatted.push_str(" => ");
-                formatted.push_str(&format_components(
-                    &target_components
-                        [prefix_count..(target_components.len() - suffix_count).max(prefix_count)],
-                ));
-                formatted.push('}');
-                if suffix_count > 0 {
-                    formatted.push_str(std::path::MAIN_SEPARATOR_STR);
-                    formatted.push_str(&format_components(
-                        &source_components[source_components.len() - suffix_count..],
-                    ));
-                }
+            Self::Fs { .. } => {
+                let paths = paths.map(|path| self.format_file_path(path));
+                collapse_copied_path(paths.as_deref(), std::path::MAIN_SEPARATOR)
             }
         }
-        formatted
     }
 
     /// Parses a path from the UI.
@@ -767,6 +706,51 @@ impl RepoPathUiConverter {
             }
         }
     }
+}
+
+fn collapse_copied_path(paths: Diff<&str>, separator: char) -> String {
+    // The last component should never match middle components. This is ensured
+    // by including trailing separators. e.g. ("a/b", "a/b/x") => ("a/", _)
+    let components = paths.map(|path| path.split_inclusive(separator));
+    let prefix_len: usize = iter::zip(components.before, components.after)
+        .take_while(|(before, after)| before == after)
+        .map(|(_, after)| after.len())
+        .sum();
+    if paths.before.len() == prefix_len && paths.after.len() == prefix_len {
+        return paths.after.to_owned();
+    }
+
+    // The first component should never match middle components, but the first
+    // uncommon middle component can. e.g. ("a/b", "x/a/b") => ("", "/b"),
+    // ("a/b", "a/x/b") => ("a/", "/b")
+    let components = paths.map(|path| {
+        let mut remainder = &path[prefix_len.saturating_sub(1)..];
+        iter::from_fn(move || {
+            let pos = remainder.rfind(separator)?;
+            let (prefix, last) = remainder.split_at(pos);
+            remainder = prefix;
+            Some(last)
+        })
+    });
+    let suffix_len: usize = iter::zip(components.before, components.after)
+        .take_while(|(before, after)| before == after)
+        .map(|(_, after)| after.len())
+        .sum();
+
+    // Middle range may be invalid (start > end) because the same separator char
+    // can be distributed to both common prefix and suffix. e.g.
+    // ("a/b", "a/x/b") == ("a//b", "a/x/b") => ("a/", "/b")
+    let middle = paths.map(|path| path.get(prefix_len..path.len() - suffix_len).unwrap_or(""));
+
+    let mut collapsed = String::new();
+    collapsed.push_str(&paths.after[..prefix_len]);
+    collapsed.push('{');
+    collapsed.push_str(middle.before);
+    collapsed.push_str(" => ");
+    collapsed.push_str(middle.after);
+    collapsed.push('}');
+    collapsed.push_str(&paths.after[paths.after.len() - suffix_len..]);
+    collapsed
 }
 
 /// Tree that maps `RepoPath` to value of type `V`.

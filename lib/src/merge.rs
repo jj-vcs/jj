@@ -22,6 +22,7 @@ use std::fmt::Formatter;
 use std::fmt::Write as _;
 use std::hash::Hash;
 use std::iter::zip;
+use std::ops::Deref;
 use std::slice;
 use std::sync::Arc;
 
@@ -82,6 +83,15 @@ impl<T> Diff<T> {
             before: &self.before,
             after: &self.after,
         }
+    }
+
+    /// Converts a `Diff<T>` or `&Diff<T>` to `Diff<&T::Target>`. (e.g.
+    /// `Diff<String>` to `Diff<&str>`)
+    pub fn as_deref(&self) -> Diff<&T::Target>
+    where
+        T: Deref,
+    {
+        self.as_ref().map(Deref::deref)
     }
 
     /// Convert a diff into an array `[before, after]`.
