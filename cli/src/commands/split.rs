@@ -51,21 +51,61 @@ use crate::ui::Ui;
 /// Split a revision in two
 ///
 /// Starts a [diff editor] on the changes in the revision. Edit the right side
-/// of the diff until it has the content you want in the new revision. Once
-/// you close the editor, your edited content will replace the previous
-/// revision. The remaining changes will be put in a new revision on top.
+/// of the diff until it has the content you want in the first commit. Once you
+/// close the editor, your revision will be split into two commits.
 ///
 /// [diff editor]:
 ///     https://docs.jj-vcs.dev/latest/config/#editing-diffs
 ///
+/// By default, the selected changes stay in the original commit, and the
+/// remaining changes go into a new child commit:
+///
+/// ```text
+/// L                 L'
+/// |                 |
+/// K (split)   =>    K" (remaining)
+/// |                 |
+/// J                 K' (selected)
+///                   |
+///                   J
+/// ```
+///
+/// With `--parallel/-p`, the two parts become sibling commits instead of
+/// parent and child:
+///
+/// ```text
+///                   L'
+/// L                / \
+/// |               K'  |  (selected)
+/// K (split)  =>   |   K" (remaining)
+/// |                \ /
+/// J                 J
+/// ```
+///
+/// With `-o`, `-A`, or `-B`, the selected changes are extracted into a new
+/// commit at the specified location, while the remaining changes stay in place:
+///
+/// ```text
+/// M                 M'
+/// |                 |
+/// L                 L'
+/// |                 |
+/// K (split)   =>    K' (remaining, stays here)
+/// |                 |
+/// J                 J'
+///                   |
+///                   K" (selected, inserted before J with -B J)
+/// ```
+///
 /// If the change you split had a description, you will be asked to enter a
 /// change description for each commit. If the change did not have a
-/// description, the remaining changes will not get a description, and you will
-/// be asked for a description only for the selected changes.
+/// description, the second commit will not get a description, and you will be
+/// asked for a description only for the first commit.
 ///
 /// Splitting an empty commit is not supported because the same effect can be
 /// achieved with `jj new`.
 #[derive(clap::Args, Clone, Debug)]
+#[command(verbatim_doc_comment)]
 pub(crate) struct SplitArgs {
     /// Interactively choose which parts to split
     ///
@@ -87,8 +127,12 @@ pub(crate) struct SplitArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision: RevisionArg,
-    /// The revision(s) to base the new revision onto (can be repeated to create
-    /// a merge commit)
+    /// The revision(s) to rebase the selected changes onto (can be repeated to
+    /// create a merge commit)
+    ///
+    /// Extracts the selected changes into a new commit based on the given
+    /// revision(s). The remaining changes stay in the original commit's
+    /// location.
     #[arg(
         long,
         alias = "destination",
@@ -101,6 +145,10 @@ pub(crate) struct SplitArgs {
     onto: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert after (can be repeated to create a merge
     /// commit)
+    ///
+    /// Extracts the selected changes into a new commit inserted after the
+    /// given revision(s). The remaining changes stay in the original commit's
+    /// location.
     #[arg(
         long,
         short = 'A',
@@ -113,6 +161,10 @@ pub(crate) struct SplitArgs {
     insert_after: Option<Vec<RevisionArg>>,
     /// The revision(s) to insert before (can be repeated to create a merge
     /// commit)
+    ///
+    /// Extracts the selected changes into a new commit inserted before the
+    /// given revision(s). The remaining changes stay in the original commit's
+    /// location.
     #[arg(
         long,
         short = 'B',
@@ -125,8 +177,8 @@ pub(crate) struct SplitArgs {
     insert_before: Option<Vec<RevisionArg>>,
     /// The change description to use (don't open editor)
     ///
-    /// The description is used for the commit with the selected changes. The
-    /// source commit description is kept unchanged.
+    /// Sets the description for the first commit (the one containing the
+    /// selected changes). The second commit keeps the original description.
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Vec<String>,
     /// Open an editor to edit the change description
