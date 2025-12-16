@@ -19,7 +19,6 @@ use std::sync::Arc;
 
 use bstr::BStr;
 use itertools::Itertools as _;
-use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::git;
@@ -288,12 +287,10 @@ pub fn cmd_gerrit_upload(
         };
 
         let new_parents = original_commit
-            .parents()
-            .map(|parent| -> Result<CommitId, BackendError> {
-                let p = parent?;
-                Ok(old_to_new.get(p.id()).unwrap_or(&p).id().clone())
-            })
-            .try_collect()?;
+            .parent_ids()
+            .iter()
+            .map(|id| old_to_new.get(id).map_or(id, |p| p.id()).clone())
+            .collect();
 
         if new_description == original_commit.description()
             && new_parents == original_commit.parent_ids()
