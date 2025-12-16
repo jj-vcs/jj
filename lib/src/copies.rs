@@ -134,6 +134,12 @@ impl CopiesTreeDiffEntryPath {
     pub fn copy_operation(&self) -> Option<CopyOperation> {
         self.source.as_ref().map(|(_, op)| *op)
     }
+
+    /// Returns source/target paths as [`Diff`] if they differ.
+    pub fn to_diff(&self) -> Option<Diff<&RepoPath>> {
+        let (source, _) = self.source.as_ref()?;
+        Some(Diff::new(source, &self.target))
+    }
 }
 
 /// Wraps a `TreeDiffStream`, adding support for copies and renames.

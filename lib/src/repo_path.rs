@@ -34,6 +34,7 @@ use thiserror::Error;
 
 use crate::content_hash::ContentHash;
 use crate::file_util;
+use crate::merge::Diff;
 
 /// Owned `RepoPath` component.
 #[derive(ContentHash, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -680,20 +681,25 @@ impl RepoPathUiConverter {
         }
     }
 
-    /// Format a copy from `source` to `target` for display in the UI by
+    /// Format a copy from `before` to `after` for display in the UI by
     /// extracting common components and producing something like
-    /// "common/prefix/{source => target}/common/suffix".
+    /// "common/prefix/{before => after}/common/suffix".
     ///
-    /// If `source == target`, returns `format_file_path(source)`.
-    pub fn format_copied_path(&self, source: &RepoPath, target: &RepoPath) -> String {
-        if source == target {
-            return self.format_file_path(source);
+    /// If `before == after`, this is equivalent to `format_file_path()`.
+    pub fn format_copied_path(&self, paths: Diff<&RepoPath>) -> String {
+        if !paths.is_changed() {
+            return self.format_file_path(paths.after);
         }
         let mut formatted = String::new();
         match self {
             Self::Fs { cwd, base } => {
-                let source_path = file_util::relative_path(cwd, &source.to_fs_path_unchecked(base));
-                let target_path = file_util::relative_path(cwd, &target.to_fs_path_unchecked(base));
+                let Diff {
+                    before: source_path,
+                    after: target_path,
+                } = paths.map(|path| {
+                    let fs_path = path.to_fs_path_unchecked(base);
+                    file_util::relative_path(cwd, &fs_path)
+                });
 
                 let source_components = source_path.components().collect_vec();
                 let target_components = target_path.components().collect_vec();
@@ -1336,7 +1342,7 @@ mod tests {
         };
 
         let format = |before, after| {
-            ui.format_copied_path(repo_path(before), repo_path(after))
+            ui.format_copied_path(Diff::new(repo_path(before), repo_path(after)))
                 .replace('\\', "/")
         };
 

@@ -1827,12 +1827,11 @@ pub async fn show_diff_summary(
         let values = values?;
         let status = diff_status(&path, &values);
         let (label, sigil) = (status.label(), status.char());
-        let path = if path.copy_operation().is_some() {
-            path_converter.format_copied_path(path.source(), path.target())
-        } else {
-            path_converter.format_file_path(path.target())
+        let ui_path = match path.to_diff() {
+            Some(paths) => path_converter.format_copied_path(paths),
+            None => path_converter.format_file_path(path.target()),
         };
-        writeln!(formatter.labeled(label), "{sigil} {path}")?;
+        writeln!(formatter.labeled(label), "{sigil} {ui_path}")?;
     }
     Ok(())
 }
@@ -2028,12 +2027,9 @@ pub fn show_diff_stats(
     let ui_paths = stats
         .entries()
         .iter()
-        .map(|stat| {
-            if stat.path.copy_operation().is_some() {
-                path_converter.format_copied_path(stat.path.source(), stat.path.target())
-            } else {
-                path_converter.format_file_path(stat.path.target())
-            }
+        .map(|stat| match stat.path.to_diff() {
+            Some(paths) => path_converter.format_copied_path(paths),
+            None => path_converter.format_file_path(stat.path.target()),
         })
         .collect_vec();
 
@@ -2168,12 +2164,15 @@ pub async fn show_types(
 ) -> Result<(), DiffRenderError> {
     while let Some(CopiesTreeDiffEntry { path, values }) = tree_diff.next().await {
         let values = values?;
+        let ui_path = match path.to_diff() {
+            Some(paths) => path_converter.format_copied_path(paths),
+            None => path_converter.format_file_path(path.target()),
+        };
         writeln!(
             formatter.labeled("modified"),
-            "{}{} {}",
-            diff_summary_char(&values.before),
-            diff_summary_char(&values.after),
-            path_converter.format_copied_path(path.source(), path.target())
+            "{before}{after} {ui_path}",
+            before = diff_summary_char(&values.before),
+            after = diff_summary_char(&values.after)
         )?;
     }
     Ok(())
