@@ -479,19 +479,12 @@ fn materialize_conflict_hunks(
             output.write_all(content)?;
         } else {
             conflict_index += 1;
-            let conflict_info = format!("Conflict {conflict_index} of {num_conflicts}");
+            let conflict_info = format!("conflict {conflict_index} of {num_conflicts}");
 
             match (conflict_marker_style, hunk.as_slice()) {
                 // 2-sided conflicts can use Git-style conflict markers
                 (ConflictMarkerStyle::Git, [left, base, right]) => {
-                    materialize_git_style_conflict(
-                        left,
-                        base,
-                        right,
-                        &conflict_info,
-                        conflict_marker_len,
-                        output,
-                    )?;
+                    materialize_git_style_conflict(left, base, right, conflict_marker_len, output)?;
                 }
                 _ => {
                     materialize_jj_style_conflict(
@@ -512,7 +505,6 @@ fn materialize_git_style_conflict(
     left: &[u8],
     base: &[u8],
     right: &[u8],
-    conflict_info: &str,
     conflict_marker_len: usize,
     output: &mut dyn Write,
 ) -> io::Result<()> {
@@ -520,7 +512,7 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::ConflictStart,
         conflict_marker_len,
-        &format!("Side #1 ({conflict_info})"),
+        "side #1",
     )?;
     write_and_ensure_newline(output, left)?;
 
@@ -528,7 +520,7 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::GitAncestor,
         conflict_marker_len,
-        "Base",
+        "base",
     )?;
     write_and_ensure_newline(output, base)?;
 
@@ -545,7 +537,7 @@ fn materialize_git_style_conflict(
         output,
         ConflictMarkerLineChar::ConflictEnd,
         conflict_marker_len,
-        &format!("Side #2 ({conflict_info} ends)"),
+        "side #2",
     )?;
 
     Ok(())
@@ -558,35 +550,43 @@ fn materialize_jj_style_conflict(
     conflict_marker_len: usize,
     output: &mut dyn Write,
 ) -> io::Result<()> {
+    let get_side_label = |add_index: usize| -> String { format!("side #{}", add_index + 1) };
+
+    let get_base_label = |base_index: usize| -> String {
+        // The vast majority of conflicts one actually tries to resolve manually have 1
+        // base.
+        if hunk.removes().len() == 1 {
+            "base".to_string()
+        } else {
+            format!("base #{}", base_index + 1)
+        }
+    };
+
     // Write a positive snapshot (side) of a conflict
     let write_side = |add_index: usize, data: &[u8], output: &mut dyn Write| {
         write_conflict_marker(
             output,
             ConflictMarkerLineChar::Add,
             conflict_marker_len,
-            &format!(
-                "Contents of side #{}{}",
-                add_index + 1,
-                maybe_no_eol_comment(data)
-            ),
+            &(get_side_label(add_index) + maybe_no_eol_comment(data)),
         )?;
         write_and_ensure_newline(output, data)
     };
 
     // Write a negative snapshot (base) of a conflict
-    let write_base = |base_str: &str, data: &[u8], output: &mut dyn Write| {
+    let write_base = |base_index: usize, data: &[u8], output: &mut dyn Write| {
         write_conflict_marker(
             output,
             ConflictMarkerLineChar::Remove,
             conflict_marker_len,
-            &format!("Contents of {base_str}{}", maybe_no_eol_comment(data)),
+            &(get_base_label(base_index) + maybe_no_eol_comment(data)),
         )?;
         write_and_ensure_newline(output, data)
     };
 
     // Write a diff from a negative term to a positive term
     let write_diff =
-        |base_str: &str, add_index: usize, diff: &[DiffHunk], output: &mut dyn Write| {
+        |base_index: usize, add_index: usize, diff: &[DiffHunk], output: &mut dyn Write| {
             let no_eol_remove = diff
                 .last()
                 .is_some_and(|diff_hunk| has_no_eol(diff_hunk.contents[0]));
@@ -604,8 +604,10 @@ fn materialize_jj_style_conflict(
                 ConflictMarkerLineChar::Diff,
                 conflict_marker_len,
                 &format!(
-                    "Changes from {base_str} to side #{}{no_eol_comment}",
-                    add_index + 1
+                    "diff from {} to {}{}",
+                    get_base_label(base_index),
+                    get_side_label(add_index),
+                    no_eol_comment
                 ),
             )?;
             write_diff_hunks(diff, output)
@@ -630,20 +632,12 @@ fn materialize_jj_style_conflict(
             base_index
         };
 
-        // The vast majority of conflicts one actually tries to resolve manually have 1
-        // base.
-        let base_str = if hunk.removes().len() == 1 {
-            "base".to_string()
-        } else {
-            format!("base #{}", base_index + 1)
-        };
-
         let right1 = hunk.get_add(add_index).unwrap();
 
         // Write the base and side separately if the conflict marker style doesn't
         // support diffs.
         if !conflict_marker_style.allows_diff() {
-            write_base(&base_str, left, output)?;
+            write_base(base_index, left, output)?;
             write_side(add_index, right1, output)?;
             continue;
         }
@@ -659,13 +653,13 @@ fn materialize_jj_style_conflict(
                 // If the next positive term is a better match, emit the current positive term
                 // as a snapshot and the next positive term as a diff.
                 write_side(add_index, right1, output)?;
-                write_diff(&base_str, add_index + 1, &diff2, output)?;
+                write_diff(base_index, add_index + 1, &diff2, output)?;
                 snapshot_written = true;
                 continue;
             }
         }
 
-        write_diff(&base_str, add_index, &diff1, output)?;
+        write_diff(base_index, add_index, &diff1, output)?;
     }
 
     // If we still didn't emit a snapshot, the last side is the snapshot.

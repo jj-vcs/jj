@@ -442,25 +442,25 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("before-file")).unwrap(), @r"
     line 1
-    <<<<<<< Conflict 1 of 2
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 2
+    +++++++ side #1
     line 2.1
     line 2.2
-    ------- Contents of base
+    ------- base
     line 2
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 2.3
-    >>>>>>> Conflict 1 of 2 ends
+    >>>>>>> conflict 1 of 2 ends
     line 3
-    <<<<<<< Conflict 2 of 2
-    +++++++ Contents of side #1
+    <<<<<<< conflict 2 of 2
+    +++++++ side #1
     line 4.1
-    ------- Contents of base
+    ------- base
     line 4
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 4.2
     line 4.3
-    >>>>>>> Conflict 2 of 2 ends
+    >>>>>>> conflict 2 of 2 ends
     line 5
     ");
     insta::assert_snapshot!(
@@ -470,37 +470,37 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     line 2.2
     line 2.3
     line 3
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ side #1
     line 4.1
-    ------- Contents of base
+    ------- base
     line 4
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 4.2
     line 4.3
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     line 5
     ");
     // Conflicts should be materialized using "diff" format in working copy
     insta::assert_snapshot!(work_dir.read_file(file_path), @r"
     line 1
-    <<<<<<< Conflict 1 of 2
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 2
+    +++++++ side #1
     line 2.1
     line 2.2
-    %%%%%%% Changes from base to side #2
+    %%%%%%% diff from base to side #2
     -line 2
     +line 2.3
-    >>>>>>> Conflict 1 of 2 ends
+    >>>>>>> conflict 1 of 2 ends
     line 3
-    <<<<<<< Conflict 2 of 2
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 2 of 2
+    %%%%%%% diff from base to side #1
     -line 4
     +line 4.1
-    +++++++ Contents of side #2
+    +++++++ side #2
     line 4.2
     line 4.3
-    >>>>>>> Conflict 2 of 2 ends
+    >>>>>>> conflict 2 of 2 ends
     line 5
     ");
 
@@ -686,13 +686,13 @@ fn test_diffedit_merge() {
     assert!(!work_dir.root().join("file1").exists());
     let output = work_dir.run_jj(["file", "show", "file2"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from base to side #1
     -a
     +c
-    +++++++ Contents of side #2
+    +++++++ side #2
     b
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
 }

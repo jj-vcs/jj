@@ -190,13 +190,13 @@ fn test_interdiff_conflicting() {
     --- a/file
     +++ b/file
     @@ -1,7 +1,1 @@
-    -<<<<<<< Conflict 1 of 1
-    -%%%%%%% Changes from base to side #1
+    -<<<<<<< conflict 1 of 1
+    -%%%%%%% diff from base to side #1
     --foo
     -+abc
-    -+++++++ Contents of side #2
+    -+++++++ side #2
     -bar
-    ->>>>>>> Conflict 1 of 1 ends
+    ->>>>>>> conflict 1 of 1 ends
     +def
     [EOF]
     ");

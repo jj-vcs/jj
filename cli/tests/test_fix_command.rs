@@ -1427,12 +1427,12 @@ fn test_fix_both_sides_of_conflict() {
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from base to side #1
     +CONTENT A
-    +++++++ Contents of side #2
+    +++++++ side #2
     CONTENT B
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
 }

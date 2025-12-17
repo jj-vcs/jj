@@ -83,13 +83,13 @@ fn test_chmod_regular_conflict() {
     "#);
     let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from base to side #1
     -base
     +x
-    +++++++ Contents of side #2
+    +++++++ side #2
     n
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
 
@@ -102,13 +102,13 @@ fn test_chmod_regular_conflict() {
     "#);
     let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from base to side #1
     -base
     +x
-    +++++++ Contents of side #2
+    +++++++ side #2
     n
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
     work_dir.run_jj(["file", "chmod", "n", "file"]).success();
@@ -119,13 +119,13 @@ fn test_chmod_regular_conflict() {
     "#);
     let output = work_dir.run_jj(["file", "show", "file"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from base to side #1
     -base
     +x
-    +++++++ Contents of side #2
+    +++++++ side #2
     n
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
 
@@ -213,12 +213,12 @@ fn test_chmod_file_dir_deletion_conflicts() {
     "#);
     let output = work_dir.run_jj(["file", "show", "-r=file_deletion", "file"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ side #1
     a
-    %%%%%%% Changes from base to side #2
+    %%%%%%% diff from base to side #2
     -base
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_deletion"]);
@@ -247,12 +247,12 @@ fn test_chmod_file_dir_deletion_conflicts() {
     "#);
     let output = work_dir.run_jj(["file", "show", "-r=file_deletion", "file"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    +++++++ Contents of side #1
+    <<<<<<< conflict 1 of 1
+    +++++++ side #1
     a
-    %%%%%%% Changes from base to side #2
+    %%%%%%% diff from base to side #2
     -base
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
 }

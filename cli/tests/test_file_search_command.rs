@@ -76,13 +76,13 @@ fn test_file_search_conflicts() {
 
     // Test the setup
     insta::assert_snapshot!(work_dir.read_file("file1"), @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base to side #1 (no terminating newline)
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from base to side #1 (no terminating newline)
     --bar-
     +-foo-
-    +++++++ Contents of side #2 (no terminating newline)
+    +++++++ side #2 (no terminating newline)
     -baz-
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     ");
 
     // Matches positive terms

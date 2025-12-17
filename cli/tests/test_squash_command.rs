@@ -928,16 +928,16 @@ fn test_squash_from_multiple() {
     // The changes from the sources have been applied
     let output = work_dir.run_jj(["file", "show", "-r=d", "file"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base #1 to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from base #1 to side #1
     -a
     +d
-    %%%%%%% Changes from base #2 to side #2
+    %%%%%%% diff from base #2 to side #2
     -a
     +b
-    +++++++ Contents of side #3
+    +++++++ side #3
     c
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
 
@@ -1086,16 +1086,16 @@ fn test_squash_from_multiple_partial() {
     // The selected changes from the sources have been applied
     let output = work_dir.run_jj(["file", "show", "-r=d", "file1"]);
     insta::assert_snapshot!(output, @r"
-    <<<<<<< Conflict 1 of 1
-    %%%%%%% Changes from base #1 to side #1
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from base #1 to side #1
     -a
     +d
-    %%%%%%% Changes from base #2 to side #2
+    %%%%%%% diff from base #2 to side #2
     -a
     +b
-    +++++++ Contents of side #3
+    +++++++ side #3
     c
-    >>>>>>> Conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
     // The unselected change from the sources have not been applied to the

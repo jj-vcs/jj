@@ -138,12 +138,12 @@ fn test_annotate_conflicted() {
     let output = work_dir.run_jj(["file", "annotate", "file.txt"]);
     insta::assert_snapshot!(output, @r"
     qpvuntsm test.use 2001-02-03 08:05:08    1: line1
-    yostqsxw test.use 2001-02-03 08:05:15    2: <<<<<<< Conflict 1 of 1
-    yostqsxw test.use 2001-02-03 08:05:15    3: %%%%%%% Changes from base to side #1
+    yostqsxw test.use 2001-02-03 08:05:15    2: <<<<<<< conflict 1 of 1
+    yostqsxw test.use 2001-02-03 08:05:15    3: %%%%%%% diff from base to side #1
     yostqsxw test.use 2001-02-03 08:05:15    4: +new text from new commit 1
-    yostqsxw test.use 2001-02-03 08:05:15    5: +++++++ Contents of side #2
+    yostqsxw test.use 2001-02-03 08:05:15    5: +++++++ side #2
     royxmykx test.use 2001-02-03 08:05:13    6: new text from new commit 2
-    yostqsxw test.use 2001-02-03 08:05:15    7: >>>>>>> Conflict 1 of 1 ends
+    yostqsxw test.use 2001-02-03 08:05:15    7: >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
 }
