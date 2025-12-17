@@ -36,6 +36,13 @@ commonly used `jj` operations from rebase to undo, and helps with divergent comm
 
 Find it [here][jj-fzf].
 
+## jj-log.nvim
+
+jj-log.nvim is a simple way to bring the current revision message into Neovim statusbar and commands.
+Useful if you like keeping an eye on the description of what you are currently working on.
+
+Find it [here][jj-log.nvim]
+
 ## JJ TUI
 
 This is TUI for Jujutsu built in Ocaml, it is unopiniated and its creator is
@@ -100,6 +107,7 @@ You can find other community contributed tools and integrations in our
 [gg]: https://github.com/gulbanana/gg
 [hunk.nvim]: https://github.com/julienvincent/hunk.nvim
 [jj-fzf]: https://github.com/tim-janik/jj-fzf
+[jj-log.nvim]: https://tangled.org/bpavuk.neocities.org/jj-log.nvim
 [jj_tui]: https://github.com/faldor20/jj_tui
 [jjk]: https://github.com/keanemind/jjk
 [jjui]: https://github.com/idursun/jjui
