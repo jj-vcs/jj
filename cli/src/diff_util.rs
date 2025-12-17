@@ -920,7 +920,7 @@ fn show_color_words_unresolved_hunk(
         let contents = Diff::new(left_content, right_content);
         let labels = match positive {
             true => labels,
-            false => Diff::new(labels.after, labels.before),
+            false => labels.invert(),
         };
         // Individual hunk pair may be largely the same, so diff it again.
         let new_line_number =

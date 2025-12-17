@@ -78,6 +78,14 @@ impl<T> Diff<T> {
         }
     }
 
+    /// Inverts a diff, swapping the before and after terms.
+    pub fn invert(self) -> Self {
+        Self {
+            before: self.after,
+            after: self.before,
+        }
+    }
+
     /// Convert a `&Diff<T>` into a `Diff<&T>`.
     pub fn as_ref(&self) -> Diff<&T> {
         Diff {
@@ -970,6 +978,12 @@ mod tests {
         let diff1 = Diff::new(1, 2);
         let diff2 = Diff::new(3, 4);
         assert_eq!(diff1.zip(diff2), Diff::new((1, 3), (2, 4)));
+    }
+
+    #[test]
+    fn test_diff_invert() {
+        let diff = Diff::new(1, 2);
+        assert_eq!(diff.invert(), Diff::new(2, 1));
     }
 
     #[test]
