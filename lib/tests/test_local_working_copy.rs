@@ -2037,7 +2037,10 @@ fn test_fsmonitor() {
             &settings,
         )
         .unwrap();
-        tree_state.snapshot(&empty_snapshot_options()).unwrap();
+        tree_state
+            .snapshot(&empty_snapshot_options())
+            .block_on()
+            .unwrap();
         tree_state
     };
 

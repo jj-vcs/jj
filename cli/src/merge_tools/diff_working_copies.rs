@@ -282,13 +282,15 @@ diff editing in mind and be a little inaccurate.
         let diff_wc = self.working_copies;
         // Snapshot changes in the temporary output directory.
         let mut output_tree_state = diff_wc.output.unwrap_or(diff_wc.right);
-        output_tree_state.snapshot(&SnapshotOptions {
-            base_ignores,
-            progress: None,
-            start_tracking_matcher: &EverythingMatcher,
-            force_tracking_matcher: &NothingMatcher,
-            max_new_file_size: u64::MAX,
-        })?;
+        output_tree_state
+            .snapshot(&SnapshotOptions {
+                base_ignores,
+                progress: None,
+                start_tracking_matcher: &EverythingMatcher,
+                force_tracking_matcher: &NothingMatcher,
+                max_new_file_size: u64::MAX,
+            })
+            .block_on()?;
         Ok(output_tree_state.current_tree().clone())
     }
 }

@@ -1175,37 +1175,61 @@ impl TreeState {
     }
 
     #[cfg(feature = "watchman")]
-    #[tokio::main(flavor = "current_thread")]
     #[instrument(skip(self))]
     pub async fn query_watchman(
         &self,
         config: &WatchmanConfig,
     ) -> Result<(watchman::Clock, Option<Vec<PathBuf>>), TreeStateError> {
-        let fsmonitor = watchman::Fsmonitor::init(&self.working_copy_path, config)
-            .await
-            .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
         let previous_clock = self.watchman_clock.clone().map(watchman::Clock::from);
-        let changed_files = fsmonitor
-            .query_changed_files(previous_clock)
-            .await
-            .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
-        Ok(changed_files)
+
+        let tokio_fn = async || {
+            let fsmonitor = watchman::Fsmonitor::init(&self.working_copy_path, config)
+                .await
+                .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
+            fsmonitor
+                .query_changed_files(previous_clock)
+                .await
+                .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))
+        };
+
+        match tokio::runtime::Handle::try_current() {
+            Ok(_handle) => tokio_fn().await,
+            Err(_) => {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
+                runtime.block_on(tokio_fn())
+            }
+        }
     }
 
     #[cfg(feature = "watchman")]
-    #[tokio::main(flavor = "current_thread")]
     #[instrument(skip(self))]
     pub async fn is_watchman_trigger_registered(
         &self,
         config: &WatchmanConfig,
     ) -> Result<bool, TreeStateError> {
-        let fsmonitor = watchman::Fsmonitor::init(&self.working_copy_path, config)
-            .await
-            .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
-        fsmonitor
-            .is_trigger_registered()
-            .await
-            .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))
+        let tokio_fn = async || {
+            let fsmonitor = watchman::Fsmonitor::init(&self.working_copy_path, config)
+                .await
+                .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
+            fsmonitor
+                .is_trigger_registered()
+                .await
+                .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))
+        };
+
+        match tokio::runtime::Handle::try_current() {
+            Ok(_handle) => tokio_fn().await,
+            Err(_) => {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|err| TreeStateError::Fsmonitor(Box::new(err)))?;
+                runtime.block_on(tokio_fn())
+            }
+        }
     }
 }
 
@@ -1214,9 +1238,9 @@ impl TreeState {
     /// Look for changes to the working copy. If there are any changes, create
     /// a new tree from it.
     #[instrument(skip_all)]
-    pub fn snapshot(
+    pub async fn snapshot<'a>(
         &mut self,
-        options: &SnapshotOptions,
+        options: &SnapshotOptions<'a>,
     ) -> Result<(bool, SnapshotStats), SnapshotError> {
         let &SnapshotOptions {
             ref base_ignores,
@@ -1233,7 +1257,9 @@ impl TreeState {
         let FsmonitorMatcher {
             matcher: fsmonitor_matcher,
             watchman_clock,
-        } = self.make_fsmonitor_matcher(&self.fsmonitor_settings)?;
+        } = self
+            .make_fsmonitor_matcher(&self.fsmonitor_settings)
+            .await?;
         let fsmonitor_matcher = match fsmonitor_matcher.as_ref() {
             None => &EverythingMatcher,
             Some(fsmonitor_matcher) => fsmonitor_matcher.as_ref(),
@@ -1336,7 +1362,7 @@ impl TreeState {
     }
 
     #[instrument(skip_all)]
-    fn make_fsmonitor_matcher(
+    async fn make_fsmonitor_matcher(
         &self,
         fsmonitor_settings: &FsmonitorSettings,
     ) -> Result<FsmonitorMatcher, SnapshotError> {
@@ -1344,7 +1370,7 @@ impl TreeState {
             FsmonitorSettings::None => (None, None),
             FsmonitorSettings::Test { changed_files } => (None, Some(changed_files.clone())),
             #[cfg(feature = "watchman")]
-            FsmonitorSettings::Watchman(config) => match self.query_watchman(config) {
+            FsmonitorSettings::Watchman(config) => match self.query_watchman(config).await {
                 Ok((watchman_clock, changed_files)) => (Some(watchman_clock.into()), changed_files),
                 Err(err) => {
                     tracing::warn!(?err, "Failed to query filesystem monitor");
@@ -2600,12 +2626,13 @@ impl LocalWorkingCopy {
     }
 
     #[cfg(feature = "watchman")]
-    pub fn query_watchman(
+    pub async fn query_watchman(
         &self,
         config: &WatchmanConfig,
     ) -> Result<(watchman::Clock, Option<Vec<PathBuf>>), WorkingCopyStateError> {
         self.tree_state()?
             .query_watchman(config)
+            .await
             .map_err(|err| WorkingCopyStateError {
                 message: "Failed to query watchman".to_string(),
                 err: err.into(),
@@ -2613,12 +2640,13 @@ impl LocalWorkingCopy {
     }
 
     #[cfg(feature = "watchman")]
-    pub fn is_watchman_trigger_registered(
+    pub async fn is_watchman_trigger_registered(
         &self,
         config: &WatchmanConfig,
     ) -> Result<bool, WorkingCopyStateError> {
         self.tree_state()?
             .is_watchman_trigger_registered(config)
+            .await
             .map_err(|err| WorkingCopyStateError {
                 message: "Failed to query watchman".to_string(),
                 err: err.into(),
@@ -2690,7 +2718,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         options: &SnapshotOptions,
     ) -> Result<(MergedTree, SnapshotStats), SnapshotError> {
         let tree_state = self.wc.tree_state_mut()?;
-        let (is_dirty, stats) = tree_state.snapshot(options)?;
+        let (is_dirty, stats) = tree_state.snapshot(options).await?;
         self.tree_state_dirty |= is_dirty;
         Ok((tree_state.current_tree().clone(), stats))
     }
