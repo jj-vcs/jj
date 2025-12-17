@@ -4562,7 +4562,7 @@ fn test_evaluate_expression_diff_contains(indexed: bool) {
         query(&format!(
             "diff_contains(exact:'', {empty_clean_inserted_deleted:?})",
         )),
-        vec![]
+        vec![commit4.id().clone(), commit3.id().clone()]
     );
     assert_eq!(
         query(&format!(
