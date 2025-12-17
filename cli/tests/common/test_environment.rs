@@ -28,6 +28,7 @@ use tempfile::TempDir;
 
 use super::command_output::CommandOutput;
 use super::command_output::CommandOutputString;
+use super::fake_bisector_path;
 use super::fake_diff_editor_path;
 use super::fake_editor_path;
 use super::to_toml_value;
@@ -225,6 +226,7 @@ impl TestEnvironment {
     /// Sets up the fake bisection test command to read a script from the
     /// returned path
     pub fn set_up_fake_bisector(&mut self) -> PathBuf {
+        self.add_paths_to_normalize(fake_bisector_path(), "$FAKE_BISECTOR_PATH");
         let bisection_script = self.env_root().join("bisection_script");
         std::fs::write(&bisection_script, "").unwrap();
         self.add_env_var("BISECTION_SCRIPT", &bisection_script);
@@ -270,7 +272,7 @@ impl TestEnvironment {
         for (path, replacement) in &self.paths_to_normalize {
             let path = path.display().to_string();
             // Platform-native $TEST_ENV
-            let regex = Regex::new(&format!(r"{}(\S+)", regex::escape(&path))).unwrap();
+            let regex = Regex::new(&format!(r"{}((:?[/\\]\S+)?)", regex::escape(&path))).unwrap();
             normalized = regex
                 .replace_all(&normalized, |caps: &Captures| {
                     format!("{}{}", replacement, caps[1].replace('\\', "/"))

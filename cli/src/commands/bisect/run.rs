@@ -117,7 +117,7 @@ pub(crate) fn cmd_bisect_run(
         writeln!(
             ui.warning_default(),
             "`--command` is deprecated; use positional arguments instead: `jj bisect run \
-             --range=... -- {command}"
+             --range=... -- {command}`"
         )?;
     } else if args.command.is_none() {
         return Err(cli_error("Command argument is required"));

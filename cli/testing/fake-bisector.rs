@@ -17,9 +17,20 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::exit;
 
+use clap::Parser;
 use itertools::Itertools as _;
 
+/// A fake diff-editor, useful for testing
+#[derive(Parser, Debug)]
+#[clap()]
+struct Args {
+    /// Fail if the given file doesn't exist
+    #[arg(long)]
+    require_file: Option<String>,
+}
+
 fn main() {
+    let args: Args = Args::parse();
     let edit_script_path = PathBuf::from(env::var_os("BISECTION_SCRIPT").unwrap());
     let commit_to_test = env::var_os("JJ_BISECT_TARGET")
         .unwrap()
@@ -28,6 +39,12 @@ fn main() {
         .to_owned();
     println!("fake-bisector testing commit {commit_to_test}");
     let edit_script = fs::read_to_string(&edit_script_path).unwrap();
+
+    if let Some(path) = args.require_file
+        && !std::fs::exists(&path).unwrap()
+    {
+        exit(1)
+    }
 
     let mut instructions = edit_script.split('\0').collect_vec();
     if let Some(pos) = instructions.iter().position(|&i| i == "next invocation\n") {
