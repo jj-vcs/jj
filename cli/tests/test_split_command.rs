@@ -844,7 +844,8 @@ fn test_split_parallel_with_conflict() {
 // Make sure `jj split` would refuse to split an empty commit.
 #[test]
 fn test_split_empty() {
-    let test_env = TestEnvironment::default();
+    let mut test_env = TestEnvironment::default();
+    test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     work_dir.run_jj(["describe", "--message", "abc"]).success();
@@ -852,10 +853,27 @@ fn test_split_empty() {
     let output = work_dir.run_jj(["split"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: Refusing to split empty commit 64eaeeb3e846248efc8b599a2b583b708104fc01.
-    Hint: Use `jj new` if you want to create another empty commit.
+    Hint: Using default editor ':builtin'; run `jj config set --user ui.diff-editor :builtin` to disable this message.
+    Warning: Empty diff - won't run diff editor.
+    Warning: All changes have been selected, so the original revision will become empty
+    Selected changes : qpvuntsm a8bcd860 (empty) abc
+    Remaining changes: kkmpptxz 304fb14c (empty) abc
+    Working copy  (@) now at: kkmpptxz 304fb14c (empty) abc
+    Parent commit (@-)      : qpvuntsm a8bcd860 (empty) abc
     [EOF]
-    [exit status: 1]
+    ");
+
+    // With path argument (user meant to pass revision)
+    let output = work_dir.run_jj(["split", "@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: No matching entries for paths: @
+    Warning: All changes have been selected, so the original revision will become empty
+    Selected changes : kkmpptxz cd55fd14 (empty) abc
+    Remaining changes: zsuskuln 49a292cc (empty) abc
+    Working copy  (@) now at: zsuskuln 49a292cc (empty) abc
+    Parent commit (@-)      : kkmpptxz cd55fd14 (empty) abc
+    [EOF]
     ");
 }
 
