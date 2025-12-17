@@ -38,8 +38,8 @@ pub(crate) struct ShowArgs {
     )]
     revision: RevisionArg,
     /// Ignored (but lets you pass `-r` for consistency with other commands)
-    #[arg(short = 'r', hide = true)]
-    unused_revision: bool,
+    #[arg(short = 'r', hide = true, action = clap::ArgAction::Count)]
+    unused_revision: u8,
     /// Render a revision using the given template
     ///
     /// You can specify arbitrary template expressions using the

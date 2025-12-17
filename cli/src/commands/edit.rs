@@ -37,8 +37,8 @@ pub(crate) struct EditArgs {
     #[arg(value_name = "REVSET", add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revision: RevisionArg,
     /// Ignored (but lets you pass `-r` for consistency with other commands)
-    #[arg(short = 'r', hide = true)]
-    unused_revision: bool,
+    #[arg(short = 'r', hide = true, action = clap::ArgAction::Count)]
+    unused_revision: u8,
 }
 
 #[instrument(skip_all)]
