@@ -67,6 +67,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj util gc` now prunes unreachable files in `.jj/repo/store/extra` to save
   disk space.
 
+* `jj bookmark move` now defaults to `--from 'closest_bookmarks(to)'` when no
+  bookmark name or source revisions are specified. This makes it easy to "tug"
+  a bookmark up to include a new commit by using `jj bookmark move --to @-`.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
