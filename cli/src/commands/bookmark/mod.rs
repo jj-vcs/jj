@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod advance;
 mod create;
 mod delete;
 mod forget;
@@ -37,6 +38,8 @@ use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
 use jj_lib::view::View;
 
+use self::advance::BookmarkAdvanceArgs;
+use self::advance::cmd_bookmark_advance;
 use self::create::BookmarkCreateArgs;
 use self::create::cmd_bookmark_create;
 use self::delete::BookmarkDeleteArgs;
@@ -71,6 +74,8 @@ use crate::ui::Ui;
 ///     https://docs.jj-vcs.dev/latest/bookmarks
 #[derive(clap::Subcommand, Clone, Debug)]
 pub enum BookmarkCommand {
+    #[command(visible_alias("a"))]
+    Advance(BookmarkAdvanceArgs),
     #[command(visible_alias("c"))]
     Create(BookmarkCreateArgs),
     #[command(visible_alias("d"))]
@@ -96,6 +101,7 @@ pub fn cmd_bookmark(
     subcommand: &BookmarkCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
+        BookmarkCommand::Advance(args) => cmd_bookmark_advance(ui, command, args),
         BookmarkCommand::Create(args) => cmd_bookmark_create(ui, command, args),
         BookmarkCommand::Delete(args) => cmd_bookmark_delete(ui, command, args),
         BookmarkCommand::Forget(args) => cmd_bookmark_forget(ui, command, args),

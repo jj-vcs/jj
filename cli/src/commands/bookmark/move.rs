@@ -107,7 +107,7 @@ pub fn cmd_bookmark_move(
             })
             .try_collect()?;
         warn_unmatched_local_bookmarks(ui, repo.view(), &name_expr)?;
-        // Noop matches aren't error, but should be excluded from stats.
+        // Noop matches aren't errors, but should be excluded from stats.
         bookmarks.retain(|(_, old_target)| old_target.as_normal() != Some(target_commit.id()));
         bookmarks
     };

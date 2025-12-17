@@ -82,6 +82,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj gerrit upload` no longer requires the `-r` flag, and will default to
   uploading what you're currently working on.
 
+* New command `jj bookmark advance` automatically moves bookmarks forward to a
+  target revision (defaults to `@`). With customization points
+  `revsets.bookmark-advance-from` and `revsets.bookmark-advance-to`.
+  The command is heavily inspired by the longstanding community alias `jj tug`.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04

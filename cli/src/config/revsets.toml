@@ -12,6 +12,8 @@ log = "present(@) | ancestors(immutable_heads().., 2) | trunk()"
 # This also helps stabilize output order.
 log-graph-prioritize = "present(@)"
 sign = "reachable(@, mutable())"
+bookmark-advance-to = "@"
+bookmark-advance-from = "heads(::to & bookmarks())"
 
 [revset-aliases]
 # trunk() can be overridden as '<bookmark>@<remote>'.

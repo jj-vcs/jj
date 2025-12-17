@@ -2893,6 +2893,133 @@ fn test_bad_auto_track_bookmarks() {
     ");
 }
 
+#[test]
+fn test_bookmark_advance_default() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let get_log = || {
+        let template = r#"
+            separate(" ",
+                change_id.shortest(8),
+                description.first_line(),
+                if(empty, "(empty)"),
+                bookmarks,
+            )
+        "#;
+        work_dir.run_jj(["log", "-T", template])
+    };
+
+    work_dir.run_jj(["describe", "-m", "a"]).success();
+    work_dir.run_jj(["bookmark", "create", "A"]).success();
+    work_dir.run_jj(["new", "-m", "b"]).success();
+    std::fs::write(work_dir.root().join("file"), "content").unwrap();
+    work_dir.run_jj(["bookmark", "create", "B"]).success();
+    work_dir.run_jj(["new", "-m", "c"]).success();
+    std::fs::write(work_dir.root().join("file"), "new_content").unwrap();
+    work_dir.run_jj(["new", "-m", "d"]).success();
+    work_dir.run_jj(["new", "-m", "e"]).success();
+    std::fs::write(work_dir.root().join("file"), "newer_content").unwrap();
+
+    insta::assert_snapshot!(get_log(), @r"
+    @  vruxwmqv e
+    ○  yqosqzyt d (empty)
+    ○  royxmykx c
+    ○  zsuskuln b B
+    ○  qpvuntsm a (empty) A
+    ◆  zzzzzzzz (empty)
+    [EOF]
+    ");
+
+    let setup_opid = work_dir.current_operation_id();
+
+    // To default target.
+    let output = work_dir.run_jj(["bookmark", "advance"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Advanced 1 bookmarks to vruxwmqv 7753a73e B | e
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // To target specified by --to.
+    let output = work_dir.run_jj(["bookmark", "advance", "--to", "royxmykx"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Advanced 1 bookmarks to royxmykx 26554c67 B | c
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // A -> default target.
+    let output = work_dir.run_jj(["bookmark", "advance", "A"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Advanced 1 bookmarks to vruxwmqv 7753a73e A | e
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // A -> target specified by --to.
+    let output = work_dir.run_jj(["bookmark", "advance", "A", "--to", "zsuskuln"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Advanced 1 bookmarks to zsuskuln 4112c46e A B | b
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // At a bookmark.
+    work_dir.run_jj(["edit", "zsuskuln"]).success();
+    let output = work_dir.run_jj(["bookmark", "advance"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    No bookmarks to update.
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // No bookmark to push.
+    work_dir.run_jj(["new", "root()"]).success();
+    std::fs::write(work_dir.root().join("file"), "content").unwrap();
+    work_dir.run_jj(["new"]).success();
+    let output = work_dir.run_jj(["bookmark", "advance"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    No bookmarks to update.
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // Not valid target.
+    work_dir.run_jj(["new", "root()"]).success();
+    std::fs::write(work_dir.root().join("file"), "content").unwrap();
+    work_dir.run_jj(["new"]).success();
+    let output = work_dir.run_jj(["bookmark", "advance", "-t", "none()"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Revset `none()` didn't resolve to any revisions
+    [EOF]
+    [exit status: 1]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // Bad default target from config.
+    let output = work_dir.run_jj([
+        "--config=revsets.bookmark-advance-to=none()",
+        "bookmark",
+        "advance",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Revset `none()` didn't resolve to any revisions
+    Hint: `revsets.bookmark-advance-to` controls the default target. You can also specify a specific target with `--to`.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = r#"bookmarks ++ " " ++ commit_id.short()"#;
