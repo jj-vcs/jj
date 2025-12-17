@@ -516,6 +516,16 @@ impl StringMatcher {
         }
     }
 
+    /// Iterates over matching lines in `text`.
+    pub fn match_lines<'a>(&self, text: &'a [u8]) -> impl Iterator<Item = &'a [u8]> {
+        // The pattern is matched line by line so that it can be anchored to line
+        // start/end. For example, exact:"" will match blank lines.
+        text.split_inclusive(|b| *b == b'\n').filter(|line| {
+            let line = line.strip_suffix(b"\n").unwrap_or(line);
+            self.is_match_bytes(line)
+        })
+    }
+
     fn into_match_fn(self) -> Box<DynMatchFn> {
         match self {
             Self::All => Box::new(|_haystack| true),
@@ -948,6 +958,39 @@ mod tests {
         assert!(!StringMatcher::exact("o").is_match("foo"));
         assert!(StringMatcher::exact("foo").is_match("foo"));
         assert!(StringPattern::substring("o").to_matcher().is_match("foo"));
+    }
+
+    #[test]
+    fn test_matcher_match_lines() {
+        // TODO: Yield a match for the empty line?
+        assert_eq!(
+            StringMatcher::all().match_lines(b"").collect_vec(),
+            Vec::<&[u8]>::new()
+        );
+        assert_eq!(
+            StringMatcher::all().match_lines(b"\n").collect_vec(),
+            vec![b"\n"]
+        );
+        assert_eq!(
+            StringMatcher::all().match_lines(b"foo").collect_vec(),
+            vec![b"foo"]
+        );
+        assert_eq!(
+            StringMatcher::all().match_lines(b"foo\n").collect_vec(),
+            vec![b"foo\n"]
+        );
+        assert_eq!(
+            StringMatcher::exact("foo")
+                .match_lines(b"foo\nbar\n")
+                .collect_vec(),
+            vec![b"foo\n"]
+        );
+        assert_eq!(
+            StringMatcher::exact("foo\n")
+                .match_lines(b"foo\nbar\n")
+                .collect_vec(),
+            Vec::<&[u8]>::new()
+        );
     }
 
     #[test]

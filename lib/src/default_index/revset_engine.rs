@@ -1408,12 +1408,12 @@ fn diff_match_lines(
     // Filter lines prior to comparison. This might produce inferior hunks due
     // to lack of contexts, but is way faster than full diff.
     if let (Some(left), Some(right)) = (lefts.as_resolved(), rights.as_resolved()) {
-        let left_lines = match_lines(left, matcher);
-        let right_lines = match_lines(right, matcher);
+        let left_lines = matcher.match_lines(left);
+        let right_lines = matcher.match_lines(right);
         Ok(left_lines.ne(right_lines))
     } else {
-        let lefts: Merge<BString> = lefts.map(|text| match_lines(text, matcher).collect());
-        let rights: Merge<BString> = rights.map(|text| match_lines(text, matcher).collect());
+        let lefts: Merge<BString> = lefts.map(|text| matcher.match_lines(text).collect());
+        let rights: Merge<BString> = rights.map(|text| matcher.match_lines(text).collect());
         let lefts = files::merge(&lefts, merge_options);
         let rights = files::merge(&rights, merge_options);
         let diff = ContentDiff::by_line(itertools::chain(&lefts, &rights));
@@ -1421,15 +1421,6 @@ fn diff_match_lines(
             .any(|hunk| hunk.kind == DiffHunkKind::Different);
         Ok(different)
     }
-}
-
-fn match_lines<'a>(text: &'a [u8], matcher: &StringMatcher) -> impl Iterator<Item = &'a [u8]> {
-    // The pattern is matched line by line so that it can be anchored to line
-    // start/end. For example, exact:"" will match blank lines.
-    text.split_inclusive(|b| *b == b'\n').filter(|line| {
-        let line = line.strip_suffix(b"\n").unwrap_or(line);
-        matcher.is_match_bytes(line)
-    })
 }
 
 async fn to_file_content(
