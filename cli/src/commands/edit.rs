@@ -32,13 +32,23 @@ use crate::ui::Ui;
 /// [generally recommended]:
 ///     https://docs.jj-vcs.dev/latest/FAQ#how-do-i-resume-working-on-an-existing-change
 #[derive(clap::Args, Clone, Debug)]
+#[command(group(clap::ArgGroup::new("revision").required(true)))]
 pub(crate) struct EditArgs {
     /// The commit to edit
-    #[arg(value_name = "REVSET", add = ArgValueCompleter::new(complete::revset_expression_mutable))]
-    revision: RevisionArg,
-    /// Ignored (but lets you pass `-r` for consistency with other commands)
-    #[arg(short = 'r', hide = true)]
-    unused_revision: bool,
+    #[arg(
+        group = "revision",
+        value_name = "REVSET",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    revision_pos: Option<RevisionArg>,
+    #[arg(
+        short = 'r',
+        group = "revision",
+        hide = true,
+        value_name = "REVSET",
+        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+    )]
+    revision_opt: Option<RevisionArg>,
 }
 
 #[instrument(skip_all)]
@@ -48,7 +58,12 @@ pub(crate) fn cmd_edit(
     args: &EditArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let new_commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
+    let revision_arg = args
+        .revision_pos
+        .as_ref()
+        .or(args.revision_opt.as_ref())
+        .expect("either positional or -r arg should be provided");
+    let new_commit = workspace_command.resolve_single_rev(ui, revision_arg)?;
     workspace_command.check_rewritable([new_commit.id()])?;
     if workspace_command.get_wc_commit_id() == Some(new_commit.id()) {
         writeln!(ui.status(), "Already editing that commit")?;

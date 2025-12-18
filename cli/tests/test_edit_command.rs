@@ -31,9 +31,22 @@ fn test_edit() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <REVSET>
+      <REVSET|-r <REVSET>>
 
-    Usage: jj edit <REVSET>
+    Usage: jj edit <REVSET|-r <REVSET>>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    // Errors out with duplicated arguments
+    let output = work_dir.run_jj(["edit", "@", "-r@"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: the argument '[REVSET]' cannot be used with '-r <REVSET>'
+
+    Usage: jj edit <REVSET|-r <REVSET>>
 
     For more information, try '--help'.
     [EOF]
@@ -51,7 +64,7 @@ fn test_edit() {
     ");
     let output = get_log_output(&work_dir);
     insta::assert_snapshot!(output, @r"
-    ○  b38b8e65163a second
+    ○  adc8b2014db6 second
     @  1f6994f8b95b first
     ◆  000000000000
     [EOF]
@@ -62,13 +75,26 @@ fn test_edit() {
     work_dir.write_file("file2", "0");
     let output = get_log_output(&work_dir);
     insta::assert_snapshot!(output, @r"
-    ○  d5aea29cb4cb second
-    @  2636584c21c0 first
+    ○  29c4ac30d18f second
+    @  b10da1f49611 first
     ◆  000000000000
     [EOF]
     ------- stderr -------
     Rebased 1 descendant commits onto updated working copy
     [EOF]
+    ");
+
+    // Cannot edit multiple revisions
+    let output = work_dir.run_jj(["edit", "-r::"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Revset `::` resolved to more than one revision
+    Hint: The revset `::` resolved to these revisions:
+      rlvkpnrz 29c4ac30 second
+      qpvuntsm b10da1f4 first
+      zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    [exit status: 1]
     ");
 }
 
