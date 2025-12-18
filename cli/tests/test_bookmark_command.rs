@@ -411,19 +411,24 @@ fn test_bookmark_move_matching() {
     ");
     let setup_opid = work_dir.current_operation_id();
 
-    // The default could be considered "--from=all() *", but is disabled
+    // Defaults to `--from 'closest_bookmarks(@)'`
     let output = work_dir.run_jj(["bookmark", "move"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: the following required arguments were not provided:
-      <NAMES|--from <REVSETS>>
-
-    Usage: jj bookmark move <NAMES|--from <REVSETS>>
-
-    For more information, try '--help'.
+    Moved 1 bookmarks to vruxwmqv 0dd9a4b1 c1 | (empty) head2
     [EOF]
-    [exit status: 2]
     ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // Defaults to `--from 'closest_bookmarks(subject(head1))`
+    let output = work_dir.run_jj(["bookmark", "move", "--to=subject(head1)"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Moved 2 bookmarks to kkmpptxz 9328ecc5 a1 a2 | (empty) head1
+    Hint: Specify bookmark by name to update just one of the bookmarks.
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
     // No bookmarks pointing to the source revisions
     let output = work_dir.run_jj(["bookmark", "move", "--from=none()"]);

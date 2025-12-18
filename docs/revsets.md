@@ -587,6 +587,10 @@ for a comprehensive list.
   this is *not* [the set of all previously visible
   commits](https://github.com/jj-vcs/jj/issues/2623).
 
+* `closest_bookmarks(to)`: The default bookmarks to move with `jj bookmark move`.
+  It is defined as `heads(::to & bookmarks())`, but it can be overridden to
+  change the behavior of `jj bookmark move` with no source argument.
+
 ## Examples
 
 Show the parent(s) of the working-copy commit (like `git log -1 HEAD`):

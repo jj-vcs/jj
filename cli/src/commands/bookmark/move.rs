@@ -40,11 +40,13 @@ use crate::ui::Ui;
 /// specified revisions will be updated. The bookmarks can also be filtered by
 /// names.
 ///
+/// If no bookmark names and no `--from` options are given, then `--from`
+/// will default to `closest_bookmarks(to)`.
+///
 /// Example: pull up the nearest bookmarks to the working-copy parent
 ///
-/// $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
+/// $ jj bookmark move --to @-
 #[derive(clap::Args, Clone, Debug)]
-#[command(group(clap::ArgGroup::new("source").multiple(true).required(true)))]
 pub struct BookmarkMoveArgs {
     /// Move bookmarks matching the given name patterns
     ///
@@ -53,22 +55,23 @@ pub struct BookmarkMoveArgs {
     ///
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(
-        group = "source",
-        add = ArgValueCandidates::new(complete::local_bookmarks),
-    )]
+    #[arg(add = ArgValueCandidates::new(complete::local_bookmarks))]
     names: Option<Vec<String>>,
 
     /// Move bookmarks from the given revisions
+    ///
+    /// If no bookmark names or source revisions are specified, then this revset
+    /// defaults to `closest_bookmarks(to)`.
     #[arg(
         long, short,
-        group = "source",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     from: Vec<RevisionArg>,
 
     /// Move bookmarks to this revision
+    // TODO: maybe we should add `closest_pushable()` alias?
+    // https://github.com/jj-vcs/jj/discussions/5568#discussioncomment-12674748
     #[arg(
         long, short,
         default_value = "@",
@@ -97,8 +100,17 @@ pub fn cmd_bookmark_move(
                 .evaluate()?
                 .containing_fn();
             Box::new(move |target| fallible_any(target.added_ids(), &is_source_commit))
-        } else {
+        } else if args.names.is_some() {
+            // If names are provided but not `--from`, then don't filter the bookmarks.
             Box::new(|_| Ok(true))
+        } else {
+            // If neither `--from` nor `NAMES` are provided, default to closest bookmark.
+            let default_target = format!("closest_bookmarks(commit_id({}))", target_commit.id());
+            let is_source_commit = workspace_command
+                .parse_revset(ui, &RevisionArg::from(default_target))?
+                .evaluate()?
+                .containing_fn();
+            Box::new(move |target| fallible_any(target.added_ids(), &is_source_commit))
         };
         let name_expr = match &args.names {
             Some(texts) => parse_union_name_patterns(ui, texts)?,

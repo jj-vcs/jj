@@ -486,11 +486,13 @@ If bookmark names are given, the specified bookmarks will be updated to point to
 
 If `--from` options are given, bookmarks currently pointing to the specified revisions will be updated. The bookmarks can also be filtered by names.
 
+If no bookmark names and no `--from` options are given, then `--from` will default to `closest_bookmarks(to)`.
+
 Example: pull up the nearest bookmarks to the working-copy parent
 
-$ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
+$ jj bookmark move --to @-
 
-**Usage:** `jj bookmark move [OPTIONS] <NAMES|--from <REVSETS>>`
+**Usage:** `jj bookmark move [OPTIONS] [NAMES]...`
 
 **Command Alias:** `m`
 
@@ -505,6 +507,8 @@ $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 ###### **Options:**
 
 * `-f`, `--from <REVSETS>` — Move bookmarks from the given revisions
+
+   If no bookmark names or source revisions are specified, then this revset defaults to `closest_bookmarks(to)`.
 * `-t`, `--to <REVSET>` — Move bookmarks to this revision
 
   Default value: `@`
