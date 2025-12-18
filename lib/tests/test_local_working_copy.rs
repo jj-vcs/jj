@@ -2341,3 +2341,30 @@ fn test_snapshot_and_update_valid_symlink(get_link_target: impl FnOnce(&Path, &P
         "When we checkout a symlink to a verbatim path, it should still point to a verbatim path."
     );
 }
+
+#[test]
+fn test_check_out_replacing_circular_symlink() {
+    if !check_symlink_support().unwrap() {
+        eprintln!("Skipping test because symlink isn't supported");
+        return;
+    }
+
+    let mut test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    // Create a circular symlink (points to itself) at a path that will be
+    // replaced during checkout.
+    let circular_link_path = workspace_root.join("file.txt");
+    try_symlink("file.txt", &circular_link_path).unwrap();
+    assert!(std::fs::read(&circular_link_path).is_err());
+
+    let file_path = repo_path("file.txt");
+    let tree = create_tree(repo, &[(file_path, "contents")]);
+    let commit = commit_with_tree(repo.store(), tree);
+
+    // Checkout should succeed despite the circular symlink.
+    let ws = &mut test_workspace.workspace;
+    ws.check_out(repo.op_id().clone(), None, &commit).unwrap();
+    assert!(circular_link_path.symlink_metadata().is_ok());
+}

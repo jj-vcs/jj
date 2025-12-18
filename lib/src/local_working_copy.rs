@@ -790,10 +790,21 @@ fn can_create_new_file(disk_path: &Path) -> Result<bool, CheckoutError> {
 
 const RESERVED_DIR_NAMES: &[&str] = &[".git", ".jj"];
 
+/// Returns true if the I/O error indicates a symlink loop (ELOOP).
+#[cfg_attr(windows, expect(unused_variables))]
+fn is_symlink_loop_error(err: &io::Error) -> bool {
+    // ELOOP: Linux = 40, macOS/BSD = 62
+    #[cfg(unix)]
+    return matches!(err.raw_os_error(), Some(40) | Some(62));
+    #[cfg(windows)]
+    return false;
+}
+
 fn same_file_handle_from_path(disk_path: &Path) -> io::Result<Option<same_file::Handle>> {
     match same_file::Handle::from_path(disk_path) {
         Ok(handle) => Ok(Some(handle)),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(err) if is_symlink_loop_error(&err) => Ok(None),
         Err(err) => Err(err),
     }
 }
