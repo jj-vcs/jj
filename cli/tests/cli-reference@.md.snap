@@ -1956,9 +1956,7 @@ Note that you can create a merge commit by specifying multiple revisions as argu
 
 ###### **Arguments:**
 
-* `<REVSETS>` — Parent(s) of the new change
-
-  Default value: `@`
+* `<REVSETS>` — Parent(s) of the new change [default: @]
 
 ###### **Options:**
 

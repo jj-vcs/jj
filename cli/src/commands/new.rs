@@ -27,6 +27,7 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::compute_commit_location;
+use crate::cli_util::merge_args_with;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::description_util::add_trailers;
@@ -45,18 +46,24 @@ use crate::ui::Ui;
 /// [working copy]:
 ///     https://docs.jj-vcs.dev/latest/working-copy/
 #[derive(clap::Args, Clone, Debug)]
+#[command(group(clap::ArgGroup::new("revisions").multiple(true)))]
 pub(crate) struct NewArgs {
-    /// Parent(s) of the new change
+    /// Parent(s) of the new change [default: @]
     #[arg(
-        default_value = "@",
+        group = "revisions",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
-    revisions: Option<Vec<RevisionArg>>,
-    /// Ignored (but lets you pass `-o/-d`/`-r` for consistency with other
-    /// commands)
-    #[arg(short = 'o', hide = true, short_aliases = ['d', 'r'],  action = clap::ArgAction::Count)]
-    unused_onto: u8,
+    revisions_pos: Option<Vec<RevisionArg>>,
+    #[arg(
+        short = 'o',
+        group = "revisions",
+        hide = true,
+        short_aliases = ['d', 'r'],
+        value_name = "REVSETS",
+        add = ArgValueCompleter::new(complete::revset_expression_all),
+    )]
+    revisions_opt: Option<Vec<RevisionArg>>,
     /// The change description to use
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Vec<String>,
@@ -153,17 +160,20 @@ pub(crate) fn cmd_new(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
 
+    let revision_args = match (&args.revisions_pos, &args.revisions_opt) {
+        (None, None) => (args.insert_before.is_none() && args.insert_after.is_none())
+            .then(|| vec![RevisionArg::AT]),
+        (None, Some(args)) | (Some(args), None) => Some(args.clone()),
+        (Some(pos), Some(opt)) => Some(merge_args_with(
+            command.matches().subcommand_matches("new").unwrap(),
+            &[("revisions_pos", pos), ("revisions_opt", opt)],
+            |_id, value| value.clone(),
+        )),
+    };
     let (parent_commit_ids, child_commit_ids) = compute_commit_location(
         ui,
         &workspace_command,
-        // HACK: `args.revisions` will always have a value due to the `default_value`, however
-        // `compute_commit_location` requires that the `destination` argument is mutually exclusive
-        // to `insert_after` and `insert_before` arguments.
-        if args.insert_before.is_some() || args.insert_after.is_some() {
-            None
-        } else {
-            args.revisions.as_deref()
-        },
+        revision_args.as_deref(),
         args.insert_after.as_deref(),
         args.insert_before.as_deref(),
         "new commit",

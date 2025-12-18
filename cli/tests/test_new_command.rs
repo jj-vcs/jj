@@ -15,6 +15,7 @@
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
+use crate::common::create_commit;
 use crate::common::create_commit_with_files;
 
 #[test]
@@ -163,6 +164,46 @@ fn test_new_merge() {
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
     [EOF]
     [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_new_merge_parents_order() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit(&work_dir, "1", &[]);
+    create_commit(&work_dir, "2", &[]);
+    create_commit(&work_dir, "3", &[]);
+    create_commit(&work_dir, "4", &[]);
+    create_commit(&work_dir, "5", &[]);
+
+    // The order of positional and -r/-o args should be preserved
+    work_dir
+        .run_jj([
+            "new",
+            "-osubject(2)",
+            "subject(3)",
+            "-rsubject(1)",
+            "-dsubject(5)",
+            "subject(4)",
+        ])
+        .success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @          2034dc93c6ddad404d1aa677ab99b0621d8e109d
+    ├─┬─┬─┬─╮
+    │ │ │ │ ○  de5bab19f679c52a021c343b8942ca875ec6aae7 4
+    │ │ │ ○ │  de3c6b2c8e065351203063817ef0794df1adb2f9 5
+    │ │ │ ├─╯
+    │ │ ○ │  1783ad0eb5c21d958b2e1bf8caab9b019f3d16e9 1
+    │ │ ├─╯
+    │ ○ │  fb047eea4c2bec04e2fd3cd21eca0193d5720341 3
+    │ ├─╯
+    ○ │  36b1b4840ac943a08e7f953df4eadc53e825f2a6 2
+    ├─╯
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
     ");
 }
 
@@ -345,9 +386,11 @@ fn test_new_insert_after() {
     let output = work_dir.run_jj(["new", "--after", "B", "D"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: the argument '--insert-after <REVSETS>' cannot be used with '[REVSETS]...'
+    error: the argument '--insert-after <REVSETS>' cannot be used with:
+      [REVSETS]...
+      -o <REVSETS>
 
-    Usage: jj new --insert-after <REVSETS> [REVSETS]...
+    Usage: jj new --insert-after <REVSETS> <REVSETS>...
 
     For more information, try '--help'.
     [EOF]
@@ -452,9 +495,11 @@ fn test_new_insert_before() {
     let output = work_dir.run_jj(["new", "--before", "B", "D"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    error: the argument '--insert-before <REVSETS>' cannot be used with '[REVSETS]...'
+    error: the argument '--insert-before <REVSETS>' cannot be used with:
+      [REVSETS]...
+      -o <REVSETS>
 
-    Usage: jj new --insert-before <REVSETS> [REVSETS]...
+    Usage: jj new --insert-before <REVSETS> <REVSETS>...
 
     For more information, try '--help'.
     [EOF]
@@ -853,10 +898,7 @@ fn setup_before_insertion(work_dir: &TestWorkDir) {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "E"])
         .success();
-    // Any number of -r's is ignored
-    work_dir
-        .run_jj(["new", "-m", "F", "-r", "D", "-r", "E"])
-        .success();
+    work_dir.run_jj(["new", "-m", "F", "D", "E"]).success();
     work_dir
         .run_jj(["bookmark", "create", "-r@", "F"])
         .success();
