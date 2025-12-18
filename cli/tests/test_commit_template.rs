@@ -794,6 +794,7 @@ fn test_log_git_head() {
     ◆  false
     [EOF]
     ------- stderr -------
+    Tracking file
     Warning: In template expression
      --> 1:1
       |
@@ -1182,6 +1183,9 @@ fn test_log_diff_predefined_formats() {
     [38;5;6mM file1[39m
     [38;5;6mM file2[39m
     [38;5;6mR {rename-source => rename-target}[39m
+    [EOF]
+    ------- stderr -------
+    Tracking [38;5;2mrename-target[39m
     [EOF]
     ");
 
@@ -1597,6 +1601,9 @@ fn test_file_list_symlink() {
     insta::assert_snapshot!(output, @r"
     symlink [symlink]
     [EOF]
+    ------- stderr -------
+    Tracking symlink
+    [EOF]
     ");
 }
 
@@ -1732,6 +1739,9 @@ fn test_log_git_format_patch_template() {
      file3 | 1 +
      3 files changed, 2 insertions(+), 2 deletions(-)
 
+    [EOF]
+    ------- stderr -------
+    Tracking file3
     [EOF]
     ");
 }

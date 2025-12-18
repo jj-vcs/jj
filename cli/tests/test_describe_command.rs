@@ -662,6 +662,7 @@ fn test_describe_default_description() {
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Tracking file1, file2
     Working copy  (@) now at: qpvuntsm 7276dfff TESTED=TODO
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]

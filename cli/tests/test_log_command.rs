@@ -131,6 +131,9 @@ fn test_log_with_diff_stats() {
     │  A added 2 0 file5
     ◆
     [EOF]
+    ------- stderr -------
+    Tracking file6
+    [EOF]
     ");
 }
 
@@ -913,6 +916,7 @@ fn test_log_filtered_by_path() {
     let output = work_dir.run_jj(["log", "-r", "@-", "-T", "description", "nonexistent"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Tracking file2
     Warning: No matching entries for paths: nonexistent
     [EOF]
     ");
@@ -1105,6 +1109,9 @@ fn test_log_warn_path_might_be_revset() {
     @
     │
     ~
+    [EOF]
+    ------- stderr -------
+    Tracking file1
     [EOF]
     ");
 
@@ -1549,6 +1556,9 @@ fn test_log_diff_stat_width() {
     1 file changed, 100 insertions(+), 0 deletions(-)
     zzzzzzzz root() 00000000
     0 files changed, 0 insertions(+), 0 deletions(-)
+    [EOF]
+    ------- stderr -------
+    Tracking 1 file
     [EOF]
     ");
 

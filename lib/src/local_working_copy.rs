@@ -293,6 +293,7 @@ pub struct FileState {
     pub mtime: MillisSinceEpoch,
     pub size: u64,
     pub materialized_conflict_data: Option<MaterializedConflictData>,
+    pub newly_tracked: bool, // TODO
     /* TODO: What else do we need here? Git stores a lot of fields.
      * TODO: Could possibly handle case-insensitive file systems keeping an
      *       Option<PathBuf> with the actual path here. */
@@ -1276,6 +1277,7 @@ impl TreeState {
         let (file_states_tx, file_states_rx) = channel();
         let (untracked_paths_tx, untracked_paths_rx) = channel();
         let (deleted_files_tx, deleted_files_rx) = channel();
+        let (new_tracked_tx, new_tracked_rx) = channel();
 
         trace_span!("traverse filesystem").in_scope(|| -> Result<(), SnapshotError> {
             let snapshotter = FileSnapshotter {
@@ -1289,6 +1291,7 @@ impl TreeState {
                 file_states_tx,
                 untracked_paths_tx,
                 deleted_files_tx,
+                new_tracked_tx,
                 error: OnceLock::new(),
                 progress,
                 max_new_file_size,
@@ -1309,6 +1312,7 @@ impl TreeState {
         })?;
 
         let stats = SnapshotStats {
+            new_tracked_paths: new_tracked_rx.into_iter().collect(),
             untracked_paths: untracked_paths_rx.into_iter().collect(),
         };
         let mut tree_builder = MergedTreeBuilder::new(self.tree.clone());
@@ -1437,6 +1441,7 @@ struct FileSnapshotter<'a> {
     file_states_tx: Sender<(RepoPathBuf, FileState)>,
     untracked_paths_tx: Sender<(RepoPathBuf, UntrackedReason)>,
     deleted_files_tx: Sender<RepoPathBuf>,
+    new_tracked_tx: Sender<RepoPathBuf>,
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
     max_new_file_size: u64,
@@ -1681,6 +1686,13 @@ impl FileSnapshotter<'_> {
             new_file_state.materialized_conflict_data =
                 maybe_current_file_state.and_then(|state| state.materialized_conflict_data);
         }
+
+        // If this path was previously untracked and we decided to emit a tree value,
+        // treat it as newly tracked and send it to the collector.
+        if maybe_current_file_state.is_none() && update.is_some() {
+            self.new_tracked_tx.send(path.clone()).ok();
+        }
+
         if let Some(tree_value) = update {
             self.tree_entries_tx.send((path.clone(), tree_value)).ok();
         }

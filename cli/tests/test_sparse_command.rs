@@ -33,6 +33,9 @@ fn test_sparse_manage_patterns() {
     insta::assert_snapshot!(output, @r"
     .
     [EOF]
+    ------- stderr -------
+    Tracking file1, file2, file3
+    [EOF]
     ");
 
     // Can stop tracking all files
