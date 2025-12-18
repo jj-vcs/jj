@@ -27,19 +27,25 @@ use crate::ui::Ui;
 
 /// Show commit description and changes in a revision
 #[derive(clap::Args, Clone, Debug)]
+#[command(group(clap::ArgGroup::new("revision")))]
 #[command(mut_arg("ignore_all_space", |a| a.short('w')))]
 #[command(mut_arg("ignore_space_change", |a| a.short('b')))]
 pub(crate) struct ShowArgs {
-    /// Show changes in this revision, compared to its parent(s)
+    /// Show changes in this revision, compared to its parent(s) [default: @]
     #[arg(
-        default_value = "@",
+        group = "revision",
         value_name = "REVSET",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
-    revision: RevisionArg,
-    /// Ignored (but lets you pass `-r` for consistency with other commands)
-    #[arg(short = 'r', hide = true)]
-    unused_revision: bool,
+    revision_pos: Option<RevisionArg>,
+    #[arg(
+        short = 'r',
+        group = "revision",
+        hide = true,
+        value_name = "REVSET",
+        add = ArgValueCompleter::new(complete::revset_expression_all),
+    )]
+    revision_opt: Option<RevisionArg>,
     /// Render a revision using the given template
     ///
     /// You can specify arbitrary template expressions using the
@@ -66,7 +72,12 @@ pub(crate) fn cmd_show(
     args: &ShowArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
-    let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
+    let revision_arg = args
+        .revision_pos
+        .as_ref()
+        .or(args.revision_opt.as_ref())
+        .unwrap_or(&RevisionArg::AT);
+    let commit = workspace_command.resolve_single_rev(ui, revision_arg)?;
     let template_string = match &args.template {
         Some(value) => value.clone(),
         None => workspace_command.settings().get_string("templates.show")?,

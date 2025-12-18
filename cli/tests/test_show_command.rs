@@ -22,6 +22,7 @@ fn test_show() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
+    // Show @ by default
     let output = work_dir.run_jj(["show"]);
     let output = output.normalize_stdout_with(|s| s.split_inclusive('\n').skip(2).collect());
 
@@ -32,6 +33,32 @@ fn test_show() {
         (no description set)
 
     [EOF]
+    ");
+
+    // Specify revision with -r
+    let output = work_dir.run_jj(["show", "-r@-"]);
+    insta::assert_snapshot!(output, @r"
+    Commit ID: 0000000000000000000000000000000000000000
+    Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+    Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
+    Committer: (no name set) <(no email set)> (1970-01-01 11:00:00)
+
+        (no description set)
+
+    [EOF]
+    ");
+
+    // Specify both positional and -r args
+    let output = work_dir.run_jj(["show", "@", "-r@-"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: the argument '[REVSET]' cannot be used with '-r <REVSET>'
+
+    Usage: jj show <REVSET>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
     ");
 }
 

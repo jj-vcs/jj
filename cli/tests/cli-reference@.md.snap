@@ -2746,9 +2746,7 @@ Show commit description and changes in a revision
 
 ###### **Arguments:**
 
-* `<REVSET>` — Show changes in this revision, compared to its parent(s)
-
-  Default value: `@`
+* `<REVSET>` — Show changes in this revision, compared to its parent(s) [default: @]
 
 ###### **Options:**
 
