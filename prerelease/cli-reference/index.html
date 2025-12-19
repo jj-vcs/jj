@@ -8417,7 +8417,7 @@ Martin von Zweigbergk</p>
 <h2 id="jj-edit"><code>jj edit</code><a class="headerlink" href="#jj-edit" title="Permanent link">&para;</a></h2>
 <p>Sets the specified revision as the working-copy revision</p>
 <p>Note: it is <a href="https://docs.jj-vcs.dev/latest/FAQ#how-do-i-resume-working-on-an-existing-change">generally recommended</a> to instead use <code>jj new</code> and <code>jj squash</code>.</p>
-<p><strong>Usage:</strong> <code>jj edit &lt;REVSET&gt;</code></p>
+<p><strong>Usage:</strong> <code>jj edit &lt;REVSET|-r &lt;REVSET&gt;&gt;</code></p>
 <h6 id="arguments_21"><strong>Arguments:</strong><a class="headerlink" href="#arguments_21" title="Permanent link">&para;</a></h6>
 <ul>
 <li><code>&lt;REVSET&gt;</code> — The commit to edit</li>
@@ -9204,10 +9204,7 @@ configuration.</p>
 <p><strong>Usage:</strong> <code>jj new [OPTIONS] [REVSETS]...</code></p>
 <h6 id="arguments_40"><strong>Arguments:</strong><a class="headerlink" href="#arguments_40" title="Permanent link">&para;</a></h6>
 <ul>
-<li>
-<p><code>&lt;REVSETS&gt;</code> — Parent(s) of the new change</p>
-<p>Default value: <code>@</code></p>
-</li>
+<li><code>&lt;REVSETS&gt;</code> — Parent(s) of the new change [default: @]</li>
 </ul>
 <h6 id="options_40"><strong>Options:</strong><a class="headerlink" href="#options_40" title="Permanent link">&para;</a></h6>
 <ul>
@@ -9874,10 +9871,7 @@ J           J
 <p><strong>Usage:</strong> <code>jj show [OPTIONS] [REVSET]</code></p>
 <h6 id="arguments_50"><strong>Arguments:</strong><a class="headerlink" href="#arguments_50" title="Permanent link">&para;</a></h6>
 <ul>
-<li>
-<p><code>&lt;REVSET&gt;</code> — Show changes in this revision, compared to its parent(s)</p>
-<p>Default value: <code>@</code></p>
-</li>
+<li><code>&lt;REVSET&gt;</code> — Show changes in this revision, compared to its parent(s) [default: @]</li>
 </ul>
 <h6 id="options_52"><strong>Options:</strong><a class="headerlink" href="#options_52" title="Permanent link">&para;</a></h6>
 <ul>
