@@ -34,9 +34,10 @@ use super::fake_editor_path;
 use super::to_toml_value;
 
 pub struct TestEnvironment {
-    _temp_dir: TempDir,
+    _env_dir: TempDir,
     env_root: PathBuf,
     home_dir: PathBuf,
+    tmp_dir: PathBuf,
     config_path: PathBuf,
     env_vars: HashMap<OsString, OsString>,
     paths_to_normalize: Vec<(PathBuf, String)>,
@@ -48,10 +49,12 @@ impl Default for TestEnvironment {
     fn default() -> Self {
         testutils::hermetic_git();
 
-        let tmp_dir = testutils::new_temp_dir();
-        let env_root = dunce::canonicalize(tmp_dir.path()).unwrap();
+        let env_dir = testutils::new_temp_dir();
+        let env_root = dunce::canonicalize(env_dir.path()).unwrap();
         let home_dir = env_root.join("home");
         std::fs::create_dir(&home_dir).unwrap();
+        let tmp_dir = env_root.join("tmp");
+        std::fs::create_dir(&tmp_dir).unwrap();
         let config_dir = env_root.join("config");
         std::fs::create_dir(&config_dir).unwrap();
         let env_vars = HashMap::new();
@@ -59,9 +62,10 @@ impl Default for TestEnvironment {
             .into_iter()
             .collect();
         let env = Self {
-            _temp_dir: tmp_dir,
+            _env_dir: env_dir,
             env_root,
             home_dir,
+            tmp_dir,
             config_path: config_dir,
             env_vars,
             paths_to_normalize,
@@ -129,6 +133,10 @@ impl TestEnvironment {
         // executables like `git` from the PATH.
         cmd.env("PATH", std::env::var_os("PATH").unwrap_or_default());
         cmd.env("HOME", &self.home_dir);
+        // Override TMPDIR so editor-* files won't be left in global /tmp.
+        // https://doc.rust-lang.org/stable/std/env/fn.temp_dir.html
+        // https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-gettemppath2w
+        cmd.env(if cfg!(windows) { "TEMP" } else { "TMPDIR" }, &self.tmp_dir);
         // Prevent git.subprocess from reading outside git config
         cmd.env("GIT_CONFIG_SYSTEM", "/dev/null");
         cmd.env("GIT_CONFIG_GLOBAL", "/dev/null");
@@ -152,14 +160,6 @@ impl TestEnvironment {
         cmd.env("JJ_OP_TIMESTAMP", timestamp.to_rfc3339());
         for (key, value) in &self.env_vars {
             cmd.env(key, value);
-        }
-
-        if cfg!(windows) {
-            // Windows uses `TEMP` to create temporary directories, which we need for some
-            // tests.
-            if let Ok(tmp_var) = std::env::var("TEMP") {
-                cmd.env("TEMP", tmp_var);
-            }
         }
 
         cmd
