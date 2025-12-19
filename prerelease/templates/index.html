@@ -1274,20 +1274,14 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="String type">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#string-literals" class="md-nav__link">
-    <span class="md-ellipsis">
-      String literals
-    </span>
-  </a>
-  
 </li>
         
-      </ul>
-    </nav>
+          <li class="md-nav__item">
+  <a href="#stringliteral-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      StringLiteral type
+    </span>
+  </a>
   
 </li>
         
@@ -2556,20 +2550,14 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="String type">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#string-literals" class="md-nav__link">
-    <span class="md-ellipsis">
-      String literals
-    </span>
-  </a>
-  
 </li>
         
-      </ul>
-    </nav>
+          <li class="md-nav__item">
+  <a href="#stringliteral-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      StringLiteral type
+    </span>
+  </a>
   
 </li>
         
@@ -2804,7 +2792,7 @@ type</a> are available as keywords. For example,
   <code>separator</code> between <strong>non-empty</strong> <code>content</code>s.</li>
 <li><code>surround(prefix: Template, suffix: Template, content: Template) -&gt; Template</code>:
   Surround <strong>non-empty</strong> content with texts such as parentheses.</li>
-<li><code>config(name: String) -&gt; ConfigValue</code>: Look up configuration value by <code>name</code>.</li>
+<li><code>config(name: StringLiteral) -&gt; ConfigValue</code>: Look up configuration value by <code>name</code>.</li>
 </ul>
 <h2 id="built-in-aliases">Built-in Aliases<a class="headerlink" href="#built-in-aliases" title="Permanent link">&para;</a></h2>
 <ul>
@@ -2869,14 +2857,14 @@ type</a> are available as keywords. For example,
   of this commit. May not be available for some commits.</li>
 <li><code>.immutable() -&gt; Boolean</code>: True if the commit is included in <a href="../config/#set-of-immutable-commits">the set of
   immutable commits</a>.</li>
-<li><code>.contained_in(revset: String) -&gt; Boolean</code>: True if the commit is included in
+<li><code>.contained_in(revset: StringLiteral) -&gt; Boolean</code>: True if the commit is included in
   <a href="../revsets/">the provided revset</a>.</li>
 <li><code>.conflict() -&gt; Boolean</code>: True if the commit contains merge conflicts.</li>
 <li><code>.empty() -&gt; Boolean</code>: True if the commit modifies no files.</li>
-<li><code>.diff([files: String]) -&gt; TreeDiff</code>: Changes from the parents within <a href="../filesets/">the
+<li><code>.diff([files: StringLiteral]) -&gt; TreeDiff</code>: Changes from the parents within <a href="../filesets/">the
   <code>files</code> expression</a>. All files are compared by default, but it is
   likely to change in future version to respect the command line path arguments.</li>
-<li><code>.files([files: String]) -&gt; List&lt;TreeEntry&gt;</code>: Files that exist in this commit,
+<li><code>.files([files: StringLiteral]) -&gt; List&lt;TreeEntry&gt;</code>: Files that exist in this commit,
   matching <a href="../filesets/">the <code>files</code> expression</a>. Use <code>.diff().files()</code> to list
   changed files.</li>
 <li><code>.conflicted_files() -&gt; List&lt;TreeEntry&gt;</code>: Conflicted files in this commit.</li>
@@ -3163,7 +3151,9 @@ that many occurrences are replaced.</p>
   can use it in a template like <code>'{ "foo": ' ++ foo.escape_json() ++ ' }'</code> to
   return a JSON/JSONL.</li>
 </ul>
-<h4 id="string-literals">String literals<a class="headerlink" href="#string-literals" title="Permanent link">&para;</a></h4>
+<h3 id="stringliteral-type"><code>StringLiteral</code> type<a class="headerlink" href="#stringliteral-type" title="Permanent link">&para;</a></h3>
+<p>A string literal known at parse time. Unlike <code>Stringify</code>, this cannot be a
+dynamic expression - it must be a literal value like <code>"main"</code> or <code>"format"</code>.</p>
 <p>String literals must be surrounded by single or double quotes (<code>'</code> or <code>"</code>).
 A double-quoted string literal supports the following escape sequences:</p>
 <ul>
@@ -3181,6 +3171,9 @@ inside a string literal, with two exceptions: unescaped <code>"</code>-s and use
 that don't form a valid escape sequence.</p>
 <p>A single-quoted string literal has no escape syntax. <code>'</code> can't be expressed
 inside a single-quoted string literal.</p>
+<p>String literals have their own type so that the value can be validated at parse
+time. For example, <code>contained_in(revset)</code> requires a literal so the revset can
+be parsed and checked before the template is evaluated.</p>
 <h3 id="stringify-type"><code>Stringify</code> type<a class="headerlink" href="#stringify-type" title="Permanent link">&para;</a></h3>
 <p>An expression that can be converted to a <code>String</code>.</p>
 <p>Any types that can be converted to <code>Template</code> can also be <code>Stringify</code>. Unlike
@@ -3201,14 +3194,14 @@ only occur directly in the call site they are used in.</p>
 <p>The following methods are defined.</p>
 <ul>
 <li><code>.ago() -&gt; String</code>: Format as relative timestamp.</li>
-<li><code>.format(format: String) -&gt; String</code>: Format with <a href="https://docs.rs/chrono/latest/chrono/format/strftime/">the specified strftime-like
+<li><code>.format(format: StringLiteral) -&gt; String</code>: Format with <a href="https://docs.rs/chrono/latest/chrono/format/strftime/">the specified strftime-like
   format string</a>.</li>
 <li><code>.utc() -&gt; Timestamp</code>: Convert timestamp into UTC timezone.</li>
 <li><code>.local() -&gt; Timestamp</code>: Convert timestamp into local timezone.</li>
-<li><code>.after(date: String) -&gt; Boolean</code>: True if the timestamp is exactly at or
+<li><code>.after(date: StringLiteral) -&gt; Boolean</code>: True if the timestamp is exactly at or
   after the given date. Supported date formats are the same as the revset
   <a href="../revsets/#date-patterns">Date pattern type</a>.</li>
-<li><code>.before(date: String) -&gt; Boolean</code>: True if the timestamp is before, but
+<li><code>.before(date: StringLiteral) -&gt; Boolean</code>: True if the timestamp is before, but
   not including, the given date. Supported date formats are the same as the
   revset <a href="../revsets/#date-patterns">Date pattern type</a>.</li>
 </ul>

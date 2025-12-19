@@ -2070,7 +2070,7 @@ of the full change ID can also be used. It is an error to use a non-unique
 prefix or <a href="../glossary/#divergent-change">a divergent change ID</a>. To refer to a
 <a href="#hidden-revisions">hidden</a> commit or <a href="../glossary/#divergent-change">divergent change</a>, a
 <a href="../glossary/#change-offset">change offset</a> can be added using <code>&lt;change ID&gt;/&lt;offset&gt;</code> syntax.</p>
-<p>Use <a href="../templates/#string-literals">single or double quotes</a> to prevent a symbol from being
+<p>Use <a href="../templates/#stringliteral-type">single or double quotes</a> to prevent a symbol from being
 interpreted as an expression. For example, <code>"x-"</code> is the symbol <code>x-</code>, not the
 parents of symbol <code>x</code>. Taking shell quoting into account, you may need to use
 something like <code>jj log -r '"x-"'</code>.</p>
