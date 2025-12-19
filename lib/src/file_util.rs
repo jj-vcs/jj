@@ -38,6 +38,7 @@ use tokio::io::ReadBuf;
 #[cfg(unix)]
 pub use self::platform::check_executable_bit_support;
 pub use self::platform::check_symlink_support;
+pub use self::platform::symlink_dir;
 pub use self::platform::try_symlink;
 
 #[derive(Debug, Error)]
@@ -348,6 +349,13 @@ mod platform {
         Ok(true)
     }
 
+    /// Creates a new symlink `link` pointing to the `original` path.
+    ///
+    /// On Unix, the `original` path doesn't have to be a directory.
+    pub fn symlink_dir<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Result<()> {
+        symlink(original, link)
+    }
+
     pub fn try_symlink<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Result<()> {
         symlink(original, link)
     }
@@ -356,6 +364,7 @@ mod platform {
 #[cfg(windows)]
 mod platform {
     use std::io;
+    pub use std::os::windows::fs::symlink_dir;
     use std::os::windows::fs::symlink_file;
     use std::path::Path;
 

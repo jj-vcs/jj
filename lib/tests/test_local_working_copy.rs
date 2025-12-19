@@ -34,6 +34,7 @@ use jj_lib::conflict_labels::ConflictLabels;
 use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::file_util;
 use jj_lib::file_util::check_symlink_support;
+use jj_lib::file_util::symlink_dir;
 use jj_lib::file_util::try_symlink;
 use jj_lib::files::FileMergeHunkLevel;
 use jj_lib::fsmonitor::FsmonitorSettings;
@@ -1884,7 +1885,7 @@ fn test_check_out_existing_directory_symlink() {
 
     // Creates a symlink in working directory, and a tree that will add a file
     // under the symlinked directory.
-    try_symlink("..", workspace_root.join("parent")).unwrap();
+    symlink_dir("..", workspace_root.join("parent")).unwrap();
 
     // Test two file paths writing to the same directory to ensure that
     // any directory creation optimizations which depend on how
@@ -1919,7 +1920,7 @@ fn test_check_out_existing_directory_symlink_icase_fs() {
 
     // Creates a symlink in working directory, and a tree that will add a file
     // under the symlinked directory.
-    try_symlink("..", workspace_root.join("parent")).unwrap();
+    symlink_dir("..", workspace_root.join("parent")).unwrap();
 
     let file_path1 = repo_path("PARENT/escaped1");
     let file_path2 = repo_path("PARENT/escaped2");
@@ -2013,7 +2014,7 @@ fn test_check_out_file_removal_over_existing_directory_symlink() {
     // "parent/escaped" would be skipped in that case.
     std::fs::remove_file(file_path.to_fs_path_unchecked(&workspace_root)).unwrap();
     std::fs::remove_dir(workspace_root.join("parent")).unwrap();
-    try_symlink("..", workspace_root.join("parent")).unwrap();
+    symlink_dir("..", workspace_root.join("parent")).unwrap();
     let victim_file_path = workspace_root.parent().unwrap().join("escaped");
     std::fs::write(&victim_file_path, "").unwrap();
     assert!(file_path.to_fs_path_unchecked(&workspace_root).exists());
