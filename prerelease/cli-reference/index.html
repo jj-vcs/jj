@@ -8895,6 +8895,8 @@ configuration.</p>
 <h2 id="jj-git-push"><code>jj git push</code><a class="headerlink" href="#jj-git-push" title="Permanent link">&para;</a></h2>
 <p>Push to a Git remote</p>
 <p>By default, pushes tracking bookmarks pointing to <code>remote_bookmarks(remote=&lt;remote&gt;)..@</code>. Use <code>--bookmark</code> to push specific bookmarks. Use <code>--all</code> to push all bookmarks. Use <code>--change</code> to generate bookmark names based on the change IDs of specific commits.</p>
+<p>When pushing a bookmark, the command pushes all commits in the range from the remote's current position up to and including the bookmark's target commit. Any descendant commits beyond the bookmark are not pushed.</p>
+<p>If the local bookmark has changed from the last fetch, push will update the remote bookmark to the new position after passing safety checks. This is similar to <code>git push --force-with-lease</code> - the remote is updated only if its current state matches what Jujutsu last fetched.</p>
 <p>Unlike in Git, the remote to push to is not derived from the tracked remote bookmarks. Use <code>--remote</code> to select the remote Git repository by name. There is no option to push to multiple remotes.</p>
 <p>Before the command actually moves, creates, or deletes a remote bookmark, it makes several <a href="https://docs.jj-vcs.dev/latest/bookmarks/#pushing-bookmarks-safety-checks">safety checks</a>. If there is a problem, you may need to run <code>jj git fetch --remote &lt;remote name&gt;</code> and/or resolve some <a href="https://docs.jj-vcs.dev/latest/bookmarks/#conflicts">bookmark conflicts</a>.</p>
 <p><strong>Usage:</strong> <code>jj git push [OPTIONS]</code></p>
