@@ -1416,10 +1416,11 @@ fn test_snapshot_racy_timestamps() -> TestResult {
             .workspace
             .start_working_copy_mutation()
             .block_on()?;
-        let (new_tree, _stats) = locked_ws
+        let new_tree = locked_ws
             .locked_wc()
             .snapshot(&empty_snapshot_options())
-            .block_on()?;
+            .block_on()?
+            .new_tree;
         assert_ne!(new_tree.tree_ids(), previous_tree.tree_ids());
         previous_tree = new_tree;
     }
@@ -1449,10 +1450,11 @@ fn test_snapshot_special_file() -> TestResult {
 
     // Snapshot the working copy with the socket file
     let mut locked_ws = ws.start_working_copy_mutation().block_on()?;
-    let (tree, _stats) = locked_ws
+    let tree = locked_ws
         .locked_wc()
         .snapshot(&empty_snapshot_options())
-        .block_on()?;
+        .block_on()?
+        .new_tree;
     locked_ws
         .finish(OperationId::from_hex("abc123"))
         .block_on()?;
@@ -1871,7 +1873,9 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
 
     // Check that the files present in the submodule are not tracked
     // when we snapshot
-    let (new_tree, _stats) = test_workspace.snapshot_with_options(&snapshot_options)?;
+    let new_tree = test_workspace
+        .snapshot_with_options(&snapshot_options)?
+        .new_tree;
     assert_tree_eq!(new_tree, tree_id1);
 
     // Check that the files in the submodule are not deleted
@@ -1896,7 +1900,9 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
 
     // Check that the files present in the submodule are not tracked
     // when we snapshot
-    let (new_tree, _stats) = test_workspace.snapshot_with_options(&snapshot_options)?;
+    let new_tree = test_workspace
+        .snapshot_with_options(&snapshot_options)?
+        .new_tree;
     assert_tree_eq!(new_tree, tree_id2);
 
     // Check out the empty tree, which shouldn't fail
@@ -1962,7 +1968,9 @@ fn test_git_submodule(gitignore_content: &str) -> TestResult {
     ws.check_out(repo.op_id().clone(), None, &commit2)
         .block_on()?;
     assert_eq!(stats.skipped_files, 0);
-    let (new_tree, _stats) = test_workspace.snapshot_with_options(&snapshot_options)?;
+    let new_tree = test_workspace
+        .snapshot_with_options(&snapshot_options)?
+        .new_tree;
     assert_tree_eq!(new_tree, tree_id2);
 
     // Restore submodule contents (pretend that the user did `git submodule update`)
@@ -2868,21 +2876,23 @@ fn test_snapshot_max_new_file_size() -> TestResult {
         small_path.to_fs_path_unchecked(&workspace_root),
         vec![0; limit + 1],
     )?;
-    let (old_tree, _stats) = test_workspace
+    let old_tree = test_workspace
         .snapshot_with_options(&options)
-        .expect("existing files may grow beyond the size limit");
+        .expect("existing files may grow beyond the size limit")
+        .new_tree;
 
     // A new file of 1KiB + 1 bytes should be left untracked
     std::fs::write(
         large_path.to_fs_path_unchecked(&workspace_root),
         vec![0; limit + 1],
     )?;
-    let (new_tree, stats) = test_workspace
+    let snapshot_result = test_workspace
         .snapshot_with_options(&options)
         .expect("snapshot should not fail because of new files beyond the size limit");
-    assert_tree_eq!(new_tree, old_tree);
+    assert_tree_eq!(snapshot_result.new_tree, old_tree);
     assert_eq!(
-        stats
+        snapshot_result
+            .stats
             .untracked_paths
             .keys()
             .map(AsRef::as_ref)
@@ -2890,7 +2900,7 @@ fn test_snapshot_max_new_file_size() -> TestResult {
         [large_path]
     );
     assert_matches!(
-        stats.untracked_paths.values().next().unwrap(),
+        snapshot_result.stats.untracked_paths.values().next().unwrap(),
         UntrackedReason::FileTooLarge { size, .. } if *size == (limit as u64) + 1
     );
 
@@ -2906,12 +2916,13 @@ fn test_snapshot_max_new_file_size() -> TestResult {
         large_path.to_fs_path_unchecked(&workspace_root),
         sub_large_path.to_fs_path_unchecked(&workspace_root),
     )?;
-    let (new_tree, stats) = test_workspace
+    let snapshot_result = test_workspace
         .snapshot_with_options(&options)
         .expect("snapshot should not fail because of new files beyond the size limit");
-    assert_tree_eq!(new_tree, old_tree);
+    assert_tree_eq!(snapshot_result.new_tree, old_tree);
     assert_eq!(
-        stats
+        snapshot_result
+            .stats
             .untracked_paths
             .keys()
             .map(AsRef::as_ref)
@@ -2919,7 +2930,12 @@ fn test_snapshot_max_new_file_size() -> TestResult {
         [sub_large_path]
     );
     assert_matches!(
-        stats.untracked_paths.values().next().unwrap(),
+        snapshot_result
+            .stats
+            .untracked_paths
+            .values()
+            .next()
+            .unwrap(),
         UntrackedReason::FileTooLarge { .. }
     );
     Ok(())

@@ -23,12 +23,13 @@ use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
+use jj_lib::working_copy::SnapshotResult;
 use jj_lib::working_copy::SnapshotStats;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::print_conflicted_paths;
-use crate::cli_util::print_snapshot_stats;
+use crate::cli_util::print_maybe_snapshot_result;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::cli_util::visit_collapsed_untracked_files;
 use crate::command_error::CommandError;
@@ -69,10 +70,11 @@ pub(crate) async fn cmd_status(
     command: &CommandHelper,
     args: &StatusArgs,
 ) -> Result<(), CommandError> {
-    let (workspace_command, snapshot_stats) = command.workspace_helper_with_stats(ui).await?;
-    print_snapshot_stats(
+    let (workspace_command, maybe_snapshot_result) =
+        command.workspace_helper_with_result(ui).await?;
+    print_maybe_snapshot_result(
         ui,
-        &snapshot_stats,
+        &maybe_snapshot_result,
         workspace_command.env().path_converter(),
     )?;
     let repo = workspace_command.repo();
@@ -87,7 +89,8 @@ pub(crate) async fn cmd_status(
     let formatter = formatter.as_mut();
 
     if let Some(wc_commit) = &maybe_wc_commit {
-        let status = collect_working_copy_status(repo.as_ref(), wc_commit, snapshot_stats).await?;
+        let status =
+            collect_working_copy_status(repo.as_ref(), wc_commit, maybe_snapshot_result).await?;
         print_unmatched_explicit_paths(
             ui,
             &workspace_command,
@@ -313,7 +316,7 @@ impl WorkingCopyStatus {
 async fn collect_working_copy_status(
     repo: &dyn Repo,
     commit: &Commit,
-    snapshot_stats: SnapshotStats,
+    maybe_snapshot_result: Option<SnapshotResult>,
 ) -> Result<WorkingCopyStatus, CommandError> {
     let commit = commit.clone();
     let parents = commit.parents().await?;
@@ -325,6 +328,6 @@ async fn collect_working_copy_status(
         parents,
         parent_tree,
         tree,
-        snapshot_stats,
+        snapshot_stats: maybe_snapshot_result.map_or(SnapshotStats::default(), |r| r.stats),
     })
 }

@@ -42,7 +42,7 @@ use jj_lib::working_copy::LockedWorkingCopy;
 use jj_lib::working_copy::ResetError;
 use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::SnapshotOptions;
-use jj_lib::working_copy::SnapshotStats;
+use jj_lib::working_copy::SnapshotResult;
 use jj_lib::working_copy::WorkingCopy;
 use jj_lib::working_copy::WorkingCopyFactory;
 use jj_lib::working_copy::WorkingCopyStateError;
@@ -245,7 +245,7 @@ impl LockedWorkingCopy for LockedConflictsWorkingCopy {
     async fn snapshot(
         &mut self,
         options: &SnapshotOptions,
-    ) -> Result<(MergedTree, SnapshotStats), SnapshotError> {
+    ) -> Result<SnapshotResult, SnapshotError> {
         let options = SnapshotOptions {
             base_ignores: options.base_ignores.chain(
                 RepoPath::root(),
