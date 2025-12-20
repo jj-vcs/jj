@@ -116,8 +116,10 @@ Make sure they're ignored, then try again.",
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&wc_tree])?;
     print_snapshot_result(
         ui,
+        command.settings().config(),
         &snapshot_result,
         workspace_command.env().path_converter(),
-    )?;
+    )
+    .await?;
     Ok(())
 }

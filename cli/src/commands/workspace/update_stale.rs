@@ -37,9 +37,11 @@ pub async fn cmd_workspace_update_stale(
     let (workspace_command, maybe_snapshot_result) = command.recover_stale_working_copy(ui).await?;
     print_maybe_snapshot_result(
         ui,
+        command.settings().config(),
         &maybe_snapshot_result,
         workspace_command.env().path_converter(),
-    )?;
+    )
+    .await?;
 
     Ok(())
 }
