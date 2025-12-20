@@ -1,5 +1,5 @@
-<!-- Created with term-transcript v0.3.0 (https://github.com/slowli/term-transcript) -->
-<svg viewBox="0 0 720 1658" width="720" height="1658" xmlns="http://www.w3.org/2000/svg">
+<!-- Created with term-transcript v0.4.0 (https://github.com/slowli/term-transcript) -->
+<svg viewBox="0 0 720 1712" width="720" height="1712" xmlns="http://www.w3.org/2000/svg">
   <style>
     .container {
       font: 14px Fira Code, Liberation Mono, SFMono-Regular, Consolas, Menlo, monospace;
@@ -33,16 +33,16 @@
     .fg15 { fill: #f2f2f2; } .output-bg .fg15 { stroke: #f2f2f2; }
   </style>
   <rect width="100%" height="100%" y="0" rx="4.5" style="fill: #0c0c0c;" />
-    <svg x="0" y="10" width="720" height="1638" viewBox="0 0 720 1638">
+    <svg x="0" y="10" width="720" height="1692" viewBox="0 0 720 1692">
       <g class="input-bg"></g>
       <text class="container fg7"><tspan xml:space="preserve" x="10" y="14" class="output">
 </tspan><tspan xml:space="preserve" x="10" y="32" class="output"><tspan class="fg2"># We are on the master branch of the octocat/Hello-World repo,</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="50" class="output"><tspan class="fg2"># represented by the "master" bookmark on the parent commit.</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="68" class="output">
 </tspan><tspan xml:space="preserve" x="10" y="86" class="output">$ jj log
-</tspan><tspan xml:space="preserve" x="10" y="104" class="output"><tspan class="bold fg2">@</tspan>  <tspan class="bold fg13">t</tspan><tspan class="bold fg8">mnxzsns</tspan><tspan class="bold"> </tspan><tspan class="bold fg3">jjfan@example.com</tspan><tspan class="bold"> </tspan><tspan class="bold fg14">2024-10-13 19:54:57</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">e</tspan><tspan class="bold fg8">692ad7d</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="104" class="output"><tspan class="bold fg2">@</tspan>  <tspan class="bold fg13">s</tspan><tspan class="bold fg8">ytovksv</tspan><tspan class="bold"> </tspan><tspan class="bold fg3">jjfan@example.com</tspan><tspan class="bold"> </tspan><tspan class="bold fg14">2025-12-20 10:52:45</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">c</tspan><tspan class="bold fg8">56c9c76</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="122" class="output">│  <tspan class="bold fg10">(empty)</tspan><tspan class="bold"> </tspan><tspan class="bold fg10">(no description set)</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="140" class="output"><tspan class="bold fg14">◆</tspan>  <tspan class="bold fg5">o</tspan><tspan class="fg8">rrkosyo</tspan> <tspan class="fg3">octocat@nowhere.com</tspan> <tspan class="fg6">2012-03-06 16:06:50</tspan> <tspan class="fg5">master</tspan> <tspan class="bold fg4">7</tspan><tspan class="fg8">fd1a60b</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="140" class="output"><tspan class="bold fg14">◆</tspan>  <tspan class="bold fg5">o</tspan><tspan class="fg8">rrkosyo</tspan> <tspan class="fg3">octocat@nowhere.com</tspan> <tspan class="fg6">2012-03-06 17:06:50</tspan> <tspan class="fg5">master</tspan> <tspan class="bold fg4">7</tspan><tspan class="fg8">fd1a60b</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="158" class="output">│  <tspan class="fg2">(empty)</tspan> Merge pull request #6 from Spaceghost/patch-1
 </tspan><tspan xml:space="preserve" x="10" y="176" class="output">~
 </tspan><tspan xml:space="preserve" x="10" y="194" class="output">
@@ -50,9 +50,9 @@
 </tspan><tspan xml:space="preserve" x="10" y="230" class="output"><tspan class="fg2"># when we rebase it:</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="248" class="output">
 </tspan><tspan xml:space="preserve" x="10" y="266" class="output">$ jj describe -m "README: say which world"
-</tspan><tspan xml:space="preserve" x="10" y="284" class="output">Working copy now at: <tspan class="bold fg13">t</tspan><tspan class="bold fg8">mnxzsns</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">c</tspan><tspan class="bold fg8">57f52b0</tspan><tspan class="bold"> </tspan><tspan class="bold fg10">(empty)</tspan><tspan class="bold"> README: say which world</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="302" class="output">Parent commit      : <tspan class="bold fg5">o</tspan><tspan class="fg8">rrkosyo</tspan> <tspan class="bold fg4">7</tspan><tspan class="fg8">fd1a60b</tspan> <tspan class="fg5">master</tspan><tspan class="fg8"> | </tspan><tspan class="fg2">(empty)</tspan> Merge pull request #6 fr<tspan class="hard-br" rotate="45" dx=".1em" dy="-.2em">↓</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="320" class="output">om Spaceghost/patch-1
+</tspan><tspan xml:space="preserve" x="10" y="284" class="output">Working copy  (@) now at: <tspan class="bold fg13">s</tspan><tspan class="bold fg8">ytovksv</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">4</tspan><tspan class="bold fg8">0e26ed2</tspan><tspan class="bold"> </tspan><tspan class="bold fg10">(empty)</tspan><tspan class="bold"> README: say which world</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="302" class="output">Parent commit (@-)      : <tspan class="bold fg5">o</tspan><tspan class="fg8">rrkosyo</tspan> <tspan class="bold fg4">7</tspan><tspan class="fg8">fd1a60b</tspan> <tspan class="fg5">master</tspan><tspan class="fg8"> | </tspan><tspan class="fg2">(empty)</tspan> Merge pull request <tspan class="hard-br" rotate="45" dx=".1em" dy="-.2em">↓</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="320" class="output">#6 from Spaceghost/patch-1
 </tspan><tspan xml:space="preserve" x="10" y="338" class="output">$ echo "Hello Earth!" &gt; README
 </tspan><tspan xml:space="preserve" x="10" y="356" class="output">$ jj diff
 </tspan><tspan xml:space="preserve" x="10" y="374" class="output"><tspan class="fg3">Modified regular file README:</tspan>
@@ -67,65 +67,68 @@
 </tspan><tspan xml:space="preserve" x="10" y="536" class="output">
 </tspan><tspan xml:space="preserve" x="10" y="554" class="output"><tspan class="fg2"># Now rebase:</tspan>
 </tspan><tspan xml:space="preserve" x="10" y="572" class="output">
-</tspan><tspan xml:space="preserve" x="10" y="590" class="output">$ jj rebase -d b1
-</tspan><tspan xml:space="preserve" x="10" y="608" class="output">Rebased 1 commits
-</tspan><tspan xml:space="preserve" x="10" y="626" class="output">Working copy now at: <tspan class="bold fg13">tm</tspan><tspan class="bold fg8">nxzsns</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">0</tspan><tspan class="bold fg8">23f3c51</tspan><tspan class="bold"> </tspan><tspan class="bold fg9">(conflict)</tspan><tspan class="bold"> README: say which world</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="644" class="output">Parent commit      : <tspan class="bold fg5">tp</tspan><tspan class="fg8">stlust</tspan> <tspan class="bold fg4">b</tspan><tspan class="fg8">1b3f972</tspan> <tspan class="fg5">octocat-patch-1@origin</tspan><tspan class="fg8"> | </tspan>sentence case
-</tspan><tspan xml:space="preserve" x="10" y="662" class="output">Added 0 files, modified 1 files, removed 0 files
-</tspan><tspan xml:space="preserve" x="10" y="680" class="output">There are unresolved conflicts at these paths:
-</tspan><tspan xml:space="preserve" x="10" y="698" class="output">README    <tspan class="fg3">2-sided conflict</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="716" class="output">New conflicts appeared in these commits:
-</tspan><tspan xml:space="preserve" x="10" y="734" class="output">  <tspan class="bold fg5">tm</tspan><tspan class="fg8">nxzsns</tspan> <tspan class="bold fg4">0</tspan><tspan class="fg8">23f3c51</tspan> <tspan class="fg1">(conflict)</tspan> README: say which world
-</tspan><tspan xml:space="preserve" x="10" y="752" class="output">To resolve the conflicts, start by updating to it:
-</tspan><tspan xml:space="preserve" x="10" y="770" class="output">  jj new <tspan class="bold fg5">tm</tspan><tspan class="fg8">nxzsns</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="788" class="output">Then use `jj resolve`, or edit the conflict markers in the file directly.
-</tspan><tspan xml:space="preserve" x="10" y="806" class="output">Once the conflicts are resolved, you may want to inspect the result with `jj dif<tspan class="hard-br" rotate="45" dx=".1em" dy="-.2em">↓</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="824" class="output">f`.
-</tspan><tspan xml:space="preserve" x="10" y="842" class="output">Then run `jj squash` to move the resolution into the conflicted commit.
-</tspan><tspan xml:space="preserve" x="10" y="860" class="output">
-</tspan><tspan xml:space="preserve" x="10" y="878" class="output"><tspan class="fg2"># That seemed to succeed but we are also told there is now a conflict.</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="896" class="output"><tspan class="fg2"># Let's take a look at the repo:</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="914" class="output">
-</tspan><tspan xml:space="preserve" x="10" y="932" class="output">$ jj log
-</tspan><tspan xml:space="preserve" x="10" y="950" class="output"><tspan class="bold fg9">@</tspan>  <tspan class="bold fg13">tm</tspan><tspan class="bold fg8">nxzsns</tspan><tspan class="bold"> </tspan><tspan class="bold fg3">jjfan@example.com</tspan><tspan class="bold"> </tspan><tspan class="bold fg14">2024-10-13 19:54:57</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">0</tspan><tspan class="bold fg8">23f3c51</tspan><tspan class="bold"> </tspan><tspan class="bold fg9">conflict</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="968" class="output">│  <tspan class="bold">README: say which world</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="986" class="output"><tspan class="bold fg14">◆</tspan>  <tspan class="bold fg5">tp</tspan><tspan class="fg8">stlust</tspan> <tspan class="fg3">support+octocat@github.com</tspan> <tspan class="fg6">2018-05-10 10:55:19</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1004" class="output">│  <tspan class="fg5">octocat-patch-1@origin</tspan> <tspan class="bold fg4">b</tspan><tspan class="fg8">1b3f972</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1022" class="output">│  sentence case
-</tspan><tspan xml:space="preserve" x="10" y="1040" class="output"><tspan class="bold fg14">◆</tspan>  <tspan class="bold fg5">o</tspan><tspan class="fg8">rrkosyo</tspan> <tspan class="fg3">octocat@nowhere.com</tspan> <tspan class="fg6">2012-03-06 16:06:50</tspan> <tspan class="fg5">master</tspan> <tspan class="bold fg4">7</tspan><tspan class="fg8">fd1a60b</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1058" class="output">│  <tspan class="fg2">(empty)</tspan> Merge pull request #6 from Spaceghost/patch-1
-</tspan><tspan xml:space="preserve" x="10" y="1076" class="output">~
-</tspan><tspan xml:space="preserve" x="10" y="1094" class="output">$ jj status
-</tspan><tspan xml:space="preserve" x="10" y="1112" class="output">Working copy changes:
-</tspan><tspan xml:space="preserve" x="10" y="1130" class="output"><tspan class="fg6">M README</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1148" class="output"><tspan class="fg1">There are unresolved conflicts at these paths:</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1166" class="output">README    <tspan class="fg3">2-sided conflict</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1184" class="output">Working copy : <tspan class="bold fg13">tm</tspan><tspan class="bold fg8">nxzsns</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">0</tspan><tspan class="bold fg8">23f3c51</tspan><tspan class="bold"> </tspan><tspan class="bold fg9">(conflict)</tspan><tspan class="bold"> README: say which world</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1202" class="output">Parent commit: <tspan class="bold fg5">tp</tspan><tspan class="fg8">stlust</tspan> <tspan class="bold fg4">b</tspan><tspan class="fg8">1b3f972</tspan> <tspan class="fg5">octocat-patch-1@origin</tspan><tspan class="fg8"> | </tspan>sentence case
-</tspan><tspan xml:space="preserve" x="10" y="1220" class="output">
-</tspan><tspan xml:space="preserve" x="10" y="1238" class="output"><tspan class="fg2"># Indeed, the rebased commit has a conflict. The conflicted file</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1256" class="output"><tspan class="fg2"># in the working copy looks like this:</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1274" class="output">
-</tspan><tspan xml:space="preserve" x="10" y="1292" class="output">$ cat README
-</tspan><tspan xml:space="preserve" x="10" y="1310" class="output">&lt;&lt;&lt;&lt;&lt;&lt;&lt; Conflict 1 of 1
-</tspan><tspan xml:space="preserve" x="10" y="1328" class="output">%%%%%%% Changes from base to side #1
-</tspan><tspan xml:space="preserve" x="10" y="1346" class="output">-Hello World!
-</tspan><tspan xml:space="preserve" x="10" y="1364" class="output">+Hello world!
-</tspan><tspan xml:space="preserve" x="10" y="1382" class="output">+++++++ Contents of side #2
-</tspan><tspan xml:space="preserve" x="10" y="1400" class="output">Hello Earth!
-</tspan><tspan xml:space="preserve" x="10" y="1418" class="output">&gt;&gt;&gt;&gt;&gt;&gt;&gt; Conflict 1 of 1 ends
-</tspan><tspan xml:space="preserve" x="10" y="1436" class="output">
-</tspan><tspan xml:space="preserve" x="10" y="1454" class="output"><tspan class="fg2"># Now we will resolve the conflict:</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1472" class="output">
-</tspan><tspan xml:space="preserve" x="10" y="1490" class="output">$ echo "Hello earth!" &gt; README
-</tspan><tspan xml:space="preserve" x="10" y="1508" class="output">
-</tspan><tspan xml:space="preserve" x="10" y="1526" class="output"><tspan class="fg2"># The status command no longer reports it:</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1544" class="output">
-</tspan><tspan xml:space="preserve" x="10" y="1562" class="output">$ jj status
-</tspan><tspan xml:space="preserve" x="10" y="1580" class="output">Working copy changes:
-</tspan><tspan xml:space="preserve" x="10" y="1598" class="output"><tspan class="fg6">M README</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1616" class="output">Working copy : <tspan class="bold fg13">tm</tspan><tspan class="bold fg8">nxzsns</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">3</tspan><tspan class="bold fg8">da30911</tspan><tspan class="bold"> README: say which world</tspan>
-</tspan><tspan xml:space="preserve" x="10" y="1634" class="output">Parent commit: <tspan class="bold fg5">tp</tspan><tspan class="fg8">stlust</tspan> <tspan class="bold fg4">b</tspan><tspan class="fg8">1b3f972</tspan> <tspan class="fg5">octocat-patch-1@origin</tspan><tspan class="fg8"> | </tspan>sentence case
+</tspan><tspan xml:space="preserve" x="10" y="590" class="output">$ jj rebase --onto b1
+</tspan><tspan xml:space="preserve" x="10" y="608" class="output">Rebased 1 commits to destination
+</tspan><tspan xml:space="preserve" x="10" y="626" class="output">Working copy  (@) now at: <tspan class="bold fg13">s</tspan><tspan class="bold fg8">ytovksv</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">d</tspan><tspan class="bold fg8">749f736</tspan><tspan class="bold"> </tspan><tspan class="bold fg9">(conflict)</tspan><tspan class="bold"> README: say which world</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="644" class="output">Parent commit (@-)      : <tspan class="bold fg5">t</tspan><tspan class="fg8">pstlust</tspan> <tspan class="bold fg4">b</tspan><tspan class="fg8">1b3f972</tspan> <tspan class="fg5">octocat-patch-1@origin</tspan><tspan class="fg8"> | </tspan>sentence ca<tspan class="hard-br" rotate="45" dx=".1em" dy="-.2em">↓</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="662" class="output">se
+</tspan><tspan xml:space="preserve" x="10" y="680" class="output">Added 0 files, modified 1 files, removed 0 files
+</tspan><tspan xml:space="preserve" x="10" y="698" class="output"><tspan class="bold fg3">Warning: </tspan><tspan class="bold">There are unresolved conflicts at these paths:</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="716" class="output">README    <tspan class="fg3">2-sided conflict</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="734" class="output">New conflicts appeared in 1 commits:
+</tspan><tspan xml:space="preserve" x="10" y="752" class="output">  <tspan class="bold fg13">s</tspan><tspan class="bold fg8">ytovksv</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">d</tspan><tspan class="bold fg8">749f736</tspan><tspan class="bold"> </tspan><tspan class="bold fg9">(conflict)</tspan><tspan class="bold"> README: say which world</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="770" class="output"><tspan class="bold fg6">Hint: </tspan>To resolve the conflicts, start by creating a commit on top of
+</tspan><tspan xml:space="preserve" x="10" y="788" class="output">the conflicted commit:
+</tspan><tspan xml:space="preserve" x="10" y="806" class="output">  jj new <tspan class="bold fg5">s</tspan><tspan class="fg8">ytovksv</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="824" class="output">Then use `jj resolve`, or edit the conflict markers in the file directly.
+</tspan><tspan xml:space="preserve" x="10" y="842" class="output">Once the conflicts are resolved, you can inspect the result with `jj diff`.
+</tspan><tspan xml:space="preserve" x="10" y="860" class="output">Then run `jj squash` to move the resolution into the conflicted commit.
+</tspan><tspan xml:space="preserve" x="10" y="878" class="output">
+</tspan><tspan xml:space="preserve" x="10" y="896" class="output"><tspan class="fg2"># That seemed to succeed but we are also told there is now a conflict.</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="914" class="output"><tspan class="fg2"># Let's take a look at the repo:</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="932" class="output">
+</tspan><tspan xml:space="preserve" x="10" y="950" class="output">$ jj log
+</tspan><tspan xml:space="preserve" x="10" y="968" class="output"><tspan class="bold fg1">@</tspan>  <tspan class="bold fg13">s</tspan><tspan class="bold fg8">ytovksv</tspan><tspan class="bold"> </tspan><tspan class="bold fg3">jjfan@example.com</tspan><tspan class="bold"> </tspan><tspan class="bold fg14">2025-12-20 10:52:45</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">d</tspan><tspan class="bold fg8">749f736</tspan><tspan class="bold"> </tspan><tspan class="bold fg9">conflict</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="986" class="output">│  <tspan class="bold">README: say which world</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1004" class="output"><tspan class="bold fg14">◆</tspan>  <tspan class="bold fg5">t</tspan><tspan class="fg8">pstlust</tspan> <tspan class="fg3">support+octocat@github.com</tspan> <tspan class="fg6">2018-05-10 11:55:19</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1022" class="output">│  <tspan class="fg5">octocat-patch-1@origin</tspan> <tspan class="bold fg4">b</tspan><tspan class="fg8">1b3f972</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1040" class="output">│  sentence case
+</tspan><tspan xml:space="preserve" x="10" y="1058" class="output"><tspan class="bold fg14">◆</tspan>  <tspan class="bold fg5">o</tspan><tspan class="fg8">rrkosyo</tspan> <tspan class="fg3">octocat@nowhere.com</tspan> <tspan class="fg6">2012-03-06 17:06:50</tspan> <tspan class="fg5">master</tspan> <tspan class="bold fg4">7</tspan><tspan class="fg8">fd1a60b</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1076" class="output">│  <tspan class="fg2">(empty)</tspan> Merge pull request #6 from Spaceghost/patch-1
+</tspan><tspan xml:space="preserve" x="10" y="1094" class="output">~
+</tspan><tspan xml:space="preserve" x="10" y="1112" class="output">$ jj status
+</tspan><tspan xml:space="preserve" x="10" y="1130" class="output">Working copy changes:
+</tspan><tspan xml:space="preserve" x="10" y="1148" class="output"><tspan class="fg6">M README</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1166" class="output">Working copy  (@) : <tspan class="bold fg13">s</tspan><tspan class="bold fg8">ytovksv</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">d</tspan><tspan class="bold fg8">749f736</tspan><tspan class="bold"> </tspan><tspan class="bold fg9">(conflict)</tspan><tspan class="bold"> README: say which world</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1184" class="output">Parent commit (@-): <tspan class="bold fg5">t</tspan><tspan class="fg8">pstlust</tspan> <tspan class="bold fg4">b</tspan><tspan class="fg8">1b3f972</tspan> <tspan class="fg5">octocat-patch-1@origin</tspan><tspan class="fg8"> | </tspan>sentence case
+</tspan><tspan xml:space="preserve" x="10" y="1202" class="output"><tspan class="bold fg3">Warning: </tspan><tspan class="bold">There are unresolved conflicts at these paths:</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1220" class="output">README    <tspan class="fg3">2-sided conflict</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1238" class="output">
+</tspan><tspan xml:space="preserve" x="10" y="1256" class="output"><tspan class="fg2"># Indeed, the rebased commit has a conflict. The conflicted file</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1274" class="output"><tspan class="fg2"># in the working copy looks like this:</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1292" class="output">
+</tspan><tspan xml:space="preserve" x="10" y="1310" class="output">$ cat README
+</tspan><tspan xml:space="preserve" x="10" y="1328" class="output">&lt;&lt;&lt;&lt;&lt;&lt;&lt; conflict 1 of 1
+</tspan><tspan xml:space="preserve" x="10" y="1346" class="output">%%%%%%% diff from: orrkosyo 7fd1a60b "Merge pull request #6 from Spaceghost/patc<tspan class="hard-br" rotate="45" dx=".1em" dy="-.2em">↓</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1364" class="output">h-1" (parents of rebased commit)
+</tspan><tspan xml:space="preserve" x="10" y="1382" class="output">\\\\\\\        to: tpstlust b1b3f972 "sentence case" (rebase destination)
+</tspan><tspan xml:space="preserve" x="10" y="1400" class="output">-Hello World!
+</tspan><tspan xml:space="preserve" x="10" y="1418" class="output">+Hello world!
+</tspan><tspan xml:space="preserve" x="10" y="1436" class="output">+++++++ sytovksv 9fa36e3d "README: say which world" (rebased commit)
+</tspan><tspan xml:space="preserve" x="10" y="1454" class="output">Hello Earth!
+</tspan><tspan xml:space="preserve" x="10" y="1472" class="output">&gt;&gt;&gt;&gt;&gt;&gt;&gt; conflict 1 of 1 ends
+</tspan><tspan xml:space="preserve" x="10" y="1490" class="output">
+</tspan><tspan xml:space="preserve" x="10" y="1508" class="output"><tspan class="fg2"># Now we will resolve the conflict:</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1526" class="output">
+</tspan><tspan xml:space="preserve" x="10" y="1544" class="output">$ echo "Hello earth!" &gt; README
+</tspan><tspan xml:space="preserve" x="10" y="1562" class="output">
+</tspan><tspan xml:space="preserve" x="10" y="1580" class="output"><tspan class="fg2"># The status command no longer reports it:</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1598" class="output">
+</tspan><tspan xml:space="preserve" x="10" y="1616" class="output">$ jj status
+</tspan><tspan xml:space="preserve" x="10" y="1634" class="output">Working copy changes:
+</tspan><tspan xml:space="preserve" x="10" y="1652" class="output"><tspan class="fg6">M README</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1670" class="output">Working copy  (@) : <tspan class="bold fg13">s</tspan><tspan class="bold fg8">ytovksv</tspan><tspan class="bold"> </tspan><tspan class="bold fg12">7fe</tspan><tspan class="bold fg8">f32fb</tspan><tspan class="bold"> README: say which world</tspan>
+</tspan><tspan xml:space="preserve" x="10" y="1688" class="output">Parent commit (@-): <tspan class="bold fg5">t</tspan><tspan class="fg8">pstlust</tspan> <tspan class="bold fg4">b</tspan><tspan class="fg8">1b3f972</tspan> <tspan class="fg5">octocat-patch-1@origin</tspan><tspan class="fg8"> | </tspan>sentence case
 </tspan></text>
     </svg>
 </svg>
