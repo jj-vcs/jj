@@ -131,7 +131,7 @@ pub(crate) async fn cmd_status(
                 writeln!(formatter, "Untracked paths:")?;
                 visit_collapsed_untracked_files(
                     matching_untracked_paths,
-                    status.tree.clone(),
+                    &status.tree,
                     |path, is_dir| {
                         let ui_path = workspace_command.path_converter().format_file_path(path);
                         writeln!(
