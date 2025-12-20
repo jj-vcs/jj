@@ -4399,46 +4399,110 @@ mod tests {
         result
     }
 
+    enum FileState {
+        Tracked,
+        Untracked,
+        Ignored,
+    }
+
     #[test]
     fn test_collapsed_untracked_files() {
         let repo = TestRepo::init();
 
-        let tracked = {
+        let files = &[
+            // Top level files
+            // - tracked
+            (repo_path("top_level_file"), FileState::Tracked),
+            // - untracked
+            (repo_path("untracked_top_level_file"), FileState::Untracked),
+            // - Ignored
+            (repo_path("ignored_top_level_file"), FileState::Ignored),
+            // Top-level directories:
+            // - tracked with a single file
+            (repo_path("tracked/a"), FileState::Tracked),
+            // - tracked with multiple files
+            (repo_path("fully_tracked/b"), FileState::Tracked),
+            (repo_path("fully_tracked/c"), FileState::Tracked),
+            // - partially tracked
+            (repo_path("partially_tracked/d"), FileState::Tracked),
+            (repo_path("partially_tracked/e"), FileState::Untracked),
+            (repo_path("partially_tracked/f"), FileState::Ignored),
+            // - untracked with a single file
+            (repo_path("untracked/g"), FileState::Untracked),
+            // - untracked with multiple files
+            (repo_path("fully_untracked/h"), FileState::Untracked),
+            (repo_path("fully_untracked/i"), FileState::Untracked),
+            // - Ignored with a single file
+            (repo_path("ignored/j"), FileState::Ignored),
+            // - Ignored with multiple files
+            (repo_path("fully_ignored/k"), FileState::Ignored),
+            (repo_path("fully_ignored/l"), FileState::Ignored),
+            // Sub-directories:
+            // - tracked with a single file
+            (repo_path("dir/tracked/m"), FileState::Tracked),
+            // - tracked with multiple files
+            (repo_path("dir/fully_tracked/n"), FileState::Tracked),
+            (repo_path("dir/fully_tracked/o"), FileState::Tracked),
+            // - partially tracked
+            (repo_path("dir/partially_tracked/q"), FileState::Tracked),
+            (repo_path("dir/partially_tracked/r"), FileState::Untracked),
+            (repo_path("dir/partially_tracked/s"), FileState::Ignored),
+            // - untracked with a single file
+            (repo_path("dir/untracked/t"), FileState::Untracked),
+            // - untracked with multiple files
+            (repo_path("dir/fully_untracked/u"), FileState::Untracked),
+            (repo_path("dir/fully_untracked/v"), FileState::Untracked),
+            // - ignored with a single file
+            (repo_path("dir/ignored/w"), FileState::Ignored),
+            // - untracked with multiple files
+            (repo_path("dir/fully_ignored/x"), FileState::Ignored),
+            (repo_path("dir/fully_ignored/y"), FileState::Ignored),
+        ];
+
+        let tree = {
             let mut builder = TestTreeBuilder::new(repo.repo.store().clone());
 
-            builder.file(repo_path("top_level_file"), "");
-            // ? "untracked_top_level_file"
-            // ? "dir"
-            // ? "dir2/c"
-            builder.file(repo_path("dir2/d"), "");
-            // ? "dir3/partially_tracked/e"
-            builder.file(repo_path("dir3/partially_tracked/f"), "");
-            // ? "dir3/fully_untracked/"
-            builder.file(repo_path("dir3/j"), "");
-            // ? "dir3/k"
+            builder.file(
+                repo_path(".gitignore"),
+                files
+                    .iter()
+                    .filter_map(|(repo_path, file_state)| {
+                        matches!(file_state, FileState::Ignored).then_some(repo_path)
+                    })
+                    .fold(String::new(), |mut acc, repo_path| {
+                        acc.push_str(&format!("{repo_path:?}\n"));
+                        acc
+                    }),
+            );
+
+            files.iter().for_each(|(repo_path, file_state)| {
+                if matches!(file_state, FileState::Tracked) {
+                    builder.file(repo_path, "");
+                }
+            });
 
             builder.write_merged_tree()
         };
-        let untracked = &[
-            repo_path("untracked_top_level_file"),
-            repo_path("dir/a"),
-            repo_path("dir/b"),
-            repo_path("dir2/c"),
-            repo_path("dir3/partially_tracked/e"),
-            repo_path("dir3/fully_untracked/g"),
-            repo_path("dir3/fully_untracked/h"),
-            repo_path("dir3/k"),
-        ];
 
+        let untracked_files = files
+            .into_iter()
+            .filter_map(|(repo_path, file_state)| {
+                matches!(file_state, FileState::Untracked).then_some(*repo_path)
+            })
+            .collect_vec();
+
+        // TODO: The collapse is incorrect as it does not take the ignored path
+        // into account.
         insta::assert_snapshot!(
-            collect_collapsed_untracked_files_string(untracked, tracked),
+            collect_collapsed_untracked_files_string(&untracked_files, &tree),
             @r"
         ? untracked_top_level_file
-        ? dir/
-        ? dir2/c
-        ? dir3/partially_tracked/e
-        ? dir3/fully_untracked/
-        ? dir3/k
+        ? partially_tracked/e
+        ? untracked/
+        ? fully_untracked/
+        ? dir/partially_tracked/r
+        ? dir/untracked/
+        ? dir/fully_untracked/
         "
         );
     }
