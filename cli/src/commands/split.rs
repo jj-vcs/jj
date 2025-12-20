@@ -135,9 +135,9 @@ pub(crate) struct SplitArgs {
     /// location.
     #[arg(
         long,
-        alias = "destination",
+        visible_alias = "destination",
         short,
-        short_alias = 'd',
+        visible_short_alias = 'd',
         conflicts_with = "parallel",
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),

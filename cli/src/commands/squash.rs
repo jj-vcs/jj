@@ -118,9 +118,9 @@ pub(crate) struct SquashArgs {
     /// be repeated to create a merge commit)
     #[arg(
         long,
-        alias = "destination",
+        visible_alias = "destination",
         short,
-        short_alias = 'd',
+        visible_short_alias = 'd',
         conflicts_with = "into",
         conflicts_with = "revision",
         value_name = "REVSETS",

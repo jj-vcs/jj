@@ -54,9 +54,9 @@ pub(crate) struct RevertArgs {
     /// The revision(s) to apply the reverse changes on top of
     #[arg(
         long,
-        alias = "destination",
+        visible_alias = "destination",
         short,
-        short_alias = 'd',
+        visible_short_alias = 'd',
         value_name = "REVSETS",
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
