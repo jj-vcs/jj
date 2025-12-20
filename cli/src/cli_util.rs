@@ -191,7 +191,7 @@ use crate::text_util;
 use crate::ui::ColorChoice;
 use crate::ui::Ui;
 
-const SHORT_CHANGE_ID_TEMPLATE_TEXT: &str = "format_short_change_id(self.change_id())";
+const SHORT_CHANGE_ID_TEMPLATE_TEXT: &str = "format_short_change_id_with_change_offset(self)";
 
 #[derive(Clone)]
 struct ChromeTracingFlushGuard {

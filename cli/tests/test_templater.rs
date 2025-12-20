@@ -168,7 +168,7 @@ fn test_templater_alias() {
     'recurse1' = 'recurse2()'
     'recurse2()' = 'recurse'
     'identity(x)' = 'x'
-    'coalesce(x, y)' = 'if(x, x, y)'
+    'coalesce2(x, y)' = 'if(x, x, y)'
     'format_commit_summary_with_refs(x, y)' = 'x.commit_id()'
     'builtin_log_node' = '"#"'
     'builtin_op_log_node' = '"#"'
@@ -315,26 +315,26 @@ fn test_templater_alias() {
     [exit status: 1]
     ");
 
-    insta::assert_snapshot!(render(r#"coalesce(label("x", "not boolean"), "")"#), @r#"
+    insta::assert_snapshot!(render(r#"coalesce2(label("x", "not boolean"), "")"#), @r#"
     ------- stderr -------
-    Error: Failed to parse template: In alias `coalesce(x, y)`
+    Error: Failed to parse template: In alias `coalesce2(x, y)`
     Caused by:
     1:  --> 1:1
       |
-    1 | coalesce(label("x", "not boolean"), "")
-      | ^-------------------------------------^
+    1 | coalesce2(label("x", "not boolean"), "")
+      | ^--------------------------------------^
       |
-      = In alias `coalesce(x, y)`
+      = In alias `coalesce2(x, y)`
     2:  --> 1:4
       |
     1 | if(x, x, y)
       |    ^
       |
       = In function parameter `x`
-    3:  --> 1:10
+    3:  --> 1:11
       |
-    1 | coalesce(label("x", "not boolean"), "")
-      |          ^-----------------------^
+    1 | coalesce2(label("x", "not boolean"), "")
+      |           ^-----------------------^
       |
       = Expected expression of type `Boolean`, but actual type is `Template`
     [EOF]

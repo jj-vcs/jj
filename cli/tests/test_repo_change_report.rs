@@ -170,7 +170,7 @@ fn test_report_conflicts_with_divergent_commits() {
       zsuskuln/0 ab0a21e6 (divergent) (conflict) C2
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
-      jj new zsuskuln
+      jj new zsuskuln/0
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
@@ -185,7 +185,7 @@ fn test_report_conflicts_with_divergent_commits() {
       zsuskuln/0 dbfbac97 (divergent) (conflict) C3
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
-      jj new zsuskuln
+      jj new zsuskuln/0
     Then use `jj resolve`, or edit the conflict markers in the file directly.
     Once the conflicts are resolved, you can inspect the result with `jj diff`.
     Then run `jj squash` to move the resolution into the conflicted commit.
