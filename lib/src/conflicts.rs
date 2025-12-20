@@ -19,6 +19,7 @@ use std::io::Write;
 use std::iter::zip;
 use std::pin::Pin;
 
+use bstr::BStr;
 use bstr::BString;
 use bstr::ByteSlice as _;
 use futures::Stream;
@@ -65,12 +66,6 @@ const CONFLICT_MARKER_LEN_INCREMENT: usize = 4;
 
 /// Comment for missing terminating newline in a term of a conflict.
 const NO_EOL_COMMENT: &str = " (no terminating newline)";
-
-/// Comment for missing terminating newline in the "add" side of a diff.
-const ADD_NO_EOL_COMMENT: &str = " (removes terminating newline)";
-
-/// Comment for missing terminating newline in the "remove" side of a diff.
-const REMOVE_NO_EOL_COMMENT: &str = " (adds terminating newline)";
 
 fn write_diff_hunks(hunks: &[DiffHunk], file: &mut dyn Write) -> io::Result<()> {
     for hunk in hunks {
@@ -614,30 +609,27 @@ fn materialize_jj_style_conflict(
     // Write a diff from a negative term to a positive term
     let write_diff =
         |base_index: usize, add_index: usize, diff: &[DiffHunk], output: &mut dyn Write| {
-            let no_eol_remove = diff
+            let (remove_last_hunk, add_last_hunk) = diff
                 .last()
-                .is_some_and(|diff_hunk| has_no_eol(diff_hunk.contents[0]));
-            let no_eol_add = diff
-                .last()
-                .is_some_and(|diff_hunk| has_no_eol(diff_hunk.contents[1]));
-            let no_eol_comment = match (no_eol_remove, no_eol_add) {
-                (true, true) => NO_EOL_COMMENT,
-                (true, _) => REMOVE_NO_EOL_COMMENT,
-                (_, true) => ADD_NO_EOL_COMMENT,
-                _ => "",
-            };
-            if labels.get_add(add_index).is_none() && labels.get_remove(base_index).is_none() {
+                .map_or((BStr::new(""), BStr::new("")), |diff_hunk| {
+                    (diff_hunk.contents[0], diff_hunk.contents[1])
+                });
+            if labels.get_add(add_index).is_none()
+                && labels.get_remove(base_index).is_none()
+                && !has_no_eol(remove_last_hunk)
+                && !has_no_eol(add_last_hunk)
+            {
                 // TODO: remove this format when all conflicts have labels
-                // Use simple conflict markers when there are no conflict labels.
+                // Use simple conflict markers when there are no conflict labels and no comment
+                // for missing terminating newline.
                 write_conflict_marker(
                     output,
                     ConflictMarkerLineChar::Diff,
                     conflict_marker_len,
                     &format!(
-                        "diff from {} to {}{}",
+                        "diff from {} to {}",
                         get_base_label(base_index),
-                        get_side_label(add_index),
-                        no_eol_comment
+                        get_side_label(add_index)
                     ),
                 )?;
             } else {
@@ -645,13 +637,21 @@ fn materialize_jj_style_conflict(
                     output,
                     ConflictMarkerLineChar::Diff,
                     conflict_marker_len,
-                    &format!("diff from: {}", get_base_label(base_index)),
+                    &format!(
+                        "diff from: {}{}",
+                        get_base_label(base_index),
+                        maybe_no_eol_comment(remove_last_hunk)
+                    ),
                 )?;
                 write_conflict_marker(
                     output,
                     ConflictMarkerLineChar::Note,
                     conflict_marker_len,
-                    &format!("       to: {}{}", get_side_label(add_index), no_eol_comment),
+                    &format!(
+                        "       to: {}{}",
+                        get_side_label(add_index),
+                        maybe_no_eol_comment(add_last_hunk)
+                    ),
                 )?;
             }
             write_diff_hunks(diff, output)

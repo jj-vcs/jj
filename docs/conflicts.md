@@ -208,7 +208,8 @@ would look like this:
 <<<<<<< conflict 1 of 1
 +++++++ side #1 (no terminating newline)
 grapefruit
-%%%%%%% diff from base to side #2 (adds terminating newline)
+%%%%%%% diff from: base (no terminating newline)
+\\\\\\\        to: side #2
 -grape
 +grape
 >>>>>>> conflict 1 of 1 ends

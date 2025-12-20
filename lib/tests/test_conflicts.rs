@@ -645,7 +645,8 @@ fn test_materialize_conflict_no_newlines_at_eof() {
     insta::assert_snapshot!(materialized,
         @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1 (adds terminating newline)
+    %%%%%%% diff from: base (no terminating newline)
+    \\\\\\\        to: side #1
     -base
     +++++++ side #2 (no terminating newline)
     right
@@ -2114,7 +2115,8 @@ fn test_update_conflict_from_content_no_eol() {
     +++++++ side #1
     base
     left
-    %%%%%%% diff from base to side #2 (no terminating newline)
+    %%%%%%% diff from: base (no terminating newline)
+    \\\\\\\        to: side #2 (no terminating newline)
     -base
     +right
     >>>>>>> conflict 2 of 2 ends
@@ -2248,15 +2250,18 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() {
     <<<<<<< conflict 1 of 1
     +++++++ side #1
     side
-    %%%%%%% diff from base #1 to side #2 (adds terminating newline)
+    %%%%%%% diff from: base #1 (no terminating newline)
+    \\\\\\\        to: side #2
      add newline
     -line
     +line
-    %%%%%%% diff from base #2 to side #3 (removes terminating newline)
+    %%%%%%% diff from: base #2
+    \\\\\\\        to: side #3 (no terminating newline)
      remove newline
     -line
     +line
-    %%%%%%% diff from base #3 to side #4 (no terminating newline)
+    %%%%%%% diff from: base #3 (no terminating newline)
+    \\\\\\\        to: side #4 (no terminating newline)
      no newline
     -line 1
     +line 2
@@ -2302,7 +2307,8 @@ fn test_update_conflict_from_content_only_no_eol_change() {
         @r"
     line 1
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1 (removes terminating newline)
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1 (no terminating newline)
     +line 2
     +++++++ side #2
     line 2
