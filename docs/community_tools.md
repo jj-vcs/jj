@@ -81,7 +81,13 @@ Find it [here][jjui].
 
 Selvejj is a JetBrains plugin for integrating Jujutsu as a first-class VCS within the IDE.
 
-Find it [here][selvejj].
+Find it [here][selvejj] and [here (Marketplace)][selvejj-marketplace].
+
+## Jujutsu plugin for IntelliJ IDEA
+
+Native IntelliJ integration for Jujutsu.
+
+Find it [here][jj-idea] and [here (Marketplace)][jj-idea-marketplace].
 
 ## PSCompletions
 
@@ -114,12 +120,15 @@ You can find other community contributed tools and integrations in our
 [hunk.nvim]: https://github.com/julienvincent/hunk.nvim
 [jj-fzf]: https://github.com/tim-janik/jj-fzf
 [jj_tui]: https://github.com/faldor20/jj_tui
+[jj-idea]: https://github.com/kkkev/jj-idea
+[jj-idea-marketplace]: https://plugins.jetbrains.com/plugin/30576-jujutsu-vcs-integration
 [jjk]: https://github.com/keanemind/jjk
 [jjui]: https://github.com/idursun/jjui
 [lazyjj]: https://github.com/Cretezy/lazyjj
 [PSCompletions]: https://github.com/abgox/PSCompletions
 [LightJJ]: https://github.com/chronologos/lightjj
 [selvejj]: https://selvejj.com
+[selvejj-marketplace]: https://plugins.jetbrains.com/plugin/28081-selvejj
 [visualjj]: https://www.visualjj.com
 [vjj]: https://github.com/noahmayr/vjj
 [jj-view]: https://github.com/brychanrobot/jj-view
