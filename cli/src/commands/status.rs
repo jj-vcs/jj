@@ -64,11 +64,6 @@ pub(crate) async fn cmd_status(
     args: &StatusArgs,
 ) -> Result<(), CommandError> {
     let (workspace_command, snapshot_stats) = command.workspace_helper_with_stats(ui)?;
-    print_snapshot_stats(
-        ui,
-        &snapshot_stats,
-        workspace_command.env().path_converter(),
-    )?;
     let repo = workspace_command.repo();
     let maybe_wc_commit = workspace_command
         .get_wc_commit_id()
@@ -83,6 +78,11 @@ pub(crate) async fn cmd_status(
     if let Some(wc_commit) = &maybe_wc_commit {
         let parent_tree = wc_commit.parent_tree(repo.as_ref()).await?;
         let tree = wc_commit.tree();
+        print_snapshot_stats(
+            ui,
+            &snapshot_stats,
+            workspace_command.env().path_converter(),
+        )?;
 
         print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
 

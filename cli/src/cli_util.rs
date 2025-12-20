@@ -2967,11 +2967,71 @@ pub fn print_untracked_files(
     Ok(())
 }
 
+pub fn print_newly_tracked_files(
+    ui: &Ui,
+    stats: &SnapshotStats,
+    path_converter: &RepoPathUiConverter,
+    tree: &MergedTree,
+) -> io::Result<()> {
+    if stats.newly_tracked_paths.is_empty() {
+        return Ok(());
+    }
+
+    let Some(mut formatter) = ui.status_formatter() else {
+        return Ok(());
+    };
+
+    write!(formatter, "Auto-tracking ")?;
+    write!(
+        formatter.labeled("diff").labeled("added"),
+        "{}",
+        stats.newly_tracked_paths.len()
+    )?;
+    writeln!(
+        formatter,
+        " new file{}:",
+        if stats.newly_tracked_paths.len() > 1 {
+            "s"
+        } else {
+            ""
+        }
+    )?;
+
+    visit_collapsed_tracked_files(
+        &stats.newly_tracked_paths,
+        &stats.untracked_paths,
+        &stats.ignored_paths,
+        tree,
+        |path, is_dir| {
+            if let Some(dir_files) = is_dir {
+                write!(
+                    formatter.labeled("diff").labeled("added"),
+                    "A {}{}",
+                    path_converter.format_file_path(path.as_ref()),
+                    std::path::MAIN_SEPARATOR_STR
+                )?;
+                writeln!(formatter, " ({dir_files} files)")?;
+            } else {
+                writeln!(
+                    formatter.labeled("diff").labeled("added"),
+                    "A {}",
+                    path_converter.format_file_path(path.as_ref())
+                )?;
+            }
+            Ok(())
+        },
+    );
+
+    Ok(())
+}
+
 pub fn print_snapshot_stats(
     ui: &Ui,
     stats: &SnapshotStats,
     path_converter: &RepoPathUiConverter,
+    tree: &MergedTree,
 ) -> io::Result<()> {
+    print_newly_tracked_files(ui, stats, path_converter, tree)?;
     print_untracked_files(ui, &stats.untracked_paths, path_converter)?;
 
     let large_files_sizes = stats
