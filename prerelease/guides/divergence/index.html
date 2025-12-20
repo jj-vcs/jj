@@ -1960,10 +1960,10 @@
 <h1 id="handling-divergent-changes">Handling divergent changes<a class="headerlink" href="#handling-divergent-changes" title="Permanent link">&para;</a></h1>
 <h2 id="what-are-divergent-changes">What are divergent changes?<a class="headerlink" href="#what-are-divergent-changes" title="Permanent link">&para;</a></h2>
 <p>A <a href="../../glossary/#divergent-change">divergent change</a> occurs when multiple <a href="../../glossary/#visible-commits">visible commits</a> have the same change
-ID.</p>
-<p>These changes are displayed with a <a href="../../glossary/#change-offset">change offset</a> after their change ID:</p>
+ID. These changes are displayed with a <a href="../../glossary/#change-offset">change offset</a> after their change ID and
+a label of "divergent":</p>
 <div class="highlight"><pre><span></span><code>$<span class="w"> </span>jj<span class="w"> </span>log
-@<span class="w">  </span>mzvwutvl/0<span class="w"> </span>test.user@example.com<span class="w"> </span><span class="m">2001</span>-02-03<span class="w"> </span><span class="m">08</span>:05:12<span class="w"> </span>29d07a2d<span class="w"> </span>divergent
+@<span class="w">  </span>mzvwutvl/0<span class="w"> </span>test.user@example.com<span class="w"> </span><span class="m">2001</span>-02-03<span class="w"> </span><span class="m">08</span>:05:12<span class="w"> </span>29d07a2d<span class="w"> </span><span class="o">(</span>divergent<span class="o">)</span>
 │<span class="w">  </span>a<span class="w"> </span>divergent<span class="w"> </span>change
 </code></pre></div>
 <p>Normally, when commits are rewritten, the original version (the "predecessor")

@@ -2587,10 +2587,10 @@ the same change:</p>
 <span class="go">@  lnvvtrzo jjfan@example.org 2025-02-28 21:01:10 31a347e0</span>
 <span class="go">│  featureA</span>
 <span class="go">│  -- operation 3cb7392c092c snapshot working copy</span>
-<span class="go">○  lnvvtrzo/1 hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8</span>
+<span class="go">○  lnvvtrzo/1 jjfan@example.org 2025-02-28 21:00:51 b8004ab8 (hidden)</span>
 <span class="go">│  featureA</span>
 <span class="go">│  -- operation 1280bfaec893 snapshot working copy</span>
-<span class="go">○  lnvvtrzo/2 hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d</span>
+<span class="go">○  lnvvtrzo/2 jjfan@example.org 2025-02-28 20:50:05 e4d831d (hidden)</span>
 <span class="go">   (no description set)</span>
 <span class="go">   -- operation 0418a5aa94b5 snapshot working copy</span>
 </code></pre></div>
@@ -2616,7 +2616,7 @@ running <code>jj evolog --patch</code>:</p>
 <span class="go">│  @@ -1,1 +1,2 @@</span>
 <span class="go">│   Done with feature A</span>
 <span class="go">│  +Working on feature B</span>
-<span class="go">○  lnvvtrzo/1 hidden jjfan@example.org 2025-02-28 21:00:51 b8004ab8</span>
+<span class="go">○  lnvvtrzo/1 jjfan@example.org 2025-02-28 21:00:51 b8004ab8 (hidden)</span>
 <span class="go">│  featureA</span>
 <span class="go">│  -- operation 1280bfaec893 snapshot working copy</span>
 <span class="go">│  diff --git a/file b/file</span>
@@ -2626,7 +2626,7 @@ running <code>jj evolog --patch</code>:</p>
 <span class="go">│  @@ -1,1 +1,1 @@</span>
 <span class="go">│  -Working on feature A</span>
 <span class="go">│  +Done with feature A</span>
-<span class="go">○  lnvvtrzo/2 hidden jjfan@example.org 2025-02-28 20:50:05 e4d831d</span>
+<span class="go">○  lnvvtrzo/2 jjfan@example.org 2025-02-28 20:50:05 e4d831d (hidden)</span>
 <span class="go">   (no description set)</span>
 <span class="go">   -- operation 0418a5aa94b5 snapshot working copy</span>
 <span class="go">   diff --git a/file b/file</span>
@@ -2653,7 +2653,7 @@ state at commit <code>b80</code> (see step 1 above for how we found that commit 
 <p>First, we create a new empty child commit on top of <code>b80</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>new<span class="w"> </span>b80<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;featureB&quot;</span>
 <span class="go">Working copy  (@) now at: pvnrkl 47171aa (empty) featureB</span>
-<span class="go">Parent commit (@-)      : lnvvtr/1 b8004ab featureA</span>
+<span class="go">Parent commit (@-)      : lnvvtr/1 b8004ab (divergent) featureA</span>
 </code></pre></div>
 <p>There are now two visible commits with change ID <code>lnvvtr</code> (commit <code>b8004ab</code>
 and <code>31a347e0</code>), so we call these <a href="../glossary/#divergent-change">divergent</a>. Similarly
@@ -2664,7 +2664,7 @@ This temporary divergence is okay and will be resolved in the next steps.</p>
 <p>Next, restore the contents of <code>31a347e0</code> into the working copy:</p>
 <div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>restore<span class="w"> </span>--from<span class="w"> </span>31a347e0
 <span class="go">Working copy  (@) now at: pvnrkl 468104c featureB</span>
-<span class="go">Parent commit (@-)      : lnvvtr/1 b8004ea featureA</span>
+<span class="go">Parent commit (@-)      : lnvvtr/1 b8004ea (divergent) featureA</span>
 <span class="gp">$ </span>cat<span class="w"> </span>file
 <span class="go">Done with feature A</span>
 <span class="go">Working on feature B</span>
