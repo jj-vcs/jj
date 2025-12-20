@@ -117,7 +117,7 @@ pub trait LockedWorkingCopy: Any + Send {
     async fn snapshot(
         &mut self,
         options: &SnapshotOptions,
-    ) -> Result<(MergedTree, SnapshotStats), SnapshotError>;
+    ) -> Result<SnapshotResult, SnapshotError>;
 
     /// Check out the specified commit in the working copy.
     async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError>;
@@ -244,6 +244,16 @@ pub struct SnapshotStats {
     pub ignored_paths: BTreeMap<RepoPathBuf, bool>,
     /// List of new tracked files.
     pub newly_tracked_paths: Vec<RepoPathBuf>,
+}
+
+/// Result of a snapshot operation.
+#[derive(Clone, Debug)]
+pub struct SnapshotResult {
+    /// New tree of the updated working copy resulting from the snapshot
+    /// operation.
+    pub new_tree: MergedTree,
+    /// Stats about the snapshot operation.
+    pub stats: SnapshotStats,
 }
 
 /// Reason why the new path isn't tracked.

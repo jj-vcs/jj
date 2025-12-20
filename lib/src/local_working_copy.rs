@@ -122,6 +122,7 @@ use crate::working_copy::ResetError;
 use crate::working_copy::SnapshotError;
 use crate::working_copy::SnapshotOptions;
 use crate::working_copy::SnapshotProgress;
+use crate::working_copy::SnapshotResult;
 use crate::working_copy::SnapshotStats;
 use crate::working_copy::UntrackedReason;
 use crate::working_copy::WorkingCopy;
@@ -2870,11 +2871,14 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
     async fn snapshot(
         &mut self,
         options: &SnapshotOptions,
-    ) -> Result<(MergedTree, SnapshotStats), SnapshotError> {
+    ) -> Result<SnapshotResult, SnapshotError> {
         let tree_state = self.wc.tree_state_mut()?;
         let (is_dirty, stats) = tree_state.snapshot(options).await?;
         self.tree_state_dirty |= is_dirty;
-        Ok((tree_state.current_tree().clone(), stats))
+        Ok(SnapshotResult {
+            new_tree: tree_state.current_tree().clone(),
+            stats,
+        })
     }
 
     async fn check_out(&mut self, commit: &Commit) -> Result<CheckoutStats, CheckoutError> {
