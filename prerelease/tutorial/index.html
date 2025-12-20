@@ -2264,13 +2264,14 @@ Once<span class="w"> </span>the<span class="w"> </span>conflicts<span class="w">
 Then<span class="w"> </span>run<span class="w"> </span><span class="sb">`</span>jj<span class="w"> </span>squash<span class="sb">`</span><span class="w"> </span>to<span class="w"> </span>move<span class="w"> </span>the<span class="w"> </span>resolution<span class="w"> </span>into<span class="w"> </span>the<span class="w"> </span>conflicted<span class="w"> </span>commit.
 
 $<span class="w"> </span>cat<span class="w"> </span>file1
-<span class="o">&lt;&lt;&lt;&lt;&lt;&lt;</span>&lt;<span class="w"> </span>Conflict<span class="w"> </span><span class="m">1</span><span class="w"> </span>of<span class="w"> </span><span class="m">1</span>
-%%%%%%%<span class="w"> </span>Changes<span class="w"> </span>from<span class="w"> </span>base<span class="w"> </span>to<span class="w"> </span>side<span class="w"> </span><span class="c1">#1</span>
+<span class="o">&lt;&lt;&lt;&lt;&lt;&lt;</span>&lt;<span class="w"> </span>conflict<span class="w"> </span><span class="m">1</span><span class="w"> </span>of<span class="w"> </span><span class="m">1</span>
+%%%%%%%<span class="w"> </span>diff<span class="w"> </span>from:<span class="w"> </span>ovknlmro<span class="w"> </span>7d7c6e6b<span class="w"> </span><span class="s2">&quot;B1&quot;</span><span class="w"> </span><span class="o">(</span>parents<span class="w"> </span>of<span class="w"> </span>rebased<span class="w"> </span>commit<span class="o">)</span>
+<span class="se">\\\\\\\ </span><span class="w">       </span>to:<span class="w"> </span>nuvyytnq<span class="w"> </span>5dda2f09<span class="w"> </span><span class="s2">&quot;A&quot;</span><span class="w"> </span><span class="o">(</span>rebase<span class="w"> </span>destination<span class="o">)</span>
 -b1
 +a
-+++++++<span class="w"> </span>Contents<span class="w"> </span>of<span class="w"> </span>side<span class="w"> </span><span class="c1">#2</span>
++++++++<span class="w"> </span>puqltutt<span class="w"> </span>daa6ffd5<span class="w"> </span><span class="s2">&quot;B2&quot;</span><span class="w"> </span><span class="o">(</span>rebased<span class="w"> </span>commit<span class="o">)</span>
 b2
-&gt;&gt;&gt;&gt;&gt;&gt;&gt;<span class="w"> </span>Conflict<span class="w"> </span><span class="m">1</span><span class="w"> </span>of<span class="w"> </span><span class="m">1</span><span class="w"> </span>ends
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;<span class="w"> </span>conflict<span class="w"> </span><span class="m">1</span><span class="w"> </span>of<span class="w"> </span><span class="m">1</span><span class="w"> </span>ends
 
 $<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>resolved<span class="w"> </span>&gt;<span class="w"> </span>file1
 

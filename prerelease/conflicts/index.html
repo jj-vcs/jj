@@ -2010,22 +2010,25 @@ changes together with <code>jj new A B</code>, the resulting commit will have a 
 since Jujutsu can't figure out how to combine these changes. Therefore, Jujutsu
 will materialize the conflict in the working copy using conflict markers, which
 would look like this:</p>
-<div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; Conflict 1 of 1
-%%%%%%% Changes from base to side #1
+<div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; conflict 1 of 1
+%%%%%%% diff from: vpxusssl 38d49363 &quot;merge base&quot;
+\\\\\\\        to: rtsqusxu 2768b0b9 &quot;commit A&quot;
  apple
 -grape
 +grapefruit
  orange
-+++++++ Contents of side #2
++++++++ ysrnknol 7a20f389 &quot;commit B&quot;
 APPLE
 GRAPE
 ORANGE
-&gt;&gt;&gt;&gt;&gt;&gt;&gt; Conflict 1 of 1 ends
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; conflict 1 of 1 ends
 </code></pre></div>
 <p>The markers <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code> and <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> indicate the start and end of a conflict
 respectively. The marker <code>+++++++</code> indicates the start of a snapshot, while the
-marker <code>%%%%%%%</code> indicates the start of a diff to apply to the snapshot.
-Therefore, to resolve this conflict, you would apply the diff (changing "grape"
+marker <code>%%%%%%%</code> indicates the start of a diff to apply to the snapshot. The
+<code>\\\\\\\</code> marker just allows the label to be split across two lines to make it
+more readable.</p>
+<p>Therefore, to resolve this conflict, you would apply the diff (changing "grape"
 to "grapefruit") to the snapshot (the side with every line in uppercase),
 editing the file to look like this:</p>
 <div class="highlight"><pre><span></span><code>APPLE
@@ -2046,30 +2049,30 @@ requires applying each diff to the snapshot one-by-one.</p>
 <p>If you prefer to just see the contents of each side of the conflict without the
 diff, Jujutsu also supports a "snapshot" style, which can be enabled by setting
 the <code>ui.conflict-marker-style</code> config option to "snapshot":</p>
-<div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; Conflict 1 of 1
-+++++++ Contents of side #1
+<div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; conflict 1 of 1
++++++++ rtsqusxu 2768b0b9 &quot;commit A&quot;
 apple
 grapefruit
 orange
-------- Contents of base
+------- vpxusssl 38d49363 &quot;merge base&quot;
 apple
 grape
 orange
-+++++++ Contents of side #2
++++++++ ysrnknol 7a20f389 &quot;commit B&quot;
 APPLE
 GRAPE
 ORANGE
-&gt;&gt;&gt;&gt;&gt;&gt;&gt; Conflict 1 of 1 ends
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; conflict 1 of 1 ends
 </code></pre></div>
 <p>Some tools expect Git-style conflict markers, so Jujutsu also supports <a href="https://git-scm.com/docs/git-merge#_how_conflicts_are_presented">Git's
 "diff3" style</a>
 conflict markers by setting the <code>ui.conflict-marker-style</code> config option to
 "git":</p>
-<div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; Side #1 (Conflict 1 of 1)
+<div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; rtsqusxu 2768b0b9 &quot;commit A&quot;
 apple
 grapefruit
 orange
-||||||| Base
+||||||| vpxusssl 38d49363 &quot;merge base&quot;
 apple
 grape
 orange
@@ -2077,7 +2080,7 @@ orange
 APPLE
 GRAPE
 ORANGE
-&gt;&gt;&gt;&gt;&gt;&gt;&gt; Side #2 (Conflict 1 of 1 ends)
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; ysrnknol 7a20f389 &quot;commit B&quot;
 </code></pre></div>
 <p>This conflict marker style only supports 2-sided conflicts though, so it falls
 back to the similar "snapshot" conflict markers if there are more than 2 sides
@@ -2088,15 +2091,15 @@ instance, a line could start with <code>=======</code>, which looks like a Git-s
 conflict marker. To ensure that it's always unambiguous which lines are conflict
 markers and which are just part of the file contents, <code>jj</code> sometimes uses
 conflict markers which are longer than normal:</p>
-<div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; Conflict 1 of 1
-%%%%%%%%%%%%%%% Changes from base to side #1
+<div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; conflict 1 of 1
+%%%%%%%%%%%%%%% diff from base to side #1
 -Heading
 +HEADING
  =======
-+++++++++++++++ Contents of side #2
++++++++++++++++ side #2
 New Heading
 ===========
-&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; Conflict 1 of 1 ends
+&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; conflict 1 of 1 ends
 </code></pre></div>
 <h2 id="conflicts-with-missing-terminating-newline">Conflicts with missing terminating newline<a class="headerlink" href="#conflicts-with-missing-terminating-newline" title="Permanent link">&para;</a></h2>
 <p>When materializing conflicts, <code>jj</code> outputs them in a line-based format. This
@@ -2112,13 +2115,13 @@ generally ignore this comment and resolve the conflict normally.</p>
 character, and one person changed <code>grape</code> to <code>grapefruit</code>, while another person
 added the missing newline character to make <code>grape\n</code>, the resulting conflict
 would look like this:</p>
-<div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; Conflict 1 of 1
-+++++++ Contents of side #1 (no terminating newline)
+<div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; conflict 1 of 1
++++++++ side #1 (no terminating newline)
 grapefruit
-%%%%%%% Changes from base to side #2 (adds terminating newline)
+%%%%%%% diff from base to side #2 (adds terminating newline)
 -grape
 +grape
-&gt;&gt;&gt;&gt;&gt;&gt;&gt; Conflict 1 of 1 ends
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; conflict 1 of 1 ends
 </code></pre></div>
 <p>Therefore, a resolution of this conflict could be <code>grapefruit\n</code>, with the
 terminating newline character added.</p>
