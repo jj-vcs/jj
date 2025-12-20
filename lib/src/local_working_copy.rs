@@ -1315,6 +1315,7 @@ impl TreeState {
         let (tree_entries_tx, tree_entries_rx) = channel();
         let (file_states_tx, file_states_rx) = channel();
         let (untracked_paths_tx, untracked_paths_rx) = channel();
+        let (ignored_paths_tx, ignored_paths_rx) = channel();
         let (deleted_files_tx, deleted_files_rx) = channel();
 
         trace_span!("traverse filesystem").in_scope(|| -> Result<(), SnapshotError> {
@@ -1328,6 +1329,7 @@ impl TreeState {
                 tree_entries_tx,
                 file_states_tx,
                 untracked_paths_tx,
+                ignored_paths_tx,
                 deleted_files_tx,
                 error: OnceLock::new(),
                 progress: *progress,
@@ -1350,6 +1352,7 @@ impl TreeState {
 
         let stats = SnapshotStats {
             untracked_paths: untracked_paths_rx.into_iter().collect(),
+            ignored_paths: ignored_paths_rx.into_iter().collect(),
         };
         let mut tree_builder = MergedTreeBuilder::new(self.tree.clone());
         trace_span!("process tree entries").in_scope(|| {
@@ -1499,6 +1502,7 @@ struct FileSnapshotter<'a> {
     tree_entries_tx: Sender<(RepoPathBuf, MergedTreeValue)>,
     file_states_tx: Sender<(RepoPathBuf, FileState)>,
     untracked_paths_tx: Sender<(RepoPathBuf, UntrackedReason)>,
+    ignored_paths_tx: Sender<(RepoPathBuf, bool)>,
     deleted_files_tx: Sender<RepoPathBuf>,
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
@@ -1622,6 +1626,7 @@ impl FileSnapshotter<'_> {
                 // ignored directory must be ignored. It's also more efficient.
                 // start_tracking_matcher is NOT tested here because we need to
                 // scan directory entries to report untracked paths.
+                self.ignored_paths_tx.send((path, true)).ok();
                 self.spawn_ok(scope, move |_| {
                     self.visit_tracked_files(file_states).block_on()
                 });
@@ -1646,8 +1651,8 @@ impl FileSnapshotter<'_> {
             if maybe_current_file_state.is_none()
                 && (git_ignore.matches_file(&path) && !self.force_tracking_matcher.matches(&path))
             {
-                // If it wasn't already tracked and it matches
-                // the ignored paths, then ignore it.
+                // If it wasn't already tracked and it matches the ignored paths.
+                self.ignored_paths_tx.send((path, false)).ok();
                 Ok(None)
             } else if maybe_current_file_state.is_none()
                 && !self.start_tracking_matcher.matches(&path)
