@@ -32,6 +32,19 @@ fn test_track_untrack() {
     work_dir.run_jj(["st"]).success();
     work_dir.write_file(".gitignore", "*.bak\n");
     let files_before = work_dir.run_jj(["file", "list"]).success();
+    insta::assert_snapshot!(files_before, @r"
+    .gitignore
+    file1
+    file1.bak
+    file2.bak
+    target/file2
+    target/file3
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A .gitignore
+    [EOF]
+    ");
 
     // Errors out when not run at the head operation
     let output = work_dir.run_jj(["file", "untrack", "file1", "--at-op", "@-"]);
@@ -66,8 +79,16 @@ fn test_track_untrack() {
     [exit status: 1]
     ");
     let files_after = work_dir.run_jj(["file", "list"]).success();
-    // There should be no changes to the state when there was an error
-    assert_eq!(files_after, files_before);
+    // There should be no changes to the state when there was an error.
+    insta::assert_snapshot!(files_after, @r"
+    .gitignore
+    file1
+    file1.bak
+    file2.bak
+    target/file2
+    target/file3
+    [EOF]
+    ");
 
     // Can untrack a single file
     assert!(files_before.stdout.raw().contains("file1.bak\n"));
@@ -126,6 +147,11 @@ fn test_track_untrack_sparse() {
     file1
     file2
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A file1
+    A file2
+    [EOF]
     ");
     work_dir
         .run_jj(["sparse", "set", "--clear", "--add", "file1"])
@@ -163,6 +189,10 @@ fn test_auto_track() {
     let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     file1.rs
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1.rs
     [EOF]
     ");
 
@@ -283,6 +313,11 @@ fn test_track_ignored_with_flag() {
     .gitignore
     file1.txt
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A .gitignore
+    A file1.txt
+    [EOF]
     ");
 
     // Track ignored file with --include-ignored
@@ -313,6 +348,8 @@ fn test_track_large_file_with_flag() {
     small.txt
     [EOF]
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A small.txt
     Warning: Refused to snapshot some files:
       large.txt: 20.0B (20 bytes); the maximum size allowed is 10.0B (10 bytes)
     Hint: This is to prevent large files from being added by accident. You can fix this by:
@@ -363,6 +400,10 @@ fn test_track_ignored_directory() {
     let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     .gitignore
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A .gitignore
     [EOF]
     ");
 

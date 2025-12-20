@@ -2887,11 +2887,71 @@ pub fn print_untracked_files(
     Ok(())
 }
 
+pub fn print_newly_tracked_files(
+    ui: &Ui,
+    stats: &SnapshotStats,
+    path_converter: &RepoPathUiConverter,
+) -> io::Result<()> {
+    // TODO:
+    // - collapse the list of files when they belong to a same directory, see to
+    //   implement something similar to / or reuse
+    //   commands::status::visit_collapsed_untracked_files()
+    // - With the collapsed output, we can fall back to a message displayed
+    // which mimicks the status command output.
+    //  proposed format:
+    // ```
+    // Auto-tracking {nb_total} new files:
+    //     {file_path}
+    //     {dir_path} ({nb_files_in_dir)
+    //     ... and {remaining} other files.
+    // ```
+    // Last line appearing only when the message starts to be too long (~10
+    // lines maximum). Path and numbers of file printed with the diff-added
+    // color (green by default).
+    if stats.newly_tracked_paths.is_empty() {
+        return Ok(());
+    }
+    let Some(mut formatter) = ui.status_formatter() else {
+        return Ok(());
+    };
+
+    write!(formatter, "Auto-tracking ")?;
+    write!(
+        formatter.labeled("diff").labeled("added"),
+        "{}",
+        stats.newly_tracked_paths.len()
+    )?;
+    writeln!(
+        formatter,
+        " new file{}:",
+        if stats.newly_tracked_paths.len() > 1 {
+            "s"
+        } else {
+            ""
+        }
+    )?;
+
+    // TODO Use visit_collapsed_tracked_files()
+    // - How to get a Tree?
+    // - paths are RepoPathBuf not RepoPath, troubles with a re-implementing
+    // visit_collapsed_tracked_files() with traits.
+    for repo_path_buf in stats.newly_tracked_paths.clone() {
+        writeln!(
+            formatter.labeled("diff").labeled("added"),
+            "A {}",
+            path_converter.format_file_path(repo_path_buf.as_ref())
+        )?;
+    }
+
+    Ok(())
+}
+
 pub fn print_snapshot_stats(
     ui: &Ui,
     stats: &SnapshotStats,
     path_converter: &RepoPathUiConverter,
 ) -> io::Result<()> {
+    print_newly_tracked_files(ui, stats, path_converter)?;
     print_untracked_files(ui, &stats.untracked_paths, path_converter)?;
 
     let large_files_sizes = stats

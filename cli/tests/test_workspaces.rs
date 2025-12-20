@@ -313,6 +313,8 @@ fn test_workspaces_add_at_operation() {
     let output = main_dir.run_jj(["commit", "-m1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     Working copy  (@) now at: rlvkpnrz 59e07459 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 9e4b0b91 1
     [EOF]
@@ -322,6 +324,8 @@ fn test_workspaces_add_at_operation() {
     let output = main_dir.run_jj(["commit", "-m2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file2
     Working copy  (@) now at: kkmpptxz 6e9610ac (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 8b7259b9 2
     [EOF]
@@ -352,6 +356,7 @@ fn test_workspaces_add_at_operation() {
     [EOF]
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
+    Tracking file4
     [EOF]
     ");
 
@@ -1008,6 +1013,8 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         ------- stderr -------
         Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 778c9aae54957e842bede2223fda227be33e08061732276a4cfb7b431a3e146e5c62187d640aa883095d3b2c6cf43d31ad5fde72076bb9a88b8594fb8b5e6606 of type operation not found
         Created and checked out recovery commit 866928d1e0fd
+        Auto-tracking 1 new file:
+        A added
         [EOF]
         ");
     } else {
@@ -1026,6 +1033,8 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         ------- stderr -------
         Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 778c9aae54957e842bede2223fda227be33e08061732276a4cfb7b431a3e146e5c62187d640aa883095d3b2c6cf43d31ad5fde72076bb9a88b8594fb8b5e6606 of type operation not found
         Created and checked out recovery commit 866928d1e0fd
+        Auto-tracking 1 new file:
+        A added
         [EOF]
         ");
     }

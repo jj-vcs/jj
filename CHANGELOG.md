@@ -98,6 +98,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New option `--ignored` for `jj status` to have the list of ignored path
   currently in the working copy printed.
 
+* Print a message to indicate to the user when files starts to be tracked by
+  the auto-tracking system.
+
 ### Fixed bugs
 
 * `jj git init --colocate` now refuses to run inside a Git worktree, providing
