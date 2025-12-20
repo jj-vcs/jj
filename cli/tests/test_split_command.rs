@@ -59,6 +59,12 @@ fn test_split_by_paths() {
     @  qpvuntsmwlqt false
     ◆  zzzzzzzzzzzz true
     [EOF]
+    ------- stderr -------
+    Auto-tracking 3 new files:
+    A file1
+    A file2
+    A file3
+    [EOF]
     ");
     insta::assert_snapshot!(get_recorded_dates(&work_dir, "@"), @r"
     Author date:  2001-02-03 04:05:08.000 +07:00
@@ -279,6 +285,9 @@ fn test_split_with_default_description() {
     let output = work_dir.run_jj(["split", "file1"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 2 new files:
+    A file1
+    A file2
     Selected changes : qpvuntsm ff633dcc TESTED=TODO
     Remaining changes: rlvkpnrz b1d20b7e (no description set)
     Working copy  (@) now at: rlvkpnrz b1d20b7e (no description set)
@@ -509,6 +518,11 @@ fn test_split_parallel_no_descendants() {
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  qpvuntsmwlqt false
     ◆  zzzzzzzzzzzz true
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A file1
+    A file2
     [EOF]
     ");
 
@@ -886,6 +900,9 @@ fn test_split_interactive() {
     let output = work_dir.run_jj(["split"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 2 new files:
+    A file1
+    A file2
     Selected changes : qpvuntsm c664a51b (no description set)
     Remaining changes: rlvkpnrz 7e5d65b1 (no description set)
     Working copy  (@) now at: rlvkpnrz 7e5d65b1 (no description set)
@@ -963,6 +980,8 @@ fn test_split_interactive_with_paths() {
     let output = work_dir.run_jj(["split", "-i", "file1", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     Selected changes : rlvkpnrz cdc9960a (no description set)
     Remaining changes: kkmpptxz 7255f070 (no description set)
     Working copy  (@) now at: kkmpptxz 7255f070 (no description set)

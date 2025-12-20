@@ -134,6 +134,8 @@ fn test_no_subcommand() {
     let output = work_dir.run_jj([""; 0]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file.txt
     Working copy  (@) now at: kxryzmor 8db1ba9a (empty) (no description set)
     Parent commit (@-)      : lylxulpl 19f3adb2 foo
     [EOF]
@@ -152,13 +154,21 @@ fn test_ignore_working_copy() {
     @  82a10a4d9ef783fd68b661f40ce10dd80d599d9e
     ◆  0000000000000000000000000000000000000000
     [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file
+    [EOF]
     ");
 
     // Modify the file. With --ignore-working-copy, we still get the same commit
     // ID.
     work_dir.write_file("file", "modified");
     let output_again = work_dir.run_jj(["log", "-T", "commit_id", "--ignore-working-copy"]);
-    assert_eq!(output_again, output);
+    insta::assert_snapshot!(output_again, @r"
+    @  82a10a4d9ef783fd68b661f40ce10dd80d599d9e
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
 
     // But without --ignore-working-copy, we get a new commit ID.
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);

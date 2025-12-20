@@ -71,6 +71,8 @@ fn test_annotate_non_file() {
     let output = work_dir.run_jj(["file", "annotate", "dir"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A dir/file.txt
     Error: Path exists but is not a regular file: dir
     [EOF]
     [exit status: 1]

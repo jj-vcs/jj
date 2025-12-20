@@ -49,6 +49,10 @@ fn test_diff() {
     Modified regular file z-last:
        1    1: foobar
     [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A added-secret
+    [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--summary"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
@@ -119,6 +123,12 @@ fn test_file_list_show() {
     a-first
     secret
     z-last
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 3 new files:
+    A a-first
+    A secret
+    A z-last
     [EOF]
     ");
 

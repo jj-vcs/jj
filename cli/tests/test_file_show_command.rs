@@ -32,6 +32,11 @@ fn test_show() {
     insta::assert_snapshot!(output, @r"
     a
     [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A dir/file2
+    A file3
+    [EOF]
     ");
 
     // Defaults to printing the working-copy version
@@ -153,6 +158,10 @@ fn test_show_symlink() {
     --- symlink1 [symlink]
     [EOF]
     ------- stderr -------
+    Auto-tracking 3 new files:
+    A dir/file2
+    A file1
+    A symlink1
     Warning: Path 'symlink1' exists but is not a file
     [EOF]
     ");
