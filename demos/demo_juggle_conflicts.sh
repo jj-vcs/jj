@@ -4,7 +4,7 @@ set -euo pipefail
 
 new_tmp_dir
 (
-    jj debug init-local
+    jj debug init-simple
     echo "first" > file
     jj bookmark create first
     jj commit -m 'first'
@@ -25,8 +25,8 @@ run_command "jj diff -r second"
 run_command "jj diff -r third"
 
 comment "Let's reorder the second and third commits:"
-run_command_output_redacted "jj rebase -s third -d first"
-run_command "jj rebase -s second -d third"
+run_command_output_redacted "jj rebase -s third --onto first"
+run_command "jj rebase -s second --onto third"
 run_command "jj log"
 comment "The commit labeled \"third\" has a conflict, as expected. What's more
 interesting is that the top commit has no conflict! That's because it
@@ -38,7 +38,7 @@ run_command "cat file"
 
 comment "Let's now instead make \"second\" and \"third\"
 sibling and merge them:"
-run_command "jj rebase -s second -d first"
+run_command "jj rebase -s second --onto first"
 run_command "jj new second third -m merged"
 run_command "jj log"
 comment "Again, because the merge commit has the

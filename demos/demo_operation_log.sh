@@ -21,7 +21,7 @@ how the operation log works. Let's add a file, set
 a description, and rebase onto the \"test\" bookmark:"
 run_command "echo stuff > new-file"
 run_command "jj describe -m stuff"
-run_command "jj rebase -d test"
+run_command "jj rebase --onto test"
 
 comment "We are now going to make another change off of
 master:"

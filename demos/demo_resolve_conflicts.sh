@@ -4,7 +4,7 @@ set -euo pipefail
 
 new_tmp_dir
 {
-    jj git clone https://github.com/octocat/Hello-World 
+    jj git clone https://github.com/octocat/Hello-World
     cd Hello-World
     jj abandon --ignore-immutable test@origin
     jj bookmark forget test
@@ -29,7 +29,7 @@ That commit looks like this:"
 run_command "jj diff -r b1"
 
 comment "Now rebase:"
-run_command "jj rebase -d b1"
+run_command "jj rebase --onto b1"
 
 comment "That seemed to succeed but we are also told there is now a conflict.
 Let's take a look at the repo:"
