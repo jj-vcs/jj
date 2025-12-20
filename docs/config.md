@@ -260,7 +260,7 @@ if(parents.len() > 1,
 '''
 ```
 
-### Bookmark/tag listing order
+### Bookmark / tag listing order
 
 By default, `jj bookmark list` and `jj tag list` display bookmarks and tags
 sorted alphabetically by name. You can customize this sorting behavior by

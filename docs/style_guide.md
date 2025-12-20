@@ -30,7 +30,7 @@ Use end-to-end tests for testing the CLI commands themselves.
 
 ### General
 
-In general, try to follow [`rust-lang/rfcs` 1574]. The important points are:
+In general, try to follow [`rust-lang/rfcs` 1574][rust-lang/rfcs-1574]. The important points are:
 
 - Use documentation comments (`///`) on types, functions, and fields.
 
@@ -69,7 +69,7 @@ In general, try to follow [`rust-lang/rfcs` 1574]. The important points are:
   complete sentences. But use your own judgment too; for example a sentence that
   says "Returns blah blah." would be fine.
 
-[`rust-lang/rfcs` 1574]:
+[rust-lang/rfcs-1574]:
   https://github.com/rust-lang/rfcs/blob/master/text/1574-more-api-documentation-conventions.md
 
 ### Subcommand comments
@@ -118,7 +118,7 @@ Specifically for `jj` subcommands:
   CLI.
   - For example, `jj rebase --help`.
 
-- Default aliases (i.e., those defined in [`misc.toml`]) are not automatically
+- Default aliases (i.e., those defined in [`misc.toml`][misc.toml]) are not automatically
   shown by `clap`, since it doesn't know about them. Mention these at the end of
   the first line for the command in question in the format
   `[default alias: <alias>]`. For example, the first line of `jj describe` is:
@@ -136,7 +136,7 @@ Specifically for `jj` subcommands:
   `test_generate_markdown_docs_in_docs_dir` test to generate
   `cli-reference@.md.snap`.
 
-[`misc.toml`]: ../cli/src/config/misc.toml
+[misc.toml]: https://github.com/jj-vcs/jj/blob/main/cli/src/config/misc.toml
 
 ### Command argument / option comments
 

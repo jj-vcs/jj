@@ -20,7 +20,7 @@ these things include, but are not limited to:
 *   Pre-upload checks (eg. [Chromium Pre-upload Checks])
 *   Syncing scripts (eg. [Chromium Syncing Scripts])
 *   Custom aliases / revsets documented by some kind of “getting started with
-    <project>” document
+    &lt;project&gt;” document
 
 It should be fairly obvious that there is a strong benefit to doing so. However,
 controlling a user’s config is sufficient to get root access to their machine,
@@ -40,8 +40,8 @@ drawbacks:
 
 *   Create a new layer of configuration between user configuration and repo
     configuration.
-    *   This configuration will be stored in version control and henceforth be
-        referred to as “managed” configuration.
+  *   This configuration will be stored in version control and henceforth be
+      referred to as “managed” configuration.
 *   Implement it in a secure manner so that an attacker cannot take control over
     the managed config.
 
@@ -159,43 +159,43 @@ semantics. If a config is not approved / rejected, we have 3 options:
 * Use no config. This can potentially have quite bad effects on the repo.
 * Use best-effort to use an approved config (probably most recently approved).
 * Force the user to make a selection before running a command
-  * This is impossible in general due to `ui.can_prompt()` returning false
+  * This is impossible in general due to `ui.can_prompt()` returning `false`
     * We would need to fall back to another option if we can't prompt.
   * But `ui.can_prompt()` does not mean that we *should* prompt
-    * Eg. A script that runs jj to do a bisection probably doesn't want
+    * E.g., a script that runs jj to do a bisection probably doesn't want
       you to prompt every time the config changes.
-    * This probably isn't too bad if it only happens once (eg. setting trust
+    * This probably isn't too bad if it only happens once (e.g., setting trust
       level), but if it happens many times, it could be very annoying.
 
 Consider the following examples
 
 ###### User is working on config file.
 
-1) User runs `vim .config/jj/config.toml`
-2) User tries to test out the config, but needs to manually approve their own
+1. User runs `vim .config/jj/config.toml`
+2. User tries to test out the config, but needs to manually approve their own
    local change to the config every single time (this can at least be
    mitigated via setting it to trust temporarily)
 
 ###### Disabling config messes with the repo
 
-1) User approves a config.
-2) User runs `jj git fetch`. There has been an update to the managed config.
-3) User runs `jj rebase -b @ -d trunk()`. The managed config is now not
+1. User approves a config.
+2. User runs `jj git fetch`. There has been an update to the managed config.
+3. User runs `jj rebase -b @ -o trunk()`. The managed config is now not
    approved, and thus the next jj command will have the config disabled.
 
 Depending on what has changed, a variety of things could happen:
 * A user in a repo that defines `trunk()` could run
-  `jj rebase -b <revset> -d trunk()`
+  `jj rebase -b <revset> -o trunk()`
   * This would result in it going to the wrong trunk
 * A user in a repo that defines `immutable_heads() = ...` could run something
-  like `jj rebase -b mutable() -d trunk()`
+  like `jj rebase -b mutable() -o trunk()`
   * This would rebase a bunch of immutable commits
 * A user in a repo that defines `pre-upload` hooks (which don't yet exist,
-  but are being planned) runs `jj gerrit upload` and bypasses them entirely. 
+  but are being planned) runs `jj gerrit upload` and bypasses them entirely.
 
 Thanks to the magic of `jj undo`, everything except the upload is recoverable.
 What makes them a problem, however, is the fact that a user would see the
-message "please approve /reject the config" and not suspect that the command
+message "please approve / reject the config" and not suspect that the command
 has failed.
 
 ###### Best-effort messes with the user
@@ -204,9 +204,9 @@ If we use best-effort instead, we are likely to run into a different set of
 issues.
 
 The first is that it's no longer clear which config is being used. If I:
-1) Have two workspaces A and B with the same state, both approved.
-2) Sync workspace B and approve the config
-3) Check out an old version of workspace A
+1. Have two workspaces A and B with the same state, both approved.
+2. Sync workspace B and approve the config
+3. Check out an old version of workspace A
 
 Now which config is used?
 * The most recently approved globally?
@@ -239,7 +239,7 @@ Due to:
   * There was already a lot of
     [discussion](https://github.com/jj-vcs/jj/pull/7761#discussion_r2476135221)
     on this topic, but no clear conclusion was reached.
-  * Technical (eg. disable vs best-effort)
+  * Technical (e.g., disable vs. best-effort)
   * UX
     * When reviewing, do we review diffs or full config files?
     * Do we prompt the user to review before running the command?
@@ -276,21 +276,21 @@ Consider several different use cases:
 
 *   My formatter was previously `clang-format --foo`, but the option `--foo` was
     deprecated in the latest version of `clang-format`
-    *   Here, you want to read from `trunk()`
+  *   Here, you want to read from `trunk()`
 *   My formatter was previously `$repo/formatter --foo`, but the option `--foo`
     was deprecated in the latest version of `formatter`
-    *   Here, you want to read from `@`
+  *   Here, you want to read from `@`
 *   We decide to split long lines and add a new formatter (or pre-upload hook)
     config `formatter --line-length=80`
-    *   Here, you probably want to read from `@`
+  *   Here, you probably want to read from `@`
 *   We decide to add a pre-upload check that validates that all commit
     descriptions contain a reference to a bug
-    *   This should be applied to old branches as well, so you want `trunk()`
+  *   This should be applied to old branches as well, so you want `trunk()`
 *   We add a new helpful alias / revset
-    *   This should be applied to old branches as well, so you want `trunk()`
+  *   This should be applied to old branches as well, so you want `trunk()`
 *   We move our formatter
-    *   If it’s external, you want to read from `trunk()`
-    *   If it’s internal, you want to read from `@`
+  *   If it’s external, you want to read from `trunk()`
+  *   If it’s internal, you want to read from `@`
 
 All in all, you can see a general pattern.
 

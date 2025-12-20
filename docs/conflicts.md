@@ -205,7 +205,7 @@ marker (`>>>>>>>`).
 For instance, if a file originally contained `grape` with no terminating newline
 character, and one person changed `grape` to `grapefruit`, while another person
 added the missing newline character to make `grape\n`, the resulting conflict
-would look like this (␊ demonstrates the `\n` character explicitly, note that
+would look like this (`␊` demonstrates the `\n` character explicitly; note that
 the last line doesn't have the terminating `\n` character):
 
 ```text

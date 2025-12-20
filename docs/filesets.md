@@ -89,7 +89,7 @@ You can also specify patterns by using functions.
 ## Aliases
 
 New symbols, functions, and `<name>:<value>` patterns can be defined in the
-config file, by using any combination of the predefined symbols/functions and
+config file, by using any combination of the predefined symbols / functions and
 other aliases.
 
 Alias functions can be overloaded by the number of parameters. However, builtin

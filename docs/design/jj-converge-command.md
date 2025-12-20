@@ -4,8 +4,8 @@ Authors: [David Rieber](mailto:drieber@google.com),
 [Martin von Zweigbergk](mailto:martinvonz@google.com)
 
 **Summary:** This document is a proposal for a new `jj converge` command to help
-users resolve (or reduce) divergence. The command will use heuristics --and
-sometimes will prompt the user for input-- to rewrite the N visible commits for
+users resolve (or reduce) divergence. The command will use heuristics -- and
+sometimes will prompt the user for input -- to rewrite the N visible commits for
 a given change with a single new commit, without introducing new divergence in
 the process. `jj resolve-divergence` will be an alias for `jj converge`.
 
@@ -42,13 +42,13 @@ Divergent commits (for the same change-id) can differ:
     timestamps that are otherwise identical
 
 As you read this design doc it is important to not confuse the
-*predecessor/successor* relationship versus the *ancestor/descendant*
+*predecessor / successor* relationship versus the *ancestor / descendant*
 relationship.
 
 ### Some divergence scenarios
 
 Divergence can be introduced in many ways. This document does not aim to explain
-any/all of those scenarios accurately, this section is only meant to be rough
+any / all of those scenarios accurately, this section is only meant to be rough
 background material. Here are some examples:
 
 *   In one terminal you type `jj describe` to edit a commit description and
@@ -58,7 +58,7 @@ background material. Here are some examples:
     new description `jj describe` completes and you end up with 2 visible
     commits with the same change id.
 
-*   In general any interactive jj command (`jj split -i`, `jj squash -i`, etc)
+*   In general any interactive jj command (`jj split -i`, `jj squash -i`, etc.)
     can lead to divergence in a similar way.
 
 *   You can introduce divergence by making some hidden predecessor of your
@@ -76,7 +76,7 @@ background material. Here are some examples:
     commit with the same change-id.
 
 *   There is a Google-specific jj upload command to upload a commit to Google's
-    review/test/submit system, and there is an associated Google-specific
+    review / test / submit system, and there is an associated Google-specific
     command to "download" a change from that system back to your jj repo. This
     can introduce divergence very much like in the Git scenario.
 
@@ -104,8 +104,9 @@ B/0 and B/1 may have other predecessors for unrelated change-ids, P may have
 predecessors (even for change-id B):
 
 B/0
-|  B/1
-| /
+|
+| B/1
+|/
 P
 ```
 
@@ -131,7 +132,7 @@ $ jj log
  | B/0 (not visible)
  |/
  | B/1 (not visible)
- | /
+ |/
  A
 ```
 
@@ -141,6 +142,7 @@ other parent. First, if *P*'s parent is *A* we have:
 ```console
 $ jj log
 B/0
+|
 | B/1
 |/
 | P (not visible)
@@ -193,8 +195,8 @@ B/0
 | B/1
 |/
 A
-|  P (not visible)
-| /
+| P (not visible)
+|/
 X
 ```
 
@@ -209,7 +211,7 @@ parent of the solution is *A*.
 $ jj log
 B/0
 |
-|  B/1
+|   B/1
 |  /
 | C
 |/
@@ -223,12 +225,12 @@ the solution. Let's first consider the case where *P* is a child of *A*.
 $ jj log
 B/0
 |
-|  B/1
+|   B/1
 |  /
 | C
 |/
-|  P (not visible)
-| /
+| P (not visible)
+|/
 A
 ```
 
@@ -267,8 +269,8 @@ B/0
 | C
 |/
 A
-|  P (not visible)
-| /
+| P (not visible)
+|/
 X
 ```
 
@@ -294,10 +296,10 @@ parent/child relationship):
 
 B/0'
 |
-|  B/1'
+| B/1'
 |/
-|  P'
-| /
+| P'
+|/
 C
 ```
 
@@ -358,8 +360,8 @@ even for change-id B):
 B/0     (description: "v3")
 |
 |  B/1  (description: "v2")
-Q  /    (description: "v2")
-| /
+Q /     (description: "v2")
+|/
 P       (description: "v1")
 ```
 
@@ -408,8 +410,8 @@ Truncated evolution graph:
 B/0     ( foo.txt contents: "v3" )
 |
 |  B/1  ( foo.txt contents: "v2" )
-Q  /    ( foo.txt contents: "v1" )
-| /
+Q /     ( foo.txt contents: "v1" )
+|/
 P       ( foo.txt contents: "v1" )
 ```
 
@@ -440,7 +442,7 @@ On the other hand,
 then we would introduce new divergence or cycles in the commit graph if we based
 on the solution on such candidate parents. In these edge cases the command will
 simply discard the candidate parents and will instead ask the user to choose
-which parents to use (or quit quit without making any changes). Care must be
+which parents to use (or quit without making any changes). Care must be
 taken when picking the options to present to the user for choosing parents:
 essentially the user will choose between the parents of *B/0*, the parents of
 *B/1*, and so on, but we will skip any *B/i* if any of the parents of *B/i*
@@ -488,7 +490,7 @@ probably best to error out.
 
 It would be nice if divergence was avoided in the first place, at least in some
 cases, at the point where jj is about to introduce the second (or third or
-fourth etc) visible commit for a given change id. This should be investigated
+fourth, etc.) visible commit for a given change id. This should be investigated
 separately.
 
 ### Resolve divergence two commits at a time

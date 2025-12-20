@@ -294,7 +294,7 @@ push = "origin"
 ## Git push options
 
 `jj git push` supports passing Git “push options” to the server via
-`-o/--option`. These are forwarded to the remote and interpreted by the hosting
+`-o`/`--option`. These are forwarded to the remote and interpreted by the hosting
 platform, if it supports them. You can repeat `-o` to send multiple options.
 
 - Syntax: `jj git push -o <push_option>` or `jj git push --option <push_option>`

@@ -27,7 +27,7 @@ search space. They are included in `all()`, `x..`, `~x`, etc., but not in
 
 The `@` expression refers to the working copy commit in the current workspace.
 Use `<workspace name>@` to refer to the working-copy commit in another
-workspace. Use `<name>@<remote>` to refer to a remote-tracking tag/bookmark.
+workspace. Use `<name>@<remote>` to refer to a remote-tracking tag / bookmark.
 
 A full commit ID refers to a single commit. A unique prefix of the full commit
 ID can also be used. It is an error to use a non-unique prefix.
@@ -95,7 +95,7 @@ y) | z` or `x & (y | z)`.
       to `x:: & ::y`. This is what `git log` calls `--ancestry-path x..y`.
    * `x..y`: Ancestors of `y` that are not also ancestors of `x`. Equivalent to
      `::y ~ ::x`. This is what `git log` calls `x..y` (i.e. the same as we call it).
-     Note that this is *not* a "path" between `x` and `y` in the commit graph—`x`
+     Note that this is *not* a "path" between `x` and `y` in the commit graph -- `x`
      and `y` do not need to be related by ancestry.
    * `::`: All visible commits in the repo. Equivalent to `all()`, and
      `root()::visible_heads()` if no hidden revisions are mentioned.
@@ -115,7 +115,7 @@ side. For example, `(A | B)..` is **not** equivalent to `A.. | B..`. The
 expression `(A | B)..` means "commits that are not ancestors of A *and* not
 ancestors of B", while `A.. | B..` means "commits that are not ancestors of A
 *or* not ancestors of B". In fact, `(A | B).. = A.. & B..`. See the examples
-*below for concrete illustrations.
+below for concrete illustrations.
 
 <!-- The following format will be understood by the web site generator, and will
  generate a folded section that can be unfolded at will. -->

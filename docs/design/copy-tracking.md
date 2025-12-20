@@ -310,7 +310,7 @@ the same is true for the `baz` file. Therefore, we break up their diffs into two
 separate diffs for each file.
 
 Among the remaining copy IDs, the shortest path in the copy graph is between
-`foo` on the source side and `baz` on the destination side, so we start with.
+`foo` on the source side and `baz` on the destination side, so we start with these.
 Since `foo` doesn't exist on the destination side and `baz` doesn't exist on the
 source side (with a related copy ID), we consider it a rename.
 
@@ -471,7 +471,7 @@ K add foo="K"
 Let's say we rebase `M` onto `L`. Since we decided to not automatically
 propagate changes to copies, we will leave the `M+(L-K)` tree unresolved (i.e.
 without making any changes to the three trees). If the user does not resolve
-the conflict, and instead rebases `L` back onto `K`, the conflict will be
+the conflict, and instead rebases `M` back onto `K`, the conflict will be
 resolved automatically per the usual conflict simplification.
 
 #### Example: Multiple copies
@@ -702,7 +702,7 @@ so we should propagate your changes to the new file location. As described
 earlier, we can do that by finding files that have a different copy ID since the
 last time you synced with the main branch. However, if there are 10 million new
 commits on the main branch, there's perhaps tens of thousands of such files
-spread across the entire tree. That can therefore can be very expensive to
+spread across the entire tree. That can therefore be very expensive to
 calculate. We therefore need to be able to get help from a custom backend
 implementation with this query.
 

@@ -63,7 +63,7 @@ $ jj gerrit upload -r @-
 
 ## Selecting revisions (revsets)
 
-`jj gerrit upload` accepts one or more `-r/--revisions` arguments. Each argument
+`jj gerrit upload` accepts one or more `-r`/`--revisions` arguments. Each argument
 may expand to multiple commits. Common patterns:
 
 - `-r @-`: the commit previous to the one you're currently working on

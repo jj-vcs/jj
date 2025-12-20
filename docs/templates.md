@@ -44,15 +44,15 @@ y) * z`.
 
 3. * `p:x`: String pattern or pattern alias named `p`.
 
-4. * `x * y`, `x / y`, `x % y`: Multiplication/division/remainder. Operands must
+4. * `x * y`, `x / y`, `x % y`: Multiplication / division / remainder. Operands must
      be `Integer`s.
 
-5. * `x + y`, `x - y`: Addition/subtraction. Operands must be `Integer`s.
+5. * `x + y`, `x - y`: Addition / subtraction. Operands must be `Integer`s.
 
-6. * `x >= y`, `x > y`, `x <= y`, `x < y`: Greater than or equal/greater than/
-     lesser than or equal/lesser than. Operands must be `Integer`s.
+6. * `x >= y`, `x > y`, `x <= y`, `x < y`: Greater than or equal / greater than /
+     lesser than or equal / lesser than. Operands must be `Integer`s.
 
-7. * `x == y`, `x != y`: Equal/not equal. Operands must be either `Boolean`,
+7. * `x == y`, `x != y`: Equal / not equal. Operands must be either `Boolean`,
      `Integer`, or `String`.
 
 8. * `x && y`: Logical and, short-circuiting.
@@ -106,7 +106,7 @@ The following functions are defined.
   effectively removes color labels.
 * `json(value: Serialize) -> String`: Serialize `value` in JSON format.
 * `if(condition: Boolean, then: Any, [else: Any]) -> Any`:
-  Conditionally evaluates to `then`/`else` content.
+  Conditionally evaluates to `then` / `else` content.
 * `coalesce(content: Template...) -> Template`: Returns the first **non-empty**
   content.
 * `concat(content: Template...) -> Template`:
@@ -327,9 +327,9 @@ This type holds the diff stats per file. The following methods are defined.
 * `.bytes_delta() -> Integer`: The difference in size of the file, in bytes.
 * `.lines_added() -> Integer`: Number of lines added.
 * `.lines_removed() -> Integer`: Number of lines deleted.
-* `.path() -> RepoPath`: Path to the entry. If the entry is a copy/rename, this
+* `.path() -> RepoPath`: Path to the entry. If the entry is a copy / rename, this
   points to the target (or right) entry.
-* `.display_diff_path() -> String`: Format path for display, taking into account copy/rename information.
+* `.display_diff_path() -> String`: Format path for display, taking into account copy / rename information.
 * `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`, `"copied"`, or `"renamed"`.
 * `.status_char() -> String`: One of `"M"` (modified), `"A"` (added), `"D"` (removed),
   `"C"` (copied), or `"R"` (renamed).
@@ -542,7 +542,7 @@ defined.
 * `.trim_start() -> String`: Removes leading whitespace
 * `.trim_end() -> String`: Removes trailing whitespace
 * `.substr(start: Integer, [end: Integer]) -> String`: Extract substring. The
-  `start`/`end` indices should be specified in units of UTF-8 bytes. Indices are
+  `start` / `end` indices should be specified in units of UTF-8 bytes. Indices are
   0-based and `end` is exclusive. Negative values count from the end of the
   string, with `-1` being the last byte. If the `start` index is in the middle
   of a UTF-8 codepoint, the codepoint is fully part of the result. If the `end`
@@ -670,9 +670,9 @@ _Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
-* `.path() -> RepoPath`: Path to the entry. If the entry is a copy/rename, this
+* `.path() -> RepoPath`: Path to the entry. If the entry is a copy / rename, this
   points to the target (or right) entry.
-* `.display_diff_path() -> String`: Format path for display, taking into account copy/rename information.
+* `.display_diff_path() -> String`: Format path for display, taking into account copy / rename information.
 * `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`,
   `"copied"`, or `"renamed"`.
 * `.status_char() -> String`: Single-character status indicator: `"M"` for modified,
@@ -779,17 +779,17 @@ concat(
 Get short commit IDs of the working-copy parents:
 
 ```sh
-jj log --no-graph -r @ -T 'parents.map(|c| c.commit_id().short()).join(",")'
+jj log -G -r @ -T 'parents.map(|c| c.commit_id().short()).join(",")'
 ```
 
 Show machine-readable list of full commit and change IDs:
 
 ```sh
-jj log --no-graph -T 'commit_id ++ " " ++ change_id ++ "\n"'
+jj log -G -T 'commit_id ++ " " ++ change_id ++ "\n"'
 ```
 
 Print the description of the current commit, defaulting to `(no description set)`:
 
 ```sh
-jj log -r @ --no-graph -T 'coalesce(description, "(no description set)\n")'
+jj log -G -r @ -T 'coalesce(description, "(no description set)\n")'
 ```

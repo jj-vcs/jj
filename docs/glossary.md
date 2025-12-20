@@ -92,7 +92,7 @@ default. When using the Git backend, the commit ID is the Git commit ID.
 
 When using the Git [backend](#backend) and the backing Git repository's `.git/`
 directory is a sibling of `.jj/`, we call the workspace colocated. Most
-tools designed for Git can be easily used on such workspace. `jj` and `git`
+tools designed for Git can be easily used on such workspaces. `jj` and `git`
 commands can be used interchangeably.
 
 See [here](git-compatibility.md#colocated-jujutsugit-repos) for details.

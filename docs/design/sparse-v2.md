@@ -195,7 +195,7 @@ vec![WorkingCopyMapping {
 ```
 
 `WorkingCopyPatterns` will provide an interface to map working copy paths into
-repo paths and vice versa. The `WorkingCopy`` trait will apply this mapping to
+repo paths and vice versa. The `WorkingCopy` trait will apply this mapping to
 all snapshot and checkout operations, and jj commands which accept relative
 paths will need to be updated to perform working copy path -> repo path
 translations as needed. It's not clear at this time _which_ commands will need
