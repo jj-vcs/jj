@@ -54,8 +54,8 @@ commits and repos (operation logs) to be stored in the cloud (i.e. the database)
 Working copies can still be stored locally.
 
 In order to reduce latency, there is a local daemon process that caches reads
-and writes. It also prefetches of objects it thinks the client might ask for
-next. In also helps with write latency by optimistically answering write
+and writes. It also prefetches objects it thinks the client might ask for
+next. It also helps with write latency by optimistically answering write
 requests (it therefore needs to know the server's hashing scheme so it can
 return the right IDs).
 

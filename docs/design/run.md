@@ -89,9 +89,9 @@ unpredictable.
 
 Some of these use-cases should get a specialized command, as this allows
 further optimization. A command could be `jj format`, which runs a list of
-formatters over a subset of a file in a revision. Another command could be
+formatters over a subset of the files in a revision. Another command could be
 `jj fix`, which runs a command like `rustfmt --fix` or `cargo clippy --fix` over
-a subset of a file in a revision.
+a subset of the files in a revision.
 
 ## Design
 
@@ -118,7 +118,7 @@ ignored files can be used to address that. We may want to also have a flag for
 cleaning up temporary working copies *after* running the command.
 
 An early version of the command will directly use [Treestate] to
-to manage the temporary working copies. That means that running `jj` inside the
+manage the temporary working copies. That means that running `jj` inside the
 temporary working copies will not work . We can later extend that to use a full
 [Workspace]. To prevent operations in the working copies from
 impacting the repo, we can use a separate [OpHeadsStore] for it.
@@ -213,7 +213,7 @@ communicate that information to jj.
 ## Command Options
 
 The base command of any jj command should be usable. By default `jj run` works
-on the `@` the current working copy.
+on `@`, the current working copy.
 * --command, explicit name of the first argument
 * -x, for git compatibility (may alias another command)
 * -j, --jobs, the amount of parallelism to use
@@ -231,18 +231,18 @@ command)
 
 ### Integrating with other commands
 
-`jj log`: No special handling needed
-`jj diff`: No special handling needed
-`jj st`: For now reprint the final output of `jj run`
-`jj op log`: No special handling needed, but awaits further discussion in
-[#963][issue]
-`jj undo/jj op revert`: No special handling needed
+* `jj log`: No special handling needed
+* `jj diff`: No special handling needed
+* `jj st`: For now reprint the final output of `jj run`
+* `jj op log`: No special handling needed, but awaits further discussion in
+  [#963][issue]
+* `jj undo/jj op revert`: No special handling needed
 
 ## Open Points
 
-Should the command be working copy backend specific?
-How do we manage the Processes which the command will spawn?
-Configuration options, User and Repository Wide?
+- Should the command be working copy backend specific?
+- How do we manage the Processes which the command will spawn?
+- Configuration options, User and Repository Wide?
 
 ## Future possibilities
 
@@ -252,7 +252,7 @@ Configuration options, User and Repository Wide?
 needed working copies.
 - A Jujutsu wide concept for a cached working copy, as they could be expensive
 to materialize.
-- Customized failure messages, this maybe useful for bots, it could be similar
+- Customized failure messages, this may be useful for bots, it could be similar
 to Bazel's `select(..., message = "arch not supported for $project")`.
 - Make `jj run` asynchronous by spawning a `main` process, directly return to the
 user and incrementally updating the output of `jj st`.
