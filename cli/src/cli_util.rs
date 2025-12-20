@@ -462,9 +462,11 @@ impl CommandHelper {
             self.workspace_helper_with_result(ui).await?;
         print_maybe_snapshot_result(
             ui,
+            self.settings().config(),
             &maybe_snapshot_result,
             workspace_command.env().path_converter(),
-        )?;
+        )
+        .await?;
         Ok(workspace_command)
     }
 
@@ -1325,7 +1327,13 @@ impl WorkspaceCommandHelper {
             .await
             .map_err(|err| err.into_command_error())?;
 
-        print_maybe_snapshot_result(ui, &maybe_snapshot_result, self.env().path_converter())?;
+        print_maybe_snapshot_result(
+            ui,
+            self.env.settings.config(),
+            &maybe_snapshot_result,
+            self.env().path_converter(),
+        )
+        .await?;
         let op_id_after = self.repo().op_id();
         Ok(op_id_before != *op_id_after)
     }
@@ -3175,6 +3183,77 @@ pub fn snapshot_stats_from_maybe_result(
     maybe_snapshot_result.map_or(SnapshotStats::default(), |r| r.stats)
 }
 
+pub async fn print_newly_tracked(
+    ui: &Ui,
+    config: &StackedConfig,
+    snapshot_result: &SnapshotResult,
+    path_converter: &RepoPathUiConverter,
+) -> Result<(), CommandError> {
+    let show_newly_tracked = config.get::<bool>("ui.show-newly-tracked").unwrap_or(true);
+
+    if !show_newly_tracked {
+        return Ok(());
+    }
+
+    let SnapshotResult { new_tree, stats } = snapshot_result;
+
+    if stats.newly_tracked_paths.is_empty() {
+        return Ok(());
+    }
+
+    let Some(mut formatter) = ui.status_formatter() else {
+        return Ok(());
+    };
+
+    write!(formatter, "Auto-tracking ")?;
+    write!(
+        formatter.labeled("diff").labeled("added"),
+        "{}",
+        stats.newly_tracked_paths.len()
+    )?;
+    writeln!(
+        formatter,
+        " new file{}:",
+        if stats.newly_tracked_paths.len() > 1 {
+            "s"
+        } else {
+            ""
+        }
+    )?;
+
+    visit_collapsed_tracked_files(
+        &stats.newly_tracked_paths,
+        &stats.untracked_paths.keys().collect::<Vec<&RepoPathBuf>>(),
+        &stats
+            .ignored_paths
+            .iter()
+            .map(|(p, is_dir)| (p, *is_dir))
+            .collect::<Vec<(&RepoPathBuf, bool)>>(),
+        new_tree,
+        |path, is_dir| {
+            if let Some(dir_files) = is_dir {
+                write!(
+                    formatter.labeled("diff").labeled("added"),
+                    "A {}{}",
+                    path_converter.format_file_path(path.as_ref()),
+                    std::path::MAIN_SEPARATOR_STR
+                )?;
+                writeln!(formatter, " ({dir_files} files)")?;
+            } else {
+                writeln!(
+                    formatter.labeled("diff").labeled("added"),
+                    "A {}",
+                    path_converter.format_file_path(path.as_ref())
+                )?;
+            }
+            Ok(())
+        },
+    )
+    .await?;
+
+    Ok(())
+}
+
 /// Print a warning to the user, listing untracked files that he may care about
 pub fn print_untracked_files(
     ui: &Ui,
@@ -3198,23 +3277,46 @@ pub fn print_untracked_files(
     Ok(())
 }
 
-pub fn print_maybe_snapshot_result(
+pub async fn print_maybe_snapshot_result(
     ui: &Ui,
+    config: &StackedConfig,
     maybe_result: &Option<SnapshotResult>,
     path_converter: &RepoPathUiConverter,
-) -> io::Result<()> {
+) -> Result<(), CommandError> {
     if let Some(result) = maybe_result.as_ref() {
-        print_snapshot_result(ui, result, path_converter)
+        print_snapshot_result(ui, config, result, path_converter).await
     } else {
         Ok(())
     }
 }
 
-pub fn print_snapshot_result(
+pub async fn print_snapshot_result(
+    ui: &Ui,
+    config: &StackedConfig,
+    result: &SnapshotResult,
+    path_converter: &RepoPathUiConverter,
+) -> Result<(), CommandError> {
+    print_newly_tracked(ui, config, result, path_converter).await?;
+    print_snapshot_result_without_newly_tracked(ui, result, path_converter)
+}
+
+pub fn print_maybe_snapshot_result_without_newly_tracked(
+    ui: &Ui,
+    maybe_result: &Option<SnapshotResult>,
+    path_converter: &RepoPathUiConverter,
+) -> Result<(), CommandError> {
+    if let Some(result) = maybe_result.as_ref() {
+        print_snapshot_result_without_newly_tracked(ui, result, path_converter)
+    } else {
+        Ok(())
+    }
+}
+
+pub fn print_snapshot_result_without_newly_tracked(
     ui: &Ui,
     result: &SnapshotResult,
     path_converter: &RepoPathUiConverter,
-) -> io::Result<()> {
+) -> Result<(), CommandError> {
     print_untracked_files(ui, &result.stats.untracked_paths, path_converter)?;
 
     let large_files_sizes =
@@ -3226,6 +3328,7 @@ pub fn print_snapshot_result(
                 UntrackedReason::FileTooLarge { size, .. } => Some(size),
                 UntrackedReason::FileNotAutoTracked => None,
             });
+
     if let Some(size) = large_files_sizes.max() {
         print_large_file_hint(ui, *size, None)?;
     }

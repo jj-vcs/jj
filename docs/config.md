@@ -610,6 +610,17 @@ edit = true
 You can pass the `--no-edit` flag to `prev` and `next` if you find yourself
 needing the original behavior.
 
+### Disable showing newly tracked message
+
+By default, a message is printed when jj starts automatically tracking a file
+while snapshotting the working copy. This behavior can be disabled with the
+following configuration:
+
+```toml
+[ui]
+show-newly-tracked = false
+```
+
 ## List
 
 ### Default Template
