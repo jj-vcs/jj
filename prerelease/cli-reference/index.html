@@ -7785,7 +7785,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><code>gerrit</code> — Interact with Gerrit Code Review</li>
 <li><code>git</code> — Commands for working with Git remotes and the underlying Git repo</li>
 <li><code>help</code> — Print this message or the help of the given subcommand(s)</li>
-<li><code>interdiff</code> — Compare the changes of two commits</li>
+<li><code>interdiff</code> — Show differences between the diffs of two revisions</li>
 <li><code>log</code> — Show revision history</li>
 <li><code>metaedit</code> — Modify the metadata of a revision without changing its content</li>
 <li><code>new</code> — Create a new, empty change and (by default) edit it in the working copy</li>
@@ -9061,8 +9061,14 @@ configuration.</p>
 </li>
 </ul>
 <h2 id="jj-interdiff"><code>jj interdiff</code><a class="headerlink" href="#jj-interdiff" title="Permanent link">&para;</a></h2>
-<p>Compare the changes of two commits</p>
-<p>This excludes changes from other commits by temporarily rebasing <code>--from</code> onto <code>--to</code>'s parents. If you wish to compare the same change across versions, consider <code>jj evolog -p</code> instead.</p>
+<p>Show differences between the diffs of two revisions</p>
+<p>This is like running <code>jj diff -r</code> on each change, then comparing those results. It answers: "How do the modifications introduced by revision A differ from the modifications introduced by revision B?"</p>
+<p>For example, if two changes both add a feature but implement it differently, <code>jj interdiff --from @- --to other</code> shows what one implementation adds or removes that the other doesn't.</p>
+<p>A common use of this command is to compare how a change has changed since the last push to a remote:</p>
+<p><code>sh $ jj interdiff --from push-xyz@origin --to push-xyz</code></p>
+<p>This command is different from <code>jj diff --from A --to B</code>, which compares file contents directly. <code>interdiff</code> compares what the changes do in terms of their patches, rather than their file contents. This makes a difference when the two revisions have different parents: <code>jj diff --from A --to B</code> will include the changes between their parents while <code>jj interdiff --from A --to B</code> will not.</p>
+<p>Technically, this works by rebasing <code>--from</code> onto <code>--to</code>'s parents and comparing the result to <code>--to</code>.</p>
+<p>To see the changes throughout the whole evolution of a change instead of between just two revisions, use <code>jj evolog -p instead</code>.</p>
 <p><strong>Usage:</strong> <code>jj interdiff [OPTIONS] &lt;--from &lt;REVSET&gt;|--to &lt;REVSET&gt;&gt; [FILESETS]...</code></p>
 <h6 id="arguments_37"><strong>Arguments:</strong><a class="headerlink" href="#arguments_37" title="Permanent link">&para;</a></h6>
 <ul>
@@ -9070,8 +9076,8 @@ configuration.</p>
 </ul>
 <h6 id="options_37"><strong>Options:</strong><a class="headerlink" href="#options_37" title="Permanent link">&para;</a></h6>
 <ul>
-<li><code>-f</code>, <code>--from &lt;REVSET&gt;</code> — Show changes from this revision</li>
-<li><code>-t</code>, <code>--to &lt;REVSET&gt;</code> — Show changes to this revision</li>
+<li><code>-f</code>, <code>--from &lt;REVSET&gt;</code> — The first revision to compare (default: @)</li>
+<li><code>-t</code>, <code>--to &lt;REVSET&gt;</code> — The second revision to compare (default: @)</li>
 <li><code>-s</code>, <code>--summary</code> — For each path, show only whether it was modified, added, or deleted</li>
 <li><code>--stat</code> — Show a histogram of the changes</li>
 <li>
