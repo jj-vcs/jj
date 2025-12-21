@@ -812,6 +812,30 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
     Ok(())
 }
 
+pub fn print_diff(
+    formatter: &mut dyn Formatter,
+    settings: &UserSettings,
+    lhs: &str,
+    rhs: &str,
+) -> Result<(), CommandError> {
+    let options = ColorWordsDiffOptions::from_settings(settings)?;
+    let contents = Diff::new(bstr::BStr::new(lhs), bstr::BStr::new(rhs));
+    let line_number = DiffLineNumber { left: 1, right: 1 };
+    let labels = Diff::new("removed", "added");
+
+    let mut diff_formatter = formatter.labeled("diff");
+    show_color_words_resolved_hunks(
+        &mut *diff_formatter,
+        contents,
+        line_number,
+        labels,
+        &options,
+    )
+    .map_err(|err| cli_error(format!("Failed to print diff: {err}")))?;
+
+    Ok(())
+}
+
 fn show_color_words_conflict_hunks(
     formatter: &mut dyn Formatter,
     contents: Diff<&Merge<BString>>,

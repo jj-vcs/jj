@@ -17,6 +17,7 @@ use std::path::PathBuf;
 
 use indoc::indoc;
 use itertools::Itertools as _;
+use jj_cli::config::MANAGED_CONFIG_PATH;
 use regex::Regex;
 use testutils::TestResult;
 
@@ -1865,4 +1866,171 @@ fn test_config_author_change_warning_root_env() {
 fn find_stdout_lines(keyname_pattern: &str, stdout: &str) -> String {
     let key_line_re = Regex::new(&format!(r"(?m)^{keyname_pattern} = .*\n")).unwrap();
     key_line_re.find_iter(stdout).map(|m| m.as_str()).collect()
+}
+
+#[test]
+fn test_config_managed_unset() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file(MANAGED_CONFIG_PATH, "aliases.managed = 'managed'");
+
+    let output = work_dir.run_jj(["config", "get", "aliases.managed"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: The repo at $TEST_ENV/repo/.jj/repo contains a managed config file, but the managed config for this repo is not configured.
+    Please run `jj config managed --review/trust/ignore` to configure it:
+    * --review requires you to review whenever the managed config changes. This is recommended if either:
+      * You don't trust the repo owners.
+      * You want to patch commits from users you don't trust.
+    * --trust trusts this repo. Be careful with this option, since:
+      * Any future changes to the managed config upstream will be trusted
+      * Patches downloaded locally (eg. an unsubmitted PR) that change the managed config will be trusted.
+    * --ignore ignores managed configs for this repo. This is the safest option, but least useful.
+    Config error: Value not found for aliases.managed
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Now try running it interactively. Check that after selecting trust, it
+    // actually loads the managed config.
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["config", "get", "aliases.managed"])
+            .write_stdin("t\n")
+    });
+    insta::assert_snapshot!(output, @r"
+    managed
+    [EOF]
+    ------- stderr -------
+    The repo at $TEST_ENV/repo/.jj/repo contains a managed config file. You can:
+    (r) Review whenever the managed config changes. This is recommended if either:
+      * You don't trust the repo owners.
+      * You want to patch commits from users you don't trust.
+    (t) Trust this repo. Be careful with this option, since:
+      * Any future changes to the managed config upstream will be trusted
+      * Patches downloaded locally (eg. an unsubmitted PR) that change the managed config will be trusted.
+    (i) Ignore managed configs for this repo. This is the safest option, but least useful.
+    Please select an option (r/t/i): [EOF]
+    ");
+}
+
+#[test]
+fn test_config_managed_ignored() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file(MANAGED_CONFIG_PATH, "aliases.managed = 'managed'");
+    let output = work_dir.run_jj(["config", "managed", "--ignore"]);
+    insta::assert_snapshot!(output, @r"");
+
+    let output = work_dir.run_jj(["config", "get", "aliases.managed"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Config error: Value not found for aliases.managed
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_config_managed_trust() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file(MANAGED_CONFIG_PATH, "aliases.managed = 'managed'");
+    let output = work_dir.run_jj(["config", "managed", "--trust"]);
+    insta::assert_snapshot!(output, @r"");
+
+    let output = work_dir.run_jj(["config", "get", "aliases.managed"]);
+    insta::assert_snapshot!(output, @r"
+    managed
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_config_managed_review() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let mut managed_content = vec![];
+    let mut add_line = |line| {
+        managed_content.push(line);
+        work_dir.write_file(MANAGED_CONFIG_PATH, managed_content.join("\n"));
+    };
+
+    add_line(r#"aliases.managed = ["log", "--no-graph", "-r", "@", "-T", "'managed'"]"#);
+    let output = work_dir.run_jj(["config", "managed", "--review"]);
+    insta::assert_snapshot!(output, @r"");
+
+    // The managed config is not approved yet.
+    // In non-interactive mode, we get a warning.
+    let output = work_dir.run_jj(["config", "get", "aliases.managed"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: The managed configuration has not been reviewed
+    Hint: Run `jj config managed` to review the managed configuration
+    Config error: Value not found for aliases.managed
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // In interactive mode, we should see a prompt to approve it.
+    let output =
+        work_dir.run_jj_with(|cmd| force_interactive(cmd).args(["managed"]).write_stdin("y\n"));
+    // A nice diff should be printed.
+    insta::assert_snapshot!(output, @r#"
+    managed[EOF]
+    ------- stderr -------
+    Warning: Modified file .config/jj/config.toml
+            1: aliases.managed = ["log", "--no-graph", "-r", "@", "-T", "'managed'"]
+    Managed config has been modified. Do you approve these changes? (yn): [EOF]
+    "#);
+
+    // Now that it is approved, it should work just fine
+    let output = work_dir.run_jj(["managed"]);
+    insta::assert_snapshot!(output, @"managed[EOF]");
+
+    // Let's now reject a managed config.
+    add_line(r#"foo = "bar""#);
+    let output =
+        work_dir.run_jj_with(|cmd| force_interactive(cmd).args(["managed"]).write_stdin("n\n"));
+    // This time our diff should contain just one new line.
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: Modified file .config/jj/config.toml
+       1    1: aliases.managed = ["log", "--no-graph", "-r", "@", "-T", "'managed'"]
+            2: foo = "bar"
+    Managed config has been modified. Do you approve these changes? (yn): error: unrecognized subcommand 'managed'
+
+      tip: a similar subcommand exists: 'arrange'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    "#);
+
+    // Finally, let's override the rejection.
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["config", "managed"])
+            .write_stdin("y\n")
+    });
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: Modified file .config/jj/config.toml
+       1    1: aliases.managed = ["log", "--no-graph", "-r", "@", "-T", "'managed'"]
+            2: foo = "bar"
+    Managed config has been modified. Do you approve these changes? (yn): [EOF]
+    "#);
+
+    // Now that it is approved, it should work just fine
+    let output = work_dir.run_jj(["managed"]);
+    insta::assert_snapshot!(output, @"managed[EOF]");
 }

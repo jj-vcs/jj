@@ -34,6 +34,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lines and fine-grained control over when the tool is run. If you have set the `line-range-arg`
   config, use `--all-lines` to match the previous behavior of formatting the entire file.
 
+* jj configuration can now be stored in version control. This is known as
+  "managed" configuration.
+  * The config file is stored at `$REPO/.config/jj/config.toml`
+  * For security reasons, jj will prompt you when managed config is available
+    to ask you whether you trust it.
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`

@@ -379,6 +379,7 @@ impl CommandHelper {
         config_env.reload_repo_config(ui, &mut raw_config)?;
         config_env.reset_workspace_path(workspace_root);
         config_env.reload_workspace_config(ui, &mut raw_config)?;
+        config_env.reload_managed_config(ui, &mut raw_config)?;
         let mut config = config_env.resolve_config(&raw_config)?;
         // No migration messages here, which would usually be emitted before.
         jj_lib::config::migrate(&mut config, &self.data.config_migrations)?;
@@ -4383,6 +4384,27 @@ impl<'a> CliRunner<'a> {
             Ok(())
         };
 
+        let early_matches = self
+            .app
+            .clone()
+            .allow_external_subcommands(true)
+            .ignore_errors(true)
+            .try_get_matches_from(env::args_os())
+            .ok();
+
+        // In order to trust the managed config, we need to run `jj config managed
+        // --trust`. But if the user hasn't trusted the managed config, we can't
+        // run `jj config managed --trust`. A similar thing applies for `jj
+        // config edit --managed`.
+        // Thus, we classify those commands as not needing managed config. Instead of
+        // loading managed config, we try and load it, ignoring failures.
+        let need_managed_config = if let Some(matches) = &early_matches {
+            let cmd_name = command_name(matches);
+            !cmd_name.starts_with("config managed") && !cmd_name.starts_with("config edit")
+        } else {
+            true
+        };
+
         // Initial load: user, repo, and workspace-level configs for
         // alias/default-command resolution
         // Use cwd-relative workspace configs to resolve default command and
@@ -4398,6 +4420,13 @@ impl<'a> CliRunner<'a> {
             config_env.reload_repo_config(ui, &mut raw_config)?;
             config_env.reset_workspace_path(loader.workspace_root());
             config_env.reload_workspace_config(ui, &mut raw_config)?;
+            if need_managed_config {
+                config_env.reload_managed_config(ui, &mut raw_config)?;
+            } else {
+                config_env
+                    .reload_managed_config(&Ui::null(), &mut raw_config)
+                    .ok();
+            }
         }
         let mut config = config_env.resolve_config(&raw_config)?;
         migrate_config(&mut config)?;
@@ -4444,6 +4473,13 @@ impl<'a> CliRunner<'a> {
             config_env.reload_repo_config(ui, &mut raw_config)?;
             config_env.reset_workspace_path(loader.workspace_root());
             config_env.reload_workspace_config(ui, &mut raw_config)?;
+            if need_managed_config {
+                config_env.reload_managed_config(ui, &mut raw_config)?;
+            } else {
+                config_env
+                    .reload_managed_config(&Ui::null(), &mut raw_config)
+                    .ok();
+            }
             Ok(loader)
         } else {
             maybe_cwd_workspace_loader
@@ -4459,6 +4495,7 @@ impl<'a> CliRunner<'a> {
             let source_str = match source {
                 ConfigSource::Default => "default-provided",
                 ConfigSource::EnvBase | ConfigSource::EnvOverrides => "environment-provided",
+                ConfigSource::Managed => "managed",
                 ConfigSource::User => "user-level",
                 ConfigSource::Repo => "repo-level",
                 ConfigSource::Workspace => "workspace-level",

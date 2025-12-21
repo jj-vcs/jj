@@ -268,6 +268,10 @@ Note that with a copy, we only actually copy the config when the user runs a
 However, this is inherent to storing config out of the repo and is thus
 unavoidable.
 
+Note that if the user has leaked their config ID somehow, then this will appear
+like a copy / move. Since this is not common, and would degrade UX to handle
+nicely, we will simply warn the user in this case.
+
 ### Garbage collection
 
 We could, in the future, add a `gc` command to garbage-collect configs to

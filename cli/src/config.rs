@@ -26,6 +26,7 @@ use std::sync::LazyLock;
 use std::sync::Mutex;
 
 use etcetera::BaseStrategy as _;
+use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigGetError;
@@ -37,8 +38,12 @@ use jj_lib::config::ConfigResolutionContext;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
+use jj_lib::content_hash::blake2b_hash;
 use jj_lib::dsl_util::AliasDeclarationParser;
 use jj_lib::dsl_util::AliasesMap;
+use jj_lib::file_util::IoResultExt as _;
+use jj_lib::protos::secure_config::ConfigMetadata;
+use jj_lib::protos::secure_config::TrustLevel;
 use jj_lib::secure_config::LoadedSecureConfig;
 use jj_lib::secure_config::SecureConfig;
 use rand::SeedableRng as _;
@@ -51,6 +56,8 @@ use tracing::instrument;
 use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::config_error_with_message;
+use crate::command_error::internal_error;
+use crate::diff_util::print_diff;
 use crate::ui::Ui;
 
 // TODO(#879): Consider generating entire schema dynamically vs. static file.
@@ -58,6 +65,7 @@ pub const CONFIG_SCHEMA: &str = include_str!("config-schema.json");
 
 const REPO_CONFIG_DIR: &str = "repos";
 const WORKSPACE_CONFIG_DIR: &str = "workspaces";
+pub const MANAGED_CONFIG_PATH: &str = ".config/jj/config.toml";
 
 /// Parses a TOML value expression. Interprets the given value as string if it
 /// can't be parsed and doesn't look like a TOML expression.
@@ -67,6 +75,54 @@ pub fn parse_value_or_bare_string(value_str: &str) -> Result<ConfigValue, toml_e
         Err(_) if is_bare_string(value_str) => Ok(value_str.into()),
         Err(err) => Err(err),
     }
+}
+
+/// Calculates the hash of a configuration cryptographically.
+/// Suitable for approval processes.
+fn config_hash(config: &str) -> String {
+    use std::fmt::Write as _;
+    let hash = blake2b_hash(config);
+    let mut s = String::with_capacity(hash.len() * 2);
+    for b in &hash {
+        write!(s, "{b:02x}").unwrap();
+    }
+    s
+}
+
+/// Interactively asks for approval of the changes to managed config.
+pub fn review_managed_config_approval(
+    ui: &Ui,
+    settings: &jj_lib::settings::UserSettings,
+    metadata: &mut jj_lib::protos::secure_config::ConfigMetadata,
+    config: &str,
+) -> Result<bool, CommandError> {
+    // Perform similar to `jj diff` by writing "modified file" above the diff.
+    // This should also help make it more familiar for users unfamiliar with
+    // the concept of managed config.
+    writeln!(ui.warning_default(), "Modified file {MANAGED_CONFIG_PATH}")?;
+    print_diff(
+        // Print the diff to stderr since commands may capture stdout.
+        // This *probably* isn't relevant because this should only print when
+        //stdout is a tty, but it's good practice anyway.
+        ui.stderr_formatter().as_mut(),
+        settings,
+        metadata.managed_config.as_str(),
+        config,
+    )?;
+    let approved = ui.prompt_yes_no(
+        "Managed config has been modified. Do you approve these changes?",
+        None,
+    )?;
+    if approved {
+        metadata.managed_config = config.into();
+    } else if metadata.managed_config.as_str() == config {
+        // The most recently approved config cannot be a rejected config.
+        metadata.managed_config = Default::default();
+    }
+    metadata
+        .reviewed_configs
+        .insert(config_hash(config), approved);
+    Ok(approved)
 }
 
 fn is_bare_string(value_str: &str) -> bool {
@@ -419,6 +475,13 @@ impl ConfigEnv {
                 }
                 Some(loaded_config)
             }
+            (Some(_), None) => {
+                tracing::warn!(
+                    "Secure config requested, but unable to load because the jj config directory \
+                     could not be found"
+                );
+                None
+            }
             _ => None,
         })
     }
@@ -608,6 +671,160 @@ impl ConfigEnv {
         {
             config.as_mut().load_file(ConfigSource::Workspace, path)?;
         }
+        Ok(())
+    }
+
+    #[instrument(skip(ui))]
+    pub fn reload_managed_config(
+        &self,
+        ui: &Ui,
+        config: &mut RawConfig,
+    ) -> Result<(), CommandError> {
+        config.as_mut().remove_layers(ConfigSource::Managed);
+        let config_file = if let Some(path) = self.workspace_path.as_deref() {
+            path.join(MANAGED_CONFIG_PATH)
+        } else {
+            return Ok(());
+        };
+        if !config_file.try_exists()? {
+            return Ok(());
+        }
+        let (repo_config_path, mut metadata) = if let Some(loaded_config) =
+            self.load_secure_config(ui, self.repo_config.as_ref(), REPO_CONFIG_DIR, true)?
+        {
+            // The secure config's repo config file cannot be None since we forced it to
+            // create an empty repo config.
+            (loaded_config.config_file.unwrap(), loaded_config.metadata)
+        } else {
+            return Ok(());
+        };
+        match TrustLevel::try_from(metadata.trust_level) {
+            Ok(TrustLevel::Ignored) => {}
+            Ok(TrustLevel::Trusted) => config
+                .as_mut()
+                .load_file(ConfigSource::Managed, &config_file)?,
+            Ok(TrustLevel::Review) => {
+                let content = std::fs::read_to_string(&config_file)
+                    .context(&config_file)
+                    .map_err(ConfigLoadError::Read)?;
+
+                // We know an empty config file must be safe.
+                let approved = if content == metadata.managed_config.as_str() || content.is_empty()
+                {
+                    true
+                } else if let Some(&approved) =
+                    metadata.reviewed_configs.get(&config_hash(&content))
+                {
+                    if approved {
+                        // It's been approved, but wasn't the most recently approved config.
+                        // The user probably switched branches, so we should now set the most
+                        // recently approved config to the one currently in use.
+                        self.update_repo_metadata(ui, |metadata| {
+                            metadata.managed_config = content.clone();
+                            Ok(())
+                        })?;
+                    }
+                    approved
+                } else {
+                    if Ui::can_prompt() {
+                        let settings =
+                            jj_lib::settings::UserSettings::from_config(config.as_ref().clone())?;
+                        let mut approved = false;
+                        self.update_repo_metadata(ui, |metadata| {
+                            approved =
+                                review_managed_config_approval(ui, &settings, metadata, &content)?;
+                            Ok(())
+                        })?;
+                        approved
+                    } else {
+                        writeln!(
+                            ui.warning_default(),
+                            "The managed configuration has not been reviewed"
+                        )?;
+                        writeln!(
+                            ui.hint_default(),
+                            "Run `jj config managed` to review the managed configuration"
+                        )?;
+                        false
+                    }
+                };
+                if approved {
+                    config
+                        .as_mut()
+                        .add_layer(ConfigLayer::parse(ConfigSource::Managed, &content)?);
+                }
+            }
+            Ok(TrustLevel::Unset) | Err(_) => {
+                if Ui::can_prompt() {
+                    metadata.trust_level = match ui.prompt_choice(
+                    &format!(
+                        indoc! {"
+                            The repo at {} contains a managed config file. You can:
+                            (r) Review whenever the managed config changes. This is recommended if either:
+                              * You don't trust the repo owners.
+                              * You want to patch commits from users you don't trust.
+                            (t) Trust this repo. Be careful with this option, since:
+                              * Any future changes to the managed config upstream will be trusted
+                              * Patches downloaded locally (eg. an unsubmitted PR) that change the managed config will be trusted.
+                            (i) Ignore managed configs for this repo. This is the safest option, but least useful.
+                            Please select an option (r/t/i)"
+                        },
+                        self.repo_path.as_ref().unwrap().display(),
+                    ),
+                    &["i", "r", "t"],
+                    None,
+                )? {
+                    0 => TrustLevel::Ignored,
+                    1 => TrustLevel::Review,
+                    2 => TrustLevel::Trusted,
+                    _ => unreachable!(),
+                }
+                .into();
+                    self.repo_config
+                        .as_ref()
+                        .unwrap()
+                        .update_metadata(&repo_config_path, metadata)?;
+                    // The config has now changed on disk, so just retry.
+                    return self.reload_managed_config(ui, config);
+                } else {
+                    // If we're unable to prompt the user, we should output a warning,
+                    // but for security reasons, we should assume ignore.
+                    writeln!(
+                        ui.warning_default(),
+                        indoc! {"
+                        The repo at {} contains a managed config file, but the managed config for this repo is not configured.
+                        Please run `jj config managed --review/trust/ignore` to configure it:
+                        * --review requires you to review whenever the managed config changes. This is recommended if either:
+                          * You don't trust the repo owners.
+                          * You want to patch commits from users you don't trust.
+                        * --trust trusts this repo. Be careful with this option, since:
+                          * Any future changes to the managed config upstream will be trusted
+                          * Patches downloaded locally (eg. an unsubmitted PR) that change the managed config will be trusted.
+                        * --ignore ignores managed configs for this repo. This is the safest option, but least useful."
+                        },
+                        self.repo_path.as_ref().unwrap().display(),
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn update_repo_metadata(
+        &self,
+        ui: &Ui,
+        update: impl FnOnce(&mut ConfigMetadata) -> Result<(), CommandError>,
+    ) -> Result<(), CommandError> {
+        let mut loaded = self
+            .load_secure_config(ui, self.repo_config.as_ref(), REPO_CONFIG_DIR, true)?
+            .ok_or_else(|| internal_error("Failed to load repo config"))?;
+        update(&mut loaded.metadata)?;
+        // The secure config's repo config file cannot be None since we forced it to
+        // create an empty repo config.
+        self.repo_config
+            .as_ref()
+            .unwrap()
+            .update_metadata(&loaded.config_file.unwrap(), loaded.metadata)?;
         Ok(())
     }
 
