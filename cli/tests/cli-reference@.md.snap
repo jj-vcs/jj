@@ -31,6 +31,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj config edit`↴](#jj-config-edit)
 * [`jj config get`↴](#jj-config-get)
 * [`jj config list`↴](#jj-config-list)
+* [`jj config managed`↴](#jj-config-managed)
 * [`jj config path`↴](#jj-config-path)
 * [`jj config set`↴](#jj-config-set)
 * [`jj config unset`↴](#jj-config-unset)
@@ -670,6 +671,7 @@ See [`jj help -k config`] to know more about file locations, supported config op
 * `edit` — Start an editor on a jj config file
 * `get` — Get the value of a given config option.
 * `list` — List variables set in config files, along with their values
+* `managed` — Start an editor on a jj config file
 * `path` — Print the paths to the config files
 * `set` — Update a config file to set the given option to a given value
 * `unset` — Update a config file to unset the given option
@@ -755,6 +757,24 @@ List variables set in config files, along with their values
 
    [`jj help -k templates`]:
        https://docs.jj-vcs.dev/latest/templates/
+
+
+
+## `jj config managed`
+
+Start an editor on a jj config file.
+
+Creates the file if it doesn't already exist regardless of what the editor does.
+
+**Usage:** `jj config managed [OPTIONS]`
+
+**Command Alias:** `m`
+
+###### **Options:**
+
+* `--ignore` — Ignore the managed config for this repo. Use this if you don't trust the managed config and don't want to go through the process of reviewing it
+* `--notify` — Notify the user when the managed config has been updated more recently than the repo config. Use this if you want the managed config but don't trust that the repo won't have malicious changes added to it down the line
+* `--trust` — Trust the managed config. Use this only if you trust that the authors of the repo will ensure that the managed config is safe
 
 
 

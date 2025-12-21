@@ -709,10 +709,11 @@ fn test_command_completion_short_name() {
 
     // Short command names should be omitted
     let output = test_env.complete_fish(["config", ""]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     edit	Start an editor on a jj config file
     get	Get the value of a given config option.
     list	List variables set in config files, along with their values
+    managed	Start an editor on a jj config file
     path	Print the paths to the config files
     set	Update a config file to set the given option to a given value
     unset	Update a config file to unset the given option

@@ -154,6 +154,7 @@ fn warn_user_redefined_builtin(
         ConfigSource::EnvBase
         | ConfigSource::User
         | ConfigSource::Repo
+        | ConfigSource::Managed
         | ConfigSource::Workspace
         | ConfigSource::EnvOverrides
         | ConfigSource::CommandArg => {

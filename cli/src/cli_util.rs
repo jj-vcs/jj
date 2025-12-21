@@ -371,6 +371,7 @@ impl CommandHelper {
         config_env.reload_repo_config(ui, &mut raw_config)?;
         config_env.reset_workspace_path(workspace_root);
         config_env.reload_workspace_config(ui, &mut raw_config)?;
+        config_env.reload_managed_config(ui, &mut raw_config)?;
         let mut config = config_env.resolve_config(&raw_config)?;
         // No migration messages here, which would usually be emitted before.
         jj_lib::config::migrate(&mut config, &self.data.config_migrations)?;
@@ -4138,6 +4139,9 @@ impl<'a> CliRunner<'a> {
             config_env.reload_repo_config(ui, &mut raw_config)?;
             config_env.reset_workspace_path(loader.workspace_root());
             config_env.reload_workspace_config(ui, &mut raw_config)?;
+            // Intentionally don't load the managed config here, as we first
+            // want to check we're not running a command that requires it to
+            // not be loaded.
         }
         let mut config = config_env.resolve_config(&raw_config)?;
         migrate_config(&mut config)?;
@@ -4188,6 +4192,17 @@ impl<'a> CliRunner<'a> {
         } else {
             maybe_cwd_workspace_loader
         };
+        // It would be problematic if the managed config could alias the command to
+        // disable managed config. Additionally, if I run `jj config managed --trust`
+        // and the trust level is currently unset, it shouldn't see that it's
+        // currently unset, and prompt me to enable it.
+        let cmd_name = command_name(&matches);
+        if !cmd_name.starts_with("config ")
+            || cmd_name.starts_with("config get")
+            || cmd_name.starts_with("config list")
+        {
+            config_env.reload_managed_config(ui, &mut raw_config)?;
+        }
 
         // Apply workspace configs, --config arguments, and --when.commands.
         config = config_env.resolve_config(&raw_config)?;
@@ -4199,6 +4214,7 @@ impl<'a> CliRunner<'a> {
             let source_str = match source {
                 ConfigSource::Default => "default-provided",
                 ConfigSource::EnvBase | ConfigSource::EnvOverrides => "environment-provided",
+                ConfigSource::Managed => "managed",
                 ConfigSource::User => "user-level",
                 ConfigSource::Repo => "repo-level",
                 ConfigSource::Workspace => "workspace-level",

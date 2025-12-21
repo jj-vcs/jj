@@ -24,6 +24,7 @@ use std::process::Command;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::Mutex;
+use std::time::SystemTime;
 
 use etcetera::BaseStrategy as _;
 use itertools::Itertools as _;
@@ -37,6 +38,9 @@ use jj_lib::config::ConfigResolutionContext;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
+use jj_lib::file_util::IoResultExt as _;
+use jj_lib::protos::secure_config::ConfigMetadata;
+use jj_lib::protos::secure_config::TrustLevel;
 use jj_lib::secure_config::LoadedSecureConfig;
 use jj_lib::secure_config::SecureConfig;
 use rand::SeedableRng as _;
@@ -49,13 +53,16 @@ use tracing::instrument;
 use crate::command_error::CommandError;
 use crate::command_error::config_error;
 use crate::command_error::config_error_with_message;
+use crate::command_error::internal_error;
 use crate::ui::Ui;
+use crate::ui::UiStdout;
 
 // TODO(#879): Consider generating entire schema dynamically vs. static file.
 pub const CONFIG_SCHEMA: &str = include_str!("config-schema.json");
 
 const REPO_CONFIG_DIR: &str = "repos";
 const WORKSPACE_CONFIG_DIR: &str = "workspaces";
+pub const MANAGED_CONFIG_PATH: &str = ".config/jj/config.toml";
 
 /// Parses a TOML value expression. Interprets the given value as string if it
 /// can't be parsed and doesn't look like a TOML expression.
@@ -596,6 +603,123 @@ impl ConfigEnv {
         {
             config.as_mut().load_file(ConfigSource::Workspace, path)?;
         }
+        Ok(())
+    }
+
+    #[instrument(skip(ui))]
+    pub fn reload_managed_config(
+        &self,
+        ui: &Ui,
+        config: &mut RawConfig,
+    ) -> Result<(), CommandError> {
+        config.as_mut().remove_layers(ConfigSource::Managed);
+        let config_file = if let Some(path) = self.workspace_path.as_deref() {
+            path.join(MANAGED_CONFIG_PATH)
+        } else {
+            return Ok(());
+        };
+        if !config_file.try_exists()? {
+            return Ok(());
+        }
+        let (repo_config_path, mut metadata) = if let Some(loaded_config) =
+            self.load_secure_config(ui, self.repo_config.as_ref(), REPO_CONFIG_DIR, true)?
+        {
+            // Cannot be None since we forced it to create the repo config.
+            (loaded_config.config_file.unwrap(), loaded_config.metadata)
+        } else {
+            return Ok(());
+        };
+        match TrustLevel::try_from(metadata.trust_level) {
+            Ok(TrustLevel::Ignored) => {}
+            Ok(TrustLevel::Trusted) => config
+                .as_mut()
+                .load_file(ConfigSource::Managed, &config_file)?,
+            Ok(TrustLevel::Notify) => {
+                let working_copy_mtime = std::fs::metadata(&config_file)
+                    .context(&config_file)?
+                    .modified()
+                    .context(&config_file)?;
+                let repo_config_mtime = match self.repo_config_path(ui)?.map(|path| {
+                    std::fs::metadata(&path)
+                        .context(&path)?
+                        .modified()
+                        .context(&path)
+                }) {
+                    Some(Ok(mtime)) => mtime,
+                    Some(Err(e)) if e.source.kind() != std::io::ErrorKind::NotFound => {
+                        return Err(e)?;
+                    }
+                    _ => SystemTime::UNIX_EPOCH,
+                };
+                if repo_config_mtime < working_copy_mtime {
+                    writeln!(
+                        ui.warning_default(),
+                        "The working copy managed config has been updated more recently than the \
+                         repo config. Please review the changes in {} and copy any desired \
+                         settings to your repo config (`jj config edit --repo`).",
+                        config_file.display(),
+                    )?;
+                }
+            }
+            Ok(TrustLevel::Unset) | Err(_) => {
+                if Ui::can_prompt() && !matches!(ui.stdout(), UiStdout::Null(_)) {
+                    metadata.trust_level = match ui.prompt_choice(
+                        &format!(
+                            "The repo at {} contains a managed config file. You can:\n(i) Ignore \
+                             managed configs for this repo\n(n) Be notified when the managed \
+                             config is more recent than your repo config (you keep your repo \
+                             config up to date manually).\n(t) Trust this repo (any future \
+                             changes to the managed config will be automatically applied)\nPlease \
+                             select an option (i/n/t)",
+                            self.repo_path.as_ref().unwrap().display(),
+                        ),
+                        &["i", "n", "t"],
+                        None,
+                    )? {
+                        0 => TrustLevel::Ignored,
+                        1 => TrustLevel::Notify,
+                        2 => TrustLevel::Trusted,
+                        3.. => panic!(),
+                    }
+                    .into();
+                    self.repo_config
+                        .as_ref()
+                        .unwrap()
+                        .update_metadata(&repo_config_path, metadata)?;
+                    // Try again - the trust level has changed.
+                    self.reload_managed_config(ui, config)?;
+                } else {
+                    writeln!(
+                        ui.warning_default(),
+                        "The repo at {} contains a managed config file, but the managed config \
+                         for this repo is not configured.\nPlease run `jj config managed \
+                         --ignore/notify/trust` to configure it\n* --ignore ignores managed \
+                         configs for this repo\n* --notify notifies you when the managed config \
+                         is more recent than your repo config (you keep your repo config up to \
+                         date with the managed config manually).\n* --trust trusts this repo (any \
+                         future changes to the managed config will be automatically applied)",
+                        self.repo_path.as_ref().unwrap().display(),
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn update_repo_metadata(
+        &self,
+        ui: &Ui,
+        update: impl FnOnce(&mut ConfigMetadata),
+    ) -> Result<(), CommandError> {
+        let mut loaded = self
+            .load_secure_config(ui, self.repo_config.as_ref(), REPO_CONFIG_DIR, true)?
+            .ok_or_else(|| internal_error("Failed to load repo config"))?;
+        update(&mut loaded.metadata);
+        // Cannot be None since we forced it to create the repo config.
+        self.repo_config
+            .as_ref()
+            .unwrap()
+            .update_metadata(&loaded.config_file.unwrap(), loaded.metadata)?;
         Ok(())
     }
 

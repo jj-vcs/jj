@@ -17,6 +17,7 @@ use std::path::PathBuf;
 
 use indoc::indoc;
 use itertools::Itertools as _;
+use jj_cli::config::MANAGED_CONFIG_PATH;
 use regex::Regex;
 
 use crate::common::TestEnvironment;
@@ -1854,4 +1855,110 @@ fn test_config_author_change_warning_root_env() {
 fn find_stdout_lines(keyname_pattern: &str, stdout: &str) -> String {
     let key_line_re = Regex::new(&format!(r"(?m)^{keyname_pattern} = .*\n")).unwrap();
     key_line_re.find_iter(stdout).map(|m| m.as_str()).collect()
+}
+
+#[test]
+fn test_config_managed_unset() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file(MANAGED_CONFIG_PATH, "aliases.managed = 'managed'");
+
+    let output = work_dir.run_jj(["config", "get", "aliases.managed"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: The repo at $TEST_ENV/repo/.jj/repo contains a managed config file, but the managed config for this repo is not configured.
+    Please run `jj config managed --ignore/notify/trust` to configure it
+    * --ignore ignores managed configs for this repo
+    * --notify notifies you when the managed config is more recent than your repo config (you keep your repo config up to date with the managed config manually).
+    * --trust trusts this repo (any future changes to the managed config will be automatically applied)
+    Config error: Value not found for aliases.managed
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Now try running it interactively. Check that after selecting trust, it
+    // actually loads the managed config.
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["config", "get", "aliases.managed"])
+            .write_stdin("t\n")
+    });
+    insta::assert_snapshot!(output, @r"
+    managed
+    [EOF]
+    ------- stderr -------
+    The repo at $TEST_ENV/repo/.jj/repo contains a managed config file. You can:
+    (i) Ignore managed configs for this repo
+    (n) Be notified when the managed config is more recent than your repo config (you keep your repo config up to date manually).
+    (t) Trust this repo (any future changes to the managed config will be automatically applied)
+    Please select an option (i/n/t): [EOF]
+    ");
+}
+
+#[test]
+fn test_config_managed_ignored() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file(MANAGED_CONFIG_PATH, "aliases.managed = 'managed'");
+    let output = work_dir.run_jj(["config", "managed", "--ignore"]);
+    insta::assert_snapshot!(output, @r"");
+
+    let output = work_dir.run_jj(["config", "get", "aliases.managed"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Config error: Value not found for aliases.managed
+    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_config_managed_trust() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file(MANAGED_CONFIG_PATH, "aliases.managed = 'managed'");
+    let output = work_dir.run_jj(["config", "managed", "--trust"]);
+    insta::assert_snapshot!(output, @r"");
+
+    let output = work_dir.run_jj(["config", "get", "aliases.managed"]);
+    insta::assert_snapshot!(output, @r"
+    managed
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_config_managed_notify() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file(MANAGED_CONFIG_PATH, "aliases.managed = 'managed'");
+    let output = work_dir.run_jj(["config", "managed", "--notify"]);
+    insta::assert_snapshot!(output, @r"");
+
+    // The repo config is out of date.
+    let output = work_dir.run_jj(["config", "get", "aliases"]);
+    insta::assert_snapshot!(output, @r#"
+    { b = ["bookmark"], ci = ["commit"], desc = ["describe"], st = ["status"] }
+    [EOF]
+    ------- stderr -------
+    Warning: The working copy managed config has been updated more recently than the repo config. Please review the changes in $TEST_ENV/repo/.config/jj/config.toml and copy any desired settings to your repo config (`jj config edit --repo`).
+    [EOF]
+    "#);
+
+    // Update the mtime of the repo config.
+    let output = work_dir.run_jj(["config", "set", "--repo", "aliases.foo", "bar"]);
+    insta::assert_snapshot!(output, @r"");
+
+    // Now we're up to date.
+    let output = work_dir.run_jj(["config", "get", "aliases"]);
+    insta::assert_snapshot!(output, @r#"
+    { b = ["bookmark"], ci = ["commit"], desc = ["describe"], st = ["status"], foo = "bar" }
+    [EOF]
+    "#);
 }

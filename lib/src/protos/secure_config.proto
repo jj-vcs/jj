@@ -16,10 +16,31 @@ syntax = "proto3";
 
 package secure_config;
 
+enum TrustLevel {
+  // The trust level was never specified.
+  // It will be treated as IGNORED, but the user will be notified and asked
+  // to set the trust level explicitly.
+  UNSET = 0;
+  // The managed config will be ignored.
+  IGNORED = 1;
+  // The user will be notified when the managed config has been updated more
+  // recently than the repo config.
+  // The user is assumed to then copy whichever changes they want to their
+  // repo config file.
+  NOTIFY = 2;
+  // The configuration file is trusted.
+  // Any updates to the managed config will be used automatically.
+  TRUSTED = 3;
+}
+
 // Metadata about the configuration files for jj
 message ConfigMetadata {
   // The absolute path to the workspace's .jj or .jj/repo directory for
   // workspaces and repos respectively.
   // Access via file_util::path_to/from_bytes
   optional bytes path = 1;
+
+  // The trust level associated with this repo.
+  // Not used for workspaces.
+  TrustLevel trust_level = 2;
 }
