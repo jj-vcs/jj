@@ -28,6 +28,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The revset function `diff_contains()` has been renamed to `diff_lines()`.
 
+* The `:ours` and `:theirs` merge tools are deprecated. Use `:select` instead.
+
 ### New features
 
 * `jj git fetch` now shows details of abandoned commits (change IDs and
@@ -49,6 +51,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `git.push-new-bookmarks` option.
 
 * `jj tag list` can now be filtered by revset.
+
+* `jj resolve --tool :select` can be used to interactively select a single
+  side of a conflict to keep, discarding all other sides.
 
 ### Fixed bugs
 
