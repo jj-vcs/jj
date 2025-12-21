@@ -208,9 +208,6 @@ pub fn show_op_diff(
                         modified_change,
                     )
                 })?;
-                if !buffer.ends_with(b"\n") {
-                    buffer.push(b'\n');
-                }
                 if let Some(diff_renderer) = diff_renderer {
                     let mut formatter = ui.new_formatter(&mut buffer);
                     show_change_diff(
@@ -346,7 +343,6 @@ pub fn show_op_diff(
                 )
             })?;
         }
-        writeln!(formatter)?;
     }
 
     let ignored_remote = default_ignored_remote_name(current_repo.store());

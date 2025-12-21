@@ -38,6 +38,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The deprecated `commit_id.normal_hex()` template method has been removed.
 
+* Template expansion that did not produce a terminating newline will not be
+  fixed up to provide one by `jj log`, `jj evolog`, or `jj op log`.
+
 ### Deprecations
 
 * The `git_head()` and `git_refs()` functions will be removed from revsets and

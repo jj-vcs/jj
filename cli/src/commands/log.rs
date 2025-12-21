@@ -273,9 +273,6 @@ pub(crate) fn cmd_log(
                 within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
                     template.format(&commit, formatter)
                 })?;
-                if !buffer.ends_with(b"\n") {
-                    buffer.push(b'\n');
-                }
                 if let Some(renderer) = &diff_renderer {
                     let mut formatter = ui.new_formatter(&mut buffer);
                     renderer

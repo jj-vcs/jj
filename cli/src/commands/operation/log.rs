@@ -223,9 +223,6 @@ fn do_op_log(
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
                 template.format(&op, formatter)
             })?;
-            if !buffer.ends_with(b"\n") {
-                buffer.push(b'\n');
-            }
             if let Some(show) = &maybe_show_op_diff {
                 let mut formatter = ui.new_formatter(&mut buffer);
                 show(ui, formatter.as_mut(), &op, &within_graph)?;

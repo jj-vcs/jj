@@ -601,7 +601,6 @@ fn test_op_log_word_wrap() {
     insta::assert_snapshot!(
         render(&["op", "log", "-T''", "--op-diff", "-n1", "--config", config], 15, true), @r"
     @
-    │
     │  Changed
     │  commits:
     │  ○  + 0 1 2 3

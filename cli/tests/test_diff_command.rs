@@ -3319,13 +3319,11 @@ fn test_diff_external_available_width() {
         cmd.args(["log", "--tool=echo", "-T''"])
             .env("COLUMNS", "50")
     });
-    insta::assert_snapshot!(output, @r"
-    @
-    │  47
-    │ ○
-    ├─╯  45
-    ◆
-       47
+    insta::assert_snapshot!(output, @"
+    @  47
+    │ ○  45
+    ├─╯
+    ◆  47
     [EOF]
     ");
 }

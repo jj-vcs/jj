@@ -237,14 +237,13 @@ fn test_log_with_or_without_diff() {
     │  1 file changed, 1 insertion(+), 0 deletions(-)
     │  Added regular file file1:
     │          1: foo
-    ◆
-       0 files changed, 0 insertions(+), 0 deletions(-)
+    ◆  0 files changed, 0 insertions(+), 0 deletions(-)
     [EOF]
     ");
 
     // `--stat` is short format, which should be printed first
     let output = work_dir.run_jj(["log", "-T", "description", "--git", "--stat"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  a new commit
     │  file1 | 1 +
     │  1 file changed, 1 insertion(+), 0 deletions(-)
@@ -265,8 +264,7 @@ fn test_log_with_or_without_diff() {
     │  +++ b/file1
     │  @@ -0,0 +1,1 @@
     │  +foo
-    ◆
-       0 files changed, 0 insertions(+), 0 deletions(-)
+    ◆  0 files changed, 0 insertions(+), 0 deletions(-)
     [EOF]
     ");
 

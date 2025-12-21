@@ -174,9 +174,6 @@ pub(crate) fn cmd_evolog(
             within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
                 template.format(&entry, formatter)
             })?;
-            if !buffer.ends_with(b"\n") {
-                buffer.push(b'\n');
-            }
             if let Some(renderer) = &diff_renderer {
                 let predecessors: Vec<_> = entry.predecessors().try_collect()?;
                 let mut formatter = ui.new_formatter(&mut buffer);

@@ -2111,8 +2111,7 @@ fn test_squash_to_new_commit() {
     │  A file2
     ○  qpvuntsmwlqt bm1 file1
     │  A file1
-    ○  soqnvnyzoxuu
-    │  A file3
+    ○  soqnvnyzoxuuA file3
     │  A file4
     ◆  zzzzzzzzzzzz
     [EOF]
