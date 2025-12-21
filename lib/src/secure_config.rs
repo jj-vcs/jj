@@ -96,7 +96,7 @@ pub struct LoadedSecureConfig {
     pub warnings: Vec<String>,
 }
 
-fn atomic_write(path: &Path, content: &[u8]) -> Result<(), SecureConfigError> {
+fn atomic_write(path: &Path, content: &[u8]) -> Result<(), PathError> {
     let d = path.parent().unwrap();
     let mut temp_file = NamedTempFile::new_in(d).context(d)?;
     temp_file.write_all(content).context(temp_file.path())?;
@@ -176,6 +176,7 @@ impl SecureConfig {
     ) -> Result<(PathBuf, ConfigMetadata), SecureConfigError> {
         let metadata = ConfigMetadata {
             path: path_to_bytes(&self.repo_dir).ok().map(|b| b.to_vec()),
+            ..Default::default()
         };
         let path = self.generate_config(root_config_dir, config_id, None, &metadata)?;
         Ok((path, metadata))
@@ -300,6 +301,7 @@ impl SecureConfig {
         };
         let metadata = ConfigMetadata {
             path: path_to_bytes(&self.repo_dir).ok().map(|b| b.to_vec()),
+            ..Default::default()
         };
         let config_file = self.generate_config(
             root_config_dir,
@@ -388,6 +390,18 @@ impl SecureConfig {
             loaded.metadata = metadata;
         }
         Ok(loaded)
+    }
+
+    /// Updates the metadata file for the config.
+    pub fn update_metadata(
+        &self,
+        config_file: &Path,
+        metadata: ConfigMetadata,
+    ) -> Result<(), PathError> {
+        let metadata_file = config_file.parent().unwrap().join(METADATA_FILE);
+        atomic_write(&metadata_file, &metadata.encode_to_vec())?;
+        *self.cache.borrow_mut() = Some((Some(config_file.to_path_buf()), metadata));
+        Ok(())
     }
 }
 

@@ -373,6 +373,7 @@ impl CommandHelper {
         config_env.reload_repo_config(ui, &mut raw_config)?;
         config_env.reset_workspace_path(workspace_root);
         config_env.reload_workspace_config(ui, &mut raw_config)?;
+        config_env.reload_managed_config(ui, &mut raw_config)?;
         let mut config = config_env.resolve_config(&raw_config)?;
         // No migration messages here, which would usually be emitted before.
         jj_lib::config::migrate(&mut config, &self.data.config_migrations)?;
@@ -4148,6 +4149,9 @@ impl<'a> CliRunner<'a> {
             config_env.reload_repo_config(ui, &mut raw_config)?;
             config_env.reset_workspace_path(loader.workspace_root());
             config_env.reload_workspace_config(ui, &mut raw_config)?;
+            // Intentionally don't load the managed config here, as we first
+            // want to check we're not running a command that requires it to
+            // not be loaded.
         }
         let mut config = config_env.resolve_config(&raw_config)?;
         migrate_config(&mut config)?;
@@ -4179,7 +4183,13 @@ impl<'a> CliRunner<'a> {
         for process_global_args_fn in self.process_global_args_fns {
             process_global_args_fn(ui, &matches)?;
         }
-        config_env.set_command_name(command_name(&matches));
+        let cmd_name = command_name(&matches);
+        // if I run `jj config managed --trust` and the trust level is currently unset,
+        // it shouldn't see that it's currently unset, and prompt me to enable
+        // it. Similarly for `jj config edit` due to the notify setting.
+        let use_managed_config =
+            !cmd_name.starts_with("config managed") && !cmd_name.starts_with("config edit");
+        config_env.set_command_name(cmd_name);
 
         let maybe_workspace_loader = if let Some(path) = &args.global_args.repository {
             // TODO: maybe path should be canonicalized by WorkspaceLoader?
@@ -4199,6 +4209,10 @@ impl<'a> CliRunner<'a> {
             maybe_cwd_workspace_loader
         };
 
+        if use_managed_config {
+            config_env.reload_managed_config(ui, &mut raw_config)?;
+        }
+
         // Apply workspace configs, --config arguments, and --when.commands.
         config = config_env.resolve_config(&raw_config)?;
         migrate_config(&mut config)?;
@@ -4209,6 +4223,7 @@ impl<'a> CliRunner<'a> {
             let source_str = match source {
                 ConfigSource::Default => "default-provided",
                 ConfigSource::EnvBase | ConfigSource::EnvOverrides => "environment-provided",
+                ConfigSource::Managed => "managed",
                 ConfigSource::User => "user-level",
                 ConfigSource::Repo => "repo-level",
                 ConfigSource::Workspace => "workspace-level",

@@ -13,6 +13,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj arrange` command brings up a TUI where you can reorder and abandon
   revisions. [#1531](https://github.com/jj-vcs/jj/issues/1531)
 
+* jj configuration can now be stored in version control. This is known as
+  "managed" configuration.
+  * The config file is stored at `$REPO/.config/jj/config.toml`
+  * For security reasons, jj will prompt you when managed config is available
+    to ask you whether you trust it.
+
 ### Breaking changes
 
 ### Deprecations

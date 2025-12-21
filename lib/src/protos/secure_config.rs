@@ -7,4 +7,50 @@ pub struct ConfigMetadata {
     /// Access via file_util::path_to/from_bytes
     #[prost(bytes = "vec", optional, tag = "1")]
     pub path: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    /// The trust level associated with this repo.
+    /// Not used for workspaces.
+    #[prost(enumeration = "TrustLevel", tag = "2")]
+    pub trust_level: i32,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum TrustLevel {
+    /// The trust level was never specified.
+    /// It will be treated as IGNORED, but the user will be notified and asked
+    /// to set the trust level explicitly.
+    Unset = 0,
+    /// The managed config will be ignored.
+    Ignored = 1,
+    /// The user will be notified when the managed config has been updated more
+    /// recently than the repo config.
+    /// The user is assumed to then copy whichever changes they want to their
+    /// repo config file.
+    Notify = 2,
+    /// The configuration file is trusted.
+    /// Any updates to the managed config will be used automatically.
+    Trusted = 3,
+}
+impl TrustLevel {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unset => "UNSET",
+            Self::Ignored => "IGNORED",
+            Self::Notify => "NOTIFY",
+            Self::Trusted => "TRUSTED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "UNSET" => Some(Self::Unset),
+            "IGNORED" => Some(Self::Ignored),
+            "NOTIFY" => Some(Self::Notify),
+            "TRUSTED" => Some(Self::Trusted),
+            _ => None,
+        }
+    }
 }
