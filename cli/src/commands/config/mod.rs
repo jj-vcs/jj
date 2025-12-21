@@ -15,6 +15,7 @@
 mod edit;
 mod get;
 mod list;
+mod managed;
 mod path;
 mod set;
 mod unset;
@@ -32,6 +33,8 @@ use self::get::ConfigGetArgs;
 use self::get::cmd_config_get;
 use self::list::ConfigListArgs;
 use self::list::cmd_config_list;
+use self::managed::ConfigManagedArgs;
+use self::managed::cmd_config_managed;
 use self::path::ConfigPathArgs;
 use self::path::cmd_config_path;
 use self::set::ConfigSetArgs;
@@ -159,6 +162,8 @@ pub(crate) enum ConfigCommand {
     Get(ConfigGetArgs),
     #[command(visible_alias("l"))]
     List(ConfigListArgs),
+    #[command(visible_alias("m"))]
+    Managed(ConfigManagedArgs),
     #[command(visible_alias("p"))]
     Path(ConfigPathArgs),
     #[command(visible_alias("s"))]
@@ -177,6 +182,7 @@ pub(crate) fn cmd_config(
         ConfigCommand::Edit(args) => cmd_config_edit(ui, command, args),
         ConfigCommand::Get(args) => cmd_config_get(ui, command, args),
         ConfigCommand::List(args) => cmd_config_list(ui, command, args),
+        ConfigCommand::Managed(args) => cmd_config_managed(ui, command, args),
         ConfigCommand::Path(args) => cmd_config_path(ui, command, args),
         ConfigCommand::Set(args) => cmd_config_set(ui, command, args),
         ConfigCommand::Unset(args) => cmd_config_unset(ui, command, args),
