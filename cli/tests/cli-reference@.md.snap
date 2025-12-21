@@ -2780,6 +2780,8 @@ Note that conflicts can also be resolved without using this command. You may edi
 
    The built-in merge tools `:ours` and `:theirs` can be used to choose side #1 and side #2 of the conflict respectively.
 
+   The built-in merge tool `:select` can be used to interactively select a side of the conflict to keep.
+
 
 
 ## `jj restore`

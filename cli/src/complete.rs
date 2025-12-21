@@ -575,7 +575,7 @@ fn merge_tools_filtered_by(
 
 pub fn merge_editors() -> Vec<CompletionCandidate> {
     with_jj(|_, settings| {
-        Ok([":builtin", ":ours", ":theirs"]
+        Ok([":builtin", ":select", ":ours", ":theirs"]
             .into_iter()
             .chain(merge_tools_filtered_by(settings, |tool| {
                 !tool.merge_args.is_empty()
