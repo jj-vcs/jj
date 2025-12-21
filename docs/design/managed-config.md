@@ -2,7 +2,7 @@
 
 Author: [Matt Stark](mailto:msta@google.com)
 
-Status: Pending implementation
+Status: Implemented
 
 ## Background
 
