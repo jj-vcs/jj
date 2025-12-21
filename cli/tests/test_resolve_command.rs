@@ -1173,6 +1173,7 @@ fn test_resolve_conflicts_with_executable() {
     let output = work_dir.run_jj(["resolve", "--tool=:ours"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: The ':ours' merge tool is deprecated. Use ':select' instead.
     Working copy  (@) now at: znkkpsqq d902c14b conflict | conflict
     Parent commit (@-)      : mzvwutvl 86f7f0e3 a | a
     Parent commit (@-)      : yqosqzyt 36361412 b | b
@@ -1216,6 +1217,7 @@ fn test_resolve_conflicts_with_executable() {
     let output = work_dir.run_jj(["resolve", "--tool=:theirs"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: The ':theirs' merge tool is deprecated. Use ':select' instead.
     Working copy  (@) now at: znkkpsqq a340ca5f conflict | conflict
     Parent commit (@-)      : mzvwutvl 86f7f0e3 a | a
     Parent commit (@-)      : yqosqzyt 36361412 b | b
@@ -1450,6 +1452,7 @@ fn test_resolve_change_delete_executable() {
     let output = work_dir.run_jj(["resolve", "file4", "--tool=:ours"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: The ':ours' merge tool is deprecated. Use ':select' instead.
     Working copy  (@) now at: kmkuslsw a70e40cc conflict | (conflict) conflict
     Parent commit (@-)      : mzvwutvl e2d3924b a | a
     Parent commit (@-)      : vruxwmqv 888b6cc3 b | b
@@ -1463,6 +1466,7 @@ fn test_resolve_change_delete_executable() {
     let output = work_dir.run_jj(["resolve", "file5", "--tool=:theirs"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: The ':theirs' merge tool is deprecated. Use ':select' instead.
     Working copy  (@) now at: kmkuslsw 7337267a conflict | conflict
     Parent commit (@-)      : mzvwutvl e2d3924b a | a
     Parent commit (@-)      : vruxwmqv 888b6cc3 b | b
@@ -2274,8 +2278,9 @@ fn test_resolve_with_contents_of_side() {
     // Check that ":ours" merge tool works correctly
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     let output = work_dir.run_jj(["resolve", "-r", "conflict", "--tool", ":ours"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: The ':ours' merge tool is deprecated. Use ':select' instead.
     Rebased 1 descendant commits
     Working copy  (@) now at: kmkuslsw 6cca6d79 tip | (empty) tip
     Parent commit (@-)      : znkkpsqq b84d5da4 conflict | conflict
@@ -2295,8 +2300,9 @@ fn test_resolve_with_contents_of_side() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     let output = work_dir.run_jj(["resolve", "-r", "conflict", "--tool", ":theirs"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: The ':theirs' merge tool is deprecated. Use ':select' instead.
     Rebased 1 descendant commits
     Working copy  (@) now at: kmkuslsw 4a54e224 tip | (empty) tip
     Parent commit (@-)      : znkkpsqq ffd341c7 conflict | conflict
