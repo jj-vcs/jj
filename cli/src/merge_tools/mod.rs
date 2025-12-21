@@ -443,10 +443,18 @@ impl MergeEditor {
                 Ok((tree, None))
             }
             MergeTool::Ours => {
+                writeln!(
+                    ui.warning_default(),
+                    "The ':ours' merge tool is deprecated. Use `jj resolve --select` instead."
+                )?;
                 let tree = pick_conflict_side(tree, &merge_tool_files, 0)?;
                 Ok((tree, None))
             }
             MergeTool::Theirs => {
+                writeln!(
+                    ui.warning_default(),
+                    "The ':theirs' merge tool is deprecated. Use `jj resolve --select` instead."
+                )?;
                 let tree = pick_conflict_side(tree, &merge_tool_files, 1)?;
                 Ok((tree, None))
             }
