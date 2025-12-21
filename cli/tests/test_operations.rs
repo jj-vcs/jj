@@ -648,6 +648,73 @@ fn test_op_log_configurable() {
 }
 
 #[test]
+fn test_op_abandon_invalid() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a merge operation
+    work_dir.run_jj(["commit", "-m", "commit 1"]).success();
+    work_dir
+        .run_jj(["commit", "--at-op=@-", "-m", "commit 2"])
+        .success();
+    work_dir.run_jj(["commit", "-m", "commit 3"]).success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-T", "description"]), @"
+    @  commit 4e0592f3dd52e7a4998a97d9a1f354e2727a856b
+    ○    reconcile divergent operations
+    ├─╮
+    ○ │  commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │ ○  commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    ├─╯
+    ○  add workspace 'default'
+    ○
+    [EOF]
+    ");
+
+    // Cannot abandon the root operation
+    let output = work_dir.run_jj(["op", "abandon", "000000000000"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Cannot abandon the root operation
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Cannot abandon merge operations
+    let output = work_dir.run_jj(["op", "abandon", "@-"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Cannot abandon a merge operation
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Cannot abandon the current operation (specified via "..")
+    let output = work_dir.run_jj(["op", "abandon", "@-.."]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Cannot abandon the current operation 633ee70ce825
+    Hint: Run `jj undo` to revert the current operation, then use `jj op abandon`
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Confirm no change
+    insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-T", "description"]), @"
+    @  commit 4e0592f3dd52e7a4998a97d9a1f354e2727a856b
+    ○    reconcile divergent operations
+    ├─╮
+    ○ │  commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │ ○  commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    ├─╯
+    ○  add workspace 'default'
+    ○
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_op_abandon_ancestors() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
