@@ -2259,6 +2259,37 @@ from `"ignore"` or  `"auto"` to `"respect"`, `jj` may not update the stored
 executable bit until you modify the file's contents or update its modification
 time, e.g. with `touch`.
 
+## Managed Configuration
+
+Managed configuration is stored within the repository itself, at
+`.config/jj/config.toml`. This allows repository owners to provide recommended
+or enforced settings for all users of the repository.
+
+Note: Unlike user configuration, managed configuration only loads
+`$REPO/.config/jj/config.toml`; splitting configuration across
+`.config/jj/conf.d/*.toml` is not supported.
+
+Since loading configuration from a potentially untrusted source has security
+implications, `jj` uses a trust level system for managed configs. You can set
+the trust level for the current repository using the `jj config managed`
+command (jj will also prompt you):
+
+```shell
+# To ignore the managed config entirely:
+jj config managed --ignore
+
+# To review changes since the last managed config that was reviewed:
+jj config managed --review
+
+# To load the managed config automatically:
+jj config managed --trust
+```
+
+Note: When set to `--trust`, `jj` will automatically load any future updates to
+`.config/jj/config.toml` (including changes fetched from remote branches or
+unsubmitted pull requests) without prompting. If you collaborate with untrusted
+contributors or review unverified PRs, `--review` is recommended instead.
+
 ## Ways to specify `jj` config: details
 
 ### User config files
