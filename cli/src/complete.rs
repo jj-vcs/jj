@@ -219,10 +219,7 @@ pub fn bookmarks() -> Vec<CompletionCandidate> {
             .map(|(bookmark, mut refs)| {
                 let help = refs.find_map(|(_, help)| help);
                 let local = help.is_some();
-                let display_order = match local {
-                    true => 0,
-                    false => 1,
-                };
+                let display_order = if local { 0 } else { 1 };
                 CompletionCandidate::new(bookmark)
                     .help(help)
                     .display_order(Some(display_order))
@@ -335,9 +332,10 @@ fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionC
                 .filter(|(bookmark, _)| bookmark.starts_with(match_prefix))
                 .map(|(bookmark, help)| {
                     let local = !bookmark.contains('@');
-                    let display_order = match local {
-                        true => LOCAL_BOOKMARK,
-                        false => REMOTE_BOOKMARK,
+                    let display_order = if local {
+                        LOCAL_BOOKMARK
+                    } else {
+                        REMOTE_BOOKMARK
                     };
                     CompletionCandidate::new(bookmark)
                         .help(help)

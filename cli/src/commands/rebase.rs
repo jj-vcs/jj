@@ -375,9 +375,10 @@ pub(crate) fn cmd_rebase(
     args: &RebaseArgs,
 ) -> Result<(), CommandError> {
     let rebase_options = RebaseOptions {
-        empty: match args.skip_emptied {
-            true => EmptyBehavior::AbandonNewlyEmpty,
-            false => EmptyBehavior::Keep,
+        empty: if args.skip_emptied {
+            EmptyBehavior::AbandonNewlyEmpty
+        } else {
+            EmptyBehavior::Keep
         },
         rewrite_refs: RewriteRefsOptions {
             delete_abandoned_bookmarks: false,
