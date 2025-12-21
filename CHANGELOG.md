@@ -45,6 +45,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `revsets.bookmark-advance-from` and `revsets.bookmark-advance-to`.
   It is heavily inspired by the longstanding community alias `jj tug`.
 
+* jj configuration can now be stored in version control. This is known as
+  "managed" configuration.
+  * The config file is stored at `$REPO/.config/jj/config.toml`
+  * For security reasons, jj will prompt you when managed config is available
+    to ask you whether you trust it.
+
 ### Breaking changes
 
 * Dropped support for legacy index files written by jj < 0.33. New index files
