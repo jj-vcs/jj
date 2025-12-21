@@ -145,9 +145,7 @@ pub(crate) fn cmd_status(
         }
 
         if wc_commit.has_conflict() {
-            // TODO: Conflicts should also be filtered by the `matcher`. See the related
-            // TODO on `MergedTree::conflicts()`.
-            let conflicts = wc_commit.tree().conflicts().collect_vec();
+            let conflicts = wc_commit.tree().conflicts_matching(&matcher).collect_vec();
             writeln!(
                 formatter.labeled("warning").with_heading("Warning: "),
                 "There are unresolved conflicts at these paths:"

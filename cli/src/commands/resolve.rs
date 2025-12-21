@@ -92,10 +92,7 @@ pub(crate) fn cmd_resolve(
     let matcher = fileset_expression.to_matcher();
     let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
     let tree = commit.tree();
-    let conflicts = tree
-        .conflicts()
-        .filter(|path| matcher.matches(&path.0))
-        .collect_vec();
+    let conflicts = tree.conflicts_matching(&matcher).collect_vec();
 
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
 
