@@ -1804,26 +1804,26 @@ documentation](working-copy.md#stale-working-copy).
 
 ## Working copy settings
 
-### EOL conversion settings
+### EOL conversion setting
 
-This settings serves the same purpose as the [`core.autocrlf`][git-autocrlf] git
+This setting serves the same purpose as the [`core.autocrlf`][git-autocrlf] Git
 config.
 
-The line endings conversion won't be applied to files detected as binary files
-via a heuristics[^1] regardless of the settings. This is similar to git.
+Regardless of this setting, the line endings conversion is skipped on binary
+files based on a heuristic[^1]. This is similar to Git.
 
 ```toml
 [working-copy]
-# No EOL conversion. Similar to core.autocrlf = false.
+# No EOL conversion. Similar to `core.autocrlf = false`.
 eol-conversion = "none"
-# Apply CRLF to LF EOL conversion when we check files in the backend store from
-# the local file system but not apply EOL conversion when we check out the code
-# from the backend store to the local file system. Similar to core.autocrlf =
-# input.
+# Apply CRLF-to-LF EOL conversion when we check files in to the backend store
+# from the local file system, but do not apply LF-to-CRLF EOL conversion when we
+# check out the code from the backend store to the local file system. Similar to
+# `core.autocrlf = input`.
 eol-conversion = "input"
-# Setting this to "input-output" if you want to have CRLF line endings in your
-# working directory and the repository has LF line endings. Similar to
-# core.autocrlf = true.
+# Apply EOL conversion on both file check-in to and file check-out from the
+# backend store, so you have CRLF line endings in your working directory while
+# the repository has LF line endings. Similar to `core.autocrlf = true`.
 eol-conversion = "input-output"
 ```
 
@@ -1832,8 +1832,8 @@ eol-conversion = "input-output"
 [git-is-binary]: https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103
 [^1]: To detect if a file is binary, Jujutsu currently checks if there is NULL
       byte in the file which is different from the algorithm of
-      [`gitoxide`][gitoxide-is-binary] or [`git`][git-is-binary]. Jujutsu
-      doesn't plan to align the binary detection logic with git.
+      [`gitoxide`][gitoxide-is-binary] or [`Git`][git-is-binary]. Jujutsu
+      doesn't plan to align the binary detection logic with Git.
 
 ### Respect or ignore executable bit permission changes
 
