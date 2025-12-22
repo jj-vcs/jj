@@ -16,9 +16,8 @@ very large repos where detection would be too slow. See
 ## Forge integrations
 
 We would like to make it easier to work with various popular forges by providing
-something like `jj github submit`, `jj gitlab submit`, and `jj gerrit send`. For
-popular forges, we might include that support by default in the standard `jj`
-binary.
+something like `jj github submit` and `jj gitlab submit`. For popular forges, we
+might include that support by default in the standard `jj` binary.
 
 ## Submodule support
 
