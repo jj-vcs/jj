@@ -182,6 +182,14 @@ impl RefSpec {
         }
     }
 
+    fn update(source: impl Into<String>, destination: impl Into<String>) -> Self {
+        Self {
+            forced: false,
+            source: Some(source.into()),
+            destination: destination.into(),
+        }
+    }
+
     fn delete(destination: impl Into<String>) -> Self {
         // We don't force push on branch deletion
         Self {
@@ -2830,6 +2838,47 @@ pub fn push_updates(
         .collect();
 
     let mut push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, &mut callbacks)?;
+    push_stats.pushed.sort();
+    push_stats.rejected.sort();
+    push_stats.remote_rejected.sort();
+    Ok(push_stats)
+}
+
+/// Pushes the specified Git refs without updating the repo view, and without
+/// using `--force-with-lease` negotiation.
+///
+/// This is primarily intended for refs where lease-based "test-and-set" isn't
+/// appropriate or where jj doesn't track the remote state (e.g. Git tags).
+pub fn push_updates_without_lease(
+    repo: &dyn Repo,
+    git_settings: &GitSettings,
+    remote_name: &RemoteName,
+    updates: &[GitRefUpdate],
+    mut callbacks: RemoteCallbacks,
+) -> Result<GitPushStats, GitPushError> {
+    validate_remote_name(remote_name)?;
+
+    let mut refspecs = vec![];
+    for update in updates {
+        if let Some(new_target) = &update.new_target {
+            refspecs.push(RefSpec::update(new_target.hex(), &update.qualified_name));
+        } else {
+            refspecs.push(RefSpec::delete(&update.qualified_name));
+        }
+    }
+
+    let git_backend = get_git_backend(repo.store())?;
+    let git_repo = git_backend.git_repo();
+    let git_ctx =
+        GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
+
+    // check the remote exists
+    if git_repo.try_find_remote(remote_name.as_str()).is_none() {
+        return Err(GitPushError::NoSuchRemote(remote_name.to_owned()));
+    }
+
+    let mut push_stats =
+        git_ctx.spawn_push_without_leases(remote_name, &refspecs, &mut callbacks)?;
     push_stats.pushed.sort();
     push_stats.rejected.sort();
     push_stats.remote_rejected.sort();

@@ -2501,6 +2501,21 @@ impl WorkspaceCommandTransaction<'_> {
             .finish_transaction(ui, self.tx, description, &git_import_export_lock)
     }
 
+    /// Finishes the transaction even if the repo has no changes.
+    ///
+    /// This is useful for commands that perform side effects outside the repo
+    /// (for example, pushing to a remote) but still need to record an
+    /// operation without printing a spurious "Nothing changed." message.
+    pub fn finish_even_if_unchanged(
+        self,
+        ui: &Ui,
+        description: impl Into<String>,
+    ) -> Result<(), CommandError> {
+        let git_import_export_lock = self.helper.lock_git_import_export()?;
+        self.helper
+            .finish_transaction(ui, self.tx, description, &git_import_export_lock)
+    }
+
     /// Returns the wrapped [`Transaction`] for circumstances where
     /// finer-grained control is needed. The caller becomes responsible for
     /// finishing the `Transaction`, including rebasing descendants and updating

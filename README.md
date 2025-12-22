@@ -219,7 +219,7 @@ Today, only the Git backend is production-ready. The Git backend uses the
 
 The Git backend is fully featured and maintained, and allows you to use Jujutsu
 with any Git remote. The commits you create will look like regular Git commits.
-You can fetch branches from a regular Git remote and push branches to the
+You can fetch branches from a regular Git remote and push branches and tags to the
 remote. You can always switch back to Git.
 
 Here is how you can explore a GitHub repository with `jj`.

@@ -194,7 +194,7 @@ In particular, a merge of local and remote targets is
          diff `[absent, remote] - absent` is noop. So it's not allowed to push
          deleted branch to untracked remote.
        * TODO: Copy Git's `--force-with-lease` behavior?
-     * ~`tags`~ (not implemented, but should be the same as `branches`)
+     * ~`tags`~ (not implemented, but should be the same as `branches`) - TODO(warrenbhw - update docs here once design is finalized)
   2. Pushes diff to the remote Git repo (as well as remote tracking branches
      in the backing Git repo.)
   3. Updates `remotes[remote]` and `git_refs` reflecting the push.
