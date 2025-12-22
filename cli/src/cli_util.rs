@@ -2360,6 +2360,17 @@ to the current parents may contain changes from multiple commits.
 
         Ok(advanceable_bookmarks)
     }
+
+    pub fn generate_new_change_id(&self) -> ChangeId {
+        let id_prefix_index = self
+            .id_prefix_context()
+            .populate(self.repo().base_repo())
+            .unwrap();
+        id_prefix_index.generate_new_change_id(
+            self.settings().get_rng(),
+            self.repo().store().change_id_length(),
+        )
+    }
 }
 
 #[cfg(feature = "git")]
@@ -2476,6 +2487,17 @@ impl WorkspaceCommandTransaction<'_> {
     ) -> Result<TemplateRenderer<'_, Commit>, CommandError> {
         let language = self.commit_template_language();
         self.helper.env.parse_template(ui, &language, template_text)
+    }
+
+    pub fn generate_new_change_id(&self) -> ChangeId {
+        let id_prefix_context = self
+            .id_prefix_context
+            .get_or_init(|| self.helper.env.new_id_prefix_context());
+        let id_prefix_index = id_prefix_context.populate(self.repo()).unwrap();
+        id_prefix_index.generate_new_change_id(
+            self.settings().get_rng(),
+            self.repo().store().change_id_length(),
+        )
     }
 
     pub fn finish(self, ui: &Ui, description: impl Into<String>) -> Result<(), CommandError> {

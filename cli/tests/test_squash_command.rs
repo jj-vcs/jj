@@ -495,8 +495,8 @@ fn test_squash_from_to() {
     work_dir.write_file("file2", "f\n");
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  0fac1124d1ad f
-    ○  4ebe104a0e4e e
+    @  20ee6d1e7970 f
+    ○  e5cef3db24a3 e
     ○  dc71a460d5d6 d
     │ ○  ee0b260ffc44 c
     │ ○  e31bf988d7c9 b
@@ -519,14 +519,14 @@ fn test_squash_from_to() {
     let output = work_dir.run_jj(["squash", "--from", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kmkuslsw 941ab024 f | (no description set)
-    Parent commit (@-)      : znkkpsqq 4ebe104a e | (no description set)
+    Working copy  (@) now at: yptpptny 1bd346c6 f | (no description set)
+    Parent commit (@-)      : uuzqqzqu e5cef3db e | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  941ab024b3f8 f
-    ○  4ebe104a0e4e e
+    @  1bd346c685ba f
+    ○  e5cef3db24a3 e
     ○  dc71a460d5d6 d
     │ ○  e31bf988d7c9 b c
     ├─╯
@@ -552,15 +552,15 @@ fn test_squash_from_to() {
     let output = work_dir.run_jj(["squash", "--from", "@--"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: kmkuslsw c102d2c4 f | (no description set)
-    Parent commit (@-)      : znkkpsqq beb7c033 e | (no description set)
+    Working copy  (@) now at: yptpptny de2de8c2 f | (no description set)
+    Parent commit (@-)      : uuzqqzqu d9d24d72 e | (no description set)
     [EOF]
     ");
     // The change has been removed from the source (the change pointed to by 'd'
     // became empty and was abandoned)
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  c102d2c4e165 f
-    ○  beb7c0338f7c e
+    @  de2de8c25312 f
+    ○  d9d24d72b085 e
     │ ○  ee0b260ffc44 c
     │ ○  e31bf988d7c9 b
     ├─╯
@@ -582,14 +582,14 @@ fn test_squash_from_to() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: kmkuslsw 1bc21d4e f | (no description set)
+    Working copy  (@) now at: yptpptny 1c5c6afa f | (no description set)
     Parent commit (@-)      : vruxwmqv 8b6b080a d e | (no description set)
     [EOF]
     ");
     // The change has been removed from the source (the change pointed to by 'e'
     // became empty and was abandoned)
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  1bc21d4e92d6 f
+    @  1c5c6afae007 f
     ○  8b6b080ab587 d e
     │ ○  ee0b260ffc44 c
     │ ○  e31bf988d7c9 b
@@ -884,8 +884,8 @@ fn test_squash_from_multiple() {
     work_dir.write_file("file", "f\n");
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  65e53f39b4d6 f
-    ○      7dc592781647 e
+    @  be45b16bca62 f
+    ○      6b07f868b05a e
     ├─┬─╮
     │ │ ○  fed4d1a2e491 b
     │ ○ │  d7e94ec7e73e c
@@ -903,8 +903,8 @@ fn test_squash_from_multiple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon 0b695306 f | (no description set)
-    Parent commit (@-)      : yostqsxw ff064d52 e | (no description set)
+    Working copy  (@) now at: vzqnnsmr ca2f46ec f | (no description set)
+    Parent commit (@-)      : wmwvqwsz 9b7a17f7 e | (no description set)
     New conflicts appeared in 1 commits:
       yqosqzyt 61130da4 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
@@ -916,8 +916,8 @@ fn test_squash_from_multiple() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  0b6953066ee0 f
-    ○    ff064d529578 e
+    @  ca2f46ec9064 f
+    ○    9b7a17f7609c e
     ├─╮
     × │  61130da4e714 d
     ├─╯
@@ -947,13 +947,13 @@ fn test_squash_from_multiple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: xznxytkn ec32238b (empty) (no description set)
-    Parent commit (@-)      : yostqsxw 5298eef6 e f | (no description set)
+    Working copy  (@) now at: xznxytkn 922c633e (empty) (no description set)
+    Parent commit (@-)      : wmwvqwsz ee0db625 e f | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  ec32238b2be5 (empty)
-    ○    5298eef6bca5 e f
+    @  922c633ef376 (empty)
+    ○    ee0db6253f50 e f
     ├─╮
     ○ │  8acbb71558d5 d
     ├─╯
@@ -1028,8 +1028,8 @@ fn test_squash_from_multiple_partial() {
     work_dir.write_file("file2", "f\n");
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  4558bd852475 f
-    ○      e2db96b2e57a e
+    @  463a1aa77462 f
+    ○      3e60cb5b3666 e
     ├─┬─╮
     │ │ ○  f2c9709f39e9 b
     │ ○ │  aa908686a197 c
@@ -1047,8 +1047,8 @@ fn test_squash_from_multiple_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon a724910c f | (no description set)
-    Parent commit (@-)      : yostqsxw 1bc405e1 e | (no description set)
+    Working copy  (@) now at: vzqnnsmr 8ef3674e f | (no description set)
+    Parent commit (@-)      : wmwvqwsz 166fb3eb e | (no description set)
     New conflicts appeared in 1 commits:
       yqosqzyt 7ddfe685 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
@@ -1060,8 +1060,8 @@ fn test_squash_from_multiple_partial() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  a724910cd361 f
-    ○      1bc405e12b68 e
+    @  8ef3674ee02b f
+    ○      166fb3eb9514 e
     ├─┬─╮
     │ │ ○  e9db15b956c4 b
     │ ○ │  83cbe51db94d c
@@ -1112,13 +1112,13 @@ fn test_squash_from_multiple_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
-    Working copy  (@) now at: kpqxywon b5a40c15 f | (no description set)
-    Parent commit (@-)      : yostqsxw 5dea187c e | (no description set)
+    Working copy  (@) now at: vzqnnsmr 7d7c487a f | (no description set)
+    Parent commit (@-)      : wmwvqwsz 59425fbc e | (no description set)
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  b5a40c154611 f
-    ○      5dea187c414d e
+    @  7d7c487ac4e1 f
+    ○      59425fbc3dff e
     ├─┬─╮
     │ │ ○  8b9afc05ca07 b
     │ ○ │  5630471a8fd5 c
@@ -1180,7 +1180,7 @@ fn test_squash_from_multiple_partial_no_op() {
     // Test the setup
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  fdb92bc249a0 d
-    │ ○  0dc8cb72859d c
+    │ ○  774827326ca0 c
     ├─╯
     │ ○  b1a17f79a1a5 b
     ├─╯
@@ -1201,7 +1201,7 @@ fn test_squash_from_multiple_partial_no_op() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  6dfc239e2ba3 d
-    │ ○  0dc8cb72859d c
+    │ ○  774827326ca0 c
     ├─╯
     ○  93d495c46d89 a
     ◆  000000000000 (empty)
@@ -1232,7 +1232,7 @@ fn test_squash_from_multiple_partial_no_op() {
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  fdb92bc249a0 d
-    │ ○  0dc8cb72859d c
+    │ ○  774827326ca0 c
     ├─╯
     │ ○  b1a17f79a1a5 b
     ├─╯

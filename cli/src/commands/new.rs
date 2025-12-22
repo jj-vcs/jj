@@ -198,9 +198,11 @@ pub(crate) fn cmd_new(
 
     let mut tx = workspace_command.start_transaction();
     let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).block_on()?;
+    let change_id = tx.generate_new_change_id();
     let mut commit_builder = tx
         .repo_mut()
         .new_commit(parent_commit_ids, merged_tree)
+        .set_change_id(change_id)
         .detach();
     let mut description = join_message_paragraphs(&args.message_paragraphs);
     if !description.is_empty() {

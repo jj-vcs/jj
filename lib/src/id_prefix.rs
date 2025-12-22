@@ -37,6 +37,7 @@ use crate::revset::RevsetResolutionError;
 use crate::revset::SymbolResolver;
 use crate::revset::SymbolResolverExtension;
 use crate::revset::UserRevsetExpression;
+use crate::settings::JJRng;
 use crate::view::View;
 
 #[derive(Debug, Error)]
@@ -276,6 +277,49 @@ impl IdPrefixIndex<'_> {
         }
         repo.shortest_unique_change_id_prefix_len(change_id)
     }
+
+    pub fn generate_new_change_id(
+        &self,
+        rng: Arc<JJRng>,
+        repo_change_id_length: usize,
+    ) -> ChangeId {
+        if let Some(indexes) = self.indexes {
+            // generate a set of change-ids, and keep the one that produce the shortest
+            // prefix
+            let mut change_id = None;
+            let mut change_id_length = repo_change_id_length + 1;
+            // 47 for a .95 probability to find the last free 1-length prefix (1-(15/16)^47)
+            for _ in 0..47 {
+                let id = rng.new_change_id(repo_change_id_length);
+                let length = prefix_length(&id, indexes);
+                if length == 1 {
+                    // it can't be shorter, stop there
+                    return id;
+                }
+                if length < change_id_length {
+                    change_id = Some(id);
+                    change_id_length = length;
+                }
+            }
+            change_id.expect("a change-id to be there")
+        } else {
+            rng.new_change_id(repo_change_id_length)
+        }
+    }
+}
+
+fn prefix_length(change_id: &ChangeId, indexes: &Indexes) -> usize {
+    let change_id_str = change_id.to_string();
+    for length in 1..change_id_str.len() {
+        let prefix = HexPrefix::try_from_reverse_hex(&change_id_str[0..length]).unwrap();
+        let resolution = indexes
+            .change_index
+            .resolve_prefix_to_key(&*indexes.commit_change_ids, &prefix);
+        if let PrefixResolution::NoMatch = resolution {
+            return length;
+        }
+    }
+    return change_id_str.len();
 }
 
 fn disambiguate_prefix_with_refs(view: &View, id_sym: &str, min_len: usize) -> usize {
