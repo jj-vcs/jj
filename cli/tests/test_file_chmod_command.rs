@@ -193,13 +193,13 @@ fn test_chmod_file_dir_deletion_conflicts() {
     [EOF]
     "#);
     let output = work_dir.run_jj(["file", "show", "-r=file_dir", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r#"
     Conflict:
-      Removing file with id df967b96a579e45a18b8251732d16804b2e56a55
-      Adding file with id 78981922613b2afb6025042ff6bd878ac1994e85
-      Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877
+      Removing file with id df967b96a579e45a18b8251732d16804b2e56a55 (rlvkpnrz 1792382a "base")
+      Adding file with id 78981922613b2afb6025042ff6bd878ac1994e85 (zsuskuln bc9cdea1 "file")
+      Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877 (vruxwmqv 223cb383 "dir")
     [EOF]
-    ");
+    "#);
     let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_dir"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------

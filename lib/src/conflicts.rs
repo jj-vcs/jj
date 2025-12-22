@@ -133,9 +133,15 @@ pub enum MaterializedTreeValue {
     Absent,
     AccessDenied(Box<dyn std::error::Error + Send + Sync>),
     File(MaterializedFileValue),
-    Symlink { id: SymlinkId, target: String },
+    Symlink {
+        id: SymlinkId,
+        target: String,
+    },
     FileConflict(MaterializedFileConflictValue),
-    OtherConflict { id: MergedTreeValue },
+    OtherConflict {
+        id: MergedTreeValue,
+        labels: ConflictLabels,
+    },
     GitSubmodule(CommitId),
     Tree(TreeId),
 }
@@ -243,7 +249,10 @@ async fn materialize_tree_value_no_access_denied(
                 .await?
             {
                 Some(file) => Ok(MaterializedTreeValue::FileConflict(file)),
-                None => Ok(MaterializedTreeValue::OtherConflict { id: conflict }),
+                None => Ok(MaterializedTreeValue::OtherConflict {
+                    id: conflict,
+                    labels: conflict_labels.clone(),
+                }),
             }
         }
     }

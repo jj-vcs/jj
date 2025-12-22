@@ -190,8 +190,9 @@ fn write_tree_entries(
                     &options,
                 )?;
             }
-            MaterializedTreeValue::OtherConflict { id } => {
-                ui.stdout_formatter().write_all(id.describe().as_bytes())?;
+            MaterializedTreeValue::OtherConflict { id, labels } => {
+                ui.stdout_formatter()
+                    .write_all(id.describe(&labels).as_bytes())?;
             }
             MaterializedTreeValue::Symlink { .. } | MaterializedTreeValue::GitSubmodule(_) => {
                 let ui_path = workspace_command.format_file_path(&entry.path);

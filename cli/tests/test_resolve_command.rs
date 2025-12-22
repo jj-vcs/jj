@@ -958,9 +958,9 @@ fn test_file_vs_dir() {
     Error: Failed to resolve conflicts
     Caused by: Only conflicts that involve normal files (not symlinks, etc.) are supported. Conflict summary for "file":
     Conflict:
-      Removing file with id df967b96a579e45a18b8251732d16804b2e56a55
-      Adding file with id 78981922613b2afb6025042ff6bd878ac1994e85
-      Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877
+      Removing file with id df967b96a579e45a18b8251732d16804b2e56a55 (rlvkpnrz 1792382a "base")
+      Adding file with id 78981922613b2afb6025042ff6bd878ac1994e85 (zsuskuln 45537d53 "a")
+      Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877 (royxmykx 0950b959 "b")
     [EOF]
     [exit status: 1]
     "#);
@@ -1011,10 +1011,10 @@ fn test_description_with_dir_and_deletion() {
     Error: Failed to resolve conflicts
     Caused by: Only conflicts that involve normal files (not symlinks, etc.) are supported. Conflict summary for "file":
     Conflict:
-      Removing file with id df967b96a579e45a18b8251732d16804b2e56a55
-      Removing file with id df967b96a579e45a18b8251732d16804b2e56a55
-      Adding file with id 61780798228d17af2d34fce4cfbdf35556832472
-      Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877
+      Removing file with id df967b96a579e45a18b8251732d16804b2e56a55 (rlvkpnrz 1792382a "base")
+      Removing file with id df967b96a579e45a18b8251732d16804b2e56a55 (rlvkpnrz 1792382a "base")
+      Adding file with id 61780798228d17af2d34fce4cfbdf35556832472 (zsuskuln 6c74ed1d "edit")
+      Adding tree with id 133bb38fc4e4bf6b551f1f04db7e48f04cac2877 (royxmykx 09c02334 "dir")
     [EOF]
     [exit status: 1]
     "#);
@@ -1390,8 +1390,8 @@ fn test_resolve_change_delete_executable() {
     Error: Failed to resolve conflicts
     Caused by: "file1" has conflicts in executable bit
     Conflict:
-      Removing file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
-      Adding executable file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+      Removing file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 (rlvkpnrz f747aa1f "base")
+      Adding executable file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 (mzvwutvl e2d3924b "a")
     Hint: Use `jj file chmod` to update the executable bit.
     [EOF]
     [exit status: 1]
@@ -1406,8 +1406,8 @@ fn test_resolve_change_delete_executable() {
     Error: Failed to resolve conflicts
     Caused by: "file2" has conflicts in executable bit
     Conflict:
-      Removing executable file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
-      Adding file with id e6bfff5c1d0f0ecd501552b43a1e13d8008abc31
+      Removing executable file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 (rlvkpnrz f747aa1f "base")
+      Adding file with id e6bfff5c1d0f0ecd501552b43a1e13d8008abc31 (vruxwmqv 888b6cc3 "b")
     Hint: Use `jj file chmod` to update the executable bit.
     [EOF]
     [exit status: 1]
@@ -1437,8 +1437,8 @@ fn test_resolve_change_delete_executable() {
     Error: Failed to resolve conflicts
     Caused by: "file3" has conflicts in executable bit
     Conflict:
-      Adding file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
-      Adding executable file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+      Adding file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 (mzvwutvl e2d3924b "a")
+      Adding executable file with id e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 (vruxwmqv 888b6cc3 "b")
     Hint: Use `jj file chmod` to update the executable bit.
     [EOF]
     [exit status: 1]

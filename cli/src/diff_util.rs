@@ -1321,9 +1321,9 @@ fn diff_content_with<T>(
             is_binary: false,
             contents: map_conflict(file.contents, file.labels),
         }),
-        MaterializedTreeValue::OtherConflict { id } => Ok(FileContent {
+        MaterializedTreeValue::OtherConflict { id, labels } => Ok(FileContent {
             is_binary: false,
-            contents: map_resolved(id.describe().into()),
+            contents: map_resolved(id.describe(&labels).into()),
         }),
         MaterializedTreeValue::Tree(id) => {
             panic!("Unexpected tree with id {id:?} in diff at path {path:?}");

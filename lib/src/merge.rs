@@ -36,6 +36,7 @@ use crate::backend::BackendResult;
 use crate::backend::CopyId;
 use crate::backend::FileId;
 use crate::backend::TreeValue;
+use crate::conflict_labels::ConflictLabels;
 use crate::content_hash::ContentHash;
 use crate::content_hash::DigestUpdate;
 use crate::repo_path::RepoPath;
@@ -821,14 +822,30 @@ where
     }
 
     /// Give a summary description of the conflict's "removes" and "adds"
-    pub fn describe(&self) -> String {
+    pub fn describe(&self, labels: &ConflictLabels) -> String {
         let mut buf = String::new();
         writeln!(buf, "Conflict:").unwrap();
-        for term in self.removes().flatten() {
-            writeln!(buf, "  Removing {}", describe_conflict_term(term.borrow())).unwrap();
+        for (term, label) in self
+            .removes()
+            .enumerate()
+            .filter_map(|(i, term)| term.as_ref().map(|term| (term, labels.get_remove(i))))
+        {
+            write!(buf, "  Removing {}", describe_conflict_term(term.borrow())).unwrap();
+            if let Some(label) = label {
+                write!(buf, " ({label})").unwrap();
+            }
+            buf.push('\n');
         }
-        for term in self.adds().flatten() {
-            writeln!(buf, "  Adding {}", describe_conflict_term(term.borrow())).unwrap();
+        for (term, label) in self
+            .adds()
+            .enumerate()
+            .filter_map(|(i, term)| term.as_ref().map(|term| (term, labels.get_add(i))))
+        {
+            write!(buf, "  Adding {}", describe_conflict_term(term.borrow())).unwrap();
+            if let Some(label) = label {
+                write!(buf, " ({label})").unwrap();
+            }
+            buf.push('\n');
         }
         buf
     }

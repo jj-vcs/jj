@@ -2275,10 +2275,10 @@ impl TreeState {
                     });
                     file_state
                 }
-                MaterializedTreeValue::OtherConflict { id } => {
+                MaterializedTreeValue::OtherConflict { id, labels } => {
                     // Unless all terms are regular files, we can't do much
                     // better than trying to describe the merge.
-                    let contents = id.describe();
+                    let contents = id.describe(&labels);
                     // Since this is a dummy file, it shouldn't be executable.
                     self.write_conflict(&disk_path, contents.as_bytes(), ExecBit(false))
                         .await?

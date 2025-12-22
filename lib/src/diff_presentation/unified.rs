@@ -120,12 +120,12 @@ pub fn git_diff_part(
                 ),
             };
         }
-        MaterializedTreeValue::OtherConflict { id } => {
+        MaterializedTreeValue::OtherConflict { id, labels } => {
             mode = "100644";
             hash = DUMMY_HASH.to_owned();
             content = FileContent {
                 is_binary: false,
-                contents: id.describe().into(),
+                contents: id.describe(&labels).into(),
             };
         }
         MaterializedTreeValue::Tree(_) => {

@@ -191,10 +191,10 @@ fn read_file_contents(
                 contents,
             })
         }
-        MaterializedTreeValue::OtherConflict { id } => {
+        MaterializedTreeValue::OtherConflict { id, labels } => {
             // TODO: Non-file conflict shouldn't be rendered as a normal file
             // TODO: Render the ID somehow?
-            let contents = buf_to_file_contents(None, id.describe().into_bytes());
+            let contents = buf_to_file_contents(None, id.describe(&labels).into_bytes());
             Ok(FileInfo {
                 file_mode: mode::NORMAL,
                 contents,

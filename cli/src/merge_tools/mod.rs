@@ -343,7 +343,7 @@ impl MergeToolFile {
                 .block_on()?
                 .ok_or_else(|| ConflictResolveError::NotNormalFiles {
                     path: repo_path.to_owned(),
-                    summary: conflict.describe(),
+                    summary: conflict.describe(tree.labels()),
                 })?;
         // We only support conflicts with 2 sides (3-way conflicts)
         if file.ids.num_sides() > 2 {
@@ -355,7 +355,7 @@ impl MergeToolFile {
         if file.executable.is_none() {
             return Err(ConflictResolveError::ExecutableConflict {
                 path: repo_path.to_owned(),
-                summary: conflict.describe(),
+                summary: conflict.describe(tree.labels()),
             });
         }
         Ok(Self {
