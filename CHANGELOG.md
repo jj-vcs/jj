@@ -80,6 +80,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   conflict came from (currently this is only supported for conflicts created by
   certain commands).
 
+* `jj config get` gained a `--allow-missing` option that suppresses the error
+  when the desired key is not in the config. Instead, the command returns
+  nothing, successfully. This is intended for scripting and external tools.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
