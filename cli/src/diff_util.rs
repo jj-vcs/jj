@@ -2054,7 +2054,7 @@ pub fn show_diff_stats(
     //   path/to/file | 123 ++--
     //
     // Depending on display widths, we can elide part of the path,
-    // and the the ++-- bar will adjust its scale to fill the rest.
+    // and the ++-- bar will adjust its scale to fill the rest.
 
     let max_path_width = ui_paths.iter().map(|s| s.width()).max().unwrap_or(0);
     let max_diffs = stats
