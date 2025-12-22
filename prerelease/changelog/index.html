@@ -6333,6 +6333,10 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <li>
 <p>The deprecated <code>commit_id.normal_hex()</code> template method has been removed.</p>
 </li>
+<li>
+<p>Template expansion that did not produce a terminating newline will not be
+  fixed up to provide one by <code>jj log</code>, <code>jj evolog</code>, or <code>jj op log</code>.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <ul>
