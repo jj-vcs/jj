@@ -1252,6 +1252,7 @@ fn test_config_get() {
     int = 123
     list = ["list", "value"]
     overridden = "foo"
+    empty_string = ""
     "#,
     );
     test_env.add_config(
@@ -1273,6 +1274,13 @@ fn test_config_get() {
     let output = test_env.run_jj_in(".", ["config", "get", "--allow-missing", "nonexistent"]);
     insta::assert_snapshot!(output, @"");
 
+    // This output can be distinguished from the `--allow-missing` example
+    let output = test_env.run_jj_in(".", ["config", "get", "table.empty_string"]);
+    insta::assert_snapshot!(output, @"
+
+    [EOF]
+    ");
+
     let output = test_env.run_jj_in(".", ["config", "get", "table.string"]);
     insta::assert_snapshot!(output, @r"
     some value 1
@@ -1293,7 +1301,7 @@ fn test_config_get() {
 
     let output = test_env.run_jj_in(".", ["config", "get", "table"]);
     insta::assert_snapshot!(output, @r#"
-    { string = "some value 1", int = 123, list = ["list", "value"], overridden = "bar" }
+    { string = "some value 1", int = 123, list = ["list", "value"], overridden = "bar", empty_string = "" }
     [EOF]
     "#);
 
