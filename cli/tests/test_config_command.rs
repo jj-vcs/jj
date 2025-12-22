@@ -1270,6 +1270,9 @@ fn test_config_get() {
     [exit status: 1]
     ");
 
+    let output = test_env.run_jj_in(".", ["config", "get", "--allow-missing", "nonexistent"]);
+    insta::assert_snapshot!(output, @"");
+
     let output = test_env.run_jj_in(".", ["config", "get", "table.string"]);
     insta::assert_snapshot!(output, @r"
     some value 1
