@@ -49,7 +49,7 @@ pub struct ConfigListArgs {
     ///
     /// The following keywords are available in the template expression:
     ///
-    /// * `name: String`: Config name.
+    /// * `name: String`: Config name, in [TOML's "dotted key" format].
     /// * `value: ConfigValue`: Value to be formatted in TOML syntax.
     /// * `overridden: Boolean`: True if the value is shadowed by other.
     /// * `source: String`: Source of the value.
@@ -60,6 +60,8 @@ pub struct ConfigListArgs {
     /// template.
     ///
     /// See [`jj help -k templates`] for more information.
+    ///
+    /// [TOML's "dotted key" format]: https://toml.io/en/v1.0.0#keys
     ///
     /// [`jj help -k templates`]:
     ///     https://docs.jj-vcs.dev/latest/templates/
