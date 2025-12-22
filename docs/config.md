@@ -1810,7 +1810,7 @@ This setting serves the same purpose as the [`core.autocrlf`][git-autocrlf] Git
 config.
 
 Regardless of this setting, the line endings conversion is skipped on binary
-files based on a heuristic[^1]. This is similar to Git.
+files based on a [heuristic](#binary-file-detection). This is similar to Git.
 
 ```toml
 [working-copy]
@@ -1828,12 +1828,16 @@ eol-conversion = "input-output"
 ```
 
 [git-autocrlf]: https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf
+
+#### Binary file detection
+
+To detect if a file is binary, Jujutsu currently checks if there is a NULL byte
+in the file, which is different from the algorithm of
+[`gitoxide`][gitoxide-is-binary] or [`Git`][git-is-binary]. Jujutsu doesn't plan
+to align the binary detection logic with Git.
+
 [gitoxide-is-binary]: https://github.com/GitoxideLabs/gitoxide/blob/073487b38ed40bcd7eb45dc110ae1ce84f9275a9/gix-filter/src/eol/utils.rs#L98-L100
 [git-is-binary]: https://github.com/git/git/blob/f1ca98f609f9a730b9accf24e5558a10a0b41b6c/convert.c#L94-L103
-[^1]: To detect if a file is binary, Jujutsu currently checks if there is NULL
-      byte in the file which is different from the algorithm of
-      [`gitoxide`][gitoxide-is-binary] or [`Git`][git-is-binary]. Jujutsu
-      doesn't plan to align the binary detection logic with Git.
 
 ### Respect or ignore executable bit permission changes
 
