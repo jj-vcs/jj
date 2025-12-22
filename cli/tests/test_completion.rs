@@ -231,6 +231,7 @@ fn test_bookmark_names() {
     --color	When to colorize output
     --quiet	Silence non-primary command output
     --no-pager	Disable the pager
+    --pager	Sets the pager to auto. This is the default behavior unless configured otherwise
     --config	Additional configuration options (can be repeated)
     --config-file	Additional configuration files (can be repeated)
     --help	Print help (see more with '--help')
