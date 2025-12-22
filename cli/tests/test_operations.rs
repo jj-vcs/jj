@@ -1525,7 +1525,6 @@ fn test_op_diff() {
     [EOF]
     ");
 
-    // Test creation of new commit.
     // Test tracking of bookmark.
     let output = work_dir.run_jj(["bookmark", "track", "bookmark-2"]);
     insta::assert_snapshot!(output, @r"
@@ -1632,6 +1631,64 @@ fn test_op_diff() {
     bookmark-2@origin:
     + untracked (absent)
     - tracked kulxwnxm e1a239a5 Commit 5
+    [EOF]
+    ");
+
+    // Test creation of tag.
+    work_dir.run_jj(["tag", "set", "tag1"]).success();
+    let output = work_dir.run_jj(["op", "diff"]);
+    insta::assert_snapshot!(output, @"
+    From operation: 4c016e93e0bd (2001-02-03 08:05:39) push all tracked bookmarks to git remote origin
+      To operation: b595d66afb70 (2001-02-03 08:05:41) set tag tag1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
+
+    Changed commits:
+    ○  + wvmqtotl 56e74c8d (empty) (no description set)
+
+    Changed working copy default@:
+    + wvmqtotl 56e74c8d (empty) (no description set)
+    - qmkrwlvp 96f3a57c bookmark-1 | (empty) new commit
+
+    Changed tags:
+    tag1:
+    + qmkrwlvp 96f3a57c bookmark-1 | (empty) new commit
+    - (absent)
+    [EOF]
+    ");
+
+    // Test tag movement.
+    work_dir
+        .run_jj(["tag", "set", "tag1", "-r=@-", "--allow-move"])
+        .success();
+    let output = work_dir.run_jj(["op", "diff"]);
+    insta::assert_snapshot!(output, @"
+    From operation: 4c016e93e0bd (2001-02-03 08:05:39) push all tracked bookmarks to git remote origin
+      To operation: b595d66afb70 (2001-02-03 08:05:41) set tag tag1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
+
+    Changed commits:
+    ○  + wvmqtotl 56e74c8d (empty) (no description set)
+
+    Changed working copy default@:
+    + wvmqtotl 56e74c8d (empty) (no description set)
+    - qmkrwlvp 96f3a57c bookmark-1 | (empty) new commit
+
+    Changed tags:
+    tag1:
+    + qmkrwlvp 96f3a57c bookmark-1 | (empty) new commit
+    - (absent)
+    [EOF]
+    ");
+
+    // Test tag deletion.
+    work_dir.run_jj(["tag", "delete", "tag1"]).success();
+    let output = work_dir.run_jj(["op", "diff"]);
+    insta::assert_snapshot!(output, @"
+    From operation: b595d66afb70 (2001-02-03 08:05:41) set tag tag1 to commit 96f3a57c9a4a4ae7bb45d1eafe32fe3b6e33f458
+      To operation: ba309e0d7191 (2001-02-03 08:05:45) delete tag tag1
+
+    Changed tags:
+    tag1:
+    + (absent)
+    - qmkrwlvp 96f3a57c bookmark-1 | (empty) new commit
     [EOF]
     ");
 }
