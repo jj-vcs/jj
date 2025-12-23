@@ -164,6 +164,7 @@ pub(crate) fn cmd_restore(
         }
     };
     let new_tree = diff_selector.select(
+        ui,
         Diff::new(&to_tree, &from_tree),
         &matcher,
         format_instructions,

@@ -40,7 +40,6 @@ use crate::cli_util::WorkspaceCommandTransaction;
 use crate::cli_util::compute_commit_location;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
-use crate::command_error::user_error_with_hint;
 use crate::complete;
 use crate::description_util::add_trailers;
 use crate::description_util::description_template;
@@ -209,15 +208,6 @@ impl SplitArgs {
         workspace_command: &WorkspaceCommandHelper,
     ) -> Result<ResolvedSplitArgs, CommandError> {
         let target_commit = workspace_command.resolve_single_rev(ui, &self.revision)?;
-        if target_commit.is_empty(workspace_command.repo().as_ref())? {
-            return Err(user_error_with_hint(
-                format!(
-                    "Refusing to split empty commit {}.",
-                    target_commit.id().hex()
-                ),
-                "Use `jj new` if you want to create another empty commit.",
-            ));
-        }
         workspace_command.check_rewritable([target_commit.id()])?;
         let repo = workspace_command.repo();
         let fileset_expression = workspace_command.parse_file_patterns(ui, &self.paths)?;
@@ -544,6 +534,7 @@ The changes that are not selected will replace the original commit.
     };
     let parent_tree = target_commit.parent_tree(tx.repo())?;
     let selected_tree = diff_selector.select(
+        ui,
         Diff::new(&parent_tree, &target_commit.tree()),
         matcher,
         format_instructions,

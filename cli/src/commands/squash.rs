@@ -330,7 +330,7 @@ pub(crate) fn cmd_squash(
     let text_editor = tx.base_workspace_helper().text_editor()?;
     let squashed_description = SquashedDescription::from_args(args);
 
-    let source_commits = select_diff(&tx, &sources, &destination, &matcher, &diff_selector)?;
+    let source_commits = select_diff(ui, &tx, &sources, &destination, &matcher, &diff_selector)?;
 
     print_unmatched_explicit_paths(
         ui,
@@ -474,6 +474,7 @@ impl SquashedDescription {
 }
 
 fn select_diff(
+    ui: &Ui,
     tx: &WorkspaceCommandTransaction,
     sources: &[Commit],
     destination: &Commit,
@@ -502,6 +503,7 @@ fn select_diff(
             }
         };
         let selected_tree = diff_selector.select(
+            ui,
             Diff::new(&parent_tree, &source_tree),
             matcher,
             format_instructions,
