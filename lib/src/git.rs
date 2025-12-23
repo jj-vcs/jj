@@ -514,9 +514,17 @@ pub fn import_some_refs(
     options: &GitImportOptions,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
 ) -> Result<GitImportStats, GitImportError> {
+    let git_repo = get_git_repo(mut_repo.store())?;
+
+    // Allocate views for new remotes configured externally. There may be
+    // remotes with no refs, but the user might still want to "track" absent
+    // remote refs.
+    for remote_name in iter_remote_names(&git_repo) {
+        mut_repo.ensure_remote(&remote_name);
+    }
+
     let store = mut_repo.store();
-    let git_backend = get_git_backend(store)?;
-    let git_repo = git_backend.git_repo();
+    let git_backend = get_git_backend(store).expect("backend type should have been tested");
 
     let RefsToImport {
         changed_git_refs,
@@ -571,13 +579,6 @@ pub fn import_some_refs(
     mut_repo
         .add_heads(&head_commits)
         .map_err(GitImportError::Backend)?;
-
-    // Allocate views for new remotes configured externally. There may be
-    // remotes with no refs, but the user might still want to "track" absent
-    // remote refs.
-    for remote_name in iter_remote_names(&git_repo) {
-        mut_repo.ensure_remote(&remote_name);
-    }
 
     // Apply the change that happened in git since last time we imported refs.
     for (full_name, new_target) in changed_git_refs {
