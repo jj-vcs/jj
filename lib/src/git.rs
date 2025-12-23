@@ -545,13 +545,12 @@ fn import_refs_inner(
     // Bulk-import all reachable Git commits to the backend to reduce overhead
     // of table merging and ref updates.
     //
-    // changed_remote_bookmarks/tags might contain new_targets that are not in
-    // changed_git_refs, but such targets should have already been imported to
-    // the backend.
+    // changed_git_refs aren't respected because changed_remote_bookmarks/tags
+    // should include all heads that will become reachable in jj.
+    let iter_changed_refs = || itertools::chain(&changed_remote_bookmarks, &changed_remote_tags);
     let index = mut_repo.index();
-    let missing_head_ids: Vec<&CommitId> = changed_git_refs
-        .iter()
-        .flat_map(|(_, new_target)| new_target.added_ids())
+    let missing_head_ids: Vec<&CommitId> = iter_changed_refs()
+        .flat_map(|(_, (_, new_target))| new_target.added_ids())
         .filter_map(|id| match index.has_id(id) {
             Ok(false) => Some(Ok(id)),
             Ok(true) => None,
@@ -575,9 +574,7 @@ fn import_refs_inner(
         }
         store.get_commit(id).map_err(missing_ref_err)
     };
-    for (symbol, (_, new_target)) in
-        itertools::chain(&changed_remote_bookmarks, &changed_remote_tags)
-    {
+    for (symbol, (_, new_target)) in iter_changed_refs() {
         for id in new_target.added_ids() {
             let commit = get_commit(id, symbol)?;
             head_commits.push(commit);
