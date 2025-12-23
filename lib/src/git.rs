@@ -523,6 +523,15 @@ pub fn import_some_refs(
         mut_repo.ensure_remote(&remote_name);
     }
 
+    let refs_to_import = diff_refs_to_import(mut_repo.view(), &git_repo, git_ref_filter)?;
+    import_refs_inner(mut_repo, refs_to_import, options)
+}
+
+fn import_refs_inner(
+    mut_repo: &mut MutableRepo,
+    refs_to_import: RefsToImport,
+    options: &GitImportOptions,
+) -> Result<GitImportStats, GitImportError> {
     let store = mut_repo.store();
     let git_backend = get_git_backend(store).expect("backend type should have been tested");
 
@@ -531,7 +540,7 @@ pub fn import_some_refs(
         changed_remote_bookmarks,
         changed_remote_tags,
         failed_ref_names,
-    } = diff_refs_to_import(mut_repo.view(), &git_repo, git_ref_filter)?;
+    } = refs_to_import;
 
     // Bulk-import all reachable Git commits to the backend to reduce overhead
     // of table merging and ref updates.
@@ -2725,19 +2734,19 @@ impl<'a> GitFetch<'a> {
     #[tracing::instrument(skip(self))]
     pub fn import_refs(&mut self) -> Result<GitImportStats, GitImportError> {
         tracing::debug!("import_refs");
-        let import_stats =
-            import_some_refs(
-                self.mut_repo,
-                self.import_options,
-                |kind, symbol| match kind {
-                    GitRefKind::Bookmark => self
-                        .fetched
-                        .iter()
-                        .filter(|fetched| fetched.remote == symbol.remote)
-                        .any(|fetched| fetched.bookmark_matcher.is_match(symbol.name.as_str())),
-                    GitRefKind::Tag => true,
-                },
-            )?;
+        let refs_to_import = diff_refs_to_import(
+            self.mut_repo.view(),
+            &self.git_repo,
+            |kind, symbol| match kind {
+                GitRefKind::Bookmark => self
+                    .fetched
+                    .iter()
+                    .filter(|fetched| fetched.remote == symbol.remote)
+                    .any(|fetched| fetched.bookmark_matcher.is_match(symbol.name.as_str())),
+                GitRefKind::Tag => true,
+            },
+        )?;
+        let import_stats = import_refs_inner(self.mut_repo, refs_to_import, self.import_options)?;
 
         self.fetched.clear();
 
