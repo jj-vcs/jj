@@ -71,6 +71,7 @@ use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetModifier;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::UserRevsetExpression;
+use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::SigStatus;
 use jj_lib::signing::SignError;
@@ -1445,7 +1446,42 @@ fn builtin_commit_evolution_entry_methods<'repo>()
             Ok(out_property.into_dyn_wrapped())
         },
     );
-    // TODO: add predecessors() -> Vec<Commit>?
+    map.insert(
+        "predecessors",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|entry| {
+                let commits: Vec<_> = entry.predecessors().try_collect()?;
+                Ok(commits)
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "inter_diff",
+        |language, diagnostics, _build_ctx, self_property, function| {
+            let ([], [files_node]) = function.expect_arguments()?;
+            let files = if let Some(node) = files_node {
+                expect_fileset_literal(diagnostics, node, language.path_converter)?
+            } else {
+                FilesetExpression::all()
+            };
+            let repo = language.repo;
+            let matcher: Rc<dyn Matcher> = files.to_matcher().into();
+            let out_property = self_property.and_then(move |entry| {
+                let predecessors: Vec<_> = entry.predecessors().try_collect()?;
+                let from_tree = rebase_to_dest_parent(repo, &predecessors, &entry.commit)?;
+                let to_tree = entry.commit.tree();
+                Ok(TreeDiff {
+                    from_tree,
+                    to_tree,
+                    matcher: matcher.clone(),
+                    copy_records: CopyRecords::default(), // TODO: copy tracking
+                })
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
     map
 }
 

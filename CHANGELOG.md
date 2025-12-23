@@ -89,6 +89,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `TreeDiffEntry` now has a `status_char()` method that returns
   single-character status codes (M/A/D/C/R).
 
+* `CommitEvolutionEntry` type now has a `predecessors()` method which
+  returns the predecessor commits (previous versions) of the entry's commit.
+
+* `CommitEvolutionEntry` type now has a  `inter_diff()` method  which
+  returns a `TreeDiff` between the entry's commit and its predecessor version.
+  Optionally accepts a fileset literal to limit the diff.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

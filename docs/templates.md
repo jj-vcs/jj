@@ -190,6 +190,10 @@ This type cannot be printed. The following methods are defined.
 * `.commit() -> Commit`: New commit.
 * `.operation() -> Operation`: Operation where the commit was created or
   rewritten.
+* `.predecessors() -> List<Commit>`: Predecessor commits of this entry.
+* `.inter_diff([files: StringLiteral]) -> TreeDiff`: Changes between this commit and its
+  predecessor version(s), rebased onto the parents of this commit to avoid unrelated
+  changes (similar to `jj evolog -p`).
 
 ### `ChangeId` type
 
