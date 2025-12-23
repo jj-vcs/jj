@@ -48,6 +48,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   colocated repositories. `git_refs()` can be approximated as
   `remote_bookmarks(remote=glob:*) | tags()`.
 
+* The `:ours` and `:theirs` merge tools are deprecated. Use
+  `jj resolve --select` instead.
+
 ### New features
 
 * Updated the executable bit representation in the local working copy to allow
@@ -79,6 +82,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Conflict labels can now contain information about where the sides of a
   conflict came from (currently this is only supported for conflicts created by
   certain commands).
+
+* `jj resolve --select` can be used to interactively select a single side of a
+  conflict to keep, discarding all other sides.
 
 ### Fixed bugs
 
