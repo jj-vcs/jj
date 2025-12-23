@@ -714,3 +714,107 @@ fn test_evolog_reverse_with_graph() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_evolog_template_predecessors_and_inter_diff() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Base change "c".
+    work_dir.run_jj(["describe", "-m", "c"]).success();
+
+    // Two sibling changes to be squashed into "c".
+    work_dir
+        .run_jj(["new", "-r", "subject(c)", "-m", "d"])
+        .success();
+    work_dir.write_file("file1", "d\n");
+    work_dir.write_file("file2", "d\n");
+
+    // Test inter_diff with fileset argument before squash.
+    let output = work_dir
+        .run_jj([
+            "evolog",
+            "-r@",
+            r#"-T=builtin_evolog_compact ++ self.inter_diff("file1").git()"#,
+        ])
+        .success();
+    insta::assert_snapshot!(output, @"
+    @  kkmpptxz test.user@example.com 2001-02-03 08:05:10 c6106cde
+    │  d
+    │  -- operation 744c65238a20 snapshot working copy
+    │  diff --git a/file1 b/file1
+    │  new file mode 100644
+    │  index 0000000000..4bcfe98e64
+    │  --- /dev/null
+    │  +++ b/file1
+    │  @@ -0,0 +1,1 @@
+    │  +d
+    ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 780d27be (hidden)
+       (empty) d
+       -- operation 653d54836a8e new empty commit
+    [EOF]
+    ");
+
+    work_dir
+        .run_jj(["new", "-r", "subject(c)", "-m", "e"])
+        .success();
+    work_dir.write_file("file3", "e\n");
+
+    // Squash both changes into "c". This should record multiple predecessors
+    // for the rewritten commit (previous version of "c" + squashed commits).
+    work_dir
+        .run_jj([
+            "squash",
+            "--from=subject(d)|subject(e)",
+            "--to=subject(c)",
+            "-m",
+            "c+d+e",
+        ])
+        .success();
+
+    // The rewritten commit has multiple predecessors. `inter_diff()` should be
+    // empty because it's computed against predecessor trees rebased onto the
+    // destination parents.
+    let output = work_dir
+        .run_jj([
+            "evolog",
+            "-rsubject(c+d+e)",
+            r#"-T=builtin_evolog_compact ++ separate("\n", "predecessors: " ++ predecessors.map(|c| c.commit_id().shortest(8)).join(","), inter_diff.summary())"#,
+        ])
+        .success();
+    insta::assert_snapshot!(output, @"
+    ○      qpvuntsm test.user@example.com 2001-02-03 08:05:12 92850c35
+    ├─┬─╮  c+d+e
+    │ │ │  -- operation ab5c35eec35c squash commits into e3ce68f48b53d16111a1310c7f417a39c2934931
+    │ │ │  predecessors: e3ce68f4,c6106cde,870e49d7
+    │ │ ○  mzvwutvl/0 test.user@example.com 2001-02-03 08:05:12 870e49d7 (hidden)
+    │ │ │  e
+    │ │ │  -- operation 1838e74a7014 snapshot working copy
+    │ │ │  predecessors: 3345e308
+    │ │ │  A file3
+    │ │ ○  mzvwutvl/1 test.user@example.com 2001-02-03 08:05:11 3345e308 (hidden)
+    │ │    (empty) e
+    │ │    -- operation 460508b07632 new empty commit
+    │ │    predecessors:
+    │ ○  kkmpptxz/0 test.user@example.com 2001-02-03 08:05:10 c6106cde (hidden)
+    │ │  d
+    │ │  -- operation 744c65238a20 snapshot working copy
+    │ │  predecessors: 780d27be
+    │ │  A file1
+    │ │  A file2
+    │ ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 780d27be (hidden)
+    │    (empty) d
+    │    -- operation 653d54836a8e new empty commit
+    │    predecessors:
+    ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 e3ce68f4 (hidden)
+    │  (empty) c
+    │  -- operation 12d7ec2266d5 describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    │  predecessors: e8849ae1
+    ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
+       (empty) (no description set)
+       -- operation 8f47435a3990 add workspace 'default'
+       predecessors:
+    [EOF]
+    ");
+}
