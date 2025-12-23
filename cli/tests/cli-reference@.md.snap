@@ -698,13 +698,17 @@ user.name="Martin von Zweigbergk"
 $ jj config get user.name
 Martin von Zweigbergk
 
-**Usage:** `jj config get <NAME>`
+**Usage:** `jj config get [OPTIONS] <NAME>`
 
 **Command Alias:** `g`
 
 ###### **Arguments:**
 
 * `<NAME>`
+
+###### **Options:**
+
+* `--allow-missing` — Suppress error and return nothing if the requested key is not found in the config
 
 
 
