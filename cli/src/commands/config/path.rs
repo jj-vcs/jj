@@ -27,6 +27,10 @@ use crate::ui::Ui;
 ///
 /// A config file at that path may or may not exist.
 ///
+/// If `--repo` or `--workspace` is specified and the config file does not
+/// exist, jj will generate a new config directory for this repo/workspace and
+/// print the path to the config file in that directory.
+///
 /// See `jj config edit` if you'd like to immediately edit a file.
 #[derive(clap::Args, Clone, Debug)]
 pub struct ConfigPathArgs {
@@ -40,8 +44,8 @@ pub fn cmd_config_path(
     command: &CommandHelper,
     args: &ConfigPathArgs,
 ) -> Result<(), CommandError> {
-    for config_path in args.level.config_paths(command.config_env())? {
-        let path_bytes = file_util::path_to_bytes(config_path).map_err(user_error)?;
+    for config_path in args.level.config_paths(ui, command.config_env())? {
+        let path_bytes = file_util::path_to_bytes(&config_path).map_err(user_error)?;
         ui.stdout().write_all(path_bytes)?;
         writeln!(ui.stdout())?;
     }
