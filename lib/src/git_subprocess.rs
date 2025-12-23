@@ -23,6 +23,7 @@ use std::process::Output;
 use std::process::Stdio;
 use std::thread;
 
+use bstr::BStr;
 use bstr::ByteSlice as _;
 use itertools::Itertools as _;
 use thiserror::Error;
@@ -34,6 +35,7 @@ use crate::git::NegativeRefSpec;
 use crate::git::RefSpec;
 use crate::git::RefToPush;
 use crate::git_backend::GitBackend;
+use crate::merge::Diff;
 use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
@@ -160,8 +162,8 @@ impl GitSubprocessContext {
 
     /// Perform a git fetch
     ///
-    /// This returns a fully qualified ref that wasn't fetched successfully
-    /// Note that git only returns one failed ref at a time
+    /// [`GitFetchStatus::NoRemoteRef`] is returned if ref doesn't exist. Note
+    /// that `git` only returns one failed ref at a time.
     pub(crate) fn spawn_fetch(
         &self,
         remote_name: &RemoteName,
@@ -170,15 +172,15 @@ impl GitSubprocessContext {
         callback: &mut dyn GitSubprocessCallback,
         depth: Option<NonZeroU32>,
         fetch_tags_override: Option<FetchTagsOverride>,
-    ) -> Result<Option<String>, GitSubprocessError> {
+    ) -> Result<GitFetchStatus, GitSubprocessError> {
         if refspecs.is_empty() {
-            return Ok(None);
+            return Ok(GitFetchStatus::Updates(GitRefUpdates::default()));
         }
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
         // attempt to prune stale refs with --prune
         // --no-write-fetch-head ensures our request is invisible to other parties
-        command.args(["fetch", "--prune", "--no-write-fetch-head"]);
+        command.args(["fetch", "--porcelain", "--prune", "--no-write-fetch-head"]);
         if callback.needs_progress() {
             command.arg("--progress");
         }
@@ -204,7 +206,7 @@ impl GitSubprocessContext {
 
         let output = wait_with_progress(self.spawn_cmd(command)?, callback)?;
 
-        parse_git_fetch_output(output)
+        parse_git_fetch_output(&output)
     }
 
     /// Prune particular branches
@@ -383,12 +385,21 @@ fn parse_unknown_option(stderr: &[u8]) -> Option<String> {
         .map(|s| s.to_str_lossy().into())
 }
 
-// return the fully qualified ref that failed to fetch
-//
-// note that git fetch only returns one error at a time
-fn parse_git_fetch_output(output: Output) -> Result<Option<String>, GitSubprocessError> {
+/// Status of underlying `git fetch` operation.
+#[derive(Clone, Debug)]
+pub enum GitFetchStatus {
+    /// Successfully fetched refs. There may be refs that couldn't be updated.
+    Updates(GitRefUpdates),
+    /// Fully-qualified ref that failed to fetch.
+    ///
+    /// Note that `git fetch` only returns one error at a time.
+    NoRemoteRef(String),
+}
+
+fn parse_git_fetch_output(output: &Output) -> Result<GitFetchStatus, GitSubprocessError> {
     if output.status.success() {
-        return Ok(None);
+        let updates = parse_ref_updates(&output.stdout)?;
+        return Ok(GitFetchStatus::Updates(updates));
     }
 
     // There are some git errors we want to parse out
@@ -401,14 +412,77 @@ fn parse_git_fetch_output(output: Output) -> Result<Option<String>, GitSubproces
     }
 
     if let Some(refspec) = parse_no_remote_ref(&output.stderr) {
-        return Ok(Some(refspec));
+        return Ok(GitFetchStatus::NoRemoteRef(refspec));
     }
 
-    if parse_no_remote_tracking_branch(&output.stderr).is_some() {
-        return Ok(None);
+    let updates = parse_ref_updates(&output.stdout)?;
+    if !updates.rejected.is_empty() || parse_no_remote_tracking_branch(&output.stderr).is_some() {
+        Ok(GitFetchStatus::Updates(updates))
+    } else {
+        Err(external_git_error(&output.stderr))
     }
+}
 
-    Err(external_git_error(&output.stderr))
+/// Local changes made by `git fetch`.
+#[derive(Clone, Debug, Default)]
+pub struct GitRefUpdates {
+    /// Git ref `(name, (old_oid, new_oid))`s that are successfully updated.
+    ///
+    /// `old_oid`/`new_oid` may be null or point to non-commit objects such as
+    /// tags.
+    #[cfg_attr(not(test), expect(dead_code))] // unused as of now
+    pub updated: Vec<(GitRefNameBuf, Diff<gix::ObjectId>)>,
+    /// Git ref `(name, (old_oid, new_oid)`s that are rejected or failed to
+    /// update.
+    pub rejected: Vec<(GitRefNameBuf, Diff<gix::ObjectId>)>,
+}
+
+/// Parses porcelain output of `git fetch`.
+fn parse_ref_updates(stdout: &[u8]) -> Result<GitRefUpdates, GitSubprocessError> {
+    let mut updated = vec![];
+    let mut rejected = vec![];
+    for (i, line) in stdout.lines().enumerate() {
+        let parse_err = |message: &str| {
+            GitSubprocessError::External(format!(
+                "Line {line_no}: {message}: {line}",
+                line_no = i + 1,
+                line = BStr::new(line)
+            ))
+        };
+        // <flag> <old-object-id> <new-object-id> <local-reference>
+        // (<flag> may be space)
+        let mut line_bytes = line.iter();
+        let flag = *line_bytes.next().ok_or_else(|| parse_err("empty line"))?;
+        if line_bytes.next() != Some(&b' ') {
+            return Err(parse_err("no flag separator found"));
+        }
+        let [old_oid, new_oid, name] = line_bytes
+            .as_slice()
+            .splitn(3, |&b| b == b' ')
+            .collect_array()
+            .ok_or_else(|| parse_err("unexpected number of columns"))?;
+        let name: GitRefNameBuf = str::from_utf8(name)
+            .map_err(|_| parse_err("non-UTF-8 ref name"))?
+            .into();
+        let old_oid = gix::ObjectId::from_hex(old_oid).map_err(|_| parse_err("invalid old oid"))?;
+        let new_oid = gix::ObjectId::from_hex(new_oid).map_err(|_| parse_err("invalid new oid"))?;
+        let oid_diff = Diff::new(old_oid, new_oid);
+        match flag {
+            // ' ' for a successfully fetched fast-forward
+            // '+' for a successful forced update
+            // '-' for a successfully pruned ref
+            // 't' for a successful tag update
+            // '*' for a successfully fetched new ref
+            b' ' | b'+' | b'-' | b't' | b'*' => updated.push((name, oid_diff)),
+            // '!' for a ref that was rejected or failed to update
+            b'!' => rejected.push((name, oid_diff)),
+            // '=' for a ref that was up to date and did not need fetching
+            // (included when --verbose)
+            b'=' => {}
+            _ => return Err(parse_err("unknown flag")),
+        }
+    }
+    Ok(GitRefUpdates { updated, rejected })
 }
 
 fn parse_git_branch_prune_output(output: Output) -> Result<(), GitSubprocessError> {
@@ -791,7 +865,11 @@ fn trim_sideband_line(line: &[u8]) -> (&[u8], Option<u8>) {
 
 #[cfg(test)]
 mod test {
+    use std::process::ExitStatus;
+
+    use assert_matches::assert_matches;
     use indoc::formatdoc;
+    use indoc::indoc;
 
     use super::*;
 
@@ -843,6 +921,14 @@ Done";
             self.remote_sideband.push(message.to_owned());
             Ok(())
         }
+    }
+
+    fn exit_status_from_code(code: u8) -> ExitStatus {
+        #[cfg(unix)]
+        use std::os::unix::process::ExitStatusExt as _; // i32
+        #[cfg(windows)]
+        use std::os::windows::process::ExitStatusExt as _; // u32
+        ExitStatus::from_raw(code.into())
     }
 
     #[test]
@@ -906,6 +992,115 @@ Done";
             None
         );
         assert_eq!(parse_no_remote_tracking_branch(SAMPLE_OK_STDERR), None);
+    }
+
+    #[test]
+    fn test_parse_git_fetch_output_rejected() {
+        // `git fetch` exists with 1 if there are rejected updates.
+        let output = Output {
+            status: exit_status_from_code(1),
+            stdout: b"! d4d535f1d5795c6027f2872b24b7268ece294209 baad96fead6cdc20d47c55a4069c82952f9ac62c refs/remotes/origin/b\n".to_vec(),
+            stderr: b"".to_vec(),
+        };
+        assert_matches!(
+            parse_git_fetch_output(&output),
+            Ok(GitFetchStatus::Updates(updates))
+                if updates.updated.is_empty() && updates.rejected.len() == 1
+        );
+    }
+
+    #[test]
+    fn test_parse_ref_updates_sample() {
+        let sample = indoc! {b"
+            * 0000000000000000000000000000000000000000 e80d998ab04be7caeac3a732d74b1708aa3d8b26 refs/remotes/origin/a1
+              ebeb70d8c5f972275f0a22f7af6bc9ddb175ebd9 9175cb3250fd266fe46dcc13664b255a19234286 refs/remotes/origin/a2
+            + c8303692b8e2f0326cd33873a157b4fa69d54774 798c5e2435e1442946db90a50d47ab90f40c60b7 refs/remotes/origin/a3
+            - b2ea51c027e11c0f2871cce2a52e648e194df771 0000000000000000000000000000000000000000 refs/remotes/origin/a4
+            ! d4d535f1d5795c6027f2872b24b7268ece294209 baad96fead6cdc20d47c55a4069c82952f9ac62c refs/remotes/origin/b
+            = f8e7139764d76132234c13210b6f0abe6b1d9bf6 f8e7139764d76132234c13210b6f0abe6b1d9bf6 refs/remotes/upstream/c
+            * 0000000000000000000000000000000000000000 fd5b6a095a77575c94fad4164ab580331316c374 refs/tags/v1.0
+            t 0000000000000000000000000000000000000000 3262fedde0224462bb6ac3015dabc427a4f98316 refs/tags/v2.0
+        "};
+        insta::assert_debug_snapshot!(parse_ref_updates(sample).unwrap(), @r#"
+        GitRefUpdates {
+            updated: [
+                (
+                    GitRefNameBuf(
+                        "refs/remotes/origin/a1",
+                    ),
+                    Diff {
+                        before: Sha1(0000000000000000000000000000000000000000),
+                        after: Sha1(e80d998ab04be7caeac3a732d74b1708aa3d8b26),
+                    },
+                ),
+                (
+                    GitRefNameBuf(
+                        "refs/remotes/origin/a2",
+                    ),
+                    Diff {
+                        before: Sha1(ebeb70d8c5f972275f0a22f7af6bc9ddb175ebd9),
+                        after: Sha1(9175cb3250fd266fe46dcc13664b255a19234286),
+                    },
+                ),
+                (
+                    GitRefNameBuf(
+                        "refs/remotes/origin/a3",
+                    ),
+                    Diff {
+                        before: Sha1(c8303692b8e2f0326cd33873a157b4fa69d54774),
+                        after: Sha1(798c5e2435e1442946db90a50d47ab90f40c60b7),
+                    },
+                ),
+                (
+                    GitRefNameBuf(
+                        "refs/remotes/origin/a4",
+                    ),
+                    Diff {
+                        before: Sha1(b2ea51c027e11c0f2871cce2a52e648e194df771),
+                        after: Sha1(0000000000000000000000000000000000000000),
+                    },
+                ),
+                (
+                    GitRefNameBuf(
+                        "refs/tags/v1.0",
+                    ),
+                    Diff {
+                        before: Sha1(0000000000000000000000000000000000000000),
+                        after: Sha1(fd5b6a095a77575c94fad4164ab580331316c374),
+                    },
+                ),
+                (
+                    GitRefNameBuf(
+                        "refs/tags/v2.0",
+                    ),
+                    Diff {
+                        before: Sha1(0000000000000000000000000000000000000000),
+                        after: Sha1(3262fedde0224462bb6ac3015dabc427a4f98316),
+                    },
+                ),
+            ],
+            rejected: [
+                (
+                    GitRefNameBuf(
+                        "refs/remotes/origin/b",
+                    ),
+                    Diff {
+                        before: Sha1(d4d535f1d5795c6027f2872b24b7268ece294209),
+                        after: Sha1(baad96fead6cdc20d47c55a4069c82952f9ac62c),
+                    },
+                ),
+            ],
+        }
+        "#);
+    }
+
+    #[test]
+    fn test_parse_ref_updates_malformed() {
+        assert!(parse_ref_updates(b"").is_ok());
+        assert!(parse_ref_updates(b"\n").is_err());
+        assert!(parse_ref_updates(b"*\n").is_err());
+        let oid = "0000000000000000000000000000000000000000";
+        assert!(parse_ref_updates(format!("**{oid} {oid} name\n").as_bytes()).is_err());
     }
 
     #[test]

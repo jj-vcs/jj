@@ -3978,6 +3978,41 @@ fn test_fetch_with_fetch_tags_override() {
     assert_eq!(changed_tags(&stats), expected_changed_tags);
 }
 
+#[test]
+fn test_fetch_rejected_tag_updates() {
+    let test_data = GitRepoData::create();
+    let subprocess_options =
+        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let import_options = default_import_options();
+
+    // Create tagged commit at remote.
+    let commit1 = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    git_ref(&test_data.origin_repo, "refs/tags/tag", commit1);
+
+    // Create conflicting tag locally.
+    let mut tx = test_data.repo.start_transaction();
+    let commit2 = write_random_commit(tx.repo_mut());
+    let target2 = RefTarget::normal(commit2.id().clone());
+    tx.repo_mut()
+        .set_local_tag_target("tag".as_ref(), target2.clone());
+    git::export_refs(tx.repo_mut()).unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    // Tags shouldn't be "force" updated. (#7528)
+    let mut tx = repo.start_transaction();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
+    assert_matches!(
+        fetcher.fetch(
+            "origin".as_ref(),
+            expand_fetch_refspecs("origin".as_ref(), StringExpression::all()).unwrap(),
+            &mut NullCallback,
+            None,
+            Some(FetchTagsOverride::AllTags),
+        ),
+        Err(GitFetchError::RejectedUpdates(refs)) if refs == ["refs/tags/tag"]
+    );
+}
+
 struct PushTestSetup {
     source_repo_dir: PathBuf,
     jj_repo: Arc<ReadonlyRepo>,

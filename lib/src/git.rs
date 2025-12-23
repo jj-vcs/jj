@@ -43,6 +43,7 @@ use crate::config::ConfigGetError;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::git_backend::GitBackend;
+use crate::git_subprocess::GitFetchStatus;
 pub use crate::git_subprocess::GitProgress;
 pub use crate::git_subprocess::GitSubprocessCallback;
 use crate::git_subprocess::GitSubprocessContext;
@@ -2311,6 +2312,8 @@ pub enum GitFetchError {
     NoSuchRemote(RemoteNameBuf),
     #[error(transparent)]
     RemoteName(#[from] GitRemoteNameError),
+    #[error("Failed to update refs: {}", .0.iter().map(|n| n.as_symbol()).join(", "))]
+    RejectedUpdates(Vec<GitRefNameBuf>),
     #[error(transparent)]
     Subprocess(#[from] GitSubprocessError),
 }
@@ -2686,14 +2689,19 @@ impl<'a> GitFetch<'a> {
         //
         // even more unfortunately, git errors out one refspec at a time,
         // meaning that the below cycle runs in O(#failed refspecs)
-        while let Some(failing_refspec) = self.git_ctx.spawn_fetch(
-            remote_name,
-            &remaining_refspecs,
-            &negative_refspecs,
-            callback,
-            depth,
-            fetch_tags_override,
-        )? {
+        let updates = loop {
+            let status = self.git_ctx.spawn_fetch(
+                remote_name,
+                &remaining_refspecs,
+                &negative_refspecs,
+                callback,
+                depth,
+                fetch_tags_override,
+            )?;
+            let failing_refspec = match status {
+                GitFetchStatus::Updates(updates) => break updates,
+                GitFetchStatus::NoRemoteRef(failing_refspec) => failing_refspec,
+            };
             tracing::debug!(failing_refspec, "failed to fetch ref");
             remaining_refspecs.retain(|r| r.source.as_ref() != Some(&failing_refspec));
 
@@ -2703,6 +2711,13 @@ impl<'a> GitFetch<'a> {
                     remote_name = remote_name.as_str()
                 ));
             }
+        };
+
+        // Since remote refs are "force" updated, there should usually be no
+        // rejected refs. One exception is implicit tag updates.
+        if !updates.rejected.is_empty() {
+            let names = updates.rejected.into_iter().map(|(name, _)| name).collect();
+            return Err(GitFetchError::RejectedUpdates(names));
         }
 
         // Even if git fetch has --prune, if a branch is not found it will not be
