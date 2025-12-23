@@ -8229,7 +8229,7 @@ Martin von Zweigbergk</p>
 <p><code>-T</code>, <code>--template &lt;TEMPLATE&gt;</code> — Render each variable using the given template</p>
 <p>The following keywords are available in the template expression:</p>
 <ul>
-<li><code>name: String</code>: Config name.</li>
+<li><code>name: String</code>: Config name, in <a href="https://toml.io/en/v1.0.0#keys">TOML's "dotted key" format</a>.</li>
 <li><code>value: ConfigValue</code>: Value to be formatted in TOML syntax.</li>
 <li><code>overridden: Boolean</code>: True if the value is shadowed by other.</li>
 <li><code>source: String</code>: Source of the value.</li>
