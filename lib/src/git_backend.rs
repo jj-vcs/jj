@@ -580,6 +580,7 @@ fn commit_from_git_without_root_parent(
     git_object: &gix::Object,
     is_shallow: bool,
 ) -> BackendResult<Commit> {
+    let decode_err = |err: gix::objs::decode::Error| to_read_object_err(err, id);
     let commit = git_object
         .try_to_commit_ref()
         .map_err(|err| to_read_object_err(err, id))?;
@@ -613,8 +614,8 @@ fn commit_from_git_without_root_parent(
     // nothing.
     // TODO: what should we do with commit.encoding?
     let description = String::from_utf8_lossy(commit.message).into_owned();
-    let author = signature_from_git(commit.author());
-    let committer = signature_from_git(commit.committer());
+    let author = signature_from_git(commit.author().map_err(decode_err)?);
+    let committer = signature_from_git(commit.committer().map_err(decode_err)?);
 
     // If the commit is signed, extract both the signature and the signed data
     // (which is the commit buffer with the gpgsig header omitted).
@@ -629,7 +630,7 @@ fn commit_from_git_without_root_parent(
         .any(|(k, _)| *k == "gpgsig" || *k == "gpgsig-sha256")
         .then(|| CommitRefIter::signature(&git_object.data))
         .transpose()
-        .map_err(|err| to_read_object_err(err, id))?
+        .map_err(decode_err)?
         .flatten()
         .map(|(sig, data)| SecureSig {
             data: data.to_bstring().into(),

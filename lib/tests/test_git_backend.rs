@@ -424,7 +424,7 @@ fn test_jj_trees_header_with_one_tree() {
     let git_commit = git_repo.find_commit(git_commit_id).unwrap();
 
     // Add `jj:trees` with a single tree which is different from the Git commit tree
-    let mut new_commit: gix::objs::Commit = git_commit.decode().unwrap().into();
+    let mut new_commit: gix::objs::Commit = git_commit.decode().unwrap().try_into().unwrap();
     new_commit.extra_headers = vec![(
         JJ_TREES_COMMIT_HEADER.into(),
         tree_2.id().to_string().into(),
