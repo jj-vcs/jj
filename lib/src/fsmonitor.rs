@@ -103,7 +103,7 @@ pub mod watchman {
     ///
     /// This can be used to perform incremental queries. When making a query,
     /// the result will include an associated "clock" representing the time
-    /// that the query was made.  By passing the same clock into a future
+    /// that the query was made. By passing the same clock into a future
     /// query, we inform the filesystem monitor that we only wish to get
     /// changed files since the previous point in time.
     #[derive(Clone, Debug)]

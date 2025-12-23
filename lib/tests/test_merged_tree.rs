@@ -1596,7 +1596,7 @@ fn test_merge_simplify_file_conflict() {
     assert_eq!(merged, expected_merged);
 
     // Also test the setup by checking that the unsimplified content conflict cannot
-    // be resolved. If we later change files::merge() so this no longer fails,  it
+    // be resolved. If we later change files::merge() so this no longer fails, it
     // probably means that we can delete this whole test (the Merge::simplify() call
     // in try_resolve_file_conflict() is just an optimization then).
     let text_merge = Merge::from_removes_adds(

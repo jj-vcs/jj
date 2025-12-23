@@ -379,7 +379,7 @@ diff-args = ["--color=always", "$left", "$right"]
   not work for viewing diffs.
 
 By default `jj` will invoke external tools with a directory containing the left
-and right sides.  The `diff-invocation-mode` config can change this to file by file
+and right sides. The `diff-invocation-mode` config can change this to file by file
 invocations as follows:
 
 ```toml
@@ -896,7 +896,7 @@ Obviously, you would only set one line, don't copy them all in!
 ## Editing diffs
 
 The `ui.diff-editor` setting affects the default tool used for editing diffs
-(e.g.  `jj split`, `jj squash -i`). If it is not set, the special value
+(e.g. `jj split`, `jj squash -i`). If it is not set, the special value
 `:builtin` is used. It launches a built-in TUI tool (known as [scm-diff-editor])
 to edit the diff in your terminal.
 

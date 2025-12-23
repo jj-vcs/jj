@@ -726,7 +726,7 @@ A rough implementation plan may look like this:
 8. Implement support for copy-tracking in the Git backend. This may involve
    backfilling, possibly lazily. Or it may involve new abstractions in the
    commit backend trait.
-9.  Implement CLI for recording copies and for resolving conflicts in copies
+9. Implement CLI for recording copies and for resolving conflicts in copies
 
 ## Alternatives considered
 

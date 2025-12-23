@@ -169,7 +169,7 @@ impl MergedTree {
         // here to possibly reduce a complex conflict to a simpler one.
         let simplified = merged.simplify();
         // If debug assertions are enabled, check that the merge was idempotent. In
-        // particular,  that this last simplification doesn't enable further automatic
+        // particular, that this last simplification doesn't enable further automatic
         // resolutions
         if cfg!(debug_assertions) {
             let re_merged = merge_trees(simplified.clone()).block_on().unwrap();

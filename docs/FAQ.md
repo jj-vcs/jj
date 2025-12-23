@@ -59,7 +59,7 @@ revisions)" is shown to indicate that `musnqzvt` descends from `tylynnzk`, but
 the nodes connecting them are not in the revset.
 
 To view the elided revisions, change the [revset expression](revsets.md) so it
-includes the connecting revisions.  The `connected()` revset function does
+includes the connecting revisions. The `connected()` revset function does
 exactly this:
 
 ```sh
