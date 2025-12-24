@@ -50,6 +50,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj workspace root` now accepts an optional `--name` argument to show
+  the root path of the specified workspace (defaults to the current one). When
+  given a workspace that was created before this release, it errors out.
+
 * Updated the executable bit representation in the local working copy to allow
   ignoring executable bit changes on Unix. By default we try to detect the
   filesystem's behavior, but this can be overridden manually by setting

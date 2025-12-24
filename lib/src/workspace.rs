@@ -61,6 +61,9 @@ use crate::working_copy::LockedWorkingCopy;
 use crate::working_copy::WorkingCopy;
 use crate::working_copy::WorkingCopyFactory;
 use crate::working_copy::WorkingCopyStateError;
+use crate::workspace_store::SimpleWorkspaceStore;
+use crate::workspace_store::WorkspaceStore;
+use crate::workspace_store::WorkspaceStoreError;
 
 #[derive(Error, Debug)]
 pub enum WorkspaceInitError {
@@ -76,6 +79,8 @@ pub enum WorkspaceInitError {
     Path(#[from] PathError),
     #[error(transparent)]
     OpHeadsStore(OpHeadsStoreError),
+    #[error(transparent)]
+    WorkspaceStore(#[from] WorkspaceStoreError),
     #[error(transparent)]
     Backend(#[from] BackendInitError),
     #[error(transparent)]
@@ -132,6 +137,7 @@ fn init_working_copy(
     jj_dir: &Path,
     working_copy_factory: &dyn WorkingCopyFactory,
     workspace_name: WorkspaceNameBuf,
+    workspace_store: &dyn WorkspaceStore,
 ) -> Result<(Box<dyn WorkingCopy>, Arc<ReadonlyRepo>), WorkspaceInitError> {
     let working_copy_state_path = jj_dir.join("working_copy");
     std::fs::create_dir(&working_copy_state_path).context(&working_copy_state_path)?;
@@ -140,6 +146,11 @@ fn init_working_copy(
     tx.repo_mut()
         .check_out(workspace_name.clone(), &repo.store().root_commit())?;
     let repo = tx.commit(format!("add workspace '{}'", workspace_name.as_symbol()))?;
+
+    workspace_store.add(
+        &workspace_name,
+        &dunce::canonicalize(workspace_root).context(workspace_root)?,
+    )?;
 
     let working_copy = working_copy_factory.init_working_copy(
         repo.store().clone(),
@@ -312,12 +323,14 @@ impl Workspace {
                 RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),
                 RepoInitError::Path(err) => WorkspaceInitError::Path(err),
             })?;
+            let workspace_store = SimpleWorkspaceStore::load(&repo_dir)?;
             let (working_copy, repo) = init_working_copy(
                 &repo,
                 workspace_root,
                 &jj_dir,
                 working_copy_factory,
                 workspace_name,
+                &workspace_store,
             )?;
             let repo_loader = repo.loader().clone();
             let workspace = Self::new(workspace_root, repo_dir, working_copy, repo_loader)?;
@@ -354,6 +367,7 @@ impl Workspace {
         repo: &Arc<ReadonlyRepo>,
         working_copy_factory: &dyn WorkingCopyFactory,
         workspace_name: WorkspaceNameBuf,
+        workspace_store: &dyn WorkspaceStore,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let jj_dir = create_jj_dir(workspace_root)?;
 
@@ -369,6 +383,7 @@ impl Workspace {
             &jj_dir,
             working_copy_factory,
             workspace_name,
+            workspace_store,
         )?;
         let workspace = Self::new(
             workspace_root,
