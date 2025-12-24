@@ -21,9 +21,11 @@ fn test_undo_root_operation() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["undo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Restored to operation: 000000000000 root()
+    Warning: The current workspace 'default' no longer exists after this operation. The working copy was left untouched.
+    Hint: Restore to an operation that contains the workspace (e.g. `jj redo` or `jj op restore <operation_id>`).
     [EOF]
     ");
 
@@ -117,6 +119,59 @@ fn test_undo_jump_old_undo_stack() {
 }
 
 #[test]
+fn test_op_restore_warns_when_workspace_missing() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["op", "restore", "000000000000"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Restored to operation: 000000000000 root()
+    Warning: The current workspace 'default' no longer exists after this operation. The working copy was left untouched.
+    Hint: Restore to an operation that contains the workspace (e.g. `jj redo` or `jj op restore <operation_id>`).
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_op_restore_to_valid_op_no_warning() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Restore to the current operation (@). This should not emit the
+    // missing-workspace warning.
+    let output = work_dir
+        .run_jj(["op", "restore", "@"])
+        .normalize_stderr_with(|stderr| {
+            let mut normalized = stderr
+                .lines()
+                .map(|line| {
+                    if let Some(rest) = line.strip_prefix("Restored to operation: ") {
+                        // Drop the unpredictable operation id, keep the suffix (e.g. "root()").
+                        let suffix = rest.split_once(' ').map(|(_, tail)| tail).unwrap_or(rest);
+                        format!("Restored to operation: <op> {suffix}")
+                    } else {
+                        line.to_owned()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            if !normalized.is_empty() && !normalized.ends_with('\n') {
+                normalized.push('\n');
+            }
+            normalized
+        });
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Restored to operation: <op> (2001-02-03 08:05:07) add workspace 'default'
+    Nothing changed.
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_op_revert_is_ignored() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -147,11 +202,13 @@ fn test_undo_with_rev_arg_falls_back_to_revert() {
 
     work_dir.run_jj(["new"]).success();
     let output = work_dir.run_jj(["undo", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: `jj undo <operation>` is deprecated; use `jj op revert <operation>` instead
     Reverted operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     Rebased 1 descendant commits
+    Warning: The current workspace 'default' no longer exists after this operation. The working copy was left untouched.
+    Hint: Restore to an operation that contains the workspace (e.g. `jj redo` or `jj op restore <operation_id>`).
     [EOF]
     ");
 
