@@ -45,6 +45,7 @@ use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchError;
+use jj_lib::git::GitFetchRefExpression;
 use jj_lib::git::GitImportError;
 use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitImportStats;
@@ -184,17 +185,19 @@ fn fetch_import_all(mut_repo: &mut MutableRepo, remote: &RemoteName) -> GitImpor
 
 /// Fetches all refs without importing.
 fn fetch_all_with(fetcher: &mut GitFetch, remote: &RemoteName) -> Result<(), GitFetchError> {
-    fetch_with(fetcher, remote, StringExpression::all())
+    let ref_expr = GitFetchRefExpression {
+        bookmark: StringExpression::all(),
+    };
+    fetch_with(fetcher, remote, ref_expr)
 }
 
 /// Fetches the specified refs without importing.
 fn fetch_with(
     fetcher: &mut GitFetch,
     remote: &RemoteName,
-    bookmark_expr: StringExpression,
+    ref_expr: GitFetchRefExpression,
 ) -> Result<(), GitFetchError> {
-    let refspecs =
-        expand_fetch_refspecs(remote, bookmark_expr).expect("ref patterns should be valid");
+    let refspecs = expand_fetch_refspecs(remote, ref_expr).expect("ref patterns should be valid");
     let depth = None;
     let fetch_tags = None;
     fetcher.fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
@@ -3498,7 +3501,10 @@ fn test_fetch_empty_refspecs() {
     // Base refspecs shouldn't be respected
     let mut tx = test_data.repo.start_transaction();
     let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
-    fetch_with(&mut fetcher, "origin".as_ref(), StringExpression::none()).unwrap();
+    let ref_expr = GitFetchRefExpression {
+        bookmark: StringExpression::none(),
+    };
+    fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
     fetcher.import_refs().unwrap();
     assert_eq!(
         tx.repo_mut()
@@ -3789,16 +3795,14 @@ fn test_fetch_multiple_branches() {
 
     let mut tx = test_data.repo.start_transaction();
     let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
-    fetch_with(
-        &mut fetcher,
-        "origin".as_ref(),
-        StringExpression::union_all(vec![
+    let ref_expr = GitFetchRefExpression {
+        bookmark: StringExpression::union_all(vec![
             StringExpression::exact("main"),
             StringExpression::exact("noexist1"),
             StringExpression::exact("noexist2"),
         ]),
-    )
-    .unwrap();
+    };
+    fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
     let stats = fetcher.import_refs().unwrap();
 
     assert_eq!(
@@ -3894,7 +3898,10 @@ fn test_fetch_with_fetch_tags_override() {
                 &import_options,
             )
             .unwrap();
-            let refspecs = expand_fetch_refspecs(remote, StringExpression::all()).unwrap();
+            let ref_expr = GitFetchRefExpression {
+                bookmark: StringExpression::all(),
+            };
+            let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
             let depth = None;
             fetcher
                 .fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
@@ -4006,10 +4013,13 @@ fn test_fetch_rejected_tag_updates() {
     // Tags shouldn't be "force" updated. (#7528)
     let mut tx = repo.start_transaction();
     let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
+    let ref_expr = GitFetchRefExpression {
+        bookmark: StringExpression::all(),
+    };
     assert_matches!(
         fetcher.fetch(
             "origin".as_ref(),
-            expand_fetch_refspecs("origin".as_ref(), StringExpression::all()).unwrap(),
+            expand_fetch_refspecs("origin".as_ref(), ref_expr).unwrap(),
             &mut NullCallback,
             None,
             Some(FetchTagsOverride::AllTags),
