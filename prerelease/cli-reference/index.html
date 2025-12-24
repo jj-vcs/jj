@@ -8410,7 +8410,7 @@ Martin von Zweigbergk</p>
 </ul>
 <h6 id="options_20"><strong>Options:</strong><a class="headerlink" href="#options_20" title="Permanent link">&para;</a></h6>
 <ul>
-<li><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> — The revision(s) to duplicate onto (can be repeated to create a merge commit)</li>
+<li><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> [alias: <code>destination</code>] — The revision(s) to duplicate onto (can be repeated to create a merge commit)</li>
 <li><code>-A</code>, <code>--insert-after &lt;REVSETS&gt;</code> [alias: <code>after</code>] — The revision(s) to insert after (can be repeated to create a merge commit)</li>
 <li><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — The revision(s) to insert before (can be repeated to create a merge commit)</li>
 </ul>
@@ -9866,7 +9866,7 @@ J           J
 <h6 id="options_51"><strong>Options:</strong><a class="headerlink" href="#options_51" title="Permanent link">&para;</a></h6>
 <ul>
 <li><code>-r</code>, <code>--revisions &lt;REVSETS&gt;</code> — The revision(s) to apply the reverse of</li>
-<li><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> — The revision(s) to apply the reverse changes on top of</li>
+<li><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> [alias: <code>destination</code>] — The revision(s) to apply the reverse changes on top of</li>
 <li><code>-A</code>, <code>--insert-after &lt;REVSETS&gt;</code> [alias: <code>after</code>] — The revision(s) to insert the reverse changes after (can be repeated to create a merge commit)</li>
 <li><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — The revision(s) to insert the reverse changes before (can be repeated to create a merge commit)</li>
 </ul>
@@ -10033,7 +10033,7 @@ achieved with <code>jj new</code>.</p>
 <p>Default value: <code>@</code></p>
 </li>
 <li>
-<p><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> — The revision(s) to rebase the selected changes onto (can be repeated to create a merge commit)</p>
+<p><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> [alias: <code>destination</code>] — The revision(s) to rebase the selected changes onto (can be repeated to create a merge commit)</p>
 <p>Extracts the selected changes into a new commit based on the given revision(s). The remaining changes stay in the original commit's location.</p>
 </li>
 <li>
@@ -10077,7 +10077,7 @@ achieved with <code>jj new</code>.</p>
 <li><code>-r</code>, <code>--revision &lt;REVSET&gt;</code> — Revision to squash into its parent (default: @). Incompatible with the experimental <code>-o</code>/<code>-A</code>/<code>-B</code> options</li>
 <li><code>-f</code>, <code>--from &lt;REVSETS&gt;</code> — Revision(s) to squash from (default: @)</li>
 <li><code>-t</code>, <code>--into &lt;REVSET&gt;</code> [alias: <code>to</code>] — Revision to squash into (default: @)</li>
-<li><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> — (Experimental) The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)</li>
+<li><code>-o</code>, <code>--onto &lt;REVSETS&gt;</code> [alias: <code>destination</code>] — (Experimental) The revision(s) to use as parent for the new commit (can be repeated to create a merge commit)</li>
 <li><code>-A</code>, <code>--insert-after &lt;REVSETS&gt;</code> [alias: <code>after</code>] — (Experimental) The revision(s) to insert the new commit after (can be repeated to create a merge commit)</li>
 <li><code>-B</code>, <code>--insert-before &lt;REVSETS&gt;</code> [alias: <code>before</code>] — (Experimental) The revision(s) to insert the new commit before (can be repeated to create a merge commit)</li>
 <li><code>-m</code>, <code>--message &lt;MESSAGE&gt;</code> — The description to use for squashed revision (don't open editor)</li>
