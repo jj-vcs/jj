@@ -29,6 +29,7 @@ pub struct GitRemoteSetUrlArgs {
     /// The remote's name
     #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
     remote: RemoteNameBuf,
+
     /// The URL or path to fetch from
     ///
     /// This is a short form, equivalent to using the explicit --fetch.

@@ -29,9 +29,11 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct DebugRevsetArgs {
     revision: String,
+
     /// Do not resolve and evaluate expression
     #[arg(long)]
     no_resolve: bool,
+
     /// Do not rewrite expression to optimized form
     #[arg(long)]
     no_optimize: bool,

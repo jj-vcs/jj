@@ -30,6 +30,7 @@ pub struct DebugStackedTableArgs {
     /// Path to table store directory
     #[arg(value_hint = clap::ValueHint::DirPath)]
     dir: String,
+
     /// Key size in bytes
     #[arg(long, short = 'n')]
     key_size: usize,

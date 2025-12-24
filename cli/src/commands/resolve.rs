@@ -55,11 +55,13 @@ pub(crate) struct ResolveArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable_conflicts),
     )]
     revision: RevisionArg,
+
     /// Instead of resolving conflicts, list all the conflicts
     // TODO: Also have a `--summary` option. `--list` currently acts like
     // `diff --summary`, but should be more verbose.
     #[arg(long, short)]
     list: bool,
+
     /// Specify 3-way merge tool to be used
     ///
     /// The built-in merge tools `:ours` and `:theirs` can be used to choose
@@ -71,6 +73,7 @@ pub(crate) struct ResolveArgs {
         add = ArgValueCandidates::new(complete::merge_editors),
     )]
     tool: Option<String>,
+
     /// Only resolve conflicts in these paths. You can use the `--list` argument
     /// to find paths to use here.
     #[arg(

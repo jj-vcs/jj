@@ -67,12 +67,14 @@ pub struct GitFetchArgs {
         add = ArgValueCandidates::new(complete::bookmarks),
     )]
     branch: Option<Vec<String>>,
+
     /// Fetch only tracked bookmarks
     ///
     /// This fetches only bookmarks that are already tracked from the specified
     /// remote(s).
     #[arg(long, conflicts_with = "branch")]
     tracked: bool,
+
     /// The remote to fetch from (only named remotes are supported, can be
     /// repeated)
     ///
@@ -90,6 +92,7 @@ pub struct GitFetchArgs {
         add = ArgValueCandidates::new(complete::git_remotes),
     )]
     remotes: Option<Vec<String>>,
+
     /// Fetch from all remotes
     #[arg(long, conflicts_with = "remotes")]
     all_remotes: bool,

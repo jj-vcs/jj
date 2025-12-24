@@ -25,6 +25,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct BenchResolvePrefixArgs {
     prefix: String,
+
     #[command(flatten)]
     criterion: CriterionArgs,
 }

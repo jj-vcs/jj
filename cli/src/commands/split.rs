@@ -112,6 +112,7 @@ pub(crate) struct SplitArgs {
     /// This is the default if no filesets are provided.
     #[arg(long, short)]
     interactive: bool,
+
     /// Specify diff editor to be used (implies --interactive)
     #[arg(
         long,
@@ -119,6 +120,7 @@ pub(crate) struct SplitArgs {
         add = ArgValueCandidates::new(complete::diff_editors),
     )]
     tool: Option<String>,
+
     /// The revision to split
     #[arg(
         long, short,
@@ -127,6 +129,7 @@ pub(crate) struct SplitArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision: RevisionArg,
+
     /// The revision(s) to rebase the selected changes onto (can be repeated to
     /// create a merge commit)
     ///
@@ -143,6 +146,7 @@ pub(crate) struct SplitArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     onto: Option<Vec<RevisionArg>>,
+
     /// The revision(s) to insert after (can be repeated to create a merge
     /// commit)
     ///
@@ -159,6 +163,7 @@ pub(crate) struct SplitArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     insert_after: Option<Vec<RevisionArg>>,
+
     /// The revision(s) to insert before (can be repeated to create a merge
     /// commit)
     ///
@@ -175,22 +180,26 @@ pub(crate) struct SplitArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     insert_before: Option<Vec<RevisionArg>>,
+
     /// The change description to use (don't open editor)
     ///
     /// Sets the description for the first commit (the one containing the
     /// selected changes). The second commit keeps the original description.
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Vec<String>,
+
     /// Open an editor to edit the change description
     ///
     /// Forces an editor to open when using `--message` to allow the
     /// message to be edited afterwards.
     #[arg(long)]
     editor: bool,
+
     /// Split the revision into two parallel revisions instead of a parent and
     /// child
     #[arg(long, short)]
     parallel: bool,
+
     /// Files matching any of these filesets are put in the selected changes
     #[arg(
         value_name = "FILESETS",

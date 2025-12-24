@@ -54,6 +54,7 @@ pub(crate) struct NextArgs {
     /// default
     #[arg(default_value = "1")]
     offset: u64,
+
     /// Instead of creating a new working-copy commit on top of the target
     /// commit (like `jj new`), edit the target commit directly (like `jj
     /// edit`)
@@ -62,12 +63,14 @@ pub(crate) struct NextArgs {
     /// will negate `ui.movement.edit = false`
     #[arg(long, short)]
     edit: bool,
+
     /// The inverse of `--edit`
     ///
     /// Takes precedence over config in `ui.movement.edit`; i.e.
     /// will negate `ui.movement.edit = true`
     #[arg(long, short, conflicts_with = "edit")]
     no_edit: bool,
+
     /// Jump to the next conflicted descendant
     #[arg(long, conflicts_with = "offset")]
     conflict: bool,

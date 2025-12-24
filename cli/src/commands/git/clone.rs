@@ -57,15 +57,18 @@ pub struct GitCloneArgs {
     /// Local path will be resolved to absolute form.
     #[arg(value_hint = clap::ValueHint::Url)]
     source: String,
+
     /// Specifies the target directory for the Jujutsu repository clone.
     /// If not provided, defaults to a directory named after the last component
     /// of the source URL. The full directory path will be created if it
     /// doesn't exist.
     #[arg(value_hint = clap::ValueHint::DirPath)]
     destination: Option<String>,
+
     /// Name of the newly created remote
     #[arg(long = "remote", default_value = "origin")]
     remote_name: RemoteNameBuf,
+
     /// Colocate the Jujutsu repo with the git repo
     ///
     /// Specifies that the `jj` repo should also be a valid `git` repo, allowing
@@ -81,6 +84,7 @@ pub struct GitCloneArgs {
     ///     https://docs.jj-vcs.dev/latest/config/#default-colocation
     #[arg(long)]
     colocate: bool,
+
     /// Disable colocation of the Jujutsu repo with the git repo
     ///
     /// Prevent Git tools that are unaware of `jj` and regular Git commands from
@@ -94,15 +98,18 @@ pub struct GitCloneArgs {
     ///     https://docs.jj-vcs.dev/latest/git-compatibility/#colocated-jujutsugit-repos
     #[arg(long, conflicts_with = "colocate")]
     no_colocate: bool,
+
     /// Create a shallow clone of the given depth
     #[arg(long)]
     depth: Option<NonZeroU32>,
+
     /// Configure when to fetch tags
     ///
     /// Unless otherwise specified, the initial clone will fetch all tags,
     /// while all subsequent fetches will only fetch included tags.
     #[arg(long, value_enum)]
     fetch_tags: Option<FetchTagsMode>,
+
     /// Name of the branch to fetch and use as the parent of the working-copy
     /// change
     ///

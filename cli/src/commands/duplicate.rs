@@ -58,6 +58,7 @@ pub(crate) struct DuplicateArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions_pos: Vec<RevisionArg>,
+
     #[arg(
         short = 'r',
         hide = true,
@@ -65,6 +66,7 @@ pub(crate) struct DuplicateArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions_opt: Vec<RevisionArg>,
+
     /// The revision(s) to duplicate onto (can be repeated to create a merge
     /// commit)
     #[arg(
@@ -76,6 +78,7 @@ pub(crate) struct DuplicateArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     onto: Option<Vec<RevisionArg>>,
+
     /// The revision(s) to insert after (can be repeated to create a merge
     /// commit)
     #[arg(
@@ -87,6 +90,7 @@ pub(crate) struct DuplicateArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     insert_after: Option<Vec<RevisionArg>>,
+
     /// The revision(s) to insert before (can be repeated to create a merge
     /// commit)
     #[arg(

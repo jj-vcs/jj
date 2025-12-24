@@ -30,6 +30,7 @@ pub(crate) struct SimplifyParentsArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     source: Vec<RevisionArg>,
+
     /// Simplify specified revision(s) (can be repeated)
     ///
     /// If both `--source` and `--revisions` are not provided, this defaults to

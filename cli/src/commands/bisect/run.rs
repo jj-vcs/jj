@@ -69,6 +69,7 @@ pub(crate) struct BisectRunArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     range: Vec<RevisionArg>,
+
     /// Deprecated. Use positional arguments instead.
     #[arg(
         long = "command",

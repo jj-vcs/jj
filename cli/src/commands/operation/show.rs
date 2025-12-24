@@ -34,9 +34,11 @@ pub struct OperationShowArgs {
     /// Show repository changes in this operation, compared to its parent(s)
     #[arg(default_value = "@", add = ArgValueCandidates::new(complete::operations))]
     operation: String,
+
     /// Don't show the graph, show a flat list of modified changes
     #[arg(long, short = 'G')]
     no_graph: bool,
+
     /// Render the operation using the given template
     ///
     /// You can specify arbitrary template expressions using the
@@ -50,6 +52,7 @@ pub struct OperationShowArgs {
     ///     https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
+
     /// Show patch of modifications to changes
     ///
     /// If the previous version has different parents, it will be temporarily
@@ -57,9 +60,11 @@ pub struct OperationShowArgs {
     /// contaminated by unrelated changes.
     #[arg(long, short = 'p')]
     patch: bool,
+
     /// Do not show operation diff
     #[arg(long, conflicts_with_all = ["patch", "DiffFormatArgs"])]
     no_op_diff: bool,
+
     #[command(flatten)]
     diff_format: DiffFormatArgs,
 }

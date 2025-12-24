@@ -37,6 +37,7 @@ pub struct TagListArgs {
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     pub names: Option<Vec<String>>,
+
     /// Render each tag using the given template
     ///
     /// All 0-argument methods of the [`CommitRef` type] are available as

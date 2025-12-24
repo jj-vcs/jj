@@ -68,6 +68,7 @@ use crate::ui::Ui;
 pub(crate) struct UtilExecArgs {
     /// External command to execute
     command: String,
+
     /// Arguments to pass to the external command
     #[arg(value_hint = clap::ValueHint::FilePath)]
     args: Vec<String>,

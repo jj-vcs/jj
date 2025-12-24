@@ -69,6 +69,7 @@ pub(crate) struct InterdiffArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     from: Option<RevisionArg>,
+
     /// The second revision to compare (default: @)
     #[arg(
         long,
@@ -77,6 +78,7 @@ pub(crate) struct InterdiffArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     to: Option<RevisionArg>,
+
     /// Restrict the diff to these paths
     #[arg(
         value_name = "FILESETS",
@@ -84,6 +86,7 @@ pub(crate) struct InterdiffArgs {
         add = ArgValueCompleter::new(complete::interdiff_files),
     )]
     paths: Vec<String>,
+
     #[command(flatten)]
     format: DiffFormatArgs,
 }

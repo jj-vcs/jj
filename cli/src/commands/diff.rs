@@ -73,6 +73,7 @@ pub(crate) struct DiffArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions: Option<Vec<RevisionArg>>,
+
     /// Show changes from this revision
     ///
     /// If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
@@ -84,6 +85,7 @@ pub(crate) struct DiffArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     from: Option<RevisionArg>,
+
     /// Show changes to this revision
     ///
     /// If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
@@ -95,6 +97,7 @@ pub(crate) struct DiffArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     to: Option<RevisionArg>,
+
     /// Restrict the diff to these paths
     #[arg(
         value_name = "FILESETS",
@@ -102,6 +105,7 @@ pub(crate) struct DiffArgs {
         add = ArgValueCompleter::new(complete::modified_revision_or_range_files),
     )]
     paths: Vec<String>,
+
     /// Render each file diff entry using the given template
     ///
     /// All 0-argument methods of the [`TreeDiffEntry` type] are available as
@@ -121,6 +125,7 @@ pub(crate) struct DiffArgs {
         add = ArgValueCandidates::new(complete::template_aliases)
     )]
     template: Option<String>,
+
     #[command(flatten)]
     format: DiffFormatArgs,
 }

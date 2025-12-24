@@ -49,6 +49,7 @@ pub(crate) struct AbandonArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revisions_pos: Vec<RevisionArg>,
+
     #[arg(
         short = 'r',
         hide = true,
@@ -56,11 +57,13 @@ pub(crate) struct AbandonArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revisions_opt: Vec<RevisionArg>,
+
     /// Do not delete bookmarks pointing to the revisions to abandon
     ///
     /// Bookmarks will be moved to the parent revisions instead.
     #[arg(long)]
     retain_bookmarks: bool,
+
     /// Do not modify the content of the children of the abandoned commits
     #[arg(long)]
     restore_descendants: bool,

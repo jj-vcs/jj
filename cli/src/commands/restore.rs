@@ -55,6 +55,7 @@ pub(crate) struct RestoreArgs {
         add = ArgValueCompleter::new(complete::modified_changes_in_or_range_files),
     )]
     paths: Vec<String>,
+
     /// Revision to restore from (source)
     #[arg(
         long,
@@ -63,6 +64,7 @@ pub(crate) struct RestoreArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     from: Option<RevisionArg>,
+
     /// Revision to restore into (destination)
     #[arg(
         long, short = 't',
@@ -71,6 +73,7 @@ pub(crate) struct RestoreArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     into: Option<RevisionArg>,
+
     /// Undo the changes in a revision as compared to the merge of its parents.
     ///
     /// This undoes the changes that can be seen with `jj diff -r REVSET`. If
@@ -86,6 +89,7 @@ pub(crate) struct RestoreArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     changes_in: Option<RevisionArg>,
+
     /// Prints an error. DO NOT USE.
     ///
     /// If we followed the pattern of `jj diff` and `jj diffedit`, we would use
@@ -95,9 +99,11 @@ pub(crate) struct RestoreArgs {
     /// the user might not even realize something went wrong.
     #[arg(long, short, hide = true)]
     revision: Option<RevisionArg>,
+
     /// Interactively choose which parts to restore
     #[arg(long, short)]
     interactive: bool,
+
     /// Specify diff editor to be used (implies --interactive)
     #[arg(
         long,
@@ -105,6 +111,7 @@ pub(crate) struct RestoreArgs {
         add = ArgValueCandidates::new(complete::diff_editors),
     )]
     tool: Option<String>,
+
     /// Preserve the content (not the diff) when rebasing descendants
     #[arg(long)]
     restore_descendants: bool,

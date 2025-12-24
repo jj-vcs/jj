@@ -113,6 +113,7 @@ pub struct GitPushArgs {
     /// if there are multiple remotes, the remote named "origin" will be used.
     #[arg(long, add = ArgValueCandidates::new(complete::git_remotes))]
     remote: Option<RemoteNameBuf>,
+
     /// Push only this bookmark, or bookmarks matching a pattern (can be
     /// repeated)
     ///
@@ -127,9 +128,11 @@ pub struct GitPushArgs {
         add = ArgValueCandidates::new(complete::local_bookmarks),
     )]
     bookmark: Vec<String>,
+
     /// Push all bookmarks (including new bookmarks)
     #[arg(long)]
     all: bool,
+
     /// Push all tracked bookmarks
     ///
     /// This usually means that the bookmark was already pushed to or fetched
@@ -139,6 +142,7 @@ pub struct GitPushArgs {
     ///     https://docs.jj-vcs.dev/latest/bookmarks#remotes-and-tracked-bookmarks
     #[arg(long)]
     tracked: bool,
+
     /// Push all deleted bookmarks
     ///
     /// Only tracked bookmarks can be successfully deleted on the remote. A
@@ -146,15 +150,18 @@ pub struct GitPushArgs {
     /// correspond to missing local bookmarks.
     #[arg(long, conflicts_with = "specific")]
     deleted: bool,
+
     // TODO: Delete in jj 0.42.0+
     /// Allow pushing new bookmarks
     ///
     /// Newly-created remote bookmarks will be tracked automatically.
     #[arg(long, short = 'N', hide = true, conflicts_with = "what")]
     allow_new: bool,
+
     /// Allow pushing commits with empty descriptions
     #[arg(long)]
     allow_empty_description: bool,
+
     /// Allow pushing commits that are private
     ///
     /// The set of private commits can be configured by the
@@ -162,6 +169,7 @@ pub struct GitPushArgs {
     /// commits are eligible to be pushed.
     #[arg(long)]
     allow_private: bool,
+
     /// Push bookmarks pointing to these commits (can be repeated)
     #[arg(
         long,
@@ -173,6 +181,7 @@ pub struct GitPushArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions: Vec<RevisionArg>,
+
     /// Push this commit by creating a bookmark (can be repeated)
     ///
     /// The created bookmark will be tracked automatically. Use the
@@ -189,6 +198,7 @@ pub struct GitPushArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     change: Vec<RevisionArg>,
+
     /// Specify a new bookmark name and a revision to push under that name, e.g.
     /// '--named myfeature=@'
     ///
@@ -199,6 +209,7 @@ pub struct GitPushArgs {
         add = ArgValueCompleter::new(complete::branch_name_equals_any_revision)
     )]
     named: Vec<String>,
+
     /// Only display what will change on the remote
     #[arg(long)]
     dry_run: bool,

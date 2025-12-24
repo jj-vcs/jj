@@ -52,18 +52,22 @@ pub(crate) struct EvologArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions: Vec<RevisionArg>,
+
     /// Limit number of revisions to show
     ///
     /// Applied after revisions are reordered topologically, but before being
     /// reversed.
     #[arg(long, short = 'n')]
     limit: Option<usize>,
+
     /// Show revisions in the opposite order (older revisions first)
     #[arg(long)]
     reversed: bool,
+
     /// Don't show the graph, show a flat list of revisions
     #[arg(long, short = 'G')]
     no_graph: bool,
+
     /// Render each revision using the given template
     ///
     /// All 0-argument methods of the [`CommitEvolutionEntry` type] are
@@ -79,6 +83,7 @@ pub(crate) struct EvologArgs {
     ///     https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
+
     /// Show patch compared to the previous version of this change
     ///
     /// If the previous version has different parents, it will be temporarily
@@ -86,6 +91,7 @@ pub(crate) struct EvologArgs {
     /// contaminated by unrelated changes.
     #[arg(long, short = 'p')]
     patch: bool,
+
     #[command(flatten)]
     diff_format: DiffFormatArgs,
 }

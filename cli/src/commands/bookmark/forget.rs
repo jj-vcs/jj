@@ -45,6 +45,7 @@ pub struct BookmarkForgetArgs {
     /// forgotten.
     #[arg(long)]
     include_remotes: bool,
+
     /// The bookmarks to forget
     ///
     /// By default, the specified pattern matches bookmark names with glob

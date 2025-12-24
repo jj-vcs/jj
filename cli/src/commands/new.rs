@@ -55,6 +55,7 @@ pub(crate) struct NewArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions_pos: Option<Vec<RevisionArg>>,
+
     #[arg(
         short = 'o',
         group = "revisions",
@@ -64,15 +65,19 @@ pub(crate) struct NewArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions_opt: Option<Vec<RevisionArg>>,
+
     /// The change description to use
     #[arg(long = "message", short, value_name = "MESSAGE")]
     message_paragraphs: Vec<String>,
+
     /// Do not edit the newly created change
     #[arg(long, conflicts_with = "_edit")]
     no_edit: bool,
+
     /// No-op flag to pair with --no-edit
     #[arg(long, hide = true)]
     _edit: bool,
+
     /// Insert the new change after the given commit(s)
     ///
     /// Example: `jj new --insert-after A` creates a new change between `A` and
@@ -110,6 +115,7 @@ pub(crate) struct NewArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     insert_after: Option<Vec<RevisionArg>>,
+
     /// Insert the new change before the given commit(s)
     ///
     /// Example: `jj new --insert-before C` creates a new change between `C` and

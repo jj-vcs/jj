@@ -296,6 +296,7 @@ pub(crate) struct RebaseArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     source: Vec<RevisionArg>,
+
     /// Rebase the given revisions, rebasing descendants onto this revision's
     /// parent(s)
     ///
@@ -344,6 +345,7 @@ pub struct RebaseDestinationArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     onto: Option<Vec<RevisionArg>>,
+
     /// The revision(s) to insert after (can be repeated to create a merge
     /// commit)
     #[arg(
@@ -355,6 +357,7 @@ pub struct RebaseDestinationArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     insert_after: Option<Vec<RevisionArg>>,
+
     /// The revision(s) to insert before (can be repeated to create a merge
     /// commit)
     #[arg(

@@ -51,6 +51,7 @@ pub(crate) struct RevertArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions: Vec<RevisionArg>,
+
     /// The revision(s) to apply the reverse changes on top of
     #[arg(
         long,
@@ -61,6 +62,7 @@ pub(crate) struct RevertArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     onto: Option<Vec<RevisionArg>>,
+
     /// The revision(s) to insert the reverse changes after (can be repeated to
     /// create a merge commit)
     #[arg(
@@ -72,6 +74,7 @@ pub(crate) struct RevertArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     insert_after: Option<Vec<RevisionArg>>,
+
     /// The revision(s) to insert the reverse changes before (can be repeated to
     /// create a merge commit)
     #[arg(

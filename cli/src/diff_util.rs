@@ -107,9 +107,11 @@ pub struct DiffFormatArgs {
     /// For each path, show only whether it was modified, added, or deleted
     #[arg(long, short)]
     pub summary: bool,
+
     /// Show a histogram of the changes
     #[arg(long)]
     pub stat: bool,
+
     /// For each path, show only its type before and after
     ///
     /// The diff is shown as two letters. The first letter indicates the type
@@ -119,18 +121,22 @@ pub struct DiffFormatArgs {
     /// Git submodule.
     #[arg(long)]
     pub types: bool,
+
     /// For each path, show only its path
     ///
     /// Typically useful for shell commands like:
     ///    `jj diff -r @- --name-only | xargs perl -pi -e's/OLD/NEW/g`
     #[arg(long)]
     pub name_only: bool,
+
     /// Show a Git-format diff
     #[arg(long)]
     pub git: bool,
+
     /// Show a word-level diff with changes indicated only by color
     #[arg(long)]
     pub color_words: bool,
+
     /// Generate diff by external command
     ///
     /// A builtin format can also be specified as `:<name>`. For example,
@@ -140,6 +146,7 @@ pub struct DiffFormatArgs {
         add = ArgValueCandidates::new(crate::complete::diff_formatters),
     )]
     pub tool: Option<String>,
+
     /// Number of lines of context to show
     #[arg(long)]
     context: Option<usize>,
@@ -148,6 +155,7 @@ pub struct DiffFormatArgs {
     /// Ignore whitespace when comparing lines.
     #[arg(long)] // short = 'w'
     ignore_all_space: bool,
+
     /// Ignore changes in amount of whitespace when comparing lines.
     #[arg(long, conflicts_with = "ignore_all_space")] // short = 'b'
     ignore_space_change: bool,

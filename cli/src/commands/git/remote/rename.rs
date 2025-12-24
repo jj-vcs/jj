@@ -27,6 +27,7 @@ pub struct GitRemoteRenameArgs {
     /// The name of an existing remote
     #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
     old: RemoteNameBuf,
+
     /// The desired name for `old`
     new: RemoteNameBuf,
 }

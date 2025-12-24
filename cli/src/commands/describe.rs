@@ -53,6 +53,7 @@ pub(crate) struct DescribeArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable)
     )]
     revisions_pos: Vec<RevisionArg>,
+
     #[arg(
         short = 'r',
         hide = true,
@@ -60,6 +61,7 @@ pub(crate) struct DescribeArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable)
     )]
     revisions_opt: Vec<RevisionArg>,
+
     /// The change description to use (don't open editor)
     ///
     /// If multiple revisions are specified, the same description will be used
@@ -71,24 +73,28 @@ pub(crate) struct DescribeArgs {
         conflicts_with = "stdin"
     )]
     message_paragraphs: Vec<String>,
+
     /// Read the change description from stdin
     ///
     /// If multiple revisions are specified, the same description will be used
     /// for all of them.
     #[arg(long)]
     stdin: bool,
+
     // TODO: Delete in jj 0.40.0+
     /// Don't open an editor
     ///
     /// This is mainly useful in combination with e.g. `--reset-author`.
     #[arg(long, hide = true, conflicts_with_all = ["edit", "editor"])]
     no_edit: bool,
+
     /// Open an editor to edit the change description
     ///
     /// Forces an editor to open when using `--stdin` or `--message` to
     /// allow the message to be edited afterwards.
     #[arg(long)]
     editor: bool,
+
     // TODO: Delete in jj 0.42.0+
     /// Open an editor to edit the change description
     ///
@@ -96,6 +102,7 @@ pub(crate) struct DescribeArgs {
     /// allow the message to be edited afterwards.
     #[arg(long, hide = true, conflicts_with = "editor")]
     edit: bool,
+
     // TODO: Delete in jj 0.40.0+
     /// Reset the author name, email, and timestamp
     ///
@@ -108,6 +115,7 @@ pub(crate) struct DescribeArgs {
     /// $ JJ_USER='Foo Bar' JJ_EMAIL=foo@bar.com jj describe --reset-author
     #[arg(long, hide = true)]
     reset_author: bool,
+
     // TODO: Delete in jj 0.40.0+
     /// Set author to the provided string
     ///

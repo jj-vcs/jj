@@ -37,9 +37,11 @@ use crate::ui::Ui;
 pub struct BenchRevsetArgs {
     #[arg(group = "revset_source")]
     revisions: Vec<RevisionArg>,
+
     /// Read revsets from file
     #[arg(long, short = 'f', group = "revset_source", value_hint = clap::ValueHint::FilePath)]
     file: Option<String>,
+
     #[command(flatten)]
     criterion: CriterionArgs,
 }

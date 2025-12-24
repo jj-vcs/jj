@@ -59,6 +59,7 @@ pub(crate) struct DiffeditArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision: Option<RevisionArg>,
+
     /// Show changes from this revision
     ///
     /// Defaults to @ if --to is specified.
@@ -69,6 +70,7 @@ pub(crate) struct DiffeditArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     from: Option<RevisionArg>,
+
     /// Edit changes in this revision
     ///
     /// Defaults to @ if --from is specified.
@@ -79,6 +81,7 @@ pub(crate) struct DiffeditArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     to: Option<RevisionArg>,
+
     /// Edit only these paths (unmatched paths will remain unchanged)
     #[arg(
         value_name = "FILESETS",
@@ -86,6 +89,7 @@ pub(crate) struct DiffeditArgs {
         add = ArgValueCompleter::new(complete::modified_revision_or_range_files),
     )]
     paths: Vec<String>,
+
     /// Specify diff editor to be used
     #[arg(
         long,
@@ -93,6 +97,7 @@ pub(crate) struct DiffeditArgs {
         add = ArgValueCandidates::new(complete::diff_editors),
     )]
     tool: Option<String>,
+
     /// Preserve the content (not the diff) when rebasing descendants
     ///
     /// When rebasing a descendant on top of the rewritten revision, its diff

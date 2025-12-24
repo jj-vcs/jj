@@ -25,7 +25,9 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct BenchIsAncestorArgs {
     ancestor: RevisionArg,
+
     descendant: RevisionArg,
+
     #[command(flatten)]
     criterion: CriterionArgs,
 }

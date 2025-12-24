@@ -53,6 +53,7 @@ pub struct DebugObjectCommitArgs {
 pub struct DebugObjectFileArgs {
     #[arg(value_hint = clap::ValueHint::FilePath)]
     path: String,
+
     id: String,
 }
 
@@ -65,6 +66,7 @@ pub struct DebugObjectOperationArgs {
 pub struct DebugObjectSymlinkArgs {
     #[arg(value_hint = clap::ValueHint::FilePath)]
     path: String,
+
     id: String,
 }
 
@@ -73,8 +75,10 @@ pub struct DebugObjectSymlinkArgs {
 pub struct DebugObjectTreeArgs {
     #[arg(value_hint = clap::ValueHint::DirPath)]
     dir: String,
+
     #[arg(group = "target")]
     id: Option<String>,
+
     #[arg(long, short, group = "target")]
     revision: Option<RevisionArg>,
 }
@@ -84,6 +88,7 @@ pub struct DebugObjectTreeArgs {
 pub struct DebugObjectViewArgs {
     #[arg(group = "target")]
     id: Option<String>,
+
     #[arg(long, group = "target")]
     op: Option<String>,
 }

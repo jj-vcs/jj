@@ -35,6 +35,7 @@ use crate::ui::Ui;
 pub struct ConfigSetArgs {
     #[arg(required = true, add = ArgValueCandidates::new(complete::leaf_config_keys))]
     name: ConfigNamePathBuf,
+
     /// New value to set
     ///
     /// The value should be specified as a TOML expression. If string value
@@ -49,6 +50,7 @@ pub struct ConfigSetArgs {
     /// edit` to edit the TOML file directly.
     #[arg(required = true, value_parser = parse_value_or_bare_string)]
     value: ConfigValue,
+
     #[command(flatten)]
     level: ConfigLevelArgs,
 }

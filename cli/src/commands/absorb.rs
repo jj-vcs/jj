@@ -50,6 +50,7 @@ pub(crate) struct AbsorbArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     from: RevisionArg,
+
     /// Destination revisions to absorb into
     ///
     /// Only ancestors of the source revision will be considered.
@@ -60,6 +61,7 @@ pub(crate) struct AbsorbArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     into: Vec<RevisionArg>,
+
     /// Move only changes to these paths (instead of all paths)
     #[arg(
         value_name = "FILESETS",

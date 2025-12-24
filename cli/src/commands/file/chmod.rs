@@ -32,6 +32,7 @@ enum ChmodMode {
     // We use short names for enum values so that errors say that the possible values are `n, x`.
     #[value(name = "n", alias("normal"))]
     Normal,
+
     /// Make a path executable (alias: executable)
     #[value(name = "x", alias("executable"))]
     Executable,
@@ -44,6 +45,7 @@ enum ChmodMode {
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct FileChmodArgs {
     mode: ChmodMode,
+
     /// The revision to update
     #[arg(
         long, short,
@@ -52,6 +54,7 @@ pub(crate) struct FileChmodArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision: RevisionArg,
+
     /// Paths to change the executable bit for
     #[arg(
         required = true,

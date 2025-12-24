@@ -52,18 +52,21 @@ pub(crate) struct PrevArgs {
     /// How many revisions to move backward. Moves to the parent by default
     #[arg(default_value = "1")]
     offset: u64,
+
     /// Edit the parent directly, instead of moving the working-copy commit
     ///
     /// Takes precedence over config in `ui.movement.edit`; i.e.
     /// will negate `ui.movement.edit = false`
     #[arg(long, short)]
     edit: bool,
+
     /// The inverse of `--edit`
     ///
     /// Takes precedence over config in `ui.movement.edit`; i.e.
     /// will negate `ui.movement.edit = true`
     #[arg(long, short, conflicts_with = "edit")]
     no_edit: bool,
+
     /// Jump to the previous conflicted ancestor
     #[arg(long, conflicts_with = "offset")]
     conflict: bool,

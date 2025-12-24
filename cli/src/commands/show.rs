@@ -39,6 +39,7 @@ pub(crate) struct ShowArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revision_pos: Option<RevisionArg>,
+
     #[arg(
         short = 'r',
         group = "revision",
@@ -47,6 +48,7 @@ pub(crate) struct ShowArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revision_opt: Option<RevisionArg>,
+
     /// Render a revision using the given template
     ///
     /// You can specify arbitrary template expressions using the
@@ -59,8 +61,10 @@ pub(crate) struct ShowArgs {
     ///     https://docs.jj-vcs.dev/latest/templates/
     #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
+
     #[command(flatten)]
     format: DiffFormatArgs,
+
     /// Do not show the patch
     #[arg(long, conflicts_with = "DiffFormatArgs")]
     no_patch: bool,

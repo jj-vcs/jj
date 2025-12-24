@@ -27,6 +27,7 @@ use crate::ui::Ui;
 pub struct GitRemoteAddArgs {
     /// The remote's name
     remote: RemoteNameBuf,
+
     /// The remote's URL or path
     ///
     /// Local path will be resolved to absolute form.

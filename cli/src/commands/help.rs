@@ -32,6 +32,7 @@ use crate::ui::Ui;
 pub(crate) struct HelpArgs {
     /// Print help for the subcommand(s)
     pub(crate) command: Vec<String>,
+
     /// Show help for keywords instead of commands
     #[arg(
         long,

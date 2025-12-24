@@ -37,6 +37,7 @@ pub struct SparseSetArgs {
         value_parser = |s: &str| RepoPathBuf::from_relative_path(s),
     )]
     add: Vec<RepoPathBuf>,
+
     /// Patterns to remove from the working copy
     #[arg(
         long,
@@ -45,6 +46,7 @@ pub struct SparseSetArgs {
         value_parser = |s: &str| RepoPathBuf::from_relative_path(s),
     )]
     remove: Vec<RepoPathBuf>,
+
     /// Include no files in the working copy (combine with --add)
     #[arg(long)]
     clear: bool,

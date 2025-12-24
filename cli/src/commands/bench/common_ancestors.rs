@@ -27,7 +27,9 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct BenchCommonAncestorsArgs {
     revision1: RevisionArg,
+
     revision2: RevisionArg,
+
     #[command(flatten)]
     criterion: CriterionArgs,
 }

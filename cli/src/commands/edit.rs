@@ -41,6 +41,7 @@ pub(crate) struct EditArgs {
         add = ArgValueCompleter::new(complete::revset_expression_mutable),
     )]
     revision_pos: Option<RevisionArg>,
+
     #[arg(
         short = 'r',
         group = "revision",

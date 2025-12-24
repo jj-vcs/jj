@@ -42,6 +42,7 @@ pub(crate) struct FileAnnotateArgs {
         add = ArgValueCompleter::new(complete::all_revision_files),
     )]
     path: String,
+
     /// an optional revision to start at
     #[arg(
         long,
@@ -50,6 +51,7 @@ pub(crate) struct FileAnnotateArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revision: Option<RevisionArg>,
+
     /// Render each line using the given template
     ///
     /// All 0-argument methods of the [`AnnotationLine` type] are available as
