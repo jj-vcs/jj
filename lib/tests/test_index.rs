@@ -515,7 +515,7 @@ fn test_index_commits_incremental_empty_transaction() {
 
     let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
-    let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[&root_commit]);
+    let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[]);
     let repo = tx.commit("test").unwrap();
 
     let index = as_readonly_index(&repo);
@@ -552,9 +552,8 @@ fn test_index_commits_incremental_already_indexed() {
     // |/
     // o root
 
-    let root_commit = repo.store().root_commit();
     let mut tx = repo.start_transaction();
-    let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[&root_commit]);
+    let commit_a = write_random_commit_with_parents(tx.repo_mut(), &[]);
     let repo = tx.commit("test").unwrap();
 
     assert!(index_has_id(repo.index(), commit_a.id()));
