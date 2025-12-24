@@ -131,6 +131,7 @@ pub struct GitCloneArgs {
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(long = "branch", short, alias = "bookmark", value_name = "BRANCH")]
     branches: Option<Vec<String>>,
+    // TODO: add --tag option and save it in jj's repo config? (#7819)
 }
 
 fn clone_destination_for_source(source: &str) -> Option<&str> {
@@ -179,7 +180,11 @@ pub fn cmd_git_clone(
             Some(texts) => parse_union_name_patterns(ui, texts)?,
             None => StringExpression::all(),
         };
-        GitFetchRefExpression { bookmark }
+        GitFetchRefExpression {
+            bookmark,
+            // TODO: disable implicit fetching and set this to "all" (#7528)
+            tag: StringExpression::none(),
+        }
     };
 
     // Canonicalize because fs::remove_dir_all() doesn't seem to like e.g.
@@ -408,6 +413,7 @@ fn fetch_new_remote(
                 .join(", ")
         )?;
     }
+    // TODO: warn missing tags if we add --tag=pattern
 
     let working_is_default = working_branch == default_branch.as_deref();
     if let Some(name) = working_branch
