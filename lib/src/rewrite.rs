@@ -295,13 +295,13 @@ impl<'repo> CommitRewriter<'repo> {
                     (
                         old_base_tree,
                         format!(
-                            "{} (parents of rebased commit)",
+                            "{} (parents of rebased revision)",
                             conflict_label_for_commits(&old_parents)
                         ),
                     ),
                     (
                         old_tree,
-                        format!("{} (rebased commit)", self.old_commit.conflict_label()),
+                        format!("{} (rebased revision)", self.old_commit.conflict_label()),
                     ),
                 ]))
                 .await?,
@@ -1234,9 +1234,9 @@ pub fn squash_commits<'repo>(
         source_commits.push(SourceCommit {
             commit: source,
             diff: source.diff_with_labels(
-                "parents of squashed commit",
+                "parents of squashed revision",
                 "selected changes for squash",
-                "squashed commit",
+                "squashed revision",
             )?,
             abandon,
         });

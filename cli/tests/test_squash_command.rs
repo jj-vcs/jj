@@ -903,10 +903,10 @@ fn test_squash_from_multiple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon eb200347 f | (no description set)
-    Parent commit (@-)      : yostqsxw 9475acea e | (no description set)
+    Working copy  (@) now at: kpqxywon d64492cf f | (no description set)
+    Parent commit (@-)      : yostqsxw 7e58dc67 e | (no description set)
     New conflicts appeared in 1 commits:
-      yqosqzyt 33563014 d | (conflict) (no description set)
+      yqosqzyt 4198211f d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yqosqzyt
@@ -916,10 +916,10 @@ fn test_squash_from_multiple() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  eb200347027e f
-    ○    9475acea2503 e
+    @  d64492cf8e79 f
+    ○    7e58dc679ec0 e
     ├─╮
-    × │  335630141fde d
+    × │  4198211f54c1 d
     ├─╯
     ○  e88768e65e67 a b c
     ◆  000000000000 (empty)
@@ -929,15 +929,15 @@ fn test_squash_from_multiple() {
     let output = work_dir.run_jj(["file", "show", "-r=d", "file"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: qpvuntsm e88768e6 (parents of squashed commit)
+    %%%%%%% diff from: qpvuntsm e88768e6 (parents of squashed revision)
     \\\\\\\        to: yqosqzyt 8acbb715 (squash destination)
     -a
     +d
-    %%%%%%% diff from: qpvuntsm e88768e6 (parents of squashed commit)
-    \\\\\\\        to: kkmpptxz fed4d1a2 (squashed commit)
+    %%%%%%% diff from: qpvuntsm e88768e6 (parents of squashed revision)
+    \\\\\\\        to: kkmpptxz fed4d1a2 (squashed revision)
     -a
     +b
-    +++++++ mzvwutvl d7e94ec7 (squashed commit)
+    +++++++ mzvwutvl d7e94ec7 (squashed revision)
     c
     >>>>>>> conflict 1 of 1 ends
     [EOF]
@@ -1049,10 +1049,10 @@ fn test_squash_from_multiple_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon a8eee959 f | (no description set)
-    Parent commit (@-)      : yostqsxw fac4927e e | (no description set)
+    Working copy  (@) now at: kpqxywon 316211c8 f | (no description set)
+    Parent commit (@-)      : yostqsxw 6a7086c8 e | (no description set)
     New conflicts appeared in 1 commits:
-      yqosqzyt 22dccf0d d | (conflict) (no description set)
+      yqosqzyt 7aca142d d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yqosqzyt
@@ -1062,13 +1062,13 @@ fn test_squash_from_multiple_partial() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  a8eee9597ba5 f
-    ○      fac4927e5714 e
+    @  316211c82ebb f
+    ○      6a7086c8dda4 e
     ├─┬─╮
     │ │ ○  e9db15b956c4 b
     │ ○ │  83cbe51db94d c
     │ ├─╯
-    × │  22dccf0db9ab d
+    × │  7aca142da791 d
     ├─╯
     ○  64ea60be8d77 a
     ◆  000000000000 (empty)
@@ -1089,11 +1089,11 @@ fn test_squash_from_multiple_partial() {
     let output = work_dir.run_jj(["file", "show", "-r=d", "file1"]);
     insta::assert_snapshot!(output, @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: qpvuntsm 64ea60be (parents of squashed commit)
+    %%%%%%% diff from: qpvuntsm 64ea60be (parents of squashed revision)
     \\\\\\\        to: yqosqzyt f6812ff8 (squash destination)
     -a
     +d
-    %%%%%%% diff from: qpvuntsm 64ea60be (parents of squashed commit)
+    %%%%%%% diff from: qpvuntsm 64ea60be (parents of squashed revision)
     \\\\\\\        to: selected changes for squash (from kkmpptxz f2c9709f)
     -a
     +b

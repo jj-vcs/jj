@@ -335,7 +335,7 @@ pub fn absorb_hunks(
             ),
             (
                 source.parent_tree.clone(),
-                format!("{parents_label} (parents of absorbed commit)"),
+                format!("{parents_label} (parents of absorbed revision)"),
             ),
             (
                 selected_tree,

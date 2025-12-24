@@ -77,11 +77,11 @@ fn test_file_search_conflicts() {
     // Test the setup
     insta::assert_snapshot!(work_dir.read_file("file1"), @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: rlvkpnrz 958d516d (parents of rebased commit) (no terminating newline)
+    %%%%%%% diff from: rlvkpnrz 958d516d (parents of rebased revision) (no terminating newline)
     \\\\\\\        to: qpvuntsm 6da222ee (rebase destination) (no terminating newline)
     --bar-
     +-foo-
-    +++++++ kkmpptxz 95e61837 (rebased commit) (no terminating newline)
+    +++++++ kkmpptxz 95e61837 (rebased revision) (no terminating newline)
     -baz-
     >>>>>>> conflict 1 of 1 ends
     ");

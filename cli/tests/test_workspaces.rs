@@ -570,7 +570,7 @@ fn test_workspaces_conflicting_edits() {
     insta::assert_snapshot!(get_log_output(&secondary_dir),
     @r"
     @  90f3d42e0bff secondary@ (divergent)
-    │ ×  fa43aa2016a6 (divergent)
+    │ ×  5ae7e71904b9 (divergent)
     ├─╯
     │ ○  3a9b690d6e67 default@
     ├─╯
@@ -581,7 +581,7 @@ fn test_workspaces_conflicting_edits() {
     // The stale working copy should have been resolved by the previous command
     insta::assert_snapshot!(get_log_output(&secondary_dir), @r"
     @  90f3d42e0bff secondary@ (divergent)
-    │ ×  fa43aa2016a6 (divergent)
+    │ ×  5ae7e71904b9 (divergent)
     ├─╯
     │ ○  3a9b690d6e67 default@
     ├─╯

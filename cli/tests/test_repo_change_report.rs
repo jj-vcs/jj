@@ -31,14 +31,14 @@ fn test_report_conflicts() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
-    Working copy  (@) now at: zsuskuln e5ce33ae (conflict) (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 480d9e65 (conflict) C
+    Working copy  (@) now at: zsuskuln 0798f940 (conflict) (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz f18bc634 (conflict) C
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in 2 commits:
-      kkmpptxz 480d9e65 (conflict) C
-      rlvkpnrz f750657d (conflict) B
+      kkmpptxz f18bc634 (conflict) C
+      rlvkpnrz 3ec72c59 (conflict) B
     Hint: To resolve the conflicts, start by creating a commit on top of
     the first conflicted commit:
       jj new rlvkpnrz
@@ -65,14 +65,14 @@ fn test_report_conflicts() {
     ------- stderr -------
     Rebased 1 commits to destination
     Rebased 2 descendant commits
-    Working copy  (@) now at: zsuskuln a46bad33 (conflict) (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz ee665f7f (conflict) C
+    Working copy  (@) now at: zsuskuln 33a4249e (conflict) (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz b7d2d9ac (conflict) C
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict
     New conflicts appeared in 2 commits:
-      kkmpptxz ee665f7f (conflict) C
-      rlvkpnrz 70216bef (conflict) B
+      kkmpptxz b7d2d9ac (conflict) C
+      rlvkpnrz d4d3dc60 (conflict) B
     Hint: To resolve the conflicts, start by creating a commit on top of
     one of the first conflicted commits:
       jj new kkmpptxz
@@ -87,8 +87,8 @@ fn test_report_conflicts() {
     let output = work_dir.run_jj(["new", "rlvkpnrzqnoo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv e4953dc5 (conflict) (empty) (no description set)
-    Parent commit (@-)      : rlvkpnrz 70216bef (conflict) B
+    Working copy  (@) now at: vruxwmqv bd3920e6 (conflict) (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz d4d3dc60 (conflict) B
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
@@ -127,15 +127,15 @@ fn test_report_conflicts_with_divergent_commits() {
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Rebased 3 commits to destination
-    Working copy  (@) now at: zsuskuln/1 36220952 (divergent) (conflict) C2
-    Parent commit (@-)      : kkmpptxz d3d00356 (conflict) B
+    Working copy  (@) now at: zsuskuln/1 8d399a54 (divergent) (conflict) C2
+    Parent commit (@-)      : kkmpptxz 1c19b9e0 (conflict) B
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in 3 commits:
-      zsuskuln/0 4950cd98 (divergent) (conflict) C3
-      zsuskuln/1 36220952 (divergent) (conflict) C2
-      kkmpptxz d3d00356 (conflict) B
+      zsuskuln/0 b04ca335 (divergent) (conflict) C3
+      zsuskuln/1 8d399a54 (divergent) (conflict) C2
+      kkmpptxz 1c19b9e0 (conflict) B
     Hint: To resolve the conflicts, start by creating a commit on top of
     the first conflicted commit:
       jj new kkmpptxz
@@ -161,13 +161,13 @@ fn test_report_conflicts_with_divergent_commits() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 commits to destination
-    Working copy  (@) now at: zsuskuln/0 ab0a21e6 (divergent) (conflict) C2
+    Working copy  (@) now at: zsuskuln/0 b536e208 (divergent) (conflict) C2
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in 1 commits:
-      zsuskuln/0 ab0a21e6 (divergent) (conflict) C2
+      zsuskuln/0 b536e208 (divergent) (conflict) C2
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new zsuskuln/0
@@ -182,7 +182,7 @@ fn test_report_conflicts_with_divergent_commits() {
     ------- stderr -------
     Rebased 1 commits to destination
     New conflicts appeared in 1 commits:
-      zsuskuln/0 dbfbac97 (divergent) (conflict) C3
+      zsuskuln/0 2015a3ed (divergent) (conflict) C3
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new zsuskuln/0
@@ -234,14 +234,14 @@ fn test_report_conflicts_with_resolving_conflicts_hint_disabled() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 3 commits to destination
-    Working copy  (@) now at: zsuskuln e5ce33ae (conflict) (empty) (no description set)
-    Parent commit (@-)      : kkmpptxz 480d9e65 (conflict) C
+    Working copy  (@) now at: zsuskuln 0798f940 (conflict) (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz f18bc634 (conflict) C
     Added 0 files, modified 1 files, removed 0 files
     Warning: There are unresolved conflicts at these paths:
     file    2-sided conflict including 1 deletion
     New conflicts appeared in 2 commits:
-      kkmpptxz 480d9e65 (conflict) C
-      rlvkpnrz f750657d (conflict) B
+      kkmpptxz f18bc634 (conflict) C
+      rlvkpnrz 3ec72c59 (conflict) B
     [EOF]
     ");
 }
