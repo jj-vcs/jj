@@ -25,6 +25,8 @@ fn test_undo_root_operation() {
     ------- stderr -------
     Undid operation: 90267f31f904 (2001-02-03 08:05:07) add workspace 'default'
     Restored to operation: 000000000000 root()
+    Warning: The current workspace 'default' no longer exists after this operation. The working copy was left untouched.
+    Hint: Restore to an operation that contains the workspace (e.g. `jj undo` or `jj redo`).
     [EOF]
     ");
 
