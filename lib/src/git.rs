@@ -667,11 +667,15 @@ fn diff_refs_to_import(
         .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Bookmark, symbol))
         .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
         .collect();
-    let mut known_remote_tags = view
-        .all_remote_tags()
-        .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Tag, symbol))
-        .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
-        .collect();
+    let mut known_remote_tags = {
+        // Exclude real remote tags, which should never be updated by Git.
+        let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
+        view.remote_tags(remote)
+            .map(|(name, remote_ref)| (name.to_remote_symbol(remote), remote_ref))
+            .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Tag, symbol))
+            .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
+            .collect()
+    };
 
     let mut changed_git_refs = Vec::new();
     let mut changed_remote_bookmarks = Vec::new();

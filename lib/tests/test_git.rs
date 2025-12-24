@@ -1201,6 +1201,50 @@ fn test_import_refs_reimport_absent_tracked_remote_tags() {
 }
 
 #[test]
+fn test_import_refs_reimport_remote_tags_deleted() {
+    let test_workspace = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let repo = &test_workspace.repo;
+    let import_options = default_import_options();
+
+    // Set up tags that don't exist in Git repo.
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let target1 = RefTarget::normal(commit1.id().clone());
+    let remote_ref1 = RemoteRef {
+        target: target1.clone(),
+        state: RemoteRefState::Tracked,
+    };
+    tx.repo_mut()
+        .set_local_tag_target("tag1".as_ref(), target1.clone());
+    tx.repo_mut()
+        .set_remote_tag(remote_symbol("tag1", "git"), remote_ref1.clone());
+    tx.repo_mut()
+        .set_remote_tag(remote_symbol("tag1", "origin"), remote_ref1.clone());
+    let repo = tx.commit("test").unwrap();
+
+    // Import "deleted" tags from Git repo.
+    let mut tx = repo.start_transaction();
+    let stats = git::import_refs(tx.repo_mut(), &import_options).unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo = tx.commit("test").unwrap();
+    assert_eq!(stats.changed_remote_tags.len(), 1);
+    assert_eq!(stats.changed_remote_tags[0].0, remote_symbol("tag1", "git"));
+
+    // Deleted local and @git tags should be imported.
+    assert!(repo.view().get_local_tag("tag1".as_ref()).is_absent());
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag1", "git")),
+        RemoteRef::absent_ref()
+    );
+    // Since Git doesn't have real remote tags, other remote tags shouldn't be
+    // updated.
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag1", "origin")),
+        &remote_ref1
+    );
+}
+
+#[test]
 fn test_import_refs_reimport_git_head_with_fixed_ref() {
     // Simulate external `git checkout` in colocated workspace, from named bookmark.
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
@@ -3787,6 +3831,80 @@ fn test_fetch_multiple_branches() {
             .map(|(symbol, _)| symbol)
             .collect_vec(),
         [remote_symbol("main", "origin")]
+    );
+}
+
+#[test]
+fn test_fetch_with_tag_changes() {
+    let test_data = GitRepoData::create();
+    let git_settings = GitSettings::from_settings(test_data.repo.settings()).unwrap();
+    let import_options = default_import_options();
+
+    // Create tagged commit at remote.
+    let commit1 = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    git_ref(&test_data.origin_repo, "refs/tags/tag1", commit1);
+    let target1 = RefTarget::normal(jj_id(commit1));
+    let remote_ref1 = RemoteRef {
+        target: target1.clone(),
+        state: RemoteRefState::Tracked,
+    };
+
+    // Set up tags that don't exist in Git repo.
+    let mut tx = test_data.repo.start_transaction();
+    let commit2 = write_random_commit(tx.repo_mut());
+    let target2 = RefTarget::normal(commit2.id().clone());
+    let remote_ref2 = RemoteRef {
+        target: target2.clone(),
+        state: RemoteRefState::Tracked,
+    };
+    tx.repo_mut()
+        .set_local_tag_target("tag2".as_ref(), target2.clone());
+    tx.repo_mut()
+        .set_remote_tag(remote_symbol("tag2", "git"), remote_ref2.clone());
+    tx.repo_mut()
+        .set_remote_tag(remote_symbol("tag2", "origin"), remote_ref2.clone());
+    let repo = tx.commit("test").unwrap();
+
+    // Fetch and import refs.
+    let mut tx = repo.start_transaction();
+    let stats = git_fetch(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        StringExpression::all(),
+        &git_settings,
+        &import_options,
+        None,
+    )
+    .unwrap();
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo = tx.commit("test").unwrap();
+    assert_eq!(stats.import_stats.changed_remote_tags.len(), 2);
+    assert_eq!(
+        stats.import_stats.changed_remote_tags[0].0,
+        remote_symbol("tag1", "git")
+    );
+    assert_eq!(
+        stats.import_stats.changed_remote_tags[1].0,
+        remote_symbol("tag2", "git")
+    );
+
+    // Git directly maps fetched tags to local namespace.
+    assert_eq!(repo.view().get_local_tag("tag1".as_ref()), &target1);
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag1", "git")),
+        &remote_ref1
+    );
+    // Therefore, deleted local tags have to be imported as well.
+    assert!(repo.view().get_local_tag("tag2".as_ref()).is_absent());
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag2", "git")),
+        RemoteRef::absent_ref()
+    );
+    // Since Git doesn't have real remote tags, other remote tags shouldn't be
+    // updated.
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag2", "origin")),
+        &remote_ref2
     );
 }
 
