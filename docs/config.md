@@ -248,6 +248,23 @@ keys can be supplied here, the first key is the most significant.
 When the `--sort` option is used with `jj bookmark list`, the configuration
 is ignored.
 
+### Commit description template
+
+You can configure default commit description template. That template is shown
+when you describe, commit, split or anything else that ask you to write a
+commit description.
+
+By default, the template `draft_commit_description` is used. You can use
+`builtin_draft_commit_description_verbose` as an alternativ to see a diff
+of what you're describing. Like `git commit -v` would do.
+
+```toml
+[ui]
+commit-description-template = "builtin_draft_commit_description_verbose"
+```
+
+That configuration is overriden by the `-T` argument.
+
 ### Commit trailers
 
 You can configure automatic addition of one or more trailers to commit

@@ -17,6 +17,7 @@ use std::io;
 use std::io::Read as _;
 use std::iter;
 
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
@@ -122,6 +123,24 @@ pub(crate) struct DescribeArgs {
         value_parser = parse_author
     )]
     author: Option<(String, String)>,
+    /// Render commit description using the given template
+    ///
+    /// Run `jj describe -T` to list the built-in templates.
+    ///
+    /// You can also specify arbitrary template expressions using the
+    /// [built-in keywords]. See [`jj help -k templates`] for more
+    /// information.
+    ///
+    /// If not specified, this defaults to `template.draft_commit_description`
+    /// setting.
+    ///
+    /// [built-in keywords]:
+    ///     https://docs.jj-vcs.dev/latest/templates/#commit-keywords
+    ///
+    /// [`jj help -k templates`]:
+    ///     https://docs.jj-vcs.dev/latest/templates/
+    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
+    template: Option<String>,
 }
 
 #[instrument(skip_all)]
@@ -249,7 +268,7 @@ pub(crate) fn cmd_describe(
 
         if let [(_, temp_commit)] = &*temp_commits {
             let intro = "";
-            let template = description_template(ui, &tx, intro, temp_commit)?;
+            let template = description_template(ui, &tx, intro, temp_commit, &args.template)?;
             let description = edit_description(&text_editor, &template)?;
             commit_builders[0].set_description(description);
         } else {
@@ -258,7 +277,7 @@ pub(crate) fn cmd_describe(
                 missing,
                 duplicates,
                 unexpected,
-            } = edit_multiple_descriptions(ui, &text_editor, &tx, &temp_commits)?;
+            } = edit_multiple_descriptions(ui, &text_editor, &tx, &temp_commits, &args.template)?;
             if !missing.is_empty() {
                 return Err(user_error(format!(
                     "The description for the following commits were not found in the edited \

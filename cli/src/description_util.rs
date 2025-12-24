@@ -189,6 +189,7 @@ pub fn edit_multiple_descriptions(
     editor: &TextEditor,
     tx: &WorkspaceCommandTransaction,
     commits: &[(&CommitId, Commit)],
+    template_key: &Option<String>,
 ) -> Result<ParsedBulkEditMessage<CommitId>, CommandError> {
     let mut commits_map = IndexMap::new();
     let mut bulk_message = String::new();
@@ -207,7 +208,7 @@ pub fn edit_multiple_descriptions(
         bulk_message.push_str(" -------\n");
         commits_map.insert(commit_hash, *commit_id);
         let intro = "";
-        let template = description_template(ui, tx, intro, temp_commit)?;
+        let template = description_template(ui, tx, intro, temp_commit, template_key)?;
         bulk_message.push_str(&template);
         append_blank_line(&mut bulk_message);
     }
@@ -445,10 +446,15 @@ pub fn description_template(
     tx: &WorkspaceCommandTransaction,
     intro: &str,
     commit: &Commit,
+    template_key: &Option<String>,
 ) -> Result<String, CommandError> {
-    // Named as "draft" because the output can contain "JJ:" comment lines.
-    let template_key = "templates.draft_commit_description";
-    let template_text = tx.settings().get_string(template_key)?;
+    let template_text = match template_key {
+        Some(value) => value.clone(),
+        None => tx.settings().get("ui.commit-description-template").or(tx
+            .settings()
+            .get_string("templates.draft_commit_description"))?,
+    };
+
     let template = tx.parse_commit_template(ui, &template_text)?;
 
     let mut output = Vec::new();

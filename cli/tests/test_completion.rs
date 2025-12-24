@@ -1197,6 +1197,7 @@ fn test_template_alias() {
     builtin_config_list
     builtin_config_list_detailed
     builtin_draft_commit_description
+    builtin_draft_commit_description_verbose
     builtin_evolog_compact
     builtin_log_comfortable
     builtin_log_compact

@@ -104,6 +104,24 @@ pub(crate) struct CommitArgs {
         value_parser = parse_author
     )]
     author: Option<(String, String)>,
+    /// Render commit description using the given template
+    ///
+    /// Run `jj commit -T` to list the built-in templates.
+    ///
+    /// You can also specify arbitrary template expressions using the
+    /// [built-in keywords]. See [`jj help -k templates`] for more
+    /// information.
+    ///
+    /// If not specified, this defaults to `template.draft_commit_description`
+    /// setting.
+    ///
+    /// [built-in keywords]:
+    ///     https://docs.jj-vcs.dev/latest/templates/#commit-keywords
+    ///
+    /// [`jj help -k templates`]:
+    ///     https://docs.jj-vcs.dev/latest/templates/
+    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
+    template: Option<String>,
 }
 
 #[instrument(skip_all)]
@@ -197,7 +215,7 @@ new working-copy commit.
         commit_builder.set_description(description);
         let temp_commit = commit_builder.write_hidden()?;
         let intro = "";
-        let description = description_template(ui, &tx, intro, &temp_commit)?;
+        let description = description_template(ui, &tx, intro, &temp_commit, &args.template)?;
         let description = edit_description(&text_editor, &description)?;
         if description.is_empty() {
             writedoc!(

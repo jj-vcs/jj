@@ -222,6 +222,10 @@
                         }
                     ]
                 },
+                "commit-description-template": {
+                    "description": "Default template to use on commit, split, describe and squash",
+                    "type": "string"
+                },
                 "merge-editor": {
                     "description": "Tool to use for resolving three-way merges. Behavior for a given tool name can be configured in merge-tools.TOOL tables",
                     "default": ":builtin",
@@ -239,7 +243,7 @@
                 },
                 "revsets-use-glob-by-default": {
                     "type": "boolean",
-                    "default": true,
+                   "default": true,
                     "description": "Whether to use glob string patterns in revsets by default"
                 },
                 "show-cryptographic-signatures": {

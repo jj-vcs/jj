@@ -182,6 +182,25 @@ pub(crate) struct SquashArgs {
     /// The source revision will not be abandoned
     #[arg(long, short)]
     keep_emptied: bool,
+
+    /// Render commit description using the given template
+    ///
+    /// Run `jj squash -T` to list the built-in templates.
+    ///
+    /// You can also specify arbitrary template expressions using the
+    /// [built-in keywords]. See [`jj help -k templates`] for more
+    /// information.
+    ///
+    /// If not specified, this defaults to `template.draft_commit_description`
+    /// setting.
+    ///
+    /// [built-in keywords]:
+    ///     https://docs.jj-vcs.dev/latest/templates/#commit-keywords
+    ///
+    /// [`jj help -k templates`]:
+    ///     https://docs.jj-vcs.dev/latest/templates/
+    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
+    template: Option<String>,
 }
 
 #[instrument(skip_all)]
@@ -351,7 +370,8 @@ pub(crate) fn cmd_squash(
                     commit_builder.set_description(&description_with_trailers);
                     let temp_commit = commit_builder.write_hidden()?;
                     let intro = "";
-                    let template = description_template(ui, &tx, intro, &temp_commit)?;
+                    let template =
+                        description_template(ui, &tx, intro, &temp_commit, &args.template)?;
                     edit_description(&text_editor, &template)?
                 } else {
                     description_with_trailers
@@ -371,7 +391,7 @@ pub(crate) fn cmd_squash(
             commit_builder.set_description(combined);
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the combined commit.";
-            let template = description_template(ui, &tx, intro, &temp_commit)?;
+            let template = description_template(ui, &tx, intro, &temp_commit, &args.template)?;
             edit_description(&text_editor, &template)?
         };
         commit_builder.set_description(description);

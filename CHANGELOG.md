@@ -89,6 +89,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `TreeDiffEntry` now has a `status_char()` method that returns
   single-character status codes (M/A/D/C/R).
 
+* Commands `commit`, `split`, squash and `describe` accept `-T` argument to
+  select commit description template. In addition, the default template can be
+  changed with `ui.commit-description-template` configuration field.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

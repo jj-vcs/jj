@@ -641,6 +641,17 @@ When using `--interactive` or path arguments, the selected changes stay in the c
 * `--editor` — Open an editor to edit the change description
 
    Forces an editor to open when using `--message` to allow the message to be edited afterwards.
+* `-T`, `--template <TEMPLATE>` — Render commit description using the given template
+
+   Run `jj commit -T` to list the built-in templates.
+
+   You can also specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
+
+   If not specified, this defaults to `template.draft_commit_description` setting.
+
+   [built-in keywords]: https://docs.jj-vcs.dev/latest/templates/#commit-keywords
+
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 
 
 
@@ -837,6 +848,17 @@ Starts an editor to let you edit the description of changes. The editor will be 
 * `--editor` — Open an editor to edit the change description
 
    Forces an editor to open when using `--stdin` or `--message` to allow the message to be edited afterwards.
+* `-T`, `--template <TEMPLATE>` — Render commit description using the given template
+
+   Run `jj describe -T` to list the built-in templates.
+
+   You can also specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
+
+   If not specified, this defaults to `template.draft_commit_description` setting.
+
+   [built-in keywords]: https://docs.jj-vcs.dev/latest/templates/#commit-keywords
+
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 
 
 
@@ -2983,6 +3005,17 @@ achieved with `jj new`.
 
    Forces an editor to open when using `--message` to allow the message to be edited afterwards.
 * `-p`, `--parallel` — Split the revision into two parallel revisions instead of a parent and child
+* `-T`, `--template <TEMPLATE>` — Render commit description using the given template
+
+   Run `jj split -T` to list the built-in templates.
+
+   You can also specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
+
+   If not specified, this defaults to `template.draft_commit_description` setting.
+
+   [built-in keywords]: https://docs.jj-vcs.dev/latest/templates/#commit-keywords
+
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 
 
 
@@ -3030,6 +3063,17 @@ An alternative squashing UI is available via the `-o`, `-A`, and `-B` options. U
 * `-i`, `--interactive` — Interactively choose which parts to squash
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `-k`, `--keep-emptied` — The source revision will not be abandoned
+* `-T`, `--template <TEMPLATE>` — Render commit description using the given template
+
+   Run `jj squash -T` to list the built-in templates.
+
+   You can also specify arbitrary template expressions using the [built-in keywords]. See [`jj help -k templates`] for more information.
+
+   If not specified, this defaults to `template.draft_commit_description` setting.
+
+   [built-in keywords]: https://docs.jj-vcs.dev/latest/templates/#commit-keywords
+
+   [`jj help -k templates`]: https://docs.jj-vcs.dev/latest/templates/
 
 
 

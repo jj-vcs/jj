@@ -197,6 +197,24 @@ pub(crate) struct SplitArgs {
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     #[arg(add = ArgValueCompleter::new(complete::modified_revision_files))]
     paths: Vec<String>,
+    /// Render commit description using the given template
+    ///
+    /// Run `jj split -T` to list the built-in templates.
+    ///
+    /// You can also specify arbitrary template expressions using the
+    /// [built-in keywords]. See [`jj help -k templates`] for more
+    /// information.
+    ///
+    /// If not specified, this defaults to `template.draft_commit_description`
+    /// setting.
+    ///
+    /// [built-in keywords]:
+    ///     https://docs.jj-vcs.dev/latest/templates/#commit-keywords
+    ///
+    /// [`jj help -k templates`]:
+    ///     https://docs.jj-vcs.dev/latest/templates/
+    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
+    template: Option<String>,
 }
 
 impl SplitArgs {
@@ -321,7 +339,7 @@ pub(crate) fn cmd_split(
             commit_builder.set_description(description);
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the selected changes.";
-            let template = description_template(ui, &tx, intro, &temp_commit)?;
+            let template = description_template(ui, &tx, intro, &temp_commit, &args.template)?;
             edit_description(&text_editor, &template)?
         } else {
             description
@@ -372,7 +390,7 @@ pub(crate) fn cmd_split(
             commit_builder.set_description(new_description);
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the remaining changes.";
-            let template = description_template(ui, &tx, intro, &temp_commit)?;
+            let template = description_template(ui, &tx, intro, &temp_commit, &args.template)?;
             edit_description(&text_editor, &template)?
         } else {
             description

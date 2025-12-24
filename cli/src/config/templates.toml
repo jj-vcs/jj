@@ -142,6 +142,19 @@ concat(
 )
 '''
 
+builtin_draft_commit_description_verbose = '''
+concat(
+  coalesce(description, default_commit_description, "\n"),
+  "\n",
+  "JJ: Change ID: " ++ format_short_change_id(change_id),
+  "\n",
+  surround(
+    "JJ: This commit contains the following changes:\n", "",
+    indent("JJ:     ", diff.git()),
+  ),
+)
+'''
+
 builtin_evolog_compact = '''
 concat(
   builtin_log_compact(commit),
