@@ -60,11 +60,8 @@ pub(crate) struct CommitArgs {
     interactive: bool,
 
     /// Specify diff editor to be used (implies --interactive)
-    #[arg(
-        long,
-        value_name = "NAME",
-        add = ArgValueCandidates::new(complete::diff_editors),
-    )]
+    #[arg(long, value_name = "NAME")]
+    #[arg(add = ArgValueCandidates::new(complete::diff_editors))]
     tool: Option<String>,
 
     /// The change description to use (don't open editor)
@@ -79,11 +76,8 @@ pub(crate) struct CommitArgs {
     editor: bool,
 
     /// Put these paths in the current commit
-    #[arg(
-        value_name = "FILESETS",
-        value_hint = clap::ValueHint::AnyPath,
-        add = ArgValueCompleter::new(complete::modified_files),
-    )]
+    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(add = ArgValueCompleter::new(complete::modified_files))]
     paths: Vec<String>,
 
     // TODO: Delete in jj 0.40.0+

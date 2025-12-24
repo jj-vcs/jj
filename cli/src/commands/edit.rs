@@ -35,20 +35,12 @@ use crate::ui::Ui;
 #[command(group(clap::ArgGroup::new("revision").required(true)))]
 pub(crate) struct EditArgs {
     /// The commit to edit [aliases: -r]
-    #[arg(
-        group = "revision",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
+    #[arg(group = "revision", value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revision_pos: Option<RevisionArg>,
 
-    #[arg(
-        short = 'r',
-        group = "revision",
-        hide = true,
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
+    #[arg(short = 'r', group = "revision", hide = true, value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revision_opt: Option<RevisionArg>,
 }
 

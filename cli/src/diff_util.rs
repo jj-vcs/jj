@@ -141,10 +141,8 @@ pub struct DiffFormatArgs {
     ///
     /// A builtin format can also be specified as `:<name>`. For example,
     /// `--tool=:git` is equivalent to `--git`.
-    #[arg(
-        long,
-        add = ArgValueCandidates::new(crate::complete::diff_formatters),
-    )]
+    #[arg(long)]
+    #[arg(add = ArgValueCandidates::new(crate::complete::diff_formatters))]
     pub tool: Option<String>,
 
     /// Number of lines of context to show

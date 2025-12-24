@@ -62,29 +62,18 @@ use crate::ui::Ui;
 #[command(mut_arg("ignore_space_change", |a| a.short('b')))]
 pub(crate) struct InterdiffArgs {
     /// The first revision to compare (default: @)
-    #[arg(
-        long,
-        short,
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(long, short, value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     from: Option<RevisionArg>,
 
     /// The second revision to compare (default: @)
-    #[arg(
-        long,
-        short,
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(long, short, value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     to: Option<RevisionArg>,
 
     /// Restrict the diff to these paths
-    #[arg(
-        value_name = "FILESETS",
-        value_hint = clap::ValueHint::AnyPath,
-        add = ArgValueCompleter::new(complete::interdiff_files),
-    )]
+    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(add = ArgValueCompleter::new(complete::interdiff_files))]
     paths: Vec<String>,
 
     #[command(flatten)]

@@ -32,12 +32,13 @@ use crate::ui::Ui;
 pub struct BookmarkCreateArgs {
     /// The bookmark's target revision
     #[arg(
-        long, short,
+        long,
+        short,
         default_value = "@",
         visible_alias = "to",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+        value_name = "REVSET"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revision: RevisionArg,
 
     /// The bookmarks to create

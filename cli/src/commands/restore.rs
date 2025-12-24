@@ -49,29 +49,18 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct RestoreArgs {
     /// Restore only these paths (instead of all paths)
-    #[arg(
-        value_name = "FILESETS",
-        value_hint = clap::ValueHint::AnyPath,
-        add = ArgValueCompleter::new(complete::modified_changes_in_or_range_files),
-    )]
+    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(add = ArgValueCompleter::new(complete::modified_changes_in_or_range_files))]
     paths: Vec<String>,
 
     /// Revision to restore from (source)
-    #[arg(
-        long,
-        short,
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(long, short, value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     from: Option<RevisionArg>,
 
     /// Revision to restore into (destination)
-    #[arg(
-        long, short = 't',
-        visible_alias = "to",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
+    #[arg(long, short = 't', visible_alias = "to", value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     into: Option<RevisionArg>,
 
     /// Undo the changes in a revision as compared to the merge of its parents.
@@ -82,12 +71,8 @@ pub(crate) struct RestoreArgs {
     ///
     /// The default behavior of `jj restore` is equivalent to `jj restore
     /// --changes-in @`.
-    #[arg(
-        long, short,
-        value_name = "REVSET",
-        conflicts_with_all = ["into", "from"],
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(long, short, value_name = "REVSET", conflicts_with_all = ["into", "from"])]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     changes_in: Option<RevisionArg>,
 
     /// Prints an error. DO NOT USE.
@@ -105,11 +90,8 @@ pub(crate) struct RestoreArgs {
     interactive: bool,
 
     /// Specify diff editor to be used (implies --interactive)
-    #[arg(
-        long,
-        value_name = "NAME",
-        add = ArgValueCandidates::new(complete::diff_editors),
-    )]
+    #[arg(long, value_name = "NAME")]
+    #[arg(add = ArgValueCandidates::new(complete::diff_editors))]
     tool: Option<String>,
 
     /// Preserve the content (not the diff) when rebasing descendants

@@ -36,10 +36,8 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkRenameArgs {
     /// The old name of the bookmark
-    #[arg(
-        value_parser = revset_util::parse_bookmark_name,
-        add = ArgValueCandidates::new(complete::local_bookmarks),
-    )]
+    #[arg(value_parser = revset_util::parse_bookmark_name)]
+    #[arg(add = ArgValueCandidates::new(complete::local_bookmarks))]
     old: RefNameBuf,
 
     /// The new name of the bookmark

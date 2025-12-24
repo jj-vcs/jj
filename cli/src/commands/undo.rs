@@ -53,7 +53,8 @@ pub struct UndoArgs {
     ///
     /// Use `jj op log` to find an operation to undo.
     // TODO: Delete in jj 0.39+
-    #[arg(default_value = "@", add = ArgValueCandidates::new(complete::operations))]
+    #[arg(default_value = "@")]
+    #[arg(add = ArgValueCandidates::new(complete::operations))]
     operation: String,
 
     /// (deprecated, use `jj op revert --what`)

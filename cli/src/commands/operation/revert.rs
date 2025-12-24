@@ -36,7 +36,8 @@ pub struct OperationRevertArgs {
     /// The operation to revert
     ///
     /// Use `jj op log` to find an operation to revert.
-    #[arg(default_value = "@", add = ArgValueCandidates::new(complete::operations))]
+    #[arg(default_value = "@")]
+    #[arg(add = ArgValueCandidates::new(complete::operations))]
     pub(crate) operation: String, // pub for `jj undo`
 
     /// What portions of the local state to restore (can be repeated)

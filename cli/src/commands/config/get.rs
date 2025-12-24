@@ -36,7 +36,8 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]
 pub struct ConfigGetArgs {
-    #[arg(required = true, add = ArgValueCandidates::new(complete::leaf_config_keys))]
+    #[arg(required = true)]
+    #[arg(add = ArgValueCandidates::new(complete::leaf_config_keys))]
     name: ConfigNamePathBuf,
 }
 

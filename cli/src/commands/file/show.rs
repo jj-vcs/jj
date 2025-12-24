@@ -49,12 +49,8 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct FileShowArgs {
     /// The revision to get the file contents from
-    #[arg(
-        long, short,
-        default_value = "@",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(long, short, default_value = "@", value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revision: RevisionArg,
 
     /// Render each file metadata using the given template
@@ -70,16 +66,13 @@ pub(crate) struct FileShowArgs {
     ///
     /// [`jj help -k templates`]:
     ///     https://docs.jj-vcs.dev/latest/templates/
-    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
+    #[arg(long, short = 'T')]
+    #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
 
     /// Paths to print
-    #[arg(
-        required = true,
-        value_name = "FILESETS",
-        value_hint = clap::ValueHint::FilePath,
-        add = ArgValueCompleter::new(complete::all_revision_files),
-    )]
+    #[arg(required = true, value_name = "FILESETS", value_hint = clap::ValueHint::FilePath)]
+    #[arg(add = ArgValueCompleter::new(complete::all_revision_files))]
     paths: Vec<String>,
 }
 

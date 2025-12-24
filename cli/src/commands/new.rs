@@ -49,11 +49,8 @@ use crate::ui::Ui;
 #[command(group(clap::ArgGroup::new("revisions").multiple(true)))]
 pub(crate) struct NewArgs {
     /// Parent(s) of the new change [default: @] [aliases: -o, -r]
-    #[arg(
-        group = "revisions",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(group = "revisions", value_name = "REVSETS")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revisions_pos: Option<Vec<RevisionArg>>,
 
     #[arg(
@@ -62,8 +59,9 @@ pub(crate) struct NewArgs {
         hide = true,
         short_aliases = ['d', 'r'],
         value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revisions_opt: Option<Vec<RevisionArg>>,
 
     /// The change description to use
@@ -111,9 +109,9 @@ pub(crate) struct NewArgs {
         visible_alias = "after",
         conflicts_with = "revisions",
         value_name = "REVSETS",
-        verbatim_doc_comment,
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+        verbatim_doc_comment
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     insert_after: Option<Vec<RevisionArg>>,
 
     /// Insert the new change before the given commit(s)
@@ -152,9 +150,9 @@ pub(crate) struct NewArgs {
         visible_alias = "before",
         conflicts_with = "revisions",
         value_name = "REVSETS",
-        verbatim_doc_comment,
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+        verbatim_doc_comment
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     insert_before: Option<Vec<RevisionArg>>,
 }
 

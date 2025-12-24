@@ -36,12 +36,13 @@ use crate::ui::Ui;
 pub struct BookmarkSetArgs {
     /// The bookmark's target revision
     #[arg(
-        long, short,
+        long,
+        short,
         default_value = "@",
         visible_alias = "to",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+        value_name = "REVSET"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revision: RevisionArg,
 
     /// Allow moving the bookmark backwards or sideways
@@ -49,11 +50,8 @@ pub struct BookmarkSetArgs {
     allow_backwards: bool,
 
     /// The bookmarks to update
-    #[arg(
-        required = true,
-        value_parser = revset_util::parse_bookmark_name,
-        add = ArgValueCandidates::new(complete::local_bookmarks),
-    )]
+    #[arg(required = true, value_parser = revset_util::parse_bookmark_name)]
+    #[arg(add = ArgValueCandidates::new(complete::local_bookmarks))]
     names: Vec<RefNameBuf>,
 }
 

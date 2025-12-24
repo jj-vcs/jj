@@ -50,11 +50,8 @@ pub struct SignArgs {
     ///
     /// [#5786]:
     ///     https://github.com/jj-vcs/jj/issues/5786
-    #[arg(
-        long, short,
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
+    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revisions: Vec<RevisionArg>,
 
     /// The key used for signing

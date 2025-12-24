@@ -48,18 +48,12 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct DescribeArgs {
     /// The revision(s) whose description to edit (default: @) [aliases: -r]
-    #[arg(
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable)
-    )]
+    #[arg(value_name = "REVSETS")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revisions_pos: Vec<RevisionArg>,
 
-    #[arg(
-        short = 'r',
-        hide = true,
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable)
-    )]
+    #[arg(short = 'r', hide = true, value_name = "REVSETS")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revisions_opt: Vec<RevisionArg>,
 
     /// The change description to use (don't open editor)

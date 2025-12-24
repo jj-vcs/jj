@@ -42,10 +42,8 @@ pub struct BookmarkDeleteArgs {
     ///
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(
-        required = true,
-        add = ArgValueCandidates::new(complete::local_bookmarks),
-    )]
+    #[arg(required = true)]
+    #[arg(add = ArgValueCandidates::new(complete::local_bookmarks))]
     names: Vec<String>,
 }
 

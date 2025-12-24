@@ -49,11 +49,8 @@ pub struct BookmarkTrackArgs {
     ///
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(
-        required = true,
-        value_name = "BOOKMARK",
-        add = ArgValueCandidates::new(complete::untracked_bookmarks),
-    )]
+    #[arg(required = true, value_name = "BOOKMARK")]
+    #[arg(add = ArgValueCandidates::new(complete::untracked_bookmarks))]
     names: Vec<String>,
 
     /// Remote names to track

@@ -31,12 +31,13 @@ use crate::ui::Ui;
 pub struct TagSetArgs {
     /// Target revision to point to
     #[arg(
-        long, short,
+        long,
+        short,
         default_value = "@",
         visible_alias = "to",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+        value_name = "REVSET"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revision: RevisionArg,
 
     /// Allow moving existing tags
@@ -44,11 +45,8 @@ pub struct TagSetArgs {
     allow_move: bool,
 
     /// Tag names to create or update
-    #[arg(
-        required = true,
-        value_parser = revset_util::parse_tag_name,
-        add = ArgValueCandidates::new(complete::local_tags),
-    )]
+    #[arg(required = true, value_parser = revset_util::parse_tag_name)]
+    #[arg(add = ArgValueCandidates::new(complete::local_tags))]
     names: Vec<RefNameBuf>,
 }
 

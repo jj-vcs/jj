@@ -61,11 +61,8 @@ pub struct GitFetchArgs {
     ///
     /// [logical operators]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(
-        long, short,
-        alias = "bookmark",
-        add = ArgValueCandidates::new(complete::bookmarks),
-    )]
+    #[arg(long, short, alias = "bookmark")]
+    #[arg(add = ArgValueCandidates::new(complete::bookmarks))]
     branch: Option<Vec<String>>,
 
     /// Fetch only tracked bookmarks
@@ -86,11 +83,8 @@ pub struct GitFetchArgs {
     ///
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(
-        long = "remote",
-        value_name = "REMOTE",
-        add = ArgValueCandidates::new(complete::git_remotes),
-    )]
+    #[arg(long = "remote", value_name = "REMOTE")]
+    #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
     remotes: Option<Vec<String>>,
 
     /// Fetch from all remotes

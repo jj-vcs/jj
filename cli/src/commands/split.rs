@@ -114,20 +114,13 @@ pub(crate) struct SplitArgs {
     interactive: bool,
 
     /// Specify diff editor to be used (implies --interactive)
-    #[arg(
-        long,
-        value_name = "NAME",
-        add = ArgValueCandidates::new(complete::diff_editors),
-    )]
+    #[arg(long, value_name = "NAME")]
+    #[arg(add = ArgValueCandidates::new(complete::diff_editors))]
     tool: Option<String>,
 
     /// The revision to split
-    #[arg(
-        long, short,
-        default_value = "@",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
+    #[arg(long, short, default_value = "@", value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revision: RevisionArg,
 
     /// The revision(s) to rebase the selected changes onto (can be repeated to
@@ -142,9 +135,9 @@ pub(crate) struct SplitArgs {
         short,
         visible_short_alias = 'd',
         conflicts_with = "parallel",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+        value_name = "REVSETS"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     onto: Option<Vec<RevisionArg>>,
 
     /// The revision(s) to insert after (can be repeated to create a merge
@@ -159,9 +152,9 @@ pub(crate) struct SplitArgs {
         visible_alias = "after",
         conflicts_with = "onto",
         conflicts_with = "parallel",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+        value_name = "REVSETS"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     insert_after: Option<Vec<RevisionArg>>,
 
     /// The revision(s) to insert before (can be repeated to create a merge
@@ -176,9 +169,9 @@ pub(crate) struct SplitArgs {
         visible_alias = "before",
         conflicts_with = "onto",
         conflicts_with = "parallel",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+        value_name = "REVSETS"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     insert_before: Option<Vec<RevisionArg>>,
 
     /// The change description to use (don't open editor)
@@ -201,11 +194,8 @@ pub(crate) struct SplitArgs {
     parallel: bool,
 
     /// Files matching any of these filesets are put in the selected changes
-    #[arg(
-        value_name = "FILESETS",
-        value_hint = clap::ValueHint::AnyPath,
-        add = ArgValueCompleter::new(complete::modified_revision_files),
-    )]
+    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(add = ArgValueCompleter::new(complete::modified_revision_files))]
     paths: Vec<String>,
 }
 

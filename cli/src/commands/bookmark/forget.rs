@@ -53,10 +53,8 @@ pub struct BookmarkForgetArgs {
     ///
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(
-        required = true,
-        add = ArgValueCandidates::new(complete::bookmarks),
-    )]
+    #[arg(required = true)]
+    #[arg(add = ArgValueCandidates::new(complete::bookmarks))]
     names: Vec<String>,
 }
 

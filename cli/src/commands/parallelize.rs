@@ -57,10 +57,8 @@ use crate::ui::Ui;
 #[command(verbatim_doc_comment)]
 pub(crate) struct ParallelizeArgs {
     /// Revisions to parallelize
-    #[arg(
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
+    #[arg(value_name = "REVSETS")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revisions: Vec<RevisionArg>,
 }
 

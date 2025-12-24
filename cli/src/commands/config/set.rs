@@ -33,7 +33,8 @@ use crate::ui::Ui;
 /// Update a config file to set the given option to a given value.
 #[derive(clap::Args, Clone, Debug)]
 pub struct ConfigSetArgs {
-    #[arg(required = true, add = ArgValueCandidates::new(complete::leaf_config_keys))]
+    #[arg(required = true)]
+    #[arg(add = ArgValueCandidates::new(complete::leaf_config_keys))]
     name: ConfigNamePathBuf,
 
     /// New value to set

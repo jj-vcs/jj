@@ -37,12 +37,8 @@ pub(crate) struct FileUntrackArgs {
     ///
     /// The paths could be ignored via a .gitignore or .git/info/exclude (in
     /// colocated workspaces).
-    #[arg(
-        required = true,
-        value_name = "FILESETS",
-        value_hint = clap::ValueHint::AnyPath,
-        add = ArgValueCompleter::new(complete::all_revision_files),
-    )]
+    #[arg(required = true, value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(add = ArgValueCompleter::new(complete::all_revision_files))]
     paths: Vec<String>,
 }
 

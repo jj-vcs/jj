@@ -32,7 +32,8 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct OperationShowArgs {
     /// Show repository changes in this operation, compared to its parent(s)
-    #[arg(default_value = "@", add = ArgValueCandidates::new(complete::operations))]
+    #[arg(default_value = "@")]
+    #[arg(add = ArgValueCandidates::new(complete::operations))]
     operation: String,
 
     /// Don't show the graph, show a flat list of modified changes
@@ -50,7 +51,8 @@ pub struct OperationShowArgs {
     ///
     /// [`jj help -k templates`]:
     ///     https://docs.jj-vcs.dev/latest/templates/
-    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
+    #[arg(long, short = 'T')]
+    #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
 
     /// Show patch of modifications to changes

@@ -3355,12 +3355,8 @@ pub struct GlobalArgs {
     /// earlier operation. Doing that is equivalent to having run concurrent
     /// commands starting at the earlier operation. There's rarely a reason to
     /// do that, but it is possible.
-    #[arg(
-        long,
-        visible_alias = "at-op",
-        global = true,
-        add = ArgValueCandidates::new(complete::operations),
-    )]
+    #[arg(long, visible_alias = "at-op", global = true)]
+    #[arg(add = ArgValueCandidates::new(complete::operations))]
     pub at_operation: Option<String>,
 
     /// Enable debug logging
@@ -3399,7 +3395,8 @@ pub struct EarlyArgs {
     /// The name should be specified as TOML dotted keys. The value should be
     /// specified as a TOML expression. If string value isn't enclosed by any
     /// TOML constructs (such as array notation), quotes can be omitted.
-    #[arg(long, value_name = "NAME=VALUE", global = true, add = ArgValueCompleter::new(complete::leaf_config_key_value))]
+    #[arg(long, value_name = "NAME=VALUE", global = true)]
+    #[arg(add = ArgValueCompleter::new(complete::leaf_config_key_value))]
     pub config: Vec<String>,
 
     /// Additional configuration files (can be repeated)

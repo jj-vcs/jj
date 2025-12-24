@@ -87,31 +87,24 @@ use crate::ui::Ui;
 pub(crate) struct SquashArgs {
     /// Revision to squash into its parent (default: @). Incompatible with the
     /// experimental `-o`/`-A`/`-B` options.
-    #[arg(
-        long,
-        short,
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
+    #[arg(long, short, value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revision: Option<RevisionArg>,
 
     /// Revision(s) to squash from (default: @)
-    #[arg(
-        long, short,
-        conflicts_with = "revision",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
+    #[arg(long, short, conflicts_with = "revision", value_name = "REVSETS")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     from: Vec<RevisionArg>,
 
     /// Revision to squash into (default: @)
     #[arg(
-        long, short = 't',
+        long,
+        short = 't',
         conflicts_with = "revision",
         visible_alias = "to",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+        value_name = "REVSET"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     into: Option<RevisionArg>,
 
     /// (Experimental) The revision(s) to use as parent for the new commit (can
@@ -123,9 +116,9 @@ pub(crate) struct SquashArgs {
         visible_short_alias = 'd',
         conflicts_with = "into",
         conflicts_with = "revision",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+        value_name = "REVSETS"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     onto: Option<Vec<RevisionArg>>,
 
     /// (Experimental) The revision(s) to insert the new commit after (can be
@@ -137,9 +130,9 @@ pub(crate) struct SquashArgs {
         conflicts_with = "onto",
         conflicts_with = "into",
         conflicts_with = "revision",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+        value_name = "REVSETS"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     insert_after: Option<Vec<RevisionArg>>,
 
     /// (Experimental) The revision(s) to insert the new commit before (can be
@@ -151,9 +144,9 @@ pub(crate) struct SquashArgs {
         conflicts_with = "onto",
         conflicts_with = "into",
         conflicts_with = "revision",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+        value_name = "REVSETS"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     insert_before: Option<Vec<RevisionArg>>,
 
     /// The description to use for squashed revision (don't open editor)
@@ -177,19 +170,13 @@ pub(crate) struct SquashArgs {
     interactive: bool,
 
     /// Specify diff editor to be used (implies --interactive)
-    #[arg(
-        long,
-        value_name = "NAME",
-        add = ArgValueCandidates::new(complete::diff_editors),
-    )]
+    #[arg(long, value_name = "NAME")]
+    #[arg(add = ArgValueCandidates::new(complete::diff_editors))]
     tool: Option<String>,
 
     /// Move only changes to these paths (instead of all paths)
-    #[arg(
-        value_name = "FILESETS",
-        value_hint = clap::ValueHint::AnyPath,
-        add = ArgValueCompleter::new(complete::squash_revision_files),
-    )]
+    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(add = ArgValueCompleter::new(complete::squash_revision_files))]
     paths: Vec<String>,
 
     /// The source revision will not be abandoned

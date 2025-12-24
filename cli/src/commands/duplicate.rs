@@ -53,18 +53,12 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct DuplicateArgs {
     /// The revision(s) to duplicate (default: @) [aliases: -r]
-    #[arg(
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(value_name = "REVSETS")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revisions_pos: Vec<RevisionArg>,
 
-    #[arg(
-        short = 'r',
-        hide = true,
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(short = 'r', hide = true, value_name = "REVSETS")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revisions_opt: Vec<RevisionArg>,
 
     /// The revision(s) to duplicate onto (can be repeated to create a merge
@@ -74,9 +68,9 @@ pub(crate) struct DuplicateArgs {
         visible_alias = "destination",
         short,
         visible_short_alias = 'd',
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+        value_name = "REVSETS"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     onto: Option<Vec<RevisionArg>>,
 
     /// The revision(s) to insert after (can be repeated to create a merge
@@ -86,9 +80,9 @@ pub(crate) struct DuplicateArgs {
         short = 'A',
         visible_alias = "after",
         conflicts_with = "onto",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+        value_name = "REVSETS"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     insert_after: Option<Vec<RevisionArg>>,
 
     /// The revision(s) to insert before (can be repeated to create a merge
@@ -98,9 +92,9 @@ pub(crate) struct DuplicateArgs {
         short = 'B',
         visible_alias = "before",
         conflicts_with = "onto",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+        value_name = "REVSETS"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     insert_before: Option<Vec<RevisionArg>>,
 }
 

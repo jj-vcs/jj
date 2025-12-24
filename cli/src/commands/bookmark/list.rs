@@ -69,12 +69,8 @@ pub struct BookmarkListArgs {
     ///
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(
-        long = "remote",
-        value_name = "REMOTE",
-        conflicts_with_all = ["all_remotes"],
-        add = ArgValueCandidates::new(complete::git_remotes),
-    )]
+    #[arg(long = "remote", value_name = "REMOTE", conflicts_with_all = ["all_remotes"])]
+    #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
     remotes: Option<Vec<String>>,
 
     /// Show remote tracked bookmarks only. Omits local Git-tracking bookmarks
@@ -114,7 +110,8 @@ pub struct BookmarkListArgs {
     ///
     /// [`jj help -k templates`]:
     ///     https://docs.jj-vcs.dev/latest/templates/
-    #[arg(long, short = 'T', add = ArgValueCandidates::new(complete::template_aliases))]
+    #[arg(long, short = 'T')]
+    #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
 
     /// Sort bookmarks based on the given key (or multiple keys)

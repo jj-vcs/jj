@@ -61,13 +61,8 @@ pub(crate) struct BisectRunArgs {
     /// This is typically a range like `v1.0..main`. The heads of the range are
     /// assumed to be bad. Ancestors of the range that are not also in the range
     /// are assumed to be good.
-    #[arg(
-        long,
-        short,
-        value_name = "REVSETS",
-        required = true,
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(long, short, value_name = "REVSETS", required = true)]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     range: Vec<RevisionArg>,
 
     /// Deprecated. Use positional arguments instead.

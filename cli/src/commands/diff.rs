@@ -65,45 +65,27 @@ pub(crate) struct DiffArgs {
     /// of the revision itself.
     ///
     /// If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
-    #[arg(
-        long,
-        short,
-        value_name = "REVSETS",
-        alias = "revision",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(long, short, value_name = "REVSETS", alias = "revision")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revisions: Option<Vec<RevisionArg>>,
 
     /// Show changes from this revision
     ///
     /// If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
-    #[arg(
-        long,
-        short,
-        conflicts_with = "revisions",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(long, short, conflicts_with = "revisions", value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     from: Option<RevisionArg>,
 
     /// Show changes to this revision
     ///
     /// If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
-    #[arg(
-        long,
-        short,
-        conflicts_with = "revisions",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(long, short, conflicts_with = "revisions", value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     to: Option<RevisionArg>,
 
     /// Restrict the diff to these paths
-    #[arg(
-        value_name = "FILESETS",
-        value_hint = clap::ValueHint::AnyPath,
-        add = ArgValueCompleter::new(complete::modified_revision_or_range_files),
-    )]
+    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(add = ArgValueCompleter::new(complete::modified_revision_or_range_files))]
     paths: Vec<String>,
 
     /// Render each file diff entry using the given template
@@ -122,8 +104,8 @@ pub(crate) struct DiffArgs {
         short = 'T',
         conflicts_with_all = ["short-format", "long-format", "tool"],
         help_heading = "Diff Formatting Options",
-        add = ArgValueCandidates::new(complete::template_aliases)
     )]
+    #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
 
     #[command(flatten)]

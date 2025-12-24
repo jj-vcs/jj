@@ -48,12 +48,8 @@ use crate::ui::Ui;
 //     simplify the present one.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct ResolveArgs {
-    #[arg(
-        long, short,
-        default_value = "@",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable_conflicts),
-    )]
+    #[arg(long, short, default_value = "@", value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable_conflicts))]
     revision: RevisionArg,
 
     /// Instead of resolving conflicts, list all the conflicts
@@ -66,21 +62,14 @@ pub(crate) struct ResolveArgs {
     ///
     /// The built-in merge tools `:ours` and `:theirs` can be used to choose
     /// side #1 and side #2 of the conflict respectively.
-    #[arg(
-        long,
-        conflicts_with = "list",
-        value_name = "NAME",
-        add = ArgValueCandidates::new(complete::merge_editors),
-    )]
+    #[arg(long, conflicts_with = "list", value_name = "NAME")]
+    #[arg(add = ArgValueCandidates::new(complete::merge_editors))]
     tool: Option<String>,
 
     /// Only resolve conflicts in these paths. You can use the `--list` argument
     /// to find paths to use here.
-    #[arg(
-        value_name = "FILESETS",
-        value_hint = clap::ValueHint::AnyPath,
-        add = ArgValueCompleter::new(complete::revision_conflicted_files),
-    )]
+    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(add = ArgValueCompleter::new(complete::revision_conflicted_files))]
     paths: Vec<String>,
 }
 

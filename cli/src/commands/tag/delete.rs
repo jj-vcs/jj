@@ -35,10 +35,8 @@ pub struct TagDeleteArgs {
     ///
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(
-        required = true,
-        add = ArgValueCandidates::new(complete::local_tags),
-    )]
+    #[arg(required = true)]
+    #[arg(add = ArgValueCandidates::new(complete::local_tags))]
     names: Vec<String>,
 }
 

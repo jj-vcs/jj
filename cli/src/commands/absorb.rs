@@ -43,31 +43,26 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct AbsorbArgs {
     /// Source revision to absorb from
-    #[arg(
-        long, short,
-        default_value = "@",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
+    #[arg(long, short, default_value = "@", value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     from: RevisionArg,
 
     /// Destination revisions to absorb into
     ///
     /// Only ancestors of the source revision will be considered.
     #[arg(
-        long, short = 't', visible_alias = "to",
+        long,
+        short = 't',
+        visible_alias = "to",
         default_value = "mutable()",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+        value_name = "REVSETS"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     into: Vec<RevisionArg>,
 
     /// Move only changes to these paths (instead of all paths)
-    #[arg(
-        value_name = "FILESETS",
-        value_hint = clap::ValueHint::AnyPath,
-        add = ArgValueCompleter::new(complete::modified_from_files),
-    )]
+    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(add = ArgValueCompleter::new(complete::modified_from_files))]
     paths: Vec<String>,
 }
 

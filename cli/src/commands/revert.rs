@@ -45,11 +45,8 @@ use crate::ui::Ui;
 #[command(group(ArgGroup::new("location").args(&["onto", "insert_after", "insert_before"]).required(true).multiple(true)))]
 pub(crate) struct RevertArgs {
     /// The revision(s) to apply the reverse of
-    #[arg(
-        long, short,
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revisions: Vec<RevisionArg>,
 
     /// The revision(s) to apply the reverse changes on top of
@@ -58,9 +55,9 @@ pub(crate) struct RevertArgs {
         visible_alias = "destination",
         short,
         visible_short_alias = 'd',
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+        value_name = "REVSETS"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     onto: Option<Vec<RevisionArg>>,
 
     /// The revision(s) to insert the reverse changes after (can be repeated to
@@ -70,9 +67,9 @@ pub(crate) struct RevertArgs {
         short = 'A',
         visible_alias = "after",
         conflicts_with = "onto",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
+        value_name = "REVSETS"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     insert_after: Option<Vec<RevisionArg>>,
 
     /// The revision(s) to insert the reverse changes before (can be repeated to
@@ -82,9 +79,9 @@ pub(crate) struct RevertArgs {
         short = 'B',
         visible_alias = "before",
         conflicts_with = "onto",
-        value_name = "REVSETS",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
+        value_name = "REVSETS"
     )]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     insert_before: Option<Vec<RevisionArg>>,
 }
 

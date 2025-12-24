@@ -52,50 +52,32 @@ pub(crate) struct DiffeditArgs {
     /// The revision to touch up
     ///
     /// Defaults to @ if neither --to nor --from are specified.
-    #[arg(
-        long,
-        short,
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
+    #[arg(long, short, value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revision: Option<RevisionArg>,
 
     /// Show changes from this revision
     ///
     /// Defaults to @ if --to is specified.
-    #[arg(
-        long, short,
-        conflicts_with = "revision",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_all),
-    )]
+    #[arg(long, short, conflicts_with = "revision", value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     from: Option<RevisionArg>,
 
     /// Edit changes in this revision
     ///
     /// Defaults to @ if --from is specified.
-    #[arg(
-        long, short,
-        conflicts_with = "revision",
-        value_name = "REVSET",
-        add = ArgValueCompleter::new(complete::revset_expression_mutable),
-    )]
+    #[arg(long, short, conflicts_with = "revision", value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     to: Option<RevisionArg>,
 
     /// Edit only these paths (unmatched paths will remain unchanged)
-    #[arg(
-        value_name = "FILESETS",
-        value_hint = clap::ValueHint::AnyPath,
-        add = ArgValueCompleter::new(complete::modified_revision_or_range_files),
-    )]
+    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(add = ArgValueCompleter::new(complete::modified_revision_or_range_files))]
     paths: Vec<String>,
 
     /// Specify diff editor to be used
-    #[arg(
-        long,
-        value_name = "NAME",
-        add = ArgValueCandidates::new(complete::diff_editors),
-    )]
+    #[arg(long, value_name = "NAME")]
+    #[arg(add = ArgValueCandidates::new(complete::diff_editors))]
     tool: Option<String>,
 
     /// Preserve the content (not the diff) when rebasing descendants
