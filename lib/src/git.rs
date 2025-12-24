@@ -2045,11 +2045,14 @@ pub fn add_remote(
         ));
     }
 
+    let ref_expr = GitFetchRefExpression {
+        bookmark: bookmark_expr.clone(),
+    };
     let ExpandedFetchRefSpecs {
-        bookmark_expr: _,
+        expr: _,
         refspecs,
         negative_refspecs,
-    } = expand_fetch_refspecs(remote_name, bookmark_expr.clone())?;
+    } = expand_fetch_refspecs(remote_name, ref_expr)?;
     let fetch_refspecs = itertools::chain(
         refspecs.iter().map(|spec| spec.to_git_format()),
         negative_refspecs.iter().map(|spec| spec.to_git_format()),
@@ -2321,16 +2324,23 @@ pub enum GitDefaultRefspecError {
     InvalidRemoteConfiguration(RemoteNameBuf, #[source] Box<gix::remote::find::Error>),
 }
 
-struct FetchedBranches {
+struct FetchedRefs {
     remote: RemoteNameBuf,
     bookmark_matcher: StringMatcher,
+}
+
+/// Name patterns that will be transformed to Git refspecs.
+#[derive(Clone, Debug)]
+pub struct GitFetchRefExpression {
+    /// Matches bookmark or branch names.
+    pub bookmark: StringExpression,
 }
 
 /// Represents the refspecs to fetch from a remote
 #[derive(Debug)]
 pub struct ExpandedFetchRefSpecs {
     /// Matches (positive) `refspecs`, but not `negative_refspecs`.
-    bookmark_expr: StringExpression,
+    expr: GitFetchRefExpression,
     refspecs: Vec<RefSpec>,
     negative_refspecs: Vec<NegativeRefSpec>,
 }
@@ -2349,10 +2359,10 @@ pub enum GitRefExpansionError {
 /// Expand a list of branch string patterns to refspecs to fetch
 pub fn expand_fetch_refspecs(
     remote: &RemoteName,
-    bookmark_expr: StringExpression,
+    expr: GitFetchRefExpression,
 ) -> Result<ExpandedFetchRefSpecs, GitRefExpansionError> {
     let (positive_bookmarks, negative_bookmarks) =
-        split_into_positive_negative_patterns(&bookmark_expr)?;
+        split_into_positive_negative_patterns(&expr.bookmark)?;
 
     let refspecs = positive_bookmarks
         .iter()
@@ -2372,7 +2382,7 @@ pub fn expand_fetch_refspecs(
         .try_collect()?;
 
     Ok(ExpandedFetchRefSpecs {
-        bookmark_expr,
+        expr,
         refspecs,
         negative_refspecs,
     })
@@ -2618,7 +2628,7 @@ pub struct GitFetch<'a> {
     git_repo: Box<gix::Repository>,
     git_ctx: GitSubprocessContext,
     import_options: &'a GitImportOptions,
-    fetched: Vec<FetchedBranches>,
+    fetched: Vec<FetchedRefs>,
 }
 
 impl<'a> GitFetch<'a> {
@@ -2649,7 +2659,7 @@ impl<'a> GitFetch<'a> {
         &mut self,
         remote_name: &RemoteName,
         ExpandedFetchRefSpecs {
-            bookmark_expr,
+            expr,
             refspecs: mut remaining_refspecs,
             negative_refspecs,
         }: ExpandedFetchRefSpecs,
@@ -2704,9 +2714,9 @@ impl<'a> GitFetch<'a> {
         // pruned on fetch
         self.git_ctx.spawn_branch_prune(&branches_to_prune)?;
 
-        self.fetched.push(FetchedBranches {
+        self.fetched.push(FetchedRefs {
             remote: remote_name.to_owned(),
-            bookmark_matcher: bookmark_expr.to_matcher(),
+            bookmark_matcher: expr.bookmark.to_matcher(),
         });
         Ok(())
     }
