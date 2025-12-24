@@ -1925,6 +1925,7 @@ fn test_git_fetch_tracked() {
     add_commit_to_branch(&remote_repo, "main", "message");
     add_commit_to_branch(&remote_repo, "feature1", "message");
     add_commit_to_branch(&remote_repo, "feature2", "message");
+    // TODO: set up tags to test "git fetch --tracked" of tags
 
     // Initialize jj repo
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
