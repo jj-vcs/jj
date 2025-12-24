@@ -72,6 +72,11 @@ fn get_bookmark_output(work_dir: &TestWorkDir) -> CommandOutput {
 }
 
 #[must_use]
+fn get_tag_output(work_dir: &TestWorkDir) -> CommandOutput {
+    work_dir.run_jj(["tag", "list", "--all-remotes"])
+}
+
+#[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = indoc! {r#"
         separate(" ",
@@ -712,6 +717,92 @@ fn test_git_fetch_conflicting_bookmarks_colocated() {
       + ppspxspk 4acd0343 message
       @git (behind by 1 commits): zsuskuln c2934cfb (empty) (no description set)
       @rem1 (behind by 1 commits): ppspxspk 4acd0343 message
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_fetch_tags_by_name() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create remote branches and tags
+    let origin_git_repo = add_git_remote(&test_env, &work_dir, "origin");
+    let commit1_oid = origin_git_repo
+        .find_reference("refs/heads/origin")
+        .unwrap()
+        .id()
+        .detach();
+    for name in ["tag1", "tag2", "tag3"] {
+        let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
+        origin_git_repo
+            .tag_reference(name, commit1_oid, constraint)
+            .unwrap();
+    }
+
+    // Fetch branches but no tags
+    let output = work_dir.run_jj(["git", "fetch", "--tag=~*"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    bookmark: origin@origin [new] untracked
+    [EOF]
+    ");
+
+    // Fetch tag1
+    let output = work_dir.run_jj(["git", "fetch", "--tag=tag1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    tag: tag1@origin [new] 
+    [EOF]
+    ");
+
+    // Fetch other tags
+    let output = work_dir.run_jj(["git", "fetch", "--tag=*"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    tag: tag2@origin [new] 
+    tag: tag3@origin [new] 
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    tag1: qmyrypzk ab8b299e message
+      @origin: qmyrypzk ab8b299e message
+    tag2: qmyrypzk ab8b299e message
+      @origin: qmyrypzk ab8b299e message
+    tag3: qmyrypzk ab8b299e message
+      @origin: qmyrypzk ab8b299e message
+    [EOF]
+    ");
+
+    // Move and delete tags at remote
+    let commit2_oid = add_commit_to_branch(&origin_git_repo, "origin", "commit 2");
+    let constraint = gix::refs::transaction::PreviousValue::MustExistAndMatch(commit1_oid.into());
+    origin_git_repo
+        .tag_reference("tag1", commit2_oid, constraint)
+        .unwrap();
+    origin_git_repo
+        .find_reference("refs/tags/tag2")
+        .unwrap()
+        .delete()
+        .unwrap();
+
+    // Fetch tag changes
+    let output = work_dir.run_jj(["git", "fetch", "--tag=*"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    bookmark: origin@origin [updated] untracked
+    tag: tag1@origin [updated] 
+    tag: tag2@origin [deleted] 
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    tag1: vqswlzks a439bb0e (empty) commit 2
+      @origin: vqswlzks a439bb0e (empty) commit 2
+    tag3: qmyrypzk ab8b299e message
+      @origin: qmyrypzk ab8b299e message
     [EOF]
     ");
 }
@@ -1919,13 +2010,14 @@ fn test_git_fetch_tracked() {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
 
-    // Set up a remote with multiple bookmarks
+    // Set up a remote with multiple bookmarks and tags
     let remote_path = test_env.env_root().join("remote");
     let remote_repo = git::init(remote_path.clone());
     add_commit_to_branch(&remote_repo, "main", "message");
     add_commit_to_branch(&remote_repo, "feature1", "message");
     add_commit_to_branch(&remote_repo, "feature2", "message");
-    // TODO: set up tags to test "git fetch --tracked" of tags
+    let tag1 = git::add_commit(&remote_repo, "refs/tags/tag1", "tag1", b"", "tag1a", &[]);
+    let tag2 = git::add_commit(&remote_repo, "refs/tags/tag2", "tag2", b"", "tag2a", &[]);
 
     // Initialize jj repo
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1936,9 +2028,9 @@ fn test_git_fetch_tracked() {
         .run_jj(["git", "remote", "add", "origin", "../remote"])
         .success();
 
-    // Initially fetch only main and feature1
+    // Initially fetch only main, feature1, and tag1
     work_dir
-        .run_jj(["git", "fetch", "--branch", "main", "--branch", "feature1"])
+        .run_jj(["git", "fetch", "--branch=main|feature1", "--tag=tag1"])
         .success();
 
     // Both should be tracked
@@ -1947,6 +2039,11 @@ fn test_git_fetch_tracked() {
       @origin: txqvqkwm fc8f3f42 message
     main: kmpysrkw 0130f303 message
       @origin: kmpysrkw 0130f303 message
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    tag1: oowrowvw a73b55d1 tag1a
+      @origin: oowrowvw a73b55d1 tag1a
     [EOF]
     ");
 
@@ -1964,16 +2061,33 @@ fn test_git_fetch_tracked() {
     [EOF]
     ");
 
-    // Add new commits to all bookmarks on the remote
+    // Add new commits to all bookmarks and tags on the remote
     add_commit_to_branch(&remote_repo, "main", "message");
     add_commit_to_branch(&remote_repo, "feature1", "message");
     add_commit_to_branch(&remote_repo, "feature2", "message");
+    git::add_commit(
+        &remote_repo,
+        "refs/tags/tag1",
+        "tag1",
+        b"",
+        "tag1b",
+        &[tag1.commit_id],
+    );
+    git::add_commit(
+        &remote_repo,
+        "refs/tags/tag2",
+        "tag2",
+        b"",
+        "tag2b",
+        &[tag2.commit_id],
+    );
 
-    // Fetch with --tracked should only update main (which is still tracked)
+    // Fetch with --tracked should only update main and tag1 (which are still
+    // tracked)
     work_dir.run_jj(["git", "fetch", "--tracked"]).success();
 
-    // Main should be updated to the new commit, but feature1 should remain
-    // unchanged
+    // Main and tag1 should be updated to the new commit, but feature1 should
+    // remain unchanged
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     feature1: txqvqkwm fc8f3f42 message
     feature1@origin: txqvqkwm fc8f3f42 message
@@ -1981,9 +2095,16 @@ fn test_git_fetch_tracked() {
       @origin: kmktnoqm 381bf13c (empty) message
     [EOF]
     ");
+    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    tag1: yvqukpxx 8afb06e3 (empty) tag1b
+      @origin: yvqukpxx 8afb06e3 (empty) tag1b
+    [EOF]
+    ");
 
-    // Now fetch all branches
-    work_dir.run_jj(["git", "fetch", "--branch", "*"]).success();
+    // Now fetch all branches and tags
+    work_dir
+        .run_jj(["git", "fetch", "--branch=*", "--tag=*"])
+        .success();
 
     // Now feature1@origin gets updated but feature1 stays at old commit
     // (untracked), feature2 appears for the first time, and main stays at its
@@ -1995,6 +2116,13 @@ fn test_git_fetch_tracked() {
       @origin: ruyplonr 13e64e92 (empty) message
     main: kmktnoqm 381bf13c (empty) message
       @origin: kmktnoqm 381bf13c (empty) message
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    tag1: yvqukpxx 8afb06e3 (empty) tag1b
+      @origin: yvqukpxx 8afb06e3 (empty) tag1b
+    tag2: zunvlltl 3889281c (empty) tag2b
+      @origin: zunvlltl 3889281c (empty) tag2b
     [EOF]
     ");
 }

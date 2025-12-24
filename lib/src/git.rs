@@ -343,6 +343,17 @@ pub fn parse_git_ref(full_name: &GitRefName) -> Option<(GitRefKind, RemoteRefSym
     }
 }
 
+fn parse_remote_tag_ref(full_name: &GitRefName) -> Option<(GitRefKind, RemoteRefSymbol<'_>)> {
+    let remote_and_name = full_name.as_str().strip_prefix(REMOTE_TAG_REF_NAMESPACE)?;
+    let (remote, name) = remote_and_name.split_once('/')?;
+    if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
+        return None;
+    }
+    let name = RefName::new(name);
+    let remote = RemoteName::new(remote);
+    Some((GitRefKind::Tag, RemoteRefSymbol { name, remote }))
+}
+
 fn to_git_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> Option<GitRefNameBuf> {
     let RemoteRefSymbol { name, remote } = symbol;
     let name = name.as_str();
@@ -540,7 +551,10 @@ pub fn import_some_refs(
         mut_repo.ensure_remote(&remote_name);
     }
 
-    let refs_to_import = diff_refs_to_import(mut_repo.view(), &git_repo, git_ref_filter)?;
+    // Exclude real remote tags, which should never be updated by Git.
+    let all_remote_tags = false;
+    let refs_to_import =
+        diff_refs_to_import(mut_repo.view(), &git_repo, all_remote_tags, git_ref_filter)?;
     import_refs_inner(mut_repo, refs_to_import, options)
 }
 
@@ -702,6 +716,7 @@ fn abandon_unreachable_commits(
 fn diff_refs_to_import(
     view: &View,
     git_repo: &gix::Repository,
+    all_remote_tags: bool,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
 ) -> Result<RefsToImport, GitImportError> {
     let mut known_git_refs = view
@@ -719,8 +734,12 @@ fn diff_refs_to_import(
         .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Bookmark, symbol))
         .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
         .collect();
-    let mut known_remote_tags = {
-        // Exclude real remote tags, which should never be updated by Git.
+    let mut known_remote_tags = if all_remote_tags {
+        view.all_remote_tags()
+            .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Tag, symbol))
+            .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
+            .collect()
+    } else {
         let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
         view.remote_tags(remote)
             .map(|(name, remote_ref)| (name.to_remote_symbol(remote), remote_ref))
@@ -729,6 +748,10 @@ fn diff_refs_to_import(
             .collect()
     };
 
+    // TODO: Refactor (all_remote_tags, git_ref_filter) in a way that
+    // uninteresting refs don't have to be scanned. For example, if the caller
+    // imports bookmark changes from a specific remote, we only need to walk
+    // refs/remotes/{remote}/.
     let mut changed_git_refs = Vec::new();
     let mut changed_remote_bookmarks = Vec::new();
     let mut changed_remote_tags = Vec::new();
@@ -761,6 +784,17 @@ fn diff_refs_to_import(
         &mut failed_ref_names,
         &git_ref_filter,
     )?;
+    if all_remote_tags {
+        collect_changed_remote_tags_to_import(
+            actual
+                .prefixed(REMOTE_TAG_REF_NAMESPACE)
+                .map_err(GitImportError::from_git)?,
+            &mut known_remote_tags,
+            &mut changed_remote_tags,
+            &mut failed_ref_names,
+            &git_ref_filter,
+        )?;
+    }
     for full_name in known_git_refs.into_keys() {
         changed_git_refs.push((full_name.to_owned(), RefTarget::absent()));
     }
@@ -835,6 +869,52 @@ fn collect_changed_refs_to_import(
         let old_remote_ref = known_remote_refs
             .remove(&symbol)
             .unwrap_or_else(|| RemoteRef::absent_ref());
+        if new_target != old_remote_ref.target {
+            changed_remote_refs.push((symbol.to_owned(), (old_remote_ref.clone(), new_target)));
+        }
+    }
+    Ok(())
+}
+
+/// Similar to [`collect_changed_refs_to_import()`], but doesn't track Git ref
+/// changes. Remote tags should be managed solely by jj.
+fn collect_changed_remote_tags_to_import(
+    actual_git_refs: gix::reference::iter::Iter,
+    known_remote_refs: &mut HashMap<RemoteRefKey<'_>, &RemoteRef>,
+    changed_remote_refs: &mut Vec<(RemoteRefSymbolBuf, (RemoteRef, RefTarget))>,
+    failed_ref_names: &mut Vec<BString>,
+    git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
+) -> Result<(), GitImportError> {
+    for git_ref in actual_git_refs {
+        let git_ref = git_ref.map_err(GitImportError::from_git)?;
+        let full_name_bytes = git_ref.name().as_bstr();
+        let Ok(full_name) = str::from_utf8(full_name_bytes) else {
+            // Non-utf8 refs cannot be imported.
+            failed_ref_names.push(full_name_bytes.to_owned());
+            continue;
+        };
+        let full_name = GitRefName::new(full_name);
+        let Some((kind, symbol)) = parse_remote_tag_ref(full_name) else {
+            // Skip invalid ref names.
+            continue;
+        };
+        if !git_ref_filter(kind, symbol) {
+            continue;
+        }
+        let old_remote_ref = known_remote_refs
+            .get(&symbol)
+            .copied()
+            .unwrap_or_else(|| RemoteRef::absent_ref());
+        let old_git_oid = old_remote_ref
+            .target
+            .as_normal()
+            .map(|id| gix::oid::from_bytes_unchecked(id.as_bytes()));
+        let Some(oid) = resolve_git_ref_to_commit_id(&git_ref, old_git_oid) else {
+            // Skip (or remove existing) invalid refs.
+            continue;
+        };
+        let new_target = RefTarget::normal(CommitId::from_bytes(oid.as_bytes()));
+        known_remote_refs.remove(&symbol);
         if new_target != old_remote_ref.target {
             changed_remote_refs.push((symbol.to_owned(), (old_remote_ref.clone(), new_target)));
         }
@@ -2340,7 +2420,6 @@ pub enum GitDefaultRefspecError {
 struct FetchedRefs {
     remote: RemoteNameBuf,
     bookmark_matcher: StringMatcher,
-    #[expect(dead_code)] // TODO
     tag_matcher: StringMatcher,
 }
 
@@ -2794,27 +2873,37 @@ impl<'a> GitFetch<'a> {
         Ok(default_branch)
     }
 
-    /// Import the previously fetched remote-tracking branches into the jj repo
-    /// and update jj's local branches. We also import local tags since remote
-    /// tags should have been merged by Git.
+    /// Import the previously fetched remote-tracking branches and tags into the
+    /// jj repo and update jj's local bookmarks and tags.
     ///
-    /// Clears all yet-to-be-imported {branch_names, remote_name} pairs after
-    /// the import. If `fetch()` has not been called since the last time
+    /// Clears all yet-to-be-imported {branch/tag_names, remote_name} pairs
+    /// after the import. If `fetch()` has not been called since the last time
     /// `import_refs()` was called then this will be a no-op.
     #[tracing::instrument(skip(self))]
     pub fn import_refs(&mut self) -> Result<GitImportStats, GitImportError> {
         tracing::debug!("import_refs");
+        let all_remote_tags = true;
         let refs_to_import = diff_refs_to_import(
             self.mut_repo.view(),
             &self.git_repo,
+            all_remote_tags,
             |kind, symbol| match kind {
                 GitRefKind::Bookmark => self
                     .fetched
                     .iter()
                     .filter(|fetched| fetched.remote == symbol.remote)
                     .any(|fetched| fetched.bookmark_matcher.is_match(symbol.name.as_str())),
-                // TODO: use tag_matcher
-                GitRefKind::Tag => true,
+                GitRefKind::Tag => {
+                    // We also import local tags since remote tags should have
+                    // been merged by Git. TODO: Stabilize remote tags support
+                    // and remove this workaround.
+                    symbol.remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
+                        || self
+                            .fetched
+                            .iter()
+                            .filter(|fetched| fetched.remote == symbol.remote)
+                            .any(|fetched| fetched.tag_matcher.is_match(symbol.name.as_str()))
+                }
             },
         )?;
         let import_stats = import_refs_inner(self.mut_repo, refs_to_import, self.import_options)?;

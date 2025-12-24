@@ -3820,6 +3820,73 @@ fn test_fetch_multiple_branches() {
 }
 
 #[test]
+fn test_fetch_local_remote_conflicts() {
+    let test_data = GitRepoData::create();
+    let subprocess_options =
+        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let import_options = auto_track_import_options();
+
+    let fetch_import = |mut_repo: &mut MutableRepo| {
+        let mut fetcher =
+            GitFetch::new(mut_repo, subprocess_options.clone(), &import_options).unwrap();
+        let remote = RemoteName::new("origin");
+        // Fetch all bookmarks and tags explicitly. We can use fetch_all_with()
+        // helper if this becomes the default. (#7528)
+        let ref_expr = GitFetchRefExpression {
+            bookmark: StringExpression::all(),
+            tag: StringExpression::all(),
+        };
+        let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
+        let depth = None;
+        let fetch_tags = Some(FetchTagsOverride::NoTags);
+        fetcher
+            .fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
+            .unwrap();
+        fetcher.import_refs().unwrap()
+    };
+
+    // Create bookmark and tag at remote.
+    let commit1 = empty_git_commit(&test_data.origin_repo, "refs/heads/bookmark", &[]);
+    git_ref(&test_data.origin_repo, "refs/tags/tag", commit1);
+
+    // Create bookmark and tag of the same name locally.
+    let mut tx = test_data.repo.start_transaction();
+    let commit2 = write_random_commit(tx.repo_mut());
+    let target2 = RefTarget::normal(commit2.id().clone());
+    let commit3 = write_random_commit(tx.repo_mut());
+    let target3 = RefTarget::normal(commit3.id().clone());
+    tx.repo_mut()
+        .set_local_bookmark_target("bookmark".as_ref(), target2.clone());
+    tx.repo_mut()
+        .set_local_tag_target("tag".as_ref(), target3.clone());
+
+    // Fetch and track bookmark and tag.
+    let stats = fetch_import(tx.repo_mut());
+    let repo = tx.commit("test").unwrap();
+    assert_eq!(stats.changed_remote_bookmarks.len(), 1);
+    assert_eq!(stats.changed_remote_tags.len(), 1);
+
+    let conflicted_target2 = RefTarget::from_merge(Merge::from_vec(vec![
+        Some(commit2.id().clone()),
+        None,
+        Some(jj_id(commit1)),
+    ]));
+    let conflicted_target3 = RefTarget::from_merge(Merge::from_vec(vec![
+        Some(commit3.id().clone()),
+        None,
+        Some(jj_id(commit1)),
+    ]));
+    assert_eq!(
+        repo.view().get_local_bookmark("bookmark".as_ref()),
+        &conflicted_target2
+    );
+    assert_eq!(
+        repo.view().get_local_tag("tag".as_ref()),
+        &conflicted_target3
+    );
+}
+
+#[test]
 fn test_fetch_with_tag_changes() {
     let test_data = GitRepoData::create();
 
@@ -3910,11 +3977,11 @@ fn test_fetch_with_explicit_tag_patterns() {
     let commit2 = empty_git_commit(&test_data.origin_repo, "refs/tags/tag2", &[]);
     let target1 = RefTarget::normal(jj_id(commit1));
     let target2 = RefTarget::normal(jj_id(commit2));
-    let _remote_ref1 = RemoteRef {
+    let remote_ref1 = RemoteRef {
         target: target1.clone(),
         state: RemoteRefState::Tracked,
     };
-    let _remote_ref2 = RemoteRef {
+    let remote_ref2 = RemoteRef {
         target: target2.clone(),
         state: RemoteRefState::Tracked,
     };
@@ -3923,15 +3990,145 @@ fn test_fetch_with_explicit_tag_patterns() {
     let mut tx = test_data.repo.start_transaction();
     let stats = fetch_import(tx.repo_mut(), StringExpression::exact("tag2"));
     let repo = tx.commit("test").unwrap();
-    // TODO: fetched tags should be imported
-    assert_eq!(stats.changed_remote_tags.len(), 0);
+    assert_eq!(stats.changed_remote_tags.len(), 1);
+    assert_eq!(
+        stats.changed_remote_tags[0].0,
+        remote_symbol("tag2", "origin")
+    );
+
+    assert!(repo.view().get_local_tag("tag1".as_ref()).is_absent());
+    assert_eq!(repo.view().get_local_tag("tag2".as_ref()), &target2);
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag2", "origin")),
+        &remote_ref2
+    );
+    // commit1 is fetched by "main", commit2 is by "tag2"
+    assert_eq!(
+        *repo.view().heads(),
+        hashset! { jj_id(commit1), jj_id(commit2) }
+    );
 
     // Fetch "tag1". "tag2" should be unchanged.
     let mut tx = repo.start_transaction();
     let stats = fetch_import(tx.repo_mut(), StringExpression::exact("tag1"));
-    let _repo = tx.commit("test").unwrap();
-    // TODO: fetched tags should be imported
-    assert_eq!(stats.changed_remote_tags.len(), 0);
+    let repo = tx.commit("test").unwrap();
+    assert_eq!(stats.changed_remote_tags.len(), 1);
+    assert_eq!(
+        stats.changed_remote_tags[0].0,
+        remote_symbol("tag1", "origin")
+    );
+
+    assert_eq!(repo.view().get_local_tag("tag1".as_ref()), &target1);
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag1", "origin")),
+        &remote_ref1
+    );
+    assert_eq!(repo.view().get_local_tag("tag2".as_ref()), &target2);
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag2", "origin")),
+        &remote_ref2
+    );
+    assert_eq!(
+        *repo.view().heads(),
+        hashset! { jj_id(commit1), jj_id(commit2) }
+    );
+}
+
+#[test]
+fn test_fetch_export_annotated_tags() {
+    let test_data = GitRepoData::create();
+    let subprocess_options =
+        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let import_options = default_import_options();
+
+    let fetch_import = |mut_repo: &mut MutableRepo| {
+        let mut fetcher =
+            GitFetch::new(mut_repo, subprocess_options.clone(), &import_options).unwrap();
+        let remote = RemoteName::new("origin");
+        let ref_expr = GitFetchRefExpression {
+            bookmark: StringExpression::none(),
+            tag: StringExpression::all(),
+        };
+        let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
+        let depth = None;
+        let fetch_tags = Some(FetchTagsOverride::NoTags);
+        fetcher
+            .fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
+            .unwrap();
+        fetcher.import_refs().unwrap()
+    };
+
+    // Create tags at remote
+    let commit1 = empty_git_commit(&test_data.origin_repo, "refs/tags/tag1", &[]);
+    let commit2 = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    let kind = gix::object::Kind::Commit;
+    let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
+    let tag2_oid = test_data
+        .origin_repo
+        .tag("tag2", commit2, kind, None, "", constraint)
+        .unwrap()
+        .id();
+    let target1 = RefTarget::normal(jj_id(commit1));
+    let target2 = RefTarget::normal(jj_id(commit2));
+    let remote_ref1 = RemoteRef {
+        target: target1.clone(),
+        state: RemoteRefState::Tracked,
+    };
+    let remote_ref2 = RemoteRef {
+        target: target2.clone(),
+        state: RemoteRefState::Tracked,
+    };
+
+    // Fetch tags, merge remote tags, and export merged local tags to Git
+    let mut tx = test_data.repo.start_transaction();
+    fetch_import(tx.repo_mut());
+    git::export_refs(tx.repo_mut()).unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    assert_eq!(repo.view().get_local_tag("tag1".as_ref()), &target1);
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag1", "git")),
+        &remote_ref1
+    );
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag1", "origin")),
+        &remote_ref1
+    );
+    assert_eq!(repo.view().get_local_tag("tag2".as_ref()), &target2);
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag2", "git")),
+        &remote_ref2
+    );
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag2", "origin")),
+        &remote_ref2
+    );
+
+    assert_eq!(
+        test_data
+            .git_repo
+            .find_reference("refs/tags/tag1")
+            .unwrap()
+            .id(),
+        commit1
+    );
+    // TODO: somehow export the original annotated tag as local Git tag.
+    assert_eq!(
+        test_data
+            .git_repo
+            .find_reference("refs/tags/tag2")
+            .unwrap()
+            .id(),
+        commit2
+    );
+    assert_ne!(
+        test_data
+            .git_repo
+            .find_reference("refs/tags/tag2")
+            .unwrap()
+            .id(),
+        tag2_oid
+    );
 }
 
 #[test]
