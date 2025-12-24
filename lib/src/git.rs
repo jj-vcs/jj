@@ -82,6 +82,8 @@ use crate::view::View;
 pub const REMOTE_NAME_FOR_LOCAL_GIT_REPO: &RemoteName = RemoteName::new("git");
 /// Git ref prefix that would conflict with the reserved "git" remote.
 pub const RESERVED_REMOTE_REF_NAMESPACE: &str = "refs/remotes/git/";
+/// Git ref prefix where remote tags will be temporarily fetched.
+const REMOTE_TAG_REF_NAMESPACE: &str = "refs/jj/remote-tags/";
 /// Ref name used as a placeholder to unset HEAD without a commit.
 const UNBORN_ROOT_REF_NAME: &str = "refs/jj/root";
 /// Dummy file to be added to the index to indicate that the user is editing a
@@ -2051,6 +2053,9 @@ pub fn add_remote(
 
     let ref_expr = GitFetchRefExpression {
         bookmark: bookmark_expr.clone(),
+        // Since tags will be fetched to jj's internal ref namespace, the
+        // refspecs shouldn't be saved in .git/config.
+        tag: StringExpression::none(),
     };
     let ExpandedFetchRefSpecs {
         expr: _,
@@ -2122,6 +2127,7 @@ fn remove_remote_git_refs(
         .prefixed(prefix.as_str())?
         .map_ok(remove_ref)
         .try_collect()?;
+    // TODO: update REMOTE_TAG_REF_NAMESPACE as well
     git_repo.edit_references(edits)?;
     Ok(())
 }
@@ -2235,6 +2241,7 @@ fn rename_remote_git_refs(
         })
         .flatten_ok()
         .try_collect()?;
+    // TODO: update REMOTE_TAG_REF_NAMESPACE as well
     git_repo.edit_references(edits)?;
     Ok(())
 }
@@ -2333,6 +2340,8 @@ pub enum GitDefaultRefspecError {
 struct FetchedRefs {
     remote: RemoteNameBuf,
     bookmark_matcher: StringMatcher,
+    #[expect(dead_code)] // TODO
+    tag_matcher: StringMatcher,
 }
 
 /// Name patterns that will be transformed to Git refspecs.
@@ -2340,6 +2349,12 @@ struct FetchedRefs {
 pub struct GitFetchRefExpression {
     /// Matches bookmark or branch names.
     pub bookmark: StringExpression,
+    /// Matches tag names.
+    ///
+    /// Tags matching this expression will be fetched as "remote tags" and
+    /// merged with tracking local tags. This is different from `git fetch`,
+    /// which would directly update local tags.
+    pub tag: StringExpression,
 }
 
 /// Represents the refspecs to fetch from a remote
@@ -2369,23 +2384,44 @@ pub fn expand_fetch_refspecs(
 ) -> Result<ExpandedFetchRefSpecs, GitRefExpansionError> {
     let (positive_bookmarks, negative_bookmarks) =
         split_into_positive_negative_patterns(&expr.bookmark)?;
+    let (positive_tags, negative_tags) = split_into_positive_negative_patterns(&expr.tag)?;
 
-    let refspecs = positive_bookmarks
-        .iter()
-        .map(|&pattern| pattern_to_refspec_glob(pattern))
-        .map_ok(|glob| {
-            RefSpec::forced(
-                format!("refs/heads/{glob}"),
-                format!("refs/remotes/{remote}/{glob}", remote = remote.as_str()),
-            )
-        })
-        .try_collect()?;
+    let refspecs = itertools::chain(
+        positive_bookmarks
+            .iter()
+            .map(|&pattern| pattern_to_refspec_glob(pattern))
+            .map_ok(|glob| {
+                RefSpec::forced(
+                    format!("refs/heads/{glob}"),
+                    format!("refs/remotes/{remote}/{glob}", remote = remote.as_str()),
+                )
+            }),
+        positive_tags
+            .iter()
+            .map(|&pattern| pattern_to_refspec_glob(pattern))
+            .map_ok(|glob| {
+                RefSpec::forced(
+                    format!("refs/tags/{glob}"),
+                    format!(
+                        "{REMOTE_TAG_REF_NAMESPACE}{remote}/{glob}",
+                        remote = remote.as_str()
+                    ),
+                )
+            }),
+    )
+    .try_collect()?;
 
-    let negative_refspecs = negative_bookmarks
-        .iter()
-        .map(|&pattern| pattern_to_refspec_glob(pattern))
-        .map_ok(|glob| NegativeRefSpec::new(format!("refs/heads/{glob}")))
-        .try_collect()?;
+    let negative_refspecs = itertools::chain(
+        negative_bookmarks
+            .iter()
+            .map(|&pattern| pattern_to_refspec_glob(pattern))
+            .map_ok(|glob| NegativeRefSpec::new(format!("refs/heads/{glob}"))),
+        negative_tags
+            .iter()
+            .map(|&pattern| pattern_to_refspec_glob(pattern))
+            .map_ok(|glob| NegativeRefSpec::new(format!("refs/tags/{glob}"))),
+    )
+    .try_collect()?;
 
     Ok(ExpandedFetchRefSpecs {
         expr,
@@ -2735,6 +2771,7 @@ impl<'a> GitFetch<'a> {
         self.fetched.push(FetchedRefs {
             remote: remote_name.to_owned(),
             bookmark_matcher: expr.bookmark.to_matcher(),
+            tag_matcher: expr.tag.to_matcher(),
         });
         Ok(())
     }
@@ -2776,6 +2813,7 @@ impl<'a> GitFetch<'a> {
                     .iter()
                     .filter(|fetched| fetched.remote == symbol.remote)
                     .any(|fetched| fetched.bookmark_matcher.is_match(symbol.name.as_str())),
+                // TODO: use tag_matcher
                 GitRefKind::Tag => true,
             },
         )?;

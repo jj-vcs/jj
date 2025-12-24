@@ -187,6 +187,8 @@ fn fetch_import_all(mut_repo: &mut MutableRepo, remote: &RemoteName) -> GitImpor
 fn fetch_all_with(fetcher: &mut GitFetch, remote: &RemoteName) -> Result<(), GitFetchError> {
     let ref_expr = GitFetchRefExpression {
         bookmark: StringExpression::all(),
+        // TODO: disable implicit fetching and set this to "all" (#7528)
+        tag: StringExpression::none(),
     };
     fetch_with(fetcher, remote, ref_expr)
 }
@@ -3503,6 +3505,7 @@ fn test_fetch_empty_refspecs() {
     let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
     let ref_expr = GitFetchRefExpression {
         bookmark: StringExpression::none(),
+        tag: StringExpression::none(),
     };
     fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
     fetcher.import_refs().unwrap();
@@ -3801,6 +3804,7 @@ fn test_fetch_multiple_branches() {
             StringExpression::exact("noexist1"),
             StringExpression::exact("noexist2"),
         ]),
+        tag: StringExpression::none(),
     };
     fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
     let stats = fetcher.import_refs().unwrap();
@@ -3874,6 +3878,63 @@ fn test_fetch_with_tag_changes() {
 }
 
 #[test]
+fn test_fetch_with_explicit_tag_patterns() {
+    let test_data = GitRepoData::create();
+    let subprocess_options =
+        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let import_options = default_import_options();
+
+    let fetch_import = |mut_repo: &mut MutableRepo, tag: StringExpression| {
+        let mut fetcher =
+            GitFetch::new(mut_repo, subprocess_options.clone(), &import_options).unwrap();
+        let remote = RemoteName::new("origin");
+        let ref_expr = GitFetchRefExpression {
+            // Include all bookmarks to ensure that tags should never be fetched
+            // implicitly.
+            bookmark: StringExpression::all(),
+            tag,
+        };
+        let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
+        let depth = None;
+        let fetch_tags = Some(FetchTagsOverride::NoTags);
+        fetcher
+            .fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
+            .unwrap();
+        fetcher.import_refs().unwrap()
+    };
+
+    // Create tagged commit at remote: tag1 could be fetched implicitly by
+    // following the main branch. tag1 isn't.
+    let commit1 = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    git_ref(&test_data.origin_repo, "refs/tags/tag1", commit1);
+    let commit2 = empty_git_commit(&test_data.origin_repo, "refs/tags/tag2", &[]);
+    let target1 = RefTarget::normal(jj_id(commit1));
+    let target2 = RefTarget::normal(jj_id(commit2));
+    let _remote_ref1 = RemoteRef {
+        target: target1.clone(),
+        state: RemoteRefState::Tracked,
+    };
+    let _remote_ref2 = RemoteRef {
+        target: target2.clone(),
+        state: RemoteRefState::Tracked,
+    };
+
+    // Fetch "tag2". "tag1" shouldn't be fetched implicitly.
+    let mut tx = test_data.repo.start_transaction();
+    let stats = fetch_import(tx.repo_mut(), StringExpression::exact("tag2"));
+    let repo = tx.commit("test").unwrap();
+    // TODO: fetched tags should be imported
+    assert_eq!(stats.changed_remote_tags.len(), 0);
+
+    // Fetch "tag1". "tag2" should be unchanged.
+    let mut tx = repo.start_transaction();
+    let stats = fetch_import(tx.repo_mut(), StringExpression::exact("tag1"));
+    let _repo = tx.commit("test").unwrap();
+    // TODO: fetched tags should be imported
+    assert_eq!(stats.changed_remote_tags.len(), 0);
+}
+
+#[test]
 fn test_fetch_with_fetch_tags_override() {
     let source_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let source_repo = &source_repo.repo;
@@ -3900,6 +3961,8 @@ fn test_fetch_with_fetch_tags_override() {
             .unwrap();
             let ref_expr = GitFetchRefExpression {
                 bookmark: StringExpression::all(),
+                // Disable explicit tag fetching to test FetchTagsOverride
+                tag: StringExpression::none(),
             };
             let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
             let depth = None;
@@ -4015,6 +4078,8 @@ fn test_fetch_rejected_tag_updates() {
     let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
     let ref_expr = GitFetchRefExpression {
         bookmark: StringExpression::all(),
+        // Disable explicit tag fetching to test FetchTagsOverride::AllTags
+        tag: StringExpression::none(),
     };
     assert_matches!(
         fetcher.fetch(
