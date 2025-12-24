@@ -46,6 +46,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj tag list` can now be filtered by revset.
 
+* New *experimental* `jj git fetch --tag` flag to fetch tags in the same way as
+  bookmarks. The fetched `<name>@<remote>` tags will be tracked by the local
+  tags of the same name.
+
 ### Fixed bugs
 
 * `jj git init --colocate` now refuses to run inside a Git worktree, providing
