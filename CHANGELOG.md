@@ -65,6 +65,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   contents of the file.
   [#7376](https://github.com/jj-vcs/jj/issues/7376)
 
+* New *experimental* `jj git fetch --tag` flag to fetch tags in the same way as
+  bookmarks. If specified, tags won't be fetched implicitly, and only tags
+  matching the pattern will be fetched as `<name>@<remote>` tags. The fetched
+  remote tags will be tracked by the local tags of the same name.
+
 ### Fixed bugs
 
 * `jj git init --colocate` now refuses to run inside a Git worktree, providing
