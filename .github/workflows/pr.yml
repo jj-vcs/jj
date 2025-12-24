@@ -27,13 +27,13 @@ jobs:
             const { data: commits } = await github.rest.pulls.listCommits(pullRequest);
             const { data: reviews } = await github.rest.pulls.listReviews(pullRequest);
 
-            // Get latest review by `github-actions[bot]`
+            // Get latest review by `github-actions[bot]`.
             const githubActionsBot = 41898282;
             const latestReview = reviews
               .filter(r => r.user.id === githubActionsBot)
               .at(-1);
 
-            // Ensure commit subject lines are in the form `area or areas: Description`
+            // Ensure commit subject lines are in the form `area or areas: description`.
             const subjectLineFormat = /^.+:\s.+$/;
             const badCommits = commits
               .map(c => [c.sha.slice(0, 8), c.commit.message.split('\n')[0]])
@@ -41,7 +41,7 @@ jobs:
               .map(([sha, title]) => `- ${sha}: ${title}`);
 
             if (badCommits.length > 0) {
-              // One or commits are bad, make sure changes are requested.
+              // One or more commits are bad. Make sure changes are requested.
               const body = 'The following commits do not follow our format for subject lines:\n\n'
                 + `${badCommits.join('\n')}\n\nCommits should have a subject line following the `
                 + 'format `<topic>: <description>`. Please review the [commit guidelines]'
@@ -66,7 +66,7 @@ jobs:
               await core.setFailed('One or more commits were not formatted correctly.');
             }
             else {
-              // All commits are formatted correctly, dismiss any change requests.
+              // All commits are formatted correctly. Dismiss any change requests.
               if (latestReview && latestReview.state === 'CHANGES_REQUESTED') {
                 await github.rest.pulls.dismissReview({
                   message: 'All commits are now correctly formatted. Thank you for your contribution!',
