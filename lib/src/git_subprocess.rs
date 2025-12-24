@@ -293,6 +293,31 @@ impl<'a> GitSubprocessContext<'a> {
 
         parse_git_push_output(output)
     }
+
+    /// Push references to git without using `--force-with-lease`.
+    ///
+    /// This is suitable for refs where lease-based negotiation isn't wanted
+    /// (for example, pushing tags to a remote).
+    pub(crate) fn spawn_push_without_leases(
+        &self,
+        remote_name: &RemoteName,
+        refspecs: &[RefSpec],
+        callbacks: &mut RemoteCallbacks<'_>,
+    ) -> Result<GitPushStats, GitSubprocessError> {
+        let mut command = self.create_command();
+        command.stdout(Stdio::piped());
+        // Currently jj does not support commit hooks, so we prevent git from running
+        // them
+        command.args(["push", "--porcelain", "--no-verify"]);
+        if callbacks.progress.is_some() {
+            command.arg("--progress");
+        }
+        command.args(["--", remote_name.as_str()]);
+        command.args(refspecs.iter().map(|r| r.to_git_format()));
+
+        let output = wait_with_progress(self.spawn_cmd(command)?, callbacks)?;
+        parse_git_push_output(output)
+    }
 }
 
 /// Generate a GitSubprocessError::ExternalGitError if the stderr output was not

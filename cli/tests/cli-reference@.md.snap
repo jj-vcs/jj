@@ -1634,6 +1634,8 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 
    The set of private commits can be configured by the `git.private-commits` setting. The default is `none()`, meaning all commits are eligible to be pushed.
 * `-r`, `--revisions <REVSETS>` — Push bookmarks pointing to these commits (can be repeated)
+* `--tags` — Push all tags
+* `-t`, `--tag <TAG>` — Push only this tag (can be repeated)
 * `-c`, `--change <REVSETS>` — Push this commit by creating a bookmark (can be repeated)
 
    The created bookmark will be tracked automatically. Use the `templates.git_push_bookmark` setting to customize the generated bookmark name. The default is `"push-" ++ change_id.short()`.

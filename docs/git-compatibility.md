@@ -27,7 +27,7 @@ a comparison with Git, including how workflows are different, see the
   and [how they interoperate with Git](#branches).
 * **Tags: Partial.** You can check out tagged commits by name (pointed to by
   either annotated or lightweight tags). You can also create lightweight tags,
-  but you cannot create annotated tags.
+  but you cannot create annotated tags. You can push tags to a remote.
 * **.gitignore: Yes.** Patterns in `.gitignore` files are supported. So are
   ignores in `.git/info/exclude` or configured via Git's `core.excludesFile`
   config. Since working-copy files are snapshotted by almost every `jj` command,

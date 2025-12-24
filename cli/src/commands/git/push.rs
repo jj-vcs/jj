@@ -31,6 +31,7 @@ use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitPushStats;
+use jj_lib::git::GitRefUpdate;
 use jj_lib::git::GitSettings;
 use jj_lib::index::IndexResult;
 use jj_lib::op_store::RefTarget;
@@ -173,6 +174,18 @@ pub struct GitPushArgs {
         add = ArgValueCompleter::new(complete::revset_expression_all),
     )]
     revisions: Vec<RevisionArg>,
+    /// Push all tags
+    #[arg(long)]
+    tags: bool,
+    /// Push only this tag (can be repeated)
+    #[arg(
+        long,
+        short = 't',
+        value_name = "TAG",
+        value_parser = crate::revset_util::parse_tag_name,
+        add = ArgValueCandidates::new(complete::local_tags),
+    )]
+    tag: Vec<RefNameBuf>,
     /// Push this commit by creating a bookmark (can be repeated)
     ///
     /// The created bookmark will be tracked automatically. Use the
@@ -245,10 +258,22 @@ pub fn cmd_git_push(
     };
 
     let mut tx = workspace_command.start_transaction();
-    let view = tx.repo().view();
-    let tx_description;
+    let mut tx_description = String::new();
     let mut bookmark_updates = vec![];
-    if args.all {
+    let bookmark_selection_specified = args.all
+        || args.tracked
+        || args.deleted
+        || !args.bookmark.is_empty()
+        || !args.change.is_empty()
+        || !args.revisions.is_empty()
+        || !args.named.is_empty();
+    let tag_selection_specified = args.tags || !args.tag.is_empty();
+    // If tags are requested and the user didn't specify any bookmark-selection
+    // options, push only tags (avoid surprising "also pushed bookmarks").
+    let push_tags_only = tag_selection_specified && !bookmark_selection_specified;
+
+    if !push_tags_only && args.all {
+        let view = tx.repo().view();
         for (name, targets) in view.local_remote_bookmarks(remote) {
             let allow_new = true; // implied by --all
             match classify_bookmark_update(
@@ -262,11 +287,14 @@ pub fn cmd_git_push(
                 Err(reason) => reason.print(ui)?,
             }
         }
-        tx_description = format!(
-            "{TX_DESC_PUSH}all bookmarks to git remote {remote}",
-            remote = remote.as_symbol()
-        );
-    } else if args.tracked {
+        if !bookmark_updates.is_empty() {
+            tx_description = format!(
+                "{TX_DESC_PUSH}all bookmarks to git remote {remote}",
+                remote = remote.as_symbol()
+            );
+        }
+    } else if !push_tags_only && args.tracked {
+        let view = tx.repo().view();
         for (name, targets) in view.local_remote_bookmarks(remote) {
             if !targets.remote_ref.is_tracked() {
                 continue;
@@ -283,11 +311,14 @@ pub fn cmd_git_push(
                 Err(reason) => reason.print(ui)?,
             }
         }
-        tx_description = format!(
-            "{TX_DESC_PUSH}all tracked bookmarks to git remote {remote}",
-            remote = remote.as_symbol()
-        );
-    } else if args.deleted {
+        if !bookmark_updates.is_empty() {
+            tx_description = format!(
+                "{TX_DESC_PUSH}all tracked bookmarks to git remote {remote}",
+                remote = remote.as_symbol()
+            );
+        }
+    } else if !push_tags_only && args.deleted {
+        let view = tx.repo().view();
         for (name, targets) in view.local_remote_bookmarks(remote) {
             if targets.local_target.is_present() {
                 continue;
@@ -305,11 +336,13 @@ pub fn cmd_git_push(
                 Err(reason) => reason.print(ui)?,
             }
         }
-        tx_description = format!(
-            "{TX_DESC_PUSH}all deleted bookmarks to git remote {remote}",
-            remote = remote.as_symbol()
-        );
-    } else {
+        if !bookmark_updates.is_empty() {
+            tx_description = format!(
+                "{TX_DESC_PUSH}all deleted bookmarks to git remote {remote}",
+                remote = remote.as_symbol()
+            );
+        }
+    } else if !push_tags_only {
         let mut seen_bookmarks: HashSet<&RefName> = HashSet::new();
 
         // --change and --named don't move existing bookmarks. If they did, be
@@ -398,18 +431,59 @@ pub fn cmd_git_push(
             }
         }
 
-        tx_description = format!(
-            "{TX_DESC_PUSH}{names} to git remote {remote}",
-            names = make_bookmark_term(
-                &bookmark_updates
-                    .iter()
-                    .map(|(name, _)| name.as_symbol())
-                    .collect_vec()
-            ),
-            remote = remote.as_symbol()
-        );
+        if !bookmark_updates.is_empty() {
+            tx_description = format!(
+                "{TX_DESC_PUSH}{names} to git remote {remote}",
+                names = make_bookmark_term(
+                    &bookmark_updates
+                        .iter()
+                        .map(|(name, _)| name.as_symbol())
+                        .collect_vec()
+                ),
+                remote = remote.as_symbol()
+            );
+        }
     }
-    if bookmark_updates.is_empty() {
+
+    let mut tag_push_targets: Vec<(RefNameBuf, CommitId)> = vec![];
+    if tag_selection_specified {
+        let view = tx.repo().view();
+        let mut selected_tag_names: IndexSet<RefNameBuf> = IndexSet::new();
+        if args.tags {
+            selected_tag_names.extend(view.local_tags().map(|(name, _target)| name.to_owned()));
+        }
+        selected_tag_names.extend(args.tag.iter().cloned());
+        for name in selected_tag_names {
+            let target = view.get_local_tag(name.as_ref());
+            if target.is_absent() {
+                return Err(user_error_with_hint(
+                    format!("No such tag: {name}", name = name.as_symbol()),
+                    "Use `jj tag list` to see available tags.",
+                ));
+            }
+            if target.has_conflict() {
+                return Err(user_error_with_message(
+                    format!(
+                        "Cannot push conflicted tag: {name}",
+                        name = name.as_symbol()
+                    ),
+                    "Resolve the tag by moving it to a single target commit, then try again.",
+                ));
+            }
+            let Some(commit_id) = target.as_normal() else {
+                return Err(user_error_with_message(
+                    format!(
+                        "Cannot push tag with unexpected target: {name}",
+                        name = name.as_symbol()
+                    ),
+                    "Try recreating the tag with `jj tag set`.",
+                ));
+            };
+            tag_push_targets.push((name, commit_id.clone()));
+        }
+    }
+
+    if bookmark_updates.is_empty() && tag_push_targets.is_empty() {
         writeln!(ui.status(), "Nothing changed.")?;
         return Ok(());
     }
@@ -419,26 +493,38 @@ pub fn cmd_git_push(
     } else {
         None
     };
-    let commits_to_sign =
-        validate_commits_ready_to_push(ui, &bookmark_updates, remote, &tx, args, sign_behavior)?;
-    if !args.dry_run
-        && !commits_to_sign.is_empty()
-        && let Some(sign_behavior) = sign_behavior
-    {
-        let num_updated_signatures = commits_to_sign.len();
-        let num_rebased_descendants;
-        (num_rebased_descendants, bookmark_updates) =
-            sign_commits_before_push(&mut tx, commits_to_sign, sign_behavior, bookmark_updates)?;
-        if let Some(mut formatter) = ui.status_formatter() {
-            writeln!(
-                formatter,
-                "Updated signatures of {num_updated_signatures} commits"
+    if !bookmark_updates.is_empty() {
+        let commits_to_sign = validate_commits_ready_to_push(
+            ui,
+            &bookmark_updates,
+            remote,
+            &tx,
+            args,
+            sign_behavior,
+        )?;
+        if !args.dry_run
+            && !commits_to_sign.is_empty()
+            && let Some(sign_behavior) = sign_behavior
+        {
+            let num_updated_signatures = commits_to_sign.len();
+            let num_rebased_descendants;
+            (num_rebased_descendants, bookmark_updates) = sign_commits_before_push(
+                &mut tx,
+                commits_to_sign,
+                sign_behavior,
+                bookmark_updates,
             )?;
-            if num_rebased_descendants > 0 {
+            if let Some(mut formatter) = ui.status_formatter() {
                 writeln!(
                     formatter,
-                    "Rebased {num_rebased_descendants} descendant commits"
+                    "Updated signatures of {num_updated_signatures} commits"
                 )?;
+                if num_rebased_descendants > 0 {
+                    writeln!(
+                        formatter,
+                        "Rebased {num_rebased_descendants} descendant commits"
+                    )?;
+                }
             }
         }
     }
@@ -449,7 +535,23 @@ pub fn cmd_git_push(
             "Changes to push to {remote}:",
             remote = remote.as_symbol()
         )?;
-        print_commits_ready_to_push(formatter.as_mut(), tx.repo(), &bookmark_updates)?;
+        if !bookmark_updates.is_empty() {
+            print_commits_ready_to_push(formatter.as_mut(), tx.repo(), &bookmark_updates)?;
+        }
+        if !tag_push_targets.is_empty() {
+            writeln!(formatter, "  Tags:")?;
+            for (name, commit_id) in &tag_push_targets {
+                write!(formatter, "    ")?;
+                write!(formatter.labeled("tag"), "{}", name.as_symbol())?;
+                write!(formatter, " -> ")?;
+                write!(
+                    formatter.labeled("commit_id"),
+                    "{}",
+                    short_commit_hash(commit_id)
+                )?;
+                writeln!(formatter)?;
+            }
+        }
     }
 
     if args.dry_run {
@@ -457,21 +559,54 @@ pub fn cmd_git_push(
         return Ok(());
     }
 
-    let targets = GitBranchPushTargets {
-        branch_updates: bookmark_updates,
-    };
     let git_settings = GitSettings::from_settings(tx.settings())?;
-    let push_stats = with_remote_git_callbacks(ui, |cb| {
-        git::push_branches(tx.repo_mut(), &git_settings, remote, &targets, cb)
-    })?;
-    process_push_stats(&push_stats)?;
-    tx.finish(ui, tx_description)?;
+    let mut pushed_refs = false;
+    if !tag_push_targets.is_empty() {
+        if tx_description.is_empty() {
+            tx_description = format!(
+                "{TX_DESC_PUSH}tags to git remote {remote}",
+                remote = remote.as_symbol()
+            );
+        }
+        let tag_updates: Vec<GitRefUpdate> = tag_push_targets
+            .iter()
+            .map(|(name, commit_id)| GitRefUpdate {
+                qualified_name: format!("refs/tags/{name}", name = name.as_str()).into(),
+                expected_current_target: None,
+                new_target: Some(commit_id.clone()),
+            })
+            .collect();
+        let push_stats = with_remote_git_callbacks(ui, |cb| {
+            git::push_updates_without_lease(tx.repo_mut(), &git_settings, remote, &tag_updates, cb)
+        })?;
+        process_push_stats(&push_stats)?;
+        pushed_refs = true;
+    }
+
+    if !bookmark_updates.is_empty() {
+        let targets = GitBranchPushTargets {
+            branch_updates: bookmark_updates,
+        };
+        let push_stats = with_remote_git_callbacks(ui, |cb| {
+            git::push_branches(tx.repo_mut(), &git_settings, remote, &targets, cb)
+        })?;
+        process_push_stats(&push_stats)?;
+        pushed_refs = true;
+    }
+
+    if pushed_refs {
+        if tx.repo().has_changes() {
+            tx.finish(ui, tx_description)?;
+        } else {
+            tx.finish_even_if_unchanged(ui, tx_description)?;
+        }
+    }
     Ok(())
 }
 
 fn process_push_stats(push_stats: &GitPushStats) -> Result<(), CommandError> {
     if !push_stats.all_ok() {
-        let mut error = user_error("Failed to push some bookmarks");
+        let mut error = user_error("Failed to push some references");
         if !push_stats.rejected.is_empty() {
             error.add_formatted_hint_with(|formatter| {
                 writeln!(
@@ -489,8 +624,8 @@ fn process_push_stats(push_stats: &GitPushStats) -> Result<(), CommandError> {
                 Ok(())
             });
             error.add_hint(
-                "Try fetching from the remote, then make the bookmark point to where you want it \
-                 to be, and push again.",
+                "Try fetching from the remote, then update your local refs as needed, and push \
+                 again.",
             );
         }
         if !push_stats.remote_rejected.is_empty() {
@@ -506,7 +641,7 @@ fn process_push_stats(push_stats: &GitPushStats) -> Result<(), CommandError> {
                 }
                 Ok(())
             });
-            error.add_hint("Try checking if you have permission to push to all the bookmarks.");
+            error.add_hint("Try checking if you have permission to push these references.");
         }
         Err(error)
     } else {
