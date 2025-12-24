@@ -249,7 +249,7 @@ pub fn cmd_git_clone(
         }
     }
 
-    if colocate {
+    if colocate && workspace_command.settings().get_bool("git.clean-hint")? {
         writeln!(
             ui.hint_default(),
             r"Running `git clean -xdf` will remove `.jj/`!",

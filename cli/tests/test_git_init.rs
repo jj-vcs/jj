@@ -958,6 +958,23 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
 }
 
 #[test]
+fn test_git_init_git_clean_hint() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    init_git_repo(work_dir.root(), false);
+
+    test_env.add_config("git.clean-hint = false");
+
+    let output = test_env.run_jj_in(".", ["git", "init", "--colocate", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Initialized repo in "repo"
+    [EOF]
+    "#);
+}
+
+#[test]
 fn test_git_init_colocated_via_config_git_dir_exists() {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");

@@ -394,6 +394,34 @@ fn test_git_clone_colocate() {
 }
 
 #[test]
+fn test_git_clone_colocate_git_clean_warning_off() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    let git_repo_path = test_env.env_root().join("source");
+    let git_repo = git::init(git_repo_path);
+
+    test_env.add_config("git.colocate = true");
+    test_env.add_config("git.clean-hint = false");
+
+    set_up_non_empty_git_repo(&git_repo);
+
+    let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: main@origin [new] tracked
+    Setting the revset alias `trunk()` to `main@origin`
+    Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+    let clone_dir = test_env.work_dir("clone");
+    assert!(clone_dir.root().join("file").exists());
+    assert!(clone_dir.root().join(".git").exists());
+}
+
+#[test]
 fn test_git_clone_colocate_via_config() {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
