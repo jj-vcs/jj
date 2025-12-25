@@ -4061,7 +4061,7 @@ For the tool named <code>&lt;name&gt;</code>, command arguments can be configure
 </li>
 </ul>
 <p>By default <code>jj</code> will invoke external tools with a directory containing the left
-and right sides.  The <code>diff-invocation-mode</code> config can change this to file by file
+and right sides. The <code>diff-invocation-mode</code> config can change this to file by file
 invocations as follows:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[ui]</span>
 <span class="n">diff-formatter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;vimdiff&quot;</span>
@@ -4473,7 +4473,7 @@ setting, but you could set it explicitly too.</p>
 <p>Obviously, you would only set one line, don't copy them all in!</p>
 <h2 id="editing-diffs">Editing diffs<a class="headerlink" href="#editing-diffs" title="Permanent link">&para;</a></h2>
 <p>The <code>ui.diff-editor</code> setting affects the default tool used for editing diffs
-(e.g.  <code>jj split</code>, <code>jj squash -i</code>). If it is not set, the special value
+(e.g. <code>jj split</code>, <code>jj squash -i</code>). If it is not set, the special value
 <code>:builtin</code> is used. It launches a built-in TUI tool (known as <a href="https://github.com/arxanas/scm-record?tab=readme-ov-file#scm-diff-editor">scm-diff-editor</a>)
 to edit the diff in your terminal.</p>
 <p>You can try a different tool temporarily by doing e.g. <code>jj split --tool meld</code> or
