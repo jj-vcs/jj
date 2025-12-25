@@ -22,9 +22,9 @@ use jj_lib::git::GitFetch;
 use jj_lib::git::GitSettings;
 use jj_lib::git::IgnoredRefspec;
 use jj_lib::git::IgnoredRefspecs;
-use jj_lib::git::expand_default_fetch_refspecs;
 use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::git::get_git_backend;
+use jj_lib::git::load_default_fetch_bookmarks;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
@@ -150,16 +150,17 @@ pub fn cmd_git_fetch(
             );
             expansions.push((remote, expand_fetch_refspecs(remote, bookmark_expr)?));
         }
-    } else if let Some(bookmark_expr) = &common_bookmark_expr {
-        for remote in &matching_remotes {
-            let expanded = expand_fetch_refspecs(remote, bookmark_expr.clone())?;
-            expansions.push((remote, expanded));
-        }
     } else {
         let git_repo = get_git_backend(tx.repo_mut().store())?.git_repo();
         for remote in &matching_remotes {
-            let (ignored, expanded) = expand_default_fetch_refspecs(remote, &git_repo)?;
-            warn_ignored_refspecs(ui, remote, ignored)?;
+            let bookmark_expr = if let Some(expr) = &common_bookmark_expr {
+                expr.clone()
+            } else {
+                let (ignored, expr) = load_default_fetch_bookmarks(remote, &git_repo)?;
+                warn_ignored_refspecs(ui, remote, ignored)?;
+                expr
+            };
+            let expanded = expand_fetch_refspecs(remote, bookmark_expr)?;
             expansions.push((remote, expanded));
         }
     }
