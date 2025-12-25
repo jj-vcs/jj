@@ -2522,17 +2522,17 @@ pub struct IgnoredRefspec {
     pub reason: &'static str,
 }
 
-#[derive(Debug)]
-enum FetchRefSpec {
-    Positive(RefSpec),
-    Negative(NegativeRefSpec),
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum FetchRefSpecKind {
+    Positive,
+    Negative,
 }
 
-/// Expand the remote's configured fetch refspecs
-pub fn expand_default_fetch_refspecs(
+/// Loads the remote's fetch branch or bookmark patterns from Git config.
+pub fn load_default_fetch_bookmarks(
     remote_name: &RemoteName,
     git_repo: &gix::Repository,
-) -> Result<(IgnoredRefspecs, ExpandedFetchRefSpecs), GitDefaultRefspecError> {
+) -> Result<(IgnoredRefspecs, StringExpression), GitDefaultRefspecError> {
     let remote = git_repo
         .try_find_remote(remote_name.as_str())
         .ok_or_else(|| GitDefaultRefspecError::NoSuchRemote(remote_name.to_owned()))?
@@ -2541,20 +2541,16 @@ pub fn expand_default_fetch_refspecs(
         })?;
 
     let remote_refspecs = remote.refspecs(gix::remote::Direction::Fetch);
-    let mut refspecs = Vec::with_capacity(remote_refspecs.len());
     let mut ignored_refspecs = Vec::with_capacity(remote_refspecs.len());
     let mut positive_bookmarks = Vec::with_capacity(remote_refspecs.len());
-    let mut negative_refspecs = Vec::new();
     let mut negative_bookmarks = Vec::new();
     for refspec in remote_refspecs {
         let refspec = refspec.to_ref();
         match parse_fetch_refspec(remote_name, refspec) {
-            Ok((FetchRefSpec::Positive(refspec), bookmark)) => {
-                refspecs.push(refspec);
+            Ok((FetchRefSpecKind::Positive, bookmark)) => {
                 positive_bookmarks.push(StringExpression::pattern(bookmark));
             }
-            Ok((FetchRefSpec::Negative(refspec), bookmark)) => {
-                negative_refspecs.push(refspec);
+            Ok((FetchRefSpecKind::Negative, bookmark)) => {
                 negative_bookmarks.push(StringExpression::pattern(bookmark));
             }
             Err(reason) => {
@@ -2564,23 +2560,20 @@ pub fn expand_default_fetch_refspecs(
         }
     }
 
-    let bookmark_expr = StringExpression::union_all(positive_bookmarks)
-        .intersection(StringExpression::union_all(negative_bookmarks).negated());
+    let mut bookmark_expr = StringExpression::union_all(positive_bookmarks);
+    // Avoid double negation `~~*` when no negative patterns are provided.
+    if !negative_bookmarks.is_empty() {
+        bookmark_expr =
+            bookmark_expr.intersection(StringExpression::union_all(negative_bookmarks).negated());
+    }
 
-    Ok((
-        IgnoredRefspecs(ignored_refspecs),
-        ExpandedFetchRefSpecs {
-            bookmark_expr,
-            refspecs,
-            negative_refspecs,
-        },
-    ))
+    Ok((IgnoredRefspecs(ignored_refspecs), bookmark_expr))
 }
 
 fn parse_fetch_refspec(
     remote_name: &RemoteName,
     refspec: gix::refspec::RefSpecRef<'_>,
-) -> Result<(FetchRefSpec, StringPattern), &'static str> {
+) -> Result<(FetchRefSpecKind, StringPattern), &'static str> {
     let ensure_utf8 = |s| str::from_utf8(s).map_err(|_| "invalid UTF-8");
 
     let (src, positive_dst) = match refspec.instruction() {
@@ -2619,9 +2612,9 @@ fn parse_fetch_refspec(
         if src_branch != dst_branch {
             return Err("renaming is not supported");
         }
-        Ok((FetchRefSpec::Positive(RefSpec::forced(src, dst)), branch))
+        Ok((FetchRefSpecKind::Positive, branch))
     } else {
-        Ok((FetchRefSpec::Negative(NegativeRefSpec::new(src)), branch))
+        Ok((FetchRefSpecKind::Negative, branch))
     }
 }
 

@@ -59,8 +59,8 @@ use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git::GitSubprocessOptions;
 use jj_lib::git::IgnoredRefspec;
 use jj_lib::git::IgnoredRefspecs;
-use jj_lib::git::expand_default_fetch_refspecs;
 use jj_lib::git::expand_fetch_refspecs;
+use jj_lib::git::load_default_fetch_bookmarks;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::hex_util;
 use jj_lib::index::ResolvedChangeTargets;
@@ -3535,7 +3535,7 @@ fn test_fetch_environment_options() {
 }
 
 #[test]
-fn test_expand_default_fetch_refspecs() {
+fn test_load_default_fetch_bookmarks() {
     let mut test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let git_repo = get_git_repo(&test_repo.repo);
     let config = git_repo.config_snapshot().clone();
@@ -3569,6 +3569,10 @@ fn test_expand_default_fetch_refspecs() {
             fetch = +refs/heads/wrong-remote:refs/remotes/origin2/wrong-remote
             fetch = +refs/tags/wrong-src:refs/remotes/origin/wrong-src
             fetch = ^refs/tags/unsupported
+
+            [remote "positive-only"]
+            url = /dev/null
+            fetch = +refs/heads/*:refs/remotes/positive-only/*
             "#,
         )
         .expect("failed to update config file");
@@ -3579,9 +3583,9 @@ fn test_expand_default_fetch_refspecs() {
         .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
     let git_repo = get_git_repo(&test_repo.repo);
 
-    let (IgnoredRefspecs(ignored_refspecs), expanded) =
-        expand_default_fetch_refspecs("origin".as_ref(), &git_repo)
-            .expect("failed to expand refspecs");
+    let (IgnoredRefspecs(ignored_refspecs), bookmark_expr) =
+        load_default_fetch_bookmarks("origin".as_ref(), &git_repo)
+            .expect("failed to load refspecs");
 
     let mut warnings = String::new();
     for IgnoredRefspec { refspec, reason } in ignored_refspecs {
@@ -3601,68 +3605,56 @@ fn test_expand_default_fetch_refspecs() {
     only refs/heads/ is supported for refspec sources: +refs/tags/wrong-src:refs/remotes/origin/wrong-src
     ");
 
-    insta::assert_debug_snapshot!(expanded, @r#"
-    ExpandedFetchRefSpecs {
-        bookmark_expr: Intersection(
+    insta::assert_debug_snapshot!(bookmark_expr, @r#"
+    Intersection(
+        Union(
+            Pattern(
+                Glob(
+                    GlobPattern(
+                        "foo*",
+                    ),
+                ),
+            ),
+            Pattern(
+                Exact(
+                    "main",
+                ),
+            ),
+        ),
+        NotIn(
             Union(
                 Pattern(
-                    Glob(
-                        GlobPattern(
-                            "foo*",
-                        ),
+                    Exact(
+                        "excluded",
                     ),
                 ),
                 Pattern(
                     Exact(
-                        "main",
-                    ),
-                ),
-            ),
-            NotIn(
-                Union(
-                    Pattern(
-                        Exact(
-                            "excluded",
-                        ),
-                    ),
-                    Pattern(
-                        Exact(
-                            "fooqux",
-                        ),
+                        "fooqux",
                     ),
                 ),
             ),
         ),
-        refspecs: [
-            RefSpec {
-                forced: true,
-                source: Some(
-                    "refs/heads/foo*",
-                ),
-                destination: "refs/remotes/origin/foo*",
-            },
-            RefSpec {
-                forced: true,
-                source: Some(
-                    "refs/heads/main",
-                ),
-                destination: "refs/remotes/origin/main",
-            },
-        ],
-        negative_refspecs: [
-            NegativeRefSpec {
-                source: "refs/heads/excluded",
-            },
-            NegativeRefSpec {
-                source: "refs/heads/fooqux",
-            },
-        ],
-    }
+    )
+    "#);
+
+    let (IgnoredRefspecs(ignored_refspecs), bookmark_expr) =
+        load_default_fetch_bookmarks("positive-only".as_ref(), &git_repo)
+            .expect("failed to load refspecs");
+    assert!(ignored_refspecs.is_empty());
+    insta::assert_debug_snapshot!(bookmark_expr, @r#"
+    Pattern(
+        Glob(
+            GlobPattern(
+                "*",
+            ),
+        ),
+    )
     "#);
 }
 
 #[test]
-fn test_expand_default_fetch_refspecs_invalid_configuration() {
+fn test_load_default_fetch_bookmarks_invalid_configuration() {
     let mut test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let git_repo = get_git_repo(&test_repo.repo);
     let config = git_repo.config_snapshot().clone();
@@ -3700,9 +3692,9 @@ fn test_expand_default_fetch_refspecs_invalid_configuration() {
         .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
     let git_repo = get_git_repo(&test_repo.repo);
 
-    let first_err = expand_default_fetch_refspecs("first".as_ref(), &git_repo).unwrap_err();
-    let second_err = expand_default_fetch_refspecs("second".as_ref(), &git_repo).unwrap_err();
-    let third_err = expand_default_fetch_refspecs("third".as_ref(), &git_repo).unwrap_err();
+    let first_err = load_default_fetch_bookmarks("first".as_ref(), &git_repo).unwrap_err();
+    let second_err = load_default_fetch_bookmarks("second".as_ref(), &git_repo).unwrap_err();
+    let third_err = load_default_fetch_bookmarks("third".as_ref(), &git_repo).unwrap_err();
 
     insta::assert_snapshot!(format!("{first_err:#?}\n{second_err:#?}\n{third_err:#?}"), @r#"
     InvalidRemoteConfiguration(
