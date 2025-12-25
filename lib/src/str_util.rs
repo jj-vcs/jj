@@ -184,7 +184,7 @@ impl StringPattern {
     }
 
     /// Returns true if this pattern trivially matches any input strings.
-    fn is_all(&self) -> bool {
+    pub fn is_all(&self) -> bool {
         match self {
             Self::Exact(_) | Self::ExactI(_) => false,
             Self::Substring(needle) | Self::SubstringI(needle) => needle.is_empty(),

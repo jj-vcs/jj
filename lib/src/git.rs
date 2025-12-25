@@ -2493,7 +2493,16 @@ fn split_into_positive_negative_patterns(
     let mut positives = Vec::new();
     let mut negatives = Vec::new();
     visit_positive(expr, &mut positives, &mut negatives)?;
-    Ok((positives, negatives))
+    // Don't generate uninteresting patterns for `~*` (= none). `x~*`, `~(x|*)`,
+    // etc. aren't special-cased because `x` may be Git-incompatible pattern.
+    if positives.iter().all(|pattern| pattern.is_all())
+        && !negatives.is_empty()
+        && negatives.iter().all(|pattern| pattern.is_all())
+    {
+        Ok((vec![], vec![]))
+    } else {
+        Ok((positives, negatives))
+    }
 }
 
 /// A list of fetch refspecs configured within a remote that were ignored during
@@ -3040,5 +3049,20 @@ mod tests {
             try_split("a&~b|c&~d"),
             Err(GitRefExpressionError::NestedIntersection)
         );
+
+        // `~*` should generate empty patterns. `a~*` and `~(a|*)` don't because
+        // `a` may be incompatible with Git refspecs.
+        insta::assert_compact_debug_snapshot!(
+            split("*"),
+            @r#"([Glob(GlobPattern("*"))], [])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("~*"),
+            @"([], [])");
+        insta::assert_compact_debug_snapshot!(
+            split("a~*"),
+            @r#"([Exact("a")], [Glob(GlobPattern("*"))])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("~(a|*)"),
+            @r#"([Substring("")], [Exact("a"), Glob(GlobPattern("*"))])"#);
     }
 }
