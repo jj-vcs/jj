@@ -6390,6 +6390,14 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p><code>--insert-before</code> now accepts a revset that resolves to an empty set when
   used with <code>--insert-after</code>. The behavior is similar to <code>--onto</code>.</p>
 </li>
+<li>
+<p><code>TreeDiffEntry</code> type now has a <code>display_diff_path()</code> method that formats
+  renames/copies appropriately.</p>
+</li>
+<li>
+<p><code>TreeDiffEntry</code> now has a <code>status_char()</code> method that returns
+  single-character status codes (M/A/D/C/R).</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>

@@ -2973,6 +2973,7 @@ are defined.</p>
 <li><code>.lines_removed() -&gt; Integer</code>: Number of lines deleted.</li>
 <li><code>.path() -&gt; RepoPath</code>: Path to the entry. If the entry is a copy/rename, this
   points to the target (or right) entry.</li>
+<li><code>.display_diff_path() -&gt; String</code>: Format path for display, taking into account copy/rename information.</li>
 <li><code>.status() -&gt; String</code>: One of <code>"modified"</code>, <code>"added"</code>, <code>"removed"</code>, <code>"copied"</code>, or <code>"renamed"</code>.</li>
 <li><code>.status_char() -&gt; String</code>: One of <code>"M"</code> (modified), <code>"A"</code> (added), <code>"D"</code> (removed),
   <code>"C"</code> (copied), or <code>"R"</code> (renamed).</li>
@@ -3237,8 +3238,11 @@ only occur directly in the call site they are used in.</p>
 <ul>
 <li><code>.path() -&gt; RepoPath</code>: Path to the entry. If the entry is a copy/rename, this
   points to the target (or right) entry.</li>
+<li><code>.display_diff_path() -&gt; String</code>: Format path for display, taking into account copy/rename information.</li>
 <li><code>.status() -&gt; String</code>: One of <code>"modified"</code>, <code>"added"</code>, <code>"removed"</code>,
   <code>"copied"</code>, or <code>"renamed"</code>.</li>
+<li><code>.status_char() -&gt; String</code>: Single-character status indicator: <code>"M"</code> for modified,
+  <code>"A"</code> for added, <code>"D"</code> for removed, <code>"C"</code> for copied, or <code>"R"</code> for renamed.</li>
 <li><code>.source() -&gt; TreeEntry</code>: The source (or left) entry.</li>
 <li><code>.target() -&gt; TreeEntry</code>: The target (or right) entry.</li>
 </ul>
