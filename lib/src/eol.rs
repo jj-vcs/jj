@@ -67,6 +67,11 @@ impl TargetEolStrategy {
                     .take(Self::PROBE_LIMIT)
                     .read_to_end(&mut peek)
                     .await?;
+                if peek.last() == Some(&b'\r') {
+                    // The peek limit may have split a CRLF sequence.
+                    // Try and read one more byte.
+                    (&mut contents).take(1).read_to_end(&mut peek).await?;
+                }
                 let target_eol = if is_binary(&peek) {
                     TargetEol::PassThrough
                 } else {
@@ -91,6 +96,11 @@ impl TargetEolStrategy {
                     .take(Self::PROBE_LIMIT)
                     .read_to_end(&mut peek)
                     .await?;
+                if peek.last() == Some(&b'\r') {
+                    // The peek limit may have split a CRLF sequence.
+                    // Try and read one more byte.
+                    (&mut contents).take(1).read_to_end(&mut peek).await?;
+                }
                 let target_eol = if is_binary(&peek) {
                     TargetEol::PassThrough
                 } else {
@@ -255,6 +265,19 @@ mod tests {
         );
     }
 
+    const fn test_probe_limit_input_crlf() -> [u8; TargetEolStrategy::PROBE_LIMIT as usize + 1] {
+        let mut arr = [b'a'; TargetEolStrategy::PROBE_LIMIT as usize + 1];
+        arr[TargetEolStrategy::PROBE_LIMIT as usize - 1] = b'\r';
+        arr[TargetEolStrategy::PROBE_LIMIT as usize] = b'\n';
+        arr
+    }
+
+    const fn test_probe_limit_input_lf() -> [u8; TargetEolStrategy::PROBE_LIMIT as usize] {
+        let mut arr = [b'a'; TargetEolStrategy::PROBE_LIMIT as usize];
+        arr[TargetEolStrategy::PROBE_LIMIT as usize - 1] = b'\n';
+        arr
+    }
+
     #[tokio::main(flavor = "current_thread")]
     #[test_case(TargetEolStrategy {
           eol_conversion_mode: EolConversionMode::None,
@@ -277,6 +300,9 @@ mod tests {
     #[test_case(TargetEolStrategy {
           eol_conversion_mode: EolConversionMode::Input,
       }, &[0; 20 << 10], &[0; 20 << 10]; "input settings long binary input")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::Input,
+      }, &test_probe_limit_input_crlf(), &test_probe_limit_input_lf(); "input settings with CRLF on probe boundary")]
     async fn test_eol_strategy_convert_eol_for_snapshot(
         strategy: TargetEolStrategy,
         contents: &[u8],
