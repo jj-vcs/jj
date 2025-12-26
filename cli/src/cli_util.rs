@@ -3993,7 +3993,7 @@ impl<'a> CliRunner<'a> {
         migrate_config(&mut config)?;
         ui.reset(&config)?;
 
-        if env::var_os("COMPLETE").is_some() {
+        if env::var_os("COMPLETE").is_some_and(|v| !v.is_empty() && v != "0") {
             return handle_shell_completion(&Ui::null(), &self.app, &config, &cwd);
         }
 

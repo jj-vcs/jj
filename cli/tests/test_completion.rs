@@ -453,6 +453,42 @@ fn test_completions_are_generated() {
     ");
 }
 
+#[test]
+fn test_bad_complete_env() {
+    let mut test_env = TestEnvironment::default();
+
+    test_env.add_env_var("COMPLETE", "badshell");
+    let output = test_env.run_jj_in(".", [""; 0]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    error: unknown shell `badshell`, expected one of `bash`, `elvish`, `fish`, `powershell`, `zsh`[EOF]
+    [exit status: 2]
+    ");
+
+    // Empty value of COMPLETE is ignored as is the value of "0".  This could
+    // change if `clap` changes the way it interprets an empty COMPLETE env var.
+    //
+    // In other words, jj runs normally instead of returning completions. We get
+    // an error because the default jj command needs to be run in a jj repo.
+    test_env.add_env_var("COMPLETE", "");
+    let output = test_env.run_jj_in(".", [""; 0]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Hint: Use `jj -h` for a list of available commands.
+    Run `jj config set --user ui.default-command log` to disable this message.
+    Error: There is no jj repo in "."
+    [EOF]
+    [exit status: 1]
+    "#);
+    // Same thing (normal execution) happens for a sub-command and "0"
+    test_env.add_env_var("COMPLETE", "0");
+    let output = test_env.run_jj_in(".", ["config", "list", "user.name"]);
+    insta::assert_snapshot!(output, @r#"
+    user.name = "Test User"
+    [EOF]
+    "#);
+}
+
 #[test_case(Shell::Bash; "bash")]
 #[test_case(Shell::Zsh; "zsh")]
 #[test_case(Shell::Fish; "fish")]
