@@ -83,6 +83,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `--insert-before` now accepts a revset that resolves to an empty set when
   used with `--insert-after`. The behavior is similar to `--onto`.
 
+* Added `predecessors()` template function to `CommitEvolutionEntry`, which
+  returns the predecessor commits (previous versions) of the entry's commit.
+
+* Added `inter_diff()` template function to `CommitEvolutionEntry`, which
+  returns a `TreeDiff` between the entry's commit and its predecessor version.
+  Optionally accepts a fileset literal to limit the diff.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
