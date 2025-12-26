@@ -18,7 +18,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use jj_lib::file_util::check_symlink_support;
-use jj_lib::file_util::try_symlink;
+use jj_lib::file_util::symlink_file;
 #[cfg(unix)]
 use regex::Regex;
 
@@ -160,7 +160,7 @@ fn test_chmod_nonfile() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    try_symlink("target", work_dir.root().join("symlink")).unwrap();
+    symlink_file("target", work_dir.root().join("symlink")).unwrap();
     let output = work_dir.run_jj(["show"]);
     insta::assert_snapshot!(output, @r"
     Commit ID: 82976318a088d30054540d1a11ffb4c79fb5d47e

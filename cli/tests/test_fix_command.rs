@@ -18,7 +18,7 @@ use std::path::PathBuf;
 
 use indoc::formatdoc;
 use indoc::indoc;
-use jj_lib::file_util::try_symlink;
+use jj_lib::file_util::symlink_file;
 
 use crate::common::TestEnvironment;
 use crate::common::to_toml_value;
@@ -1260,7 +1260,7 @@ fn test_fix_file_types() {
     let work_dir = test_env.work_dir("repo");
     work_dir.write_file("file", "content");
     work_dir.create_dir("dir");
-    try_symlink("file", work_dir.root().join("link")).unwrap();
+    symlink_file("file", work_dir.root().join("link")).unwrap();
 
     let output = work_dir.run_jj(["fix", "-s", "@"]);
     insta::assert_snapshot!(output, @r"

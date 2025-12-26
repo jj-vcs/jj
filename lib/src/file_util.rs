@@ -39,7 +39,7 @@ use tokio::io::ReadBuf;
 pub use self::platform::check_executable_bit_support;
 pub use self::platform::check_symlink_support;
 pub use self::platform::symlink_dir;
-pub use self::platform::try_symlink;
+pub use self::platform::symlink_file;
 
 #[derive(Debug, Error)]
 #[error("Cannot access {path}")]
@@ -356,7 +356,10 @@ mod platform {
         symlink(original, link)
     }
 
-    pub fn try_symlink<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Result<()> {
+    /// Creates a new symlink `link` pointing to the `original` path.
+    ///
+    /// On Unix, the `original` path doesn't have to be a file.
+    pub fn symlink_file<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Result<()> {
         symlink(original, link)
     }
 }
@@ -365,7 +368,7 @@ mod platform {
 mod platform {
     use std::io;
     pub use std::os::windows::fs::symlink_dir;
-    use std::os::windows::fs::symlink_file;
+    pub use std::os::windows::fs::symlink_file;
     use std::path::Path;
 
     use winreg::RegKey;
@@ -377,22 +380,15 @@ mod platform {
 
     /// Symlinks may or may not be enabled on Windows. They require the
     /// Developer Mode setting, which is stored in the registry key below.
+    ///
+    /// Note: If developer mode is not enabled, the error code of symlink
+    /// creation will be 1314, `ERROR_PRIVILEGE_NOT_HELD`.
     pub fn check_symlink_support() -> io::Result<bool> {
         let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
         let sideloading =
             hklm.open_subkey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock")?;
         let developer_mode: u32 = sideloading.get_value("AllowDevelopmentWithoutDevLicense")?;
         Ok(developer_mode == 1)
-    }
-
-    pub fn try_symlink<P: AsRef<Path>, Q: AsRef<Path>>(original: P, link: Q) -> io::Result<()> {
-        // this will create a nonfunctional link for directories, but at the moment
-        // we don't have enough information in the tree to determine whether the
-        // symlink target is a file or a directory
-        // note: if developer mode is not enabled the error code will be 1314,
-        // ERROR_PRIVILEGE_NOT_HELD
-
-        symlink_file(original, link)
     }
 }
 

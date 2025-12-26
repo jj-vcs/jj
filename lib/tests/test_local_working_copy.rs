@@ -35,7 +35,7 @@ use jj_lib::conflicts::ConflictMaterializeOptions;
 use jj_lib::file_util;
 use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::symlink_dir;
-use jj_lib::file_util::try_symlink;
+use jj_lib::file_util::symlink_file;
 use jj_lib::files::FileMergeHunkLevel;
 use jj_lib::fsmonitor::FsmonitorSettings;
 use jj_lib::gitignore::GitIgnoreFile;
@@ -1652,7 +1652,7 @@ fn test_gitignores_ignored_directory_already_tracked() {
     let fs_path = modified_symlink_path.to_fs_path_unchecked(&workspace_root);
     std::fs::remove_file(&fs_path).unwrap();
     if check_symlink_support().unwrap_or(false) {
-        try_symlink("modified", &fs_path).unwrap();
+        symlink_file("modified", &fs_path).unwrap();
     } else {
         std::fs::write(fs_path, "modified").unwrap();
     }
@@ -1956,7 +1956,7 @@ fn test_check_out_existing_file_symlink_icase_fs(victim_exists: bool) {
 
     // Creates a symlink in working directory, and a tree that will overwrite
     // the symlink content.
-    try_symlink(
+    symlink_file(
         PathBuf::from_iter(["..", "pwned"]),
         workspace_root.join("parent"),
     )
@@ -2507,7 +2507,7 @@ fn test_snapshot_symlink_use_forward_slash() {
     let link_path = link.to_fs_path(&workspace_root).unwrap();
     let link_contents = "../target/link/target.txt";
     std::fs::create_dir_all(link_path.parent().unwrap()).unwrap();
-    file_util::try_symlink(link_contents, link_path).unwrap();
+    symlink_file(link_contents, link_path).unwrap();
 
     let tree = test_workspace
         .snapshot()
@@ -2606,7 +2606,7 @@ fn test_snapshot_and_update_valid_symlink(get_link_target: impl FnOnce(&Path, &P
     let link_path = link.to_fs_path(&workspace_root).unwrap();
     let link_contents = get_link_target(&link_path, &target_path);
     std::fs::create_dir_all(link_path.parent().unwrap()).unwrap();
-    file_util::try_symlink(&link_contents, &link_path).unwrap();
+    symlink_file(&link_contents, &link_path).unwrap();
     std::fs::read_link(&link_path).expect("The symlink itself should exist.");
     assert_eq!(std::fs::read(&link_path).unwrap(), file_contents);
     assert_eq!(

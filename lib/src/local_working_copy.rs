@@ -83,7 +83,7 @@ use crate::file_util::BlockingAsyncReader;
 use crate::file_util::check_symlink_support;
 use crate::file_util::copy_async_to_sync;
 use crate::file_util::persist_temp_file;
-use crate::file_util::try_symlink;
+use crate::file_util::symlink_file;
 use crate::fsmonitor::FsmonitorSettings;
 #[cfg(feature = "watchman")]
 use crate::fsmonitor::WatchmanConfig;
@@ -2016,7 +2016,10 @@ impl TreeState {
             );
         }
 
-        try_symlink(&target, disk_path).map_err(|err| CheckoutError::Other {
+        // On Windows, this will create a nonfunctional link for directories,
+        // but at the moment we don't have enough information in the tree to
+        // determine whether the symlink target is a file or a directory.
+        symlink_file(&target, disk_path).map_err(|err| CheckoutError::Other {
             message: format!(
                 "Failed to create symlink from {} to {}",
                 disk_path.display(),
