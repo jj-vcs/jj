@@ -52,8 +52,36 @@ impl TargetEolStrategy {
         }
     }
 
-    /// The limit is to probe whether the file is binary is 8KB.
+    /// The limit to probe for whether the file is binary is 8KB.
+    /// All files strictly smaller than the limit are always
+    /// evaluated correctly and in full.
+    /// Files larger than the limit - or with ambiguous content at the limit -
+    /// are potentially misclassified.
     const PROBE_LIMIT: u64 = 8 << 10;
+
+    /// Peek into the first [`TargetEolStrategy::PROBE_LIMIT`] bytes of content
+    /// to determine if it is binary data.
+    ///
+    /// Peeked data is stored in `peek`.
+    async fn probe_for_binary(
+        mut contents: impl AsyncRead + Unpin,
+        peek: &mut Vec<u8>,
+    ) -> Result<bool, std::io::Error> {
+        (&mut contents)
+            .take(Self::PROBE_LIMIT)
+            .read_to_end(peek)
+            .await?;
+
+        // The probe limit may have sliced a CRLF sequence, which would cause
+        // misclassification as binary.
+        let slice_to_check = if peek.get(Self::PROBE_LIMIT as usize - 1) == Some(&b'\r') {
+            &peek[0..Self::PROBE_LIMIT as usize - 1]
+        } else {
+            peek
+        };
+
+        Ok(is_binary(slice_to_check))
+    }
 
     pub(crate) async fn convert_eol_for_snapshot<'a>(
         &self,
@@ -63,11 +91,7 @@ impl TargetEolStrategy {
             EolConversionMode::None => Ok(Box::new(contents)),
             EolConversionMode::Input | EolConversionMode::InputOutput => {
                 let mut peek = vec![];
-                (&mut contents)
-                    .take(Self::PROBE_LIMIT)
-                    .read_to_end(&mut peek)
-                    .await?;
-                let target_eol = if is_binary(&peek) {
+                let target_eol = if Self::probe_for_binary(&mut contents, &mut peek).await? {
                     TargetEol::PassThrough
                 } else {
                     TargetEol::Lf
@@ -87,11 +111,7 @@ impl TargetEolStrategy {
             EolConversionMode::None | EolConversionMode::Input => Ok(Box::new(contents)),
             EolConversionMode::InputOutput => {
                 let mut peek = vec![];
-                (&mut contents)
-                    .take(Self::PROBE_LIMIT)
-                    .read_to_end(&mut peek)
-                    .await?;
-                let target_eol = if is_binary(&peek) {
+                let target_eol = if Self::probe_for_binary(&mut contents, &mut peek).await? {
                     TargetEol::PassThrough
                 } else {
                     TargetEol::Crlf
@@ -255,6 +275,23 @@ mod tests {
         );
     }
 
+    fn test_probe_limit_input_crlf() -> [u8; TargetEolStrategy::PROBE_LIMIT as usize + 1] {
+        let mut arr = [b'a'; TargetEolStrategy::PROBE_LIMIT as usize + 1];
+        let crlf = b"\r\n";
+        arr[100..102].copy_from_slice(crlf);
+        arr[500..502].copy_from_slice(crlf);
+        arr[1000..1002].copy_from_slice(crlf);
+        arr[4090..4092].copy_from_slice(crlf);
+        arr[TargetEolStrategy::PROBE_LIMIT as usize - 1
+            ..TargetEolStrategy::PROBE_LIMIT as usize + 1]
+            .copy_from_slice(crlf);
+        arr
+    }
+
+    fn test_probe_limit_input_lf() -> Vec<u8> {
+        test_probe_limit_input_crlf().replace(b"\r\n", b"\n")
+    }
+
     #[tokio::main(flavor = "current_thread")]
     #[test_case(TargetEolStrategy {
           eol_conversion_mode: EolConversionMode::None,
@@ -277,6 +314,9 @@ mod tests {
     #[test_case(TargetEolStrategy {
           eol_conversion_mode: EolConversionMode::Input,
       }, &[0; 20 << 10], &[0; 20 << 10]; "input settings long binary input")]
+    #[test_case(TargetEolStrategy {
+          eol_conversion_mode: EolConversionMode::Input,
+      }, &test_probe_limit_input_crlf(), &test_probe_limit_input_lf(); "input settings with CRLF on probe boundary")]
     async fn test_eol_strategy_convert_eol_for_snapshot(
         strategy: TargetEolStrategy,
         contents: &[u8],
