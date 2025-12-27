@@ -850,6 +850,18 @@ You can define aliases for commands, including their arguments. For example:
 l = ["log", "-r", "(main..@):: | (main..@)-"]
 ```
 
+### Viewing aliases
+
+To see all available aliases, use `jj alias list`. This command displays aliases organized by source:
+
+- **Builtin aliases**: Command aliases defined in jj's code (e.g., `op` → `operation`, `b` → `bookmark`)
+- **Default aliases**: Aliases from the built-in configuration (e.g., `ci` → `commit`, `st` → `status`)
+- **User-defined aliases**: Aliases from user, repo, or workspace configuration files
+
+This helps you discover which aliases are available and what they expand to.
+
+### Custom aliases
+
 This alias syntax can only run a single jj command. However, you may want to
 execute multiple jj commands with a single alias, or run arbitrary scripts that
 complement your version control workflow. This can be done, but be aware of the

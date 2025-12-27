@@ -50,6 +50,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* New `jj alias list` command to display all available aliases organized by
+  source (builtin, default configuration, and user-defined).
+
 * Updated the executable bit representation in the local working copy to allow
   ignoring executable bit changes on Unix. By default we try to detect the
   filesystem's behavior, but this can be overridden manually by setting

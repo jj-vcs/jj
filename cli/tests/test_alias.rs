@@ -463,3 +463,240 @@ fn test_aliases_overriding_friendly_errors() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_alias_list_builtin_aliases() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["alias", "list"]);
+    insta::assert_snapshot!(output, @r"
+    Builtin aliases:
+      evolution-log        -> evolog
+      obslog               -> evolog
+      op                   -> operation
+
+    Default aliases:
+      b                    -> bookmark
+      ci                   -> commit
+      desc                 -> describe
+      st                   -> status
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_alias_list_with_default_and_user_defined() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config(
+        r#"
+    [aliases]
+    myalias = ["log", "-r", "@"]
+    another = ["status"]
+    "#,
+    );
+
+    let output = work_dir.run_jj(["alias", "list"]);
+    insta::assert_snapshot!(output, @r"
+    Builtin aliases:
+      evolution-log        -> evolog
+      obslog               -> evolog
+      op                   -> operation
+
+    Default aliases:
+      b                    -> bookmark
+      ci                   -> commit
+      desc                 -> describe
+      st                   -> status
+
+    User-defined aliases:
+      another              -> status
+      myalias              -> log -r @
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_alias_list_no_user_aliases() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["alias", "list"]);
+    insta::assert_snapshot!(output, @r"
+    Builtin aliases:
+      evolution-log        -> evolog
+      obslog               -> evolog
+      op                   -> operation
+
+    Default aliases:
+      b                    -> bookmark
+      ci                   -> commit
+      desc                 -> describe
+      st                   -> status
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_alias_list_deduplication() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // User config overrides default alias expansion
+    test_env.add_config(r#"aliases.st = ["custom", "status"]"#);
+
+    let output = work_dir.run_jj(["alias", "list"]);
+    // Both sections show the alias, but user-defined shows the custom expansion
+    insta::assert_snapshot!(output, @r"
+    Builtin aliases:
+      evolution-log        -> evolog
+      obslog               -> evolog
+      op                   -> operation
+
+    Default aliases:
+      b                    -> bookmark
+      ci                   -> commit
+      desc                 -> describe
+      st                   -> custom status
+
+    User-defined aliases:
+      st                   -> custom status
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_alias_list_repo_config() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Add repo-specific alias
+    work_dir.write_file(
+        ".jj/repo/config.toml",
+        r#"[aliases]
+    repoalias = ["log", "-r", "@"]
+    "#,
+    );
+    test_env.add_config(r#"aliases.useralias = ["status"]"#);
+
+    let output = work_dir.run_jj(["alias", "list"]);
+    insta::assert_snapshot!(output, @r"
+    Builtin aliases:
+      evolution-log        -> evolog
+      obslog               -> evolog
+      op                   -> operation
+
+    Default aliases:
+      b                    -> bookmark
+      ci                   -> commit
+      desc                 -> describe
+      st                   -> status
+
+    User-defined aliases:
+      repoalias            -> log -r @
+      useralias            -> status
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_alias_list_empty_expansion() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config(r#"aliases.empty = []"#);
+
+    let output = work_dir.run_jj(["alias", "list"]);
+    insta::assert_snapshot!(output, @r"
+    Builtin aliases:
+      evolution-log        -> evolog
+      obslog               -> evolog
+      op                   -> operation
+
+    Default aliases:
+      b                    -> bookmark
+      ci                   -> commit
+      desc                 -> describe
+      st                   -> status
+
+    User-defined aliases:
+      empty                -> 
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_alias_list_multi_arg_expansion() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config(
+        r#"
+    aliases.showlog = ["log", "-r", "all()", "-T", "commit_id"]
+    "#,
+    );
+
+    let output = work_dir.run_jj(["alias", "list"]);
+    insta::assert_snapshot!(output, @r"
+    Builtin aliases:
+      evolution-log        -> evolog
+      obslog               -> evolog
+      op                   -> operation
+
+    Default aliases:
+      b                    -> bookmark
+      ci                   -> commit
+      desc                 -> describe
+      st                   -> status
+
+    User-defined aliases:
+      showlog              -> log -r all() -T commit_id
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_alias_list_sorting() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config(
+        r#"
+    [aliases]
+    zebra = ["log"]
+    apple = ["status"]
+    monkey = ["commit"]
+    "#,
+    );
+
+    let output = work_dir.run_jj(["alias", "list"]);
+    // Verify alphabetical sorting in user-defined section
+    insta::assert_snapshot!(output, @r"
+    Builtin aliases:
+      evolution-log        -> evolog
+      obslog               -> evolog
+      op                   -> operation
+
+    Default aliases:
+      b                    -> bookmark
+      ci                   -> commit
+      desc                 -> describe
+      st                   -> status
+
+    User-defined aliases:
+      apple                -> status
+      monkey               -> commit
+      zebra                -> log
+    [EOF]
+    ");
+}
