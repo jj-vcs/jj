@@ -262,6 +262,7 @@ impl<'a> GitSubprocessContext<'a> {
         &self,
         remote_name: &RemoteName,
         references: &[RefToPush],
+        remote_push_options: &[&str],
         callbacks: &mut RemoteCallbacks<'_>,
     ) -> Result<GitPushStats, GitSubprocessError> {
         let mut command = self.create_command();
@@ -275,6 +276,11 @@ impl<'a> GitSubprocessContext<'a> {
         if callbacks.progress.is_some() {
             command.arg("--progress");
         }
+        command.args(
+            remote_push_options
+                .iter()
+                .map(|remote_push_option: &&str| format!("--push-option={remote_push_option}")),
+        );
         command.args(
             references
                 .iter()
