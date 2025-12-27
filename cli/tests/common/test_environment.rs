@@ -133,10 +133,16 @@ impl TestEnvironment {
         // executables like `git` from the PATH.
         cmd.env("PATH", std::env::var_os("PATH").unwrap_or_default());
         cmd.env("HOME", &self.home_dir);
-        // Override TMPDIR so editor-* files won't be left in global /tmp.
-        // https://doc.rust-lang.org/stable/std/env/fn.temp_dir.html
-        // https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-gettemppath2w
-        cmd.env(if cfg!(windows) { "TEMP" } else { "TMPDIR" }, &self.tmp_dir);
+        if !cfg!(windows) {
+            // Override TMPDIR so editor-* files won't be left in global /tmp.
+            // https://doc.rust-lang.org/stable/std/env/fn.temp_dir.html
+            cmd.env("TMPDIR", &self.tmp_dir);
+        } else {
+            // On Windows, "/tmp" mounted in Git Bash appears to be leaked to
+            // other Git Bash processes running concurrently, so the TEMP path
+            // has to be stable.
+            cmd.env("TEMP", std::env::temp_dir());
+        }
         // Prevent git.subprocess from reading outside git config
         cmd.env("GIT_CONFIG_SYSTEM", "/dev/null");
         cmd.env("GIT_CONFIG_GLOBAL", "/dev/null");
