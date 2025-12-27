@@ -69,7 +69,7 @@ jobs:
       with:
         persist-credentials: false
     - name: Set up Windows Builders
-      if: startswith(matrix.os, 'windows-x86_64') # FIXME: aarch64 doesn't have D:\ yet
+      if: startswith(matrix.build, 'windows-x86_64') # FIXME: aarch64 doesn't have D:\ yet
       uses: ./.github/actions/setup-windows
     - name: Install Rust
       uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
