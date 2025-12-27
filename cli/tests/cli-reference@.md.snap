@@ -78,6 +78,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj operation abandon`↴](#jj-operation-abandon)
 * [`jj operation diff`↴](#jj-operation-diff)
 * [`jj operation log`↴](#jj-operation-log)
+* [`jj operation new`↴](#jj-operation-new)
 * [`jj operation restore`↴](#jj-operation-restore)
 * [`jj operation revert`↴](#jj-operation-revert)
 * [`jj operation show`↴](#jj-operation-show)
@@ -2107,6 +2108,7 @@ See the [operation log documentation] for more information.
 * `abandon` — Abandon operation history
 * `diff` — Compare changes to the repository between two operations
 * `log` — Show the operation log
+* `new` — Create a new operation with a custom description
 * `restore` — Create a new operation that restores the repo to an earlier state
 * `revert` — Create a new operation that reverts an earlier operation
 * `show` — Show changes to the repository in an operation
@@ -2207,6 +2209,22 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
+
+
+
+## `jj operation new`
+
+Create a new operation with a custom description
+
+Unconditionally creates a no-op operation with the provided description.
+
+Unless --ignore-working-copy is specified, this command will still first snapshot any changes.
+
+**Usage:** `jj operation new <DESCRIPTION>`
+
+###### **Arguments:**
+
+* `<DESCRIPTION>` — The description of the operation to create
 
 
 

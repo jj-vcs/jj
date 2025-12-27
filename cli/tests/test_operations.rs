@@ -2610,6 +2610,147 @@ fn test_op_show() {
 }
 
 #[test]
+fn test_op_new() {
+    let test_env = TestEnvironment::default();
+    let git_repo_path = test_env.env_root().join("git-repo");
+    init_bare_git_repo(&git_repo_path);
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    work_dir
+        .run_jj(["git", "remote", "add", "origin", "../git-repo"])
+        .success();
+    work_dir.run_jj(["git", "fetch"]).success();
+    work_dir
+        .run_jj(["bookmark", "track", "bookmark-1"])
+        .success();
+
+    // Overview of op log.
+    let output = work_dir.run_jj(["op", "log"]);
+    insta::assert_snapshot!(output, @r"
+    @  14a49257b1cb test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │  track remote bookmark bookmark-1@origin
+    │  args: jj bookmark track bookmark-1
+    ○  93de354b21ad test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │  fetch from git remote(s) origin
+    │  args: jj git fetch
+    ○  0ed329262b36 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  add git remote origin
+    │  args: jj git remote add origin ../git-repo
+    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    │  add workspace 'default'
+    ○  000000000000 root()
+    [EOF]
+    ");
+
+    // Add a transaction marking the current head
+    let output = work_dir.run_jj(["op", "new", "recording a test transaction"]);
+    insta::assert_snapshot!(output, @r"");
+
+    // Op log with new entry
+    let output = work_dir.run_jj(["op", "log"]);
+    insta::assert_snapshot!(output, @r"
+    @  7b16e4132985 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    │  recording a test transaction
+    │  args: jj op new 'recording a test transaction'
+    ○  14a49257b1cb test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │  track remote bookmark bookmark-1@origin
+    │  args: jj bookmark track bookmark-1
+    ○  93de354b21ad test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │  fetch from git remote(s) origin
+    │  args: jj git fetch
+    ○  0ed329262b36 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  add git remote origin
+    │  args: jj git remote add origin ../git-repo
+    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    │  add workspace 'default'
+    ○  000000000000 root()
+    [EOF]
+    ");
+
+    // Add a transaction marking an older transaction
+    let output = work_dir.run_jj([
+        "op",
+        "new",
+        "--at-op",
+        "93de354b21ad",
+        "recording a transaction with a specified parent",
+    ]);
+    insta::assert_snapshot!(output, @r"");
+
+    // Op log with new entry
+    let output = work_dir.run_jj(["op", "log"]);
+    insta::assert_snapshot!(output, @r"
+    @    4a0113368735 test-username@host.example.com 2001-02-03 04:05:15.000 +07:00 - 2001-02-03 04:05:15.000 +07:00
+    ├─╮  reconcile divergent operations
+    │ │  args: jj op log
+    ○ │  7b16e4132985 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    │ │  recording a test transaction
+    │ │  args: jj op new 'recording a test transaction'
+    ○ │  14a49257b1cb test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │ │  track remote bookmark bookmark-1@origin
+    │ │  args: jj bookmark track bookmark-1
+    │ ○  36ad18c9ab21 test-username@host.example.com 2001-02-03 04:05:14.000 +07:00 - 2001-02-03 04:05:14.000 +07:00
+    ├─╯  recording a transaction with a specified parent
+    │    args: jj op new --at-op 93de354b21ad 'recording a transaction with a specified parent'
+    ○  93de354b21ad test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │  fetch from git remote(s) origin
+    │  args: jj git fetch
+    ○  0ed329262b36 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  add git remote origin
+    │  args: jj git remote add origin ../git-repo
+    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    │  add workspace 'default'
+    ○  000000000000 root()
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    [EOF]
+    ");
+
+    // Make a change to the working copy
+    work_dir.write_file("test.txt", "test content");
+    let output = work_dir.run_jj([
+        "op",
+        "new",
+        "recording a transaction after making modifications to the working copy",
+    ]);
+    insta::assert_snapshot!(output, @r"");
+
+    // Op log with new entry
+    let output = work_dir.run_jj(["op", "log"]);
+    insta::assert_snapshot!(output, @r"
+    @  0995eeda70fa test-username@host.example.com 2001-02-03 04:05:16.000 +07:00 - 2001-02-03 04:05:16.000 +07:00
+    │  recording a transaction after making modifications to the working copy
+    │  args: jj op new 'recording a transaction after making modifications to the working copy'
+    ○  df5181386078 test-username@host.example.com 2001-02-03 04:05:16.000 +07:00 - 2001-02-03 04:05:16.000 +07:00
+    │  snapshot working copy
+    │  args: jj op new 'recording a transaction after making modifications to the working copy'
+    ○    4a0113368735 test-username@host.example.com 2001-02-03 04:05:15.000 +07:00 - 2001-02-03 04:05:15.000 +07:00
+    ├─╮  reconcile divergent operations
+    │ │  args: jj op log
+    ○ │  7b16e4132985 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    │ │  recording a test transaction
+    │ │  args: jj op new 'recording a test transaction'
+    ○ │  14a49257b1cb test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │ │  track remote bookmark bookmark-1@origin
+    │ │  args: jj bookmark track bookmark-1
+    │ ○  36ad18c9ab21 test-username@host.example.com 2001-02-03 04:05:14.000 +07:00 - 2001-02-03 04:05:14.000 +07:00
+    ├─╯  recording a transaction with a specified parent
+    │    args: jj op new --at-op 93de354b21ad 'recording a transaction with a specified parent'
+    ○  93de354b21ad test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │  fetch from git remote(s) origin
+    │  args: jj git fetch
+    ○  0ed329262b36 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  add git remote origin
+    │  args: jj git remote add origin ../git-repo
+    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    │  add workspace 'default'
+    ○  000000000000 root()
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_op_show_patch() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
