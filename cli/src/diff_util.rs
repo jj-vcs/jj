@@ -638,7 +638,9 @@ impl<'a> DiffRenderer<'a> {
         let to_description = Merge::resolved(to_commit.description());
         let from_tree = rebase_to_dest_parent(self.repo, from_commits, to_commit)?;
         let to_tree = to_commit.tree();
-        let copy_records = CopyRecords::default(); // TODO
+        let mut copy_records = CopyRecords::default();
+        let records = get_copy_records_for_trees(self.repo.store(), &from_tree, &to_tree, matcher)?;
+        copy_records.add_records(records)?;
         self.show_diff_commit_descriptions(
             *formatter,
             Diff::new(&from_description, &to_description),
@@ -692,6 +694,25 @@ pub fn get_copy_records<'a>(
     let stream = store.get_copy_records(None, root, head)?;
     // TODO: test record.source as well? should be AND-ed or OR-ed?
     Ok(block_on_stream(stream).filter_ok(|record| matcher.matches(&record.target)))
+}
+
+pub fn get_copy_records_for_trees(
+    store: &Store,
+    from_tree: &MergedTree,
+    to_tree: &MergedTree,
+    matcher: &dyn Matcher,
+) -> BackendResult<Vec<BackendResult<CopyRecord>>> {
+    // If the tree is conflicted, pick the first side. This aligns with the
+    // jj-lib Git backend behavior when reading a commit's root tree: it
+    // currently selects `Merge<TreeId>::first()` for conflicted commits
+    // (see `GitBackend::read_tree_for_commit()` in `lib/src/git_backend.rs`).
+    let from_tree_id = from_tree.tree_ids().first();
+    let to_tree_id = to_tree.tree_ids().first();
+
+    let stream = store.get_copy_records_for_tree_ids(None, from_tree_id, to_tree_id)?;
+    Ok(block_on_stream(stream)
+        .filter_ok(|record| matcher.matches(&record.target))
+        .collect())
 }
 
 /// How conflicts are processed and rendered in diffs.

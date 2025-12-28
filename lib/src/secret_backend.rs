@@ -203,6 +203,16 @@ impl Backend for SecretBackend {
         self.inner.get_copy_records(paths, root, head)
     }
 
+    fn get_copy_records_for_tree_ids(
+        &self,
+        paths: Option<&[RepoPathBuf]>,
+        root_tree_id: &TreeId,
+        head_tree_id: &TreeId,
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
+        self.inner
+            .get_copy_records_for_tree_ids(paths, root_tree_id, head_tree_id)
+    }
+
     fn gc(&self, index: &dyn Index, keep_newer: SystemTime) -> BackendResult<()> {
         self.inner.gc(index, keep_newer)
     }
