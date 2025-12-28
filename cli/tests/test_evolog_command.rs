@@ -90,8 +90,7 @@ fn test_evolog_with_or_without_diff() {
     │  Modified regular file file1:
     │     1    1: foo
     │          2: bar
-    │  Added regular file file2:
-    │          1: foo
+    │  Modified regular file file2 (file1 => file2):
     ○  rlvkpnrz/3 test.user@example.com 2001-02-03 08:05:08 b955b72e (hidden)
        (empty) my description
        -- operation e0f8e58b3800 new empty commit
@@ -187,13 +186,9 @@ fn test_evolog_with_or_without_diff() {
     @@ -1,1 +1,2 @@
      foo
     +bar
-    diff --git a/file2 b/file2
-    new file mode 100644
-    index 0000000000..257cc5642c
-    --- /dev/null
-    +++ b/file2
-    @@ -0,0 +1,1 @@
-    +foo
+    diff --git a/file1 b/file2
+    copy from file1
+    copy to file2
     rlvkpnrz/3 test.user@example.com 2001-02-03 08:05:08 b955b72e (hidden)
     (empty) my description
     -- operation e0f8e58b3800 new empty commit
