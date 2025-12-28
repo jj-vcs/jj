@@ -205,4 +205,15 @@ mod tests {
         let parse_error = parse_datetime("aaaaa").err().unwrap();
         assert_eq!(parse_error.kind(), chrono::format::ParseErrorKind::Invalid);
     }
+
+    #[test]
+    fn test_parse_datetime_human_readable() {
+        // this is the example given in the help text for `jj metaedit
+        // --author-timestamp`
+        let timestamp = parse_datetime("2000-01-23T01:23:45-08:00").unwrap();
+        let human_readable = parse_datetime("Sun, 23 Jan 2000 01:23:45 PST").unwrap();
+        let human_readable_explicit = parse_datetime("Sun, 23 Jan 2000 01:23:45 -0800").unwrap();
+        assert_eq!(timestamp, human_readable);
+        assert_eq!(timestamp, human_readable_explicit);
+    }
 }
