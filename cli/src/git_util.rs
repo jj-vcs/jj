@@ -16,13 +16,10 @@
 
 use std::error;
 use std::io;
-use std::io::Read as _;
 use std::io::Write as _;
 use std::iter;
 use std::mem;
 use std::path::Path;
-use std::path::PathBuf;
-use std::process::Stdio;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -90,83 +87,6 @@ pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<String, CommandError
     }
     // It's less likely that cwd isn't utf-8, so just fall back to original source.
     Ok(String::from_utf8(url.to_bstring().into()).unwrap_or_else(|_| source.to_owned()))
-}
-
-fn terminal_get_username(ui: &Ui, url: &str) -> Option<String> {
-    ui.prompt(&format!("Username for {url}")).ok()
-}
-
-fn terminal_get_pw(ui: &Ui, url: &str) -> Option<String> {
-    ui.prompt_password(&format!("Passphrase for {url}")).ok()
-}
-
-fn pinentry_get_pw(url: &str) -> Option<String> {
-    // https://www.gnupg.org/documentation/manuals/assuan/Server-responses.html#Server-responses
-    fn decode_assuan_data(encoded: &str) -> Option<String> {
-        let encoded = encoded.as_bytes();
-        let mut decoded = Vec::with_capacity(encoded.len());
-        let mut i = 0;
-        while i < encoded.len() {
-            if encoded[i] != b'%' {
-                decoded.push(encoded[i]);
-                i += 1;
-                continue;
-            }
-            i += 1;
-            let byte = u8::from_str_radix(str::from_utf8(encoded.get(i..i + 2)?).ok()?, 16).ok()?;
-            decoded.push(byte);
-            i += 2;
-        }
-        String::from_utf8(decoded).ok()
-    }
-
-    let mut pinentry = std::process::Command::new("pinentry")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .ok()?;
-    let mut interact = || -> std::io::Result<_> {
-        #[rustfmt::skip]
-        let req = format!(
-            "SETTITLE jj passphrase\n\
-             SETDESC Enter passphrase for {url}\n\
-             SETPROMPT Passphrase:\n\
-             GETPIN\n"
-        );
-        pinentry.stdin.take().unwrap().write_all(req.as_bytes())?;
-        let mut out = String::new();
-        pinentry.stdout.take().unwrap().read_to_string(&mut out)?;
-        Ok(out)
-    };
-    let maybe_out = interact();
-    pinentry.wait().ok();
-    for line in maybe_out.ok()?.split('\n') {
-        if !line.starts_with("D ") {
-            continue;
-        }
-        let (_, encoded) = line.split_at(2);
-        return decode_assuan_data(encoded);
-    }
-    None
-}
-
-#[tracing::instrument]
-fn get_ssh_keys(_username: &str) -> Vec<PathBuf> {
-    let mut paths = vec![];
-    if let Ok(home_dir) = etcetera::home_dir() {
-        let ssh_dir = home_dir.join(".ssh");
-        for filename in ["id_ed25519_sk", "id_ed25519", "id_rsa"] {
-            let key_path = ssh_dir.join(filename);
-            if key_path.is_file() {
-                tracing::info!(path = ?key_path, "found ssh key");
-                paths.push(key_path);
-            }
-        }
-    }
-    if paths.is_empty() {
-        tracing::info!("no ssh key found");
-    }
-    paths
 }
 
 // Based on Git's implementation: https://github.com/git/git/blob/43072b4ca132437f21975ac6acc6b72dc22fd398/sideband.c#L178
@@ -269,15 +189,6 @@ pub fn with_remote_git_callbacks<T>(ui: &Ui, f: impl FnOnce(git::RemoteCallbacks
         sideband_progress_writer.write(ui, progress_message).ok();
     };
     callbacks.sideband_progress = Some(&mut sideband_progress_callback);
-
-    let mut get_ssh_keys = get_ssh_keys; // Coerce to unit fn type
-    callbacks.get_ssh_keys = Some(&mut get_ssh_keys);
-    let mut get_pw =
-        |url: &str, _username: &str| pinentry_get_pw(url).or_else(|| terminal_get_pw(ui, url));
-    callbacks.get_password = Some(&mut get_pw);
-    let mut get_user_pw =
-        |url: &str| Some((terminal_get_username(ui, url)?, terminal_get_pw(ui, url)?));
-    callbacks.get_username_password = Some(&mut get_user_pw);
 
     let result = f(callbacks);
     sideband_progress_writer.flush(ui).ok();
