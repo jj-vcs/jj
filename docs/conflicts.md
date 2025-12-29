@@ -194,26 +194,30 @@ with each line terminated by a newline character (`\n`). This means that a text
 file should either be empty, or it should end with a newline character.
 
 While most text files follow this convention, some do not. When `jj` encounters
-a missing terminating newline character in a conflict, it will add a comment to
-the conflict markers to make the conflict easier to interpret. If you don't care
-about whether your file ends with a terminating newline character, you can
-generally ignore this comment and resolve the conflict normally.
+a missing terminating newline character in a conflict, it materializes the
+terminating newline character conflict in a special way. The conflict won't end
+with `\n`, and the last `\n` on every side won't be considered as the contents
+of that side.
+
+You can resolve this conflict by end the file with `\n` or not.
 
 For instance, if a file originally contained `grape` with no terminating newline
 character, and one person changed `grape` to `grapefruit`, while another person
 added the missing newline character to make `grape\n`, the resulting conflict
-would look like this:
+would look like this(␊ demonstrates the `\n` character explicitly, note that
+the last line doesn't have the terminating `\n` character):
 
 ```text
-<<<<<<< conflict 1 of 1
-+++++++ side #1 (no terminating newline)
-grapefruit
-%%%%%%% diff from: base (no terminating newline)
-\\\\\\\        to: side #2
--grape
-+grape
+<<<<<<< conflict 1 of 1␊
++++++++ side #1␊
+grapefruit␊
+%%%%%%% diff from base to side #2␊
+-grape␊
++grape␊
++␊
 >>>>>>> conflict 1 of 1 ends
 ```
 
 Therefore, a resolution of this conflict could be `grapefruit\n`, with the
-terminating newline character added.
+terminating newline character added; or just `grapefruit` without the
+terminating `\n` character.
