@@ -459,7 +459,13 @@ pub fn cmd_git_push(
     };
     let git_settings = GitSettings::from_settings(tx.settings())?;
     let push_stats = with_remote_git_callbacks(ui, |cb| {
-        git::push_branches(tx.repo_mut(), &git_settings, remote, &targets, cb)
+        git::push_branches(
+            tx.repo_mut(),
+            git_settings.to_subprocess_options(),
+            remote,
+            &targets,
+            cb,
+        )
     })?;
     process_push_stats(&push_stats)?;
     tx.finish(ui, tx_description)?;

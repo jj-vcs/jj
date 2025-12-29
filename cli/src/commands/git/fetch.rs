@@ -167,7 +167,11 @@ pub fn cmd_git_fetch(
     let git_settings = GitSettings::from_settings(tx.settings())?;
     let remote_settings = tx.settings().remote_settings()?;
     let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
-    let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings, &import_options)?;
+    let mut git_fetch = GitFetch::new(
+        tx.repo_mut(),
+        git_settings.to_subprocess_options(),
+        &import_options,
+    )?;
 
     for (remote, expanded) in expansions {
         with_remote_git_callbacks(ui, |callbacks| {

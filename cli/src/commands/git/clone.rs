@@ -331,11 +331,12 @@ fn fetch_new_remote(
     let settings = workspace_command.settings();
     let git_settings = GitSettings::from_settings(settings)?;
     let remote_settings = settings.remote_settings()?;
+    let subprocess_options = git_settings.to_subprocess_options();
     let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
     let should_track_default = settings.get_bool("git.track-default-bookmark-on-clone")?;
     let mut tx = workspace_command.start_transaction();
     let (default_branch, import_stats) = {
-        let mut git_fetch = GitFetch::new(tx.repo_mut(), &git_settings, &import_options)?;
+        let mut git_fetch = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
 
         let fetch_refspecs = expand_fetch_refspecs(remote_name, bookmark_expr.clone())?;
 

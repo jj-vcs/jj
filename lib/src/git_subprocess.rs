@@ -16,7 +16,6 @@ use std::io;
 use std::io::BufReader;
 use std::io::Read;
 use std::num::NonZeroU32;
-use std::path::Path;
 use std::path::PathBuf;
 use std::process::Child;
 use std::process::Command;
@@ -30,6 +29,7 @@ use thiserror::Error;
 
 use crate::git::FetchTagsOverride;
 use crate::git::GitPushStats;
+use crate::git::GitSubprocessOptions;
 use crate::git::NegativeRefSpec;
 use crate::git::Progress;
 use crate::git::RefSpec;
@@ -77,29 +77,29 @@ pub enum GitSubprocessError {
 }
 
 /// Context for creating Git subprocesses
-pub(crate) struct GitSubprocessContext<'a> {
+pub(crate) struct GitSubprocessContext {
     git_dir: PathBuf,
-    git_executable_path: &'a Path,
+    options: GitSubprocessOptions,
 }
 
-impl<'a> GitSubprocessContext<'a> {
-    pub(crate) fn new(git_dir: impl Into<PathBuf>, git_executable_path: &'a Path) -> Self {
+impl GitSubprocessContext {
+    pub(crate) fn new(git_dir: impl Into<PathBuf>, options: GitSubprocessOptions) -> Self {
         Self {
             git_dir: git_dir.into(),
-            git_executable_path,
+            options,
         }
     }
 
     pub(crate) fn from_git_backend(
         git_backend: &GitBackend,
-        git_executable_path: &'a Path,
+        options: GitSubprocessOptions,
     ) -> Self {
-        Self::new(git_backend.git_repo_path(), git_executable_path)
+        Self::new(git_backend.git_repo_path(), options)
     }
 
     /// Create the Git command
     fn create_command(&self) -> Command {
-        let mut git_cmd = Command::new(self.git_executable_path);
+        let mut git_cmd = Command::new(&self.options.executable_path);
         // Hide console window on Windows (https://stackoverflow.com/a/60958956)
         #[cfg(windows)]
         {
@@ -136,21 +136,24 @@ impl<'a> GitSubprocessContext<'a> {
             .stdin(Stdio::null())
             .stderr(Stdio::piped());
 
+        git_cmd.envs(&self.options.environment);
+
         git_cmd
     }
 
     /// Spawn the git command
     fn spawn_cmd(&self, mut git_cmd: Command) -> Result<Child, GitSubprocessError> {
         tracing::debug!(cmd = ?git_cmd, "spawning a git subprocess");
+
         git_cmd.spawn().map_err(|error| {
-            if self.git_executable_path.is_absolute() {
+            if self.options.executable_path.is_absolute() {
                 GitSubprocessError::Spawn {
-                    path: self.git_executable_path.to_path_buf(),
+                    path: self.options.executable_path.clone(),
                     error,
                 }
             } else {
                 GitSubprocessError::SpawnInPath {
-                    path: self.git_executable_path.to_path_buf(),
+                    path: self.options.executable_path.clone(),
                     error,
                 }
             }

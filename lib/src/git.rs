@@ -19,6 +19,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::default::Default;
+use std::ffi::OsString;
 use std::fs::File;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
@@ -98,6 +99,33 @@ impl GitSettings {
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             executable_path: settings.get("git.executable-path")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
+        })
+    }
+
+    pub fn to_subprocess_options(&self) -> GitSubprocessOptions {
+        GitSubprocessOptions {
+            executable_path: self.executable_path.clone(),
+            environment: HashMap::new(),
+        }
+    }
+}
+
+/// Configuration for a Git subprocess
+#[derive(Clone, Debug)]
+pub struct GitSubprocessOptions {
+    pub executable_path: PathBuf,
+    /// Used by consumers of jj-lib to set environment variables like
+    /// GIT_ASKPASS (for authentication callbacks) or GIT_TRACE (for debugging).
+    /// Setting per-subcommand environment variables avoids the need for unsafe
+    /// code and process-wide state.
+    pub environment: HashMap<OsString, OsString>,
+}
+
+impl GitSubprocessOptions {
+    pub fn from_settings(settings: &UserSettings) -> Result<Self, ConfigGetError> {
+        Ok(Self {
+            executable_path: settings.get("git.executable-path")?,
+            environment: HashMap::new(),
         })
     }
 }
@@ -2573,7 +2601,7 @@ fn parse_fetch_refspec(
 pub struct GitFetch<'a> {
     mut_repo: &'a mut MutableRepo,
     git_repo: Box<gix::Repository>,
-    git_ctx: GitSubprocessContext<'a>,
+    git_ctx: GitSubprocessContext,
     import_options: &'a GitImportOptions,
     fetched: Vec<FetchedBranches>,
 }
@@ -2581,13 +2609,12 @@ pub struct GitFetch<'a> {
 impl<'a> GitFetch<'a> {
     pub fn new(
         mut_repo: &'a mut MutableRepo,
-        git_settings: &'a GitSettings,
+        subprocess_options: GitSubprocessOptions,
         import_options: &'a GitImportOptions,
     ) -> Result<Self, UnexpectedGitBackendError> {
         let git_backend = get_git_backend(mut_repo.store())?;
         let git_repo = Box::new(git_backend.git_repo());
-        let git_ctx =
-            GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
+        let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
         Ok(GitFetch {
             mut_repo,
             git_repo,
@@ -2747,7 +2774,7 @@ pub struct GitRefUpdate {
 /// Pushes the specified branches and updates the repo view accordingly.
 pub fn push_branches(
     mut_repo: &mut MutableRepo,
-    git_settings: &GitSettings,
+    subprocess_options: GitSubprocessOptions,
     remote: &RemoteName,
     targets: &GitBranchPushTargets,
     callbacks: RemoteCallbacks,
@@ -2764,7 +2791,13 @@ pub fn push_branches(
         })
         .collect_vec();
 
-    let push_stats = push_updates(mut_repo, git_settings, remote, &ref_updates, callbacks)?;
+    let push_stats = push_updates(
+        mut_repo,
+        subprocess_options,
+        remote,
+        &ref_updates,
+        callbacks,
+    )?;
     tracing::debug!(?push_stats);
 
     // TODO: add support for partially pushed refs? we could update the view
@@ -2793,7 +2826,7 @@ pub fn push_branches(
 /// Pushes the specified Git refs without updating the repo view.
 pub fn push_updates(
     repo: &dyn Repo,
-    git_settings: &GitSettings,
+    subprocess_options: GitSubprocessOptions,
     remote_name: &RemoteName,
     updates: &[GitRefUpdate],
     mut callbacks: RemoteCallbacks,
@@ -2820,8 +2853,7 @@ pub fn push_updates(
 
     let git_backend = get_git_backend(repo.store())?;
     let git_repo = git_backend.git_repo();
-    let git_ctx =
-        GitSubprocessContext::from_git_backend(git_backend, &git_settings.executable_path);
+    let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
 
     // check the remote exists
     if git_repo.try_find_remote(remote_name.as_str()).is_none() {
