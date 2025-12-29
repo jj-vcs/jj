@@ -369,7 +369,6 @@ mod platform {
     use std::io;
     pub use std::os::windows::fs::symlink_dir;
     pub use std::os::windows::fs::symlink_file;
-    use std::path::Path;
 
     use winreg::RegKey;
     use winreg::enums::HKEY_LOCAL_MACHINE;
