@@ -2877,6 +2877,10 @@ type</a> are available as keywords. For example,
 <li><code>.commit() -&gt; Commit</code>: New commit.</li>
 <li><code>.operation() -&gt; Operation</code>: Operation where the commit was created or
   rewritten.</li>
+<li><code>.predecessors() -&gt; List&lt;Commit&gt;</code>: Predecessor commits of this entry.</li>
+<li><code>.inter_diff([files: StringLiteral]) -&gt; TreeDiff</code>: Changes between this commit and its
+  predecessor version(s), rebased onto the parents of this commit to avoid unrelated
+  changes (similar to <code>jj evolog -p</code>).</li>
 </ul>
 <h3 id="changeid-type"><code>ChangeId</code> type<a class="headerlink" href="#changeid-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>

@@ -6398,6 +6398,15 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p><code>TreeDiffEntry</code> now has a <code>status_char()</code> method that returns
   single-character status codes (M/A/D/C/R).</p>
 </li>
+<li>
+<p><code>CommitEvolutionEntry</code> type now has a <code>predecessors()</code> method which
+  returns the predecessor commits (previous versions) of the entry's commit.</p>
+</li>
+<li>
+<p><code>CommitEvolutionEntry</code> type now has a  <code>inter_diff()</code> method  which
+  returns a <code>TreeDiff</code> between the entry's commit and its predecessor version.
+  Optionally accepts a fileset literal to limit the diff.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
