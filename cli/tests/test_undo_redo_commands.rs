@@ -20,10 +20,14 @@ fn test_undo_root_operation() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
+    // Undoing the first operation after init restores to root operation,
+    // which removes the workspace. Show a helpful hint.
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Restored to operation: 000000000000 root()
+    Hint: Workspace 'default' was removed by this operation.
+    Use `jj workspace add` to create a new one, or `jj op revert` to restore the previous state.
     [EOF]
     ");
 
@@ -152,6 +156,8 @@ fn test_undo_with_rev_arg_falls_back_to_revert() {
     Warning: `jj undo <operation>` is deprecated; use `jj op revert <operation>` instead
     Reverted operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     Rebased 1 descendant commits
+    Hint: Workspace 'default' was removed by this operation.
+    Use `jj workspace add` to create a new one, or `jj op revert` to restore the previous state.
     [EOF]
     ");
 
