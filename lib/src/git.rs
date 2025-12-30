@@ -3004,7 +3004,14 @@ pub fn push_branches(
         })
         .collect_vec();
 
-    let push_stats = push_updates(mut_repo, subprocess_options, remote, &ref_updates, callback)?;
+    let push_stats = push_updates(
+        mut_repo,
+        subprocess_options,
+        remote,
+        &ref_updates,
+        &[],
+        callback,
+    )?;
     tracing::debug!(?push_stats);
 
     let pushed: HashSet<&GitRefName> = push_stats.pushed.iter().map(AsRef::as_ref).collect();
@@ -3056,6 +3063,7 @@ pub fn push_updates(
     subprocess_options: GitSubprocessOptions,
     remote_name: &RemoteName,
     updates: &[GitRefUpdate],
+    extra_args: &[&str],
     callback: &mut dyn GitSubprocessCallback,
 ) -> Result<GitPushStats, GitPushError> {
     let mut qualified_remote_refs_expected_locations = HashMap::new();
@@ -3092,7 +3100,7 @@ pub fn push_updates(
         .map(|full_refspec| RefToPush::new(full_refspec, &qualified_remote_refs_expected_locations))
         .collect();
 
-    let mut push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, callback)?;
+    let mut push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, extra_args, callback)?;
     push_stats.pushed.sort();
     push_stats.rejected.sort();
     push_stats.remote_rejected.sort();

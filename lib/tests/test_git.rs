@@ -4883,6 +4883,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
             subprocess_options,
             "origin".as_ref(),
             &targets,
+            &[],
             &mut NullCallback,
         )
     };
@@ -4967,6 +4968,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
             subprocess_options,
             "origin".as_ref(),
             &targets,
+            &[],
             &mut NullCallback,
         )
     };
@@ -5031,6 +5033,7 @@ fn test_push_updates_unexpectedly_exists_on_remote() {
             subprocess_options,
             "origin".as_ref(),
             &targets,
+            &[],
             &mut NullCallback,
         )
     };
@@ -5067,6 +5070,7 @@ fn test_push_updates_success() {
             expected_current_target: Some(setup.main_commit.id().clone()),
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
+        &[],
         &mut NullCallback,
     )
     .unwrap();
@@ -5113,6 +5117,7 @@ fn test_push_updates_no_such_remote() {
             expected_current_target: Some(setup.main_commit.id().clone()),
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
+        &[],
         &mut NullCallback,
     );
     assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));
@@ -5133,6 +5138,7 @@ fn test_push_updates_invalid_remote() {
             expected_current_target: Some(setup.main_commit.id().clone()),
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
+        &[],
         &mut NullCallback,
     );
     assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));

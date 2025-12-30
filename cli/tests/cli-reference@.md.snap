@@ -1362,7 +1362,7 @@ Upload changes to Gerrit for code review, or update existing changes.
 
 Uploading in a set of revisions to Gerrit creates a single "change" for each revision included in the revset. These changes are then available for review on your Gerrit instance.
 
-Note: The gerrit commit Id may not match that of your local commit Id, since we add a `Change-Id` footer to the commit message if one does not already exist. This ID is based off the jj Change-Id, but is not the same.
+Note: The Gerrit commit Id may not match that of your local commit Id, since we add a `Change-Id` footer to the commit message if one does not already exist. This ID is based off the jj Change-Id, but is not the same.
 
 If a change already exists for a given revision (i.e. it contains the same `Change-Id`), this command will update the contents of the existing change to match.
 
@@ -1382,6 +1382,51 @@ Note: this command takes 1-or-more revsets arguments, each of which can resolve 
 
    Can be configured with the `gerrit.default-remote` repository option as well. This is typically a full SSH URL for your Gerrit instance.
 * `-n`, `--dry-run` — Do not actually push the changes to Gerrit
+* `--reviewer <REVIEWER>` — Add these emails as a reviewer (can be repeated)
+* `--cc <CC>` — CC these emails on the change (can be repeated)
+* `-l`, `--label <LABEL>` — Add the following labels configured by Gerrit (can be repeated)
+
+   Gerrit silently ignores labels not present on your gerrit host. Defaults to +1 if no value is set. Eg. --label=Commit-Queue will set the Commit-Queue label to +1. Eg. --label=Commit-Queue+2 will set it to +2.
+* `--topic <TOPIC>` — Applies a topic to the change
+
+   See https://gerrit-review.googlesource.com/Documentation/intro-user.html#topics. Changes can be grouped by topic, and Gerrit can be configured to submit all changes in a topic together in a single click.
+* `--hashtag <HASHTAG>` — Applies a hashtag to the change
+
+   See https://gerrit-review.googlesource.com/Documentation/intro-user.html#hashtags. Hashtags are freeform strings associated with a change, like on social media platforms. Similar to topics, hashtags can be used to group related changes together, and to search using the hashtag: operator. Unlike topics, a change can have multiple hashtags, and they are only used for informational grouping. Changes with the same hashtags are not necessarily submitted together.
+* `--wip` — Marks the change as WIP (work in progress)
+
+   See https://gerrit-review.googlesource.com/Documentation/intro-user.html#wip.
+* `--ready` — Unmarks the change as WIP (work in progress)
+* `--private` — Marks the change as private
+
+   See https://gerrit-review.googlesource.com/Documentation/intro-user.html#private-changes.
+* `--remove-private` — Unmarks the change as private
+* `--publish-comments` — Publishes any draft comments for the given change
+* `--no-publish-comments` — Disables publishing of any draft comments for the given change
+
+   This is only useful if the user has configured Gerrit to publish comments by default.
+* `--notify <NOTIFY>` — Who to email notifications to (defaults to all)
+
+  Possible values:
+  - `none`:
+    No emails
+  - `owner`:
+    Only the change owner is notified
+  - `owner-reviewers`:
+    Only the change owner and reviewers will be notified
+  - `all`:
+    All relevant users, including owner, reviewers, cc'd, users that have starred the change, and users who have configured a watch on files in the change
+
+* `--submit` — Directly submit the changes, bypassing code review
+* `--skip-validation` — When --submit is provided, skip performing validations
+* `--ignore-attention-set` — Do not modify the attention set upon uploading
+* `--deadline <DEADLINE>` — The deadline after which the push should be aborted
+* `--custom <CUSTOM>` — Send the following custom keyed values to Gerrit (can be repeated)
+
+   See https://gerrit-review.googlesource.com/Documentation/user-upload.html#custom_keyed_values
+* `--trace <TRACE>` — For debugging Gerrit
+
+   See https://gerrit-review.googlesource.com/Documentation/user-upload.html#trace
 
 
 

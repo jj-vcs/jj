@@ -50,7 +50,7 @@ use crate::ui::Ui;
 /// each revision included in the revset. These changes are then available
 /// for review on your Gerrit instance.
 ///
-/// Note: The gerrit commit Id may not match that of your local commit Id,
+/// Note: The Gerrit commit Id may not match that of your local commit Id,
 /// since we add a `Change-Id` footer to the commit message if one does not
 /// already exist. This ID is based off the jj Change-Id, but is not the same.
 ///
@@ -61,7 +61,7 @@ use crate::ui::Ui;
 /// Note: this command takes 1-or-more revsets arguments, each of which can
 /// resolve to multiple revisions; so you may post trees or ranges of
 /// commits to Gerrit for review all at once.
-#[derive(clap::Args, Clone, Debug)]
+#[derive(clap::Args, Clone, Debug, Default)]
 pub struct UploadArgs {
     /// The revset, selecting which revisions are sent in to Gerrit
     ///
@@ -89,6 +89,131 @@ pub struct UploadArgs {
     /// Do not actually push the changes to Gerrit
     #[arg(long = "dry-run", short = 'n')]
     dry_run: bool,
+
+    // The following flags are options Gerrit supports during upload.
+    // They are documented at
+    // https://gerrit-review.googlesource.com/Documentation/user-upload.html
+    /// Add these emails as a reviewer (can be repeated)
+    #[arg(long)]
+    reviewer: Vec<String>,
+
+    /// CC these emails on the change (can be repeated)
+    #[arg(long)]
+    cc: Vec<String>,
+
+    /// Add the following labels configured by Gerrit (can be repeated)
+    ///
+    /// Gerrit silently ignores labels not present on your gerrit host.
+    /// Defaults to +1 if no value is set.
+    /// Eg. --label=Commit-Queue will set the Commit-Queue label to +1.
+    /// Eg. --label=Commit-Queue+2 will set it to +2.
+    #[arg(long, short = 'l')]
+    label: Vec<String>,
+
+    /// Applies a topic to the change
+    ///
+    /// See https://gerrit-review.googlesource.com/Documentation/intro-user.html#topics.
+    /// Changes can be grouped by topic, and Gerrit can be configured to submit
+    /// all changes in a topic together in a single click.
+    #[arg(long)]
+    topic: Option<String>,
+
+    /// Applies a hashtag to the change
+    ///
+    /// See https://gerrit-review.googlesource.com/Documentation/intro-user.html#hashtags.
+    /// Hashtags are freeform strings associated with a change, like on social
+    /// media platforms. Similar to topics, hashtags can be used to group
+    /// related changes together, and to search using the hashtag: operator.
+    /// Unlike topics, a change can have multiple hashtags, and they are only
+    /// used for informational grouping. Changes with the same hashtags are
+    /// not necessarily submitted together.
+    #[arg(long)]
+    hashtag: Option<String>,
+
+    /// Marks the change as WIP (work in progress)
+    ///
+    /// See https://gerrit-review.googlesource.com/Documentation/intro-user.html#wip.
+    #[arg(long)]
+    wip: bool,
+
+    /// Unmarks the change as WIP (work in progress)
+    #[arg(long)]
+    ready: bool,
+
+    /// Marks the change as private
+    ///
+    /// See https://gerrit-review.googlesource.com/Documentation/intro-user.html#private-changes.
+    #[arg(long)]
+    private: bool,
+
+    /// Unmarks the change as private
+    #[arg(long)]
+    remove_private: bool,
+
+    /// Publishes any draft comments for the given change
+    #[arg(long)]
+    publish_comments: bool,
+
+    /// Disables publishing of any draft comments for the given change
+    ///
+    /// This is only useful if the user has configured Gerrit to publish
+    /// comments by default.
+    #[arg(long)]
+    no_publish_comments: bool,
+
+    /// Who to email notifications to (defaults to all)
+    #[arg(long, value_enum)]
+    notify: Option<EmailNotification>,
+
+    /// Directly submit the changes, bypassing code review
+    #[arg(long)]
+    submit: bool,
+
+    /// When --submit is provided, skip performing validations
+    #[arg(long)]
+    skip_validation: bool,
+
+    /// Do not modify the attention set upon uploading
+    #[arg(long)]
+    ignore_attention_set: bool,
+
+    /// The deadline after which the push should be aborted
+    #[arg(long)]
+    deadline: Option<String>,
+
+    /// Send the following custom keyed values to Gerrit (can be repeated)
+    ///
+    /// See https://gerrit-review.googlesource.com/Documentation/user-upload.html#custom_keyed_values
+    #[arg(long)]
+    custom: Vec<String>,
+
+    /// For debugging Gerrit
+    ///
+    /// See https://gerrit-review.googlesource.com/Documentation/user-upload.html#trace
+    #[arg(long)]
+    trace: Option<String>,
+    // Note: An option "message" exists on Gerrit hosts. It is currently not
+    // implemented because it could be easy to confuse a "-m"/"--message" flag
+    // for a patchset with a message for a commit description.
+    // We can consider adding it later, but that will involve a more comprehensive
+    // discussion about the option name.
+    // See https://gerrit-review.googlesource.com/Documentation/user-upload.html#patch_set_description
+}
+
+/// Which emails receive an email notification about an update to the change.
+#[derive(clap::ValueEnum, Clone, Debug)]
+#[value(rename_all = "kebab_case")]
+pub enum EmailNotification {
+    /// No emails
+    None,
+    /// Only the change owner is notified.
+    Owner,
+    /// Only the change owner and reviewers will be notified.
+    OwnerReviewers,
+    /// All relevant users, including owner, reviewers, cc'd, users that have
+    /// starred the change, and users who have configured a watch on files in
+    /// the change.
+    All,
 }
 
 fn calculate_push_remote(
@@ -161,11 +286,96 @@ fn calculate_push_ref(
     ))
 }
 
+fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
+    for c in &args.custom {
+        if !c.contains(':') {
+            return Err(user_error(format!(
+                "Custom values must be of the form 'key:value'. Got {c}"
+            )));
+        }
+    }
+    if args.wip && args.ready {
+        return Err(user_error("--wip and --ready are mutually exclusive"));
+    }
+    if args.private && args.remove_private {
+        return Err(user_error(
+            "--private and --remove-private are mutually exclusive",
+        ));
+    }
+    if args.publish_comments && args.no_publish_comments {
+        return Err(user_error(
+            "--publish-comments and --no-publish-comments are mutually exclusive",
+        ));
+    }
+    if args.skip_validation && !args.submit {
+        return Err(user_error(
+            "--skip-validation is only supported for --submit",
+        ));
+    }
+
+    // Note: invalid push options will be ignored rather than erroring out, so
+    // we need to be careful when adding new options.
+    Ok([
+        args.notify.clone().map(|arg| {
+            (
+                "notify",
+                match arg {
+                    EmailNotification::None => "NONE",
+                    EmailNotification::All => "ALL",
+                    EmailNotification::Owner => "OWNER",
+                    EmailNotification::OwnerReviewers => "OWNER_REVIEWERS",
+                }
+                .to_string(),
+            )
+        }),
+        args.topic.clone().map(|arg| ("topic", arg)),
+        args.trace.clone().map(|arg| ("trace", arg)),
+        args.hashtag.clone().map(|arg| ("hashtag", arg)),
+        args.deadline.clone().map(|arg| ("deadline", arg)),
+    ]
+    .into_iter()
+    // TODO: In a future version, we could consider adding a list of supported
+    // labels to the config, so we can list it for the user.
+    .chain(args.label.iter().map(|arg| Some(("label", arg.clone()))))
+    .chain(
+        args.custom
+            .iter()
+            .map(|arg| Some(("custom-keyed-value", arg.clone()))),
+    )
+    .chain(args.reviewer.iter().map(|arg| Some(("r", arg.clone()))))
+    .chain(args.cc.iter().map(|arg| Some(("cc", arg.clone()))))
+    .flatten()
+    .map(|(k, v)| vec!["-o".to_string(), format!("{k}={v}")])
+    .chain(
+        [
+            args.wip.then_some("wip"),
+            args.ready.then_some("ready"),
+            args.private.then_some("private"),
+            args.remove_private.then_some("remove-private"),
+            args.publish_comments.then_some("publish-comments"),
+            args.no_publish_comments.then_some("no-publish-comments"),
+            args.skip_validation.then_some("skip-validation"),
+            args.ignore_attention_set.then_some("ignore-attention-set"),
+            args.submit.then_some("submit"),
+        ]
+        .into_iter()
+        .map(|item| match item {
+            Some(k) => vec!["-o".to_string(), k.to_string()],
+            None => vec![],
+        }),
+    )
+    .flatten()
+    .collect())
+}
+
 pub fn cmd_gerrit_upload(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &UploadArgs,
 ) -> Result<(), CommandError> {
+    // Do this first because the validation is cheap.
+    let push_options = push_options(args)?;
+
     let mut workspace_command = command.workspace_helper(ui)?;
 
     let target_expr = workspace_command
@@ -363,6 +573,7 @@ pub fn cmd_gerrit_upload(
                 expected_current_target: None,
                 new_target: Some(new_commit.id().clone()),
             }],
+            &push_options.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
             &mut GitSubprocessUi::new(ui),
         )
         // Despite the fact that a manual git push will error out with 'no new
@@ -384,4 +595,49 @@ pub fn cmd_gerrit_upload(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_gerrit_push_options() {
+        assert_eq!(
+            push_options(&Default::default()).unwrap(),
+            Vec::<String>::new(),
+        );
+
+        assert_eq!(
+            push_options(&UploadArgs {
+                notify: Some(EmailNotification::None),
+                topic: Some("my-topic".to_string()),
+                reviewer: vec!["foo@example.com".to_string()],
+                cc: vec!["bar@example.com".to_string(), "baz@example.com".to_string()],
+                wip: true,
+                private: true,
+                ..Default::default()
+            })
+            .unwrap(),
+            [
+                "-o",
+                "notify=NONE",
+                "-o",
+                "topic=my-topic",
+                "-o",
+                "r=foo@example.com",
+                "-o",
+                "cc=bar@example.com",
+                "-o",
+                "cc=baz@example.com",
+                "-o",
+                "wip",
+                "-o",
+                "private"
+            ]
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
+        );
+    }
 }
