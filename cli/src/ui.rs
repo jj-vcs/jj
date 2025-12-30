@@ -92,7 +92,10 @@ impl UiOutput {
             scroll_past_eof: false,
             ..Default::default()
         };
-        let mut pager = streampager::Pager::new_using_stdio_with_config(streampager_config)?;
+        // Initialize with tty instead of stdin/stdout. We spawn pager so long
+        // as stdout is a tty, which means stdin may be redirected.
+        let mut pager =
+            streampager::Pager::new_using_system_terminal_with_config(streampager_config)?;
 
         // Use native pipe, which can be attached to child process. The stdout
         // stream could be an in-process channel, but the cost of extra syscalls

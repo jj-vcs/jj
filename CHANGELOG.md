@@ -102,6 +102,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed problem of loading large Git packfiles.
   https://github.com/GitoxideLabs/gitoxide/issues/2265
 
+* The builtin pager won't get stuck when stdin is redirected.
+
 ## [0.36.0] - 2025-12-03
 
 ### Release highlights
