@@ -80,21 +80,37 @@ pub mod git;
 pub mod proptest;
 pub mod test_backend;
 
+pub const HERMETIC_GIT_CONFIGS: &[(&str, &str)] = &[
+    // gitoxide uses "main" as the default branch name, whereas git uses "master". This also
+    // prevents git CLI from issuing the initial branch name advice.
+    ("init.defaultBranch", "master"),
+];
+
 // TODO: Consider figuring out a way to make `GitBackend` and `git(1)` calls in
 // tests ignore external configuration and removing this function. This is
 // somewhat tricky because `gix` looks at system and user configuration, and
 // `GitBackend` also calls into `git(1)` for things like garbage collection.
 pub fn hermetic_git() {
-    unsafe {
+    let mut envs = [
         // Prevent GitBackend from loading user and system configurations. For
         // gitoxide API use in tests, Config::isolated() is probably better.
-        env::set_var("GIT_CONFIG_SYSTEM", "/dev/null");
-        env::set_var("GIT_CONFIG_GLOBAL", "/dev/null");
-        // gitoxide uses "main" as the default branch name, whereas git
-        // uses "master".
-        env::set_var("GIT_CONFIG_KEY_0", "init.defaultBranch");
-        env::set_var("GIT_CONFIG_VALUE_0", "master");
-        env::set_var("GIT_CONFIG_COUNT", "1");
+        ("GIT_CONFIG_SYSTEM", "/dev/null"),
+        ("GIT_CONFIG_GLOBAL", "/dev/null"),
+    ]
+    .map(|(key, value)| (key.to_string(), value.to_string()))
+    .to_vec();
+    for (i, (key, value)) in HERMETIC_GIT_CONFIGS.iter().enumerate() {
+        envs.push((format!("GIT_CONFIG_KEY_{i}"), key.to_string()));
+        envs.push((format!("GIT_CONFIG_VALUE_{i}"), value.to_string()));
+    }
+    envs.push((
+        "GIT_CONFIG_COUNT".to_string(),
+        HERMETIC_GIT_CONFIGS.len().to_string(),
+    ));
+    for (key, value) in envs {
+        // SAFETY: This is actually not safe. `getenv` and `setenv` are not thread safe,
+        // and we can't guarantee that the following call won't have race conditions.
+        unsafe { env::set_var(key, value) };
     }
 }
 
