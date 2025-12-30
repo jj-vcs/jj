@@ -36,6 +36,11 @@ path = "testing/fake-bisector.rs"
 required-features = ["test-fakes"]
 
 [[bin]]
+name = "fake-echo"
+path = "testing/fake-echo.rs"
+required-features = ["test-fakes"]
+
+[[bin]]
 name = "fake-editor"
 path = "testing/fake-editor.rs"
 required-features = ["test-fakes"]

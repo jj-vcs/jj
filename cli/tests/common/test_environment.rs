@@ -229,6 +229,16 @@ impl TestEnvironment {
             .push((path.into(), replacement.into()));
     }
 
+    /// Sets up echo as a merge tool.
+    ///
+    /// Windows machines may not have the echo executable installed.
+    pub fn set_up_fake_echo_merge_tool(&self) {
+        let echo_path = assert_cmd::cargo::cargo_bin!("fake-echo");
+        assert!(echo_path.is_file());
+        let echo_path = to_toml_value(echo_path.to_str().unwrap());
+        self.add_config(formatdoc!("merge-tools.fake-echo.program = {echo_path}"));
+    }
+
     /// Sets up the fake bisection test command to read a script from the
     /// returned path
     pub fn set_up_fake_bisector(&mut self) -> PathBuf {
