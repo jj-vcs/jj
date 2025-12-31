@@ -22,10 +22,12 @@ use clap::ValueEnum;
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::backend;
+use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigValue;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::store::Store;
 use jj_lib::str_util::StringExpression;
 
 use super::warn_unmatched_local_or_remote_bookmarks;
@@ -234,20 +236,7 @@ pub fn cmd_bookmark_list(
     } else {
         args.sort.clone()
     };
-    let store = repo.store();
-    let mut commits: HashMap<CommitId, Arc<backend::Commit>> = HashMap::new();
-    if sort_keys.iter().any(|key| key.is_commit_dependant()) {
-        commits = bookmark_list_items
-            .iter()
-            .filter_map(|item| item.primary.target().added_ids().next())
-            .map(|commit_id| {
-                store
-                    .get_commit(commit_id)
-                    .map(|commit| (commit_id.clone(), commit.store_commit().clone()))
-            })
-            .try_collect()?;
-    }
-    sort(&mut bookmark_list_items, &sort_keys, &commits);
+    sort(repo.store(), &mut bookmark_list_items, &sort_keys)?;
 
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
@@ -372,7 +361,32 @@ fn parse_sort_keys(value: ConfigValue) -> Result<Vec<SortKey>, String> {
     }
 }
 
+/// Sorts `bookmark_items` by multiple `sort_keys`.
+///
+/// The first key is most significant. The input items should have been sorted
+/// by [`SortKey::Name`].
 fn sort(
+    store: &Arc<Store>,
+    bookmark_items: &mut [RefListItem],
+    sort_keys: &[SortKey],
+) -> BackendResult<()> {
+    let mut commits: HashMap<CommitId, Arc<backend::Commit>> = HashMap::new();
+    if sort_keys.iter().any(|key| key.is_commit_dependant()) {
+        commits = bookmark_items
+            .iter()
+            .filter_map(|item| item.primary.target().added_ids().next())
+            .map(|commit_id| {
+                store
+                    .get_commit(commit_id)
+                    .map(|commit| (commit_id.clone(), commit.store_commit().clone()))
+            })
+            .try_collect()?;
+    }
+    sort_inner(bookmark_items, sort_keys, &commits);
+    Ok(())
+}
+
+fn sort_inner(
     bookmark_items: &mut [RefListItem],
     sort_keys: &[SortKey],
     commits: &HashMap<CommitId, Arc<backend::Commit>>,
@@ -599,7 +613,7 @@ mod tests {
         sort_keys: &[SortKey],
         commits: &HashMap<CommitId, Arc<backend::Commit>>,
     ) -> String {
-        sort(items, sort_keys, commits);
+        sort_inner(items, sort_keys, commits);
 
         let to_commit = |item: &RefListItem| {
             let id = item.primary.target().added_ids().next()?;
