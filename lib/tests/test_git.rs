@@ -3497,22 +3497,8 @@ fn test_fetch_environment_options() {
         .insert("GIT_TRACE".into(), trace_path.clone().into());
 
     let mut tx = test_data.repo.start_transaction();
-    let remote_name = "origin".as_ref();
-    let bookmark_expr = StringExpression::all();
-    let fetch_tags_override = None;
-
-    let mut git_fetch = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
-    let fetch_refspecs = expand_fetch_refspecs(remote_name, bookmark_expr).unwrap();
-
-    git_fetch
-        .fetch(
-            remote_name,
-            fetch_refspecs,
-            git::RemoteCallbacks::default(),
-            None,
-            fetch_tags_override,
-        )
-        .unwrap();
+    let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
+    fetch_all_with(&mut fetcher, "origin".as_ref()).unwrap();
 
     assert!(trace_path.exists());
 }
