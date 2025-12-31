@@ -279,6 +279,29 @@
                             "committer-date-"
                         ]
                     }
+                },
+                "tag-list-sort-keys": {
+                    "type": "array",
+                    "description": "Specifies the sort keys for the tags list. See the `jj tag list --help` for the `--sort` option",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "name",
+                            "name-",
+                            "author-name",
+                            "author-name-",
+                            "author-email",
+                            "author-email-",
+                            "author-date",
+                            "author-date-",
+                            "committer-name",
+                            "committer-name-",
+                            "committer-email",
+                            "committer-email-",
+                            "committer-date",
+                            "committer-date-"
+                        ]
+                    }
                 }
             }
         },
