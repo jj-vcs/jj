@@ -78,9 +78,13 @@ fn test_annotate_non_file() {
 
     if check_symlink_support().unwrap() {
         symlink_file("target", work_dir.root().join("symlink")).unwrap();
-
         let output = work_dir.run_jj(["file", "annotate", "symlink"]);
-        insta::assert_snapshot!(output, @"");
+        insta::assert_snapshot!(output, @"
+        ------- stderr -------
+        Error: Path exists but is not a regular file: symlink
+        [EOF]
+        [exit status: 1]
+        ");
     }
 }
 

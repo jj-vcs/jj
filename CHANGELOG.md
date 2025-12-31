@@ -98,6 +98,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   returns a `TreeDiff` between the entry's commit and its predecessor version.
   Optionally accepts a fileset literal to limit the diff.
 
+* `jj file annotate` now reports an error for non-files instead of succeeding
+  and displaying no content.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

@@ -78,10 +78,11 @@ pub(crate) fn cmd_file_annotate(
     let file_path = workspace_command.parse_file_path(&args.path)?;
     let file_value = starting_commit.tree().path_value(&file_path)?;
     let ui_path = workspace_command.format_file_path(&file_path);
+
     if file_value.is_absent() {
         return Err(user_error(format!("No such path: {ui_path}")));
     }
-    if file_value.is_tree() {
+    if file_value.to_file_merge().is_none() {
         return Err(user_error(format!(
             "Path exists but is not a regular file: {ui_path}"
         )));
