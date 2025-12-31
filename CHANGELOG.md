@@ -85,6 +85,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `--insert-before` now accepts a revset that resolves to an empty set when
   used with `--insert-after`. The behavior is similar to `--onto`.
 
+* `jj tag list` now supports `--sort` option.
+
 * `TreeDiffEntry` type now has a `display_diff_path()` method that formats
   renames/copies appropriately.
 

@@ -15,11 +15,16 @@
 use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
+use itertools::Itertools as _;
+use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringExpression;
 
 use super::warn_unmatched_local_tags;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::commit_ref_list;
+use crate::commit_ref_list::RefListItem;
+use crate::commit_ref_list::SortKey;
 use crate::commit_templater::CommitRef;
 use crate::complete;
 use crate::revset_util::parse_union_name_patterns;
@@ -52,6 +57,16 @@ pub struct TagListArgs {
     #[arg(long, short = 'T')]
     #[arg(add = ArgValueCandidates::new(complete::template_aliases))]
     template: Option<String>,
+
+    /// Sort tags based on the given key (or multiple keys)
+    ///
+    /// Suffix the key with `-` to sort in descending order of the value (e.g.
+    /// `--sort name-`). Note that when using multiple keys, the first key is
+    /// the most significant.
+    ///
+    /// This defaults to the `ui.tag-list-sort-keys` setting.
+    #[arg(long, value_name = "SORT_KEY", value_enum, value_delimiter = ',')]
+    sort: Vec<SortKey>,
 }
 
 pub fn cmd_tag_list(
@@ -60,6 +75,7 @@ pub fn cmd_tag_list(
     args: &TagListArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
+    let settings = workspace_command.settings();
     let repo = workspace_command.repo();
     let view = repo.view();
 
@@ -72,23 +88,37 @@ pub fn cmd_tag_list(
         let language = workspace_command.commit_template_language();
         let text = match &args.template {
             Some(value) => value.to_owned(),
-            None => workspace_command.settings().get("templates.tag_list")?,
+            None => settings.get("templates.tag_list")?,
         };
         workspace_command
             .parse_template(ui, &language, &text)?
             .labeled(["tag_list"])
     };
+    let sort_keys = if args.sort.is_empty() {
+        settings.get_value_with("ui.tag-list-sort-keys", commit_ref_list::parse_sort_keys)?
+    } else {
+        args.sort.clone()
+    };
+
+    // TODO: include remote tags
+    let mut list_items = view
+        .local_tags()
+        .filter(|(name, _)| name_matcher.is_match(name.as_str()))
+        .map(|(name, target)| {
+            let primary = CommitRef::local_only(name, target.clone());
+            let tracked = vec![];
+            RefListItem { primary, tracked }
+        })
+        .collect_vec();
+    commit_ref_list::sort(repo.store(), &mut list_items, &sort_keys)?;
 
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
-
-    for (name, target) in view
-        .local_tags()
-        .filter(|(name, _)| name_matcher.is_match(name.as_str()))
-    {
-        let commit_ref = CommitRef::local_only(name, target.clone());
-        template.format(&commit_ref, formatter.as_mut())?;
-    }
+    list_items
+        .iter()
+        .flat_map(|item| itertools::chain([&item.primary], &item.tracked))
+        .try_for_each(|commit_ref| template.format(commit_ref, formatter.as_mut()))?;
+    drop(formatter);
 
     warn_unmatched_local_tags(ui, view, &name_expr)?;
     Ok(())

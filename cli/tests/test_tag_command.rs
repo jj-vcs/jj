@@ -339,6 +339,29 @@ fn test_tag_list() {
     added_targets: commit2
     [EOF]
     ");
+
+    // Sort by command argument
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--sort=committer-date-,name"]), @"
+    conflicted_tag (conflicted):
+      - rlvkpnrz 893e67dc (empty) commit1
+      + zsuskuln 76abdd20 (empty) commit2
+      + royxmykx 13c4e819 (empty) commit3
+    test_tag2: zsuskuln 76abdd20 (empty) commit2
+    test_tag: rlvkpnrz 893e67dc (empty) commit1
+    [EOF]
+    ");
+
+    // Default sort keys in config
+    let config = "--config=ui.tag-list-sort-keys=['committer-date', 'name-']";
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", config]), @"
+    test_tag: rlvkpnrz 893e67dc (empty) commit1
+    test_tag2: zsuskuln 76abdd20 (empty) commit2
+    conflicted_tag (conflicted):
+      - rlvkpnrz 893e67dc (empty) commit1
+      + zsuskuln 76abdd20 (empty) commit2
+      + royxmykx 13c4e819 (empty) commit3
+    [EOF]
+    ");
 }
 
 #[must_use]
