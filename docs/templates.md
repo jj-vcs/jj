@@ -738,10 +738,11 @@ Get short commit IDs of the working-copy parents:
 jj log --no-graph -r @ -T 'parents.map(|c| c.commit_id().short()).join(",")'
 ```
 
-Show machine-readable list of full commit and change IDs:
+Show machine-readable list of full commit and change IDs, or of operation IDs:
 
 ```sh
 jj log --no-graph -T 'commit_id ++ " " ++ change_id ++ "\n"'
+jj op log --no-graph -T 'id ++ "\n"'
 ```
 
 Print the description of the current commit, defaulting to `(no description set)`:

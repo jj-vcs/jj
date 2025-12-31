@@ -638,3 +638,9 @@ description:
 ```shell
 jj log -r 'author(*martinvonz*) & description(*reset*)'
 ```
+
+Show new visible commits created by the last operation:
+
+```shell
+jj log -r 'at_operation(@, visible()) ~ at_operation(@-, visible())'
+```
