@@ -294,9 +294,9 @@ pub fn cmd_bookmark_list(
 
 #[derive(Clone, Debug)]
 struct RefListItem {
-    /// Local bookmark or untracked remote bookmark.
+    /// Local or untracked remote ref.
     primary: Rc<CommitRef>,
-    /// Remote bookmarks tracked by the primary (or local) bookmark.
+    /// Remote refs tracked by the primary (or local) ref.
     tracked: Vec<Rc<CommitRef>>,
 }
 
@@ -361,18 +361,14 @@ fn parse_sort_keys(value: ConfigValue) -> Result<Vec<SortKey>, String> {
     }
 }
 
-/// Sorts `bookmark_items` by multiple `sort_keys`.
+/// Sorts `items` by multiple `sort_keys`.
 ///
 /// The first key is most significant. The input items should have been sorted
 /// by [`SortKey::Name`].
-fn sort(
-    store: &Arc<Store>,
-    bookmark_items: &mut [RefListItem],
-    sort_keys: &[SortKey],
-) -> BackendResult<()> {
+fn sort(store: &Arc<Store>, items: &mut [RefListItem], sort_keys: &[SortKey]) -> BackendResult<()> {
     let mut commits: HashMap<CommitId, Arc<backend::Commit>> = HashMap::new();
     if sort_keys.iter().any(|key| key.is_commit_dependant()) {
-        commits = bookmark_items
+        commits = items
             .iter()
             .filter_map(|item| item.primary.target().added_ids().next())
             .map(|commit_id| {
@@ -382,12 +378,12 @@ fn sort(
             })
             .try_collect()?;
     }
-    sort_inner(bookmark_items, sort_keys, &commits);
+    sort_inner(items, sort_keys, &commits);
     Ok(())
 }
 
 fn sort_inner(
-    bookmark_items: &mut [RefListItem],
+    items: &mut [RefListItem],
     sort_keys: &[SortKey],
     commits: &HashMap<CommitId, Arc<backend::Commit>>,
 ) {
@@ -396,9 +392,8 @@ fn sort_inner(
         commits.get(id)
     };
 
-    // Multi-pass sorting, the first key is most significant.
-    // Skip first iteration if sort key is `Name`, since bookmarks are already
-    // sorted by name.
+    // Multi-pass sorting, the first key is most significant. Skip first
+    // iteration if sort key is `Name`, since items are already sorted by name.
     for sort_key in sort_keys
         .iter()
         .rev()
@@ -406,7 +401,7 @@ fn sort_inner(
     {
         match sort_key {
             SortKey::Name => {
-                bookmark_items.sort_by_key(|item| {
+                items.sort_by_key(|item| {
                     (
                         item.primary.name().to_owned(),
                         item.primary.remote_name().map(|name| name.to_owned()),
@@ -414,43 +409,66 @@ fn sort_inner(
                 });
             }
             SortKey::NameDesc => {
-                bookmark_items.sort_by_key(|item| {
+                items.sort_by_key(|item| {
                     cmp::Reverse((
                         item.primary.name().to_owned(),
                         item.primary.remote_name().map(|name| name.to_owned()),
                     ))
                 });
             }
-            SortKey::AuthorName => bookmark_items
-                .sort_by_key(|item| to_commit(item).map(|commit| commit.author.name.as_str())),
-            SortKey::AuthorNameDesc => bookmark_items.sort_by_key(|item| {
-                cmp::Reverse(to_commit(item).map(|commit| commit.author.name.as_str()))
-            }),
-            SortKey::AuthorEmail => bookmark_items
-                .sort_by_key(|item| to_commit(item).map(|commit| commit.author.email.as_str())),
-            SortKey::AuthorEmailDesc => bookmark_items.sort_by_key(|item| {
-                cmp::Reverse(to_commit(item).map(|commit| commit.author.email.as_str()))
-            }),
-            SortKey::AuthorDate => bookmark_items
-                .sort_by_key(|item| to_commit(item).map(|commit| commit.author.timestamp)),
-            SortKey::AuthorDateDesc => bookmark_items.sort_by_key(|item| {
-                cmp::Reverse(to_commit(item).map(|commit| commit.author.timestamp))
-            }),
-            SortKey::CommitterName => bookmark_items
-                .sort_by_key(|item| to_commit(item).map(|commit| commit.committer.name.as_str())),
-            SortKey::CommitterNameDesc => bookmark_items.sort_by_key(|item| {
-                cmp::Reverse(to_commit(item).map(|commit| commit.committer.name.as_str()))
-            }),
-            SortKey::CommitterEmail => bookmark_items
-                .sort_by_key(|item| to_commit(item).map(|commit| commit.committer.email.as_str())),
-            SortKey::CommitterEmailDesc => bookmark_items.sort_by_key(|item| {
-                cmp::Reverse(to_commit(item).map(|commit| commit.committer.email.as_str()))
-            }),
-            SortKey::CommitterDate => bookmark_items
-                .sort_by_key(|item| to_commit(item).map(|commit| commit.committer.timestamp)),
-            SortKey::CommitterDateDesc => bookmark_items.sort_by_key(|item| {
-                cmp::Reverse(to_commit(item).map(|commit| commit.committer.timestamp))
-            }),
+            SortKey::AuthorName => {
+                items.sort_by_key(|item| to_commit(item).map(|commit| commit.author.name.as_str()));
+            }
+            SortKey::AuthorNameDesc => {
+                items.sort_by_key(|item| {
+                    cmp::Reverse(to_commit(item).map(|commit| commit.author.name.as_str()))
+                });
+            }
+            SortKey::AuthorEmail => {
+                items
+                    .sort_by_key(|item| to_commit(item).map(|commit| commit.author.email.as_str()));
+            }
+            SortKey::AuthorEmailDesc => {
+                items.sort_by_key(|item| {
+                    cmp::Reverse(to_commit(item).map(|commit| commit.author.email.as_str()))
+                });
+            }
+            SortKey::AuthorDate => {
+                items.sort_by_key(|item| to_commit(item).map(|commit| commit.author.timestamp));
+            }
+            SortKey::AuthorDateDesc => {
+                items.sort_by_key(|item| {
+                    cmp::Reverse(to_commit(item).map(|commit| commit.author.timestamp))
+                });
+            }
+            SortKey::CommitterName => {
+                items.sort_by_key(|item| {
+                    to_commit(item).map(|commit| commit.committer.name.as_str())
+                });
+            }
+            SortKey::CommitterNameDesc => {
+                items.sort_by_key(|item| {
+                    cmp::Reverse(to_commit(item).map(|commit| commit.committer.name.as_str()))
+                });
+            }
+            SortKey::CommitterEmail => {
+                items.sort_by_key(|item| {
+                    to_commit(item).map(|commit| commit.committer.email.as_str())
+                });
+            }
+            SortKey::CommitterEmailDesc => {
+                items.sort_by_key(|item| {
+                    cmp::Reverse(to_commit(item).map(|commit| commit.committer.email.as_str()))
+                });
+            }
+            SortKey::CommitterDate => {
+                items.sort_by_key(|item| to_commit(item).map(|commit| commit.committer.timestamp));
+            }
+            SortKey::CommitterDateDesc => {
+                items.sort_by_key(|item| {
+                    cmp::Reverse(to_commit(item).map(|commit| commit.committer.timestamp))
+                });
+            }
         }
     }
 }
