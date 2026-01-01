@@ -734,6 +734,7 @@ mod tests {
     use std::collections::BTreeSet;
 
     use jj_lib::backend::FileId;
+    use jj_lib::conflict_labels::ConflictLabels;
     use jj_lib::conflicts::extract_as_single_hunk;
     use jj_lib::matchers::EverythingMatcher;
     use jj_lib::matchers::FilesMatcher;
@@ -1531,13 +1532,14 @@ mod tests {
             let base = testutils::create_single_tree(&test_repo.repo, &[(file_path, "")]);
             let left = testutils::create_single_tree(&test_repo.repo, &[(file_path, "1\n")]);
             let right = testutils::create_single_tree(&test_repo.repo, &[(file_path, "2\n")]);
-            MergedTree::unlabeled(
+            MergedTree::new(
                 store.clone(),
                 Merge::from_vec(vec![
                     left.id().clone(),
                     base.id().clone(),
                     right.id().clone(),
                 ]),
+                ConflictLabels::from_vec(vec!["left".into(), "base".into(), "right".into()]),
             )
         };
         let right_tree = testutils::create_tree(&test_repo.repo, &[(file_path, "resolved\n")]);
@@ -1567,7 +1569,12 @@ mod tests {
                             SectionChangedLine {
                                 is_checked: false,
                                 change_type: Removed,
-                                line: "%%%%%%% diff from base to side #1\n",
+                                line: "%%%%%%% diff from: base\n",
+                            },
+                            SectionChangedLine {
+                                is_checked: false,
+                                change_type: Removed,
+                                line: "\\\\\\\\\\\\\\        to: left\n",
                             },
                             SectionChangedLine {
                                 is_checked: false,
@@ -1577,7 +1584,7 @@ mod tests {
                             SectionChangedLine {
                                 is_checked: false,
                                 change_type: Removed,
-                                line: "+++++++ side #2\n",
+                                line: "+++++++ right\n",
                             },
                             SectionChangedLine {
                                 is_checked: false,
@@ -1601,7 +1608,18 @@ mod tests {
         ]
         "#);
         let no_changes_tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        assert_tree_eq!(left_tree, no_changes_tree, "no-changes tree was different");
+        // TODO: we should ensure that `jj diffedit` preserves labels when restoring a
+        // conflict. It also should work when restoring conflicts of differing arities.
+        let left_tree_without_labels = MergedTree::new(
+            left_tree.store().clone(),
+            left_tree.tree_ids().clone(),
+            ConflictLabels::unlabeled(),
+        );
+        assert_tree_eq!(
+            left_tree_without_labels,
+            no_changes_tree,
+            "no-changes tree was different"
+        );
 
         let mut files = files;
         for file in &mut files {

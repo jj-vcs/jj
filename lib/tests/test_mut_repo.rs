@@ -14,6 +14,8 @@
 
 use jj_lib::backend::CommitId;
 use jj_lib::index::Index;
+use jj_lib::merge::Merge;
+use jj_lib::merged_tree::MergedTree;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::op_store::RemoteRefState;
@@ -150,12 +152,14 @@ fn test_edit_previous_empty_merge() {
     let mut_repo = tx.repo_mut();
     let old_parent1 = write_random_commit(mut_repo);
     let old_parent2 = write_random_commit(mut_repo);
-    let empty_tree = repo.store().root_commit().tree();
-    let old_parent_tree = old_parent1
-        .tree()
-        .merge_unlabeled(empty_tree, old_parent2.tree())
-        .block_on()
-        .unwrap();
+    let empty_tree = repo.store().empty_merged_tree();
+    let old_parent_tree = MergedTree::merge(Merge::from_vec(vec![
+        (old_parent1.tree(), "old parent 1".into()),
+        (empty_tree, "empty".into()),
+        (old_parent2.tree(), "old parent 2".into()),
+    ]))
+    .block_on()
+    .unwrap();
     let old_wc_commit = mut_repo
         .new_commit(
             vec![old_parent1.id().clone(), old_parent2.id().clone()],

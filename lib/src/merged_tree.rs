@@ -78,15 +78,9 @@ impl fmt::Debug for MergedTree {
 impl MergedTree {
     /// Creates a `MergedTree` with the given resolved tree ID.
     pub fn resolved(store: Arc<Store>, tree_id: TreeId) -> Self {
-        Self::unlabeled(store, Merge::resolved(tree_id))
-    }
-
-    /// Creates a `MergedTree` with the given tree IDs, without conflict labels.
-    // TODO: remove when all callers are migrated to `MergedTree::new`.
-    pub fn unlabeled(store: Arc<Store>, tree_ids: Merge<TreeId>) -> Self {
         Self {
             store,
-            tree_ids,
+            tree_ids: Merge::resolved(tree_id),
             labels: ConflictLabels::unlabeled(),
         }
     }
@@ -323,18 +317,6 @@ impl MergedTree {
             other.clone(),
             copy_records,
         ))
-    }
-
-    /// Merges this tree with `other`, using `base` as base. Any conflicts will
-    /// be resolved recursively if possible. Does not add conflict labels.
-    // TODO: remove when all callers are migrated to `MergedTree::merge`.
-    pub async fn merge_unlabeled(self, base: Self, other: Self) -> BackendResult<Self> {
-        Self::merge(Merge::from_vec(vec![
-            (self, String::new()),
-            (base, String::new()),
-            (other, String::new()),
-        ]))
-        .await
     }
 
     /// Merges the provided trees into a single `MergedTree`. Any conflicts will

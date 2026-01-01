@@ -427,7 +427,13 @@ fn test_conflict_subdirectory() {
     let tree1 = create_tree(repo, &[(path, "0")]);
     let commit1 = commit_with_tree(repo.store(), tree1.clone());
     let tree2 = create_tree(repo, &[(path, "1")]);
-    let merged_tree = tree1.merge_unlabeled(empty_tree, tree2).block_on().unwrap();
+    let merged_tree = MergedTree::merge(Merge::from_vec(vec![
+        (tree1, "tree 1".into()),
+        (empty_tree, "empty".into()),
+        (tree2, "tree 2".into()),
+    ]))
+    .block_on()
+    .unwrap();
     let merged_commit = commit_with_tree(repo.store(), merged_tree);
     let repo = &test_workspace.repo;
     let ws = &mut test_workspace.workspace;
@@ -863,13 +869,15 @@ fn test_materialize_snapshot_conflicted_files() {
     let side2_tree = create_tree(repo, &[(file1_path, "a\n"), (file2_path, "4\n")]);
     let base2_tree = create_tree(repo, &[(file1_path, "b\n"), (file2_path, "3\n")]);
     let side3_tree = create_tree(repo, &[(file1_path, "c\n"), (file2_path, "3\n")]);
-    let merged_tree = side1_tree
-        .merge_unlabeled(base1_tree, side2_tree)
-        .block_on()
-        .unwrap()
-        .merge_unlabeled(base2_tree, side3_tree)
-        .block_on()
-        .unwrap();
+    let merged_tree = MergedTree::merge(Merge::from_vec(vec![
+        (side1_tree, "side 1".into()),
+        (base1_tree, "base 1".into()),
+        (side2_tree, "side 2".into()),
+        (base2_tree, "base 2".into()),
+        (side3_tree, "side 3".into()),
+    ]))
+    .block_on()
+    .unwrap();
     let commit = commit_with_tree(repo.store(), merged_tree.clone());
 
     let stats = ws.check_out(repo.op_id().clone(), None, &commit).unwrap();
@@ -893,10 +901,11 @@ fn test_materialize_snapshot_conflicted_files() {
         std::fs::read_to_string(file1_path.to_fs_path_unchecked(&workspace_root)).ok().unwrap(),
         @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: base 2
+    \\\\\\\        to: side 2
     -b
     +a
-    +++++++ side #2
+    +++++++ side 3
     c
     >>>>>>> conflict 1 of 1 ends
     ");
@@ -904,10 +913,11 @@ fn test_materialize_snapshot_conflicted_files() {
         std::fs::read_to_string(file2_path.to_fs_path_unchecked(&workspace_root)).ok().unwrap(),
         @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: base 1
+    \\\\\\\        to: side 1
     -2
     +1
-    +++++++ side #2
+    +++++++ side 2
     4
     >>>>>>> conflict 1 of 1 ends
     ");
@@ -995,10 +1005,13 @@ fn test_materialize_snapshot_unchanged_conflicts() {
     let base_tree = create_tree(repo, &[(file_path, base_content)]);
     let left_tree = create_tree(repo, &[(file_path, left_content)]);
     let right_tree = create_tree(repo, &[(file_path, right_content)]);
-    let merged_tree = left_tree
-        .merge_unlabeled(base_tree, right_tree)
-        .block_on()
-        .unwrap();
+    let merged_tree = MergedTree::merge(Merge::from_vec(vec![
+        (left_tree, "left".into()),
+        (base_tree, "base".into()),
+        (right_tree, "right".into()),
+    ]))
+    .block_on()
+    .unwrap();
     let commit = commit_with_tree(repo.store(), merged_tree.clone());
 
     test_workspace
@@ -1013,11 +1026,12 @@ fn test_materialize_snapshot_unchanged_conflicts() {
     line 1
     line 2
     <<<<<<< conflict 1 of 1
-    +++++++ side #1
+    +++++++ left
     left 3.1
     left 3.2
     left 3.3
-    %%%%%%% diff from base to side #2
+    %%%%%%% diff from: base
+    \\\\\\\        to: right
     -line 3
     +right 3.1
     >>>>>>> conflict 1 of 1 ends
