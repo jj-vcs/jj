@@ -1233,10 +1233,17 @@ fn test_bookmark_track_untrack() {
     ");
 
     // Track new bookmark. Local bookmark should be created.
-    let output = work_dir.run_jj(["bookmark", "track", "feature1@origin", "main@origin"]);
-    insta::assert_snapshot!(output, @r"
+    let output = work_dir.run_jj([
+        "bookmark",
+        "track",
+        "feature1@origin",
+        "main@origin",
+        "nonexistent@origin",
+    ]);
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: <bookmark>@<remote> syntax is deprecated, use `<bookmark> --remote=<remote>` instead.
+    Warning: No matching remote bookmarks for names: nonexistent@origin
     Started tracking 2 remote bookmarks.
     [EOF]
     ");
