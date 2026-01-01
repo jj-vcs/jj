@@ -41,6 +41,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Template expansion that did not produce a terminating newline will not be
   fixed up to provide one by `jj log`, `jj evolog`, or `jj op log`.
 
+* The `diff` conflict marker style can now use `\\\\\\\` markers to indicate
+  the continuation of a conflict label from the previous line.
+
 ### Deprecations
 
 * The `git_head()` and `git_refs()` functions will be removed from revsets and
@@ -76,9 +79,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Early version of a `jj file search` command for searching for a pattern in
   files (like `git grep`).
 
-* Conflict labels can now contain information about where the sides of a
-  conflict came from (currently this is only supported for conflicts created by
-  certain commands).
+* Conflict labels now contain information about where the sides of a conflict
+  came from (e.g. `nlqwxzwn 7dd24e73 "first line of description"`).
 
 * `--insert-before` now accepts a revset that resolves to an empty set when
   used with `--insert-after`. The behavior is similar to `--onto`.
