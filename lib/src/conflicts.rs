@@ -625,8 +625,8 @@ fn materialize_jj_style_conflict(
                 });
             if labels.get_add(add_index).is_none()
                 && labels.get_remove(base_index).is_none()
-                && !has_no_eol(remove_last_hunk)
-                && !has_no_eol(add_last_hunk)
+                && has_ending_eol(remove_last_hunk)
+                && has_ending_eol(add_last_hunk)
             {
                 // TODO: remove this format when all conflicts have labels
                 // Use simple conflict markers when there are no conflict labels and no comment
@@ -730,10 +730,10 @@ fn materialize_jj_style_conflict(
 }
 
 fn maybe_no_eol_comment(slice: &[u8]) -> &'static str {
-    if has_no_eol(slice) {
-        NO_EOL_COMMENT
-    } else {
+    if has_ending_eol(slice) {
         ""
+    } else {
+        NO_EOL_COMMENT
     }
 }
 
@@ -741,15 +741,21 @@ fn maybe_no_eol_comment(slice: &[u8]) -> &'static str {
 // missing its terminating newline.
 fn write_and_ensure_newline(output: &mut dyn Write, data: &[u8]) -> io::Result<()> {
     output.write_all(data)?;
-    if has_no_eol(data) {
+    if !has_ending_eol(data) {
         writeln!(output)?;
     }
     Ok(())
 }
 
-// Check whether a slice is missing its terminating newline character.
-fn has_no_eol(slice: &[u8]) -> bool {
-    slice.last().is_some_and(|&last| last != b'\n')
+/// Check whether a slice is empty or has its terminating newline character.
+///
+/// An empty slice should be considered as having the ending EOL, because:
+///
+/// * It doesn't have any lines.
+/// * It's the only contents that don't end with `LF` and won't be confused with
+///   the conflict mark.
+fn has_ending_eol(slice: &[u8]) -> bool {
+    slice.is_empty() || slice.ends_with(b"\n")
 }
 
 fn diff_size(hunks: &[DiffHunk]) -> usize {
@@ -1041,7 +1047,7 @@ pub async fn update_from_content(
         .filter(|hunk| !hunk.is_resolved())
     {
         for (original_content, term) in itertools::zip_eq(&old_contents, last_hunk) {
-            if term.last() == Some(&b'\n') && has_no_eol(original_content) {
+            if term.last() == Some(&b'\n') && !has_ending_eol(original_content) {
                 term.pop();
             }
         }
