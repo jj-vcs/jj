@@ -2228,9 +2228,12 @@ fn test_resolve_with_contents_of_side() {
         &[("file", "b\n"), ("other", "right\n")],
     );
     create_commit_with_files(&work_dir, "conflict", &["a", "b", "c"], &[]);
+    create_commit_with_files(&work_dir, "tip", &["conflict"], &[]);
+
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @      conflict
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  tip
+    ×      conflict
     ├─┬─╮
     │ │ ○  c
     │ ○ │  b
@@ -2270,13 +2273,12 @@ fn test_resolve_with_contents_of_side() {
 
     // Check that ":ours" merge tool works correctly
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
-    let output = work_dir.run_jj(["resolve", "--tool", ":ours"]);
-    insta::assert_snapshot!(output, @r"
+    let output = work_dir.run_jj(["resolve", "-r", "conflict", "--tool", ":ours"]);
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: znkkpsqq 5410a03a conflict | conflict
-    Parent commit (@-)      : zsuskuln 72dced6e a | a
-    Parent commit (@-)      : royxmykx e5747f42 b | b
-    Parent commit (@-)      : vruxwmqv dd35236a c | c
+    Rebased 1 descendant commits
+    Working copy  (@) now at: kmkuslsw 6cca6d79 tip | (empty) tip
+    Parent commit (@-)      : znkkpsqq b84d5da4 conflict | conflict
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
@@ -2292,13 +2294,12 @@ fn test_resolve_with_contents_of_side() {
     // Check that ":theirs" merge tool works correctly
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
-    let output = work_dir.run_jj(["resolve", "--tool", ":theirs"]);
-    insta::assert_snapshot!(output, @r"
+    let output = work_dir.run_jj(["resolve", "-r", "conflict", "--tool", ":theirs"]);
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: znkkpsqq c07b2e9e conflict | conflict
-    Parent commit (@-)      : zsuskuln 72dced6e a | a
-    Parent commit (@-)      : royxmykx e5747f42 b | b
-    Parent commit (@-)      : vruxwmqv dd35236a c | c
+    Rebased 1 descendant commits
+    Working copy  (@) now at: kmkuslsw 4a54e224 tip | (empty) tip
+    Parent commit (@-)      : znkkpsqq ffd341c7 conflict | conflict
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
