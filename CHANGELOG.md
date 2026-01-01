@@ -98,6 +98,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   returns a `TreeDiff` between the entry's commit and its predecessor version.
   Optionally accepts a fileset literal to limit the diff.
 
+* `jj gerrit upload` now supports a variety of new flags documented in
+  [gerrit's documentation](https://gerrit-review.googlesource.com/Documentation/user-upload.html).
+  This includes, for example, `--reviewer=foo@example.com` and
+  `--label=Auto-Submit`.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

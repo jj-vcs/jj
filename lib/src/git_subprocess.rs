@@ -265,6 +265,7 @@ impl GitSubprocessContext {
         &self,
         remote_name: &RemoteName,
         references: &[RefToPush],
+        extra_args: &[&str],
         callbacks: &mut RemoteCallbacks<'_>,
     ) -> Result<GitPushStats, GitSubprocessError> {
         let mut command = self.create_command();
@@ -283,6 +284,7 @@ impl GitSubprocessContext {
                 .iter()
                 .map(|reference| format!("--force-with-lease={}", reference.to_git_lease())),
         );
+        command.args(extra_args);
         command.args(["--", remote_name.as_str()]);
         // with --force-with-lease we cannot have the forced refspec,
         // as it ignores the lease
