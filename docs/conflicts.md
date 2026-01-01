@@ -176,11 +176,12 @@ conflict markers which are longer than normal:
 
 ```text
 <<<<<<<<<<<<<<< conflict 1 of 1
-%%%%%%%%%%%%%%% diff from base to side #1
+%%%%%%%%%%%%%%% diff from: wqvuxsty cb9217d5 "merge base"
+\\\\\\\\\\\\\\\        to: kwntsput 0e15b770 "commit A"
 -Heading
 +HEADING
  =======
-+++++++++++++++ side #2
++++++++++++++++ mpnwrytz 52020ed6 "commit B"
 New Heading
 ===========
 >>>>>>>>>>>>>>> conflict 1 of 1 ends
@@ -206,10 +207,10 @@ would look like this:
 
 ```text
 <<<<<<< conflict 1 of 1
-+++++++ side #1 (no terminating newline)
++++++++ tlwwkqxk d121763d "commit A" (no terminating newline)
 grapefruit
-%%%%%%% diff from: base (no terminating newline)
-\\\\\\\        to: side #2
+%%%%%%% diff from: qwpqssno fe561d93 "merge base" (no terminating newline)
+\\\\\\\        to: poxkmrxy c735fe02 "commit B"
 -grape
 +grape
 >>>>>>> conflict 1 of 1 ends
