@@ -189,12 +189,13 @@ fn test_interdiff_conflicting() {
     index 0000000000..24c5735c3e 100644
     --- a/file
     +++ b/file
-    @@ -1,7 +1,1 @@
+    @@ -1,8 +1,1 @@
     -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from base to side #1
+    -%%%%%%% diff from: qpvuntsm d0c049cd (original parents)
+    -\\\\\\\        to: zsuskuln 0b2c304e (new parents)
     --foo
     -+abc
-    -+++++++ side #2
+    -+++++++ rlvkpnrz b23f92c3 (original revision)
     -bar
     ->>>>>>> conflict 1 of 1 ends
     +def

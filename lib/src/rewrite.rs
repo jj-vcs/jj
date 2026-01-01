@@ -385,6 +385,7 @@ pub fn rebase_commit_with_options(
 }
 
 /// Moves changes from `sources` to the `destination` parent, returns new tree.
+// TODO: pass conflict labels as argument to provide more specific information
 pub fn rebase_to_dest_parent(
     repo: &dyn Repo,
     sources: &[Commit],
@@ -395,16 +396,30 @@ pub fn rebase_to_dest_parent(
     {
         return Ok(source.tree());
     }
-    sources.iter().try_fold(
-        destination.parent_tree(repo)?,
-        |destination_tree, source| {
-            let source_parent_tree = source.parent_tree(repo)?;
-            let source_tree = source.tree();
-            destination_tree
-                .merge_unlabeled(source_parent_tree, source_tree)
-                .block_on()
-        },
-    )
+
+    let diffs: Vec<_> = sources
+        .iter()
+        .map(|source| -> BackendResult<_> {
+            Ok(Diff::new(
+                (
+                    source.parent_tree(repo)?,
+                    format!("{} (original parents)", source.parents_conflict_label()?),
+                ),
+                (
+                    source.tree(),
+                    format!("{} (original revision)", source.conflict_label()),
+                ),
+            ))
+        })
+        .try_collect()?;
+    MergedTree::merge(Merge::from_diffs(
+        (
+            destination.parent_tree(repo)?,
+            format!("{} (new parents)", destination.parents_conflict_label()?),
+        ),
+        diffs,
+    ))
+    .block_on()
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
@@ -1176,10 +1191,9 @@ impl CommitWithSelection {
         selected_tree_label: &str,
         full_selection_label: &str,
     ) -> BackendResult<Diff<(MergedTree, String)>> {
-        let parents: Vec<_> = self.commit.parents().try_collect()?;
         let parent_tree_label = format!(
             "{} ({parent_tree_label})",
-            conflict_label_for_commits(&parents)
+            self.commit.parents_conflict_label()?
         );
 
         let commit_label = self.commit.conflict_label();

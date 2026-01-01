@@ -233,6 +233,12 @@ impl Commit {
         // Example: nlqwxzwn 7dd24e73
         format!("{:.8} {:.8}", self.change_id(), self.id())
     }
+
+    /// A string describing the commit's parents to be used in conflict markers.
+    pub fn parents_conflict_label(&self) -> BackendResult<String> {
+        let parents: Vec<_> = self.parents().try_collect()?;
+        Ok(conflict_label_for_commits(&parents))
+    }
 }
 
 // If there is a single commit, returns the detailed conflict label for that
