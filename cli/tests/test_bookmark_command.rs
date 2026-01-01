@@ -2659,12 +2659,16 @@ fn test_create_and_set_auto_track_bookmarks() {
     root_dir
         .run_jj(["git", "init", "--colocate", "origin"])
         .success();
+
+    // auto-tracking an unknown remote (upstream) will have no effect
     test_env.add_config(
         "
         [remotes.origin]
         auto-track-bookmarks = 'mine/*'
         [remotes.fork]
         auto-track-bookmarks = 'mine/* | not-mine/*'
+        [remotes.upstream]
+        auto-track-bookmarks = '*'
         ",
     );
 
