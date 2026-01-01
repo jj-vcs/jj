@@ -6337,6 +6337,10 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p>Template expansion that did not produce a terminating newline will not be
   fixed up to provide one by <code>jj log</code>, <code>jj evolog</code>, or <code>jj op log</code>.</p>
 </li>
+<li>
+<p>The <code>diff</code> conflict marker style can now use <code>\\\\\\\</code> markers to indicate
+  the continuation of a conflict label from the previous line.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <ul>
@@ -6382,9 +6386,8 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   files (like <code>git grep</code>).</p>
 </li>
 <li>
-<p>Conflict labels can now contain information about where the sides of a
-  conflict came from (currently this is only supported for conflicts created by
-  certain commands).</p>
+<p>Conflict labels now contain information about where the sides of a conflict
+  came from (e.g. <code>nlqwxzwn 7dd24e73 "first line of description"</code>).</p>
 </li>
 <li>
 <p><code>--insert-before</code> now accepts a revset that resolves to an empty set when
