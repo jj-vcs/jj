@@ -475,7 +475,10 @@ fn test_conflict_headers_roundtrip() {
         ]),
         ConflictLabels::from_vec(vec![
             "".into(),
-            "base 1".into(),
+            // Test that various UTF-8 characters can be encoded and decoded. Git doesn't allow
+            // storing arbitrary binary data in headers, but it does allow storing UTF-8 encoded
+            // strings as long as they don't contain U+0000 codepoints.
+            "base 1 \"utf8 \u{67d4}\u{8853} \u{ba4}\u{bc1}\u{bb0}\u{bc1} \u{2699}\u{fe0f}\"".into(),
             "side 2".into(),
             "".into(),
             "side 3".into(),

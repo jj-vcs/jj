@@ -217,7 +217,10 @@ impl Commit {
             format!(
                 "{} \"{}\"",
                 self.conflict_label_short(),
-                subject.escape_default()
+                // Control characters shouldn't be written in conflict markers, and '\0' isn't
+                // supported by the Git backend, so we just remove them. Unicode characters are
+                // supported, so we don't have to remove them.
+                subject.trim().replace(char::is_control, "")
             )
         } else {
             self.conflict_label_short()
