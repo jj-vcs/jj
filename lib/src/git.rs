@@ -21,6 +21,7 @@ use std::collections::HashSet;
 use std::default::Default;
 use std::ffi::OsString;
 use std::fs::File;
+use std::iter;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -2800,24 +2801,22 @@ pub fn push_branches(
     )?;
     tracing::debug!(?push_stats);
 
-    // TODO: add support for partially pushed refs? we could update the view
-    // excluding rejected refs, but the transaction would be aborted anyway
-    // if we returned an Err.
-    if push_stats.all_ok() {
-        for (name, update) in &targets.branch_updates {
-            let git_ref_name: GitRefNameBuf = format!(
-                "refs/remotes/{remote}/{name}",
-                remote = remote.as_str(),
-                name = name.as_str()
-            )
-            .into();
-            let new_remote_ref = RemoteRef {
-                target: RefTarget::resolved(update.new_target.clone()),
-                state: RemoteRefState::Tracked,
-            };
-            mut_repo.set_git_ref_target(&git_ref_name, new_remote_ref.target.clone());
-            mut_repo.set_remote_bookmark(name.to_remote_symbol(remote), new_remote_ref);
-        }
+    let pushed: HashSet<&GitRefName> = push_stats.pushed.iter().map(AsRef::as_ref).collect();
+    let pushed_branch_updates = iter::zip(&targets.branch_updates, &ref_updates)
+        .filter(|(_, ref_update)| pushed.contains(&*ref_update.qualified_name));
+    for ((name, update), _) in pushed_branch_updates {
+        let git_ref_name: GitRefNameBuf = format!(
+            "refs/remotes/{remote}/{name}",
+            remote = remote.as_str(),
+            name = name.as_str(),
+        )
+        .into();
+        let new_remote_ref = RemoteRef {
+            target: RefTarget::resolved(update.new_target.clone()),
+            state: RemoteRefState::Tracked,
+        };
+        mut_repo.set_git_ref_target(&git_ref_name, new_remote_ref.target.clone());
+        mut_repo.set_remote_bookmark(name.to_remote_symbol(remote), new_remote_ref);
     }
 
     Ok(push_stats)

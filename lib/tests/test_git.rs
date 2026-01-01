@@ -4325,6 +4325,84 @@ fn test_push_bookmarks_not_fast_forward() {
     assert_eq!(new_target.target().id(), git_id(&setup.sideways_commit));
 }
 
+#[test]
+fn test_push_bookmarks_partial_success() {
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+    let setup = set_up_push_repos(&settings, &temp_dir);
+    let mut tx = setup.jj_repo.start_transaction();
+    let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
+
+    let targets = GitBranchPushTargets {
+        branch_updates: vec![
+            (
+                "main".into(),
+                BookmarkPushUpdate {
+                    old_target: Some(setup.main_commit.id().clone()),
+                    new_target: Some(setup.child_of_main_commit.id().clone()),
+                },
+            ),
+            (
+                "other".into(),
+                BookmarkPushUpdate {
+                    old_target: Some(setup.main_commit.id().clone()), // bad old state
+                    new_target: Some(setup.child_of_main_commit.id().clone()),
+                },
+            ),
+        ],
+    };
+    let stats = git::push_branches(
+        tx.repo_mut(),
+        subprocess_options,
+        "origin".as_ref(),
+        &targets,
+        git::RemoteCallbacks::default(),
+    )
+    .unwrap();
+    insta::assert_debug_snapshot!(stats, @r#"
+    GitPushStats {
+        pushed: [
+            GitRefNameBuf(
+                "refs/heads/main",
+            ),
+        ],
+        rejected: [
+            (
+                GitRefNameBuf(
+                    "refs/heads/other",
+                ),
+                Some(
+                    "stale info",
+                ),
+            ),
+        ],
+        remote_rejected: [],
+    }
+    "#);
+
+    // Check that the repo view got updated only for the pushed refs
+    let view = tx.repo().view();
+    assert_eq!(
+        *view.get_git_ref("refs/remotes/origin/main".as_ref()),
+        RefTarget::normal(setup.child_of_main_commit.id().clone())
+    );
+    assert_eq!(
+        *view.get_remote_bookmark(remote_symbol("main", "origin")),
+        RemoteRef {
+            target: RefTarget::normal(setup.child_of_main_commit.id().clone()),
+            state: RemoteRefState::Tracked,
+        }
+    );
+    assert_eq!(
+        view.get_git_ref("refs/remotes/origin/other".as_ref()),
+        RefTarget::absent_ref()
+    );
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("other", "origin")),
+        RemoteRef::absent_ref()
+    );
+}
+
 // TODO(ilyagr): More tests for push safety checks were originally planned. We
 // may want to add tests for when a bookmark unexpectedly moved backwards or
 // unexpectedly does not exist for bookmark deletion.

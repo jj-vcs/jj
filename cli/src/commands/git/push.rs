@@ -467,54 +467,62 @@ pub fn cmd_git_push(
             cb,
         )
     })?;
-    process_push_stats(&push_stats)?;
-    tx.finish(ui, tx_description)?;
-    Ok(())
+    print_stats(ui, &push_stats)?;
+    // TODO: On partial success, locally-created --change/--named bookmarks will
+    // be committed. It's probably better to remove failed local bookmarks.
+    if push_stats.all_ok() || !push_stats.pushed.is_empty() {
+        tx.finish(ui, tx_description)?;
+    }
+    if push_stats.all_ok() {
+        Ok(())
+    } else {
+        Err(user_error("Failed to push some bookmarks"))
+    }
 }
 
-fn process_push_stats(push_stats: &GitPushStats) -> Result<(), CommandError> {
-    if !push_stats.all_ok() {
-        let mut error = user_error("Failed to push some bookmarks");
-        if !push_stats.rejected.is_empty() {
-            error.add_formatted_hint_with(|formatter| {
-                writeln!(
-                    formatter,
-                    "The following references unexpectedly moved on the remote:"
-                )?;
-                for (reference, reason) in &push_stats.rejected {
-                    write!(formatter, "  ")?;
-                    write!(formatter.labeled("git_ref"), "{}", reference.as_symbol())?;
-                    if let Some(r) = reason {
-                        write!(formatter, " (reason: {r})")?;
-                    }
-                    writeln!(formatter)?;
-                }
-                Ok(())
-            });
-            error.add_hint(
-                "Try fetching from the remote, then make the bookmark point to where you want it \
-                 to be, and push again.",
-            );
+fn print_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
+    if !stats.rejected.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "The following references unexpectedly moved on the remote:"
+        )?;
+        let mut formatter = ui.stderr_formatter();
+        for (reference, reason) in &stats.rejected {
+            write!(formatter, "  ")?;
+            write!(formatter.labeled("git_ref"), "{}", reference.as_symbol())?;
+            if let Some(r) = reason {
+                write!(formatter, " (reason: {r})")?;
+            }
+            writeln!(formatter)?;
         }
-        if !push_stats.remote_rejected.is_empty() {
-            error.add_formatted_hint_with(|formatter| {
-                writeln!(formatter, "The remote rejected the following updates:")?;
-                for (reference, reason) in &push_stats.remote_rejected {
-                    write!(formatter, "  ")?;
-                    write!(formatter.labeled("git_ref"), "{}", reference.as_symbol())?;
-                    if let Some(r) = reason {
-                        write!(formatter, " (reason: {r})")?;
-                    }
-                    writeln!(formatter)?;
-                }
-                Ok(())
-            });
-            error.add_hint("Try checking if you have permission to push to all the bookmarks.");
-        }
-        Err(error)
-    } else {
-        Ok(())
+        drop(formatter);
+        writeln!(
+            ui.hint_default(),
+            "Try fetching from the remote, then make the bookmark point to where you want it to \
+             be, and push again.",
+        )?;
     }
+    if !stats.remote_rejected.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "The remote rejected the following updates:"
+        )?;
+        let mut formatter = ui.stderr_formatter();
+        for (reference, reason) in &stats.remote_rejected {
+            write!(formatter, "  ")?;
+            write!(formatter.labeled("git_ref"), "{}", reference.as_symbol())?;
+            if let Some(r) = reason {
+                write!(formatter, " (reason: {r})")?;
+            }
+            writeln!(formatter)?;
+        }
+        drop(formatter);
+        writeln!(
+            ui.hint_default(),
+            "Try checking if you have permission to push to all the bookmarks."
+        )?;
+    }
+    Ok(())
 }
 
 /// Validates that the commits that will be pushed are ready (have authorship
