@@ -28,6 +28,7 @@ use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::config::ConfigGetResultExt as _;
+use jj_lib::dsl_util::ExpressionNode;
 use jj_lib::git;
 use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitPushStats;
@@ -45,11 +46,16 @@ use jj_lib::refs::BookmarkPushUpdate;
 use jj_lib::refs::LocalAndRemoteRef;
 use jj_lib::refs::classify_bookmark_push_action;
 use jj_lib::repo::Repo;
+use jj_lib::revset;
+use jj_lib::revset::ExpressionKind;
+use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::revset::RevsetModifier;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringExpression;
 use jj_lib::view::View;
+use pest::Span;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -60,6 +66,7 @@ use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::cli_error_with_message;
+use crate::command_error::print_parse_diagnostics;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
@@ -74,8 +81,8 @@ use crate::ui::Ui;
 
 /// Push to a Git remote
 ///
-/// By default, pushes tracking bookmarks pointing to
-/// `remote_bookmarks(remote=<remote>)..@`. Use `--bookmark` to push specific
+/// By default, pushes tracking bookmarks defined by the  
+/// `revsets.git-push` revset. Use `--bookmark` to push specific
 /// bookmarks. Use `--all` to push all bookmarks. Use `--change` to generate
 /// bookmark names based on the change IDs of specific commits.
 ///
@@ -995,15 +1002,27 @@ fn find_bookmarks_targeted_by_revisions<'a>(
 ) -> Result<Vec<(&'a RefName, LocalAndRemoteRef<'a>)>, CommandError> {
     let mut revision_commit_ids = HashSet::new();
     if use_default_revset {
-        // remote_bookmarks(remote=<remote>)..@
-        let workspace_name = workspace_command.workspace_name();
-        let expression = RevsetExpression::remote_bookmarks(
-            StringExpression::all(),
-            StringExpression::exact(remote),
-            None,
-        )
-        .range(&RevsetExpression::working_copy(workspace_name.to_owned()))
-        .intersection(&RevsetExpression::bookmarks(StringExpression::all()));
+        // Get the default revset specified by the user.
+        let push_revset = workspace_command
+            .settings()
+            .get_string("revsets.git-push")?;
+        let mut context = workspace_command.env().revset_parse_context();
+        context.local_variables.insert(
+            "remote",
+            ExpressionNode {
+                kind: ExpressionKind::StringPattern {
+                    kind: "exact",
+                    value: remote.as_str().to_string(),
+                },
+                span: Span::new(remote.as_str(), 0, remote.as_str().len())
+                    .expect("programmatic span shouldn't fail"),
+            },
+        );
+        let mut diags = RevsetDiagnostics::default();
+        let (mut expression, None | Some(RevsetModifier::All)) =
+            revset::parse_with_modifier(&mut diags, &push_revset, &context)?;
+        print_parse_diagnostics(ui, "In revsets.git-push", &diags)?;
+        expression = expression.intersection(&RevsetExpression::bookmarks(StringExpression::all()));
         let mut commit_ids = workspace_command
             .attach_revset_evaluator(expression)
             .evaluate_to_commit_ids()?
@@ -1011,9 +1030,7 @@ fn find_bookmarks_targeted_by_revisions<'a>(
         if commit_ids.peek().is_none() {
             writeln!(
                 ui.warning_default(),
-                "No bookmarks found in the default push revset: \
-                 remote_bookmarks(remote={remote})..@",
-                remote = remote.as_symbol()
+                "No bookmarks found in the default push revset: {push_revset}"
             )?;
         }
         for commit_id in commit_ids {

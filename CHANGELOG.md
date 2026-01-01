@@ -98,6 +98,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   returns a `TreeDiff` between the entry's commit and its predecessor version.
   Optionally accepts a fileset literal to limit the diff.
 
+* Added support `revsets.git-push` which allows you to customize the default
+  set of commits to push. See issue
+  [#3649](https://github.com/jj-vcs/jj/issues/3650).
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
@@ -410,6 +414,7 @@ Thanks to the people who made this release happen!
 * `jj file track` now accepts an `--include-ignored` flag to track files that
   are ignored by `.gitignore` or exceed the `snapshot.max-new-file-size` limit.
   [#2837](https://github.com/jj-vcs/jj/issues/2837)
+
 
 ### Fixed bugs
 
