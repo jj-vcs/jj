@@ -24,6 +24,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removed. Commits containing these values will now be pushed with `jj git push`
   without producing an error.
 
+* If any side of a conflicted file is missing a terminating newline, then the
+  materialized file in the working copy will no longer be terminated by a
+  newline.
+
 ### Deprecations
 
 * The revset function `diff_contains()` has been renamed to `diff_lines()`.

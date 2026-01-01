@@ -67,21 +67,21 @@ fn test_file_search_conflicts() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    work_dir.write_file("file1", "-foo-");
+    work_dir.write_file("file1", "-foo-\n");
     work_dir.run_jj(["new"]).success();
-    work_dir.write_file("file1", "-bar-");
+    work_dir.write_file("file1", "-bar-\n");
     work_dir.run_jj(["new"]).success();
-    work_dir.write_file("file1", "-baz-");
+    work_dir.write_file("file1", "-baz-\n");
     work_dir.run_jj(["rebase", "-r=@", "-B=@-"]).success();
 
     // Test the setup
     insta::assert_snapshot!(work_dir.read_file("file1"), @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: rlvkpnrz 958d516d (parents of rebased revision) (no terminating newline)
-    \\\\\\\        to: qpvuntsm 6da222ee (rebase destination) (no terminating newline)
+    %%%%%%% diff from: rlvkpnrz 60901f47 (parents of rebased revision)
+    \\\\\\\        to: qpvuntsm fae24a95 (rebase destination)
     --bar-
     +-foo-
-    +++++++ kkmpptxz 95e61837 (rebased revision) (no terminating newline)
+    +++++++ kkmpptxz 51957a05 (rebased revision)
     -baz-
     >>>>>>> conflict 1 of 1 ends
     ");

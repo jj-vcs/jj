@@ -189,30 +189,33 @@ New Heading
 
 ## Conflicts with missing terminating newline
 
-When materializing conflicts, `jj` outputs them in a line-based format. This
-format is easiest to interpret for text files that consist of a series of lines,
-with each line terminated by a newline character (`\n`). This means that a text
-file should either be empty, or it should end with a newline character.
+When materializing conflicts, `jj` outputs them in a line-based format, with
+each conflict marker line terminated by a newline character (`\n`). This format
+works well for text files that consist of a series of lines, with each line
+terminated by a newline character as well.
 
-While most text files follow this convention, some do not. When `jj` encounters
-a missing terminating newline character in a conflict, it will add a comment to
-the conflict markers to make the conflict easier to interpret. If you don't care
-about whether your file ends with a terminating newline character, you can
-generally ignore this comment and resolve the conflict normally.
+While most text files follow this convention, some do not. Since conflict
+markers must appear on their own line, when `jj` encounters a missing
+terminating newline character in a conflict, it still needs to ensure that
+there is a newline before the next conflict marker. To do this, it adds an
+extra newline to each term of the conflict. Then, to compensate for this extra
+newline, it also omits the terminating newline from the "end of conflict"
+marker (`>>>>>>>`).
 
 For instance, if a file originally contained `grape` with no terminating newline
 character, and one person changed `grape` to `grapefruit`, while another person
 added the missing newline character to make `grape\n`, the resulting conflict
-would look like this:
+would look like this (␊ demonstrates the `\n` character explicitly, note that
+the last line doesn't have the terminating `\n` character):
 
 ```text
-<<<<<<< conflict 1 of 1
-+++++++ tlwwkqxk d121763d "commit A" (no terminating newline)
-grapefruit
-%%%%%%% diff from: qwpqssno fe561d93 "merge base" (no terminating newline)
-\\\\\\\        to: poxkmrxy c735fe02 "commit B"
--grape
-+grape
+<<<<<<< conflict 1 of 1␊
++++++++ tlwwkqxk d121763d "commit A" (no terminating newline)␊
+grapefruit␊
+%%%%%%% diff from: qwpqssno fe561d93 "merge base" (no terminating newline)␊
+\\\\\\\        to: poxkmrxy c735fe02 "commit B"␊
+ grape␊
++␊
 >>>>>>> conflict 1 of 1 ends
 ```
 
