@@ -4073,20 +4073,25 @@ fn test_push_bookmarks_success() {
             },
         )],
     };
-    let result = git::push_branches(
+    let stats = git::push_branches(
         tx.repo_mut(),
         subprocess_options,
         "origin".as_ref(),
         &targets,
         git::RemoteCallbacks::default(),
-    );
-    assert_eq!(
-        result.unwrap(),
-        GitPushStats {
-            pushed: vec!["refs/heads/main".into()],
-            ..Default::default()
-        }
-    );
+    )
+    .unwrap();
+    insta::assert_debug_snapshot!(stats, @r#"
+    GitPushStats {
+        pushed: [
+            GitRefNameBuf(
+                "refs/heads/main",
+            ),
+        ],
+        rejected: [],
+        remote_rejected: [],
+    }
+    "#);
 
     // Check that the ref got updated in the source repo
     let source_repo = testutils::git::open(&setup.source_repo_dir);
@@ -4146,20 +4151,25 @@ fn test_push_bookmarks_deletion() {
             },
         )],
     };
-    let result = git::push_branches(
+    let stats = git::push_branches(
         tx.repo_mut(),
         subprocess_options,
         "origin".as_ref(),
         &targets,
         git::RemoteCallbacks::default(),
-    );
-    assert_eq!(
-        result.unwrap(),
-        GitPushStats {
-            pushed: vec!["refs/heads/main".into()],
-            ..Default::default()
-        }
-    );
+    )
+    .unwrap();
+    insta::assert_debug_snapshot!(stats, @r#"
+    GitPushStats {
+        pushed: [
+            GitRefNameBuf(
+                "refs/heads/main",
+            ),
+        ],
+        rejected: [],
+        remote_rejected: [],
+    }
+    "#);
 
     // Check that the ref got deleted in the source repo
     assert!(source_repo.find_reference("refs/heads/main").is_err());
@@ -4218,20 +4228,28 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
             ),
         ],
     };
-    let result = git::push_branches(
+    let stats = git::push_branches(
         tx.repo_mut(),
         subprocess_options,
         "origin".as_ref(),
         &targets,
         git::RemoteCallbacks::default(),
-    );
-    assert_eq!(
-        result.unwrap(),
-        GitPushStats {
-            pushed: vec!["refs/heads/main".into(), "refs/heads/topic".into()],
-            ..Default::default()
-        }
-    );
+    )
+    .unwrap();
+    insta::assert_debug_snapshot!(stats, @r#"
+    GitPushStats {
+        pushed: [
+            GitRefNameBuf(
+                "refs/heads/main",
+            ),
+            GitRefNameBuf(
+                "refs/heads/topic",
+            ),
+        ],
+        rejected: [],
+        remote_rejected: [],
+    }
+    "#);
 
     // Check that the topic ref got updated in the source repo
     let source_repo = testutils::git::open(&setup.source_repo_dir);
@@ -4290,20 +4308,25 @@ fn test_push_bookmarks_not_fast_forward() {
             },
         )],
     };
-    let result = git::push_branches(
+    let stats = git::push_branches(
         tx.repo_mut(),
         subprocess_options,
         "origin".as_ref(),
         &targets,
         git::RemoteCallbacks::default(),
-    );
-    assert_eq!(
-        result.unwrap(),
-        GitPushStats {
-            pushed: vec!["refs/heads/main".into()],
-            ..Default::default()
-        }
-    );
+    )
+    .unwrap();
+    insta::assert_debug_snapshot!(stats, @r#"
+    GitPushStats {
+        pushed: [
+            GitRefNameBuf(
+                "refs/heads/main",
+            ),
+        ],
+        rejected: [],
+        remote_rejected: [],
+    }
+    "#);
 
     // Check that the ref got updated in the source repo
     let source_repo = testutils::git::open(&setup.source_repo_dir);
@@ -4460,13 +4483,18 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
     );
 
     // Moving the bookmark to the same place it already is is OK.
-    assert_eq!(
-        attempt_push_expecting_sideways(Some(setup.main_commit.id().clone())).unwrap(),
-        GitPushStats {
-            pushed: vec!["refs/heads/main".into()],
-            ..Default::default()
-        }
-    );
+    let stats = attempt_push_expecting_sideways(Some(setup.main_commit.id().clone())).unwrap();
+    insta::assert_debug_snapshot!(stats, @r#"
+    GitPushStats {
+        pushed: [
+            GitRefNameBuf(
+                "refs/heads/main",
+            ),
+        ],
+        rejected: [],
+        remote_rejected: [],
+    }
+    "#);
 }
 
 #[test]
@@ -4591,7 +4619,7 @@ fn test_push_updates_success() {
     let setup = set_up_push_repos(&settings, &temp_dir);
     let subprocess_options = GitSubprocessOptions::from_settings(&settings).unwrap();
     let clone_repo = get_git_repo(&setup.jj_repo);
-    let result = git::push_updates(
+    let stats = git::push_updates(
         setup.jj_repo.as_ref(),
         subprocess_options,
         "origin".as_ref(),
@@ -4601,14 +4629,19 @@ fn test_push_updates_success() {
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
         git::RemoteCallbacks::default(),
-    );
-    assert_eq!(
-        result.unwrap(),
-        GitPushStats {
-            pushed: vec!["refs/heads/main".into()],
-            ..Default::default()
-        }
-    );
+    )
+    .unwrap();
+    insta::assert_debug_snapshot!(stats, @r#"
+    GitPushStats {
+        pushed: [
+            GitRefNameBuf(
+                "refs/heads/main",
+            ),
+        ],
+        rejected: [],
+        remote_rejected: [],
+    }
+    "#);
 
     // Check that the ref got updated in the source repo
     let source_repo = testutils::git::open(&setup.source_repo_dir);

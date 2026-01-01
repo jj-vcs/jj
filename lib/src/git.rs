@@ -160,7 +160,7 @@ pub enum GitRefKind {
 }
 
 /// Stats from a git push
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default)]
 pub struct GitPushStats {
     /// reference accepted by the remote
     pub pushed: Vec<GitRefNameBuf>,
