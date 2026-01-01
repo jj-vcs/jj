@@ -656,15 +656,16 @@ fn test_materialize_conflict_no_newlines_at_eof() {
     );
     let materialized =
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
-    insta::assert_snapshot!(materialized,
+    insta::assert_snapshot!(materialized.to_owned() + "[EOF]",
         @r"
     <<<<<<< conflict 1 of 1
     %%%%%%% diff from: base (no terminating newline)
     \\\\\\\        to: side #1
     -base
+    +
     +++++++ side #2 (no terminating newline)
     right
-    >>>>>>> conflict 1 of 1 ends
+    >>>>>>> conflict 1 of 1 ends[EOF]
     "
     );
     // The conflict markers are parsed with the trailing newline, but it is removed
@@ -681,8 +682,8 @@ fn test_materialize_conflict_no_newlines_at_eof() {
             Conflicted(
                 [
                     "",
-                    "base\n",
-                    "right\n",
+                    "base",
+                    "right",
                 ],
             ),
         ],
@@ -2122,7 +2123,7 @@ fn test_update_conflict_from_content_no_eol() {
 
     let materialized =
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
-    insta::assert_snapshot!(materialized,
+    insta::assert_snapshot!(materialized.to_owned() + "[EOF]",
         @r"
     line 1
     <<<<<<< conflict 1 of 2
@@ -2135,14 +2136,14 @@ fn test_update_conflict_from_content_no_eol() {
     >>>>>>> conflict 1 of 2 ends
     line 3
     <<<<<<< conflict 2 of 2
-    +++++++ side #1
-    base
-    left
     %%%%%%% diff from: base (no terminating newline)
-    \\\\\\\        to: side #2 (no terminating newline)
-    -base
-    +right
-    >>>>>>> conflict 2 of 2 ends
+    \\\\\\\        to: side #1
+     base
+    +left
+    +
+    +++++++ side #2 (no terminating newline)
+    right
+    >>>>>>> conflict 2 of 2 ends[EOF]
     "
     );
     assert_eq!(
@@ -2160,7 +2161,7 @@ fn test_update_conflict_from_content_no_eol() {
 
     let materialized =
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Snapshot);
-    insta::assert_snapshot!(materialized,
+    insta::assert_snapshot!(materialized.to_owned() + "[EOF]",
         @r"
     line 1
     <<<<<<< conflict 1 of 2
@@ -2176,11 +2177,12 @@ fn test_update_conflict_from_content_no_eol() {
     +++++++ side #1
     base
     left
+
     ------- base (no terminating newline)
     base
     +++++++ side #2 (no terminating newline)
     right
-    >>>>>>> conflict 2 of 2 ends
+    >>>>>>> conflict 2 of 2 ends[EOF]
     "
     );
     assert_eq!(
@@ -2198,7 +2200,7 @@ fn test_update_conflict_from_content_no_eol() {
 
     let materialized =
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Git);
-    insta::assert_snapshot!(materialized,
+    insta::assert_snapshot!(materialized.to_owned() + "[EOF]",
         @r"
     line 1
     <<<<<<< side #1
@@ -2212,11 +2214,12 @@ fn test_update_conflict_from_content_no_eol() {
     <<<<<<< side #1
     base
     left
+
     ||||||| base (no terminating newline)
     base
     =======
     right
-    >>>>>>> side #2 (no terminating newline)
+    >>>>>>> side #2 (no terminating newline)[EOF]
     "
     );
     assert_eq!(
@@ -2268,21 +2271,22 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() {
 
     let materialized =
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
-    insta::assert_snapshot!(materialized,
+    insta::assert_snapshot!(materialized.to_owned() + "[EOF]",
         @r"
     <<<<<<< conflict 1 of 1
     +++++++ side #1
     side
+
     %%%%%%% diff from: base #1 (no terminating newline)
     \\\\\\\        to: side #2
      add newline
-    -line
-    +line
+     line
+    +
     %%%%%%% diff from: base #2
     \\\\\\\        to: side #3 (no terminating newline)
      remove newline
-    -line
-    +line
+     line
+    -
     %%%%%%% diff from: base #3 (no terminating newline)
     \\\\\\\        to: side #4 (no terminating newline)
      no newline
@@ -2293,7 +2297,8 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() {
      with newline
     -line 1
     +line 2
-    >>>>>>> conflict 1 of 1 ends
+     
+    >>>>>>> conflict 1 of 1 ends[EOF]
     "
     );
     assert_eq!(
@@ -2327,16 +2332,17 @@ fn test_update_conflict_from_content_only_no_eol_change() {
 
     let materialized =
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
-    insta::assert_snapshot!(materialized,
+    insta::assert_snapshot!(materialized.to_owned() + "[EOF]",
         @r"
     line 1
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: base
-    \\\\\\\        to: side #1 (no terminating newline)
-    +line 2
-    +++++++ side #2
+    +++++++ side #1 (no terminating newline)
     line 2
-    >>>>>>> conflict 1 of 1 ends
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #2
+    +line 2
+     
+    >>>>>>> conflict 1 of 1 ends[EOF]
     "
     );
     assert_eq!(

@@ -12,6 +12,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* If any side of a conflicted file is missing a terminating newline, then the
+  materialized file in the working copy will no longer be terminated by a
+  newline.
+
 ### Deprecations
 
 ### New features
