@@ -885,6 +885,7 @@ Done";
             pushed,
             rejected,
             remote_rejected,
+            unexported_bookmarks: _,
         } = parse_ref_pushes(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT).unwrap();
         assert_eq!(
             pushed,
