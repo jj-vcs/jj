@@ -160,7 +160,7 @@ pub enum GitRefKind {
 }
 
 /// Stats from a git push
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct GitPushStats {
     /// reference accepted by the remote
     pub pushed: Vec<GitRefNameBuf>,
@@ -168,11 +168,21 @@ pub struct GitPushStats {
     pub rejected: Vec<(GitRefNameBuf, Option<String>)>,
     /// reference rejected by the remote, with an optional reason
     pub remote_rejected: Vec<(GitRefNameBuf, Option<String>)>,
+    /// remote bookmarks that couldn't be exported to local Git repo
+    pub unexported_bookmarks: Vec<(RemoteRefSymbolBuf, FailedRefExportReason)>,
 }
 
 impl GitPushStats {
     pub fn all_ok(&self) -> bool {
-        self.rejected.is_empty() && self.remote_rejected.is_empty()
+        self.rejected.is_empty()
+            && self.remote_rejected.is_empty()
+            && self.unexported_bookmarks.is_empty()
+    }
+
+    /// Returns true if there are at least one bookmark that was successfully
+    /// pushed to the remote and exported to the local Git repo.
+    pub fn some_exported(&self) -> bool {
+        self.pushed.len() > self.unexported_bookmarks.len()
     }
 }
 
@@ -2809,23 +2819,45 @@ pub fn push_branches(
     tracing::debug!(?push_stats);
 
     let pushed: HashSet<&GitRefName> = push_stats.pushed.iter().map(AsRef::as_ref).collect();
-    let pushed_branch_updates = iter::zip(&targets.branch_updates, &ref_updates)
-        .filter(|(_, ref_update)| pushed.contains(&*ref_update.qualified_name));
-    for ((name, update), _) in pushed_branch_updates {
-        let git_ref_name: GitRefNameBuf = format!(
-            "refs/remotes/{remote}/{name}",
-            remote = remote.as_str(),
-            name = name.as_str(),
-        )
-        .into();
+    let pushed_branch_updates = || {
+        iter::zip(&targets.branch_updates, &ref_updates)
+            .filter(|(_, ref_update)| pushed.contains(&*ref_update.qualified_name))
+            .map(|((name, update), _)| (name.as_ref(), update))
+    };
+
+    // The remote refs in Git should usually be updated by `git push`. In that
+    // case, this only updates our record about the last exported state.
+    let unexported_bookmarks = {
+        let git_repo =
+            get_git_repo(mut_repo.store()).expect("backend type should have been tested");
+        let refs = build_pushed_bookmarks_to_export(remote, pushed_branch_updates());
+        export_refs_to_git(mut_repo, &git_repo, GitRefKind::Bookmark, refs)
+    };
+
+    debug_assert!(unexported_bookmarks.is_sorted_by_key(|(symbol, _)| symbol));
+    let is_exported_bookmark = |name: &RefName| {
+        unexported_bookmarks
+            .binary_search_by_key(&name, |(symbol, _)| &symbol.name)
+            .is_err()
+    };
+    for (name, update) in pushed_branch_updates().filter(|(name, _)| is_exported_bookmark(name)) {
         let new_remote_ref = RemoteRef {
             target: RefTarget::resolved(update.new_target.clone()),
             state: RemoteRefState::Tracked,
         };
-        mut_repo.set_git_ref_target(&git_ref_name, new_remote_ref.target.clone());
         mut_repo.set_remote_bookmark(name.to_remote_symbol(remote), new_remote_ref);
     }
 
+    // TODO: Maybe we can add new stats type which stores RemoteRefSymbol in
+    // place of GitRefName, and remove unexported_bookmarks from the original
+    // stats type. This will help find pushed bookmarks that failed to export.
+    assert!(push_stats.unexported_bookmarks.is_empty());
+    let push_stats = GitPushStats {
+        pushed: push_stats.pushed,
+        rejected: push_stats.rejected,
+        remote_rejected: push_stats.remote_rejected,
+        unexported_bookmarks,
+    };
     Ok(push_stats)
 }
 
@@ -2876,6 +2908,36 @@ pub fn push_updates(
     push_stats.rejected.sort();
     push_stats.remote_rejected.sort();
     Ok(push_stats)
+}
+
+/// Builds diff of remote bookmarks corresponding to the given `pushed_updates`.
+fn build_pushed_bookmarks_to_export<'a>(
+    remote: &RemoteName,
+    pushed_updates: impl IntoIterator<Item = (&'a RefName, &'a BookmarkPushUpdate)>,
+) -> RefsToExport {
+    let mut to_update = Vec::new();
+    let mut to_delete = Vec::new();
+    for (name, update) in pushed_updates {
+        let symbol = name.to_remote_symbol(remote);
+        match (update.old_target.as_ref(), update.new_target.as_ref()) {
+            (old, Some(new)) => {
+                let old_oid = old.map(|id| gix::ObjectId::from_bytes_or_panic(id.as_bytes()));
+                let new_oid = gix::ObjectId::from_bytes_or_panic(new.as_bytes());
+                to_update.push((symbol.to_owned(), (old_oid, new_oid)));
+            }
+            (Some(old), None) => {
+                let old_oid = gix::ObjectId::from_bytes_or_panic(old.as_bytes());
+                to_delete.push((symbol.to_owned(), old_oid));
+            }
+            (None, None) => panic!("old/new targets should differ"),
+        }
+    }
+
+    RefsToExport {
+        to_update,
+        to_delete,
+        failed: vec![],
+    }
 }
 
 #[non_exhaustive]

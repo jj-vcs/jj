@@ -14,6 +14,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::error;
 use std::fmt;
 use std::io;
 use std::io::Write as _;
@@ -470,7 +471,7 @@ pub fn cmd_git_push(
     print_stats(ui, &push_stats)?;
     // TODO: On partial success, locally-created --change/--named bookmarks will
     // be committed. It's probably better to remove failed local bookmarks.
-    if push_stats.all_ok() || !push_stats.pushed.is_empty() {
+    if push_stats.all_ok() || push_stats.some_exported() {
         tx.finish(ui, tx_description)?;
     }
     if push_stats.all_ok() {
@@ -521,6 +522,21 @@ fn print_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
             ui.hint_default(),
             "Try checking if you have permission to push to all the bookmarks."
         )?;
+    }
+    if !stats.unexported_bookmarks.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "The following bookmarks couldn't be updated locally:"
+        )?;
+        let mut formatter = ui.stderr_formatter();
+        for (symbol, reason) in &stats.unexported_bookmarks {
+            write!(formatter, "  ")?;
+            write!(formatter.labeled("bookmark"), "{symbol}")?;
+            for err in iter::successors(Some(reason as &dyn error::Error), |err| err.source()) {
+                write!(formatter, ": {err}")?;
+            }
+            writeln!(formatter)?;
+        }
     }
     Ok(())
 }

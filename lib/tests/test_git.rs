@@ -4090,6 +4090,7 @@ fn test_push_bookmarks_success() {
         ],
         rejected: [],
         remote_rejected: [],
+        unexported_bookmarks: [],
     }
     "#);
 
@@ -4168,6 +4169,7 @@ fn test_push_bookmarks_deletion() {
         ],
         rejected: [],
         remote_rejected: [],
+        unexported_bookmarks: [],
     }
     "#);
 
@@ -4248,6 +4250,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
         ],
         rejected: [],
         remote_rejected: [],
+        unexported_bookmarks: [],
     }
     "#);
 
@@ -4325,6 +4328,7 @@ fn test_push_bookmarks_not_fast_forward() {
         ],
         rejected: [],
         remote_rejected: [],
+        unexported_bookmarks: [],
     }
     "#);
 
@@ -4386,6 +4390,7 @@ fn test_push_bookmarks_partial_success() {
             ),
         ],
         remote_rejected: [],
+        unexported_bookmarks: [],
     }
     "#);
 
@@ -4408,6 +4413,131 @@ fn test_push_bookmarks_partial_success() {
     );
     assert_eq!(
         view.get_remote_bookmark(remote_symbol("other", "origin")),
+        RemoteRef::absent_ref()
+    );
+}
+
+#[test]
+fn test_push_bookmarks_unmapped_refs() {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+    let subprocess_options =
+        GitSubprocessOptions::from_settings(test_repo.repo.settings()).unwrap();
+    let remote_git_repo = testutils::git::init_bare(test_repo.env.root().join("remote"));
+
+    // Add remote with refspecs that map only specific branch
+    let mut tx = test_repo.repo.start_transaction();
+    git::add_remote(
+        tx.repo_mut(),
+        "origin".as_ref(),
+        remote_git_repo.path().to_str().unwrap(),
+        None,
+        gix::remote::fetch::Tags::default(),
+        &StringExpression::exact("dummy"),
+    )
+    .unwrap();
+    let repo = tx.commit("set up remote").unwrap();
+    // Reload after Git configuration change.
+    let repo = test_repo
+        .env
+        .load_repo_at_head(repo.settings(), test_repo.repo_path());
+    let git_repo = get_git_repo(&repo);
+
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2a = write_random_commit(tx.repo_mut());
+    let commit2b = write_random_commit(tx.repo_mut());
+    // Add conflicting remote bookmark
+    git_repo
+        .reference(
+            "refs/remotes/origin/bookmark2",
+            git_id(&commit2a),
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "",
+        )
+        .unwrap();
+    let targets = GitBranchPushTargets {
+        branch_updates: vec![
+            (
+                "bookmark1".into(),
+                BookmarkPushUpdate {
+                    old_target: None,
+                    new_target: Some(commit1.id().clone()),
+                },
+            ),
+            (
+                "bookmark2".into(),
+                BookmarkPushUpdate {
+                    old_target: None,
+                    new_target: Some(commit2b.id().clone()),
+                },
+            ),
+        ],
+    };
+    let stats = git::push_branches(
+        tx.repo_mut(),
+        subprocess_options,
+        "origin".as_ref(),
+        &targets,
+        git::RemoteCallbacks::default(),
+    )
+    .unwrap();
+    insta::assert_debug_snapshot!(stats, @r#"
+    GitPushStats {
+        pushed: [
+            GitRefNameBuf(
+                "refs/heads/bookmark1",
+            ),
+            GitRefNameBuf(
+                "refs/heads/bookmark2",
+            ),
+        ],
+        rejected: [],
+        remote_rejected: [],
+        unexported_bookmarks: [
+            (
+                RemoteRefSymbolBuf {
+                    name: RefNameBuf(
+                        "bookmark2",
+                    ),
+                    remote: RemoteNameBuf(
+                        "origin",
+                    ),
+                },
+                AddedInJjAddedInGit,
+            ),
+        ],
+    }
+    "#);
+
+    // Check that the remote refs are exported to Git
+    assert_eq!(
+        git_repo
+            .find_reference("refs/remotes/origin/bookmark1")
+            .unwrap()
+            .into_fully_peeled_id()
+            .unwrap(),
+        git_id(&commit1)
+    );
+
+    // Check that the repo view got updated only for the exported refs
+    let view = tx.repo().view();
+    assert_eq!(
+        *view.get_git_ref("refs/remotes/origin/bookmark1".as_ref()),
+        RefTarget::normal(commit1.id().clone())
+    );
+    assert_eq!(
+        *view.get_remote_bookmark(remote_symbol("bookmark1", "origin")),
+        RemoteRef {
+            target: RefTarget::normal(commit1.id().clone()),
+            state: RemoteRefState::Tracked,
+        }
+    );
+    assert_eq!(
+        view.get_git_ref("refs/remotes/origin/bookmark2".as_ref()),
+        RefTarget::absent_ref()
+    );
+    assert_eq!(
+        view.get_remote_bookmark(remote_symbol("bookmark2", "origin")),
         RemoteRef::absent_ref()
     );
 }
@@ -4493,6 +4623,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
         ],
         rejected: [],
         remote_rejected: [],
+        unexported_bookmarks: [],
     }
     "#);
 }
@@ -4640,6 +4771,7 @@ fn test_push_updates_success() {
         ],
         rejected: [],
         remote_rejected: [],
+        unexported_bookmarks: [],
     }
     "#);
 

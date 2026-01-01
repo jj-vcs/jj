@@ -18,6 +18,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `jj git push` now ensures that tracked remote bookmarks are updated even if
+  there are no mappings in the Git fetch refspecs.
+  [#5115](https://github.com/jj-vcs/jj/issues/5115)
+
 ## [0.37.0] - 2026-01-07
 
 ### Release highlights
