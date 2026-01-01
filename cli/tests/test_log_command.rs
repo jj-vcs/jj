@@ -1832,4 +1832,17 @@ fn test_log_count() {
     2
     [EOF]
     ");
+
+    // count the number of revisions directly
+    // inexact revset size estimates (jj-lib testing-only) require 10+ revisions
+    for i in 0..10 {
+        work_dir
+            .run_jj(["commit", "-m", &format!("extra {i}")])
+            .success();
+    }
+    let output = work_dir.run_jj(["log", "--count"]);
+    insta::assert_snapshot!(output, @r"
+    14
+    [EOF]
+    ");
 }
