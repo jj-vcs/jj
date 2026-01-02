@@ -101,6 +101,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj file annotate` now reports an error for non-files instead of succeeding
   and displaying no content.
 
+* `jj workspace forget` now warns about unknown workspaces instead of failing.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).

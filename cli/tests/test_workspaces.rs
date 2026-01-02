@@ -1236,12 +1236,31 @@ fn test_workspaces_forget() {
 
     // Add a third workspace...
     main_dir.run_jj(["workspace", "add", "../third"]).success();
-    // ... and then forget it, and the secondary workspace too
-    let output = main_dir.run_jj(["workspace", "forget", "secondary", "third"]);
-    insta::assert_snapshot!(output, @"");
+    // ... and then forget it, a non-existent one, and the secondary workspace too
+    let output = main_dir.run_jj(["workspace", "forget", "secondary", "nonexistent", "third"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: No such workspace: nonexistent
+    [EOF]
+    ");
     // No workspaces left
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @"");
+}
+
+#[test]
+fn test_workspaces_forget_nothing_changed() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    let output = main_dir.run_jj(["workspace", "forget", "second", "third"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: No such workspace: second
+    Warning: No such workspace: third
+    Nothing changed.
+    [EOF]
+    ");
 }
 
 #[test]
@@ -1267,7 +1286,7 @@ fn test_workspaces_forget_multi_transaction() {
 
     // delete two at once, in a single tx
     main_dir
-        .run_jj(["workspace", "forget", "second", "third"])
+        .run_jj(["workspace", "forget", "second", "third", "fourth"])
         .success();
     let output = main_dir.run_jj(["workspace", "list"]);
     insta::assert_snapshot!(output, @r"
@@ -1275,12 +1294,12 @@ fn test_workspaces_forget_multi_transaction() {
     [EOF]
     ");
 
-    // the op log should have multiple workspaces forgotten in a single tx
+    // the op log should have the multiple valid workspaces forgotten in a single tx
     let output = main_dir.run_jj(["op", "log", "--limit", "1"]);
-    insta::assert_snapshot!(output, @r"
-    @  d3aded9a10b6 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    insta::assert_snapshot!(output, @"
+    @  86a599409515 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
     │  forget workspaces second, third
-    │  args: jj workspace forget second third
+    │  args: jj workspace forget second third fourth
     [EOF]
     ");
 

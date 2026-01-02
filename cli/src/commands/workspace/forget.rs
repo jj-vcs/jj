@@ -19,7 +19,6 @@ use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
-use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -49,6 +48,7 @@ pub fn cmd_workspace_forget(
         args.workspaces.clone()
     };
 
+    let mut forget_ws = Vec::new();
     for ws in &wss {
         if workspace_command
             .repo()
@@ -56,21 +56,32 @@ pub fn cmd_workspace_forget(
             .get_wc_commit_id(ws)
             .is_none()
         {
-            return Err(user_error(format!("No such workspace: {}", ws.as_symbol())));
+            writeln!(
+                ui.warning_default(),
+                "No such workspace: {}",
+                ws.as_symbol(),
+            )?;
+        } else {
+            forget_ws.push(ws);
         }
+    }
+    if forget_ws.is_empty() {
+        writeln!(ui.status(), "Nothing changed.")?;
+        return Ok(());
     }
 
     // bundle every workspace forget into a single transaction, so that e.g.
     // undo correctly restores all of them at once.
     let mut tx = workspace_command.start_transaction();
-    wss.iter()
+    forget_ws
+        .iter()
         .try_for_each(|ws| tx.repo_mut().remove_wc_commit(ws))?;
-    let description = if let [ws] = wss.as_slice() {
+    let description = if let [ws] = forget_ws.as_slice() {
         format!("forget workspace {}", ws.as_symbol())
     } else {
         format!(
             "forget workspaces {}",
-            wss.iter().map(|ws| ws.as_symbol()).join(", ")
+            forget_ws.iter().map(|ws| ws.as_symbol()).join(", ")
         )
     };
 
