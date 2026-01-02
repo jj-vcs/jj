@@ -19,6 +19,7 @@ use std::io::Write;
 use std::iter::zip;
 use std::pin::Pin;
 
+use bstr::BStr;
 use bstr::BString;
 use bstr::ByteSlice as _;
 use bstr::ByteVec as _;
@@ -388,17 +389,6 @@ fn write_conflict_marker(
     }
 }
 
-/// Write a conflict marker to an output file with an ending `LF`.
-fn writeln_conflict_marker(
-    output: &mut dyn Write,
-    kind: ConflictMarkerLineChar,
-    len: usize,
-    suffix_text: &str,
-) -> io::Result<()> {
-    write_conflict_marker(output, kind, len, suffix_text)?;
-    writeln!(output)
-}
-
 /// Parse a conflict marker from a line of a file. The conflict marker may have
 /// any length (even less than MIN_CONFLICT_MARKER_LEN).
 fn parse_conflict_marker_any_len(line: &[u8]) -> Option<ConflictMarkerLine> {
@@ -440,6 +430,23 @@ pub fn choose_materialized_conflict_marker_len<T: AsRef<[u8]>>(single_hunk: &Mer
         .max(MIN_CONFLICT_MARKER_LEN)
 }
 
+fn detect_eol(single_hunk: &Merge<impl AsRef<[u8]>>) -> &'static BStr {
+    let use_crlf = single_hunk
+        .iter()
+        .filter_map(|content| {
+            let content = content.as_ref();
+            let newline_index = content.find_byte(b'\n')?;
+            Some(newline_index > 0 && content[newline_index - 1] == b'\r')
+        })
+        .all_equal_value()
+        .unwrap_or(false);
+    if use_crlf {
+        b"\r\n".into()
+    } else {
+        b"\n".into()
+    }
+}
+
 pub fn materialize_merge_result<T: AsRef<[u8]>>(
     single_hunk: &Merge<T>,
     labels: &ConflictLabels,
@@ -453,7 +460,14 @@ pub fn materialize_merge_result<T: AsRef<[u8]>>(
             let marker_len = options
                 .marker_len
                 .unwrap_or_else(|| choose_materialized_conflict_marker_len(single_hunk));
-            materialize_conflict_hunks(hunks, options.marker_style, marker_len, labels, output)
+            materialize_conflict_hunks(
+                hunks,
+                options.marker_style,
+                marker_len,
+                labels,
+                output,
+                detect_eol(single_hunk),
+            )
         }
     }
 }
@@ -477,6 +491,7 @@ pub fn materialize_merge_result_to_bytes<T: AsRef<[u8]>>(
                 marker_len,
                 labels,
                 &mut output,
+                detect_eol(single_hunk),
             )
             .expect("writing to an in-memory buffer should never fail");
             output.into()
@@ -492,6 +507,7 @@ fn materialize_conflict_hunks(
     conflict_marker_len: usize,
     labels: &ConflictLabels,
     output: &mut dyn Write,
+    eol: &BStr,
 ) -> io::Result<()> {
     let num_conflicts = hunks
         .iter()
@@ -515,14 +531,21 @@ fn materialize_conflict_hunks(
             let mut sides = build_hunk_sides(hunk, labels);
             if !all_sides_have_ending_eol {
                 for side in &mut sides {
-                    side.contents.push_byte(b'\n');
+                    side.contents.push_str(eol);
                 }
             }
 
             match (conflict_marker_style, sides.as_slice()) {
                 // 2-sided conflicts can use Git-style conflict markers
                 (ConflictMarkerStyle::Git, [left, base, right]) => {
-                    materialize_git_style_conflict(left, base, right, conflict_marker_len, output)?;
+                    materialize_git_style_conflict(
+                        left,
+                        base,
+                        right,
+                        conflict_marker_len,
+                        output,
+                        eol,
+                    )?;
                 }
                 _ => {
                     materialize_jj_style_conflict(
@@ -531,12 +554,13 @@ fn materialize_conflict_hunks(
                         conflict_marker_style,
                         conflict_marker_len,
                         output,
+                        eol,
                     )?;
                 }
             }
 
             if all_sides_have_ending_eol {
-                writeln!(output)?;
+                output.write_all(eol)?;
             }
         }
     }
@@ -591,30 +615,34 @@ fn materialize_git_style_conflict(
     right: &HunkTerm,
     conflict_marker_len: usize,
     output: &mut dyn Write,
+    eol: &BStr,
 ) -> io::Result<()> {
-    writeln_conflict_marker(
+    write_conflict_marker(
         output,
         ConflictMarkerLineChar::ConflictStart,
         conflict_marker_len,
         &left.label,
     )?;
+    output.write_all(eol)?;
     output.write_all(&left.contents)?;
 
-    writeln_conflict_marker(
+    write_conflict_marker(
         output,
         ConflictMarkerLineChar::GitAncestor,
         conflict_marker_len,
         &base.label,
     )?;
+    output.write_all(eol)?;
     output.write_all(&base.contents)?;
 
     // VS Code doesn't seem to support any trailing text on the separator line
-    writeln_conflict_marker(
+    write_conflict_marker(
         output,
         ConflictMarkerLineChar::GitSeparator,
         conflict_marker_len,
         "",
     )?;
+    output.write_all(eol)?;
 
     output.write_all(&right.contents)?;
     // The caller handles the ending EOL conflict and decides whether to append the
@@ -636,53 +664,59 @@ fn materialize_jj_style_conflict(
     conflict_marker_style: ConflictMarkerStyle,
     conflict_marker_len: usize,
     output: &mut dyn Write,
+    eol: &BStr,
 ) -> io::Result<()> {
     // Write a positive snapshot (side) of a conflict
     let write_side = |side: &HunkTerm, output: &mut dyn Write| {
-        writeln_conflict_marker(
+        write_conflict_marker(
             output,
             ConflictMarkerLineChar::Add,
             conflict_marker_len,
             &side.label,
         )?;
+        output.write_all(eol)?;
         output.write_all(&side.contents)
     };
 
     // Write a negative snapshot (base) of a conflict
     let write_base = |side: &HunkTerm, output: &mut dyn Write| {
-        writeln_conflict_marker(
+        write_conflict_marker(
             output,
             ConflictMarkerLineChar::Remove,
             conflict_marker_len,
             &side.label,
         )?;
+        output.write_all(eol)?;
         output.write_all(&side.contents)
     };
 
     // Write a diff from a negative term to a positive term
     let write_diff =
         |base: &HunkTerm, add: &HunkTerm, diff: &[DiffHunk], output: &mut dyn Write| {
-            writeln_conflict_marker(
+            write_conflict_marker(
                 output,
                 ConflictMarkerLineChar::Diff,
                 conflict_marker_len,
                 &format!("diff from: {}", base.label),
             )?;
-            writeln_conflict_marker(
+            output.write_all(eol)?;
+            write_conflict_marker(
                 output,
                 ConflictMarkerLineChar::Note,
                 conflict_marker_len,
                 &format!("       to: {}", add.label),
             )?;
+            output.write_all(eol)?;
             write_diff_hunks(diff, output)
         };
 
-    writeln_conflict_marker(
+    write_conflict_marker(
         output,
         ConflictMarkerLineChar::ConflictStart,
         conflict_marker_len,
         conflict_info,
     )?;
+    output.write_all(eol)?;
     let mut snapshot_written = false;
     // The only conflict marker style which can start with a diff is "diff".
     if conflict_marker_style != ConflictMarkerStyle::Diff {
@@ -1093,6 +1127,8 @@ pub async fn update_from_content(
 
 #[cfg(test)]
 mod tests {
+    #![expect(clippy::too_many_arguments)]
+
     use test_case::test_case;
     use test_case::test_matrix;
 
@@ -1144,6 +1180,41 @@ mod tests {
             ]),
             None
         );
+    }
+
+    #[test_case(Merge::resolved("\n") => "\n"; "starts with LF")]
+    #[test_case(Merge::resolved("a\r\n") => "\r\n"; "crlf")]
+    #[test_case(Merge::resolved("a\n") => "\n"; "lf")]
+    #[test_case(Merge::resolved("abc") => "\n"; "no eol")]
+    #[test_case(Merge::from_vec(vec![
+        "a",
+        "a\n",
+        "ab",
+    ]) => "\n"; "only the second side has the LF eol")]
+    #[test_case(Merge::from_vec(vec![
+        "a\r\n",
+        "ab",
+        "a\n",
+    ]) => "\n"; "both sides have different EOLs")]
+    #[test_case(Merge::from_vec(vec![
+        "a",
+        "a\r\n",
+        "ab",
+    ]) => "\r\n"; "only the second side has the CRLF eol")]
+    fn test_detect_eol(single_hunk: Merge<impl AsRef<[u8]>>) -> &'static str {
+        detect_eol(&single_hunk).to_str().unwrap()
+    }
+
+    #[test]
+    fn test_detect_eol_consistency() {
+        let crlf_side = "crlf\r\n";
+        let lf_side = "lf\n";
+        let merges = [
+            Merge::from_vec(vec![crlf_side, "base", lf_side]),
+            Merge::from_vec(vec![lf_side, "base", crlf_side]),
+        ];
+
+        assert_eq!(detect_eol(&merges[0]), detect_eol(&merges[1]));
     }
 
     #[test_case(indoc::indoc!{b"
@@ -1235,6 +1306,13 @@ mod tests {
             .map(|content| content.to_str().unwrap().to_owned());
         let expected_merge = expected_merge.map(|content| content.to_string());
         assert_eq!(actual_result, expected_merge);
+
+        // Change the EOL to CRLF and test again.
+        let actual_result = parse_conflict(&contents.replace(b"\n", b"\r\n"), 2, 7).unwrap()[0]
+            .clone()
+            .map(|content| content.to_str().unwrap().to_owned());
+        let expected_merge = expected_merge.map(|content| content.replace("\n", "\r\n"));
+        assert_eq!(actual_result, expected_merge);
     }
 
     const BASE: &str = "aa";
@@ -1246,6 +1324,8 @@ mod tests {
     const DIFF_STYLE: ConflictMarkerStyle = ConflictMarkerStyle::Diff;
     const DIFF_EXPERIMENTAL_STYLE: ConflictMarkerStyle = ConflictMarkerStyle::DiffExperimental;
     const SNAPSHOT_STYLE: ConflictMarkerStyle = ConflictMarkerStyle::Snapshot;
+    const LF_EOL: &str = "\n";
+    const CRLF_EOL: &str = "\r\n";
     fn long(original: &str) -> String {
         std::iter::repeat_n(original, 3).collect_vec().join("\n")
     }
@@ -1259,7 +1339,8 @@ mod tests {
         [WITH_ENDING_EOL, WITHOUT_ENDING_EOL],
         [SIDE2, &long(SIDE2), &prepended(SIDE2)],
         [WITH_ENDING_EOL, WITHOUT_ENDING_EOL],
-        [GIT_STYLE, DIFF_STYLE, DIFF_EXPERIMENTAL_STYLE, SNAPSHOT_STYLE]
+        [GIT_STYLE, DIFF_STYLE, DIFF_EXPERIMENTAL_STYLE, SNAPSHOT_STYLE],
+        [LF_EOL, CRLF_EOL]
     )]
     fn test_materialize_conflict(
         base: &str,
@@ -1269,10 +1350,12 @@ mod tests {
         side2: &str,
         side2_ending_eol: &str,
         style: ConflictMarkerStyle,
+        eol: &str,
     ) {
-        let base = format!("{base}{base_ending_eol}");
-        let side1 = format!("{side1}{side1_ending_eol}");
-        let side2 = format!("{side2}{side2_ending_eol}");
+        // Add a leading EOL to suggest the correct EOL to use for materialization.
+        let base = format!("\n{base}{base_ending_eol}").replace("\n", eol);
+        let side1 = format!("\n{side1}{side1_ending_eol}").replace("\n", eol);
+        let side2 = format!("\n{side2}{side2_ending_eol}").replace("\n", eol);
         let merge = Merge::from_vec(vec![side2.as_str(), base.as_str(), side1.as_str()]);
         let options = ConflictMaterializeOptions {
             marker_style: style,
@@ -1287,17 +1370,38 @@ mod tests {
                 .into(),
         )
         .unwrap();
+        // We expect the materialized conflict to keep the original EOL, LF or CRLF.
+        for line in actual_contents.as_bytes().lines_with_terminator() {
+            let line = line.as_bstr();
+            if !line.ends_with(b"\n") {
+                continue;
+            }
+            let should_end_with_crlf = eol == "\r\n";
+            assert!(
+                line.ends_with(b"\r\n") == should_end_with_crlf,
+                "Expect all the lines with EOL to end with {eol:?}, but got {line:?} from\n{}",
+                actual_contents
+                    // Replace \r to ␍ and \n to ␊ for clarity in the panic message.
+                    .replace("\r", "\u{240D}")
+                    .replace("\n", "\u{240A}\n")
+            );
+        }
         let hunks = parse_conflict(actual_contents.as_bytes(), 2, 7).unwrap();
-        assert!(!hunks.is_empty());
-        let mut actual_merge = hunks[0].clone();
-        // When both sides prepend contents, we end up with 2 hunks.
-        if hunks.len() == 2 {
-            let new_content = hunks[1].as_resolved().unwrap();
+        assert!(hunks.len() >= 2);
+        // The first hunk is the empty line.
+        let leading_eol = hunks[0].as_resolved().unwrap();
+        let mut actual_merge = hunks[1].clone();
+        for content in &mut actual_merge {
+            content.insert_str(0, leading_eol);
+        }
+        // When both sides prepend contents, we end up with 3 hunks.
+        if hunks.len() == 3 {
+            let new_content = hunks[2].as_resolved().unwrap();
             for content in &mut actual_merge {
                 content.extend_from_slice(new_content);
             }
         }
-        assert!(hunks.len() <= 2);
+        assert!(hunks.len() <= 3);
         let actual_merge = actual_merge.map(|content| content.to_str().unwrap().to_owned());
         let merge = merge.map(|content| content.to_string());
         assert_eq!(actual_merge, merge);

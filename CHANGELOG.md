@@ -61,6 +61,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj tag list` can now be filtered by revset.
 
+* Conflict markers will use LF or CRLF as the line ending according to the
+  contents of the file.
+  [#7376](https://github.com/jj-vcs/jj/issues/7376)
+
 ### Fixed bugs
 
 * `jj git init --colocate` now refuses to run inside a Git worktree, providing
