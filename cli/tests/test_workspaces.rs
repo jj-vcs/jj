@@ -19,6 +19,32 @@ use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
+#[test]
+fn test_workspaces_invalid_name() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let main_dir = test_env.work_dir("repo");
+
+    // refuse to create, directory not created
+    let output = main_dir.run_jj(["workspace", "add", "--name", "", "../secondary"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: New workspace name cannot be empty
+    [EOF]
+    [exit status: 1]
+    ");
+    assert!(!test_env.env_root().join("secondary").exists());
+
+    // refuse to rename
+    let output = main_dir.run_jj(["workspace", "rename", ""]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: New workspace name cannot be empty
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
 /// Test adding a second and a third workspace
 #[test]
 fn test_workspaces_add_second_and_third_workspace() {
@@ -84,6 +110,16 @@ fn test_workspaces_add_second_and_third_workspace() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     "#);
+
+    // Duplicate names are not allowed, directory not created
+    let output = main_dir.run_jj(["workspace", "add", "--name", "third", "../tertiary"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    ------- stderr -------
+    Error: Workspace named 'third' already exists
+    [EOF]
+    [exit status: 1]
+    ");
+    assert!(!test_env.env_root().join("tertiary").exists());
 }
 
 /// Test how sparse patterns are inherited

@@ -119,6 +119,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The builtin pager won't get stuck when stdin is redirected.
 
+* `jj workspace add` now prevents creating an empty workspace name.
+
 ## [0.36.0] - 2025-12-03
 
 ### Release highlights

@@ -88,13 +88,6 @@ pub fn cmd_workspace_add(
 ) -> Result<(), CommandError> {
     let old_workspace_command = command.workspace_helper(ui)?;
     let destination_path = command.cwd().join(&args.destination);
-    if !destination_path.exists() {
-        fs::create_dir(&destination_path).context(&destination_path)?;
-    } else if !file_util::is_empty_dir(&destination_path)? {
-        return Err(user_error(
-            "Destination path exists and is not an empty directory",
-        ));
-    }
     let workspace_name = if let Some(name) = &args.name {
         name.to_owned()
     } else {
@@ -104,12 +97,23 @@ pub fn cmd_workspace_add(
             .ok_or_else(|| user_error("Destination path is not valid UTF-8"))?
             .into()
     };
+    if workspace_name.as_str().is_empty() {
+        return Err(user_error("New workspace name cannot be empty"));
+    }
+
     let repo = old_workspace_command.repo();
     if repo.view().get_wc_commit_id(&workspace_name).is_some() {
         return Err(user_error(format!(
             "Workspace named '{name}' already exists",
             name = workspace_name.as_symbol()
         )));
+    }
+    if !destination_path.exists() {
+        fs::create_dir(&destination_path).context(&destination_path)?;
+    } else if !file_util::is_empty_dir(&destination_path)? {
+        return Err(user_error(
+            "Destination path exists and is not an empty directory",
+        ));
     }
 
     let working_copy_factory = command.get_working_copy_factory()?;
