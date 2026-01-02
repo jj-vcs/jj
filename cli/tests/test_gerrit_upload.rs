@@ -14,6 +14,7 @@
 
 use crate::common::TestEnvironment;
 use crate::common::create_commit;
+use crate::common::create_commit_with_files;
 
 #[test]
 fn test_gerrit_upload_dryrun() {
@@ -81,6 +82,69 @@ fn test_gerrit_upload_dryrun() {
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'other'
     Dry-run: Would push zsuskuln 123b4d91 b | b
     [EOF]
+    ");
+}
+
+#[test]
+fn test_gerrit_upload_failure() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "a", &[]);
+
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+
+    // construct test revisions
+    create_commit_with_files(&local_dir, "b", &["a@origin"], &[]);
+    create_commit(&local_dir, "c", &["a@origin"]);
+    local_dir.run_jj(["describe", "-m="]).success();
+    create_commit(&local_dir, "d", &["a@origin"]);
+
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "none()", "--remote-branch=main"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    No revisions to upload.
+    [EOF]
+    ");
+
+    // empty revisions are not allowed
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "b", "--remote-branch=main"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Refusing to upload revision mzvwutvlkqwt because it is empty
+    Hint: Perhaps you squashed then ran upload? Maybe you meant to upload the parent commit instead (eg. @-)
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // empty descriptions are not allowed
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Refusing to upload revision yqosqzytrlsw because it is has no description
+    Hint: Maybe you meant to upload the parent commit instead (eg. @-)
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // upload failure
+    local_dir
+        .run_jj(["git", "remote", "set-url", "origin", "nonexistent"])
+        .success();
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "d", "--remote-branch=main"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Pushing znkkpsqq 47f1f88c d | d
+    Error: Internal git error while pushing to gerrit
+    Caused by: Could not find repository at '$TEST_ENV/local/nonexistent'
+    [EOF]
+    [exit status: 1]
     ");
 }
 
