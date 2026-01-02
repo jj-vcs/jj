@@ -181,6 +181,65 @@ fn test_restore_tree() {
 }
 
 #[test]
+fn test_restore_tree_with_conflicts() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let path1 = repo_path("file1");
+    let path2 = repo_path("dir1/file2");
+    let left_side1 = create_tree(repo, &[(path1, "left side 1"), (path2, "left side 1")]);
+    let left_base1 = create_tree(repo, &[(path1, "left base"), (path2, "left base 1")]);
+    let left_side2 = create_tree(repo, &[(path1, "left side 2"), (path2, "left side 2")]);
+    let left_base2 = create_tree(repo, &[(path1, "left base"), (path2, "left base 2")]);
+    let left_side3 = create_tree(repo, &[(path1, "left base"), (path2, "left side 3")]);
+    let right_side1 = create_tree(repo, &[(path1, "right side 1"), (path2, "resolved")]);
+    let right_base1 = create_tree(repo, &[(path1, "right base"), (path2, "resolved")]);
+    let right_side2 = create_tree(repo, &[(path1, "right side 2"), (path2, "resolved")]);
+
+    let left = MergedTree::merge(Merge::from_vec(vec![
+        (left_side1, "left side 1".into()),
+        (left_base1, "left base 1".into()),
+        (left_side2, "left side 2".into()),
+        (left_base2, "left base 2".into()),
+        (left_side3, "left side 3".into()),
+    ]))
+    .block_on()
+    .unwrap();
+    let right = MergedTree::merge(Merge::from_vec(vec![
+        (right_side1, "right side 1".into()),
+        (right_base1, "right base 1".into()),
+        (right_side2, "right side 2".into()),
+    ]))
+    .block_on()
+    .unwrap();
+
+    // Restore everything using EverythingMatcher
+    let restored = restore_tree(&left, &right, &EverythingMatcher)
+        .block_on()
+        .unwrap();
+    assert_tree_eq!(restored, left);
+
+    // Restore a single file
+    let restored = restore_tree(&left, &right, &FilesMatcher::new([path2]))
+        .block_on()
+        .unwrap();
+    let expected_side1 = create_tree(repo, &[(path1, "right side 1"), (path2, "left side 1")]);
+    let expected_base1 = create_tree(repo, &[(path1, "right base"), (path2, "left base 1")]);
+    let expected_side2 = create_tree(repo, &[(path1, "right side 2"), (path2, "left side 2")]);
+    let expected_base2 = create_tree(repo, &[(path2, "left base 2")]);
+    let expected_side3 = create_tree(repo, &[(path2, "left side 3")]);
+    // TODO: we should preserve conflict labels when restoring somehow
+    let expected = MergedTree::merge_no_resolve(Merge::from_vec(vec![
+        (expected_side1, String::new()),
+        (expected_base1, String::new()),
+        (expected_side2, String::new()),
+        (expected_base2, String::new()),
+        (expected_side3, String::new()),
+    ]));
+    assert_tree_eq!(restored, expected);
+}
+
+#[test]
 fn test_rebase_descendants_sideways() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;

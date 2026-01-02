@@ -1042,6 +1042,15 @@ impl MergedTreeBuilder {
         match new_tree_ids.simplify().into_resolved() {
             Ok(single_tree_id) => Ok(MergedTree::resolved(store, single_tree_id)),
             Err(tree_ids) => {
+                let labels = if labels.num_sides() == Some(tree_ids.num_sides()) {
+                    labels
+                } else {
+                    // If the number of sides changed, we need to discard the conflict labels,
+                    // otherwise `MergedTree::new` would panic.
+                    // TODO: we should preserve conflict labels when setting conflicted tree values
+                    // originating from a different tree than the base tree.
+                    ConflictLabels::unlabeled()
+                };
                 let tree = MergedTree::new(store, tree_ids, labels);
                 tree.resolve().block_on()
             }
