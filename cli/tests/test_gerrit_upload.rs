@@ -164,11 +164,21 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     create_commit(&local_dir, "b", &["a@origin"]);
     create_commit(&local_dir, "c", &["b"]);
 
+    // Ensure other trailers are preserved (no extra newlines)
+    local_dir
+        .run_jj([
+            "describe",
+            "c",
+            "-m",
+            "c\n\nSigned-off-by: Lucky K Maintainer <lucky@maintainer.example.org>\n",
+        ])
+        .success();
+
     // The output should only mention commit IDs from the log output above (no
     // temporary commits)
     let output = local_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:14 c 9590bf26
+    insta::assert_snapshot!(output, @"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c f6e97ced
     │  c
     ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
     │  b
@@ -179,18 +189,18 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Pushing yqosqzyt 9590bf26 c | c
+    Pushing yqosqzyt f6e97ced c | c
     [EOF]
     ");
 
     // The output should be unchanged because we only add Change-Id trailers
     // transiently
     let output = local_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:14 c 9590bf26
+    insta::assert_snapshot!(output, @"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c f6e97ced
     │  c
     ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
     │  b
@@ -203,13 +213,14 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     // There's no particular reason to run this with jj util exec, it's just that
     // the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
-    insta::assert_snapshot!(output, @r"
-    commit ab6776c073b82fbbd2cd0858482a9646afd56f85
+    insta::assert_snapshot!(output, @"
+    commit 68b986d2eb820643b767ae219fb48128dcc2fc03
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:13 2001 +0700
 
         c
         
+        Signed-off-by: Lucky K Maintainer <lucky@maintainer.example.org>
         Change-Id: I19b790168e73f7a73a98deae21e807c06a6a6964
 
     commit 81b723522d1c1a583a045eab5bfb323e45e6198d
