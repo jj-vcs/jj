@@ -18,6 +18,7 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indoc::formatdoc;
 use itertools::Itertools as _;
+use jj_lib::commit::conflict_label_for_commits;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use tracing::instrument;
@@ -154,6 +155,10 @@ pub(crate) fn cmd_restore(
     };
     let new_tree = diff_selector.select(
         Diff::new(&to_tree, &from_tree),
+        Diff::new(
+            to_commit.conflict_label(),
+            conflict_label_for_commits(&from_commits),
+        ),
         &matcher,
         format_instructions,
     )?;

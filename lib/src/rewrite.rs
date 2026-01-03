@@ -19,7 +19,6 @@ use std::collections::HashSet;
 use std::slice;
 use std::sync::Arc;
 
-use futures::StreamExt as _;
 use futures::future::try_join_all;
 use futures::try_join;
 use indexmap::IndexMap;
@@ -35,6 +34,7 @@ use crate::commit::Commit;
 use crate::commit::CommitIteratorExt as _;
 use crate::commit::conflict_label_for_commits;
 use crate::commit_builder::CommitBuilder;
+use crate::conflict_labels::ConflictLabels;
 use crate::index::Index;
 use crate::index::IndexResult;
 use crate::index::ResolvedChangeTargets;
@@ -44,7 +44,6 @@ use crate::matchers::Visit;
 use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
-use crate::merged_tree::TreeDiffEntry;
 use crate::merged_tree_builder::MergedTreeBuilder;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
@@ -120,27 +119,71 @@ pub fn find_recursive_merge_commits(
 pub async fn restore_tree(
     source: &MergedTree,
     destination: &MergedTree,
+    source_label: String,
+    destination_label: String,
     matcher: &dyn Matcher,
 ) -> BackendResult<MergedTree> {
     if matcher.visit(RepoPath::root()) == Visit::AllRecursively {
         // Optimization for a common case
-        Ok(source.clone())
-    } else {
-        // TODO: We should be able to not traverse deeper in the diff if the matcher
-        // matches an entire subtree.
-        let mut tree_builder = MergedTreeBuilder::new(destination.clone());
-        // TODO: handle copy tracking
-        let mut diff_stream = source.diff_stream(destination, matcher);
-        while let Some(TreeDiffEntry {
-            path: repo_path,
-            values,
-        }) = diff_stream.next().await
-        {
-            let source_value = values?.before;
-            tree_builder.set_or_remove(repo_path, source_value);
-        }
-        tree_builder.write_tree()
+        return Ok(source.clone());
     }
+
+    let select_matching =
+        |tree: &MergedTree, labels: ConflictLabels| -> BackendResult<MergedTree> {
+            let empty_tree_ids = Merge::repeated(
+                tree.store().empty_tree_id().clone(),
+                tree.tree_ids().num_sides(),
+            );
+            let labeled_empty_tree = MergedTree::new(tree.store().clone(), empty_tree_ids, labels);
+            // TODO: We should be able to not traverse deeper in the diff if the matcher
+            // matches an entire subtree.
+            let mut builder = MergedTreeBuilder::new(labeled_empty_tree);
+            for (path, value) in tree.entries_matching(matcher) {
+                // TODO: if https://github.com/jj-vcs/jj/issues/4152 is implemented, we will need
+                // to expand resolved conflicts into `Merge::repeated(value, num_sides)`.
+                builder.set_or_remove(path, value?);
+            }
+            builder.write_tree()
+        };
+
+    const RESTORE_BASE_LABEL: &str = "base files for restore";
+
+    // To avoid confusion between the destination tree and the base tree, we add a
+    // prefix to the conflict labels of the base tree.
+    let base_labels = ConflictLabels::from_merge(destination.labels().as_merge().map(|label| {
+        if label.is_empty() || label.starts_with(RESTORE_BASE_LABEL) {
+            label.clone()
+        } else {
+            format!("{RESTORE_BASE_LABEL} (from {label})")
+        }
+    }));
+
+    // Merging the trees this way ensures that when restoring a conflicted file into
+    // a conflicted commit, we preserve the labels of both commits even if the
+    // commits had different conflict labels. The labels we add here for
+    // non-conflicted trees will generally not be visible to users since they will
+    // always be removed during simplification when materializing any individual
+    // file. However, they could be useful in the future if we add a command which
+    // shows the labels for all the sides of a conflicted commit, and they are also
+    // useful for debugging.
+    // TODO: using a merge is required for retaining conflict labels when restoring
+    // from/into conflicted trees, but maybe we could optimize the case where both
+    // trees are already resolved.
+    MergedTree::merge(Merge::from_vec(vec![
+        (
+            destination.clone(),
+            format!("{destination_label} (restore destination)"),
+        ),
+        (
+            select_matching(destination, base_labels)?,
+            format!("{RESTORE_BASE_LABEL} (from {destination_label})"),
+        ),
+        (
+            select_matching(source, source.labels().clone())?,
+            format!("restored files (from {source_label})"),
+        ),
+    ]))
+    .await
 }
 
 pub async fn rebase_commit(

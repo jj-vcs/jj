@@ -60,6 +60,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj file track --include-ignored` now works when `fsmonitor.backend="watchman"`.
   [#8427](https://github.com/jj-vcs/jj/issues/8427)
 
+* Conflict labels are now preserved correctly when restoring files from commits
+  with different conflict labels.
+
 ## [0.37.0] - 2026-01-07
 
 ### Release highlights

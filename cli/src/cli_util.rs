@@ -3158,10 +3158,18 @@ impl DiffSelector {
     pub fn select(
         &self,
         trees: Diff<&MergedTree>,
+        tree_labels: Diff<String>,
         matcher: &dyn Matcher,
         format_instructions: impl FnOnce() -> String,
     ) -> Result<MergedTree, CommandError> {
-        let selected_tree = restore_tree(trees.after, trees.before, matcher).block_on()?;
+        let selected_tree = restore_tree(
+            trees.after,
+            trees.before,
+            tree_labels.after,
+            tree_labels.before,
+            matcher,
+        )
+        .block_on()?;
         match self {
             Self::NonInteractive => Ok(selected_tree),
             Self::Interactive(editor) => {

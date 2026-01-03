@@ -485,6 +485,7 @@ fn select_diff(
         };
         let selected_tree = diff_selector.select(
             Diff::new(&parent_tree, &source_tree),
+            Diff::new(source.parents_conflict_label()?, source.conflict_label()),
             matcher,
             format_instructions,
         )?;
