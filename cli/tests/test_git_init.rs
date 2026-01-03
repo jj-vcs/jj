@@ -293,6 +293,7 @@ fn test_git_init_external_import_trunk_upstream_takes_precedence() {
         "refs/remotes/origin/trunk",
     );
 
+    // also accepts full .git path
     let output = test_env.run_jj_in(
         ".",
         [
@@ -300,7 +301,7 @@ fn test_git_init_external_import_trunk_upstream_takes_precedence() {
             "init",
             "repo",
             "--git-repo",
-            git_repo_path.to_str().unwrap(),
+            git_repo_path.join(".git").to_str().unwrap(),
         ],
     );
     insta::allow_duplicates! {
