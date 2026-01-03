@@ -100,6 +100,26 @@ fn test_git_remotes() {
     	pushurl = git@example.com:repo/baz
     	fetch = +refs/heads/*:refs/remotes/baz/*
     "#);
+
+    // named remote that cannot be parsed
+    work_dir.write_file(
+        ".jj/repo/store/git/config",
+        indoc! {r#"
+            [remote "foo"]
+                url = invalid\
+        "#},
+    );
+    let output = work_dir.run_jj(["git", "remote", "list"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to load configured remote foo
+    Caused by:
+    1: The fetch url under `remote.foo` was invalid
+    2: The url at "remote.<name>.url=" could not be parsed
+    3: local path "" does not specify a path to a repository
+    [EOF]
+    [exit status: 1]
+    "#);
 }
 
 #[test]
