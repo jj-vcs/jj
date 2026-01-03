@@ -22,6 +22,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   there are no mappings in the Git fetch refspecs.
   [#5115](https://github.com/jj-vcs/jj/issues/5115)
 
+* Conflict labels are now preserved correctly when restoring files from commits
+  with different conflict labels.
+
 ## [0.37.0] - 2026-01-07
 
 ### Release highlights
