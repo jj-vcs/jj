@@ -19,7 +19,6 @@ use std::collections::HashSet;
 use std::slice;
 use std::sync::Arc;
 
-use futures::StreamExt as _;
 use futures::future::try_join_all;
 use futures::try_join;
 use indexmap::IndexMap;
@@ -44,8 +43,6 @@ use crate::matchers::Visit;
 use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
-use crate::merged_tree::MergedTreeBuilder;
-use crate::merged_tree::TreeDiffEntry;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
@@ -120,27 +117,33 @@ pub fn find_recursive_merge_commits(
 pub async fn restore_tree(
     source: &MergedTree,
     destination: &MergedTree,
+    source_label: String,
+    destination_label: String,
     matcher: &dyn Matcher,
 ) -> BackendResult<MergedTree> {
     if matcher.visit(RepoPath::root()) == Visit::AllRecursively {
         // Optimization for a common case
-        Ok(source.clone())
-    } else {
-        // TODO: We should be able to not traverse deeper in the diff if the matcher
-        // matches an entire subtree.
-        let mut tree_builder = MergedTreeBuilder::new(destination.clone());
-        // TODO: handle copy tracking
-        let mut diff_stream = source.diff_stream(destination, matcher);
-        while let Some(TreeDiffEntry {
-            path: repo_path,
-            values,
-        }) = diff_stream.next().await
-        {
-            let source_value = values?.before;
-            tree_builder.set_or_remove(repo_path, source_value);
-        }
-        tree_builder.write_tree()
+        return Ok(source.clone());
     }
+
+    // TODO: this logic is required for retaining conflict labels when restoring
+    // from/into conflicted trees, but maybe we could optimize the case where
+    // both trees are already resolved.
+    MergedTree::merge(Merge::from_vec(vec![
+        (
+            destination.clone(),
+            format!("{destination_label} (restore destination)"),
+        ),
+        (
+            destination.select_matching(matcher)?,
+            format!("original files before restore (from {destination_label})"),
+        ),
+        (
+            source.select_matching(matcher)?,
+            format!("restored files (from {source_label})"),
+        ),
+    ]))
+    .await
 }
 
 pub async fn rebase_commit(
