@@ -14,6 +14,7 @@
 
 mod abandon;
 mod diff;
+mod integrate;
 mod log;
 mod restore;
 pub mod revert;
@@ -35,6 +36,8 @@ use show::cmd_op_show;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::commands::operation::integrate::OperationIntegrateArgs;
+use crate::commands::operation::integrate::cmd_op_integrate;
 use crate::commands::renamed_cmd;
 use crate::ui::Ui;
 
@@ -48,6 +51,7 @@ use crate::ui::Ui;
 pub enum OperationCommand {
     Abandon(OperationAbandonArgs),
     Diff(OperationDiffArgs),
+    Integrate(OperationIntegrateArgs),
     Log(OperationLogArgs),
     Restore(OperationRestoreArgs),
     Revert(OperationRevertArgs),
@@ -65,6 +69,7 @@ pub fn cmd_operation(
     match subcommand {
         OperationCommand::Abandon(args) => cmd_op_abandon(ui, command, args),
         OperationCommand::Diff(args) => cmd_op_diff(ui, command, args),
+        OperationCommand::Integrate(args) => cmd_op_integrate(ui, command, args),
         OperationCommand::Log(args) => cmd_op_log(ui, command, args),
         OperationCommand::Restore(args) => cmd_op_restore(ui, command, args),
         OperationCommand::Revert(args) => cmd_op_revert(ui, command, args),

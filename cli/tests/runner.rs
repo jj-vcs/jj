@@ -60,6 +60,7 @@ mod test_log_command;
 mod test_metaedit_command;
 mod test_new_command;
 mod test_next_prev_commands;
+mod test_op_integrate_command;
 mod test_op_revert_command;
 mod test_operations;
 mod test_parallelize_command;
