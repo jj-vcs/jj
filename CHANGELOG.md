@@ -119,6 +119,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The builtin pager won't get stuck when stdin is redirected.
 
+* Setting the editor via `ui.editor`, `$EDITOR`, or `JJ_EDITOR` now respects shell quoting.
+
 ## [0.36.0] - 2025-12-03
 
 ### Release highlights
