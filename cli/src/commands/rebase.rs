@@ -31,6 +31,7 @@ use jj_lib::rewrite::MoveCommitsTarget;
 use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RewriteRefsOptions;
 use jj_lib::rewrite::compute_move_commits;
+use jj_lib::rewrite::find_different_changeid_commits;
 use jj_lib::rewrite::find_duplicate_divergent_commits;
 use tracing::instrument;
 
@@ -317,6 +318,14 @@ pub(crate) struct RebaseArgs {
     /// destination with identical changes.
     #[arg(long)]
     keep_divergent: bool,
+
+    /// Keep commits with same changes, but different change IDs while rebasing
+    ///
+    /// Without this flag, commits with the same changeset are abandoned while
+    /// rebasing if another commit with the same changeset is already
+    /// present in the destination with identical changes.
+    #[arg(long)]
+    keep_changed_changeid: bool,
 }
 
 #[derive(clap::Args, Clone, Debug)]
@@ -386,6 +395,26 @@ pub(crate) fn cmd_rebase(
 
     let mut tx = workspace_command.start_transaction();
     let mut computed_move = compute_move_commits(tx.repo(), &loc)?;
+    if !args.keep_changed_changeid {
+        let abandoned_changed =
+            find_different_changeid_commits(tx.repo(), &loc.new_parent_ids, &loc.target)?;
+        computed_move.record_to_abandon(abandoned_changed.iter().map(Commit::id).cloned());
+        if !abandoned_changed.is_empty()
+            && let Some(mut formatter) = ui.status_formatter()
+        {
+            writeln!(
+                formatter,
+                "Abandoned {} commits with identical changes that were already present in the \
+                 destination:",
+                abandoned_changed.len(),
+            )?;
+            print_updated_commits(
+                formatter.as_mut(),
+                &tx.base_workspace_helper().commit_summary_template(),
+                &abandoned_changed,
+            )?;
+        }
+    };
     if !args.keep_divergent {
         let abandoned_divergent =
             find_duplicate_divergent_commits(tx.repo(), &loc.new_parent_ids, &loc.target)?;
