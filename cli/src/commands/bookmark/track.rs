@@ -64,6 +64,8 @@ pub struct BookmarkTrackArgs {
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(long = "remote", value_name = "REMOTE")]
+    // TODO: Make this skip the remotes already tracked
+    #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
     remotes: Option<Vec<String>>,
 }
 
