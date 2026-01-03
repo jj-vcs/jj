@@ -49,6 +49,7 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringExpression;
+use jj_lib::str_util::StringMatcher;
 use jj_lib::view::View;
 
 use crate::cli_util::CommandHelper;
@@ -355,6 +356,36 @@ pub fn cmd_git_push(
                 continue;
             }
             let remote_symbol = name.to_remote_symbol(remote);
+            // Check for some targeted allow_new overrides. These are
+            // conservative heuristics, rather than principled rules. They
+            // should cover most practical situations without causing harm.
+            let allow_new = if args.bookmark.iter().any(|b| b.contains(':')) {
+                // The user specified bookmarks with something more complicated
+                // than exact matching. It's possible that some bookmarks which
+                // shouldn't be pushed are matched by mistake. Therefore, do not
+                // override allow_new.
+                allow_new
+            } else if args.remote.is_some() {
+                // The user specified all bookmarks exactly and provided an
+                // explicit remote to push to. Since the user's intent is
+                // unambiguous, allow the bookmark to be pushed.
+                true
+            } else if view
+                .remote_bookmarks_matching(&StringMatcher::Exact(name.into()), &StringMatcher::All)
+                .any(|(_, target)| target.is_tracked())
+            {
+                // The bookmark is already tracked with some remote. If it
+                // is not tracked with the default remote being pushed to,
+                // there is a good chance the user meant to push the bookmark
+                // to the remote it's already tracking, but forgot to supply
+                // `--remote`. Therefore, do not override allow_new.
+                allow_new
+            } else {
+                // The user specified this bookmark exactly and it is not
+                // tracked with any other remote. The user unambiguously intends
+                // to push this new bookmark to the default remote.
+                true
+            };
             let allow_delete = true; // named explicitly, allow delete without --delete
             match classify_bookmark_update(remote_symbol, targets, allow_new, allow_delete) {
                 Ok(Some(update)) => bookmark_updates.push((name.to_owned(), update)),

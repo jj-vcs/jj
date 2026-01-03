@@ -101,6 +101,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj file annotate` now reports an error for non-files instead of succeeding
   and displaying no content.
 
+* `jj git push --bookmark <name>` will now automatically track the bookmark in
+  cases where the user intent is unambiguous.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
