@@ -2092,11 +2092,12 @@ conflict marker. To ensure that it's always unambiguous which lines are conflict
 markers and which are just part of the file contents, <code>jj</code> sometimes uses
 conflict markers which are longer than normal:</p>
 <div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; conflict 1 of 1
-%%%%%%%%%%%%%%% diff from base to side #1
+%%%%%%%%%%%%%%% diff from: wqvuxsty cb9217d5 &quot;merge base&quot;
+\\\\\\\\\\\\\\\        to: kwntsput 0e15b770 &quot;commit A&quot;
 -Heading
 +HEADING
  =======
-+++++++++++++++ side #2
++++++++++++++++ mpnwrytz 52020ed6 &quot;commit B&quot;
 New Heading
 ===========
 &gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; conflict 1 of 1 ends
@@ -2116,10 +2117,10 @@ character, and one person changed <code>grape</code> to <code>grapefruit</code>,
 added the missing newline character to make <code>grape\n</code>, the resulting conflict
 would look like this:</p>
 <div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; conflict 1 of 1
-+++++++ side #1 (no terminating newline)
++++++++ tlwwkqxk d121763d &quot;commit A&quot; (no terminating newline)
 grapefruit
-%%%%%%% diff from: base (no terminating newline)
-\\\\\\\        to: side #2
+%%%%%%% diff from: qwpqssno fe561d93 &quot;merge base&quot; (no terminating newline)
+\\\\\\\        to: poxkmrxy c735fe02 &quot;commit B&quot;
 -grape
 +grape
 &gt;&gt;&gt;&gt;&gt;&gt;&gt; conflict 1 of 1 ends
