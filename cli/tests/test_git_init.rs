@@ -98,7 +98,7 @@ fn test_git_init_internal() {
 }
 
 #[test]
-fn test_git_init_internal_ignore_working_copy() {
+fn test_git_init_ignore_working_copy() {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("").create_dir("repo");
     work_dir.write_file("file1", "");
@@ -113,7 +113,7 @@ fn test_git_init_internal_ignore_working_copy() {
 }
 
 #[test]
-fn test_git_init_internal_at_operation() {
+fn test_git_init_at_operation() {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("").create_dir("repo");
 
@@ -325,52 +325,6 @@ fn test_git_init_external_import_trunk_upstream_takes_precedence() {
         [EOF]
         "#);
     }
-}
-
-#[test]
-fn test_git_init_external_ignore_working_copy() {
-    let test_env = TestEnvironment::default();
-    let git_repo_path = test_env.env_root().join("git-repo");
-    init_git_repo(&git_repo_path, false);
-    let work_dir = test_env.work_dir("").create_dir("repo");
-    work_dir.write_file("file1", "");
-
-    // No snapshot should be taken
-    let output = work_dir.run_jj([
-        "git",
-        "init",
-        "--ignore-working-copy",
-        "--git-repo",
-        git_repo_path.to_str().unwrap(),
-    ]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Error: --ignore-working-copy is not respected
-    [EOF]
-    [exit status: 2]
-    ");
-}
-
-#[test]
-fn test_git_init_external_at_operation() {
-    let test_env = TestEnvironment::default();
-    let git_repo_path = test_env.env_root().join("git-repo");
-    init_git_repo(&git_repo_path, false);
-    let work_dir = test_env.work_dir("").create_dir("repo");
-
-    let output = work_dir.run_jj([
-        "git",
-        "init",
-        "--at-op=@-",
-        "--git-repo",
-        git_repo_path.to_str().unwrap(),
-    ]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Error: --at-op is not respected
-    [EOF]
-    [exit status: 2]
-    ");
 }
 
 #[test]
@@ -844,37 +798,6 @@ fn test_git_init_colocated_dirty_working_copy() {
         },
     ]
     "#);
-}
-
-#[test]
-fn test_git_init_colocated_ignore_working_copy() {
-    let test_env = TestEnvironment::default();
-    let work_dir = test_env.work_dir("repo");
-    init_git_repo(work_dir.root(), false);
-    work_dir.write_file("file1", "");
-
-    let output = work_dir.run_jj(["git", "init", "--ignore-working-copy", "--colocate"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Error: --ignore-working-copy is not respected
-    [EOF]
-    [exit status: 2]
-    ");
-}
-
-#[test]
-fn test_git_init_colocated_at_operation() {
-    let test_env = TestEnvironment::default();
-    let work_dir = test_env.work_dir("repo");
-    init_git_repo(work_dir.root(), false);
-
-    let output = work_dir.run_jj(["git", "init", "--at-op=@-", "--colocate"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Error: --at-op is not respected
-    [EOF]
-    [exit status: 2]
-    ");
 }
 
 #[test]
