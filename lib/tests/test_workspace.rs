@@ -21,6 +21,7 @@ use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;
 use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::default_working_copy_factory;
+use jj_lib::workspace_store::SimpleWorkspaceStore;
 use testutils::TestEnvironment;
 use testutils::TestWorkspace;
 
@@ -51,12 +52,14 @@ fn test_init_additional_workspace() {
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws2_root = test_workspace.root_dir().join("ws2_root");
     std::fs::create_dir(&ws2_root).unwrap();
+    let workspace_store = SimpleWorkspaceStore::load(test_workspace.repo_path()).unwrap();
     let (ws2, repo) = Workspace::init_workspace_with_existing_repo(
         &ws2_root,
         test_workspace.repo_path(),
         &test_workspace.repo,
         &*default_working_copy_factory(),
         ws2_name.clone(),
+        &workspace_store,
     )
     .unwrap();
     let wc_commit_id = repo.view().get_wc_commit_id(&ws2_name);
@@ -117,12 +120,14 @@ fn test_init_additional_workspace_non_utf8_path() {
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws2_root = test_env.root().join(OsStr::from_bytes(b"ws2_root\xe0"));
     std::fs::create_dir(&ws2_root).unwrap();
+    let workspace_store = SimpleWorkspaceStore::load(ws1.repo_path()).unwrap();
     let (ws2, _repo) = Workspace::init_workspace_with_existing_repo(
         &ws2_root,
         ws1.repo_path(),
         &repo,
         &*default_working_copy_factory(),
         ws2_name.clone(),
+        &workspace_store,
     )
     .unwrap();
     assert_eq!(ws2.workspace_name(), &ws2_name);

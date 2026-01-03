@@ -61,6 +61,7 @@ use jj_lib::working_copy::ResetError;
 use jj_lib::working_copy::SnapshotError;
 use jj_lib::working_copy::WorkingCopyStateError;
 use jj_lib::workspace::WorkspaceInitError;
+use jj_lib::workspace_store::WorkspaceStoreError;
 use thiserror::Error;
 
 use crate::cli_util::short_operation_hash;
@@ -341,6 +342,12 @@ impl From<OpHeadsStoreError> for CommandError {
     }
 }
 
+impl From<WorkspaceStoreError> for CommandError {
+    fn from(err: WorkspaceStoreError) -> Self {
+        internal_error_with_message("Unexpected error from workspace store", err)
+    }
+}
+
 impl From<WorkspaceInitError> for CommandError {
     fn from(err: WorkspaceInitError) -> Self {
         match err {
@@ -356,6 +363,9 @@ impl From<WorkspaceInitError> for CommandError {
             }
             WorkspaceInitError::OpHeadsStore(err) => {
                 user_error_with_message("Failed to record initial operation", err)
+            }
+            WorkspaceInitError::WorkspaceStore(err) => {
+                internal_error_with_message("Failed to record workspace path", err)
             }
             WorkspaceInitError::Backend(err) => {
                 user_error_with_message("Failed to access the repository", err)
