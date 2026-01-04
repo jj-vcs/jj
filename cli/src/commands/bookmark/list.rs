@@ -28,7 +28,6 @@ use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::commit_ref_list;
 use crate::commit_ref_list::RefFilterPredicates;
-use crate::commit_ref_list::RefListItem;
 use crate::commit_ref_list::SortKey;
 use crate::commit_templater::CommitRef;
 use crate::complete;
@@ -181,57 +180,7 @@ pub fn cmd_bookmark_list(
         include_synced_remotes: args.tracked || args.all_remotes || args.remotes.is_some(),
         include_untracked_remotes: !args.tracked && (args.all_remotes || args.remotes.is_some()),
     };
-
-    let mut bookmark_list_items: Vec<RefListItem> = Vec::new();
-    let bookmarks_to_list = view
-        .bookmarks()
-        .filter(|(name, target)| {
-            predicates.name_matcher.is_match(name.as_str())
-                || target
-                    .local_target
-                    .added_ids()
-                    .any(|id| predicates.matched_local_targets.contains(id))
-        })
-        .filter(|(_, target)| !predicates.conflicted || target.local_target.has_conflict());
-    for (name, bookmark_target) in bookmarks_to_list {
-        let local_target = bookmark_target.local_target;
-        let remote_refs = bookmark_target.remote_refs;
-        let (mut tracked_remote_refs, untracked_remote_refs) = remote_refs
-            .iter()
-            .copied()
-            .filter(|(remote_name, _)| predicates.remote_matcher.is_match(remote_name.as_str()))
-            .partition::<Vec<_>, _>(|&(_, remote_ref)| remote_ref.is_tracked());
-        if !predicates.include_synced_remotes {
-            tracked_remote_refs.retain(|&(_, remote_ref)| remote_ref.target != *local_target);
-        }
-
-        if predicates.include_local_only && local_target.is_present()
-            || !tracked_remote_refs.is_empty()
-        {
-            let primary = CommitRef::local(
-                name,
-                local_target.clone(),
-                remote_refs.iter().map(|&(_, remote_ref)| remote_ref),
-            );
-            let tracked = tracked_remote_refs
-                .iter()
-                .map(|&(remote, remote_ref)| {
-                    CommitRef::remote(name, remote, remote_ref.clone(), local_target)
-                })
-                .collect();
-            bookmark_list_items.push(RefListItem { primary, tracked });
-        }
-
-        if predicates.include_untracked_remotes {
-            bookmark_list_items.extend(untracked_remote_refs.iter().map(
-                |&(remote, remote_ref)| RefListItem {
-                    primary: CommitRef::remote_only(name, remote, remote_ref.target.clone()),
-                    tracked: vec![],
-                },
-            ));
-        }
-    }
-
+    let mut bookmark_list_items = commit_ref_list::collect_items(view.bookmarks(), &predicates);
     let sort_keys = if args.sort.is_empty() {
         workspace_command.settings().get_value_with(
             "ui.bookmark-list-sort-keys",
