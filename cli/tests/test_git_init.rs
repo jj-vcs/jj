@@ -98,6 +98,20 @@ fn test_git_init_internal() {
 }
 
 #[test]
+fn test_git_init_internal_preexisting_git_repo() {
+    let test_env = TestEnvironment::default();
+    test_env.work_dir("").create_dir_all("repo/.git");
+    let output = test_env.run_jj_in(".", ["git", "init", "repo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Did not create a jj repo because there is an existing Git repo in this directory.
+    Hint: To create a repo backed by the existing Git repo, run `jj git init --colocate` instead.
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_git_init_ignore_working_copy() {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("").create_dir("repo");
