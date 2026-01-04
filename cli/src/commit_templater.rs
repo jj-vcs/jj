@@ -99,6 +99,7 @@ use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar;
+use crate::template_builder::TemplateBuildFunctionFnMap;
 use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::expect_stringify_expression;
@@ -923,8 +924,10 @@ impl CommitTemplateBuildFnTable<'_> {
 
     /// Creates new symbol table containing the builtin methods.
     fn builtin() -> Self {
+        let mut core = CoreTemplateBuildFnTable::builtin();
+        merge_fn_map(&mut core.functions, builtin_commit_template_functions());
         Self {
-            core: CoreTemplateBuildFnTable::builtin(),
+            core,
             operation: OperationTemplateBuildFnTable::builtin(),
             commit_methods: builtin_commit_methods(),
             commit_list_methods: template_builder::builtin_unformattable_list_methods(),
@@ -992,6 +995,12 @@ impl<'repo> CommitKeywordCache<'repo> {
             Ok(revset.containing_fn().into())
         })
     }
+}
+
+/// Builtin functions for the commit template language.
+fn builtin_commit_template_functions<'repo>()
+-> TemplateBuildFunctionFnMap<'repo, CommitTemplateLanguage<'repo>> {
+    TemplateBuildFunctionFnMap::<CommitTemplateLanguage>::new()
 }
 
 fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Commit> {
