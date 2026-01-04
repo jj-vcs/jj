@@ -116,6 +116,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj git push` now updates partially-pushed remote bookmarks accordingly.
   [#6787](https://github.com/jj-vcs/jj/issues/6787)
 
+* `jj git push` now ensures that tracked remote bookmarks are updated even if
+  there are no mappings in the Git fetch refspecs.
+  [#5115](https://github.com/jj-vcs/jj/issues/5115)
+
 * Fixed problem of loading large Git packfiles.
   https://github.com/GitoxideLabs/gitoxide/issues/2265
 
