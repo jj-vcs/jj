@@ -387,7 +387,7 @@ revsets (expressions) as arguments.
   are scanned by default, but it is likely to change in future version to
   respect the command line path arguments.
 
-  For example, `diff_contains("TODO", "src")` will search revisions where "TODO"
+  For example, `diff_contains("*TODO*", "src")` will search revisions where "TODO"
   is added to or removed from files under "src".
 
 * `conflicts()`: Commits with conflicts.
