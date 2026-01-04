@@ -61,7 +61,6 @@ rand_chacha = { workspace = true }
 rayon = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }
-same-file = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }
 strsim = { workspace = true }
@@ -76,6 +75,7 @@ watchman_client = { workspace = true, optional = true }
 rustix = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
+same-file = { workspace = true }
 winreg = { workspace = true }
 
 [dev-dependencies]

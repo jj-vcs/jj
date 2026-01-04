@@ -14,6 +14,7 @@
 
 use std::convert::Infallible;
 use std::fs::File;
+use std::io;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::Component;
@@ -2041,6 +2042,53 @@ fn test_check_out_file_removal_over_existing_directory_symlink() {
     assert!(victim_file_path.exists());
 }
 
+#[test_case(".git"; "reserved .git dir")]
+#[test_case(".jj"; "reserved .jj dir")]
+#[test_case("symlink"; "looped")]
+#[test_case("unknown"; "dead")]
+#[cfg_attr(windows, ignore = "Windows impl follows symlink")] // FIXME
+fn test_check_out_symlink_unusual_target(link_target: &str) {
+    if !check_symlink_support().unwrap() {
+        eprintln!("Skipping test because symlink isn't supported");
+        return;
+    }
+
+    let mut test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+    std::fs::create_dir(workspace_root.join(".git")).unwrap();
+
+    let symlink_path = repo_path("symlink");
+    let symlink_disk_path = symlink_path.to_fs_path_unchecked(&workspace_root);
+    let tree1 = create_tree_with(repo, |builder| {
+        builder.symlink(symlink_path, link_target);
+    });
+    let tree2 = create_tree(repo, &[]);
+    let commit1 = commit_with_tree(repo.store(), tree1);
+    let commit2 = commit_with_tree(repo.store(), tree2);
+
+    // Check out tree containing symlink
+    let ws = &mut test_workspace.workspace;
+    let stats = ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
+    assert_eq!(stats.added_files, 1);
+
+    // Symlink should be created
+    assert_eq!(
+        symlink_disk_path.read_link().unwrap().as_os_str(),
+        link_target
+    );
+
+    // Check out empty tree
+    let stats = ws.check_out(repo.op_id().clone(), None, &commit2).unwrap();
+    assert_eq!(stats.removed_files, 1);
+
+    // Symlink should be deleted
+    assert_matches!(
+        symlink_disk_path.symlink_metadata().map_err(|e| e.kind()),
+        Err(io::ErrorKind::NotFound)
+    );
+}
+
 #[test_case("../pwned"; "escape from root")]
 #[test_case("sub/../../pwned"; "escape from sub dir")]
 fn test_check_out_malformed_file_path(file_path_str: &str) {
@@ -2327,6 +2375,57 @@ fn test_check_out_reserved_file_path_vfat(vfat_path_str: &str, file_path_strs: &
     if is_vfat {
         assert!(vfat_disk_path.exists());
     }
+}
+
+#[test_case(".git"; "root .git file")]
+#[test_case(".git/pwned"; "root .git dir")]
+fn test_check_out_reserved_file_path_dot_git_symlink(file_path_str: &str) {
+    if !check_symlink_support().unwrap() {
+        eprintln!("Skipping test because symlink isn't supported");
+        return;
+    }
+
+    let mut test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+    let workspace_root = test_workspace.workspace.workspace_root().to_owned();
+
+    // Create symlink .git -> ../git-repo
+    let git_repo_dir = test_workspace.env.root().join("git-repo");
+    let dot_git_path = workspace_root.join(".git");
+    std::fs::create_dir(&git_repo_dir).unwrap();
+    symlink_dir(&git_repo_dir, &dot_git_path).unwrap();
+    assert!(dot_git_path.exists());
+
+    let file_path = repo_path(file_path_str);
+    let disk_path = file_path.to_fs_path_unchecked(&workspace_root);
+    let tree1 = create_tree(repo, &[(file_path, "contents")]);
+    let tree2 = create_tree(repo, &[]);
+    let commit1 = commit_with_tree(repo.store(), tree1);
+    let commit2 = commit_with_tree(repo.store(), tree2);
+
+    // Checkout should fail.
+    let ws = &mut test_workspace.workspace;
+    let result = ws.check_out(repo.op_id().clone(), None, &commit1);
+    assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
+
+    // Therefore, "pwned" file shouldn't be created.
+    assert!(!git_repo_dir.join("pwned").exists());
+    assert!(!dot_git_path.join("pwned").exists());
+
+    // Pretend that the checkout somehow succeeded.
+    let mut locked_ws = ws.start_working_copy_mutation().unwrap();
+    locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
+    locked_ws.finish(repo.op_id().clone()).unwrap();
+    if file_path_str != ".git" {
+        std::fs::write(&disk_path, "").unwrap();
+    }
+
+    // Check out empty tree, which tries to remove the file.
+    let result = ws.check_out(repo.op_id().clone(), None, &commit2);
+    assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
+
+    // The existing file shouldn't be removed.
+    assert!(disk_path.exists());
 }
 
 #[test]
