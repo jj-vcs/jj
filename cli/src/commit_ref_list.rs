@@ -16,6 +16,7 @@
 
 use std::cmp;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -26,6 +27,7 @@ use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigValue;
 use jj_lib::store::Store;
+use jj_lib::str_util::StringMatcher;
 
 use crate::commit_templater::CommitRef;
 
@@ -35,6 +37,24 @@ pub struct RefListItem {
     pub primary: Rc<CommitRef>,
     /// Remote refs tracked by the primary (or local) ref.
     pub tracked: Vec<Rc<CommitRef>>,
+}
+
+/// Conditions to select local/remote refs.
+pub struct RefFilterPredicates {
+    /// Matches local names.
+    pub name_matcher: StringMatcher,
+    /// Matches remote names.
+    pub remote_matcher: StringMatcher,
+    /// Matches any of the local targets.
+    pub matched_local_targets: HashSet<CommitId>,
+    /// Selects local refs having conflicted targets.
+    pub conflicted: bool,
+    /// Includes local-only refs.
+    pub include_local_only: bool,
+    /// Includes tracked remote refs pointing to the same local targets.
+    pub include_synced_remotes: bool,
+    /// Includes untracked remote refs.
+    pub include_untracked_remotes: bool,
 }
 
 /// Sort key for the `--sort` argument option.

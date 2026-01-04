@@ -27,6 +27,7 @@ use crate::cli_util::RevisionArg;
 use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::commit_ref_list;
+use crate::commit_ref_list::RefFilterPredicates;
 use crate::commit_ref_list::RefListItem;
 use crate::commit_ref_list::SortKey;
 use crate::commit_templater::CommitRef;
@@ -136,7 +137,6 @@ pub fn cmd_bookmark_list(
         (None, Some(_)) => StringExpression::none(),
         (None, None) => StringExpression::all(),
     };
-    let name_matcher = name_expr.to_matcher();
     let matched_local_targets: HashSet<_> = if let Some(revisions) = &args.revisions {
         // Match against local targets only, which is consistent with "jj git push".
         let mut expression = workspace_command.parse_union_revsets(ui, revisions)?;
@@ -171,32 +171,43 @@ pub fn cmd_bookmark_list(
         (None, Some(ignored)) => StringExpression::exact(ignored).negated(),
         (None, None) => StringExpression::all(),
     };
-    let remote_matcher = remote_expr.to_matcher();
+
+    let predicates = RefFilterPredicates {
+        name_matcher: name_expr.to_matcher(),
+        remote_matcher: remote_expr.to_matcher(),
+        matched_local_targets,
+        conflicted: args.conflicted,
+        include_local_only: !args.tracked && args.remotes.is_none(),
+        include_synced_remotes: args.tracked || args.all_remotes || args.remotes.is_some(),
+        include_untracked_remotes: !args.tracked && (args.all_remotes || args.remotes.is_some()),
+    };
+
     let mut bookmark_list_items: Vec<RefListItem> = Vec::new();
     let bookmarks_to_list = view
         .bookmarks()
         .filter(|(name, target)| {
-            name_matcher.is_match(name.as_str())
+            predicates.name_matcher.is_match(name.as_str())
                 || target
                     .local_target
                     .added_ids()
-                    .any(|id| matched_local_targets.contains(id))
+                    .any(|id| predicates.matched_local_targets.contains(id))
         })
-        .filter(|(_, target)| !args.conflicted || target.local_target.has_conflict());
+        .filter(|(_, target)| !predicates.conflicted || target.local_target.has_conflict());
     for (name, bookmark_target) in bookmarks_to_list {
         let local_target = bookmark_target.local_target;
         let remote_refs = bookmark_target.remote_refs;
         let (mut tracked_remote_refs, untracked_remote_refs) = remote_refs
             .iter()
             .copied()
-            .filter(|(remote_name, _)| remote_matcher.is_match(remote_name.as_str()))
+            .filter(|(remote_name, _)| predicates.remote_matcher.is_match(remote_name.as_str()))
             .partition::<Vec<_>, _>(|&(_, remote_ref)| remote_ref.is_tracked());
-        if !args.tracked && !args.all_remotes && args.remotes.is_none() {
+        if !predicates.include_synced_remotes {
             tracked_remote_refs.retain(|&(_, remote_ref)| remote_ref.target != *local_target);
         }
 
-        let include_local_only = !args.tracked && args.remotes.is_none();
-        if include_local_only && local_target.is_present() || !tracked_remote_refs.is_empty() {
+        if predicates.include_local_only && local_target.is_present()
+            || !tracked_remote_refs.is_empty()
+        {
             let primary = CommitRef::local(
                 name,
                 local_target.clone(),
@@ -211,7 +222,7 @@ pub fn cmd_bookmark_list(
             bookmark_list_items.push(RefListItem { primary, tracked });
         }
 
-        if !args.tracked && (args.all_remotes || args.remotes.is_some()) {
+        if predicates.include_untracked_remotes {
             bookmark_list_items.extend(untracked_remote_refs.iter().map(
                 |&(remote, remote_ref)| RefListItem {
                     primary: CommitRef::remote_only(name, remote, remote_ref.target.clone()),
