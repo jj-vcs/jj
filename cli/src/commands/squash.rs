@@ -39,7 +39,6 @@ use crate::cli_util::compute_commit_location;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
-use crate::command_error::user_error_with_hint;
 use crate::complete;
 use crate::description_util::add_trailers;
 use crate::description_util::combine_messages_for_editing;
@@ -219,10 +218,10 @@ pub(crate) fn cmd_squash(
             .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
         let mut parents: Vec<_> = source.parents().try_collect()?;
         if parents.len() != 1 {
-            return Err(user_error_with_hint(
-                "Cannot squash merge commits without a specified destination",
-                "Use `--into` to specify which parent to squash into",
-            ));
+            return Err(
+                user_error("Cannot squash merge commits without a specified destination")
+                    .hinted("Use `--into` to specify which parent to squash into"),
+            );
         }
         sources = vec![source];
         pre_existing_destination = Some(parents.pop().unwrap());

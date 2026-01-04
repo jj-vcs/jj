@@ -28,7 +28,7 @@ use crate::cli_util::RevisionArg;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
-use crate::command_error::user_error_with_hint;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::get_copy_records;
@@ -153,13 +153,12 @@ pub(crate) fn cmd_diff(
             )
             .evaluate_to_commit_ids()?;
         if let Some(commit_id) = gaps_revset.next() {
-            return Err(user_error_with_hint(
-                "Cannot diff revsets with gaps in.",
-                format!(
+            return Err(
+                user_error("Cannot diff revsets with gaps in.").hinted(format!(
                     "Revision {} would need to be in the set.",
                     short_commit_hash(&commit_id?)
-                ),
-            ));
+                )),
+            );
         }
         let heads: Vec<_> = workspace_command
             .attach_revset_evaluator(target_expression.heads())

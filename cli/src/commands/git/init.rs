@@ -35,7 +35,7 @@ use crate::cli_util::start_repo_transaction;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::internal_error;
-use crate::command_error::user_error_with_hint;
+use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
 use crate::commands::git::maybe_add_gitignore;
 use crate::config::ConfigEnv;
@@ -162,11 +162,12 @@ fn do_init(
         if colocated_git_repo_path.exists() {
             // Refuse to colocate inside a Git worktree
             if is_linked_git_worktree(workspace_root) {
-                return Err(user_error_with_hint(
-                    "Cannot create a colocated jj repo inside a Git worktree.",
-                    "Run `jj git init` in the main Git repository instead, or use `jj workspace \
-                     add` to create additional jj workspaces.",
-                ));
+                return Err(
+                    user_error("Cannot create a colocated jj repo inside a Git worktree.").hinted(
+                        "Run `jj git init` in the main Git repository instead, or use `jj \
+                         workspace add` to create additional jj workspaces.",
+                    ),
+                );
             }
             GitInitMode::External(colocated_git_repo_path)
         } else {
@@ -184,8 +185,10 @@ fn do_init(
         GitInitMode::External(git_repo_path)
     } else {
         if colocated_git_repo_path.exists() {
-            return Err(user_error_with_hint(
+            return Err(user_error(
                 "Did not create a jj repo because there is an existing Git repo in this directory.",
+            )
+            .hinted(
                 "To create a repo backed by the existing Git repo, run `jj git init --colocate` \
                  instead.",
             ));

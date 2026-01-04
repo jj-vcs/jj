@@ -183,13 +183,6 @@ pub fn user_error(err: impl Into<Box<dyn error::Error + Send + Sync>>) -> Comman
     CommandError::new(CommandErrorKind::User, err)
 }
 
-pub fn user_error_with_hint(
-    err: impl Into<Box<dyn error::Error + Send + Sync>>,
-    hint: impl Into<String>,
-) -> CommandError {
-    user_error(err).hinted(hint)
-}
-
 pub fn user_error_with_message(
     message: impl Into<String>,
     source: impl Into<Box<dyn error::Error + Send + Sync>>,
@@ -489,14 +482,10 @@ impl From<MergeToolConfigError> for CommandError {
         match &err {
             MergeToolConfigError::MergeArgsNotConfigured { tool_name } => {
                 let tool_name = tool_name.clone();
-                user_error_with_hint(
-                    err,
-                    format!(
-                        "To use `{tool_name}` as a merge tool, the config \
-                         `merge-tools.{tool_name}.merge-args` must be defined (see docs for \
-                         details)"
-                    ),
-                )
+                user_error(err).hinted(format!(
+                    "To use `{tool_name}` as a merge tool, the config \
+                     `merge-tools.{tool_name}.merge-args` must be defined (see docs for details)"
+                ))
             }
             _ => user_error_with_message("Failed to load tool configuration", err),
         }
@@ -574,10 +563,9 @@ jj currently does not support partial clones. To use jj with this repository, tr
         fn from(err: GitFetchError) -> Self {
             match err {
                 GitFetchError::NoSuchRemote(_) => user_error(err),
-                GitFetchError::RemoteName(_) => user_error_with_hint(
-                    err,
-                    "Run `jj git remote rename` to give a different name.",
-                ),
+                GitFetchError::RemoteName(_) => {
+                    user_error(err).hinted("Run `jj git remote rename` to give a different name.")
+                }
                 GitFetchError::Subprocess(_) => user_error(err),
             }
         }
@@ -595,10 +583,8 @@ jj currently does not support partial clones. To use jj with this repository, tr
     impl From<GitRefExpansionError> for CommandError {
         fn from(err: GitRefExpansionError) -> Self {
             match &err {
-                GitRefExpansionError::Expression(_) => user_error_with_hint(
-                    err,
-                    "Specify patterns in `(positive | ...) & ~(negative | ...)` form.",
-                ),
+                GitRefExpansionError::Expression(_) => user_error(err)
+                    .hinted("Specify patterns in `(positive | ...) & ~(negative | ...)` form."),
                 GitRefExpansionError::InvalidBranchPattern(_) => user_error(err),
             }
         }
@@ -608,10 +594,9 @@ jj currently does not support partial clones. To use jj with this repository, tr
         fn from(err: GitPushError) -> Self {
             match err {
                 GitPushError::NoSuchRemote(_) => user_error(err),
-                GitPushError::RemoteName(_) => user_error_with_hint(
-                    err,
-                    "Run `jj git remote rename` to give a different name.",
-                ),
+                GitPushError::RemoteName(_) => {
+                    user_error(err).hinted("Run `jj git remote rename` to give a different name.")
+                }
                 GitPushError::Subprocess(_) => user_error(err),
                 GitPushError::UnexpectedBackend(_) => user_error(err),
             }

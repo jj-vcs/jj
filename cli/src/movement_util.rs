@@ -29,7 +29,6 @@ use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
-use crate::command_error::user_error_with_hint;
 use crate::ui::Ui;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -167,10 +166,8 @@ fn get_target_commit(
             .heads()
             .contains(working_commit_id)
     {
-        return Err(user_error_with_hint(
-            "The working copy must not have any children",
-            "Create a new commit on top of this one or use `--edit`",
-        ));
+        return Err(user_error("The working copy must not have any children")
+            .hinted("Create a new commit on top of this one or use `--edit`"));
     }
 
     // If we're editing, start at the working-copy commit. Otherwise, start from

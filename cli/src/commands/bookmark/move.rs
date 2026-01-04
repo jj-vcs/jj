@@ -26,7 +26,7 @@ use super::warn_unmatched_local_bookmarks;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
-use crate::command_error::user_error_with_hint;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
@@ -126,13 +126,11 @@ pub fn cmd_bookmark_move(
             },
         )?
     {
-        return Err(user_error_with_hint(
-            format!(
-                "Refusing to move bookmark backwards or sideways: {name}",
-                name = name.as_symbol()
-            ),
-            "Use --allow-backwards to allow it.",
-        ));
+        return Err(user_error(format!(
+            "Refusing to move bookmark backwards or sideways: {name}",
+            name = name.as_symbol()
+        ))
+        .hinted("Use --allow-backwards to allow it."));
     }
     if target_commit.is_discardable(repo.as_ref())? {
         writeln!(ui.warning_default(), "Target revision is empty.")?;

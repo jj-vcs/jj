@@ -25,7 +25,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
-use crate::command_error::user_error_with_hint;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -63,8 +63,8 @@ pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result
     let mut workspace_command = command.workspace_helper(ui)?;
 
     if !workspace_command.repo().store().signer().can_sign() {
-        return Err(user_error_with_hint(
-            "No signing backend configured",
+        return Err(user_error(
+            "No signing backend configured").hinted(
             "For configuring a signing backend, see https://docs.jj-vcs.dev/latest/config/#commit-signing",
         ));
     }

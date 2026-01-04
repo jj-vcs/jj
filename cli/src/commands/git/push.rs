@@ -59,7 +59,6 @@ use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::cli_error_with_message;
 use crate::command_error::user_error;
-use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
 use crate::commands::git::get_single_remote;
 use crate::complete;
@@ -805,19 +804,20 @@ fn classify_bookmark_update(
 fn ensure_new_bookmark_name(repo: &dyn Repo, name: &RefName) -> Result<(), CommandError> {
     let symbol = name.as_symbol();
     if repo.view().get_local_bookmark(name).is_present() {
-        return Err(user_error_with_hint(
-            format!("Bookmark already exists: {symbol}"),
-            format!("Use 'jj bookmark move' to move it, and 'jj git push -b {symbol}' to push it"),
-        ));
+        return Err(
+            user_error(format!("Bookmark already exists: {symbol}")).hinted(format!(
+                "Use 'jj bookmark move' to move it, and 'jj git push -b {symbol}' to push it"
+            )),
+        );
     }
     if has_tracked_remote_bookmarks(repo, name) {
-        return Err(user_error_with_hint(
-            format!("Tracked remote bookmarks exist for deleted bookmark: {symbol}"),
-            format!(
-                "Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack \
-                 {symbol}` to disassociate them."
-            ),
-        ));
+        return Err(user_error(format!(
+            "Tracked remote bookmarks exist for deleted bookmark: {symbol}"
+        ))
+        .hinted(format!(
+            "Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack \
+             {symbol}` to disassociate them."
+        )));
     }
     Ok(())
 }

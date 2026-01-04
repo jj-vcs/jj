@@ -38,7 +38,6 @@ use crate::cli_util::short_change_hash;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
-use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
 use crate::git_util::print_push_stats;
 use crate::git_util::with_remote_git_callbacks;
@@ -221,23 +220,21 @@ pub fn cmd_gerrit_upload(
     // Immediately error and reject any commits that shouldn't be uploaded.
     for commit in &to_upload {
         if commit.is_empty(tx.repo_mut())? {
-            return Err(user_error_with_hint(
-                format!(
-                    "Refusing to upload revision {} because it is empty",
-                    short_change_hash(commit.change_id())
-                ),
+            return Err(user_error(format!(
+                "Refusing to upload revision {} because it is empty",
+                short_change_hash(commit.change_id())
+            ))
+            .hinted(
                 "Perhaps you squashed then ran upload? Maybe you meant to upload the parent \
                  commit instead (eg. @-)",
             ));
         }
         if commit.description().is_empty() {
-            return Err(user_error_with_hint(
-                format!(
-                    "Refusing to upload revision {} because it is has no description",
-                    short_change_hash(commit.change_id())
-                ),
-                "Maybe you meant to upload the parent commit instead (eg. @-)",
-            ));
+            return Err(user_error(format!(
+                "Refusing to upload revision {} because it is has no description",
+                short_change_hash(commit.change_id())
+            ))
+            .hinted("Maybe you meant to upload the parent commit instead (eg. @-)"));
         }
     }
 

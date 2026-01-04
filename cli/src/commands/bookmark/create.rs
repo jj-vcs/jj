@@ -22,7 +22,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::has_tracked_remote_bookmarks;
 use crate::command_error::CommandError;
-use crate::command_error::user_error_with_hint;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::revset_util;
 use crate::ui::Ui;
@@ -58,23 +58,22 @@ pub fn cmd_bookmark_create(
     let bookmark_names = &args.names;
     for name in bookmark_names {
         if view.get_local_bookmark(name).is_present() {
-            return Err(user_error_with_hint(
-                format!("Bookmark already exists: {name}", name = name.as_symbol()),
-                "Use `jj bookmark set` to update it.",
-            ));
+            return Err(user_error(format!(
+                "Bookmark already exists: {name}",
+                name = name.as_symbol()
+            ))
+            .hinted("Use `jj bookmark set` to update it."));
         }
         if has_tracked_remote_bookmarks(repo, name) {
-            return Err(user_error_with_hint(
-                format!(
-                    "Tracked remote bookmarks exist for deleted bookmark: {name}",
-                    name = name.as_symbol()
-                ),
-                format!(
-                    "Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark \
-                     untrack {name}` to disassociate them.",
-                    name = name.as_symbol()
-                ),
-            ));
+            return Err(user_error(format!(
+                "Tracked remote bookmarks exist for deleted bookmark: {name}",
+                name = name.as_symbol()
+            ))
+            .hinted(format!(
+                "Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack \
+                 {name}` to disassociate them.",
+                name = name.as_symbol()
+            )));
         }
     }
     if target_commit.is_discardable(repo)? {

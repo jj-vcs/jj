@@ -26,7 +26,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::has_tracked_remote_bookmarks;
 use crate::command_error::CommandError;
-use crate::command_error::user_error_with_hint;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::revset_util;
 use crate::ui::Ui;
@@ -79,13 +79,11 @@ pub fn cmd_bookmark_set(
             moved_bookmark_count += 1;
         }
         if !args.allow_backwards && !is_fast_forward(repo, old_target, target_commit.id())? {
-            return Err(user_error_with_hint(
-                format!(
-                    "Refusing to move bookmark backwards or sideways: {name}",
-                    name = name.as_symbol()
-                ),
-                "Use --allow-backwards to allow it.",
-            ));
+            return Err(user_error(format!(
+                "Refusing to move bookmark backwards or sideways: {name}",
+                name = name.as_symbol()
+            ))
+            .hinted("Use --allow-backwards to allow it."));
         }
     }
     if target_commit.is_discardable(repo)? {
