@@ -183,10 +183,8 @@ pub fn cmd_bookmark_list(
                     .any(|id| matched_local_targets.contains(id))
         })
         .filter(|(_, target)| !args.conflicted || target.local_target.has_conflict());
-    let mut any_conflicts = false;
     for (name, bookmark_target) in bookmarks_to_list {
         let local_target = bookmark_target.local_target;
-        any_conflicts |= local_target.has_conflict();
         let remote_refs = bookmark_target.remote_refs;
         let (mut tracked_remote_refs, untracked_remote_refs) = remote_refs
             .iter()
@@ -243,7 +241,10 @@ pub fn cmd_bookmark_list(
 
     warn_unmatched_local_or_remote_bookmarks(ui, view, &name_expr)?;
 
-    if any_conflicts {
+    if bookmark_list_items
+        .iter()
+        .any(|item| item.primary.is_local() && item.primary.has_conflict())
+    {
         writeln!(
             ui.hint_default(),
             "Some bookmarks have conflicts. Use `jj bookmark set <name> -r <rev>` to resolve."
