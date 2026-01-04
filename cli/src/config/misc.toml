@@ -43,6 +43,7 @@ conflict-marker-style = "diff"
 # signature verification is slow, disable by default
 show-cryptographic-signatures = false
 bookmark-list-sort-keys = ["name"]
+tag-list-sort-keys = ["name"]
 # TODO: delete revsets-use-glob-by-default in jj 0.43+
 revsets-use-glob-by-default = true
 
