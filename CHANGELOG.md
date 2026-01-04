@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* New option `--ignored` for `jj status` to have the list of ignored path
+  currently in the working copy printed.
+
 ### Fixed bugs
 
 ## [0.43.0] - 2026-07-01
