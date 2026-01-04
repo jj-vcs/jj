@@ -603,7 +603,13 @@ fn env_base_layer() -> ConfigLayer {
         layer.set_value("ui.color", "never").unwrap();
     }
     if let Ok(value) = env::var("PAGER") {
-        layer.set_value("ui.pager", value).unwrap();
+        // TODO: support shellish parsing here instead of splitting just on spaces.
+        layer.set_value("ui.pager.command", toml_edit::Array::from_iter(value.split(' '))).unwrap();
+
+        let less_var = env::var("LESS").unwrap_or_else(|_| "-FRX".to_owned());
+        layer
+            .set_value("ui.pager.env", ConfigValue::from_iter([("LESS", less_var)]))
+            .unwrap();
     }
     if let Ok(value) = env::var("VISUAL") {
         layer.set_value("ui.editor", value).unwrap();

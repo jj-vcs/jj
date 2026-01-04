@@ -46,7 +46,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The `$PAGER` environment variable is respected again, to address concerns
   raised about the change made in the previous release (see the further
-  discussion on [#3502](https://github.com/jj-vcs/jj/issues/3502)).
+  discussion on [#3502](https://github.com/jj-vcs/jj/issues/3502)). Instead, we
+  modify the LESS environment variable to be `-FRX` iff it's not set.
 
 ### Deprecations
 
