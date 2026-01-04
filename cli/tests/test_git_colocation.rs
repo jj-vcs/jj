@@ -92,6 +92,46 @@ fn test_git_colocation_enable_success() {
     Last imported/exported Git HEAD: e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
+
+    // Verify that the repo changed
+    let output = work_dir.run_jj(["op", "show", "-T", "description ++ '\n'"]);
+    insta::assert_snapshot!(output, @"
+    set git head to working copy parent
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_colocation_enable_empty() {
+    let test_env = TestEnvironment::default();
+
+    // Initialize a non-colocated Jujutsu/Git workspace
+    test_env
+        .run_jj_in(
+            test_env.env_root(),
+            ["git", "init", "--no-colocate", "repo"],
+        )
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let setup_op_id = work_dir.current_operation_id();
+
+    // Run colocate command
+    let output = work_dir.run_jj(["git", "colocation", "enable"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Workspace successfully converted into a colocated Jujutsu/Git workspace.
+    [EOF]
+    ");
+
+    // Verify that Git HEAD was set correctly
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: (none)
+    [EOF]
+    ");
+
+    // No repo change required
+    assert_eq!(setup_op_id, work_dir.current_operation_id());
 }
 
 #[test]
@@ -193,6 +233,43 @@ fn test_git_colocation_disable_success() {
     Last imported/exported Git HEAD: (none)
     [EOF]
     ");
+
+    // Verify that the repo changed
+    let output = work_dir.run_jj(["op", "show", "-T", "description ++ '\n'"]);
+    insta::assert_snapshot!(output, @"
+    remove git head reference
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_colocation_disable_empty() {
+    let test_env = TestEnvironment::default();
+
+    // Create a colocated Jujutsu/Git repo
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let setup_op_id = work_dir.current_operation_id();
+
+    // Verify that Git HEAD is unset
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: (none)
+    [EOF]
+    ");
+
+    // Disable colocation
+    let output = work_dir.run_jj(["git", "colocation", "disable"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Workspace successfully converted into a non-colocated Jujutsu/Git workspace.
+    [EOF]
+    ");
+
+    // No repo change required
+    assert_eq!(setup_op_id, work_dir.current_operation_id());
 }
 
 #[test]
