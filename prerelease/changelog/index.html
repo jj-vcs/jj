@@ -6414,6 +6414,9 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p><code>jj file annotate</code> now reports an error for non-files instead of succeeding
   and displaying no content.</p>
 </li>
+<li>
+<p><code>jj workspace forget</code> now warns about unknown workspaces instead of failing.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
@@ -6438,6 +6441,9 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </li>
 <li>
 <p>The builtin pager won't get stuck when stdin is redirected.</p>
+</li>
+<li>
+<p><code>jj workspace add</code> now prevents creating an empty workspace name.</p>
 </li>
 </ul>
 <h2 id="0360-2025-12-03"><a href="https://github.com/jj-vcs/jj/compare/v0.35.0...v0.36.0">0.36.0</a> - 2025-12-03<a class="headerlink" href="#0360-2025-12-03" title="Permanent link">&para;</a></h2>
