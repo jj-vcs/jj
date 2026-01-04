@@ -40,9 +40,7 @@ concat(
 )
 '''
 
-tag_list = '''
-label("tag", name) ++ format_ref_targets(self) ++ "\n"
-'''
+tag_list = 'format_commit_ref(self, "tag") ++ "\n"'
 
 workspace_list = '''
 concat(

@@ -308,6 +308,14 @@ fn test_tag_list() {
     [EOF]
     ");
 
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--conflicted"]), @"
+    conflicted_tag (conflicted):
+      - rlvkpnrz 893e67dc (empty) commit1
+      + zsuskuln 76abdd20 (empty) commit2
+      + royxmykx 13c4e819 (empty) commit3
+    [EOF]
+    ");
+
     let template = r#"
     concat(
       "[" ++ name ++ "]\n",
@@ -360,6 +368,52 @@ fn test_tag_list() {
       - rlvkpnrz 893e67dc (empty) commit1
       + zsuskuln 76abdd20 (empty) commit2
       + royxmykx 13c4e819 (empty) commit3
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_tag_list_remotes() {
+    let test_env = TestEnvironment::default();
+
+    // TODO: set up remote tags in a similar way to test_bookmark_list_tracked()
+
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+
+    local_dir
+        .run_jj(["new", "root()", "-m", "local-only"])
+        .success();
+    local_dir.run_jj(["tag", "set", "local-only"]).success();
+
+    let output = local_dir.run_jj(["tag", "list", "--all-remotes"]);
+    insta::assert_snapshot!(output, @"
+    local-only: rlvkpnrz d3e8d245 (empty) local-only
+      @git: rlvkpnrz d3e8d245 (empty) local-only
+    [EOF]
+    ");
+
+    // Since there's no way to track/untrack tags manually, --tracked is useless
+    // right now.
+    let output = local_dir.run_jj(["tag", "list", "--tracked"]);
+    insta::assert_snapshot!(output, @"");
+
+    let output = local_dir.run_jj(["tag", "list", "--tracked", "--remote=git"]);
+    insta::assert_snapshot!(output, @"
+    local-only: rlvkpnrz d3e8d245 (empty) local-only
+      @git: rlvkpnrz d3e8d245 (empty) local-only
+    [EOF]
+    ");
+
+    let output = local_dir.run_jj(["tag", "list", "--remote=origin"]);
+    insta::assert_snapshot!(output, @"");
+
+    let output = local_dir.run_jj(["tag", "list", "--remote=git"]);
+    insta::assert_snapshot!(output, @"
+    local-only: rlvkpnrz d3e8d245 (empty) local-only
+      @git: rlvkpnrz d3e8d245 (empty) local-only
     [EOF]
     ");
 }
