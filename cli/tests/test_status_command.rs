@@ -30,13 +30,18 @@ fn test_status_copies() {
     work_dir.write_file("rename-target", "rename");
 
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     Working copy changes:
     M copy-source
     C {copy-source => copy-target}
     R {rename-source => rename-target}
     Working copy  (@) : rlvkpnrz c2fce842 (no description set)
     Parent commit (@-): qpvuntsm ebf799bc (no description set)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A copy-target
+    A rename-target
     [EOF]
     ");
 }
@@ -75,16 +80,35 @@ fn test_status_ignored_gitignore() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    let untracked_dir = work_dir.create_dir("untracked");
+    let untracked_dir = work_dir.create_dir("untracked_dir");
     untracked_dir.write_file("inside_untracked", "test");
     untracked_dir.write_file(".gitignore", "!inside_untracked\n");
-    work_dir.write_file(".gitignore", "untracked/\n!dummy\n");
+    work_dir.write_file("untracked_file", "test");
+    work_dir.write_file(".gitignore", "untracked_dir/\nuntracked_file\n!dummy\n");
 
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     Working copy changes:
     A .gitignore
-    Working copy  (@) : qpvuntsm 32bad97e (no description set)
+    Working copy  (@) : qpvuntsm af6b0e75 (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A .gitignore
+    [EOF]
+    ");
+
+    let output = work_dir
+        .run_jj(["status", "--ignored"])
+        .normalize_backslash();
+    insta::assert_snapshot!(output, @r"
+    Working copy changes:
+    A .gitignore
+    Ignored paths:
+    ! untracked_dir/
+    ! untracked_file
+    Working copy  (@) : qpvuntsm af6b0e75 (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
@@ -101,11 +125,16 @@ fn test_status_filtered() {
 
     // The output filtered to file_1 should not list the addition of file_2.
     let output = work_dir.run_jj(["status", "file_1"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     Working copy changes:
     A file_1
     Working copy  (@) : qpvuntsm 2f169edb (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A file_1
+    A file_2
     [EOF]
     ");
 
