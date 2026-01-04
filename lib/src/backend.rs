@@ -22,6 +22,7 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use chrono::TimeZone as _;
+use futures::stream;
 use futures::stream::BoxStream;
 use thiserror::Error;
 use tokio::io::AsyncRead;
@@ -178,7 +179,10 @@ pub struct CopyRecord {
     /// The destination of the copy, B.
     pub target: RepoPathBuf,
     /// The CommitId where the copy took place.
-    pub target_commit: CommitId,
+    ///
+    /// This may be `None` if the copy record was derived from comparing two
+    /// trees without an associated commit.
+    pub target_commit: Option<CommitId>,
     /// The source path a target was copied from.
     ///
     /// It is not required that the source path is different than the target
@@ -196,7 +200,10 @@ pub struct CopyRecord {
     ///
     /// It is required that the commit id is an ancestor of the commit with
     /// which this copy source is associated.
-    pub source_commit: CommitId,
+    ///
+    /// This may be `None` if the copy record was derived from comparing two
+    /// trees without an associated commit.
+    pub source_commit: Option<CommitId>,
 }
 
 /// Describes the copy history of a file. The copy object is unchanged when a
@@ -519,6 +526,22 @@ pub trait Backend: Any + Send + Sync + Debug {
         root: &CommitId,
         head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>>;
+
+    /// Like [`Self::get_copy_records()`], but takes tree IDs directly.
+    ///
+    /// This is useful for diffs involving synthetic trees (e.g. inter-diffs)
+    /// where no real commit id exists for one side of the comparison.
+    ///
+    /// The default implementation returns an empty stream.
+    fn get_copy_records_for_tree_ids(
+        &self,
+        paths: Option<&[RepoPathBuf]>,
+        root_tree_id: &TreeId,
+        head_tree_id: &TreeId,
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
+        let _ = (paths, root_tree_id, head_tree_id);
+        Ok(Box::pin(stream::empty()))
+    }
 
     /// Perform garbage collection.
     ///
