@@ -21,7 +21,6 @@ use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
-use crate::command_error::user_error_with_hint;
 #[cfg(feature = "git")]
 use crate::commands::git::is_push_operation;
 use crate::commands::operation::DEFAULT_REVERT_WHAT;
@@ -164,10 +163,8 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
         Ok(Some(parent_of_op_to_undo)) => parent_of_op_to_undo?,
         Ok(None) => return Err(user_error("Cannot undo root operation")),
         Err(_) => {
-            return Err(user_error_with_hint(
-                "Cannot undo a merge operation",
-                "Consider using `jj op restore` instead",
-            ));
+            return Err(user_error("Cannot undo a merge operation")
+                .hinted("Consider using `jj op restore` instead"));
         }
     };
 
