@@ -294,6 +294,22 @@ fn test_bookmark_names() {
     [EOF]
     ");
 
+    // TODO: Make it so this only lists untracked remotes
+    let output = work_dir.complete_fish(["bookmark", "track", "a", "--remote", ""]);
+    insta::assert_snapshot!(output, @"
+    origin
+    upstream
+    [EOF]
+    ");
+
+    // TODO: Make it so this only lists tracked remotes
+    let output = work_dir.complete_fish(["bookmark", "untrack", "a", "--remote", ""]);
+    insta::assert_snapshot!(output, @"
+    origin
+    upstream
+    [EOF]
+    ");
+
     let output = work_dir.complete_fish(["git", "push", "-b", "a"]);
     insta::assert_snapshot!(output, @r"
     aaa-local	x
