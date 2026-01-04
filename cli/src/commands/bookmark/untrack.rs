@@ -32,7 +32,7 @@ use crate::ui::Ui;
 
 /// Stop tracking given remote bookmarks
 ///
-/// A non-tracking remote bookmark is just a pointer to the last-fetched remote
+/// An untracked remote bookmark is just a pointer to the last-fetched remote
 /// bookmark. It won't be imported as a local bookmark on future pulls.
 ///
 /// If you want to forget a local bookmark while also untracking the

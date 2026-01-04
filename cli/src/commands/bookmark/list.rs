@@ -37,8 +37,8 @@ use crate::ui::Ui;
 
 /// List bookmarks and their targets
 ///
-/// By default, a tracking remote bookmark will be included only if its target
-/// is different from the local target. A non-tracking remote bookmark won't be
+/// By default, a tracked remote bookmark will be included only if its target is
+/// different from the local target. An untracked remote bookmark won't be
 /// listed. For a conflicted bookmark (both local and remote), old target
 /// revisions are preceded by a "-" and new target revisions are preceded by a
 /// "+".
@@ -49,13 +49,12 @@ use crate::ui::Ui;
 ///     https://docs.jj-vcs.dev/latest/bookmarks
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkListArgs {
-    /// Show all tracking and non-tracking remote bookmarks including the ones
+    /// Show all tracked and untracked remote bookmarks including the ones
     /// whose targets are synchronized with the local bookmarks
     #[arg(long, short, alias = "all")]
     all_remotes: bool,
 
-    /// Show all tracking and non-tracking remote bookmarks belonging
-    /// to this remote
+    /// Show all tracked and untracked remote bookmarks belonging to this remote
     ///
     /// Can be combined with `--tracked` or `--conflicted` to filter the
     /// bookmarks shown (can be repeated.)
@@ -69,8 +68,9 @@ pub struct BookmarkListArgs {
     #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
     remotes: Option<Vec<String>>,
 
-    /// Show remote tracked bookmarks only. Omits local Git-tracking bookmarks
-    /// by default
+    /// Show tracked remote bookmarks only
+    ///
+    /// This omits local Git-tracking bookmarks by default.
     #[arg(long, short, conflicts_with_all = ["all_remotes"])]
     tracked: bool,
 

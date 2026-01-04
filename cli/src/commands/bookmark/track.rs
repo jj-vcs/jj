@@ -37,7 +37,7 @@ use crate::ui::Ui;
 
 /// Start tracking given remote bookmarks
 ///
-/// A tracking remote bookmark will be imported as a local bookmark of the same
+/// A tracked remote bookmark will be imported as a local bookmark of the same
 /// name. Changes to it will propagate to the existing local bookmark on future
 /// pulls.
 #[derive(clap::Args, Clone, Debug)]
