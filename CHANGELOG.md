@@ -24,6 +24,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj git push --bookmark <name>` will now automatically track the bookmark if
   it isn't tracked with any remote already.
 
+* Add `git_web_url([remote])` template function that converts a git remote URL
+  to a web URL, suitable for opening in a browser. Defaults to the "origin"
+  remote.
+
 ### Fixed bugs
 
 * `jj git push` now ensures that tracked remote bookmarks are updated even if

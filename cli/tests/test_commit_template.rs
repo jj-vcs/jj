@@ -1855,3 +1855,40 @@ fn test_log_format_trailers() {
     ]);
     insta::assert_snapshot!(output, @"false[EOF]");
 }
+
+#[test]
+fn test_log_git_web_url() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Add test remotes
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "origin",
+            "git@github.com:owner/repo",
+        ])
+        .success();
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "upstream",
+            "https://github.com/upstream/repo.git",
+        ])
+        .success();
+
+    // Test default remote, explicit remote, and nonexistent remote
+    let output = work_dir.run_jj([
+        "log",
+        "--no-graph",
+        "-r@-",
+        "-T",
+        r#"git_web_url() ++ " " ++ git_web_url(remote="upstream") ++ " " ++ git_web_url(remote="nonexistent")"#,
+    ]);
+    insta::assert_snapshot!(output, @"https://github.com/owner/repo https://github.com/upstream/repo [EOF]");
+}

@@ -88,6 +88,7 @@ use crate::diff_util;
 use crate::diff_util::DiffStatEntry;
 use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
+use crate::git_util;
 use crate::operation_templater;
 use crate::operation_templater::OperationTemplateBuildFnTable;
 use crate::operation_templater::OperationTemplateEnvironment;
@@ -114,6 +115,7 @@ use crate::templater;
 use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::ListTemplate;
+use crate::templater::Literal;
 use crate::templater::PlainTextFormattedProperty;
 use crate::templater::SizeHint;
 use crate::templater::Template;
@@ -1000,7 +1002,23 @@ impl<'repo> CommitKeywordCache<'repo> {
 /// Builtin functions for the commit template language.
 fn builtin_commit_template_functions<'repo>()
 -> TemplateBuildFunctionFnMap<'repo, CommitTemplateLanguage<'repo>> {
-    TemplateBuildFunctionFnMap::<CommitTemplateLanguage>::new()
+    let mut map = TemplateBuildFunctionFnMap::<CommitTemplateLanguage>::new();
+    map.insert(
+        "git_web_url",
+        |language, diagnostics, build_ctx, function| {
+            let ([], [remote_node]) = function.expect_named_arguments(&["remote"])?;
+            let remote_property: BoxedTemplateProperty<String> = match remote_node {
+                Some(node) => expect_stringify_expression(language, diagnostics, build_ctx, node)?,
+                None => Box::new(Literal("origin".to_owned())),
+            };
+            let repo = language.repo;
+            let out_property = remote_property.map(move |remote_name| {
+                git_util::get_remote_web_url(repo.base_repo(), &remote_name).unwrap_or_default()
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map
 }
 
 fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Commit> {

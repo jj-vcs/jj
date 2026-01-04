@@ -23,6 +23,7 @@ use std::path::Path;
 use std::time::Duration;
 use std::time::Instant;
 
+use bstr::ByteSlice as _;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use indoc::writedoc;
@@ -88,6 +89,35 @@ pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<String, CommandError
     }
     // It's less likely that cwd isn't utf-8, so just fall back to original source.
     Ok(String::from_utf8(url.to_bstring().into()).unwrap_or_else(|_| source.to_owned()))
+}
+
+/// Converts a git remote URL to a normalized HTTPS URL for web browsing.
+///
+/// Returns `None` if the URL cannot be converted.
+fn git_remote_url_to_web(url: &gix::Url) -> Option<String> {
+    if url.scheme == gix::url::Scheme::File || url.host().is_none() {
+        return None;
+    }
+
+    let host = url.host()?;
+    let path = url.path.to_str().ok()?;
+    let path = path.trim_matches('/');
+    let path = path.strip_suffix(".git").unwrap_or(path);
+
+    Some(format!("https://{host}/{path}"))
+}
+
+/// Returns the web URL for a git remote.
+///
+/// Attempts to convert the remote's URL to an HTTPS web URL.
+/// Returns `None` if the remote doesn't exist or its URL cannot be converted.
+pub fn get_remote_web_url(repo: &ReadonlyRepo, remote_name: &str) -> Option<String> {
+    let git_repo = git::get_git_repo(repo.store()).ok()?;
+    let remote = git_repo.try_find_remote(remote_name)?.ok()?;
+    let url = remote
+        .url(gix::remote::Direction::Fetch)
+        .or_else(|| remote.url(gix::remote::Direction::Push))?;
+    git_remote_url_to_web(url)
 }
 
 // Based on Git's implementation: https://github.com/git/git/blob/43072b4ca132437f21975ac6acc6b72dc22fd398/sideband.c#L178
@@ -654,6 +684,36 @@ mod tests {
             absolute_git_url(&cwd, "https://user:pass@example.org/").unwrap(),
             "https://user:pass@example.org/"
         );
+    }
+
+    #[test]
+    fn test_git_remote_url_to_web() {
+        let to_web = |s| git_remote_url_to_web(&gix::Url::try_from(s).unwrap());
+
+        // SSH URL
+        assert_eq!(
+            to_web("git@github.com:owner/repo"),
+            Some("https://github.com/owner/repo".to_owned())
+        );
+        // HTTPS URL with .git suffix
+        assert_eq!(
+            to_web("https://github.com/owner/repo.git"),
+            Some("https://github.com/owner/repo".to_owned())
+        );
+        // SSH URL with ssh:// scheme
+        assert_eq!(
+            to_web("ssh://git@github.com/owner/repo"),
+            Some("https://github.com/owner/repo".to_owned())
+        );
+        // git:// protocol
+        assert_eq!(
+            to_web("git://github.com/owner/repo.git"),
+            Some("https://github.com/owner/repo".to_owned())
+        );
+        // File URL returns None
+        assert_eq!(to_web("file:///path/to/repo"), None);
+        // Local path returns None
+        assert_eq!(to_web("/path/to/repo"), None);
     }
 
     #[test]

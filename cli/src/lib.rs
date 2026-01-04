@@ -38,6 +38,10 @@ pub mod git_util {
     pub fn is_colocated_git_workspace(_workspace: &Workspace, _repo: &ReadonlyRepo) -> bool {
         false
     }
+
+    pub fn get_remote_web_url(_repo: &ReadonlyRepo, _remote_name: &str) -> Option<String> {
+        None
+    }
 }
 pub mod graphlog;
 pub mod merge_tools;
