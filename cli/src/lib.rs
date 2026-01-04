@@ -32,11 +32,17 @@ pub mod git_util;
 /// A stub module that provides a no-op implementation of some of the functions
 /// in the `git` module.
 pub mod git_util {
+    use std::collections::HashMap;
+
     use jj_lib::repo::ReadonlyRepo;
     use jj_lib::workspace::Workspace;
 
     pub fn is_colocated_git_workspace(_workspace: &Workspace, _repo: &ReadonlyRepo) -> bool {
         false
+    }
+
+    pub fn get_remote_web_urls(_repo: &ReadonlyRepo) -> HashMap<String, String> {
+        HashMap::new()
     }
 }
 pub mod graphlog;

@@ -125,6 +125,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `TreeDiffEntry` now has a `status_char()` method that returns
   single-character status codes (M/A/D/C/R).
 
+* Add `git_web_url([remote])` template function that converts a git
+  remote URL to a web URL, suitable for opening in a browser. Defaults to
+  the "origin" remote.
+
 * `CommitEvolutionEntry` type now has a `predecessors()` method which
   returns the predecessor commits (previous versions) of the entry's commit.
 
