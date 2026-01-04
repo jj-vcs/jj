@@ -220,7 +220,7 @@ fn test_restore_conflicted_merge() {
     let output = work_dir.run_jj(["restore", "file"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 45d86d72 conflict | (conflict) (empty) conflict
+    Working copy  (@) now at: vruxwmqv 68f6b87a conflict | (conflict) (empty) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
     Parent commit (@-)      : royxmykx 89d1b299 b | b
     Added 0 files, modified 1 files, removed 0 files
@@ -228,15 +228,16 @@ fn test_restore_conflicted_merge() {
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @r#"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: rlvkpnrz 1792382a "base"
+    \\\\\\\        to: zsuskuln 45537d53 "a"
     -base
     +a
-    +++++++ side #2
+    +++++++ royxmykx 89d1b299 "b"
     b
     >>>>>>> conflict 1 of 1 ends
-    ");
+    "#);
     let output = work_dir.run_jj(["diff"]);
     insta::assert_snapshot!(output, @"");
 

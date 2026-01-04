@@ -44,6 +44,7 @@ use crate::copies::CopiesTreeDiffStream;
 use crate::copies::CopyRecords;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
+use crate::matchers::Visit;
 use crate::merge::Diff;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
@@ -348,6 +349,26 @@ impl MergedTree {
 
         let (labels, tree_ids) = flattened_labels.simplify_with(&flattened_tree_ids);
         Self::new(store, tree_ids, labels)
+    }
+
+    /// Restrict this tree to only include files matching the provided
+    /// `Matcher`. Conflict labels are left unchanged, but may be simplified.
+    pub fn select_matching(&self, matcher: &dyn Matcher) -> BackendResult<Self> {
+        match matcher.visit(RepoPath::root()) {
+            // Optimization for matcher that matches entire tree.
+            Visit::AllRecursively => Ok(self.clone()),
+            // Optimization for matcher that matches nothing.
+            Visit::Nothing => Ok(self.store.empty_merged_tree()),
+            Visit::Specific { .. } => {
+                // TODO: We should be able to not traverse deeper in the diff if the matcher
+                // matches an entire subtree.
+                let mut builder = MergedTreeBuilder::new(self.store.empty_merged_tree());
+                for (path, value) in self.entries_matching(matcher) {
+                    builder.set_or_remove(path, value?);
+                }
+                builder.write_tree_with_labels(self.labels.clone())
+            }
+        }
     }
 }
 
@@ -1013,21 +1034,26 @@ impl MergedTreeBuilder {
 
     /// Create new tree(s) from the base tree(s) and overrides.
     pub fn write_tree(self) -> BackendResult<MergedTree> {
-        let store = self.base_tree.store.clone();
         let labels = self.base_tree.labels().clone();
+        self.write_tree_with_labels(labels)
+    }
+
+    fn write_tree_with_labels(self, labels: ConflictLabels) -> BackendResult<MergedTree> {
+        let store = self.base_tree.store.clone();
         let new_tree_ids = self.write_merged_trees()?;
-        match new_tree_ids.simplify().into_resolved() {
+        let labels = if labels.num_sides() == Some(new_tree_ids.num_sides()) {
+            labels
+        } else {
+            // If the number of sides changed, we need to discard the conflict labels,
+            // otherwise `MergedTree::new` would panic.
+            // TODO: we should preserve conflict labels when setting conflicted tree values
+            // originating from a different tree than the base tree.
+            ConflictLabels::unlabeled()
+        };
+        let (labels, new_tree_ids) = labels.simplify_with(&new_tree_ids);
+        match new_tree_ids.into_resolved() {
             Ok(single_tree_id) => Ok(MergedTree::resolved(store, single_tree_id)),
             Err(tree_ids) => {
-                let labels = if labels.num_sides() == Some(tree_ids.num_sides()) {
-                    labels
-                } else {
-                    // If the number of sides changed, we need to discard the conflict labels,
-                    // otherwise `MergedTree::new` would panic.
-                    // TODO: we should preserve conflict labels when setting conflicted tree values
-                    // originating from a different tree than the base tree.
-                    ConflictLabels::unlabeled()
-                };
                 let tree = MergedTree::new(store, tree_ids, labels);
                 tree.resolve().block_on()
             }
