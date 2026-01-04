@@ -2176,6 +2176,23 @@ to the current parents may contain changes from multiple commits.
         let old_view = old_repo.view();
         let new_repo = self.repo().as_ref();
         let new_view = new_repo.view();
+
+        let workspace_name = self.workspace_name();
+        if old_view.wc_commit_ids().contains_key(workspace_name)
+            && !new_view.wc_commit_ids().contains_key(workspace_name)
+        {
+            writeln!(
+                fmt.labeled("warning").with_heading("Warning: "),
+                "The current workspace '{}' no longer exists after this operation. The working \
+                 copy was left untouched.",
+                workspace_name.as_symbol(),
+            )?;
+            writeln!(
+                fmt.labeled("hint").with_heading("Hint: "),
+                "Restore to an operation that contains the workspace (e.g. `jj redo` or `jj op \
+                 restore <operation_id>`).",
+            )?;
+        }
         let old_heads = RevsetExpression::commits(old_view.heads().iter().cloned().collect());
         let new_heads = RevsetExpression::commits(new_view.heads().iter().cloned().collect());
         // Filter the revsets by conflicts instead of reading all commits and doing the
