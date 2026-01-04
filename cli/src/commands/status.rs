@@ -55,6 +55,9 @@ pub(crate) struct StatusArgs {
     /// Restrict the status display to these paths
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     paths: Vec<String>,
+    /// Show ignored files as well.
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    ignored: bool,
 }
 
 #[instrument(skip_all)]
@@ -88,6 +91,7 @@ pub(crate) fn cmd_status(
 
         let wc_has_changes = tree.tree_ids() != parent_tree.tree_ids();
         let wc_has_untracked = !snapshot_stats.untracked_paths.is_empty();
+        let wc_has_ignored = !snapshot_stats.ignored_paths.is_empty();
         if !wc_has_changes && !wc_has_untracked {
             writeln!(formatter, "The working copy has no changes.")?;
         } else {
@@ -132,6 +136,22 @@ pub(crate) fn cmd_status(
                     },
                 )
                 .block_on()?;
+            }
+        }
+
+        if args.ignored && wc_has_ignored {
+            writeln!(formatter, "Ignored paths:")?;
+            for (path, is_dir) in snapshot_stats.ignored_paths {
+                let ui_path = workspace_command.path_converter().format_file_path(&path);
+                writeln!(
+                    formatter.labeled("diff").labeled("ignored"),
+                    "! {ui_path}{}",
+                    if is_dir {
+                        std::path::MAIN_SEPARATOR_STR
+                    } else {
+                        ""
+                    }
+                )?;
             }
         }
 

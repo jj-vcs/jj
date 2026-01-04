@@ -93,6 +93,7 @@
 "diff token" = { underline = true }
 "diff modified" = "cyan"
 "diff untracked" = "magenta"
+"diff ignored" = "magenta"
 "diff renamed" = "cyan"
 "diff copied" = "green"
 "diff access-denied" = { bg = "red" }

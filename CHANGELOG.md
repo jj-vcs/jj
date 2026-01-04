@@ -95,6 +95,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   text when outputting to a non-terminal, instead of emitting raw OSC 8 escape
   codes. [#7592](https://github.com/jj-vcs/jj/issues/7592)
 
+* New option `--ignored` for `jj status` to have the list of ignored path
+  currently in the working copy printed.
+
 ### Fixed bugs
 
 * `jj git init --colocate` now refuses to run inside a Git worktree, providing
