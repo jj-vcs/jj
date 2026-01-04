@@ -176,6 +176,16 @@ impl TestEnvironment {
             cmd.env(key, value);
         }
 
+        if cfg!(windows) {
+            // Windows uses `TEMP` to create temporary directories, which we need for some
+            // tests.
+            if let Ok(tmp_var) = std::env::var("TEMP") {
+                cmd.env("TEMP", tmp_var);
+            }
+            // Ensure that our tests don't write to the real %APPDATA%.
+            cmd.env("APPDATA", self.home_dir.join(".config"));
+        }
+
         cmd
     }
 

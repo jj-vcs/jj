@@ -66,14 +66,14 @@ fn create_store_factories() -> StoreFactories {
 }
 
 fn run_custom_command(
-    _ui: &mut Ui,
+    ui: &mut Ui,
     command_helper: &CommandHelper,
     command: CustomCommand,
 ) -> Result<(), CommandError> {
     match command {
         CustomCommand::InitJit => {
             let wc_path = command_helper.cwd();
-            let settings = command_helper.settings_for_new_workspace(wc_path)?;
+            let settings = command_helper.settings_for_new_workspace(ui, wc_path)?.0;
             // Initialize a workspace with the custom backend
             Workspace::init_with_backend(
                 &settings,
