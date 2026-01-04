@@ -44,6 +44,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `diff` conflict marker style can now use `\\\\\\\` markers to indicate
   the continuation of a conflict label from the previous line.
 
+* The `$PAGER` environment variable is respected again, to address concerns
+  raised about the change made in the previous release (see the further
+  discussion on [#3502](https://github.com/jj-vcs/jj/issues/3502)).
+
 ### Deprecations
 
 * The `git_head()` and `git_refs()` functions will be removed from revsets and

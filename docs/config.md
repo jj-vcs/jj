@@ -726,8 +726,9 @@ By default, jj will paginate output that would scroll off the screen. It does
 this by passing output through `less -FRX` on most platforms (on Windows it uses
 [the pager](#builtin-pager) that is built-in to jj).
 
-Which pager to use can be customized by setting `ui.pager`. When choosing a
-pager, ensure that it either supports color codes or that you disable color (see
+The default can be overridden by setting `ui.pager` or the `$PAGER` environment
+variable. If both are set, `ui.pager` takes precedence. When choosing a pager,
+ensure that it either supports color codes or that you disable color (see
 [Colorizing output](#colorizing-output)).
 
 Examples:
@@ -738,9 +739,6 @@ $ jj config set --user ui.pager "less -FRX"
 
 # Use the built-in pager (default on Windows)
 $ jj config set --user ui.pager :builtin
-
-# Use `$PAGER` environment variable if set (on non-Windows platforms)
-$ jj config set --user ui.pager '["sh", "-c", "exec ${PAGER:-less -FRX}"]'
 ```
 
 Additionally, paging behavior can be toggled via `ui.paginate` like so:
