@@ -10150,6 +10150,12 @@ achieved with <code>jj new</code>.</p>
 <p><code>-T</code>, <code>--template &lt;TEMPLATE&gt;</code> — Render each tag using the given template</p>
 <p>All 0-argument methods of the [<code>CommitRef</code> type] are available as keywords in the template expression. See [<code>jj help -k templates</code>] for more information.</p>
 </li>
+<li>
+<p><code>--sort &lt;SORT_KEY&gt;</code> — Sort tags based on the given key (or multiple keys)</p>
+<p>Suffix the key with <code>-</code> to sort in descending order of the value (e.g. <code>--sort name-</code>). Note that when using multiple keys, the first key is the most significant.</p>
+<p>This defaults to the <code>ui.tag-list-sort-keys</code> setting.</p>
+<p>Possible values: <code>name</code>, <code>name-</code>, <code>author-name</code>, <code>author-name-</code>, <code>author-email</code>, <code>author-email-</code>, <code>author-date</code>, <code>author-date-</code>, <code>committer-name</code>, <code>committer-name-</code>, <code>committer-email</code>, <code>committer-email-</code>, <code>committer-date</code>, <code>committer-date-</code></p>
+</li>
 </ul>
 <h2 id="jj-tag-set"><code>jj tag set</code><a class="headerlink" href="#jj-tag-set" title="Permanent link">&para;</a></h2>
 <p>Create or update tags</p>

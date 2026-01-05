@@ -6394,6 +6394,9 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   used with <code>--insert-after</code>. The behavior is similar to <code>--onto</code>.</p>
 </li>
 <li>
+<p><code>jj tag list</code> now supports <code>--sort</code> option.</p>
+</li>
+<li>
 <p><code>TreeDiffEntry</code> type now has a <code>display_diff_path()</code> method that formats
   renames/copies appropriately.</p>
 </li>
@@ -6444,6 +6447,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </li>
 <li>
 <p><code>jj workspace add</code> now prevents creating an empty workspace name.</p>
+</li>
+<li>
+<p>Fixed checkout of symlinks pointing to themselves or <code>.git</code>/<code>.jj</code> on Unix. The
+  problem would still remain on Windows if symlinks are enabled.
+  <a href="https://github.com/jj-vcs/jj/issues/8348">#8348</a></p>
 </li>
 </ul>
 <h2 id="0360-2025-12-03"><a href="https://github.com/jj-vcs/jj/compare/v0.35.0...v0.36.0">0.36.0</a> - 2025-12-03<a class="headerlink" href="#0360-2025-12-03" title="Permanent link">&para;</a></h2>

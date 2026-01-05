@@ -992,9 +992,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#bookmark-listing-order" class="md-nav__link">
+  <a href="#bookmarktag-listing-order" class="md-nav__link">
     <span class="md-ellipsis">
-      Bookmark listing order
+      Bookmark/tag listing order
     </span>
   </a>
   
@@ -2859,9 +2859,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#bookmark-listing-order" class="md-nav__link">
+  <a href="#bookmarktag-listing-order" class="md-nav__link">
     <span class="md-ellipsis">
-      Bookmark listing order
+      Bookmark/tag listing order
     </span>
   </a>
   
@@ -3921,20 +3921,20 @@ original commit.</p>
 <span class="s1">)</span>
 <span class="s1">&#39;&#39;&#39;</span>
 </code></pre></div>
-<h3 id="bookmark-listing-order">Bookmark listing order<a class="headerlink" href="#bookmark-listing-order" title="Permanent link">&para;</a></h3>
-<p>By default, <code>jj bookmark list</code> displays bookmarks sorted alphabetically by name.
-You can customize this sorting behavior by specifying sort keys in your config
-file:</p>
+<h3 id="bookmarktag-listing-order">Bookmark/tag listing order<a class="headerlink" href="#bookmarktag-listing-order" title="Permanent link">&para;</a></h3>
+<p>By default, <code>jj bookmark list</code> and <code>jj tag list</code> display bookmarks and tags
+sorted alphabetically by name. You can customize this sorting behavior by
+specifying sort keys in your config file:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[ui]</span>
 <span class="n">bookmark-list-sort-keys</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+<span class="n">tag-list-sort-keys</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
 </code></pre></div>
-<p>The configuration works identically to using the <code>--sort</code> option for
-<code>jj bookmark list</code>. The following sort keys are supported: <code>name</code>, <code>author-name</code>,
-<code>author-email</code>, <code>author-date</code>, <code>committer-name</code>, <code>committer-email</code>,
-<code>committer-date</code>. Suffix the key with <code>-</code> to sort in descending order. Multiple
-keys can be supplied here, the first key is the most significant.</p>
-<p>When the <code>--sort</code> option is used with <code>jj bookmark list</code>, the configuration
-is ignored.</p>
+<p>The configuration works identically to using the <code>--sort</code> option. The following
+sort keys are supported: <code>name</code>, <code>author-name</code>, <code>author-email</code>, <code>author-date</code>,
+<code>committer-name</code>, <code>committer-email</code>, <code>committer-date</code>. Suffix the key with <code>-</code>
+to sort in descending order. Multiple keys can be supplied here, the first key
+is the most significant.</p>
+<p>When the <code>--sort</code> option is used, the configuration is ignored.</p>
 <h3 id="commit-trailers">Commit trailers<a class="headerlink" href="#commit-trailers" title="Permanent link">&para;</a></h3>
 <p>You can configure automatic addition of one or more trailers to commit
 descriptions using the <code>commit_trailers</code> template.</p>
