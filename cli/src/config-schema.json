@@ -522,6 +522,11 @@
                         "type": "string",
                         "description": "A string pattern describing the bookmarks to automatically track with this remote. It will be applied to any new bookmark, created or fetched. See https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks",
                         "default": "~*"
+                    },
+                    "auto-track-created-bookmarks": {
+                        "type": "string",
+                        "description": "A string pattern describing the locally-created bookmarks which should track this remote automatically. It will be applied to new bookmarks created with `jj bookmark create` or `jj bookmark set`. See https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-bookmarks",
+                        "default": "~*"
                     }
                 }
             }

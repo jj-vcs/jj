@@ -2139,6 +2139,7 @@ fn test_git_fetch_auto_track_bookmarks() {
         "
         [remotes.origin]
         auto-track-bookmarks = 'mine/*'
+        auto-track-created-bookmarks = '*'
         ",
     );
 

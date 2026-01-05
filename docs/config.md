@@ -1592,6 +1592,21 @@ reasons to restrict which bookmarks to track:
   auto-track-bookmarks = "main"
   ```
 
+- If you're collaborating with people on the same remote, but your bookmark
+  names don't follow a pattern that allows a bookmark's "owner" to be identified
+  (e.g. `alice/*`), you can use `auto-track-created-bookmarks` instead:
+
+  ```toml
+  [remotes.origin]
+  auto-track-created-bookmarks = "*"
+  ```
+
+  This pattern will only apply to bookmarks you create with `jj bookmark create`
+  and `jj bookmark set`. The disadvantage of this option is the fact that you
+  will have to track your own bookmarks manually if you fetch them from the
+  remote. This may happen regularly if you use multiple computers to work on the
+  same project.
+
 - Lastly, you may be working on various projects with different conventions for
   bookmark names. In that case, it can be handy to apply different configuration
   to different (groups of) repositories. Read about how to do that in the

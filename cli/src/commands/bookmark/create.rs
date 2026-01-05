@@ -84,7 +84,7 @@ pub fn cmd_bookmark_create(
     let mut tx = workspace_command.start_transaction();
     let remote_settings = tx.settings().remote_settings()?;
     let remote_auto_track_matchers =
-        revset_util::parse_remote_auto_track_bookmarks_map(ui, &remote_settings)?;
+        revset_util::parse_remote_auto_track_bookmarks_map_for_new_bookmarks(ui, &remote_settings)?;
     let readonly_repo = tx.base_repo().clone();
     for name in bookmark_names {
         tx.repo_mut()

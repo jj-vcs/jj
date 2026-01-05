@@ -2761,6 +2761,69 @@ fn test_create_and_set_auto_track_bookmarks() {
 }
 
 #[test]
+fn test_create_and_set_auto_track_created_bookmarks() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    root_dir
+        .run_jj(["git", "init", "--colocate", "origin"])
+        .success();
+
+    test_env.add_config(
+        "
+        [remotes.origin]
+        auto-track-created-bookmarks = 'mine/*'
+        auto-track-bookmarks = 'also-mine/*'
+        ",
+    );
+
+    root_dir.run_jj(["git", "init", "repo"]).success();
+    let repo_dir = test_env.work_dir("repo");
+    repo_dir
+        .run_jj(["git", "remote", "add", "origin", "../origin/.git"])
+        .success();
+
+    repo_dir
+        .run_jj([
+            "bookmark",
+            "create",
+            "mine/create",
+            "also-mine/create",
+            "not-mine/create",
+        ])
+        .success();
+    let output = repo_dir.run_jj(["bookmark", "list", "--all", "*/create"]);
+    insta::assert_snapshot!(output, @r"
+    also-mine/create: rlvkpnrz 7eb1c95e (empty) (no description set)
+      @origin (not created yet)
+    mine/create: rlvkpnrz 7eb1c95e (empty) (no description set)
+      @origin (not created yet)
+    not-mine/create: rlvkpnrz 7eb1c95e (empty) (no description set)
+    [EOF]
+    ");
+    repo_dir.run_jj(["commit", "--message", "create"]).success();
+
+    repo_dir
+        .run_jj([
+            "bookmark",
+            "set",
+            "mine/set",
+            "also-mine/set",
+            "not-mine/set",
+        ])
+        .success();
+    let output = repo_dir.run_jj(["bookmark", "list", "--all", "*/set"]);
+    insta::assert_snapshot!(output, @r"
+    also-mine/set: royxmykx 5fd666db (empty) (no description set)
+      @origin (not created yet)
+    mine/set: royxmykx 5fd666db (empty) (no description set)
+      @origin (not created yet)
+    not-mine/set: royxmykx 5fd666db (empty) (no description set)
+    [EOF]
+    ");
+    repo_dir.run_jj(["commit", "--message", "set"]).success();
+}
+
+#[test]
 fn test_bad_auto_track_bookmarks() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
