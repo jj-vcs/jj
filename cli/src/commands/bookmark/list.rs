@@ -162,9 +162,14 @@ pub fn cmd_bookmark_list(
     };
 
     let ignored_tracked_remote = default_ignored_remote_name(repo.store());
-    let remote_expr = match &args.remotes {
-        Some(texts) => parse_union_name_patterns(ui, texts)?,
-        None => StringExpression::all(),
+    // --tracked implies --remote=~git by default
+    let remote_expr = match (
+        &args.remotes,
+        args.tracked.then_some(ignored_tracked_remote).flatten(),
+    ) {
+        (Some(texts), _) => parse_union_name_patterns(ui, texts)?,
+        (None, Some(ignored)) => StringExpression::exact(ignored).negated(),
+        (None, None) => StringExpression::all(),
     };
     let remote_matcher = remote_expr.to_matcher();
     let mut bookmark_list_items: Vec<RefListItem> = Vec::new();
@@ -188,12 +193,7 @@ pub fn cmd_bookmark_list(
             .copied()
             .filter(|(remote_name, _)| remote_matcher.is_match(remote_name.as_str()))
             .partition::<Vec<_>, _>(|&(_, remote_ref)| remote_ref.is_tracked());
-
-        if args.tracked {
-            tracked_remote_refs.retain(|&(remote, _)| {
-                ignored_tracked_remote.is_none_or(|ignored| remote != ignored)
-            });
-        } else if !args.all_remotes && args.remotes.is_none() {
+        if !args.tracked && !args.all_remotes && args.remotes.is_none() {
             tracked_remote_refs.retain(|&(_, remote_ref)| remote_ref.target != *local_target);
         }
 

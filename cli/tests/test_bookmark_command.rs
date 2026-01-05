@@ -2489,6 +2489,19 @@ fn test_bookmark_list_tracked() {
     [EOF]
     ");
 
+    let output = local_dir.run_jj(["bookmark", "list", "--tracked", "--remote=git"]);
+    insta::assert_snapshot!(output, @"
+    local-only: nmzmmopx 2a685e16 (empty) local-only
+      @git: nmzmmopx 2a685e16 (empty) local-only
+    remote-sync: rlvkpnrz 7a07dbee (empty) remote-sync
+      @git: rlvkpnrz 7a07dbee (empty) remote-sync
+    remote-unsync: nmzmmopx 2a685e16 (empty) local-only
+      @git: nmzmmopx 2a685e16 (empty) local-only
+    upstream-sync: lylxulpl 169ba7d9 (empty) upstream-sync
+      @git: lylxulpl 169ba7d9 (empty) upstream-sync
+    [EOF]
+    ");
+
     let output = local_dir.run_jj(["bookmark", "list", "--tracked", "remote-unsync"]);
     insta::assert_snapshot!(output, @r"
     remote-unsync: nmzmmopx 2a685e16 (empty) local-only
