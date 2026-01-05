@@ -344,7 +344,8 @@ for contributors. The broad TL;DR:
 I (Martin von Zweigbergk, <martinvonz@google.com>) started Jujutsu as a hobby
 project in late 2019, and it has evolved into my full-time project at Google,
 with several other Googlers (now) assisting development in various capacities.
-That said, **this is not a Google product**.
+That said, while Google is one of the main contributors, **this is not a
+supported Google product**, i.e. support is provided by the community.
 
 ## License
 
