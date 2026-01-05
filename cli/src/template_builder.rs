@@ -3992,4 +3992,104 @@ mod tests {
             env.render_ok(r#"surround(lt, gt, if(empty_content, "not empty", ""))"#),
             @"");
     }
+
+    #[test]
+    fn test_alias_super() {
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("greeting", || literal("hello".to_owned()));
+
+        // Basic symbol alias with super.
+        env.add_alias("my_name", r#""Alice""#);
+        env.add_alias("my_name", r#"super ++ " and Bob""#);
+        insta::assert_snapshot!(env.render_ok("my_name"), @"Alice and Bob");
+
+        // Multiple layers of super.
+        env.add_alias("my_name", r#"super ++ " and Charlie""#);
+        insta::assert_snapshot!(env.render_ok("my_name"), @"Alice and Bob and Charlie");
+
+        // No argument function.
+        env.add_alias("full_name()", r#""Alice""#);
+        env.add_alias("full_name()", r#"super() ++ " Smith""#);
+        insta::assert_snapshot!(env.render_ok("full_name()"), @"Alice Smith");
+
+        // One argument.
+        env.add_alias("greet(name)", r#""Hello, " ++ name"#);
+        env.add_alias("greet(name)", r#"super(name) ++ "!""#);
+        insta::assert_snapshot!(env.render_ok(r#"greet("World")"#), @"Hello, World!");
+
+        // Multiple layers for function.
+        env.add_alias("greet(name)", r#""How are you? " ++ super(name)"#);
+        insta::assert_snapshot!(env.render_ok(r#"greet("World")"#), @"How are you? Hello, World!");
+
+        // super can reference keyword in base layer.
+        env.add_alias("msg", "greeting");
+        env.add_alias("msg", r#"super ++ " world""#);
+        insta::assert_snapshot!(env.render_ok("msg"), @"hello world");
+
+        // Error: super without previous definition.
+        let mut env2 = TestTemplateEnv::new();
+        env2.add_alias("solo", r#"super"#);
+        insta::assert_snapshot!(env2.parse_err("solo"), @r#"
+         --> 1:1
+          |
+        1 | solo
+          | ^--^
+          |
+          = In alias `solo`
+         --> 1:1
+          |
+        1 | super
+          | ^---^
+          |
+          = Function `super`: No previous definition (already at base layer)
+        "#);
+
+        // Error: super() used outside alias.
+        insta::assert_snapshot!(env.parse_err(r#"super()"#), @r#"
+         --> 1:1
+          |
+        1 | super()
+          | ^---^
+          |
+          = Function `super`: super can only be used within an alias definition
+        "#);
+
+        // Error: wrong number of arguments to super() in function alias.
+        let mut env3 = TestTemplateEnv::new();
+        env3.add_alias("func(x)", r#""base""#);
+        env3.add_alias("func(x)", r#"super()"#);
+        insta::assert_snapshot!(env3.parse_err(r#"func("test")"#), @r#"
+         --> 1:1
+          |
+        1 | func("test")
+          | ^----------^
+          |
+          = In alias `func(x)`
+         --> 1:7
+          |
+        1 | super()
+          |       ^
+          |
+          = Function `super`: Expected 1 arguments
+        "#);
+
+        // Error: super() with parentheses should not work in symbol alias.
+        let mut env4 = TestTemplateEnv::new();
+        env4.add_alias("symbol", r#""base""#);
+        env4.add_alias("symbol", r#"super() ++ " extended""#);
+        insta::assert_snapshot!(env4.parse_err("symbol"), @r#"
+         --> 1:1
+          |
+        1 | symbol
+          | ^----^
+          |
+          = In alias `symbol`
+         --> 1:1
+          |
+        1 | super() ++ " extended"
+          | ^---^
+          |
+          = Function `super`: super cannot be used in symbol alias (use `super` without parentheses)
+        "#);
+    }
 }
