@@ -1343,6 +1343,26 @@ fn test_git_clone_branch() {
     Nothing changed.
     [EOF]
     ");
+
+    // Clone all branches individually, first exact match becomes wc parent
+    let output = root_dir.run_jj([
+        "git",
+        "clone",
+        "source",
+        "clone_each",
+        "--branch=feature1",
+        "--branch=main",
+    ]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Fetching into new repo in "$TEST_ENV/clone_each"
+    bookmark: feature1@origin [new] tracked
+    bookmark: main@origin     [new] tracked
+    Working copy  (@) now at: nuwvvtmy 38b11a7f (empty) (no description set)
+    Parent commit (@-)      : yxwyzxtq 14835edf feature1 | feature1 message
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
 }
 
 #[test]
