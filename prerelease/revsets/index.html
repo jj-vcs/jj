@@ -2440,7 +2440,7 @@ parsable as a revset. For example, <code>.</code> has to be quoted in <code>file
 <p>The search paths can be narrowed by the <code>files</code> expression. All modified files
 are scanned by default, but it is likely to change in future version to
 respect the command line path arguments.</p>
-<p>For example, <code>diff_contains("TODO", "src")</code> will search revisions where "TODO"
+<p>For example, <code>diff_contains("*TODO*", "src")</code> will search revisions where "TODO"
 is added to or removed from files under "src".</p>
 </li>
 <li>
