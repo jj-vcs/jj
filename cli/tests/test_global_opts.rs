@@ -921,8 +921,8 @@ fn test_default_config() {
 
     let maskable_op_user = {
         let maskable_re = Regex::new(r"^[a-zA-Z0-9\-._]+$").unwrap();
-        let hostname = whoami::fallible::hostname().expect("hostname should be set");
-        let username = whoami::fallible::username().expect("username should be set");
+        let hostname = whoami::hostname().expect("hostname should be set");
+        let username = whoami::username().expect("username should be set");
         maskable_re.is_match(&hostname) && maskable_re.is_match(&username)
     };
 

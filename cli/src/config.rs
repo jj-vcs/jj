@@ -353,7 +353,7 @@ impl ConfigEnv {
             repo_config_path: None,
             workspace_config_path: None,
             command: None,
-            hostname: whoami::fallible::hostname().ok(),
+            hostname: whoami::hostname().ok(),
         }
     }
 
@@ -583,13 +583,13 @@ const OP_USERNAME: &str = "operation.username";
 /// Environment variables that should be overridden by config values
 fn env_base_layer() -> ConfigLayer {
     let mut layer = ConfigLayer::empty(ConfigSource::EnvBase);
-    if let Ok(value) = whoami::fallible::hostname()
-        .inspect_err(|err| tracing::warn!(?err, "failed to get hostname"))
+    if let Ok(value) =
+        whoami::hostname().inspect_err(|err| tracing::warn!(?err, "failed to get hostname"))
     {
         layer.set_value(OP_HOSTNAME, value).unwrap();
     }
-    if let Ok(value) = whoami::fallible::username()
-        .inspect_err(|err| tracing::warn!(?err, "failed to get username"))
+    if let Ok(value) =
+        whoami::username().inspect_err(|err| tracing::warn!(?err, "failed to get username"))
     {
         layer.set_value(OP_USERNAME, value).unwrap();
     } else if let Ok(value) = env::var("USER") {
