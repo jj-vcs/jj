@@ -261,10 +261,6 @@ issues with dynamic completions.
 
 ### Fish
 
-!!! note
-
-    No configuration is required with fish >= 4.0.2 which loads dynamic completions by default.
-
 === "Standard"
 
     ```shell
@@ -272,6 +268,10 @@ issues with dynamic completions.
     ```
 
 === "Dynamic"
+
+    !!! note
+
+        No configuration is required with fish >= 4.0.2 which loads dynamic completions by default.
 
     ```shell
     COMPLETE=fish jj | source
