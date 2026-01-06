@@ -1249,9 +1249,9 @@ dependencies = [
 
 [[package]]
 name = "gix-actor"
-version = "0.37.0"
+version = "0.37.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5f79dc4dca964c163419ad50a63552171b3597b804f9de6a96779b207b4d710"
+checksum = "c345528d405eab51d20f505f5fe1a4680973953694e0292c6bbe97827daa55c4"
 dependencies = [
  "bstr",
  "gix-date",
@@ -1357,9 +1357,9 @@ dependencies = [
 
 [[package]]
 name = "gix-date"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa1dcfa6042b334f049c2e717ae816806272a7801b13ff2eadad3f069d7b4a85"
+checksum = "fe4a31bab8159e233094fa70d2e5fd3ec6f19e593f67e6ae01281daa48f8d8e7"
 dependencies = [
  "bstr",
  "itoa",
@@ -1430,9 +1430,9 @@ dependencies = [
 
 [[package]]
 name = "gix-features"
-version = "0.45.1"
+version = "0.45.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "092a70b60e0cdfc04346ad070ade58c6502afce66b1261bf23a51401eea73d56"
+checksum = "d56aad357ae016449434705033df644ac6253dfcf1281aad3af3af9e907560d1"
 dependencies = [
  "crc32fast",
  "crossbeam-channel",
@@ -1497,9 +1497,9 @@ dependencies = [
 
 [[package]]
 name = "gix-hash"
-version = "0.21.1"
+version = "0.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f16fd9bf861f319905759cd8aef230d1a101a26509194617b737a5cb8df9666"
+checksum = "e153930f42ccdab8a3306b1027cd524879f6a8996cd0c474d18b0e56cae7714d"
 dependencies = [
  "faster-hex",
  "gix-features",
@@ -1572,9 +1572,9 @@ dependencies = [
 
 [[package]]
 name = "gix-object"
-version = "0.54.0"
+version = "0.54.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "283df1e0c2b00f099683f2dd4bb3e2552ce87a46fcdd1ca2ac35e387a2d67136"
+checksum = "363d6a879c52e4890180e0ffa7d8c9a364fd0b7e807caa368e860b80e8d0bc81"
 dependencies = [
  "bstr",
  "gix-actor",
@@ -1614,9 +1614,9 @@ dependencies = [
 
 [[package]]
 name = "gix-pack"
-version = "0.64.0"
+version = "0.64.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f5ef659e0a616501a7238b831ce5df73aab7ee4451120ee1c74b3ffabc80a67"
+checksum = "b04a73d5ab07ea0faae55e2c0ae6f24e36e365ac8ce140394dee3a2c89cd4366"
 dependencies = [
  "clru",
  "gix-chunk",
@@ -1843,9 +1843,9 @@ dependencies = [
 
 [[package]]
 name = "gix-trace"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edd971cd6961fb1ebb29a0052a4ab04d8498dbf363c122e137b04753a3bbb5c3"
+checksum = "6e42a4c2583357721ba2d887916e78df504980f22f1182df06997ce197b89504"
 
 [[package]]
 name = "gix-transport"
@@ -2300,30 +2300,30 @@ dependencies = [
 
 [[package]]
 name = "itoa"
-version = "1.0.15"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
+checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
 name = "jiff"
-version = "0.2.15"
+version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be1f93b8b1eb69c77f24bbb0afdf66f54b632ee39af40ca21c4365a1d7347e49"
+checksum = "e67e8da4c49d6d9909fe03361f9b620f58898859f5c7aded68351e85e71ecf50"
 dependencies = [
  "jiff-static",
  "jiff-tzdb-platform",
  "log",
  "portable-atomic",
  "portable-atomic-util",
- "serde",
- "windows-sys 0.59.0",
+ "serde_core",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
 name = "jiff-static"
-version = "0.2.15"
+version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03343451ff899767262ec32146f6d559dd759fdadf42ff0e227c7c48f72594b4"
+checksum = "e0c84ee7f197eca9a86c6fd6cb771e55eb991632f15f2bc3ca6ec838929e6e78"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3567,7 +3567,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.4.15",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4819,7 +4819,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

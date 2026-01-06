@@ -129,6 +129,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   problem would still remain on Windows if symlinks are enabled.
   [#8348](https://github.com/jj-vcs/jj/issues/8348)
 
+* Fixed a bug where jj would fail to read git delta objects from pack files.
+  https://github.com/GitoxideLabs/gitoxide/issues/2344
+
 ## [0.36.0] - 2025-12-03
 
 ### Release highlights
