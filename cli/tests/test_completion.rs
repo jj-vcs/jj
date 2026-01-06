@@ -15,6 +15,7 @@
 use std::ffi::OsStr;
 
 use clap_complete::Shell;
+use indoc::indoc;
 use itertools::Itertools as _;
 use test_case::test_case;
 
@@ -1202,6 +1203,144 @@ fn test_config() {
     git.abandon-unreachable-commits=true
     [EOF]
     ");
+}
+
+#[test]
+fn test_config_unset() {
+    let test_env = TestEnvironment::default();
+
+    // Create a repo with repo and workspace config
+    let repo_dir = test_env.work_dir("repo");
+    test_env
+        .run_jj_in(test_env.env_root(), ["git", "init", "repo"])
+        .success();
+    repo_dir
+        .run_jj(["config", "set", "--workspace", "ui.pager", "delta"])
+        .success();
+    repo_dir
+        .run_jj(["config", "set", "--repo", "ui.diff-formatter", ":git"])
+        .success();
+
+    // Only config options set in TestEnvironment are suggested initially + other
+    // viable flags
+    let output = test_env.complete_fish(["config", "unset", ""]);
+    insta::assert_snapshot!(output.take_stdout_n_lines(5), @r#"
+    template-aliases."format_time_range(time_range)"	user: 'time_range.start() ++ " - " ++ time_range.end()'
+    git.colocate	user: false
+    --user	Target the user-level config
+    --repo	Target the repo-level config
+    --workspace	Target the workspace-level config
+    [EOF]
+    "#);
+
+    test_env.add_config(indoc! {r#"
+        [ui]
+        editor = "nvim"
+        default-command = ["log", "--stat"]
+
+        [revset-aliases]
+        'closest_bookmark(to)' = 'heads(::to & bookmarks())'
+        'closest_pushable(to)' = 'heads(::to & ~description(exact:"") & (~empty() | merges()))'
+
+        [aliases]
+        tug = ["bookmark", "move", "--from", "closest_bookmark(@)", "--to", "closest_pushable(@)"]
+        cat = ["file", "show"]
+        ll = ["log", "-T", "builtin_log_detailed", "-r", "::@"]
+
+        [templates]
+        draft_commit_description = '''
+        concat(
+          coalesce(description, "\n"),
+          surround(
+            "\nJJ: This commit contains the following changes:\n", "",
+            indent("JJ:     ", diff.stat(72)),
+          ),
+          "\nJJ: ignore-rest\n",
+          diff.git(),
+        )
+        '''
+    "#});
+
+    // Matching config options are completed, including aliases
+    let output = test_env.complete_fish(["config", "unset", "alias"]);
+    insta::assert_snapshot!(output, @r#"
+    aliases.tug	user: ["bookmark", "move", "--from", "closest_bookmark(@)", "--to", "closest_pushable(@)"]
+    aliases.cat	user: ["file", "show"]
+    aliases.ll	user: ["log", "-T", "builtin_log_detailed", "-r", "::@"]
+    [EOF]
+    "#);
+
+    // Quoted config option keys are completed (accepting double-quotes only)
+    let output = test_env.complete_fish(["config", "unset", "revset-aliases.\"close"]);
+    insta::assert_snapshot!(output, @r#"
+    revset-aliases."closest_bookmark(to)"	user: 'heads(::to & bookmarks())'
+    revset-aliases."closest_pushable(to)"	user: 'heads(::to & ~description(exact:"") & (~empty() | merges()))'
+    [EOF]
+    "#);
+    let output = test_env.complete_fish(["config", "unset", "revset-aliases.'close"]);
+    insta::assert_snapshot!(output, @"");
+
+    // Multiline config values are squeezed onto a single line
+    let output = test_env.complete_fish(["config", "unset", "templates"]);
+    insta::assert_snapshot!(output, @r#"
+    templates.draft_commit_description	user: ''' concat( coalesce(description, "\n"), surround( "\nJJ: This commit contains the following changes:\n", "", indent("JJ:     ", diff.stat(72)), ), "\nJJ: ignore-rest\n", diff.git(), ) '''
+    [EOF]
+    "#);
+
+    // If no config source is specified yet, options from all sources are completed
+    let output = repo_dir.complete_fish(["config", "unset", "ui"]);
+    insta::assert_snapshot!(output, @r#"
+    ui.editor	user: "nvim"
+    ui.default-command	user: ["log", "--stat"]
+    ui.diff-formatter	repo: ":git"
+    ui.pager	workspace: "delta"
+    [EOF]
+    "#);
+
+    // If a config source has already been specified, only its options as completed
+    let output = repo_dir.complete_fish(["config", "unset", "--user", "ui"]);
+    insta::assert_snapshot!(output, @r#"
+    ui.editor	user: "nvim"
+    ui.default-command	user: ["log", "--stat"]
+    [EOF]
+    "#);
+    let output = repo_dir.complete_fish(["config", "unset", "--repo", "ui"]);
+    insta::assert_snapshot!(output, @r#"
+    ui.diff-formatter	repo: ":git"
+    [EOF]
+    "#);
+    let output = repo_dir.complete_fish(["config", "unset", "--workspace", "ui"]);
+    insta::assert_snapshot!(output, @r#"
+    ui.pager	workspace: "delta"
+    [EOF]
+    "#);
+
+    // Override an option in the repo config
+    repo_dir
+        .run_jj(["config", "set", "--repo", "ui.editor", "hx"])
+        .success();
+
+    // If no config source is specified yet, the overridden value is listed
+    let output = repo_dir.complete_fish(["config", "unset", "ui.editor"]);
+    insta::assert_snapshot!(output, @r#"
+    ui.editor	repo: "hx"
+    [EOF]
+    "#);
+
+    // If a config source has already been specified, the value according to that
+    // source is listed
+    let output = repo_dir.complete_fish(["config", "unset", "--user", "ui.editor"]);
+    insta::assert_snapshot!(output, @r#"
+    ui.editor	user: "nvim"
+    [EOF]
+    "#);
+    let output = repo_dir.complete_fish(["config", "unset", "--repo", "ui.editor"]);
+    insta::assert_snapshot!(output, @r#"
+    ui.editor	repo: "hx"
+    [EOF]
+    "#);
+    let output = repo_dir.complete_fish(["config", "unset", "--workspace", "ui.editor"]);
+    insta::assert_snapshot!(output, @"");
 }
 
 #[test]

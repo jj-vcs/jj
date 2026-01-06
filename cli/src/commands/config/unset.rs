@@ -28,7 +28,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct ConfigUnsetArgs {
     #[arg(required = true)]
-    #[arg(add = ArgValueCandidates::new(complete::leaf_config_keys))]
+    #[arg(add = ArgValueCandidates::new(complete::config_keys_to_unset))]
     name: ConfigNamePathBuf,
 
     #[command(flatten)]

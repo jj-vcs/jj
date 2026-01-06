@@ -29,6 +29,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   warnings. The configured `trunk()` alias will temporarily be disabled.
   [#8501](https://github.com/jj-vcs/jj/issues/8501)
 
+* Dynamic shell completion for `jj config unset` now only completes
+  configuration options which are set.
+  [#7774](https://github.com/jj-vcs/jj/issues/7774)
+
 ## [0.37.0] - 2026-01-07
 
 ### Release highlights
