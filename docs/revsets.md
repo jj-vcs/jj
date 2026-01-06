@@ -89,7 +89,7 @@ only symbols.
 * `x ~ y`: Revisions that are in `x` but not in `y`.
 * `x | y`: Revisions that are in either `x` or `y` (or both).
 
-(listed in order of binding strengths)
+(listed in ascending order of binding strengths)
 
 You can use parentheses to control evaluation order, such as `(x & y) | z` or
 `x & (y | z)`.
