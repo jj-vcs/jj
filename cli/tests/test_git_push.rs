@@ -75,8 +75,20 @@ fn test_git_push_nothing() {
       @origin: zsuskuln 38a20473 (empty) description 2
     [EOF]
     ");
+
     // No bookmarks to push yet
     let output = work_dir.run_jj(["git", "push", "--all"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+
+    // Tracked bookmark is up to date
+    work_dir
+        .run_jj(["bookmark", "track", "bookmark1@origin"])
+        .success();
+    let output = work_dir.run_jj(["git", "push", "--tracked"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
