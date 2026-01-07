@@ -644,7 +644,7 @@ Thanks to the people who made this release happen!
   (it only undid the last change).
 
 * `jj git fetch` will now only fetch the refspec patterns configured on remotes
-  when the `--bookmark` option is omitted. Only simple refspec patterns are
+  when the `--branch` option is omitted. Only simple refspec patterns are
   currently supported, and anything else (like refspecs which rename branches)
   will be ignored.
 
