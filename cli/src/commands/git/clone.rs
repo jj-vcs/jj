@@ -111,7 +111,7 @@ pub struct GitCloneArgs {
     fetch_tags: Option<FetchTagsMode>,
 
     /// Name of the branch to fetch and use as the parent of the working-copy
-    /// change
+    /// change (can be repeated)
     ///
     /// If not present, all branches are fetched and the repository's default
     /// branch is used as parent of the working-copy change.
@@ -127,8 +127,8 @@ pub struct GitCloneArgs {
     ///
     /// [logical operators]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(long, short, alias = "bookmark")]
-    branch: Option<Vec<String>>,
+    #[arg(long = "branch", short, alias = "bookmark", value_name = "BRANCH")]
+    branches: Option<Vec<String>>,
 }
 
 fn clone_destination_for_source(source: &str) -> Option<&str> {
@@ -172,7 +172,7 @@ pub fn cmd_git_clone(
     } else {
         args.colocate
     };
-    let bookmark_expr = match &args.branch {
+    let bookmark_expr = match &args.branches {
         Some(texts) => parse_union_name_patterns(ui, texts)?,
         None => StringExpression::all(),
     };

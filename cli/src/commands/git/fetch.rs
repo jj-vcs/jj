@@ -49,7 +49,7 @@ use crate::ui::Ui;
 /// commit. This is true in general; it is not specific to this command.
 #[derive(clap::Args, Clone, Debug)]
 pub struct GitFetchArgs {
-    /// Fetch only some of the branches
+    /// Name of the branch to fetch (can be repeated)
     ///
     /// By default, the specified pattern matches branch names with glob syntax,
     /// but only `*` is expanded. Other wildcard characters such as `?` are
@@ -61,15 +61,15 @@ pub struct GitFetchArgs {
     ///
     /// [logical operators]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(long, short, alias = "bookmark")]
+    #[arg(long = "branch", short, alias = "bookmark", value_name = "BRANCH")]
     #[arg(add = ArgValueCandidates::new(complete::bookmarks))]
-    branch: Option<Vec<String>>,
+    branches: Option<Vec<String>>,
 
     /// Fetch only tracked bookmarks
     ///
     /// This fetches only bookmarks that are already tracked from the specified
     /// remote(s).
-    #[arg(long, conflicts_with = "branch")]
+    #[arg(long, conflicts_with = "branches")]
     tracked: bool,
 
     /// The remote to fetch from (only named remotes are supported, can be
@@ -133,7 +133,7 @@ pub fn cmd_git_fetch(
 
     let mut tx = workspace_command.start_transaction();
 
-    let common_bookmark_expr = match &args.branch {
+    let common_bookmark_expr = match &args.branches {
         Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
         None => None,
     };
