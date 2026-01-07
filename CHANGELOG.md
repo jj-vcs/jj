@@ -8,6 +8,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Release highlights
+
+### Breaking changes
+
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.37.0] - 2026-01-07
+
+### Release highlights
+
+* A new syntax for referring to hidden and divergent change IDs is available:
+  `xyz/n` where `n` is a number. For instance, `xyz/0` refers to the latest
+  version of `xyz`, while `xyz/1` refers to the previous version of `xyz`.
+  This allows you to perform actions like `jj restore --from xyz/1 --to xyz` to
+  restore `xyz` to its previous contents, if you made a mistake.
+
+  For divergent changes, the numeric suffix will always be shown in the log,
+  allowing you to disambiguate them in a similar manner.
+
 ### Breaking changes
 
 * [String patterns](docs/revsets.md#string-patterns) in revsets, command
@@ -23,12 +46,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   --remote=<remote>`.
 
 * On Windows, symlinks that point to a path with `/` won't be supported. This
-  path is [invalid on Windows].
+  path is [invalid on Windows](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions).
 
 * The template alias `format_short_change_id_with_hidden_and_divergent_info(commit)`
   has been replaced by `format_short_change_id_with_change_offset(commit)`.
-
-[invalid on Windows]: https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
 
 * The following deprecated config options have been removed:
   - `git.push-bookmark-prefix`
@@ -131,6 +152,38 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Fixed a bug where jj would fail to read git delta objects from pack files.
   https://github.com/GitoxideLabs/gitoxide/issues/2344
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Anton Älgmyr (@algmyr)
+* Austin Seipp (@thoughtpolice)
+* Bryce Berger (@bryceberger)
+* Carlos Knippschild (@chuim)
+* Cole Helbling (@cole-h)
+* David Higgs (@higgsd)
+* Eekle (@Eekle)
+* Gaëtan Lehmann (@glehmann)
+* Ian Wrzesinski (@isuffix)
+* Ilya Grigoriev (@ilyagr)
+* Julian Howes (@jlnhws)
+* Kaiyi Li (@06393993)
+* Lukas Krejci (@metlos)
+* Martin von Zweigbergk (@martinvonz)
+* Matt Stark (@matts1)
+* Ori Avtalion (@salty-horse)
+* Scott Taylor (@scott2000)
+* Shaoxuan (Max) Yuan (@ffyuanda)
+* Stephen Jennings (@jennings)
+* Steve Fink (@hotsphink)
+* Steve Klabnik (@steveklabnik)
+* Theo Buehler (@botovq)
+* Thomas Castiglione (@gulbanana)
+* Vincent Ging Ho Yim (@cenviity)
+* xtqqczze (@xtqqczze)
+* Yuantao Wang (@0WD0)
+* Yuya Nishihara (@yuja)
 
 ## [0.36.0] - 2025-12-03
 
@@ -4496,7 +4549,8 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.36.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.37.0...HEAD
+[0.37.0]: https://github.com/jj-vcs/jj/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/jj-vcs/jj/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/jj-vcs/jj/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/jj-vcs/jj/compare/v0.33.0...v0.34.0
