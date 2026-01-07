@@ -257,9 +257,6 @@ impl MergedTree {
     }
 
     /// Stream of the differences between this tree and another tree.
-    ///
-    /// Tree entries (`MergedTreeValue::is_tree()`) are included only if the
-    /// other side is present and not a tree.
     fn diff_stream_internal<'matcher>(
         &self,
         other: &Self,
@@ -282,6 +279,15 @@ impl MergedTree {
         matcher: &'matcher dyn Matcher,
     ) -> TreeDiffStream<'matcher> {
         stream_without_trees(self.diff_stream_internal(other, matcher))
+    }
+
+    /// Like `diff_stream()` but trees with diffs themselves are also included.
+    pub fn diff_stream_with_trees<'matcher>(
+        &self,
+        other: &Self,
+        matcher: &'matcher dyn Matcher,
+    ) -> TreeDiffStream<'matcher> {
+        self.diff_stream_internal(other, matcher)
     }
 
     /// Like `diff_stream()` but files in a removed tree will be returned before
@@ -578,9 +584,6 @@ impl Iterator for ConflictIterator<'_> {
 }
 
 /// Iterator over the differences between two trees.
-///
-/// Tree entries (`MergedTreeValue::is_tree()`) are included only if the other
-/// side is present and not a tree.
 pub struct TreeDiffIterator<'matcher> {
     store: Arc<Store>,
     stack: Vec<TreeDiffDir>,
@@ -700,21 +703,16 @@ impl Iterator for TreeDiffIterator<'_> {
                     TreeDiffDir::from_trees(&path, &before_tree, &after_tree, self.matcher);
                 self.stack.push(subdir);
             };
-            if diff.before.is_file_like() || diff.after.is_file_like() {
-                return Some(TreeDiffEntry {
-                    path,
-                    values: Ok(diff),
-                });
-            }
+            return Some(TreeDiffEntry {
+                path,
+                values: Ok(diff),
+            });
         }
         None
     }
 }
 
 /// Stream of differences between two trees.
-///
-/// Tree entries (`MergedTreeValue::is_tree()`) are included only if the other
-/// side is present and not a tree.
 pub struct TreeDiffStreamImpl<'matcher> {
     store: Arc<Store>,
     matcher: &'matcher dyn Matcher,
@@ -760,9 +758,15 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
             max_queued_items: 10000,
         };
         let dir = RepoPathBuf::root();
+        let merged_tree1 = tree1.to_merged_tree_value();
+        let merged_tree2 = tree2.to_merged_tree_value();
+        let root_diff = Diff::new(merged_tree1.clone(), merged_tree2.clone());
+        if root_diff.is_changed() && !matcher.visit(&dir).is_nothing() {
+            stream.items.insert(dir.clone(), Ok(root_diff));
+        }
         let root_tree_fut = Box::pin(try_join(
-            Self::trees(store.clone(), dir.clone(), tree1.to_merged_tree_value()),
-            Self::trees(store, dir.clone(), tree2.to_merged_tree_value()),
+            Self::trees(store.clone(), dir.clone(), merged_tree1),
+            Self::trees(store, dir.clone(), merged_tree2),
         ));
         stream.pending_trees.insert(dir, root_tree_fut);
         stream
@@ -831,10 +835,8 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
                     .insert(path.clone(), Box::pin(both_trees_future));
             }
 
-            if before.is_file_like() || after.is_file_like() {
-                self.items
-                    .insert(path, Ok(Diff::new(before.cloned(), after.cloned())));
-            }
+            self.items
+                .insert(path, Ok(Diff::new(before.cloned(), after.cloned())));
         }
     }
 
@@ -906,7 +908,7 @@ impl Stream for TreeDiffStreamImpl<'_> {
 }
 
 fn stream_without_trees(stream: TreeDiffStream) -> TreeDiffStream {
-    Box::pin(stream.map(|mut entry| {
+    Box::pin(stream.filter_map(|mut entry| async move {
         let skip_tree = |merge: MergedTreeValue| {
             if merge.is_tree() {
                 Merge::absent()
@@ -915,7 +917,14 @@ fn stream_without_trees(stream: TreeDiffStream) -> TreeDiffStream {
             }
         };
         entry.values = entry.values.map(|diff| diff.map(skip_tree));
-        entry
+
+        // Filter out entries where neither side is present.
+        let any_present = entry
+            .values
+            .as_ref()
+            .map(|diff| diff.before.is_present() || diff.after.is_present())
+            .unwrap_or(true); // Keep errors
+        if any_present { Some(entry) } else { None }
     }))
 }
 
@@ -945,6 +954,15 @@ impl Stream for DiffStreamForFileSystem<'_> {
             Some(next) => Some(next),
             None => ready!(self.inner.as_mut().poll_next(cx)),
         } {
+            // Filter out changes where neither side (before or after) is_file_like.
+            // This ensures we only process file-level changes and transitions.
+            if let Ok(diff) = &next.values
+                && !diff.before.is_file_like()
+                && !diff.after.is_file_like()
+            {
+                continue;
+            }
+
             // If there's a held file "foo" and the next item to emit is not "foo/...", then
             // we must be done with the "foo/" directory and it's time to emit "foo" as a
             // removed file.
