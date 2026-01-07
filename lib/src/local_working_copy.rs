@@ -39,7 +39,7 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::channel;
-use std::time::UNIX_EPOCH;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
 use either::Either;
@@ -895,12 +895,15 @@ fn mtime_from_metadata(metadata: &Metadata) -> Result<MillisSinceEpoch, MtimeOut
     let time = metadata
         .modified()
         .expect("File mtime not supported on this platform?");
-    let since_epoch = time
-        .duration_since(UNIX_EPOCH)
-        .map_err(|_| MtimeOutOfRange)?;
-    i64::try_from(since_epoch.as_millis())
-        .map(MillisSinceEpoch)
-        .map_err(|_| MtimeOutOfRange)
+    system_time_to_millis(time).ok_or(MtimeOutOfRange)
+}
+
+fn system_time_to_millis(time: SystemTime) -> Option<MillisSinceEpoch> {
+    let millis = match time.duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(duration) => i64::try_from(duration.as_millis()).ok()?,
+        Err(err) => -i64::try_from(err.duration().as_millis()).ok()?,
+    };
+    Some(MillisSinceEpoch(millis))
 }
 
 /// Create a new [`FileState`] from metadata.
@@ -2849,6 +2852,8 @@ impl LockedLocalWorkingCopy {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use maplit::hashset;
 
     use super::*;
@@ -3035,5 +3040,33 @@ mod tests {
             prefixed_states.get_at(repo_path("b#"), repo_path_component("#")),
             None
         );
+    }
+
+    #[test]
+    fn test_system_time_to_millis() {
+        let epoch = SystemTime::UNIX_EPOCH;
+        assert_eq!(system_time_to_millis(epoch), Some(MillisSinceEpoch(0)));
+        if let Some(time) = epoch.checked_add(Duration::from_millis(1)) {
+            assert_eq!(system_time_to_millis(time), Some(MillisSinceEpoch(1)));
+        }
+        if let Some(time) = epoch.checked_sub(Duration::from_millis(1)) {
+            assert_eq!(system_time_to_millis(time), Some(MillisSinceEpoch(-1)));
+        }
+        if let Some(time) = epoch.checked_add(Duration::from_millis(i64::MAX as u64)) {
+            assert_eq!(
+                system_time_to_millis(time),
+                Some(MillisSinceEpoch(i64::MAX))
+            );
+        }
+        if let Some(time) = epoch.checked_sub(Duration::from_millis(i64::MAX as u64)) {
+            assert_eq!(
+                system_time_to_millis(time),
+                Some(MillisSinceEpoch(-i64::MAX))
+            );
+        }
+        if let Some(time) = epoch.checked_sub(Duration::from_millis(i64::MAX as u64 + 1)) {
+            // i64::MIN could be returned, but we don't care such old timestamp
+            assert_eq!(system_time_to_millis(time), None);
+        }
     }
 }
