@@ -114,8 +114,7 @@ pub(crate) struct SquashArgs {
         visible_alias = "destination",
         short,
         visible_short_alias = 'd',
-        conflicts_with = "into",
-        conflicts_with = "revision",
+        conflicts_with_all = ["into", "revision"],
         value_name = "REVSETS"
     )]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
@@ -127,9 +126,7 @@ pub(crate) struct SquashArgs {
         long,
         short = 'A',
         visible_alias = "after",
-        conflicts_with = "onto",
-        conflicts_with = "into",
-        conflicts_with = "revision",
+        conflicts_with_all = ["onto", "into", "revision"],
         value_name = "REVSETS"
     )]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
@@ -141,9 +138,7 @@ pub(crate) struct SquashArgs {
         long,
         short = 'B',
         visible_alias = "before",
-        conflicts_with = "onto",
-        conflicts_with = "into",
-        conflicts_with = "revision",
+        conflicts_with_all = ["onto", "into", "revision"],
         value_name = "REVSETS"
     )]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]

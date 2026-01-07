@@ -64,18 +64,18 @@ pub struct BookmarkListArgs {
     ///
     /// [string pattern syntax]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(long = "remote", value_name = "REMOTE", conflicts_with_all = ["all_remotes"])]
+    #[arg(long = "remote", value_name = "REMOTE", conflicts_with = "all_remotes")]
     #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
     remotes: Option<Vec<String>>,
 
     /// Show tracked remote bookmarks only
     ///
     /// This omits local Git-tracking bookmarks by default.
-    #[arg(long, short, conflicts_with_all = ["all_remotes"])]
+    #[arg(long, short, conflicts_with = "all_remotes")]
     tracked: bool,
 
     /// Show conflicted bookmarks only
-    #[arg(long, short, conflicts_with_all = ["all_remotes"])]
+    #[arg(long, short, conflicts_with = "all_remotes")]
     conflicted: bool,
 
     /// Show bookmarks whose local name matches

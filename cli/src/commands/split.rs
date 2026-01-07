@@ -152,8 +152,7 @@ pub(crate) struct SplitArgs {
         long,
         short = 'A',
         visible_alias = "after",
-        conflicts_with = "onto",
-        conflicts_with = "parallel",
+        conflicts_with_all = ["onto", "parallel"],
         value_name = "REVSETS"
     )]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
@@ -169,8 +168,7 @@ pub(crate) struct SplitArgs {
         long,
         short = 'B',
         visible_alias = "before",
-        conflicts_with = "onto",
-        conflicts_with = "parallel",
+        conflicts_with_all = ["onto", "parallel"],
         value_name = "REVSETS"
     )]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
