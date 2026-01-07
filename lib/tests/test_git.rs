@@ -5233,42 +5233,38 @@ fn user_settings_without_change_id() -> UserSettings {
     UserSettings::from_config(config).unwrap()
 }
 
-#[test]
-fn test_remote_add_with_tags_specification() {
-    for fetch_tags in [
-        gix::remote::fetch::Tags::All,
-        gix::remote::fetch::Tags::Included,
-        gix::remote::fetch::Tags::None,
-    ] {
-        let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
+#[test_case(gix::remote::fetch::Tags::All; "all")]
+#[test_case(gix::remote::fetch::Tags::Included; "included")]
+#[test_case(gix::remote::fetch::Tags::None; "none")]
+fn test_remote_add_with_tags_specification(fetch_tags: gix::remote::fetch::Tags) {
+    let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
 
-        let mut tx = test_repo.repo.start_transaction();
-        let remote_name = "foo";
-        git::add_remote(
-            tx.repo_mut(),
-            remote_name.as_ref(),
-            "https://example.com/",
-            None,
-            fetch_tags,
-            &StringExpression::all(),
-        )
-        .unwrap();
-        let _repo = tx.commit("test").unwrap();
+    let mut tx = test_repo.repo.start_transaction();
+    let remote_name = "foo";
+    git::add_remote(
+        tx.repo_mut(),
+        remote_name.as_ref(),
+        "https://example.com/",
+        None,
+        fetch_tags,
+        &StringExpression::all(),
+    )
+    .unwrap();
+    let _repo = tx.commit("test").unwrap();
 
-        // Reload after Git configuration change.
-        let repo = &test_repo
-            .env
-            .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
+    // Reload after Git configuration change.
+    let repo = &test_repo
+        .env
+        .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
 
-        let git_repo = get_git_repo(repo);
-        assert_eq!(
-            fetch_tags,
-            git_repo
-                .find_remote(remote_name)
-                .expect("unable to find remote")
-                .fetch_tags()
-        );
-    }
+    let git_repo = get_git_repo(repo);
+    assert_eq!(
+        fetch_tags,
+        git_repo
+            .find_remote(remote_name)
+            .expect("unable to find remote")
+            .fetch_tags()
+    );
 }
 
 #[test]
