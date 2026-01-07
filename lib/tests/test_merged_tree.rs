@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use futures::StreamExt as _;
+use globset::GlobBuilder;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::CopyRecord;
@@ -25,6 +26,7 @@ use jj_lib::copies::CopyRecords;
 use jj_lib::files;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::FilesMatcher;
+use jj_lib::matchers::GlobsMatcher;
 use jj_lib::matchers::Matcher;
 use jj_lib::matchers::PrefixMatcher;
 use jj_lib::merge::Diff;
@@ -1711,4 +1713,287 @@ fn test_merge_simplify_file_conflict_with_absent() {
     .block_on()
     .unwrap();
     assert_tree_eq!(merged, expected_merged);
+}
+
+#[test]
+fn test_diff_with_trees_dir_added_removed() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let file_path = repo_path("file");
+    let dir_path = repo_path("dir");
+    let dir_file_path = repo_path("dir/file");
+
+    // Tree 1: root has "file"
+    let tree1 = create_single_tree(repo, &[(file_path, "content")]);
+
+    // Tree 2: root has "file" and "dir/file"
+    let tree2 = create_single_tree(repo, &[(file_path, "content"), (dir_file_path, "content")]);
+
+    let tree1_merged = MergedTree::resolved(repo.store().clone(), tree1.id().clone());
+    let tree2_merged = MergedTree::resolved(repo.store().clone(), tree2.id().clone());
+
+    // Forward diff: tree1 -> tree2 (Directory "dir" added)
+    let diff: Vec<_> = tree1_merged
+        .diff_stream_with_trees(&tree2_merged, &EverythingMatcher)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+
+    // Expecting 3 entries: the root directory, the directory itself, and the file
+    // inside it.
+    assert_eq!(diff.len(), 3);
+
+    // 1. Change in the root directory
+    assert_eq!(diff[0].0, RepoPathBuf::root());
+    assert!(diff[0].1.0.is_tree()); // Before: Tree
+    assert!(diff[0].1.1.is_tree()); // After: Tree
+
+    // 2. The directory "dir" is added
+    assert_eq!(diff[1].0, dir_path.to_owned());
+    assert!(diff[1].1.0.is_absent()); // Before: Absent
+    assert!(diff[1].1.1.is_tree()); // After: Tree
+
+    // 3. The file "dir/file" is added
+    assert_eq!(diff[2].0, dir_file_path.to_owned());
+    assert!(diff[2].1.0.is_absent()); // Before: Absent
+    assert!(diff[2].1.1.is_present()); // After: Present (File)
+
+    // Reverse diff: tree2 -> tree1 (Directory "dir" removed)
+    let diff_rev: Vec<_> = tree2_merged
+        .diff_stream_with_trees(&tree1_merged, &EverythingMatcher)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+
+    assert_eq!(diff_rev.len(), 3);
+    assert_eq!(diff_rev[1].0, dir_path.to_owned());
+    assert!(diff_rev[1].1.0.is_tree()); // Before: Tree
+    assert!(diff_rev[1].1.1.is_absent()); // After: Absent
+
+    diff_stream_equals_iter(&tree1_merged, &tree2_merged, &EverythingMatcher);
+}
+
+#[test]
+fn test_diff_with_trees_recursive_modification() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let path = repo_path("dir/subdir/file");
+    let dir_path = repo_path("dir");
+    let subdir_path = repo_path("dir/subdir");
+
+    // Two trees with different content in the deep file
+    let tree1 = create_single_tree(repo, &[(path, "a")]);
+    let tree2 = create_single_tree(repo, &[(path, "b")]);
+
+    let merged1 = MergedTree::resolved(repo.store().clone(), tree1.id().clone());
+    let merged2 = MergedTree::resolved(repo.store().clone(), tree2.id().clone());
+
+    let diff: Vec<_> = merged1
+        .diff_stream_with_trees(&merged2, &EverythingMatcher)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+
+    // Expecting 4 entries: root, dir, dir/subdir, and dir/subdir/file
+    assert_eq!(diff.len(), 4);
+
+    // 1. root changed (Tree -> Tree)
+    assert_eq!(diff[0].0, RepoPathBuf::root());
+    assert!(diff[0].1.0.is_tree());
+    assert!(diff[0].1.1.is_tree());
+    assert_ne!(diff[0].1.0, diff[0].1.1); // IDs should differ
+
+    // 2. "dir" changed (Tree -> Tree)
+    assert_eq!(diff[1].0, dir_path.to_owned());
+    assert!(diff[1].1.0.is_tree());
+    assert!(diff[1].1.1.is_tree());
+    assert_ne!(diff[1].1.0, diff[1].1.1); // IDs should differ
+
+    // 3. "dir/subdir" changed (Tree -> Tree)
+    assert_eq!(diff[2].0, subdir_path.to_owned());
+    assert!(diff[2].1.0.is_tree());
+    assert!(diff[2].1.1.is_tree());
+    assert_ne!(diff[2].1.0, diff[2].1.1); // IDs should differ
+
+    // 4. "dir/subdir/file" changed (File -> File)
+    assert_eq!(diff[3].0, path.to_owned());
+    assert!(diff[3].1.0.is_present());
+    assert!(diff[3].1.1.is_present());
+
+    diff_stream_equals_iter(&merged1, &merged2, &EverythingMatcher);
+}
+
+#[test]
+fn test_diff_with_trees_no_modifications() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let file_path = repo_path("file");
+
+    // Tree 1: root has "file"
+    let tree1 = create_single_tree(repo, &[(file_path, "content")]);
+
+    // Tree 2: root has "file"
+    let tree2 = create_single_tree(repo, &[(file_path, "content")]);
+
+    let tree1_merged = MergedTree::resolved(repo.store().clone(), tree1.id().clone());
+    let tree2_merged = MergedTree::resolved(repo.store().clone(), tree2.id().clone());
+
+    let diff: Vec<_> = tree1_merged
+        .diff_stream_with_trees(&tree2_merged, &EverythingMatcher)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+
+    // Expecting 0 entries: the trees are identical
+    assert_eq!(diff.len(), 0);
+
+    // Reverse diff
+    let diff_rev: Vec<_> = tree2_merged
+        .diff_stream_with_trees(&tree1_merged, &EverythingMatcher)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+
+    assert_eq!(diff_rev.len(), 0);
+
+    diff_stream_equals_iter(&tree1_merged, &tree2_merged, &EverythingMatcher);
+}
+
+#[test]
+fn test_diff_with_trees_files_matcher_for_file() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let path_a = repo_path("m/a.rs");
+    let path_b = repo_path("b.rs");
+
+    // Create two trees with the same structure: subdir "m" and file "b.rs".
+    // "b.rs" has the same content in both trees.
+    // "m/a.rs" has different content, causing a diff.
+    let tree1 = create_single_tree(repo, &[(path_a, "content_v1"), (path_b, "fixed_content")]);
+    let tree2 = create_single_tree(repo, &[(path_a, "content_v2"), (path_b, "fixed_content")]);
+
+    let merged1 = MergedTree::resolved(repo.store().clone(), tree1.id().clone());
+    let merged2 = MergedTree::resolved(repo.store().clone(), tree2.id().clone());
+
+    let matcher = FilesMatcher::new([path_a, path_b]);
+    // Just make sure the matcher is configured as expected.
+    assert!(matcher.matches(path_a));
+    assert!(matcher.matches(path_b));
+
+    let diff: Vec<_> = merged1
+        .diff_stream_with_trees(&merged2, &matcher)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+
+    // Verify that the diff contains exactly one item: "m/a.rs"
+    assert_eq!(diff.len(), 1);
+    assert_eq!(diff[0].0, path_a.to_owned());
+
+    // Verify that the file IDs differ due to the content change
+    let (before, after) = &diff[0].1;
+    assert_ne!(before, after);
+
+    diff_stream_equals_iter(&merged1, &merged2, &matcher);
+}
+
+#[test]
+fn test_diff_with_trees_glob_matcher_for_path() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let dir_path = repo_path("m");
+    let path_a = repo_path("m/a.rs");
+    let path_b = repo_path("b.rs");
+
+    // Create two trees with the same structure: subdir "m" and file "b.rs".
+    // "b.rs" has the same content in both trees.
+    // "m/a.rs" has different content, causing a diff.
+    let tree1 = create_single_tree(repo, &[(path_a, "content_v1"), (path_b, "fixed_content")]);
+    let tree2 = create_single_tree(repo, &[(path_a, "content_v2"), (path_b, "fixed_content")]);
+
+    let merged1 = MergedTree::resolved(repo.store().clone(), tree1.id().clone());
+    let merged2 = MergedTree::resolved(repo.store().clone(), tree2.id().clone());
+
+    let mut builder = GlobsMatcher::builder().prefix_paths(true);
+    let glob = GlobBuilder::new("**/m")
+        .literal_separator(true)
+        .case_insensitive(false)
+        .build()
+        .unwrap();
+    builder.add(RepoPath::root(), &glob);
+    let matcher = builder.build();
+    // Just make sure the matcher is configured as expected.
+    assert!(matcher.matches(dir_path));
+    assert!(matcher.matches(path_a));
+    assert!(!matcher.matches(path_b));
+
+    let diff: Vec<_> = merged1
+        .diff_stream_with_trees(&merged2, &matcher)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+
+    // Verify that the diff contains exactly "m" and "m/a.rs"
+    assert_eq!(diff.len(), 2);
+
+    // 1. "m" changed (Tree -> Tree)
+    assert_eq!(diff[0].0, dir_path.to_owned());
+    assert!(diff[0].1.0.is_tree());
+    assert!(diff[0].1.1.is_tree());
+    assert_ne!(diff[0].1.0, diff[0].1.1); // IDs should differ
+
+    // 2. "m/a.rs" changed (File -> File)
+    assert_eq!(diff[1].0, path_a.to_owned());
+    assert!(!diff[1].1.0.is_tree());
+    assert!(!diff[1].1.1.is_tree());
+    assert_ne!(diff[1].1.0, diff[1].1.1); // IDs should differ
+
+    diff_stream_equals_iter(&merged1, &merged2, &matcher);
+}
+
+#[test]
+fn test_diff_with_trees_files_matcher_for_intermediate_directory() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let dir_path = repo_path("m");
+    let path_a = repo_path("m/a.rs");
+    let path_b = repo_path("b.rs");
+
+    // Create two trees with the same structure: subdir "m" and file "b.rs".
+    // "b.rs" has the same content in both trees.
+    // "m/a.rs" has different content, causing a diff.
+    let tree1 = create_single_tree(repo, &[(path_a, "content_v1"), (path_b, "fixed_content")]);
+    let tree2 = create_single_tree(repo, &[(path_a, "content_v2"), (path_b, "fixed_content")]);
+
+    let merged1 = MergedTree::resolved(repo.store().clone(), tree1.id().clone());
+    let merged2 = MergedTree::resolved(repo.store().clone(), tree2.id().clone());
+
+    let matcher = FilesMatcher::new([dir_path]);
+    // Just make sure the matcher is configured as expected.
+    assert!(matcher.matches(dir_path));
+    assert!(!matcher.matches(path_a));
+    assert!(!matcher.matches(path_b));
+
+    // TODO: In the current implementation we don't necessarily visit matching
+    // directories which means "m" is missed.  This could be fixed either in
+    // the matcher (if something matches, it must also be visited) or in the
+    // merged_tree.rs implementation (if something doesn't need to be visited
+    // but matches, we visit it anyway).
+    let diff: Vec<_> = merged1
+        .diff_stream_with_trees(&merged2, &matcher)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+
+    // TODO Verify that the diff contains exactly "m", see above.
+    // assert_eq!(diff.len(), 1);
+    assert_eq!(diff.len(), 0);
+
+    diff_stream_equals_iter(&merged1, &merged2, &matcher);
 }
