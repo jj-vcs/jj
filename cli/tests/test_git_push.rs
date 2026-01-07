@@ -1014,6 +1014,24 @@ fn test_git_push_changes() {
     [EOF]
     ");
 
+    // FIXME GH #8638: generating duplicate bookmarks should not be allowed
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=templates.git_push_bookmark=\"'dupe-bookmark'\"",
+        "--change=(@|root()+)",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Creating bookmark dupe-bookmark for revision yostqsxwqrlt
+    Creating bookmark dupe-bookmark for revision yqosqzytrlsw
+    Creating bookmark dupe-bookmark for revision zsuskulnrvyr
+    Creating bookmark dupe-bookmark for revision qpvuntsmwlqt
+    Changes to push to origin:
+      Add bookmark dupe-bookmark to 9b2e76de3920
+    [EOF]
+    ");
+
     // Bad `git_push_bookmark` templates
     let output = work_dir.run_jj([
         "git",
