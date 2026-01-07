@@ -918,34 +918,45 @@ fn test_git_push_changes() {
       Add bookmark push-yostqsxwqrlt to 916414184c47
     [EOF]
     ");
+
+    // specified bookmark is up to date
+    let output = work_dir.run_jj(["git", "push", "--change", "@"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Bookmark push-yostqsxwqrlt@origin already matches push-yostqsxwqrlt
+    Nothing changed.
+    [EOF]
+    ");
+
     // test pushing two changes at once
     work_dir.write_file("file", "modified2");
     let output = work_dir.run_jj(["git", "push", "-c=(@|@-)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Creating bookmark push-yqosqzytrlsw for revision yqosqzytrlsw
     Changes to push to origin:
-      Move sideways bookmark push-yostqsxwqrlt from 916414184c47 to 2723f6111cb9
+      Move sideways bookmark push-yostqsxwqrlt from 916414184c47 to 107f11285524
       Add bookmark push-yqosqzytrlsw to 0f8164cd580b
     [EOF]
     ");
+
     // specifying the same change twice doesn't break things
     work_dir.write_file("file", "modified3");
     let output = work_dir.run_jj(["git", "push", "-c=(@|@)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark push-yostqsxwqrlt from 2723f6111cb9 to ee4011999491
+      Move sideways bookmark push-yostqsxwqrlt from 107f11285524 to 7436a8a600a4
     [EOF]
     ");
 
     // specifying the same bookmark with --change/--bookmark doesn't break things
     work_dir.write_file("file", "modified4");
     let output = work_dir.run_jj(["git", "push", "-c=@", "-b=push-yostqsxwqrlt"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Move sideways bookmark push-yostqsxwqrlt from ee4011999491 to 1b393e646dec
+      Move sideways bookmark push-yostqsxwqrlt from 7436a8a600a4 to a8b93bdd0f68
     [EOF]
     ");
 
@@ -961,10 +972,10 @@ fn test_git_push_changes() {
         ])
         .success();
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     M file
-    Working copy  (@) : yostqsxw 41aca6a2 bar
+    Working copy  (@) : yostqsxw 4b18f5ea bar
     Parent commit (@-): yqosqzyt 0f8164cd push-yostqsxwqrlt* push-yqosqzytrlsw | foo
     [EOF]
     ");
@@ -977,10 +988,10 @@ fn test_git_push_changes() {
     [exit status: 1]
     ");
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     M file
-    Working copy  (@) : yostqsxw 41aca6a2 bar
+    Working copy  (@) : yostqsxw 4b18f5ea bar
     Parent commit (@-): yqosqzyt 0f8164cd push-yostqsxwqrlt* push-yqosqzytrlsw | foo
     [EOF]
     ");
@@ -995,11 +1006,11 @@ fn test_git_push_changes() {
         ),
         "--change=@",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Creating bookmark test-yostqsxwqrlt for revision yostqsxwqrlt
     Changes to push to origin:
-      Add bookmark test-yostqsxwqrlt to 41aca6a29460
+      Add bookmark test-yostqsxwqrlt to 4b18f5ea2994
     [EOF]
     ");
 
