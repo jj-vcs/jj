@@ -68,6 +68,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   This includes, for example, `--reviewer=foo@example.com` and
   `--label=Auto-Submit`.
 
+* `jj gerrit upload` now recognizes Change-Id explicitly set via the alternative
+  trailer `Link`, and will generate a `Link: <review-url>/id/<change-id>` trailer
+  if `gerrit.review-url` option is set.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04

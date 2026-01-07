@@ -241,6 +241,104 @@ fn test_gerrit_upload_local_implicit_change_ids() {
 }
 
 #[test]
+fn test_gerrit_upload_local_implicit_change_id_link() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config(
+        r#"
+[gerrit]
+review-url = "https://gerrit.example.com/"
+        "#,
+    );
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "a", &[]);
+
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    create_commit(&local_dir, "b", &["a@origin"]);
+    create_commit(&local_dir, "c", &["b"]);
+
+    // Ensure other trailers are preserved (no extra newlines)
+    local_dir
+        .run_jj([
+            "describe",
+            "c",
+            "-m",
+            "c\n\nSigned-off-by: Lucky K Maintainer <lucky@maintainer.example.org>\n",
+        ])
+        .success();
+
+    // The output should only mention commit IDs from the log output above (no
+    // temporary commits)
+    let output = local_dir.run_jj(["log", "-r", "all()"]);
+    insta::assert_snapshot!(output, @"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c f6e97ced
+    │  c
+    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
+    │  b
+    ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
+    │  a
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Pushing yqosqzyt f6e97ced c | c
+    [EOF]
+    ");
+
+    // The output should be unchanged because we only add Link trailers
+    // transiently
+    let output = local_dir.run_jj(["log", "-r", "all()"]);
+    insta::assert_snapshot!(output, @"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c f6e97ced
+    │  c
+    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
+    │  b
+    ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
+    │  a
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    // There's no particular reason to run this with jj util exec, it's just that
+    // the infra makes it easier to run this way.
+    let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
+    insta::assert_snapshot!(output, @"
+    commit b2731737e530be944c12679a86dacca2a3d3c6ad
+    Author: Test User <test.user@example.com>
+    Date:   Sat Feb 3 04:05:13 2001 +0700
+
+        c
+        
+        Signed-off-by: Lucky K Maintainer <lucky@maintainer.example.org>
+        Link: https://gerrit.example.com/id/I19b790168e73f7a73a98deae21e807c06a6a6964
+
+    commit 9bc0339b54de4f3bcf241f8d68daf75bd6501cff
+    Author: Test User <test.user@example.com>
+    Date:   Sat Feb 3 04:05:11 2001 +0700
+
+        b
+        
+        Link: https://gerrit.example.com/id/Id043564ef93650b06a70f92f9d91912b6a6a6964
+
+    commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Author: Test User <test.user@example.com>
+    Date:   Sat Feb 3 04:05:08 2001 +0700
+
+        a
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_gerrit_upload_local_explicit_change_ids() {
     let test_env = TestEnvironment::default();
     test_env
@@ -271,16 +369,16 @@ fn test_gerrit_upload_local_explicit_change_ids() {
 
     create_commit(&local_dir, "c", &["b"]);
 
-    // Add an explicit Change-Id footer to c
+    // Add an explicit Link footer to c
     let output = local_dir.run_jj([
         "describe",
         "c",
         "-m",
-        "c\n\nChange-Id: Idfac1e8c149efddf5c7a286f787b43886a6a6964\n",
+        "c\n\nLink: https://gerrit.example.com/id/Idfac1e8c149efddf5c7a286f787b43886a6a6964\n",
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Working copy  (@) now at: vruxwmqv 27c0bdd0 c | c
+    Working copy  (@) now at: vruxwmqv b4124fc9 c | c
     Parent commit (@-)      : mzvwutvl 887a7016 b | b
     [EOF]
     ");
@@ -289,7 +387,7 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     // temporary commits)
     let output = local_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @"
-    @  vruxwmqv test.user@example.com 2001-02-03 08:05:16 c 27c0bdd0
+    @  vruxwmqv test.user@example.com 2001-02-03 08:05:16 c b4124fc9
     │  c
     ○  mzvwutvl test.user@example.com 2001-02-03 08:05:13 b 887a7016
     │  b
@@ -303,7 +401,7 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Pushing vruxwmqv 27c0bdd0 c | c
+    Pushing vruxwmqv b4124fc9 c | c
     [EOF]
     ");
 
@@ -311,7 +409,7 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     // been created
     let output = local_dir.run_jj(["log", "-r", "all()"]);
     insta::assert_snapshot!(output, @"
-    @  vruxwmqv test.user@example.com 2001-02-03 08:05:16 c 27c0bdd0
+    @  vruxwmqv test.user@example.com 2001-02-03 08:05:16 c b4124fc9
     │  c
     ○  mzvwutvl test.user@example.com 2001-02-03 08:05:13 b 887a7016
     │  b
@@ -325,13 +423,13 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     // the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
     insta::assert_snapshot!(output, @"
-    commit 27c0bdd070a0dd4aec5a22bd3ea454cd2502f430
+    commit b4124fc9d4694eecb4d9938cf4874cd13f1252b6
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:14 2001 +0700
 
         c
         
-        Change-Id: Idfac1e8c149efddf5c7a286f787b43886a6a6964
+        Link: https://gerrit.example.com/id/Idfac1e8c149efddf5c7a286f787b43886a6a6964
 
     commit 887a7016ec03a904835da1059543d8cc34b6ba76
     Author: Test User <test.user@example.com>

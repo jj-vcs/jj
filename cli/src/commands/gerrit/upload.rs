@@ -455,7 +455,7 @@ pub fn cmd_gerrit_upload(
 
         let change_id_trailers: Vec<&Trailer> = trailers
             .iter()
-            .filter(|trailer| trailer.key == "Change-Id")
+            .filter(|trailer| trailer.key == "Change-Id" || trailer.key == "Link")
             .collect();
 
         // There shouldn't be multiple change-ID fields. So just error out if
@@ -470,12 +470,23 @@ pub fn cmd_gerrit_upload(
         // The user can choose to explicitly set their own change-ID to
         // override the default change-ID based on the jj change-ID.
         let new_description = if let Some(trailer) = change_id_trailers.first() {
-            // Check the change-id format is correct.
-            if trailer.value.len() != 41 || !trailer.value.starts_with('I') {
-                // Intentionally leave the invalid change IDs as-is.
+            // Check the change-id format is correct, intentionally leave the
+            // invalid change IDs as-is.
+            if trailer.key == "Change-Id"
+                && (trailer.value.len() != 41 || !trailer.value.starts_with('I'))
+            {
                 writeln!(
                     ui.warning_default(),
                     "Invalid Change-Id footer in revision {}",
+                    short_change_hash(original_commit.change_id()),
+                )?;
+            }
+            if trailer.key == "Link"
+                && !matches!(trailer.value.split_once("/id/I"), Some((_url, id)) if id.len() == 40)
+            {
+                writeln!(
+                    ui.warning_default(),
+                    "Invalid Link footer in revision {}",
                     short_change_hash(original_commit.change_id()),
                 )?;
             }
@@ -487,11 +498,21 @@ pub fn cmd_gerrit_upload(
             // 6a6a6964 (hex of "jjid").
             let gerrit_change_id = format!("I{}6a6a6964", original_commit.change_id().hex());
 
+            let change_id_trailer =
+                if let Ok(review_url) = command.settings().get_string("gerrit.review-url") {
+                    format!(
+                        "Link: {}/id/{gerrit_change_id}",
+                        review_url.trim_end_matches('/'),
+                    )
+                } else {
+                    format!("Change-Id: {gerrit_change_id}")
+                };
+
             format!(
-                "{}{}Change-Id: {}\n",
+                "{}{}{}\n",
                 original_commit.description().trim(),
                 if trailers.is_empty() { "\n\n" } else { "\n" },
-                gerrit_change_id
+                change_id_trailer,
             )
         };
 
