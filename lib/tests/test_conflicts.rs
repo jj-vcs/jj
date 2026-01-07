@@ -95,7 +95,8 @@ fn test_materialize_conflict_basic() {
     left 3.1
     left 3.2
     left 3.3
-    %%%%%%% diff from base to side #2
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #2
     -line 3
     +right 3.1
     >>>>>>> conflict 1 of 1 ends
@@ -115,7 +116,8 @@ fn test_materialize_conflict_basic() {
     line 1
     line 2
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1
     -line 3
     +right 3.1
     +++++++ side #2
@@ -245,7 +247,8 @@ fn test_materialize_conflict_three_sides() {
         @r"
     line 1
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base #1 to side #1
+    %%%%%%% diff from: base #1
+    \\\\\\\        to: side #1
     -line 2 base
     -line 3 base
     +line 2 a.1
@@ -255,7 +258,8 @@ fn test_materialize_conflict_three_sides() {
     line 2 b.1
     line 3 base
     line 4 b.2
-    %%%%%%% diff from base #2 to side #3
+    %%%%%%% diff from: base #2
+    \\\\\\\        to: side #3
      line 2 base
     +line 3 c.2
     >>>>>>> conflict 1 of 1 ends
@@ -272,13 +276,15 @@ fn test_materialize_conflict_three_sides() {
     line 2 a.1
     line 3 a.2
     line 4 base
-    %%%%%%% diff from base #1 to side #2
+    %%%%%%% diff from: base #1
+    \\\\\\\        to: side #2
     -line 2 base
     +line 2 b.1
      line 3 base
     -line 4 base
     +line 4 b.2
-    %%%%%%% diff from base #2 to side #3
+    %%%%%%% diff from: base #2
+    \\\\\\\        to: side #3
      line 2 base
     +line 3 c.2
     >>>>>>> conflict 1 of 1 ends
@@ -404,11 +410,13 @@ fn test_materialize_conflict_multi_rebase_conflicts() {
     line 2 a.1
     line 2 a.2
     line 2 a.3
-    %%%%%%% diff from base #1 to side #2
+    %%%%%%% diff from: base #1
+    \\\\\\\        to: side #2
     -line 2 base
     +line 2 b.1
     +line 2 b.2
-    %%%%%%% diff from base #2 to side #3
+    %%%%%%% diff from: base #2
+    \\\\\\\        to: side #3
     -line 2 base
     +line 2 c.1
     >>>>>>> conflict 1 of 1 ends
@@ -424,10 +432,12 @@ fn test_materialize_conflict_multi_rebase_conflicts() {
         @r"
     line 1
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base #1 to side #1
+    %%%%%%% diff from: base #1
+    \\\\\\\        to: side #1
     -line 2 base
     +line 2 c.1
-    %%%%%%% diff from base #2 to side #2
+    %%%%%%% diff from: base #2
+    \\\\\\\        to: side #2
     -line 2 base
     +line 2 b.1
     +line 2 b.2
@@ -448,14 +458,16 @@ fn test_materialize_conflict_multi_rebase_conflicts() {
         @r"
     line 1
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base #1 to side #1
+    %%%%%%% diff from: base #1
+    \\\\\\\        to: side #1
     -line 2 base
     +line 2 c.1
     +++++++ side #2
     line 2 a.1
     line 2 a.2
     line 2 a.3
-    %%%%%%% diff from base #2 to side #3
+    %%%%%%% diff from: base #2
+    \\\\\\\        to: side #3
     -line 2 base
     +line 2 b.1
     +line 2 b.2
@@ -519,14 +531,16 @@ fn test_materialize_parse_roundtrip() {
     +++++++ side #1
     line 1 left
     line 2 left
-    %%%%%%% diff from base to side #2
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #2
     -line 1
     +line 1 right
      line 2
     >>>>>>> conflict 1 of 2 ends
     line 3
     <<<<<<< conflict 2 of 2
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1
      line 4
     -line 5
     +line 5 left
@@ -726,7 +740,8 @@ fn test_materialize_conflict_modify_delete() {
     <<<<<<< conflict 1 of 1
     +++++++ side #1
     modified
-    %%%%%%% diff from base to side #2
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #2
     -line 3
     >>>>>>> conflict 1 of 1 ends
     line 4
@@ -743,7 +758,8 @@ fn test_materialize_conflict_modify_delete() {
     line 1
     line 2
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1
     -line 3
     +++++++ side #2
     modified
@@ -760,7 +776,8 @@ fn test_materialize_conflict_modify_delete() {
     );
     insta::assert_snapshot!(&materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff), @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1
      line 1
      line 2
     -line 3
@@ -816,12 +833,15 @@ fn test_materialize_conflict_two_forward_diffs() {
     <<<<<<< conflict 1 of 1
     +++++++ side #1
     A
-    %%%%%%% diff from base #1 to side #2
+    %%%%%%% diff from: base #1
+    \\\\\\\        to: side #2
      B
-    %%%%%%% diff from base #2 to side #3
+    %%%%%%% diff from: base #2
+    \\\\\\\        to: side #3
     -C
     +D
-    %%%%%%% diff from base #3 to side #4
+    %%%%%%% diff from: base #3
+    \\\\\\\        to: side #4
     -E
     +C
     >>>>>>> conflict 1 of 1 ends
@@ -1859,7 +1879,8 @@ fn test_update_conflict_from_content_simplified_conflict() {
         materialized,
         @r"
     <<<<<<< conflict 1 of 2
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1
     -line 1
     +left 1
     +++++++ side #2
@@ -1867,7 +1888,8 @@ fn test_update_conflict_from_content_simplified_conflict() {
     >>>>>>> conflict 1 of 2 ends
     line 2
     <<<<<<< conflict 2 of 2
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1
     -line 3
     +left 3
     +++++++ side #2
@@ -2104,7 +2126,8 @@ fn test_update_conflict_from_content_no_eol() {
         @r"
     line 1
     <<<<<<< conflict 1 of 2
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1
     -line 2
     +line 2 left
     +++++++ side #2
@@ -2189,11 +2212,11 @@ fn test_update_conflict_from_content_no_eol() {
     <<<<<<< side #1
     base
     left
-    ||||||| base
+    ||||||| base (no terminating newline)
     base
     =======
     right
-    >>>>>>> side #2
+    >>>>>>> side #2 (no terminating newline)
     "
     );
     assert_eq!(
@@ -2265,7 +2288,8 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() {
      no newline
     -line 1
     +line 2
-    %%%%%%% diff from base #4 to side #5
+    %%%%%%% diff from: base #4
+    \\\\\\\        to: side #5
      with newline
     -line 1
     +line 2
@@ -2386,7 +2410,8 @@ fn test_update_from_content_malformed_conflict() {
     insta::assert_snapshot!(materialized, @r"
     line 1
     <<<<<<< conflict 1 of 2
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1
     -line 2
     +line 2 left
     +++++++ side #2
@@ -2394,7 +2419,8 @@ fn test_update_from_content_malformed_conflict() {
     >>>>>>> conflict 1 of 2 ends
     line 3
     <<<<<<< conflict 2 of 2
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1
     -line 4
     +line 4 left
     +++++++ side #2
