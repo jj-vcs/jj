@@ -173,7 +173,7 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
 
     // Avoid the creation of a linked list by restoring to the original
     // operation directly, if we're about to restore an undo-operation. If we
-    // didn't to this, repeated calls of `jj new ; jj undo` would create an
+    // didn't do this, repeated calls of `jj new ; jj undo` would create an
     // ever-growing linked list of undo-operations that restore each other.
     // Calling `jj undo` one more time would have to restore to the operation
     // at the very beginning of the linked list, which would require walking the

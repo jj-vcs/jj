@@ -2486,7 +2486,7 @@ fn split_into_positive_negative_patterns(
 }
 
 /// A list of fetch refspecs configured within a remote that were ignored during
-/// a expansion. Callers should consider displaying these in the UI as
+/// an expansion. Callers should consider displaying these in the UI as
 /// appropriate.
 #[derive(Debug)]
 #[must_use = "warnings should be surfaced in the UI"]
