@@ -1808,7 +1808,7 @@ fn test_squash_to_new_commit() {
     [EOF]
     ");
 
-    // insert the commit before the source commit
+    // insert the commit before a commit
     let output = work_dir.run_jj([
         "squash",
         "-m",
