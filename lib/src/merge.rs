@@ -289,6 +289,24 @@ impl<T> Merge<T> {
         self.values.iter().step_by(2)
     }
 
+    /// Return the removed values and added values and take the ownership.
+    pub fn into_removes_adds(
+        self,
+    ) -> (
+        impl ExactSizeIterator<Item = T>,
+        impl ExactSizeIterator<Item = T>,
+    ) {
+        let (removes, adds): (Vec<_>, Vec<_>) = self
+            .values
+            .into_iter()
+            .enumerate()
+            .partition(|(n, _)| *n % 2 == 1);
+        (
+            removes.into_iter().map(|(_, item)| item),
+            adds.into_iter().map(|(_, item)| item),
+        )
+    }
+
     /// Returns the zeroth added value, which is guaranteed to exist.
     pub fn first(&self) -> &T {
         &self.values[0]
