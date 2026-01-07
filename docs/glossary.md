@@ -57,7 +57,7 @@ These are actually hexadecimal numbers that use "digits" z-k instead of 0-9a-f.
 ## Change offset
 
 Sometimes a change ID might not unambiguously identify a commit, such as if the
-commit is hidden or if the change ID is [divergent][divergent-change]. In these
+commit is hidden or if the change ID is [divergent](#divergent-change). In these
 cases, you can add an offset after the change ID to make it clear which commit
 you are referring to, with the most recent commit having an offset of 0. For
 instance, the most recent commit with change ID `xyz` could be referred to as
