@@ -478,18 +478,29 @@ impl CommandHelper {
         let workspace = self.load_workspace()?;
         let op_head = self.resolve_operation(ui, workspace.repo_loader())?;
         let repo = workspace.repo_loader().load_at(&op_head)?;
-        let env = self.workspace_environment(ui, &workspace)?;
+        let mut env = self.workspace_environment(ui, &workspace)?;
         if let Err(err) =
             revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
         {
+            // The fallback can be builtin_trunk() if we're willing to support
+            // inferred trunk forever. (#7990)
+            let fallback = "root()";
             writeln!(
                 ui.warning_default(),
                 "Failed to resolve `revset-aliases.trunk()`: {err}"
             )?;
             writeln!(
+                ui.warning_no_heading(),
+                "The `trunk()` alias is temporarily set to `{fallback}`."
+            )?;
+            writeln!(
                 ui.hint_default(),
                 "Use `jj config edit --repo` to adjust the `trunk()` alias."
             )?;
+            env.revset_aliases_map
+                .insert("trunk()", fallback)
+                .expect("valid syntax");
+            env.reload_revset_expressions(ui)?;
         }
         WorkspaceCommandHelper::new(ui, workspace, repo, env, self.is_at_head_operation())
     }
@@ -824,8 +835,7 @@ impl WorkspaceCommandEnvironment {
             short_prefixes_expression: None,
             conflict_marker_style: settings.get("ui.conflict-marker-style")?,
         };
-        env.immutable_heads_expression = env.load_immutable_heads_expression(ui)?;
-        env.short_prefixes_expression = env.load_short_prefixes_expression(ui)?;
+        env.reload_revset_expressions(ui)?;
         Ok(env)
     }
 
@@ -869,6 +879,13 @@ impl WorkspaceCommandEnvironment {
             None => context,
             Some(expression) => context.disambiguate_within(expression.clone()),
         }
+    }
+
+    /// Updates parsed revset expressions.
+    fn reload_revset_expressions(&mut self, ui: &Ui) -> Result<(), CommandError> {
+        self.immutable_heads_expression = self.load_immutable_heads_expression(ui)?;
+        self.short_prefixes_expression = self.load_short_prefixes_expression(ui)?;
+        Ok(())
     }
 
     /// User-configured expression defining the immutable set.

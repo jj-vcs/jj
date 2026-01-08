@@ -1052,3 +1052,74 @@ fn test_revset_committer_date_with_time_zone() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_user_trunk_absent_or_conflicted() {
+    let test_env = TestEnvironment::default();
+    // If trunk() is set to a local bookmark, resolution may fail due to
+    // conflicted or divergent symbols. This wouldn't happen with the default or
+    // auto-configured trunk(), which refers to remote bookmarks.
+    test_env.add_config("revset-aliases.'trunk()' = 'main'");
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj(["new", "-mA", "--no-edit", "root()"])
+        .success();
+    work_dir
+        .run_jj(["new", "-mB", "--no-edit", "root()"])
+        .success();
+    // "main" is still absent
+    let output = work_dir.run_jj(["bookmark", "set", "-rsubject(A)", "main"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main` doesn't exist
+    The `trunk()` alias is temporarily set to `root()`.
+    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
+    Created 1 bookmarks pointing to rlvkpnrz 095dbd02 main | (empty) A
+    [EOF]
+    ");
+
+    // "main" is now present
+    let output = work_dir.run_jj(["log"]);
+    insta::assert_snapshot!(output, @"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    │  (empty) (no description set)
+    │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:09 e3ebbfd5
+    ├─╯  (empty) B
+    │ ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 main 095dbd02
+    ├─╯  (empty) A
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+
+    // make "main" conflicted ("main" doesn't exist at op @-)
+    let output = work_dir.run_jj(["bookmark", "--at-op=@-", "set", "-rsubject(B)", "main"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main` doesn't exist
+    The `trunk()` alias is temporarily set to `root()`.
+    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
+    Created 1 bookmarks pointing to kkmpptxz e3ebbfd5 main | (empty) B
+    [EOF]
+    ");
+
+    // "main" is conflicted
+    let output = work_dir.run_jj(["log"]);
+    insta::assert_snapshot!(output, @"
+    @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    │  (empty) (no description set)
+    │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:09 main?? e3ebbfd5
+    ├─╯  (empty) B
+    │ ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 main?? 095dbd02
+    ├─╯  (empty) A
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ------- stderr -------
+    Concurrent modification detected, resolving automatically.
+    Warning: Failed to resolve `revset-aliases.trunk()`: Name `main` is conflicted
+    The `trunk()` alias is temporarily set to `root()`.
+    Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
+    [EOF]
+    ");
+}

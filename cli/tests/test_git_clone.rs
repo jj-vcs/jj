@@ -944,7 +944,7 @@ fn test_git_clone_trunk_deleted() {
     ");
 
     let output = clone_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 1ca44815
     │  (empty) (no description set)
     ○  qomsplrm someone@example.org 1970-01-01 11:00:00 ebeb70d8
@@ -953,6 +953,7 @@ fn test_git_clone_trunk_deleted() {
     [EOF]
     ------- stderr -------
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
+    The `trunk()` alias is temporarily set to `root()`.
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     [EOF]
     ");
