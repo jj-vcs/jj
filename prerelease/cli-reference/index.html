@@ -8805,7 +8805,7 @@ configuration.</p>
 </ul>
 </li>
 <li>
-<p><code>-b</code>, <code>--branch &lt;BRANCH&gt;</code> — Name of the branch to fetch and use as the parent of the working-copy change</p>
+<p><code>-b</code>, <code>--branch &lt;BRANCH&gt;</code> — Name of the branch to fetch and use as the parent of the working-copy change (can be repeated)</p>
 <p>If not present, all branches are fetched and the repository's default branch is used as parent of the working-copy change.</p>
 <p>By default, the specified pattern matches branch names with glob syntax, but only <code>*</code> is expanded. Other wildcard characters such as <code>?</code> are <em>not</em> supported. Patterns can be repeated or combined with <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">logical operators</a> to specify multiple branches, but only union and negative intersection are supported. If there are multiple matching branches, the first exact branch name is used as the working-copy parent.</p>
 <p>Examples: <code>push-*</code>, <code>(push-* | foo/*) ~ foo/unwanted</code></p>
@@ -8842,7 +8842,7 @@ configuration.</p>
 <h6 id="options_31"><strong>Options:</strong><a class="headerlink" href="#options_31" title="Permanent link">&para;</a></h6>
 <ul>
 <li>
-<p><code>-b</code>, <code>--branch &lt;BRANCH&gt;</code> — Fetch only some of the branches</p>
+<p><code>-b</code>, <code>--branch &lt;BRANCH&gt;</code> — Name of the branch to fetch (can be repeated)</p>
 <p>By default, the specified pattern matches branch names with glob syntax, but only <code>*</code> is expanded. Other wildcard characters such as <code>?</code> are <em>not</em> supported. Patterns can be repeated or combined with <a href="https://docs.jj-vcs.dev/latest/revsets/#string-patterns">logical operators</a> to specify multiple branches, but only union and negative intersection are supported.</p>
 <p>Examples: <code>push-*</code>, <code>(push-* | foo/*) ~ foo/unwanted</code></p>
 </li>
