@@ -16,6 +16,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj bookmark tug` finds the closest bookmark on a revision or its ancestors
+  and moves it forward to the latest non-empty descendant. This is useful for
+  advancing a bookmark after making several commits without having to manually
+  specify the bookmark name or target revision.
+
 ### Fixed bugs
 
 ## [0.37.0] - 2026-01-07
