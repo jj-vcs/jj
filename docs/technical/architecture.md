@@ -151,8 +151,8 @@ has and at which operation it was most recently updated.
 
 ### Workspace
 
-The `Workspace` type represents the combination of a repo and a working copy (
-like Git's 'worktree' concept).
+The `Workspace` type represents the combination of a repo and a working copy
+(like Git's *worktree* concept).
 
 The repo view at the current operation determines the desired working-copy
 commit in each workspace. The `WorkingCopy` determines what is actually in the

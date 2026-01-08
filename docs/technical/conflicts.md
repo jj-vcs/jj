@@ -35,7 +35,7 @@ don't need to look for conflicts in that sub-tree.
 
 When merging trees, if we can't resolve a sub-tree conflict trivially by looking
 at just the tree id, we recurse into the sub-tree. Similarly, if we can't
-resolve a file conflict trivially by looking at just the id, we recursive into
+resolve a file conflict trivially by looking at just the id, we recurse into
 the hunks within the file.
 
 See [here](../git-compatibility.md#format-mapping-details) for how conflicts are
@@ -43,7 +43,7 @@ stored when using the Git commit backend.
 
 ## Conflict simplification
 
-Remember that a 3-way merge can be written `A+C-B`. If one of those states is
+Remember that a 3-way merge can be written `A+(C-B)`. If one of those states is
 itself a conflict, then we simply insert the conflict expression there. Then we
 simplify by removing canceling terms. These two steps are implemented in
 `Merge::flatten()` and `Merge::simplify()` in [`merge.rs`][merge-rs].

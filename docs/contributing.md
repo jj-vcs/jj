@@ -552,7 +552,7 @@ to the `prerelease` version, at `https://jjfan.github.io/jj/prerelease/`.
 back and forth, you can also rebuild the docs for the latest release as follows.
 
     ```shell
-    jj new v1.33.1  # Let's say `jj 1.33.1` is the currently the latest release
+    jj new v1.33.1  # Let's say `jj 1.33.1` is the latest release
     .github/scripts/docs-build-deploy v1.33.1 latest --push
     ```
 
