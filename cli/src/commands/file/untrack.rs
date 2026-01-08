@@ -35,8 +35,9 @@ use crate::ui::Ui;
 pub(crate) struct FileUntrackArgs {
     /// Paths to untrack. They must already be ignored.
     ///
-    /// The paths could be ignored via a .gitignore or .git/info/exclude (in
-    /// colocated workspaces).
+    /// The paths could be ignored via `.gitignore` files,
+    /// `$XDG_CONFIG_HOME/git/ignore`, Git's `core.excludesFile` config, or
+    /// `.git/info/exclude` (in colocated workspaces).
     #[arg(required = true, value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     #[arg(add = ArgValueCompleter::new(complete::all_revision_files))]
     paths: Vec<String>,
