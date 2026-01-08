@@ -41,7 +41,7 @@ $ jj commit -m 'feat(bar): add support for bar'
 # on the working-copy commit's *parent* because the working copy itself is empty.
 $ jj bookmark create bar -r @- # `bar` now contains the previous two commits.
 # Set the bookmark to be tracked on the remote.
-$ jj bookmark track bar
+$ jj bookmark track bar@origin
 # Push the bookmark to GitHub (pushes only `bar`)
 $ jj git push
 ```
