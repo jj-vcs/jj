@@ -479,7 +479,18 @@ impl CommandHelper {
         let op_head = self.resolve_operation(ui, workspace.repo_loader())?;
         let repo = workspace.repo_loader().load_at(&op_head)?;
         let env = self.workspace_environment(ui, &workspace)?;
-        revset_util::warn_unresolvable_trunk(ui, repo.as_ref(), &env.revset_parse_context())?;
+        if let Err(err) =
+            revset_util::try_resolve_trunk_alias(repo.as_ref(), &env.revset_parse_context())
+        {
+            writeln!(
+                ui.warning_default(),
+                "Failed to resolve `revset-aliases.trunk()`: {err}"
+            )?;
+            writeln!(
+                ui.hint_default(),
+                "Use `jj config edit --repo` to adjust the `trunk()` alias."
+            )?;
+        }
         WorkspaceCommandHelper::new(ui, workspace, repo, env, self.is_at_head_operation())
     }
 
@@ -2269,7 +2280,19 @@ to the current parents may contain changes from multiple commits.
                     .collect(),
             )?;
         }
-        revset_util::warn_unresolvable_trunk(ui, new_repo, &self.env.revset_parse_context())?;
+
+        if let Err(err) =
+            revset_util::try_resolve_trunk_alias(new_repo, &self.env.revset_parse_context())
+        {
+            writeln!(
+                ui.warning_default(),
+                "Failed to resolve `revset-aliases.trunk()`: {err}"
+            )?;
+            writeln!(
+                ui.hint_default(),
+                "Use `jj config edit --repo` to adjust the `trunk()` alias."
+            )?;
+        }
 
         Ok(())
     }
