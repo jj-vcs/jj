@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use indoc::indoc;
+
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
@@ -138,6 +140,43 @@ fn test_templater_parse_error() {
 }
 
 #[test]
+fn test_templater_parse_warning() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let template = indoc! {r#"
+        separate(' ',
+          git_head,
+          git_refs,
+        )
+    "#};
+    let output = work_dir.run_jj(["log", "-r@", "-T", template]);
+    insta::assert_snapshot!(output, @r###"
+    @  false
+    │
+    ~
+    [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 2:3
+      |
+    2 |   git_head,
+      |   ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    Warning: In template expression
+     --> 3:3
+      |
+    3 |   git_refs,
+      |   ^------^
+      |
+      = commit.git_refs() is deprecated; use .remote_bookmarks()/tags() instead
+    [EOF]
+    "###);
+}
+
+#[test]
 fn test_templater_upper_lower() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -169,6 +208,7 @@ fn test_templater_alias() {
     'recurse2()' = 'recurse'
     'identity(x)' = 'x'
     'coalesce2(x, y)' = 'if(x, x, y)'
+    'deprecated()' = 'separate(" ", git_head, git_refs)'
     'format_commit_summary_with_refs(x, y)' = 'x.commit_id()'
     'builtin_log_node' = '"#"'
     'builtin_op_log_node' = '"#"'
@@ -360,6 +400,42 @@ fn test_templater_alias() {
     [EOF]
     [exit status: 1]
     ");
+
+    let output = work_dir.run_jj(["log", "-r@", "-Tdeprecated()"]);
+    insta::assert_snapshot!(output, @r###"
+    #  false
+    │
+    ~
+    [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 1:1
+      |
+    1 | deprecated()
+      | ^----------^
+      |
+      = In alias `deprecated()`
+     --> 1:15
+      |
+    1 | separate(" ", git_head, git_refs)
+      |               ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    Warning: In template expression
+     --> 1:1
+      |
+    1 | deprecated()
+      | ^----------^
+      |
+      = In alias `deprecated()`
+     --> 1:25
+      |
+    1 | separate(" ", git_head, git_refs)
+      |                         ^------^
+      |
+      = commit.git_refs() is deprecated; use .remote_bookmarks()/tags() instead
+    [EOF]
+    "###);
 }
 
 #[test]
