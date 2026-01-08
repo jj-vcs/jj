@@ -45,6 +45,7 @@ use crate::commit::Commit;
 use crate::conflict_labels::ConflictLabels;
 use crate::conflicts::MaterializedTreeValue;
 use crate::conflicts::materialize_tree_value;
+use crate::default_index::bit_set::AncestorsBitSet;
 use crate::diff::ContentDiff;
 use crate::diff::DiffHunkKind;
 use crate::files;
@@ -53,7 +54,9 @@ use crate::matchers::FilesMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
 use crate::merge::Merge;
+use crate::object_id::HexPrefix;
 use crate::object_id::ObjectId as _;
+use crate::object_id::PrefixResolution;
 use crate::repo_path::RepoPath;
 use crate::revset::GENERATION_RANGE_FULL;
 use crate::revset::ResolvedExpression;
@@ -1059,6 +1062,38 @@ impl EvaluationContext<'_> {
         match expression {
             ResolvedPredicateExpression::Filter(predicate) => {
                 Ok(build_predicate_fn(self.store.clone(), predicate))
+            }
+            ResolvedPredicateExpression::Divergent { visible_heads } => {
+                let composite = self.index.as_composite().commits();
+                let mut reachable_set = AncestorsBitSet::with_capacity(composite.num_commits());
+                for id in visible_heads {
+                    reachable_set.add_head(composite.commit_id_to_pos(id).unwrap());
+                }
+                let reachable_set = Rc::new(RefCell::new(reachable_set));
+                Ok(box_pure_predicate_fn(
+                    move |index: &CompositeIndex, pos: GlobalCommitPosition| {
+                        let commits = index.commits();
+
+                        match commits.resolve_change_id_prefix(&HexPrefix::from_id(
+                            &commits.entry_by_pos(pos).change_id(),
+                        )) {
+                            PrefixResolution::NoMatch => {
+                                panic!("the commit itself should be reachable")
+                            }
+                            PrefixResolution::SingleMatch((_change_id, positions)) => {
+                                let mut reachable_set = reachable_set.borrow_mut();
+                                let targets = commits.resolve_change_targets_for_positions(
+                                    &positions,
+                                    &mut reachable_set,
+                                );
+                                Ok(targets.is_divergent())
+                            }
+                            PrefixResolution::AmbiguousMatch => {
+                                panic!("complete change_id should be unambiguous")
+                            }
+                        }
+                    },
+                ))
             }
             ResolvedPredicateExpression::Set(expression) => Ok(self.evaluate(expression)?),
             ResolvedPredicateExpression::NotIn(complement) => {

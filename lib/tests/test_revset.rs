@@ -4766,6 +4766,55 @@ fn test_evaluate_expression_conflict() {
 }
 
 #[test]
+fn test_evaluate_expression_divergent() {
+    let test_workspace = TestWorkspace::init();
+    let repo = &test_workspace.repo;
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = create_random_commit(mut_repo)
+        .set_change_id(commit1.change_id().clone())
+        .write()
+        .unwrap();
+    let _commit3 = write_random_commit(mut_repo);
+    let _commit4 = write_random_commit(mut_repo);
+
+    let change_id = commit1.change_id();
+
+    let repo = tx.commit("Divergent commits").unwrap();
+
+    assert_matches!(
+        resolve_symbol(repo.as_ref(), &format!("{change_id}")),
+        Err(RevsetResolutionError::DivergentChangeId { symbol, visible_targets })
+            if symbol == change_id.to_string()
+                && visible_targets == vec![(0, commit2.id().clone()), (1, commit1.id().clone())]
+    );
+    assert_eq!(
+        resolve_commit_ids(repo.as_ref(), "divergent()"),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+
+    let mut tx = repo.start_transaction();
+    tx.repo_mut().record_abandoned_commit(&commit1);
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo = tx.commit("abandon commit").unwrap();
+
+    assert_eq!(resolve_commit_ids(repo.as_ref(), "divergent()"), vec![]);
+
+    assert_eq!(
+        resolve_commit_ids(repo.as_ref(), &format!("{} & divergent()", commit1.id())),
+        vec![]
+    );
+
+    assert_eq!(
+        resolve_commit_ids(repo.as_ref(), "at_operation(@-, divergent())"),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+}
+
+#[test]
 fn test_reverse_graph() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;

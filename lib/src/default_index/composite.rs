@@ -289,6 +289,31 @@ impl CompositeCommitIndex {
             })
     }
 
+    /// Helper function to resolve change targets for a list of positions
+    /// according to the reahchable_set
+    /// provided. Requires positions to be in descending order.
+    pub(super) fn resolve_change_targets_for_positions(
+        &self,
+        positions: &[GlobalCommitPosition],
+        reachable_set: &mut AncestorsBitSet,
+    ) -> ResolvedChangeTargets {
+        debug_assert!(positions.is_sorted_by(|a, b| a > b));
+        reachable_set.visit_until(self, *positions.last().unwrap());
+        let targets = positions
+            .iter()
+            .map(|&pos| {
+                let commit_id = self.entry_by_pos(pos).commit_id();
+                let state = if reachable_set.contains(pos) {
+                    ResolvedChangeState::Visible
+                } else {
+                    ResolvedChangeState::Hidden
+                };
+                (commit_id, state)
+            })
+            .collect_vec();
+        ResolvedChangeTargets { targets }
+    }
+
     pub fn is_ancestor(&self, ancestor_id: &CommitId, descendant_id: &CommitId) -> bool {
         let ancestor_pos = self.commit_id_to_pos(ancestor_id).unwrap();
         let descendant_pos = self.commit_id_to_pos(descendant_id).unwrap();
@@ -663,25 +688,13 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
         let prefix = match index.resolve_change_id_prefix(prefix) {
             PrefixResolution::NoMatch => PrefixResolution::NoMatch,
             PrefixResolution::SingleMatch((_change_id, positions)) => {
-                debug_assert!(positions.is_sorted_by(|a, b| a > b));
                 let mut reachable_set = self.reachable_set.lock().unwrap();
-                reachable_set.visit_until(index, *positions.last().unwrap());
-                let targets = positions
-                    .iter()
-                    .map(|&pos| {
-                        let commit_id = index.entry_by_pos(pos).commit_id();
-                        let state = if reachable_set.contains(pos) {
-                            ResolvedChangeState::Visible
-                        } else {
-                            ResolvedChangeState::Hidden
-                        };
-                        (commit_id, state)
-                    })
-                    .collect_vec();
-                if targets.is_empty() {
+                let targets =
+                    index.resolve_change_targets_for_positions(&positions, &mut reachable_set);
+                if targets.targets.is_empty() {
                     PrefixResolution::NoMatch
                 } else {
-                    PrefixResolution::SingleMatch(ResolvedChangeTargets { targets })
+                    PrefixResolution::SingleMatch(targets)
                 }
             }
             PrefixResolution::AmbiguousMatch => PrefixResolution::AmbiguousMatch,

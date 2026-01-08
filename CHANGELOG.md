@@ -28,6 +28,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   to a web URL, suitable for opening in a browser. Defaults to the "origin"
   remote.
 
+* New `divergent()` revset function for divergent changes.
+
 ### Fixed bugs
 
 * `jj git push` now ensures that tracked remote bookmarks are updated even if

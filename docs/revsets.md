@@ -392,6 +392,8 @@ revsets (expressions) as arguments.
 
 * `conflicts()`: Commits with conflicts.
 
+* `divergent()`: Commits that are [divergent](glossary.md#divergent-change).
+
 * `present(x)`: Same as `x`, but evaluated to `none()` if any of the commits
   in `x` doesn't exist (e.g. is an unknown bookmark name.)
 
