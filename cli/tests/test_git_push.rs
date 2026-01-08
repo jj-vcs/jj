@@ -1482,6 +1482,15 @@ fn test_git_push_revisions() {
     Dry-run requested, not pushing.
     [EOF]
     ");
+    // Repetition via name and commit doesn't result in repeated messages either
+    let output = work_dir.run_jj(["git", "push", "-r=@-", "-b", "bookmark-1", "--dry-run"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark bookmark-1 to e76139e55e1e
+    Dry-run requested, not pushing.
+    [EOF]
+    ");
 }
 
 #[test]
