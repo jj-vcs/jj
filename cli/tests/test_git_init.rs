@@ -257,7 +257,7 @@ fn test_git_init_external_import_trunk(bare: bool) {
     let output = work_dir.run_jj(["config", "list", "--repo", "revset-aliases.\"trunk()\""]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @r#"
-        revset-aliases."trunk()" = "trunk@origin"
+        revset-aliases."trunk()" = "present(trunk@origin)"
         [EOF]
         "#);
     }
@@ -336,7 +336,7 @@ fn test_git_init_external_import_trunk_upstream_takes_precedence() {
     let output = work_dir.run_jj(["config", "list", "--repo", "revset-aliases.\"trunk()\""]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @r#"
-        revset-aliases."trunk()" = "develop@upstream"
+        revset-aliases."trunk()" = "present(develop@upstream)"
         [EOF]
         "#);
     }
