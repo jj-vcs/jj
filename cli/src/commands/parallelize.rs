@@ -56,10 +56,14 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 #[command(verbatim_doc_comment)]
 pub(crate) struct ParallelizeArgs {
-    /// Revisions to parallelize
+    /// The revisions to parallelize [aliases: -r]
     #[arg(value_name = "REVSETS")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
-    revisions: Vec<RevisionArg>,
+    revisions_pos: Vec<RevisionArg>,
+
+    #[arg(short = 'r', hide = true, value_name = "REVSETS")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
+    revisions_opt: Vec<RevisionArg>,
 }
 
 #[instrument(skip_all)]
@@ -72,7 +76,7 @@ pub(crate) fn cmd_parallelize(
     // The target commits are the commits being parallelized. They are ordered
     // here with children before parents.
     let target_commits: Vec<Commit> = workspace_command
-        .parse_union_revsets(ui, &args.revisions)?
+        .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
         .evaluate_to_commits()?
         .try_collect()?;
 

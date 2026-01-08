@@ -251,7 +251,7 @@ fn test_parallelize_disconnected_target_commits() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["parallelize", "subject(1)", "subject(3)"]);
+    let output = work_dir.run_jj(["parallelize", "subject(1)", "-r=subject(3)"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
@@ -442,7 +442,7 @@ fn test_parallelize_multiple_heads_with_and_without_children() {
     ");
 
     work_dir
-        .run_jj(["parallelize", "subject(0)", "subject(1)"])
+        .run_jj(["parallelize", "-r=subject(0)", "subject(1)"])
         .success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  96d58e6cf428 2 parents: 0

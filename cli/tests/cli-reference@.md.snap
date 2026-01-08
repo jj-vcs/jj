@@ -2354,7 +2354,7 @@ descendant, and it was an ancestor of 3 before, so it remains an ancestor.
 
 ###### **Arguments:**
 
-* `<REVSETS>` — Revisions to parallelize
+* `<REVSETS>` — The revisions to parallelize [aliases: -r]
 
 
 
