@@ -79,29 +79,31 @@ fn test_rewrite_immutable_generic() {
     [exit status: 1]
     ");
 
-    // Error mutating the repo if immutable_heads() uses a ref that can't be
-    // resolved
+    // Unresolvable immutable_heads() is warned. This can be an error, but we
+    // need to somehow deal with unresolvable `trunk() = <name>@<remote>`.
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "bookmark_that_does_not_exist""#);
     // Suppress warning in the commit summary template
     test_env.add_config("template-aliases.'format_short_id(id)' = 'id.short(8)'");
     let output = work_dir.run_jj(["new", "main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Config error: Invalid `revset-aliases.immutable_heads()`
-    Caused by: Revision `bookmark_that_does_not_exist` doesn't exist
-    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    Warning: Failed to check mutability of the new working-copy revision.
+    Caused by:
+    1: Invalid `revset-aliases.immutable_heads()`
+    2: Revision `bookmark_that_does_not_exist` doesn't exist
+    Working copy  (@) now at: znkkpsqq 4bd62ce9 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 9d190342 main | b
+    Added 0 files, modified 1 files, removed 0 files
     [EOF]
-    [exit status: 1]
     ");
 
     // Can use --ignore-immutable to override
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
     let output = work_dir.run_jj(["--ignore-immutable", "edit", "main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 9d190342 main | b
     Parent commit (@-)      : qpvuntsm c8c8515a a
-    Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
     // ... but not the root commit

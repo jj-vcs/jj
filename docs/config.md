@@ -436,9 +436,9 @@ page](conflicts.md#conflict-markers).
 
 You can configure the set of immutable commits via
 `revset-aliases."immutable_heads()"`. The default set of immutable heads is
-`builtin_immutable_heads()`, which in turn is defined as
-`present(trunk()) | tags() | untracked_remote_bookmarks()`. For example, to
-also consider the `release@origin` bookmark immutable:
+`builtin_immutable_heads()`, which in turn is defined as `trunk() | tags() |
+untracked_remote_bookmarks()`. For example, to also consider the
+`release@origin` bookmark immutable:
 
 ```toml
 [revset-aliases]
@@ -517,7 +517,7 @@ log = "main@origin.."
 ```
 
 The default value for `revsets.log` is
-`'present(@) | ancestors(immutable_heads().., 2) | present(trunk())'`.
+`'present(@) | ancestors(immutable_heads().., 2) | trunk()'`.
 
 ### Prioritize Revsets in the Log over @
 

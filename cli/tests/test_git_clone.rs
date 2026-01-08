@@ -934,11 +934,14 @@ fn test_git_clone_trunk_deleted() {
     "#);
 
     let output = clone_dir.run_jj(["bookmark", "forget", "--include-remotes", "main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
-    Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main@origin` doesn't exist
+    Warning: Failed to check mutability of the new working-copy revision.
+    Caused by:
+    1: Invalid `revset-aliases.immutable_heads()`
+    2: Revision `main@origin` doesn't exist
     Hint: Use `jj config edit --repo` to adjust the `trunk()` alias.
     [EOF]
     ");
@@ -1092,14 +1095,28 @@ fn test_git_clone_invalid_immutable_heads() {
     // The error shouldn't be counted as an immutable working-copy commit. It
     // should be reported.
     let output = root_dir.run_jj(["git", "clone", "source", "clone"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Config error: Invalid `revset-aliases.immutable_heads()`
-    Caused by: Revision `unknown` doesn't exist
-    For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
+    Warning: Failed to check mutability of the new working-copy revision.
+    Caused by:
+    1: Invalid `revset-aliases.immutable_heads()`
+    2: Revision `unknown` doesn't exist
+    Fetching into new repo in "$TEST_ENV/clone"
+    bookmark: main@origin [new] tracked
+    Warning: Failed to check mutability of the new working-copy revision.
+    Caused by:
+    1: Invalid `revset-aliases.immutable_heads()`
+    2: Revision `unknown` doesn't exist
+    Setting the revset alias `trunk()` to `main@origin`
+    Warning: Failed to check mutability of the new working-copy revision.
+    Caused by:
+    1: Invalid `revset-aliases.immutable_heads()`
+    2: Revision `unknown` doesn't exist
+    Working copy  (@) now at: sqpuoqvx 1ca44815 (empty) (no description set)
+    Parent commit (@-)      : qomsplrm ebeb70d8 main | message
+    Added 1 files, modified 0 files, removed 0 files
     [EOF]
-    [exit status: 1]
-    ");
+    "#);
 }
 
 #[test]

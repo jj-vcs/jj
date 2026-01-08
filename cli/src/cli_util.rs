@@ -153,6 +153,7 @@ use crate::command_error::config_error_with_message;
 use crate::command_error::handle_command_result;
 use crate::command_error::internal_error;
 use crate::command_error::internal_error_with_message;
+use crate::command_error::print_error_sources;
 use crate::command_error::print_parse_diagnostics;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
@@ -2090,11 +2091,23 @@ to the current parents may contain changes from multiple commits.
         }
 
         for (name, wc_commit_id) in &tx.repo().view().wc_commit_ids().clone() {
-            if self
-                .env
-                .find_immutable_commit(tx.repo(), &RevsetExpression::commit(wc_commit_id.clone()))?
-                .is_some()
-            {
+            // This can fail if trunk() bookmark gets deleted or conflicted. If
+            // the unresolvable trunk() issue gets addressed differently, it
+            // should be okay to propagate the error.
+            let wc_expr = RevsetExpression::commit(wc_commit_id.clone());
+            let is_immutable = match self.env.find_immutable_commit(tx.repo(), &wc_expr) {
+                Ok(commit_id) => commit_id.is_some(),
+                Err(CommandError { error, .. }) => {
+                    writeln!(
+                        ui.warning_default(),
+                        "Failed to check mutability of the new working-copy revision."
+                    )?;
+                    print_error_sources(ui, Some(&error))?;
+                    // Give up because the same error would occur repeatedly.
+                    break;
+                }
+            };
+            if is_immutable {
                 let wc_commit = tx.repo().store().get_commit(wc_commit_id)?;
                 tx.repo_mut().check_out(name.clone(), &wc_commit)?;
                 writeln!(
@@ -2104,6 +2117,21 @@ to the current parents may contain changes from multiple commits.
                     name = name.as_symbol()
                 )?;
             }
+        }
+        if let Err(err) =
+            revset_util::try_resolve_trunk_alias(tx.repo(), &self.env.revset_parse_context())
+        {
+            // The warning would be printed above if working copies exist.
+            if tx.repo().view().wc_commit_ids().is_empty() {
+                writeln!(
+                    ui.warning_default(),
+                    "Failed to resolve `revset-aliases.trunk()`: {err}"
+                )?;
+            }
+            writeln!(
+                ui.hint_default(),
+                "Use `jj config edit --repo` to adjust the `trunk()` alias."
+            )?;
         }
 
         let old_repo = tx.base_repo().clone();
@@ -2134,7 +2162,7 @@ to the current parents may contain changes from multiple commits.
                     Ok(()) => {}
                     Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
                         writeln!(ui.warning_default(), "{err}")?;
-                        crate::command_error::print_error_sources(ui, err.source())?;
+                        print_error_sources(ui, err.source())?;
                     }
                     Err(err) => return Err(err.into()),
                 }
@@ -2295,19 +2323,6 @@ to the current parents may contain changes from multiple commits.
                     .iter()
                     .map(|commit| commit.id().clone())
                     .collect(),
-            )?;
-        }
-
-        if let Err(err) =
-            revset_util::try_resolve_trunk_alias(new_repo, &self.env.revset_parse_context())
-        {
-            writeln!(
-                ui.warning_default(),
-                "Failed to resolve `revset-aliases.trunk()`: {err}"
-            )?;
-            writeln!(
-                ui.hint_default(),
-                "Use `jj config edit --repo` to adjust the `trunk()` alias."
             )?;
         }
 
