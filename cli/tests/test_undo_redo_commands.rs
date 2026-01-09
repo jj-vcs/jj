@@ -81,7 +81,7 @@ fn test_undo_push_operation() {
 }
 
 #[test]
-fn test_undo_jump_old_undo_stack() {
+fn test_jump_over_old_undo_stack() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -117,7 +117,7 @@ fn test_undo_jump_old_undo_stack() {
 }
 
 #[test]
-fn test_op_revert_is_ignored() {
+fn test_undo_ignores_op_revert() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -165,7 +165,7 @@ fn test_undo_with_rev_arg_falls_back_to_revert() {
 }
 
 #[test]
-fn test_can_only_redo_undo_operation() {
+fn test_redo_non_undo_operation() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
