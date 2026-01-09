@@ -43,6 +43,7 @@ use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 use jj_lib::local_working_copy::TreeState;
 use jj_lib::local_working_copy::TreeStateSettings;
+use jj_lib::matchers::FilesMatcher;
 use jj_lib::merge::Merge;
 use jj_lib::merge::SameChange;
 use jj_lib::merged_tree::MergedTree;
@@ -2520,6 +2521,74 @@ fn test_fsmonitor() {
         file "path/to/nested" (6209060941cd770c8d46): "nested\n"
     "#);
     tree_state.save().unwrap();
+}
+
+#[test]
+fn track_ignored_with_flag_and_fsmonitor() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let workspace_root = test_repo.env.root().join("workspace");
+    let state_path = test_repo.env.root().join("state");
+    std::fs::create_dir(&workspace_root).unwrap();
+    std::fs::create_dir(&state_path).unwrap();
+    let tree_state_settings = TreeStateSettings::try_from_user_settings(repo.settings()).unwrap();
+    TreeState::init(
+        repo.store().clone(),
+        workspace_root.clone(),
+        state_path.clone(),
+        &tree_state_settings,
+    )
+    .unwrap();
+
+    let ignored_path = repo_path("file.ignored");
+    let gitignore_path = repo_path(".gitignore");
+    testutils::write_working_copy_file(&workspace_root, ignored_path, "contents\n");
+    testutils::write_working_copy_file(&workspace_root, gitignore_path, "*.ignored\n");
+    let base_ignores = GitIgnoreFile::empty()
+        .chain_with_file("", gitignore_path.to_fs_path_unchecked(&workspace_root))
+        .unwrap();
+
+    let snapshot = |paths: &[&RepoPath], matcher: Option<&FilesMatcher>| {
+        let changed_files = paths
+            .iter()
+            .map(|p| p.to_fs_path_unchecked(Path::new("")))
+            .collect();
+        let settings = TreeStateSettings {
+            fsmonitor_settings: FsmonitorSettings::Test { changed_files },
+            ..tree_state_settings.clone()
+        };
+        let mut tree_state = TreeState::load(
+            repo.store().clone(),
+            workspace_root.clone(),
+            state_path.clone(),
+            &settings,
+        )
+        .unwrap();
+        let base_ignores = base_ignores.clone();
+        let mut options = SnapshotOptions {
+            base_ignores,
+            ..empty_snapshot_options()
+        };
+        if let Some(matcher) = matcher {
+            options.force_tracking_matcher = matcher;
+        }
+        tree_state.snapshot(&options).block_on().unwrap();
+        tree_state.save().unwrap();
+        tree_state
+    };
+
+    let tree_state = snapshot(&[], None);
+    assert_tree_eq!(*tree_state.current_tree(), repo.store().empty_merged_tree());
+
+    let tree_state = snapshot(&[ignored_path], None);
+    assert_tree_eq!(*tree_state.current_tree(), repo.store().empty_merged_tree());
+
+    // Simulate `jj file track --include-ignored`.
+    let force_tracking_matcher = FilesMatcher::new([ignored_path]);
+    let tree_state = snapshot(&[], Some(&force_tracking_matcher));
+
+    let expected_tree = create_tree(repo, &[(ignored_path, "contents\n")]);
+    assert_tree_eq!(*tree_state.current_tree(), expected_tree);
 }
 
 #[test]

@@ -98,6 +98,7 @@ use crate::matchers::FilesMatcher;
 use crate::matchers::IntersectionMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::PrefixMatcher;
+use crate::matchers::UnionMatcher;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
 use crate::merge::MergedTreeValue;
@@ -1279,7 +1280,10 @@ impl TreeState {
             Some(fsmonitor_matcher) => fsmonitor_matcher.as_ref(),
         };
 
-        let matcher = IntersectionMatcher::new(sparse_matcher.as_ref(), fsmonitor_matcher);
+        let matcher = IntersectionMatcher::new(
+            sparse_matcher.as_ref(),
+            UnionMatcher::new(fsmonitor_matcher, force_tracking_matcher),
+        );
         if matcher.visit(RepoPath::root()).is_nothing() {
             // No need to load the current tree, set up channels, etc.
             self.watchman_clock = watchman_clock;
