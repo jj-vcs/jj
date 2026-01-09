@@ -51,7 +51,7 @@ pub async fn cmd_undo(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
 
-    let mut op_to_undo = workspace_command.repo().operation().clone();
+    let mut target_op = workspace_command.repo().operation().clone();
 
     // Growing the "undo-stack" works as follows. See also the
     // [redo-stack](./redo.rs), which works in a similar way.
@@ -93,24 +93,22 @@ pub async fn cmd_undo(
     // restored (as opposed to C). The undo-stack spanning from F to B was
     // "jumped over".
     //
-    if let Some(id_of_restored_op) = op_to_undo
+    if let Some(target_op_hex) = target_op
         .metadata()
         .description
         .strip_prefix(UNDO_OP_DESC_PREFIX)
     {
-        let Some(id_of_restored_op) = OperationId::try_from_hex(id_of_restored_op) else {
-            return Err(internal_error(
-                "Failed to parse ID of restored operation in undo-stack",
-            ));
-        };
-        op_to_undo = workspace_command
+        let target_op_id = OperationId::try_from_hex(target_op_hex).ok_or_else(|| {
+            internal_error("Failed to parse ID of target operation in undo-stack")
+        })?;
+        target_op = workspace_command
             .repo()
             .loader()
-            .load_operation(&id_of_restored_op)
+            .load_operation(&target_op_id)
             .await?;
     }
     #[cfg(feature = "git")]
-    if is_push_operation(&op_to_undo) {
+    if is_push_operation(&target_op) {
         writeln!(
             ui.warning_default(),
             "Undoing a push operation often leads to conflicted bookmarks."
@@ -118,8 +116,8 @@ pub async fn cmd_undo(
         writeln!(ui.hint_default(), "To avoid this, run `jj redo` now.")?;
     }
 
-    let mut op_to_restore = match op_to_undo.parents().await?.into_iter().at_most_one() {
-        Ok(Some(parent_of_op_to_undo)) => parent_of_op_to_undo,
+    let mut target_op_parent = match target_op.parents().await?.into_iter().at_most_one() {
+        Ok(Some(op)) => op,
         Ok(None) => return Err(user_error("Cannot undo root operation")),
         Err(_) => {
             return Err(user_error("Cannot undo a merge operation")
@@ -134,26 +132,25 @@ pub async fn cmd_undo(
     // Calling `jj undo` one more time would have to restore to the operation
     // at the very beginning of the linked list, which would require walking the
     // entire thing unnecessarily.
-    if let Some(original_op) = op_to_restore
+    if let Some(target_op_parent_hex) = target_op_parent
         .metadata()
         .description
         .strip_prefix(UNDO_OP_DESC_PREFIX)
     {
-        let Some(id_of_original_op) = OperationId::try_from_hex(original_op) else {
-            return Err(internal_error(
-                "Failed to parse ID of restored operation in undo-stack",
-            ));
-        };
-        op_to_restore = workspace_command
+        let target_op_parent_id =
+            OperationId::try_from_hex(target_op_parent_hex).ok_or_else(|| {
+                internal_error("Failed to parse ID of target operation's parent in undo-stack")
+            })?;
+        target_op_parent = workspace_command
             .repo()
             .loader()
-            .load_operation(&id_of_original_op)
+            .load_operation(&target_op_parent_id)
             .await?;
     }
 
     let mut tx = workspace_command.start_transaction();
     let new_view = view_with_desired_portions_restored(
-        op_to_restore.view().await?.store_view(),
+        target_op_parent.view().await?.store_view(),
         tx.base_repo().view().store_view(),
         &DEFAULT_REVERT_WHAT,
     );
@@ -162,16 +159,16 @@ pub async fn cmd_undo(
         let template = tx.base_workspace_helper().operation_summary_template();
 
         write!(formatter, "Undid operation: ")?;
-        template.format(&op_to_undo, formatter.as_mut())?;
+        template.format(&target_op, formatter.as_mut())?;
         writeln!(formatter)?;
 
         write!(formatter, "Restored to operation: ")?;
-        template.format(&op_to_restore, formatter.as_mut())?;
+        template.format(&target_op_parent, formatter.as_mut())?;
         writeln!(formatter)?;
     }
     tx.finish(
         ui,
-        format!("{UNDO_OP_DESC_PREFIX}{}", op_to_restore.id().hex()),
+        format!("{UNDO_OP_DESC_PREFIX}{}", target_op_parent.id().hex()),
     )
     .await?;
 

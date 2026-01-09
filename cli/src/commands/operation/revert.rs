@@ -57,18 +57,20 @@ pub async fn cmd_op_revert(
     args: &OperationRevertArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui).await?;
-    let bad_op = workspace_command.resolve_single_op(&args.operation)?;
-    let parent_of_bad_op = match bad_op.parents().await?.into_iter().at_most_one() {
-        Ok(Some(parent_of_bad_op)) => parent_of_bad_op,
+    let target_op = workspace_command.resolve_single_op(&args.operation)?;
+    let target_op_parent = match target_op.parents().await?.into_iter().at_most_one() {
+        Ok(Some(op)) => op,
         Ok(None) => return Err(user_error("Cannot revert root operation")),
         Err(_) => return Err(user_error("Cannot revert a merge operation")),
     };
 
     let mut tx = workspace_command.start_transaction();
     let repo_loader = tx.base_repo().loader();
-    let bad_repo = repo_loader.load_at(&bad_op).await?;
-    let parent_repo = repo_loader.load_at(&parent_of_bad_op).await?;
-    tx.repo_mut().merge(&bad_repo, &parent_repo).await?;
+    let repo_at_target_op = &repo_loader.load_at(&target_op).await?;
+    let repo_at_target_op_parent = &repo_loader.load_at(&target_op_parent).await?;
+    tx.repo_mut()
+        .merge(repo_at_target_op, repo_at_target_op_parent)
+        .await?;
     let new_view = view_with_desired_portions_restored(
         tx.repo().view().store_view(),
         tx.base_repo().view().store_view(),
@@ -78,10 +80,10 @@ pub async fn cmd_op_revert(
     if let Some(mut formatter) = ui.status_formatter() {
         write!(formatter, "Reverted operation: ")?;
         let template = tx.base_workspace_helper().operation_summary_template();
-        template.format(&bad_op, formatter.as_mut())?;
+        template.format(&target_op, formatter.as_mut())?;
         writeln!(formatter)?;
     }
-    tx.finish(ui, tx_description(&bad_op)).await?;
+    tx.finish(ui, tx_description(&target_op)).await?;
 
     Ok(())
 }
