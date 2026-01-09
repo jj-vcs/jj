@@ -2522,6 +2522,62 @@ fn test_git_push_sign_on_push() {
     ◆
     [EOF]
     ");
+
+    // Do not sign commits from other authors or re-sign unnecessarily
+    work_dir
+        .run_jj([
+            "metaedit",
+            "--author",
+            "Test User <someone.else@example.com>",
+        ])
+        .success();
+    work_dir
+        .run_jj(["new", "-B@", "--no-edit", "-m", "pre-signed commit"])
+        .success();
+    work_dir.run_jj(["sign", "-r", "@-"]).success();
+    work_dir
+        .run_jj(["new", "-m", "commit to be signed 3"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "set", "bookmark1", "-r@", "--allow-backwards"])
+        .success();
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    @  commit to be signed 3
+    ○  commit which should not be signed 2
+    ○  pre-signed commit
+    │  Signature: test-display, Status: good, Key: impeccable
+    ◆  commit which should not be signed 1
+    ~  (elided revisions)
+    │ ○  description 1
+    ├─╯
+    ◆
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["git", "push"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Updated signatures of 1 commits
+    Changes to push to origin:
+      Move sideways bookmark bookmark1 from 9b2e76de3920 to 0617b6813c01
+    Working copy  (@) now at: pzsxstzt 0617b681 bookmark1 | (empty) commit to be signed 3
+    Parent commit (@-)      : kmkuslsw 5114df95 (empty) commit which should not be signed 2
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["log", "-T", template]);
+    insta::assert_snapshot!(output, @"
+    @  commit to be signed 3
+    │  Signature: test-display, Status: good, Key: impeccable
+    ○  commit which should not be signed 2
+    ○  pre-signed commit
+    │  Signature: test-display, Status: good, Key: impeccable
+    ◆  commit which should not be signed 1
+    ~  (elided revisions)
+    │ ○  description 1
+    ├─╯
+    ◆
+    [EOF]
+    ");
 }
 
 #[test]
