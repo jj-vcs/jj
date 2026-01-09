@@ -22,6 +22,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   there are no mappings in the Git fetch refspecs.
   [#5115](https://github.com/jj-vcs/jj/issues/5115)
 
+* When using the Watchman filesystem monitor, changes to `.gitignore` now
+  trigger a full scan so newly unignored files are discovered.
+  [#8427](https://github.com/jj-vcs/jj/issues/8427)
+
 ## [0.37.0] - 2026-01-07
 
 ### Release highlights
