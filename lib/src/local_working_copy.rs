@@ -1409,14 +1409,35 @@ impl TreeState {
         let matcher: Option<Box<dyn Matcher>> = match changed_files {
             None => None,
             Some(changed_files) => {
-                let repo_paths = trace_span!("processing fsmonitor paths").in_scope(|| {
-                    changed_files
-                        .into_iter()
-                        .filter_map(|path| RepoPathBuf::from_relative_path(path).ok())
-                        .collect_vec()
-                });
+                let (repo_paths, gitignore_prefixes) = trace_span!("processing fsmonitor paths")
+                    .in_scope(|| {
+                        let repo_paths = changed_files
+                            .iter()
+                            .filter_map(|path| RepoPathBuf::from_relative_path(path).ok())
+                            .collect_vec();
+                        // .gitignore changes require rescanning parent directories to pick up newly
+                        // unignored files.
+                        let gitignore_prefixes = repo_paths
+                            .iter()
+                            .filter_map(|repo_path| {
+                                let (parent, basename) = repo_path.split()?;
+                                (basename.as_internal_str() == ".gitignore")
+                                    .then(|| parent.to_owned())
+                            })
+                            .collect_vec();
+                        (repo_paths, gitignore_prefixes)
+                    });
 
-                Some(Box::new(FilesMatcher::new(repo_paths)))
+                let matcher: Box<dyn Matcher> = if gitignore_prefixes.is_empty() {
+                    Box::new(FilesMatcher::new(repo_paths))
+                } else {
+                    Box::new(UnionMatcher::new(
+                        FilesMatcher::new(repo_paths),
+                        PrefixMatcher::new(gitignore_prefixes),
+                    ))
+                };
+
+                Some(matcher)
             }
         };
         Ok(FsmonitorMatcher {

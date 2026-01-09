@@ -2594,6 +2594,62 @@ fn track_ignored_with_flag_and_fsmonitor() {
 }
 
 #[test]
+fn fsmonitor_gitignore_rescan_subtree() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let workspace_root = test_repo.env.root().join("workspace");
+    let state_path = test_repo.env.root().join("state");
+    std::fs::create_dir(&workspace_root).unwrap();
+    std::fs::create_dir(&state_path).unwrap();
+    let tree_state_settings = TreeStateSettings::try_from_user_settings(repo.settings()).unwrap();
+    TreeState::init(
+        repo.store().clone(),
+        workspace_root.clone(),
+        state_path.clone(),
+        &tree_state_settings,
+    )
+    .unwrap();
+
+    let ignored_path = repo_path("file.ignored");
+    let gitignore_path = repo_path(".gitignore");
+    testutils::write_working_copy_file(&workspace_root, ignored_path, "contents\n");
+    testutils::write_working_copy_file(&workspace_root, gitignore_path, "*.ignored\n");
+
+    let snapshot = |paths: &[&RepoPath]| {
+        let changed_files = paths
+            .iter()
+            .map(|p| p.to_fs_path_unchecked(Path::new("")))
+            .collect();
+        let settings = TreeStateSettings {
+            fsmonitor_settings: FsmonitorSettings::Test { changed_files },
+            ..tree_state_settings.clone()
+        };
+        let mut tree_state = TreeState::load(
+            repo.store().clone(),
+            workspace_root.clone(),
+            state_path.clone(),
+            &settings,
+        )
+        .unwrap();
+        tree_state
+            .snapshot(&empty_snapshot_options())
+            .block_on()
+            .unwrap();
+        tree_state.save().unwrap();
+        tree_state
+    };
+
+    let tree_state = snapshot(&[gitignore_path, ignored_path]);
+    let expected_tree = create_tree(repo, &[(gitignore_path, "*.ignored\n")]);
+    assert_tree_eq!(*tree_state.current_tree(), expected_tree);
+
+    testutils::write_working_copy_file(&workspace_root, gitignore_path, "");
+    let tree_state = snapshot(&[gitignore_path]);
+    let expected_tree = create_tree(repo, &[(gitignore_path, ""), (ignored_path, "contents\n")]);
+    assert_tree_eq!(*tree_state.current_tree(), expected_tree);
+}
+
+#[test]
 fn test_snapshot_max_new_file_size() {
     let mut test_workspace = TestWorkspace::init();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();
