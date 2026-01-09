@@ -1330,8 +1330,8 @@ $ jj config set --repo fix.tools.rustfmt.enabled true
 
 ## Commit Signing
 
-`jj` can be configured to sign and verify the commits it creates using either
-GnuPG or SSH signing keys.
+`jj` can be configured to sign and verify the commits it creates using
+GnuPG, Sequoia PGP or SSH signing keys.
 
 To do this you need to configure a signing backend.
 
@@ -1393,6 +1393,26 @@ To consider expired keys as valid you can set:
 ```toml
 [signing]
 backends.gpgsm.allow-expired-keys = true
+```
+
+### Sequoia PGP (sq) Signing
+
+```toml
+[signing]
+behavior = "own"
+backend = "sq"
+## You can set `key` to the fingerprint, keyid, or email for the sq key you want to use
+## If not set then defaults to the key associated `user.email`
+# key = "4ED556E9729E000F"
+# key = "signing@example.com"
+```
+
+By default the sq backend will look for a `sq` binary on your path. If you want
+to change the program used or specify a path to `sq` explicitly you can set:
+
+```toml
+[signing]
+backends.sq.program = "sq"
 ```
 
 ### SSH Signing
