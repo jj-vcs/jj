@@ -397,11 +397,19 @@
     `jj op log`
   Notes: ''
 
-- Use case: Undo an earlier operation
+- Use case: Undo the last operation
   Git command: Not supported
   Jujutsu command: >
     `jj undo`
-  Notes: 'A matching `jj redo` command exists as well.'
+  Notes: >
+    There is also a matching `jj redo` command to redo the most recently undone
+    operation.
+
+- Use case: Revert an earlier operation
+  Git command: Not supported
+  Jujutsu command: >
+    `jj op revert`
+  Notes: ''
 
 - Use case: Create a commit that cancels out a previous commit
   Git command: >
