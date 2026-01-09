@@ -168,12 +168,61 @@ fn test_undo_with_rev_arg_falls_back_to_revert() {
 }
 
 #[test]
-fn test_can_only_redo_undo_operation() {
+fn test_redo_undo_operation() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    insta::assert_snapshot!(work_dir.run_jj(["redo"]), @r"
+    work_dir.run_jj(["new", "-m", "a"]).success();
+    work_dir.run_jj(["new", "-m", "b"]).success();
+    let output = work_dir.run_jj(["undo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Restored to operation: 7de3c098e309 (2001-02-03 08:05:08) new empty commit
+    Working copy  (@) now at: rlvkpnrz 167b8dbf (empty) a
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["redo"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Restored to operation: 8149f35da0c2 (2001-02-03 08:05:09) new empty commit
+    Working copy  (@) now at: kkmpptxz 55e9baad (empty) b
+    Parent commit (@-)      : rlvkpnrz 167b8dbf (empty) a
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["op", "log"]);
+    insta::assert_snapshot!(output, @r"
+    @  fb42a2eabf99 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    │  redo: restore to operation 8149f35da0c25bfa52168150f80c75458a6b92bdb452266a5c39f297466ed44989de4cc133c39dcd0a74aa633cfc83e1b34d5d4289e9ca88d9cd6164ac6bf1f5
+    │  args: jj redo
+    ○  f426ec0f2ac5 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │  undo: restore to operation 7de3c098e309b01477573eca6bcce823324d00392dcf131172c1b6e6bcc9b459bb0e0cdd878d64e77564afff0327c034b3fc94bcdf53d7c4c8d2841fdec95843
+    │  args: jj undo
+    ○  8149f35da0c2 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │  new empty commit
+    │  args: jj new -m b
+    ○  7de3c098e309 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │  new empty commit
+    │  args: jj new -m a
+    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    │  add workspace 'default'
+    ○  000000000000 root()
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_redo_non_undo_operation() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new", "-m", "a"]).success();
+    let output = work_dir.run_jj(["redo"]);
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Nothing to redo
     [EOF]
