@@ -34,16 +34,19 @@ test and document.
 
 The commit message should describe the changes in the commit;
 the PR description can even be empty, but feel free to include a personal
-message. We start the commit message with `<topic>: `  and don't use
-[conventional commits](https://www.conventionalcommits.org/en/v1.0.0/). This means if
-you modified a command in the CLI, use its name as the topic, e.g.
+message. We don't use [Conventional Commits] and instead start the commit
+message with `<topic>: ` rather than like `chore: `, `feat: ` and `fix: `.
+This means if you modified a command in the CLI, use its name as the topic, e.g.
 `next/prev: <your-modification>` or `conflicts: <your-modification>`. We don't
 currently have a specific guidelines on what to write in the topic field, but
 the reviewers will help you provide a topic if you have difficulties choosing
-it. [How to Write a Git Commit Message](https://cbea.ms/git-commit/) is a good
+it. [How to Write a Git Commit Message] is a good
 guide if you're new to writing good commit messages. We are not particularly
 strict about the style, but please do explain the reason for the change unless
 it's obvious.
+
+[Conventional Commits]: https://www.conventionalcommits.org/en/v1.0.0/
+[How to Write a Git Commit Message]: https://cbea.ms/git-commit/
 
 ### Code reviews
 
@@ -674,7 +677,7 @@ Sampling profilers periodically capture the call stack to identify hot spots. Th
 #### Using samply
 
 One easy-to-use sampling profiler
-is [samply](https://github.com/mstange/samply). For example:
+is [samply]. For example:
 
 ```shell
 cargo install samply
@@ -683,9 +686,11 @@ samply record jj diff
 
 Then just open the link it prints.
 
+[samply]: https://github.com/mstange/samply
+
 #### Using cargo-flamegraph
 
-[cargo-flamegraph](https://github.com/flamegraph-rs/flamegraph) generates flamegraph visualizations using system profilers:
+[cargo-flamegraph] generates flamegraph visualizations using system profilers:
 
 ```shell
 cargo install flamegraph
@@ -694,3 +699,5 @@ cargo flamegraph --bin jj -- diff
 
 You may need to use `sudo` or install `perf` on your system, see flamegraph's
 documentation for more.
+
+[cargo-flamegraph]: https://github.com/flamegraph-rs/flamegraph
