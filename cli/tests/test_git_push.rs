@@ -2494,29 +2494,16 @@ fn test_git_push_sign_on_push() {
     ");
 
     // Immutable commits should not be signed
-    let output = work_dir.run_jj([
-        "bookmark",
-        "create",
-        "bookmark3",
-        "-rsubject('commit which should not be signed 1')",
-    ]);
-    insta::assert_snapshot!(output, @r"
+    let output = work_dir.run_jj(["bookmark", "move", "bookmark2", "--to", "@-"]);
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Created 1 bookmarks pointing to kpqxywon 48ea83e9 bookmark3 | (empty) commit which should not be signed 1
+    Moved 1 bookmarks to kpqxywon 48ea83e9 bookmark2* | (empty) commit which should not be signed 1
     [EOF]
     ");
-    let output = work_dir.run_jj(["bookmark", "move", "bookmark2", "--to", "bookmark3"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Moved 1 bookmarks to kpqxywon 48ea83e9 bookmark2* bookmark3 | (empty) commit which should not be signed 1
-    [EOF]
-    ");
-    test_env.add_config(r#"revset-aliases."immutable_heads()" = "bookmark3""#);
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "bookmark2""#);
     let output = work_dir.run_jj(["git", "push"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Warning: Refusing to create new remote bookmark bookmark3@origin
-    Hint: Run `jj bookmark track bookmark3 --remote=origin` and try again.
     Changes to push to origin:
       Move forward bookmark bookmark2 from d45e2adce0ad to 48ea83e9499c
     [EOF]
