@@ -751,7 +751,7 @@
             "properties": {
                 "backend": {
                     "type": "string",
-                    "enum": ["gpg", "gpgsm", "none", "ssh"],
+                    "enum": ["gpg", "gpgsm", "none", "sq", "ssh"],
                     "description": "The backend to use for signing commits. The string `none` disables signing.",
                     "default": "none"
                 },
@@ -795,6 +795,16 @@
                                     "type": "boolean",
                                     "description": "Whether to consider signatures generated with an expired key as valid",
                                     "default": false
+                                }
+                            }
+                        },
+                        "sq": {
+                            "type": "object",
+                            "properties": {
+                                "program": {
+                                    "type": "string",
+                                    "description": "Path to the sq program to be called",
+                                    "default": "sq"
                                 }
                             }
                         },
