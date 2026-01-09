@@ -2328,6 +2328,72 @@ fn test_git_push_to_remote_with_slashes() {
 }
 
 #[test]
+fn test_git_push_commits_not_ready() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    work_dir
+        .run_jj(["new", "bookmark2", "-m", "commit not suitable"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "set", "bookmark2", "-r@"])
+        .success();
+
+    // ready to push
+    let output = work_dir.run_jj(["git", "push", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      Move forward bookmark bookmark2 from 38a204733702 to 9e7e2853b980
+    Dry-run requested, not pushing.
+    [EOF]
+    ");
+
+    // rejected with empty username
+    work_dir
+        .run_jj_with(|cmd| {
+            cmd.args(["metaedit", "--update-author"])
+                .env_remove("JJ_USER")
+        })
+        .success();
+    let output = work_dir.run_jj(["git", "push"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Won't push commit b63db0e60f60 since it has no author and/or committer set
+    Hint: Rejected commit: vruxwmqv b63db0e6 bookmark2* | (empty) commit not suitable
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // rejected for both private content and empty username
+    let output = work_dir.run_jj(["git", "push", "--config", "git.private-commits=all()"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Won't push commit b63db0e60f60 since it has no author and/or committer set and it is private
+    Hint: Rejected commit: vruxwmqv b63db0e6 bookmark2* | (empty) commit not suitable
+    Hint: Configured git.private-commits: 'all()'
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // still rejected even with --allow-private
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config",
+        "git.private-commits=all()",
+        "--allow-private",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Won't push commit b63db0e60f60 since it has no author and/or committer set
+    Hint: Rejected commit: vruxwmqv b63db0e6 bookmark2* | (empty) commit not suitable
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_git_push_sign_on_push() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
