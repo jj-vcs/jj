@@ -98,6 +98,7 @@ use crate::matchers::FilesMatcher;
 use crate::matchers::IntersectionMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::PrefixMatcher;
+use crate::matchers::UnionMatcher;
 use crate::merge::Merge;
 use crate::merge::MergeBuilder;
 use crate::merge::MergedTreeValue;
@@ -1404,14 +1405,36 @@ impl TreeState {
         let matcher: Option<Box<dyn Matcher>> = match changed_files {
             None => None,
             Some(changed_files) => {
-                let repo_paths = trace_span!("processing fsmonitor paths").in_scope(|| {
-                    changed_files
-                        .into_iter()
-                        .filter_map(|path| RepoPathBuf::from_relative_path(path).ok())
-                        .collect_vec()
-                });
+                let (repo_paths, gitignore_prefixes) = trace_span!("processing fsmonitor paths")
+                    .in_scope(|| {
+                        let mut repo_paths = Vec::new();
+                        let mut gitignore_prefixes = Vec::new();
+                        for path in changed_files {
+                            if let Ok(repo_path) = RepoPathBuf::from_relative_path(&path) {
+                                if path.file_name().is_some_and(|name| name == ".gitignore") {
+                                    gitignore_prefixes.push(
+                                        repo_path.parent().unwrap_or(RepoPath::root()).to_owned(),
+                                    );
+                                } else {
+                                    repo_paths.push(repo_path);
+                                }
+                            }
+                        }
+                        (repo_paths, gitignore_prefixes)
+                    });
 
-                Some(Box::new(FilesMatcher::new(repo_paths)))
+                let matcher: Box<dyn Matcher> = if gitignore_prefixes.is_empty() {
+                    Box::new(FilesMatcher::new(repo_paths))
+                } else if repo_paths.is_empty() {
+                    Box::new(PrefixMatcher::new(gitignore_prefixes))
+                } else {
+                    Box::new(UnionMatcher::new(
+                        FilesMatcher::new(repo_paths),
+                        PrefixMatcher::new(gitignore_prefixes),
+                    ))
+                };
+
+                Some(matcher)
             }
         };
         Ok(FsmonitorMatcher {
