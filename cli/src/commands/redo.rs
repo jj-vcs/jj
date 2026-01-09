@@ -125,7 +125,7 @@ pub fn cmd_redo(ui: &mut Ui, command: &CommandHelper, _: &RedoArgs) -> Result<()
 
     // Avoid the creation of a linked list by restoring to the original
     // operation directly, if we're about to restore a redo-operation. If
-    // we didn't to this, repeated calls of `jj undo ; jj redo` would create
+    // we didn't do this, repeated calls of `jj undo; jj redo` would create
     // an ever-growing linked list of redo-operations that restore each
     // other. Calling `jj redo` one more time would have to redo a potential
     // undo-operation at the very beginning of the linked list, which would
