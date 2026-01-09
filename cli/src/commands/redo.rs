@@ -81,12 +81,12 @@ pub fn cmd_redo(ui: &mut Ui, command: &CommandHelper, _: &RedoArgs) -> Result<()
     //                            |                        |   |
     //                            * A   <------------------+ <-+
     //
-    // The first interesting operation here is I:
+    // The first interesting operation here is H:
     // - Attempt to redo G.
-    // - G is an undo-operation, attempt to restore its parent F.
+    // - G is an undo-operation, so attempt to restore its parent F.
     // - F is a redo-opreation. Restore its original operation D, instead of F.
     //
-    // The operation H is also noteworthy:
+    // The operation I is also noteworthy:
     // - Attempt to redo H.
     // - H is a redo-operation restoring to D, so attempt to redo D.
     // - D is an undo-operation. Redo it by restoring its parent C.
