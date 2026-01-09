@@ -20,6 +20,7 @@ use std::iter;
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
+use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigValue;
 use jj_lib::content_hash::blake2b_hash;
@@ -166,6 +167,7 @@ where
     Self: WrapTemplateProperty<'a, i64>,
     Self: WrapTemplateProperty<'a, Option<i64>>,
     Self: WrapTemplateProperty<'a, ConfigValue>,
+    Self: WrapTemplateProperty<'a, Option<ConfigValue>>,
     Self: WrapTemplateProperty<'a, Signature>,
     Self: WrapTemplateProperty<'a, Email>,
     Self: WrapTemplateProperty<'a, SizeHint>,
@@ -200,6 +202,7 @@ pub enum CoreTemplatePropertyKind<'a> {
     Integer(BoxedTemplateProperty<'a, i64>),
     IntegerOpt(BoxedTemplateProperty<'a, Option<i64>>),
     ConfigValue(BoxedTemplateProperty<'a, ConfigValue>),
+    ConfigValueOpt(BoxedTemplateProperty<'a, Option<ConfigValue>>),
     Signature(BoxedTemplateProperty<'a, Signature>),
     Email(BoxedTemplateProperty<'a, Email>),
     SizeHint(BoxedTemplateProperty<'a, SizeHint>),
@@ -233,6 +236,7 @@ macro_rules! impl_core_property_wrappers {
             Integer(i64),
             IntegerOpt(Option<i64>),
             ConfigValue(jj_lib::config::ConfigValue),
+            ConfigValueOpt(Option<jj_lib::config::ConfigValue>),
             Signature(jj_lib::backend::Signature),
             Email($crate::templater::Email),
             SizeHint($crate::templater::SizeHint),
@@ -263,6 +267,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Integer(_) => "Integer",
             Self::IntegerOpt(_) => "Option<Integer>",
             Self::ConfigValue(_) => "ConfigValue",
+            Self::ConfigValueOpt(_) => "Option<ConfigValue>",
             Self::Signature(_) => "Signature",
             Self::Email(_) => "Email",
             Self::SizeHint(_) => "SizeHint",
@@ -281,6 +286,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Integer(_) => None,
             Self::IntegerOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
             Self::ConfigValue(_) => None,
+            Self::ConfigValueOpt(property) => Some(property.map(|opt| opt.is_some()).into_dyn()),
             Self::Signature(_) => None,
             Self::Email(property) => Some(property.map(|e| !e.0.is_empty()).into_dyn()),
             Self::SizeHint(_) => None,
@@ -322,6 +328,11 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::ConfigValue(property) => {
                 Some(property.map(config::to_serializable_value).into_serialize())
             }
+            Self::ConfigValueOpt(property) => Some(
+                property
+                    .map(|opt| opt.map(config::to_serializable_value))
+                    .into_serialize(),
+            ),
             Self::Signature(property) => Some(property.into_serialize()),
             Self::Email(property) => Some(property.into_serialize()),
             Self::SizeHint(property) => Some(property.into_serialize()),
@@ -340,6 +351,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Integer(property) => Some(property.into_template()),
             Self::IntegerOpt(property) => Some(property.into_template()),
             Self::ConfigValue(property) => Some(property.into_template()),
+            Self::ConfigValueOpt(property) => Some(property.into_template()),
             Self::Signature(property) => Some(property.into_template()),
             Self::Email(property) => Some(property.into_template()),
             Self::SizeHint(_) => None,
@@ -385,6 +397,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Integer(_), _) => None,
             (Self::IntegerOpt(_), _) => None,
             (Self::ConfigValue(_), _) => None,
+            (Self::ConfigValueOpt(_), _) => None,
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
@@ -415,6 +428,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Integer(_), _) => None,
             (Self::IntegerOpt(_), _) => None,
             (Self::ConfigValue(_), _) => None,
+            (Self::ConfigValueOpt(_), _) => None,
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
@@ -624,6 +638,13 @@ where
                 let table = &self.config_value_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, property, function)
+            }
+            CoreTemplatePropertyKind::ConfigValueOpt(property) => {
+                let type_name = "ConfigValue";
+                let table = &self.config_value_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                let inner_property = property.try_unwrap(type_name).into_dyn();
+                build(language, diagnostics, build_ctx, inner_property, function)
             }
             CoreTemplatePropertyKind::Signature(property) => {
                 let table = &self.signature_methods;
@@ -1957,12 +1978,16 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
                         .with_source(err)
                 })
             })?;
-        let value = language.settings().get_value(&name).map_err(|err| {
-            TemplateParseError::expression("Failed to get config value", function.name_span)
-                .with_source(err)
-        })?;
+        let value = language
+            .settings()
+            .get_value(&name)
+            .optional()
+            .map_err(|err| {
+                TemplateParseError::expression("Failed to get config value", function.name_span)
+                    .with_source(err)
+            })?;
         // .decorated("", "") to trim leading/trailing whitespace
-        Ok(Literal(value.decorated("", "")).into_dyn_wrapped())
+        Ok(Literal(value.map(|v| v.decorated("", ""))).into_dyn_wrapped())
     });
     map
 }
@@ -2737,7 +2762,7 @@ mod tests {
         ");
 
         // Optional integer can be converted to boolean, and Some(0) is truthy.
-        env.add_keyword("none_i64", || literal(None));
+        env.add_keyword("none_i64", || literal(None::<i64>));
         env.add_keyword("some_i64", || literal(Some(0)));
         insta::assert_snapshot!(env.render_ok(r#"if(none_i64, true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if(some_i64, true, false)"#), @"true");
@@ -2816,7 +2841,7 @@ mod tests {
     #[test]
     fn test_arithmetic_operation() {
         let mut env = TestTemplateEnv::new();
-        env.add_keyword("none_i64", || literal(None));
+        env.add_keyword("none_i64", || literal(None::<i64>));
         env.add_keyword("some_i64", || literal(Some(1)));
         env.add_keyword("i64_min", || literal(i64::MIN));
         env.add_keyword("i64_max", || literal(i64::MAX));
@@ -4349,7 +4374,7 @@ mod tests {
         env.add_keyword("str_list", || {
             literal(vec!["foo".to_owned(), "bar".to_owned()])
         });
-        env.add_keyword("none_int", || literal(None));
+        env.add_keyword("none_int", || literal(None::<i64>));
         env.add_keyword("some_int", || literal(Some(67)));
         env.add_keyword("cfg_val", || {
             literal(ConfigValue::from_iter([("foo", "bar")]))
@@ -4487,21 +4512,29 @@ mod tests {
 
     #[test]
     fn test_config_function() {
-        let env = TestTemplateEnv::new();
+        use jj_lib::config::ConfigLayer;
+        use jj_lib::config::ConfigSource;
 
-        // values from the test default config
-        insta::assert_snapshot!(env.render_ok("config('user')"), @r#"{ email = "", name = "" }"#);
+        let mut config = StackedConfig::with_defaults();
+        config
+            .add_layer(ConfigLayer::parse(ConfigSource::User, "user.name = 'Test User'").unwrap());
+        config.add_layer(
+            ConfigLayer::parse(ConfigSource::User, "user.email = 'test@example.com'").unwrap(),
+        );
+
+        let env = TestTemplateEnv::with_config(config);
+
+        // valid config path
+        insta::assert_snapshot!(env.render_ok(r#"config("user.name")"#), @"'Test User'");
+        insta::assert_snapshot!(env.render_ok(r#"config("user.email")"#), @"'test@example.com'");
+        insta::assert_snapshot!(env.render_ok(r#"config("user")"#), @"{ email = 'test@example.com', name = 'Test User' }");
 
         // nonexistent config path
-        insta::assert_snapshot!(env.parse_err("config('invalid')"), @"
-         --> 1:1
-          |
-        1 | config('invalid')
-          | ^----^
-          |
-          = Failed to get config value
-        Value not found for invalid
-        ");
+        insta::assert_snapshot!(env.render_ok(r#"config("non.existent")"#), @"");
+
+        // conditional on config path existence
+        insta::assert_snapshot!(env.render_ok(r#"if(config("user.name"), "yes", "no")"#), @"yes");
+        insta::assert_snapshot!(env.render_ok(r#"if(config("non.existent"), "yes", "no")"#), @"no");
 
         // malformed config path
         insta::assert_snapshot!(env.parse_err("config('user|name')"), @"

@@ -188,6 +188,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* The `config()` template function now returns `Option<ConfigValue>` instead of
+  failing if the config value is not found. This allows checking if a config
+  exists (e.g. `if(config("user.email"), ...)`).
+
 * Updated the executable bit representation in the local working copy to allow
   ignoring executable bit changes on Unix. By default we try to detect the
   filesystem's behavior, but this can be overridden manually by setting

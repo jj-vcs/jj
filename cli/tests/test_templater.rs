@@ -539,20 +539,7 @@ fn test_templater_config_function() {
     [EOF]
     [exit status: 1]
     ");
-    insta::assert_snapshot!(render("config('unknown')"), @r"
-    ------- stderr -------
-    Error: Failed to parse template: Failed to get config value
-    Caused by:
-    1:  --> 1:1
-      |
-    1 | config('unknown')
-      | ^----^
-      |
-      = Failed to get config value
-    2: Value not found for unknown
-    [EOF]
-    [exit status: 1]
-    ");
+    insta::assert_snapshot!(render("config('unknown')"), @"");
 }
 
 #[must_use]
