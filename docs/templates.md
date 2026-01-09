@@ -352,6 +352,14 @@ defined.
   the predicate `expression`. Example: `parents.any(|c| c.description().contains("fix"))`
 * `.all(|item| expression) -> Boolean`: Returns true if all elements satisfy
   the predicate `expression`. Example: `parents.all(|c| c.mine())`
+* `.first() -> T`: Returns the first element. Errors if the list is empty.
+* `.last() -> T`: Returns the last element. Errors if the list is empty.
+* `.get(index: Integer) -> T`: Returns the element at `index` (0-based). Errors
+  if the index is out of bounds.
+* `.reverse() -> List`: Returns the list in reverse order.
+* `.skip(count: Integer) -> List`: Skips the first `count` elements and
+  returns the rest.
+* `.take(count: Integer) -> List`: Returns only the first `count` elements.
 
 ### `List<Trailer>` type
 

@@ -1559,6 +1559,82 @@ where
             Ok(out_property.into_dyn_wrapped())
         },
     );
+    map.insert(
+        "first",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            // TODO: Return `Option<T>` instead of erroring out.
+            let out_property = self_property.and_then(|items| {
+                items
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| TemplatePropertyError("List is empty".into()))
+            });
+            Ok(L::Property::wrap_property(out_property.into_dyn()))
+        },
+    );
+    map.insert(
+        "last",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            // TODO: Return `Option<T>` instead of erroring out.
+            let out_property = self_property.and_then(|mut items| {
+                items
+                    .pop()
+                    .ok_or_else(|| TemplatePropertyError("List is empty".into()))
+            });
+            Ok(L::Property::wrap_property(out_property.into_dyn()))
+        },
+    );
+    map.insert(
+        "get",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [index_node] = function.expect_exact_arguments()?;
+            let index = expect_usize_expression(language, diagnostics, build_ctx, index_node)?;
+            // TODO: Return `Option<T>` instead of erroring out.
+            let out_property = (self_property, index).and_then(|(mut items, index)| {
+                if index < items.len() {
+                    Ok(items.remove(index))
+                } else {
+                    Err(TemplatePropertyError(
+                        format!("Index {index} out of bounds").into(),
+                    ))
+                }
+            });
+            Ok(L::Property::wrap_property(out_property.into_dyn()))
+        },
+    );
+    map.insert(
+        "reverse",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|mut items| {
+                items.reverse();
+                items
+            });
+            Ok(L::Property::wrap_property(out_property.into_dyn()))
+        },
+    );
+    map.insert(
+        "skip",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [count_node] = function.expect_exact_arguments()?;
+            let count = expect_usize_expression(language, diagnostics, build_ctx, count_node)?;
+            let out_property = (self_property, count)
+                .map(|(items, count)| items.into_iter().skip(count).collect_vec());
+            Ok(L::Property::wrap_property(out_property.into_dyn()))
+        },
+    );
+    map.insert(
+        "take",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [count_node] = function.expect_exact_arguments()?;
+            let count = expect_usize_expression(language, diagnostics, build_ctx, count_node)?;
+            let out_property = (self_property, count)
+                .map(|(items, count)| items.into_iter().take(count).collect_vec());
+            Ok(L::Property::wrap_property(out_property.into_dyn()))
+        },
+    );
     map
 }
 
@@ -3304,6 +3380,42 @@ mod tests {
           |
           = Expected 1 lambda parameters
         "#);
+
+        // List.first()
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().first()"#), @"a");
+        insta::assert_snapshot!(env.render_ok(r#""".lines().first()"#), @"<Error: List is empty>");
+
+        // List.last()
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().last()"#), @"c");
+        insta::assert_snapshot!(env.render_ok(r#""".lines().last()"#), @"<Error: List is empty>");
+
+        // List.get(index)
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().get(0)"#), @"a");
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().get(1)"#), @"b");
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().get(2)"#), @"c");
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().get(3)"#), @"<Error: Index 3 out of bounds>");
+        insta::assert_snapshot!(env.render_ok(r#""".lines().get(0)"#), @"<Error: Index 0 out of bounds>");
+
+        // List.reverse()
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().reverse().join("|")"#), @"c|b|a");
+        insta::assert_snapshot!(env.render_ok(r#""".lines().reverse().join("|")"#), @"");
+
+        // List.skip(count)
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().skip(0).join("|")"#), @"a|b|c");
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().skip(1).join("|")"#), @"b|c");
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().skip(2).join("|")"#), @"c");
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().skip(3).join("|")"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().skip(10).join("|")"#), @"");
+
+        // List.take(count)
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().take(0).join("|")"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().take(1).join("|")"#), @"a");
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().take(2).join("|")"#), @"a|b");
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().take(3).join("|")"#), @"a|b|c");
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc".lines().take(10).join("|")"#), @"a|b|c");
+
+        // Combining skip and take
+        insta::assert_snapshot!(env.render_ok(r#""a\nb\nc\nd".lines().skip(1).take(2).join("|")"#), @"b|c");
     }
 
     #[test]

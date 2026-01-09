@@ -16,6 +16,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Templates now support `first()`, `last()`, `get(index)`, `reverse()`,
+  `skip(count)`, and `take(count)` methods on list types for more flexible
+  list manipulation.
+
 * `jj workspace add` now links with relative paths. This enables workspaces to work
   inside containers or when moved together. Existing workspaces with absolute paths
   will continue to work as before.
