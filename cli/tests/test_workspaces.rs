@@ -1647,6 +1647,60 @@ fn test_workspaces_root() {
 }
 
 #[test]
+fn test_workspaces_relative_path() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    use std::path::PathBuf;
+
+    let repo_file = test_env.env_root().join("secondary/.jj/repo");
+    let repo_path_bytes = std::fs::read(&repo_file).unwrap();
+    let stored_path = PathBuf::from(String::from_utf8(repo_path_bytes).unwrap());
+    let expected_path = PathBuf::from_iter(["..", "..", "main", ".jj", "repo"]);
+    assert_eq!(stored_path, expected_path);
+
+    let secondary_dir = test_env.work_dir("secondary");
+    let output = secondary_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @r"
+    The working copy has no changes.
+    Working copy  (@) : uuqppmxq 94f41578 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output, @r"
+    default: qpvuntsm e8849ae1 (empty) (no description set)
+    secondary: uuqppmxq 94f41578 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = secondary_dir.run_jj(["workspace", "root"]);
+    insta::assert_snapshot!(output, @r"
+    $TEST_ENV/secondary
+    [EOF]
+    ");
+
+    let secondary_subdir = secondary_dir.create_dir("subdir");
+    let output = secondary_subdir.run_jj(["workspace", "root"]);
+    insta::assert_snapshot!(output, @r"
+    $TEST_ENV/secondary
+    [EOF]
+    ");
+
+    let output = main_dir.run_jj(["workspace", "root", "--name", "secondary"]);
+    insta::assert_snapshot!(output, @r"
+    $TEST_ENV/secondary
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_debug_snapshot() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
