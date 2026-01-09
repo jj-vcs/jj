@@ -327,8 +327,9 @@ revsets (expressions) as arguments.
   [string pattern](#string-patterns).
 
   A non-empty description is usually terminated with newline character. For
-  example, `description("")` matches commits without description, and
-  `description("foo\n")` matches commits with description `"foo\n"`.
+  example, `description("foo\n")` matches commits with description `"foo\n"`.
+  Note that this uses a [regex pattern](#string-patterns), so
+  `description(exact:"")` matches commits without description.
 
 * `subject(pattern)`: Commits that have a subject matching the given [string
   pattern](#string-patterns). A subject is the first line of the description
