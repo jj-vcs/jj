@@ -1401,6 +1401,13 @@ impl TreeState {
                 });
             }
         };
+        // TODO: Invalidate fsmonitor on changes to .git/info/exclude and
+        // core.excludesFile.
+        let changed_files = changed_files.filter(|files| {
+            files
+                .iter()
+                .all(|path| path.file_name().is_none_or(|name| name != ".gitignore"))
+        });
         let matcher: Option<Box<dyn Matcher>> = match changed_files {
             None => None,
             Some(changed_files) => {
