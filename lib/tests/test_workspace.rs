@@ -76,6 +76,12 @@ fn test_init_additional_workspace() {
         *ws2.workspace_root(),
         dunce::canonicalize(&ws2_root).unwrap()
     );
+
+    let repo_file_path = ws2_root.join(".jj").join("repo");
+    let repo_file_contents = std::fs::read(&repo_file_path).unwrap();
+    let stored_path = String::from_utf8(repo_file_contents).unwrap();
+    assert_eq!(stored_path, "../../repo/.jj/repo");
+
     let same_workspace = Workspace::load(
         &settings,
         &ws2_root,
@@ -89,6 +95,45 @@ fn test_init_additional_workspace() {
         *same_workspace.repo_path(),
         dunce::canonicalize(workspace.repo_path()).unwrap()
     );
+    assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
+}
+
+#[test]
+fn test_init_additional_workspace_absolute_path_compat() {
+    let settings = testutils::user_settings();
+    let test_workspace = TestWorkspace::init_with_settings(&settings);
+    let workspace = &test_workspace.workspace;
+
+    let ws2_name = WorkspaceNameBuf::from("ws2");
+    let ws2_root = test_workspace.root_dir().join("ws2_root");
+    std::fs::create_dir(&ws2_root).unwrap();
+    let (ws2, _repo) = Workspace::init_workspace_with_existing_repo(
+        &ws2_root,
+        test_workspace.repo_path(),
+        &test_workspace.repo,
+        &*default_working_copy_factory(),
+        ws2_name.clone(),
+    )
+    .unwrap();
+
+    let repo_file_path = ws2_root.join(".jj").join("repo");
+    let abs_repo_path = dunce::canonicalize(workspace.repo_path()).unwrap();
+    std::fs::write(
+        &repo_file_path,
+        abs_repo_path.as_os_str().as_encoded_bytes(),
+    )
+    .unwrap();
+
+    let same_workspace = Workspace::load(
+        &settings,
+        &ws2_root,
+        &test_workspace.env.default_store_factories(),
+        &default_working_copy_factories(),
+    );
+    assert!(same_workspace.is_ok());
+    let same_workspace = same_workspace.unwrap();
+    assert_eq!(same_workspace.workspace_name(), &ws2_name);
+    assert_eq!(*same_workspace.repo_path(), abs_repo_path);
     assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
 }
 

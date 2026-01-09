@@ -24,6 +24,7 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
+use crate::command_error::user_error_with_message;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -51,14 +52,24 @@ pub fn cmd_workspace_root(
             .wc_commit_ids()
             .contains_key(ws_name)
         {
-            workspace_store
+            let path = workspace_store
                 .get_workspace_path(ws_name)?
                 .ok_or_else(|| {
                     user_error(format!(
                         "Workspace has no recorded path: {}",
                         ws_name.as_symbol()
                     ))
-                })?
+                })?;
+            let full_path = workspace_command.repo_path().join(path);
+            dunce::canonicalize(&full_path).map_err(|err| {
+                user_error_with_message(
+                    format!(
+                        "Cannot resolve absolute workspace path: {}",
+                        full_path.display()
+                    ),
+                    err,
+                )
+            })?
         } else {
             return Err(user_error(format!(
                 "No such workspace: {}",

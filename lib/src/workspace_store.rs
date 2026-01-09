@@ -26,6 +26,8 @@ use jj_lib::file_util::PathError;
 use jj_lib::file_util::path_from_bytes;
 use jj_lib::file_util::path_to_bytes;
 use jj_lib::file_util::persist_temp_file;
+use jj_lib::file_util::relative_path;
+use jj_lib::file_util::slash_path;
 use jj_lib::lock::FileLock;
 use jj_lib::lock::FileLockError;
 use jj_lib::protos::simple_workspace_store;
@@ -93,6 +95,7 @@ impl From<SimpleWorkspaceStoreError> for WorkspaceStoreError {
 /// A simple file-based implementation of `WorkspaceStore`.
 #[derive(Debug)]
 pub struct SimpleWorkspaceStore {
+    repo_path: PathBuf,
     store_file: PathBuf,
     lock_file: PathBuf,
 }
@@ -104,6 +107,7 @@ impl SimpleWorkspaceStore {
         let file = store_dir.join("index");
 
         let store = Self {
+            repo_path: repo_path.to_path_buf(),
             store_file: file.clone(),
             lock_file: file.with_extension("lock"),
         };
@@ -169,11 +173,17 @@ impl WorkspaceStore for SimpleWorkspaceStore {
             .workspaces
             .retain(|w| w.name.as_str() != workspace_name.as_str());
 
+        let path_to_store = relative_path(&self.repo_path, path);
+        let path_to_store = if path_to_store.is_relative() {
+            slash_path(&path_to_store).into_owned()
+        } else {
+            path_to_store
+        };
         workspaces_proto
             .workspaces
             .push(simple_workspace_store::Workspace {
                 name: workspace_name.as_str().to_string(),
-                path: path_to_bytes(path)
+                path: path_to_bytes(&path_to_store)
                     .map_err(SimpleWorkspaceStoreError::BadPathEncoding)?
                     .to_owned(),
             });
