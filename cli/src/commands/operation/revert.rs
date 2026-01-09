@@ -58,9 +58,9 @@ pub fn cmd_op_revert(
     args: &OperationRevertArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
-    let bad_op = workspace_command.resolve_single_op(&args.operation)?;
-    let parent_of_bad_op = match bad_op.parents().at_most_one() {
-        Ok(Some(parent_of_bad_op)) => parent_of_bad_op?,
+    let op_to_revert = workspace_command.resolve_single_op(&args.operation)?;
+    let parent_of_op_to_revert = match op_to_revert.parents().at_most_one() {
+        Ok(Some(op)) => op,
         Ok(None) => return Err(user_error("Cannot revert root operation")),
         Err(_) => {
             return Err(user_error_with_hint(
@@ -69,12 +69,14 @@ pub fn cmd_op_revert(
             ));
         }
     };
+    let op_to_restore = parent_of_op_to_revert?;
 
     let mut tx = workspace_command.start_transaction();
     let repo_loader = tx.base_repo().loader();
-    let bad_repo = repo_loader.load_at(&bad_op)?;
-    let parent_repo = repo_loader.load_at(&parent_of_bad_op)?;
-    tx.repo_mut().merge(&bad_repo, &parent_repo)?;
+    let repo_at_op_to_revert = repo_loader.load_at(&op_to_revert)?;
+    let repo_at_op_to_restore = repo_loader.load_at(&op_to_restore)?;
+    tx.repo_mut()
+        .merge(&repo_at_op_to_revert, &repo_at_op_to_restore)?;
     let new_view = view_with_desired_portions_restored(
         tx.repo().view().store_view(),
         tx.base_repo().view().store_view(),
@@ -84,10 +86,10 @@ pub fn cmd_op_revert(
     if let Some(mut formatter) = ui.status_formatter() {
         write!(formatter, "Reverted operation: ")?;
         let template = tx.base_workspace_helper().operation_summary_template();
-        template.format(&bad_op, formatter.as_mut())?;
+        template.format(&op_to_revert, formatter.as_mut())?;
         writeln!(formatter)?;
     }
-    tx.finish(ui, tx_description(&bad_op))?;
+    tx.finish(ui, tx_description(&op_to_revert))?;
 
     Ok(())
 }

@@ -136,16 +136,14 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
     // restored (as opposed to C). The undo-stack spanning from F to B was
     // "jumped over".
     //
-    if let Some(id_of_restored_op) = op_to_undo
+    if let Some(restored_op) = op_to_undo
         .metadata()
         .description
         .strip_prefix(UNDO_OP_DESC_PREFIX)
     {
-        let Some(id_of_restored_op) = OperationId::try_from_hex(id_of_restored_op) else {
-            return Err(internal_error(
-                "Failed to parse ID of restored operation in undo-stack",
-            ));
-        };
+        let id_of_restored_op = OperationId::try_from_hex(restored_op).ok_or_else(|| {
+            internal_error("Failed to parse ID of restored operation in undo-stack")
+        })?;
         op_to_undo = workspace_command
             .repo()
             .loader()
@@ -160,8 +158,8 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
         writeln!(ui.hint_default(), "To avoid this, run `jj redo` now.")?;
     };
 
-    let mut op_to_restore = match op_to_undo.parents().at_most_one() {
-        Ok(Some(parent_of_op_to_undo)) => parent_of_op_to_undo?,
+    let parent_of_op_to_undo = match op_to_undo.parents().at_most_one() {
+        Ok(Some(op)) => op,
         Ok(None) => return Err(user_error("Cannot undo root operation")),
         Err(_) => {
             return Err(user_error_with_hint(
@@ -170,6 +168,7 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
             ));
         }
     };
+    let mut op_to_restore = parent_of_op_to_undo?;
 
     // Avoid the creation of a linked list by restoring to the original
     // operation directly, if we're about to restore an undo-operation. If we
@@ -183,11 +182,9 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
         .description
         .strip_prefix(UNDO_OP_DESC_PREFIX)
     {
-        let Some(id_of_original_op) = OperationId::try_from_hex(original_op) else {
-            return Err(internal_error(
-                "Failed to parse ID of restored operation in undo-stack",
-            ));
-        };
+        let id_of_original_op = OperationId::try_from_hex(original_op).ok_or_else(|| {
+            internal_error("Failed to parse ID of restored operation in undo-stack")
+        })?;
         op_to_restore = workspace_command
             .repo()
             .loader()
