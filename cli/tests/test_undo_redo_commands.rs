@@ -170,7 +170,9 @@ fn test_redo_non_undo_operation() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    insta::assert_snapshot!(work_dir.run_jj(["redo"]), @r"
+    work_dir.run_jj(["new", "-m", "a"]).success();
+    let output = work_dir.run_jj(["redo"]);
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Nothing to redo
     [EOF]
