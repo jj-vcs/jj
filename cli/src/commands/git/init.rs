@@ -43,7 +43,7 @@ use crate::formatter::FormatterExt as _;
 use crate::git_util::is_colocated_git_workspace;
 use crate::git_util::load_git_import_options;
 use crate::git_util::print_git_export_stats;
-use crate::git_util::print_git_import_stats;
+use crate::git_util::print_git_import_stats_summary;
 use crate::ui::Ui;
 
 /// Create a new Git backed repo.
@@ -241,7 +241,7 @@ fn init_git_refs(
     // There should be no old refs to abandon, but enforce it.
     import_options.abandon_unreachable_commits = false;
     let stats = git::import_refs(tx.repo_mut(), &import_options)?;
-    print_git_import_stats(ui, tx.repo(), &stats, false)?;
+    print_git_import_stats_summary(ui, &stats)?;
     if !tx.repo().has_changes() {
         return Ok(repo);
     }

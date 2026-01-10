@@ -873,6 +873,8 @@ fn test_git_fetch_all() {
     bookmark: b@origin      [updated] tracked
     bookmark: trunk2@origin [new] tracked
     Abandoned 2 commits that are no longer reachable.
+      yqosqzyt/1 d4d535f1 (divergent) a2
+      mzvwutvl/1 c8303692 (divergent) a1
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @r"
@@ -1061,6 +1063,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     bookmark: a1@origin [updated] tracked
     bookmark: b@origin  [updated] tracked
     Abandoned 1 commits that are no longer reachable.
+      mzvwutvl/1 c8303692 (divergent) a1
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -1099,6 +1102,7 @@ fn test_git_fetch_some_of_many_bookmarks() {
     ------- stderr -------
     bookmark: a2@origin [updated] tracked
     Abandoned 1 commits that are no longer reachable.
+      yqosqzyt/1 d4d535f1 (divergent) a2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -1653,6 +1657,7 @@ fn test_git_fetch_removed_bookmark() {
     ------- stderr -------
     bookmark: a2@origin [deleted] untracked
     Abandoned 1 commits that are no longer reachable.
+      yqosqzyt d4d535f1 a2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -1736,6 +1741,7 @@ fn test_git_fetch_removed_parent_bookmark() {
     bookmark: a1@origin     [deleted] untracked
     bookmark: trunk1@origin [deleted] untracked
     Abandoned 1 commits that are no longer reachable.
+      mzvwutvl c8303692 a1
     Warning: No matching branches found on any specified/configured remote: master
     [EOF]
     ");
@@ -2173,6 +2179,46 @@ fn test_git_fetch_auto_track_bookmarks() {
     ------- stderr -------
     bookmark: mine/foo@origin     [new] tracked
     bookmark: not-mine/foo@origin [new] untracked
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_fetch_shows_abandoned_commit_details() {
+    // Verify that abandoned commit details are shown by default
+    let test_env = TestEnvironment::default();
+    test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
+    let source_dir = test_env.work_dir("source");
+    git::init(source_dir.root());
+
+    // Clone an empty repo
+    test_env
+        .run_jj_in(".", ["git", "clone", "source", "target"])
+        .success();
+    let target_dir = test_env.work_dir("target");
+
+    // Create initial structure in source
+    create_colocated_repo_and_bookmarks_from_trunk1(&source_dir);
+
+    // Initial fetch
+    target_dir.run_jj(["git", "fetch"]).success();
+
+    // Rebase bookmarks in source (which will cause abandonments on next fetch)
+    create_trunk2_and_rebase_bookmarks(&source_dir);
+
+    // Fetch - should show abandoned commit details by default
+    let output = target_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    bookmark: a1@origin     [updated] tracked
+    bookmark: a2@origin     [updated] tracked
+    bookmark: b@origin      [updated] tracked
+    bookmark: trunk2@origin [new] tracked
+    Abandoned 3 commits that are no longer reachable.
+      yostqsxw/1 bc83465a (divergent) b
+      yqosqzyt/1 d4d535f1 (divergent) a2
+      mzvwutvl/1 c8303692 (divergent) a1
     [EOF]
     ");
 }

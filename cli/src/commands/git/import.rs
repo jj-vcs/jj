@@ -45,7 +45,7 @@ pub fn cmd_git_import(
     // That's why cmd_git_export() doesn't export the HEAD ref.
     git::import_head(tx.repo_mut())?;
     let stats = git::import_refs(tx.repo_mut(), &import_options)?;
-    print_git_import_stats(ui, tx.repo(), &stats, true)?;
+    print_git_import_stats(ui, &tx, &stats)?;
     tx.finish(ui, "import git refs")?;
     Ok(())
 }

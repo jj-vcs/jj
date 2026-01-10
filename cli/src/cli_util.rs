@@ -1282,7 +1282,7 @@ impl WorkspaceCommandHelper {
             crate::git_util::load_git_import_options(ui, &git_settings, &remote_settings)?;
         let mut tx = self.start_transaction();
         let stats = git::import_refs(tx.repo_mut(), &import_options)?;
-        crate::git_util::print_git_import_stats(ui, tx.repo(), &stats, false)?;
+        crate::git_util::print_git_import_stats_summary(ui, &stats)?;
         if !tx.repo().has_changes() {
             return Ok(());
         }

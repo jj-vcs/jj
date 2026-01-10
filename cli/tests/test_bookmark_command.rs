@@ -1369,6 +1369,7 @@ fn test_bookmark_track_untrack() {
     bookmark: feature3@origin [new] tracked
     bookmark: main@origin     [updated] tracked
     Abandoned 1 commits that are no longer reachable.
+      psynomvr 48ec79a4 commit 2
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"

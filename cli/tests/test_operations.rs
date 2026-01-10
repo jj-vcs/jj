@@ -1445,6 +1445,7 @@ fn test_op_diff() {
     bookmark: bookmark-2@origin [updated] untracked
     bookmark: bookmark-3@origin [deleted] untracked
     Abandoned 1 commits that are no longer reachable.
+      rnnkyono 11671e4c Commit 3
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "diff"]);
@@ -2551,6 +2552,7 @@ fn test_op_show() {
     bookmark: bookmark-2@origin [updated] untracked
     bookmark: bookmark-3@origin [deleted] untracked
     Abandoned 1 commits that are no longer reachable.
+      rnnkyono 11671e4c Commit 3
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "show"]);
