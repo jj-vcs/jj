@@ -27,7 +27,7 @@ use crate::cli_util::RevisionArg;
 use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::commit_ref_list;
-use crate::commit_ref_list::RefListItem;
+use crate::commit_ref_list::RefFilterPredicates;
 use crate::commit_ref_list::SortKey;
 use crate::commit_templater::CommitRef;
 use crate::complete;
@@ -136,7 +136,6 @@ pub fn cmd_bookmark_list(
         (None, Some(_)) => StringExpression::none(),
         (None, None) => StringExpression::all(),
     };
-    let name_matcher = name_expr.to_matcher();
     let matched_local_targets: HashSet<_> = if let Some(revisions) = &args.revisions {
         // Match against local targets only, which is consistent with "jj git push".
         let mut expression = workspace_command.parse_union_revsets(ui, revisions)?;
@@ -171,58 +170,17 @@ pub fn cmd_bookmark_list(
         (None, Some(ignored)) => StringExpression::exact(ignored).negated(),
         (None, None) => StringExpression::all(),
     };
-    let remote_matcher = remote_expr.to_matcher();
-    let mut bookmark_list_items: Vec<RefListItem> = Vec::new();
-    let bookmarks_to_list = view
-        .bookmarks()
-        .filter(|(name, target)| {
-            name_matcher.is_match(name.as_str())
-                || target
-                    .local_target
-                    .added_ids()
-                    .any(|id| matched_local_targets.contains(id))
-        })
-        .filter(|(_, target)| !args.conflicted || target.local_target.has_conflict());
-    let mut any_conflicts = false;
-    for (name, bookmark_target) in bookmarks_to_list {
-        let local_target = bookmark_target.local_target;
-        any_conflicts |= local_target.has_conflict();
-        let remote_refs = bookmark_target.remote_refs;
-        let (mut tracked_remote_refs, untracked_remote_refs) = remote_refs
-            .iter()
-            .copied()
-            .filter(|(remote_name, _)| remote_matcher.is_match(remote_name.as_str()))
-            .partition::<Vec<_>, _>(|&(_, remote_ref)| remote_ref.is_tracked());
-        if !args.tracked && !args.all_remotes && args.remotes.is_none() {
-            tracked_remote_refs.retain(|&(_, remote_ref)| remote_ref.target != *local_target);
-        }
 
-        let include_local_only = !args.tracked && args.remotes.is_none();
-        if include_local_only && local_target.is_present() || !tracked_remote_refs.is_empty() {
-            let primary = CommitRef::local(
-                name,
-                local_target.clone(),
-                remote_refs.iter().map(|&(_, remote_ref)| remote_ref),
-            );
-            let tracked = tracked_remote_refs
-                .iter()
-                .map(|&(remote, remote_ref)| {
-                    CommitRef::remote(name, remote, remote_ref.clone(), local_target)
-                })
-                .collect();
-            bookmark_list_items.push(RefListItem { primary, tracked });
-        }
-
-        if !args.tracked && (args.all_remotes || args.remotes.is_some()) {
-            bookmark_list_items.extend(untracked_remote_refs.iter().map(
-                |&(remote, remote_ref)| RefListItem {
-                    primary: CommitRef::remote_only(name, remote, remote_ref.target.clone()),
-                    tracked: vec![],
-                },
-            ));
-        }
-    }
-
+    let predicates = RefFilterPredicates {
+        name_matcher: name_expr.to_matcher(),
+        remote_matcher: remote_expr.to_matcher(),
+        matched_local_targets,
+        conflicted: args.conflicted,
+        include_local_only: !args.tracked && args.remotes.is_none(),
+        include_synced_remotes: args.tracked || args.all_remotes || args.remotes.is_some(),
+        include_untracked_remotes: !args.tracked && (args.all_remotes || args.remotes.is_some()),
+    };
+    let mut bookmark_list_items = commit_ref_list::collect_items(view.bookmarks(), &predicates);
     let sort_keys = if args.sort.is_empty() {
         workspace_command.settings().get_value_with(
             "ui.bookmark-list-sort-keys",
@@ -243,7 +201,10 @@ pub fn cmd_bookmark_list(
 
     warn_unmatched_local_or_remote_bookmarks(ui, view, &name_expr)?;
 
-    if any_conflicts {
+    if bookmark_list_items
+        .iter()
+        .any(|item| item.primary.is_local() && item.primary.has_conflict())
+    {
         writeln!(
             ui.hint_default(),
             "Some bookmarks have conflicts. Use `jj bookmark set <name> -r <rev>` to resolve."

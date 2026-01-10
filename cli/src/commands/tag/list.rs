@@ -12,18 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashSet;
 use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringExpression;
 
 use super::warn_unmatched_local_tags;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::commit_ref_list;
-use crate::commit_ref_list::RefListItem;
+use crate::commit_ref_list::RefFilterPredicates;
 use crate::commit_ref_list::SortKey;
 use crate::commit_templater::CommitRef;
 use crate::complete;
@@ -31,9 +32,45 @@ use crate::revset_util::parse_union_name_patterns;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
-/// List tags.
+/// List tags and their targets
+///
+/// By default, a tracked remote tag will be included only if its target is
+/// different from the local tag. An untracked remote tag won't be listed. For a
+/// conflicted tag (both local and remote), old target revisions are preceded by
+/// a "-" and new target revisions are preceded by a "+".
 #[derive(clap::Args, Clone, Debug)]
 pub struct TagListArgs {
+    /// Show all tracked and untracked remote tags including the ones whose
+    /// targets are synchronized with the local tags
+    #[arg(long, short, alias = "all")]
+    all_remotes: bool,
+
+    /// Show all tracked and untracked remote tags belonging to this remote
+    ///
+    /// Can be combined with `--tracked` or `--conflicted` to filter the tags
+    /// shown (can be repeated.)
+    ///
+    /// By default, the specified pattern matches remote names with glob syntax.
+    /// You can also use other [string pattern syntax].
+    ///
+    /// [string pattern syntax]:
+    ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+    #[arg(long = "remote", value_name = "REMOTE", conflicts_with = "all_remotes")]
+    #[arg(hide = true)] // TODO: unhide when remote tags get stabilized (#7528)
+    #[arg(add = ArgValueCandidates::new(complete::git_remotes))]
+    remotes: Option<Vec<String>>,
+
+    /// Show tracked remote tags only
+    ///
+    /// This omits local Git-tracking tags by default.
+    #[arg(long, short, conflicts_with = "all_remotes")]
+    #[arg(hide = true)] // TODO: unhide when remote tags get stabilized (#7528)
+    tracked: bool,
+
+    /// Show conflicted tags only
+    #[arg(long, short, conflicts_with = "all_remotes")]
+    conflicted: bool,
+
     /// Show tags whose local name matches
     ///
     /// By default, the specified pattern matches tag names with glob syntax.
@@ -83,7 +120,16 @@ pub fn cmd_tag_list(
         Some(texts) => parse_union_name_patterns(ui, texts)?,
         None => StringExpression::all(),
     };
-    let name_matcher = name_expr.to_matcher();
+    let ignored_tracked_remote = default_ignored_remote_name(repo.store());
+    // --tracked implies --remote=~git by default
+    let remote_expr = match (
+        &args.remotes,
+        args.tracked.then_some(ignored_tracked_remote).flatten(),
+    ) {
+        (Some(texts), _) => parse_union_name_patterns(ui, texts)?,
+        (None, Some(ignored)) => StringExpression::exact(ignored).negated(),
+        (None, None) => StringExpression::all(),
+    };
     let template: TemplateRenderer<Rc<CommitRef>> = {
         let language = workspace_command.commit_template_language();
         let text = match &args.template {
@@ -100,16 +146,16 @@ pub fn cmd_tag_list(
         args.sort.clone()
     };
 
-    // TODO: include remote tags
-    let mut list_items = view
-        .local_tags()
-        .filter(|(name, _)| name_matcher.is_match(name.as_str()))
-        .map(|(name, target)| {
-            let primary = CommitRef::local_only(name, target.clone());
-            let tracked = vec![];
-            RefListItem { primary, tracked }
-        })
-        .collect_vec();
+    let predicates = RefFilterPredicates {
+        name_matcher: name_expr.to_matcher(),
+        remote_matcher: remote_expr.to_matcher(),
+        matched_local_targets: HashSet::new(), // TODO: add -rREVSET (#7930)
+        conflicted: args.conflicted,
+        include_local_only: !args.tracked && args.remotes.is_none(),
+        include_synced_remotes: args.tracked || args.all_remotes || args.remotes.is_some(),
+        include_untracked_remotes: !args.tracked && (args.all_remotes || args.remotes.is_some()),
+    };
+    let mut list_items = commit_ref_list::collect_items(view.tags(), &predicates);
     commit_ref_list::sort(repo.store(), &mut list_items, &sort_keys)?;
 
     ui.request_pager();

@@ -3068,7 +3068,7 @@ Manage tags
 ###### **Subcommands:**
 
 * `delete` — Delete existing tags
-* `list` — List tags
+* `list` — List tags and their targets
 * `set` — Create or update tags
 
 
@@ -3095,7 +3095,9 @@ Revisions referred to by the deleted tags are not abandoned.
 
 ## `jj tag list`
 
-List tags
+List tags and their targets
+
+By default, a tracked remote tag will be included only if its target is different from the local tag. An untracked remote tag won't be listed. For a conflicted tag (both local and remote), old target revisions are preceded by a "-" and new target revisions are preceded by a "+".
 
 **Usage:** `jj tag list [OPTIONS] [NAMES]...`
 
@@ -3111,6 +3113,8 @@ List tags
 
 ###### **Options:**
 
+* `-a`, `--all-remotes` — Show all tracked and untracked remote tags including the ones whose targets are synchronized with the local tags
+* `-c`, `--conflicted` — Show conflicted tags only
 * `-T`, `--template <TEMPLATE>` — Render each tag using the given template
 
    All 0-argument methods of the [`CommitRef` type] are available as keywords in the template expression. See [`jj help -k templates`] for more information.
