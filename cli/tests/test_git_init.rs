@@ -1083,3 +1083,184 @@ fn test_git_init_bad_wc_path() {
     [exit status: 1]
     ");
 }
+
+#[test]
+fn test_git_init_colocate_in_git_worktree() {
+    // Skip if git command not available or fails
+    let git_available = std::process::Command::new("git")
+        .arg("--version")
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !git_available {
+        eprintln!("Skipping test: git command not available");
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let main_repo_path = test_env.env_root().join("main-repo");
+    init_git_repo(&main_repo_path, false);
+
+    // Create a Git worktree
+    let worktree_path = test_env.env_root().join("worktree");
+    let status = std::process::Command::new("git")
+        .args([
+            "worktree",
+            "add",
+            worktree_path.to_str().unwrap(),
+            "-b",
+            "worktree-branch",
+        ])
+        .current_dir(&main_repo_path)
+        .status()
+        .expect("git worktree add failed to spawn");
+    assert!(status.success(), "git worktree add failed: {status}");
+
+    // Verify .git is a file (gitlink)
+    assert!(worktree_path.join(".git").is_file());
+
+    // Try to init colocated jj repo - should fail
+    let output = test_env.run_jj_in(
+        worktree_path.to_str().unwrap(),
+        ["git", "init", "--colocate"],
+    );
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Cannot create a colocated jj repo inside a Git worktree.
+    Hint: This directory is a Git worktree linked to $TEST_ENV/main-repo/.git/worktrees/worktree. Run `jj git init` in the main Git repository instead, or use `jj workspace add` to create additional jj workspaces.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Verify no .jj directory was created
+    assert!(!worktree_path.join(".jj").exists());
+}
+
+#[test]
+fn test_git_init_colocate_gitlink_not_worktree() {
+    // Test that a gitlink pointing to a path that contains "worktrees" in a
+    // user directory (NOT in the .git/worktrees/<name> pattern) is NOT
+    // incorrectly detected as a Git worktree
+    let test_env = TestEnvironment::default();
+
+    // Create a git repo at a path containing "worktrees" as a directory name
+    let git_repo_path = test_env.env_root().join("worktrees").join("my-repo");
+    std::fs::create_dir_all(&git_repo_path).unwrap();
+    init_git_repo(&git_repo_path, false);
+
+    // Create a working directory with a gitlink pointing to that repo
+    let work_dir = test_env.env_root().join("work");
+    std::fs::create_dir_all(&work_dir).unwrap();
+    let gitlink_content = format!("gitdir: {}", git_repo_path.join(".git").display());
+    std::fs::write(work_dir.join(".git"), gitlink_content).unwrap();
+
+    // Verify .git is a file (gitlink)
+    assert!(work_dir.join(".git").is_file());
+
+    // jj git init --colocate should succeed (not be blocked as a worktree)
+    let output = test_env.run_jj_in(work_dir.to_str().unwrap(), ["git", "init", "--colocate"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Initialized repo in "."
+    Hint: Running `git clean -xdf` will remove `.jj/`!
+    [EOF]
+    "#);
+
+    // Verify .jj directory was created
+    assert!(work_dir.join(".jj").exists());
+}
+
+#[test]
+fn test_git_init_colocate_malformed_gitlink() {
+    // Test that malformed gitlink files are handled gracefully
+    // (jj fails with clear error, not blocked as worktree)
+    let test_env = TestEnvironment::default();
+
+    // Test: Empty .git file - jj correctly fails to open git repo
+    // (This verifies our worktree detection doesn't interfere with normal error
+    // handling)
+    let work_dir = test_env.env_root().join("work");
+    std::fs::create_dir_all(&work_dir).unwrap();
+    std::fs::write(work_dir.join(".git"), "").unwrap();
+    let output = test_env.run_jj_in(work_dir.to_str().unwrap(), ["git", "init", "--colocate"]);
+    // The error is from gix failing to parse the gitlink, not from our worktree
+    // detection
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to access the repository
+    Caused by:
+    1: Failed to open git repository
+    2: "$TEST_ENV/work/.git" does not appear to be a git repository
+    3: Format should be 'gitdir: <path>', but got: ""
+    [EOF]
+    [exit status: 1]
+    "#);
+}
+
+#[test]
+fn test_git_init_colocate_in_bare_repo_worktree() {
+    // Test that worktrees created from bare repositories are also detected.
+    // Bare repos use a different path format: <repo.git>/worktrees/<name>
+    // instead of <repo>/.git/worktrees/<name>
+
+    // Skip if git command not available
+    let git_available = std::process::Command::new("git")
+        .arg("--version")
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !git_available {
+        eprintln!("Skipping test: git command not available");
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+
+    // Create a bare git repository with an initial commit
+    let bare_repo_path = test_env.env_root().join("main.git");
+    let bare_repo = git::init_bare(&bare_repo_path);
+
+    // Create an initial commit so we can create a worktree
+    let empty_tree_id = gix::ObjectId::empty_tree(bare_repo.object_hash());
+    git::write_commit(&bare_repo, "refs/heads/main", empty_tree_id, "init", &[]);
+    git::set_symbolic_reference(&bare_repo, "HEAD", "refs/heads/main");
+
+    // Create a worktree from the bare repo using git CLI
+    let worktree_path = test_env.env_root().join("worktree");
+    let status = std::process::Command::new("git")
+        .args([
+            "worktree",
+            "add",
+            worktree_path.to_str().unwrap(),
+            "-b",
+            "worktree-branch",
+        ])
+        .current_dir(&bare_repo_path)
+        .status()
+        .expect("git worktree add failed to spawn");
+    assert!(status.success(), "git worktree add failed: {status}");
+
+    // Verify .git is a file pointing to bare repo's worktrees directory
+    let gitlink_content = std::fs::read_to_string(worktree_path.join(".git")).unwrap();
+    assert!(
+        gitlink_content.contains("main.git/worktrees/"),
+        "Expected gitlink to point to bare repo worktrees, got: {gitlink_content}"
+    );
+
+    // Try to init colocated jj repo - should fail
+    let output = test_env.run_jj_in(
+        worktree_path.to_str().unwrap(),
+        ["git", "init", "--colocate"],
+    );
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: Cannot create a colocated jj repo inside a Git worktree.
+    Hint: This directory is a Git worktree linked to $TEST_ENV/main.git/worktrees/worktree. Run `jj git init` in the main Git repository instead, or use `jj workspace add` to create additional jj workspaces.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Verify no .jj directory was created
+    assert!(!worktree_path.join(".jj").exists());
+}
