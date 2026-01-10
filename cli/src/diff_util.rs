@@ -778,6 +778,7 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
     {
         let contents = Diff::new(left, right).map(BStr::new);
         show_color_words_resolved_hunks(formatter, contents, line_number, labels, options)?;
+        show_terminating_newline_info(formatter, contents)?;
         return Ok(());
     }
     match options.conflict {
@@ -792,9 +793,12 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
                 labels,
                 options,
             )?;
+            show_terminating_newline_info(formatter, contents)?;
         }
         ConflictDiffMethod::Pair => {
             let contents = contents.map(|side| files::merge(side, &materialize_options.merge));
+            // TODO: show terminating newline state
+            // https://github.com/jj-vcs/jj/pull/8552#discussion_r2678083991
             show_color_words_conflict_hunks(
                 formatter,
                 contents.as_ref(),
@@ -803,6 +807,26 @@ fn show_color_words_diff_hunks<T: AsRef<[u8]>>(
                 options,
             )?;
         }
+    }
+    Ok(())
+}
+
+const TERMINATING_NEWLINE_LABEL: &str = "terminating-newline";
+
+fn show_terminating_newline_info(
+    formatter: &mut dyn Formatter,
+    contents: Diff<impl AsRef<BStr>>,
+) -> Result<(), io::Error> {
+    let before = contents.before.as_ref();
+    let after = contents.after.as_ref();
+    let has_newline_before = before.last().is_none_or(|ch| *ch == b'\n');
+    let has_newline_after = after.last().is_none_or(|ch| *ch == b'\n');
+    let mut formatter = formatter.labeled(TERMINATING_NEWLINE_LABEL);
+    match (has_newline_before, has_newline_after) {
+        (true, true) => (),
+        (false, true) => writeln!(formatter, "(added terminating newline)")?,
+        (true, false) => writeln!(formatter, "(removed terminating newline)")?,
+        (false, false) => writeln!(formatter, "(no terminating newline)")?,
     }
     Ok(())
 }
@@ -1678,7 +1702,10 @@ fn show_unified_diff_hunks(
             show_diff_line_tokens(*formatter.labeled(label), tokens)?;
             let (_, content) = tokens.last().expect("hunk line must not be empty");
             if !content.ends_with(b"\n") {
-                write!(formatter, "\n\\ No newline at end of file\n")?;
+                write!(
+                    formatter.labeled(TERMINATING_NEWLINE_LABEL),
+                    "\n\\ No newline at end of file\n"
+                )?;
             }
         }
     }
