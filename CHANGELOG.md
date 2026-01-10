@@ -35,6 +35,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Setting the editor via `ui.editor`, `$EDITOR`, or `JJ_EDITOR` now respects shell quoting.
 
+* `jj gerrit upload` will no longer swallow errors and surface if changes fail
+  to get pushed to gerrit.
+  [#8568](https://github.com/jj-vcs/jj/issues/8568)
+
 ## [0.37.0] - 2026-01-07
 
 ### Release highlights

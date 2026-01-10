@@ -14,7 +14,6 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::error;
 use std::fmt;
 use std::io;
 use std::io::Write as _;
@@ -31,7 +30,6 @@ use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitBranchPushTargets;
-use jj_lib::git::GitPushStats;
 use jj_lib::git::GitSettings;
 use jj_lib::index::IndexResult;
 use jj_lib::op_store::RefTarget;
@@ -67,7 +65,7 @@ use crate::command_error::user_error_with_message;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
-use crate::formatter::FormatterExt as _;
+use crate::git_util::print_push_stats;
 use crate::git_util::with_remote_git_callbacks;
 use crate::revset_util::parse_bookmark_name;
 use crate::revset_util::parse_union_name_patterns;
@@ -475,7 +473,7 @@ pub fn cmd_git_push(
             cb,
         )
     })?;
-    print_stats(ui, &push_stats)?;
+    print_push_stats(ui, &push_stats)?;
     // TODO: On partial success, locally-created --change/--named bookmarks will
     // be committed. It's probably better to remove failed local bookmarks.
     if push_stats.all_ok() || push_stats.some_exported() {
@@ -486,66 +484,6 @@ pub fn cmd_git_push(
     } else {
         Err(user_error("Failed to push some bookmarks"))
     }
-}
-
-fn print_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
-    if !stats.rejected.is_empty() {
-        writeln!(
-            ui.warning_default(),
-            "The following references unexpectedly moved on the remote:"
-        )?;
-        let mut formatter = ui.stderr_formatter();
-        for (reference, reason) in &stats.rejected {
-            write!(formatter, "  ")?;
-            write!(formatter.labeled("git_ref"), "{}", reference.as_symbol())?;
-            if let Some(r) = reason {
-                write!(formatter, " (reason: {r})")?;
-            }
-            writeln!(formatter)?;
-        }
-        drop(formatter);
-        writeln!(
-            ui.hint_default(),
-            "Try fetching from the remote, then make the bookmark point to where you want it to \
-             be, and push again.",
-        )?;
-    }
-    if !stats.remote_rejected.is_empty() {
-        writeln!(
-            ui.warning_default(),
-            "The remote rejected the following updates:"
-        )?;
-        let mut formatter = ui.stderr_formatter();
-        for (reference, reason) in &stats.remote_rejected {
-            write!(formatter, "  ")?;
-            write!(formatter.labeled("git_ref"), "{}", reference.as_symbol())?;
-            if let Some(r) = reason {
-                write!(formatter, " (reason: {r})")?;
-            }
-            writeln!(formatter)?;
-        }
-        drop(formatter);
-        writeln!(
-            ui.hint_default(),
-            "Try checking if you have permission to push to all the bookmarks."
-        )?;
-    }
-    if !stats.unexported_bookmarks.is_empty() {
-        writeln!(
-            ui.warning_default(),
-            "The following bookmarks couldn't be updated locally:"
-        )?;
-        let mut formatter = ui.stderr_formatter();
-        for (symbol, reason) in &stats.unexported_bookmarks {
-            write!(formatter, "  ")?;
-            write!(formatter.labeled("bookmark"), "{symbol}")?;
-            for err in iter::successors(Some(reason as &dyn error::Error), |err| err.source()) {
-                write!(formatter, ": {err}")?;
-            }
-            writeln!(formatter)?;
-        }
-    }
-    Ok(())
 }
 
 /// Validates that the commits that will be pushed are ready (have authorship
