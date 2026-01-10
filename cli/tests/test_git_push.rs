@@ -1983,6 +1983,98 @@ fn test_git_push_deleted_untracked() {
 }
 
 #[test]
+fn test_git_push_deleted_remote_conflict() {
+    let test_env = TestEnvironment::default();
+
+    // create origin
+    test_env.run_jj_in(".", ["git", "init", "origin"]).success();
+    let origin_dir = test_env.work_dir("origin");
+    let origin_git_repo_path = git_repo_dir_for_jj_repo(&origin_dir);
+    origin_dir
+        .run_jj(["describe", "-m=description 1"])
+        .success();
+    origin_dir
+        .run_jj(["bookmark", "create", "-r@", "my-bookmark"])
+        .success();
+    origin_dir.run_jj(["git", "export"]).success();
+
+    // clone without colocation
+    test_env
+        .run_jj_in(
+            ".",
+            [
+                "git",
+                "clone",
+                "--no-colocate",
+                "--config=remotes.origin.auto-track-bookmarks='*'",
+                origin_git_repo_path.to_str().unwrap(),
+                "local",
+            ],
+        )
+        .success();
+    let work_dir = test_env.work_dir("local");
+
+    // advance the origin, fetch it
+    let origin_dir = test_env.work_dir("origin");
+    origin_dir.run_jj(["new", "-m", "description 2"]).success();
+    origin_dir
+        .run_jj(["bookmark", "move", "my-bookmark", "--to", "@"])
+        .success();
+    origin_dir.run_jj(["git", "export"]).success();
+    work_dir.run_jj(["git", "fetch"]).success();
+
+    // adjust the origin again, fetch concurrently
+    let origin_dir = test_env.work_dir("origin");
+    origin_dir
+        .run_jj(["new", "root()", "-m", "description 3"])
+        .success();
+    origin_dir
+        .run_jj([
+            "bookmark",
+            "move",
+            "my-bookmark",
+            "--to",
+            "@",
+            "--allow-backwards",
+        ])
+        .success();
+    origin_dir.run_jj(["git", "export"]).success();
+    work_dir.run_jj(["git", "fetch", "--at-op=@-"]).success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    my-bookmark (conflicted):
+      - qpvuntsm/0 9b2e76de (hidden) (empty) description 1
+      + royxmykx d7d20286 (empty) description 2
+      + znkkpsqq 7b393945 (empty) description 3
+      @origin (ahead by 2 commits, behind by 1 commits) (conflicted):
+      - qpvuntsm/0 9b2e76de (hidden) (empty) description 1
+      + royxmykx/1 8a615f93 (hidden) (empty) description 2
+      + znkkpsqq 7b393945 (empty) description 3
+    [EOF]
+    ");
+
+    // fix the local conflict, unpushable remote conflict remains
+    work_dir
+        .run_jj(["bookmark", "delete", "my-bookmark"])
+        .success();
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    my-bookmark (deleted)
+      @origin (conflicted):
+      - qpvuntsm/0 9b2e76de (hidden) (empty) description 1
+      + royxmykx/1 8a615f93 (hidden) (empty) description 2
+      + znkkpsqq 7b393945 (empty) description 3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["git", "push", "--deleted"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Bookmark my-bookmark@origin is conflicted
+    Hint: Run `jj git fetch` to update the conflicted remote bookmark.
+    Nothing changed.
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_push_tracked_vs_all() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
