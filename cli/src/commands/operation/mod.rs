@@ -15,6 +15,7 @@
 mod abandon;
 mod diff;
 mod log;
+mod new;
 mod restore;
 pub mod revert;
 mod show;
@@ -35,6 +36,8 @@ use show::cmd_op_show;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
+use crate::commands::operation::new::OperationNewArgs;
+use crate::commands::operation::new::cmd_op_new;
 use crate::commands::renamed_cmd;
 use crate::ui::Ui;
 
@@ -49,6 +52,7 @@ pub enum OperationCommand {
     Abandon(OperationAbandonArgs),
     Diff(OperationDiffArgs),
     Log(OperationLogArgs),
+    New(OperationNewArgs),
     Restore(OperationRestoreArgs),
     Revert(OperationRevertArgs),
     Show(OperationShowArgs),
@@ -66,6 +70,7 @@ pub fn cmd_operation(
         OperationCommand::Abandon(args) => cmd_op_abandon(ui, command, args),
         OperationCommand::Diff(args) => cmd_op_diff(ui, command, args),
         OperationCommand::Log(args) => cmd_op_log(ui, command, args),
+        OperationCommand::New(args) => cmd_op_new(ui, command, args),
         OperationCommand::Restore(args) => cmd_op_restore(ui, command, args),
         OperationCommand::Revert(args) => cmd_op_revert(ui, command, args),
         OperationCommand::Show(args) => cmd_op_show(ui, command, args),
