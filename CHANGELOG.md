@@ -16,6 +16,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj git fetch` now shows details of abandoned commits (change IDs and
+  descriptions) by default, matching the `jj abandon` output format.
+  [#3081](https://github.com/jj-vcs/jj/issues/3081)
+
 * `jj git push --bookmark <name>` will now automatically track the bookmark if
   it isn't tracked with any remote already.
 

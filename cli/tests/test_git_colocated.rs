@@ -728,7 +728,9 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
     ------- stderr -------
     bookmark: B_to_delete@origin [deleted] untracked
     bookmark: C_to_move@origin   [updated] tracked
-    Abandoned 2 commits that are no longer reachable.
+    Abandoned 2 commits that are no longer reachable:
+      royxmykx/1 dd905bab C_to_move@git | (divergent) (empty) original C
+      zsuskuln b2ea51c0 B_to_delete@git | (empty) B_to_delete
     [EOF]
     ");
     // "original C" and "B_to_delete" are abandoned, as the corresponding bookmarks

@@ -27,6 +27,7 @@ use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jj_lib::commit::Commit;
 use jj_lib::fmt_util::binary_prefix;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
@@ -45,6 +46,8 @@ use jj_lib::workspace::Workspace;
 use unicode_width::UnicodeWidthStr as _;
 
 use crate::cleanup_guard::CleanupGuard;
+use crate::cli_util::WorkspaceCommandTransaction;
+use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
 use crate::command_error::user_error;
@@ -209,41 +212,50 @@ pub fn load_git_import_options(
 
 pub fn print_git_import_stats(
     ui: &Ui,
-    repo: &dyn Repo,
+    tx: &WorkspaceCommandTransaction<'_>,
     stats: &GitImportStats,
-    show_ref_stats: bool,
 ) -> Result<(), CommandError> {
     let Some(mut formatter) = ui.status_formatter() else {
         return Ok(());
     };
-    if show_ref_stats {
-        for (kind, changes) in [
-            (GitRefKind::Bookmark, &stats.changed_remote_bookmarks),
-            (GitRefKind::Tag, &stats.changed_remote_tags),
-        ] {
-            let refs_stats = changes
-                .iter()
-                .map(|(symbol, (remote_ref, ref_target))| {
-                    RefStatus::new(kind, symbol.as_ref(), remote_ref, ref_target, repo)
-                })
-                .collect_vec();
-            let Some(max_width) = refs_stats.iter().map(|x| x.symbol.width()).max() else {
-                continue;
-            };
-            for status in refs_stats {
-                status.output(max_width, &mut *formatter)?;
-            }
+    for (kind, changes) in [
+        (GitRefKind::Bookmark, &stats.changed_remote_bookmarks),
+        (GitRefKind::Tag, &stats.changed_remote_tags),
+    ] {
+        let refs_stats = changes
+            .iter()
+            .map(|(symbol, (remote_ref, ref_target))| {
+                RefStatus::new(kind, symbol.as_ref(), remote_ref, ref_target, tx.repo())
+            })
+            .collect_vec();
+        let Some(max_width) = refs_stats.iter().map(|x| x.symbol.width()).max() else {
+            continue;
+        };
+        for status in refs_stats {
+            status.output(max_width, &mut *formatter)?;
         }
     }
 
     if !stats.abandoned_commits.is_empty() {
         writeln!(
             formatter,
-            "Abandoned {} commits that are no longer reachable.",
+            "Abandoned {} commits that are no longer reachable:",
             stats.abandoned_commits.len()
         )?;
+        let abandoned_commits: Vec<Commit> = stats
+            .abandoned_commits
+            .iter()
+            .map(|id| tx.repo().store().get_commit(id))
+            .try_collect()?;
+        let template = tx.commit_summary_template();
+        print_updated_commits(&mut *formatter, &template, &abandoned_commits)?;
     }
 
+    print_failed_git_import(ui, stats)?;
+    Ok(())
+}
+
+fn print_failed_git_import(ui: &Ui, stats: &GitImportStats) -> Result<(), CommandError> {
     if !stats.failed_ref_names.is_empty() {
         writeln!(ui.warning_default(), "Failed to import some Git refs:")?;
         let mut formatter = ui.stderr_formatter();
@@ -267,7 +279,22 @@ pub fn print_git_import_stats(
             name = git::REMOTE_NAME_FOR_LOCAL_GIT_REPO.as_symbol(),
         )?;
     }
+    Ok(())
+}
 
+/// Prints only the summary of git import stats (abandoned count, failed refs).
+/// Use this when a WorkspaceCommandTransaction is not available.
+pub fn print_git_import_stats_summary(ui: &Ui, stats: &GitImportStats) -> Result<(), CommandError> {
+    if !stats.abandoned_commits.is_empty()
+        && let Some(mut formatter) = ui.status_formatter()
+    {
+        writeln!(
+            formatter,
+            "Abandoned {} commits that are no longer reachable.",
+            stats.abandoned_commits.len()
+        )?;
+    }
+    print_failed_git_import(ui, stats)?;
     Ok(())
 }
 

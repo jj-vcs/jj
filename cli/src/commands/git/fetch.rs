@@ -180,7 +180,8 @@ pub fn cmd_git_fetch(
     }
 
     let import_stats = git_fetch.import_refs()?;
-    print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
+    print_git_import_stats(ui, &tx, &import_stats)?;
+
     if let Some(bookmark_expr) = &common_bookmark_expr {
         warn_if_branches_not_found(ui, &tx, bookmark_expr, &matching_remotes)?;
     }

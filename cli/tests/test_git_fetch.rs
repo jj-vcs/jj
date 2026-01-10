@@ -872,7 +872,9 @@ fn test_git_fetch_all() {
     bookmark: a2@origin     [updated] tracked
     bookmark: b@origin      [updated] tracked
     bookmark: trunk2@origin [new] tracked
-    Abandoned 2 commits that are no longer reachable.
+    Abandoned 2 commits that are no longer reachable:
+      yqosqzyt/1 d4d535f1 (divergent) a2
+      mzvwutvl/1 c8303692 (divergent) a1
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&target_dir), @r"
@@ -1060,7 +1062,8 @@ fn test_git_fetch_some_of_many_bookmarks() {
     ------- stderr -------
     bookmark: a1@origin [updated] tracked
     bookmark: b@origin  [updated] tracked
-    Abandoned 1 commits that are no longer reachable.
+    Abandoned 1 commits that are no longer reachable:
+      mzvwutvl/1 c8303692 (divergent) a1
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -1098,7 +1101,8 @@ fn test_git_fetch_some_of_many_bookmarks() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     bookmark: a2@origin [updated] tracked
-    Abandoned 1 commits that are no longer reachable.
+    Abandoned 1 commits that are no longer reachable:
+      yqosqzyt/1 d4d535f1 (divergent) a2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -1652,7 +1656,8 @@ fn test_git_fetch_removed_bookmark() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     bookmark: a2@origin [deleted] untracked
-    Abandoned 1 commits that are no longer reachable.
+    Abandoned 1 commits that are no longer reachable:
+      yqosqzyt d4d535f1 a2
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&target_dir), @r#"
@@ -1735,7 +1740,8 @@ fn test_git_fetch_removed_parent_bookmark() {
     ------- stderr -------
     bookmark: a1@origin     [deleted] untracked
     bookmark: trunk1@origin [deleted] untracked
-    Abandoned 1 commits that are no longer reachable.
+    Abandoned 1 commits that are no longer reachable:
+      mzvwutvl c8303692 a1
     Warning: No matching branches found on any specified/configured remote: master
     [EOF]
     ");
