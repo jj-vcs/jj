@@ -16,11 +16,14 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
+use itertools::Itertools as _;
 use jj_lib::repo::Repo as _;
+use jj_lib::revset::RevsetExpression;
 use jj_lib::str_util::StringExpression;
 
 use super::warn_unmatched_local_tags;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::RevisionArg;
 use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::commit_ref_list;
@@ -80,6 +83,13 @@ pub struct TagListArgs {
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     pub names: Option<Vec<String>>,
 
+    /// Show tags whose local targets are in the given revisions
+    ///
+    /// Note that `-r deleted_tag` will not work since `deleted_tag` wouldn't
+    /// have a local target.
+    #[arg(long, short, value_name = "REVSETS")]
+    revisions: Option<Vec<RevisionArg>>,
+
     /// Render each tag using the given template
     ///
     /// All 0-argument methods of the [`CommitRef` type] are available as
@@ -116,9 +126,21 @@ pub fn cmd_tag_list(
     let repo = workspace_command.repo();
     let view = repo.view();
 
-    let name_expr = match &args.names {
-        Some(texts) => parse_union_name_patterns(ui, texts)?,
-        None => StringExpression::all(),
+    // Like cmd_git_push(), names and revisions are OR-ed.
+    let name_expr = match (&args.names, &args.revisions) {
+        (Some(texts), _) => parse_union_name_patterns(ui, texts)?,
+        (None, Some(_)) => StringExpression::none(),
+        (None, None) => StringExpression::all(),
+    };
+    let matched_local_targets: HashSet<_> = if let Some(revisions) = &args.revisions {
+        // Match against local targets only, which is consistent with "jj git push".
+        let mut expression = workspace_command.parse_union_revsets(ui, revisions)?;
+        // Intersects with the set of local tag targets to minimize the lookup
+        // space.
+        expression.intersect_with(&RevsetExpression::tags(StringExpression::all()));
+        expression.evaluate_to_commit_ids()?.try_collect()?
+    } else {
+        HashSet::new()
     };
     let ignored_tracked_remote = default_ignored_remote_name(repo.store());
     // --tracked implies --remote=~git by default
@@ -149,7 +171,7 @@ pub fn cmd_tag_list(
     let predicates = RefFilterPredicates {
         name_matcher: name_expr.to_matcher(),
         remote_matcher: remote_expr.to_matcher(),
-        matched_local_targets: HashSet::new(), // TODO: add -rREVSET (#7930)
+        matched_local_targets,
         conflicted: args.conflicted,
         include_local_only: !args.tracked && args.remotes.is_none(),
         include_synced_remotes: args.tracked || args.all_remotes || args.remotes.is_some(),

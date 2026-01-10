@@ -297,6 +297,26 @@ fn test_tag_list() {
     [EOF]
     ");
 
+    // Filter by revset
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-rsubject(commit1)"]), @"
+    test_tag: rlvkpnrz 893e67dc (empty) commit1
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-rsubject(commit2)"]), @"
+    conflicted_tag (conflicted):
+      - rlvkpnrz 893e67dc (empty) commit1
+      + zsuskuln 76abdd20 (empty) commit2
+      + royxmykx 13c4e819 (empty) commit3
+    test_tag2: zsuskuln 76abdd20 (empty) commit2
+    [EOF]
+    ");
+    // Filter by revset and name, which aren't intersected
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-rsubject(commit1)", "test_tag2"]), @"
+    test_tag: rlvkpnrz 893e67dc (empty) commit1
+    test_tag2: zsuskuln 76abdd20 (empty) commit2
+    [EOF]
+    ");
+
     // Unmatched exact name pattern should be warned. "test_tag2" exists, but
     // isn't included in the match.
     insta::assert_snapshot!(

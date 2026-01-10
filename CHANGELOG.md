@@ -35,6 +35,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   locally. Setting it to `"*"` is now the closest replacement for the deprecated
   `git.push-new-bookmarks` option.
 
+* `jj tag list` can now be filtered by revset.
+
 ### Fixed bugs
 
 * `jj git push` now ensures that tracked remote bookmarks are updated even if
