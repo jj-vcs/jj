@@ -1045,6 +1045,22 @@ fn test_git_push_changes() {
     [EOF]
     [exit status: 1]
     ");
+
+    // Generate a bookmark name with non-utf8 content
+    work_dir.write_file("file", vec![b'\xff']);
+    let output = work_dir.run_jj([
+        "git",
+        "push",
+        "--config=templates.git_push_bookmark=self.diff().git()",
+        "--change=@",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Invalid character in bookmark name
+    Caused by: invalid utf-8 sequence of 1 bytes from index 138
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
