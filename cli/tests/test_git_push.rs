@@ -85,6 +85,54 @@ fn test_git_push_nothing() {
 }
 
 #[test]
+fn test_git_push_default_remote_selection() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+
+    // add a second remote (actually the same)
+    let other_remote_path = test_env
+        .env_root()
+        .join("origin")
+        .join(".jj")
+        .join("repo")
+        .join("store")
+        .join("git");
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "other",
+            other_remote_path.to_str().unwrap(),
+        ])
+        .success();
+
+    // select remote based on git.push config
+    let output = work_dir.run_jj(["git", "push", "--config=git.push=other", "-b", "bookmark1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Refusing to create new remote bookmark bookmark1@other
+    Hint: Run `jj bookmark track bookmark1 --remote=other` and try again.
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // remove origin, should select other (with hint)
+    work_dir
+        .run_jj(["git", "remote", "remove", "origin"])
+        .success();
+    let output = work_dir.run_jj(["git", "push", "-b", "bookmark1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Hint: Pushing to the only existing remote: other
+    Changes to push to other:
+      Add bookmark bookmark1 to 9b2e76de3920
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_push_current_bookmark() {
     let test_env = TestEnvironment::default();
     set_up(&test_env);
