@@ -78,6 +78,23 @@ pub struct WorkspaceAddArgs {
     /// How to handle sparse patterns when creating a new workspace.
     #[arg(long, value_enum, default_value_t = SparseInheritance::Copy)]
     sparse_patterns: SparseInheritance,
+
+    /// Store the path to the repository as a relative path
+    ///
+    /// This is useful when the workspace will be used inside a container or
+    /// when the workspace and repository may be moved together.
+    ///
+    /// This can be set by default via the `workspace.use-relative-paths`
+    /// config option.
+    #[arg(long, conflicts_with = "absolute")]
+    relative: bool,
+
+    /// Store the path to the repository as an absolute path
+    ///
+    /// This is the default behavior unless `workspace.use-relative-paths` is
+    /// set to true.
+    #[arg(long, conflicts_with = "relative")]
+    absolute: bool,
 }
 
 #[instrument(skip_all)]
@@ -118,6 +135,16 @@ pub fn cmd_workspace_add(
 
     let working_copy_factory = command.get_working_copy_factory()?;
     let repo_path = old_workspace_command.repo_path();
+
+    let use_relative_path = if command
+        .settings()
+        .get_bool("workspace.use-relative-paths")?
+    {
+        !args.absolute
+    } else {
+        args.relative
+    };
+
     // If we add per-workspace configuration, we'll need to reload settings for
     // the new workspace.
     let (new_workspace, repo) = Workspace::init_workspace_with_existing_repo(
@@ -126,6 +153,7 @@ pub fn cmd_workspace_add(
         repo,
         working_copy_factory,
         workspace_name.clone(),
+        use_relative_path,
     )?;
     writeln!(
         ui.status(),

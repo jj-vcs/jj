@@ -16,6 +16,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj workspace add` now supports `--relative` and `--absolute` flags to control
+  whether the path to the repository is stored as a relative or absolute path.
+  The default can be configured via `workspace.use-relative-paths`. Relative
+  paths enable workspaces to work inside containers or when moved together.
+
 ### Fixed bugs
 
 * `jj git push` now ensures that tracked remote bookmarks are updated even if

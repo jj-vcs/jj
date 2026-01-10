@@ -512,6 +512,17 @@
                 }
             }
         },
+        "workspace": {
+            "type": "object",
+            "description": "Settings for workspace behavior",
+            "properties": {
+                "use-relative-paths": {
+                    "type": "boolean",
+                    "description": "Whether to store workspace-to-repo paths as relative paths. Useful for workspaces inside containers or when workspaces may be moved together.",
+                    "default": false
+                }
+            }
+        },
         "remotes": {
             "type": "object",
             "description": "Settings related to specific remotes",

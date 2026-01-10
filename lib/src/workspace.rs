@@ -354,12 +354,19 @@ impl Workspace {
         repo: &Arc<ReadonlyRepo>,
         working_copy_factory: &dyn WorkingCopyFactory,
         workspace_name: WorkspaceNameBuf,
+        use_relative_path: bool,
     ) -> Result<(Self, Arc<ReadonlyRepo>), WorkspaceInitError> {
         let jj_dir = create_jj_dir(workspace_root)?;
 
         let repo_dir = dunce::canonicalize(repo_path).context(repo_path)?;
+        let path_to_store = if use_relative_path {
+            let jj_dir_abs = dunce::canonicalize(&jj_dir).context(&jj_dir)?;
+            file_util::relative_path(&jj_dir_abs, &repo_dir)
+        } else {
+            repo_dir.clone()
+        };
         let repo_dir_bytes =
-            file_util::path_to_bytes(&repo_dir).map_err(WorkspaceInitError::EncodeRepoPath)?;
+            file_util::path_to_bytes(&path_to_store).map_err(WorkspaceInitError::EncodeRepoPath)?;
         let repo_file_path = jj_dir.join("repo");
         fs::write(&repo_file_path, repo_dir_bytes).context(&repo_file_path)?;
 

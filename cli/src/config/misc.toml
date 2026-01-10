@@ -27,6 +27,9 @@ push-new-bookmarks = false
 sign-on-push = false
 track-default-bookmark-on-clone = true
 
+[workspace]
+use-relative-paths = false
+
 [ui]
 always-allow-large-revsets = true
 color = "auto"

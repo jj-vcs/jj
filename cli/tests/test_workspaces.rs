@@ -1466,6 +1466,110 @@ fn test_workspaces_root() {
     ");
 }
 
+/// Test relative path support for workspaces
+#[test]
+fn test_workspaces_relative_path() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir
+        .run_jj(["workspace", "add", "--relative", "../secondary"])
+        .success();
+
+    let repo_file = test_env.env_root().join("secondary/.jj/repo");
+    let repo_path_bytes = std::fs::read(&repo_file).unwrap();
+    let repo_path = String::from_utf8(repo_path_bytes).unwrap();
+    assert!(
+        !repo_path.starts_with('/'),
+        "Expected relative path, got: {repo_path}"
+    );
+    assert!(
+        repo_path.contains(".."),
+        "Expected path with parent reference, got: {repo_path}"
+    );
+
+    let secondary_dir = test_env.work_dir("secondary");
+    let output = secondary_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @r"
+    The working copy has no changes.
+    Working copy  (@) : uuqppmxq 94f41578 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = main_dir.run_jj(["workspace", "list"]);
+    insta::assert_snapshot!(output, @r"
+    default: qpvuntsm e8849ae1 (empty) (no description set)
+    secondary: uuqppmxq 94f41578 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = secondary_dir.run_jj(["workspace", "root"]);
+    insta::assert_snapshot!(output, @r"
+    $TEST_ENV/secondary
+    [EOF]
+    ");
+
+    let secondary_subdir = secondary_dir.create_dir("subdir");
+    let output = secondary_subdir.run_jj(["workspace", "root"]);
+    insta::assert_snapshot!(output, @r"
+    $TEST_ENV/secondary
+    [EOF]
+    ");
+}
+
+/// Test that --absolute overrides workspace.use-relative-paths config
+#[test]
+fn test_workspaces_absolute_flag_overrides_config() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("workspace.use-relative-paths = true\n");
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir
+        .run_jj(["workspace", "add", "--absolute", "../secondary"])
+        .success();
+
+    let repo_file = test_env.env_root().join("secondary/.jj/repo");
+    let repo_path_bytes = std::fs::read(&repo_file).unwrap();
+    let repo_path = String::from_utf8(repo_path_bytes).unwrap();
+    assert!(
+        repo_path.starts_with('/') || repo_path.contains(":\\"),
+        "Expected absolute path, got: {repo_path}"
+    );
+}
+
+/// Test workspace.use-relative-paths config option
+#[test]
+fn test_workspaces_relative_paths_config() {
+    let test_env = TestEnvironment::default();
+    test_env.add_config("workspace.use-relative-paths = true\n");
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    let repo_file = test_env.env_root().join("secondary/.jj/repo");
+    let repo_path_bytes = std::fs::read(&repo_file).unwrap();
+    let repo_path = String::from_utf8(repo_path_bytes).unwrap();
+    assert!(
+        !repo_path.starts_with('/'),
+        "Expected relative path, got: {repo_path}"
+    );
+
+    let secondary_dir = test_env.work_dir("secondary");
+    let output = secondary_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @r"
+    The working copy has no changes.
+    Working copy  (@) : uuqppmxq 94f41578 (empty) (no description set)
+    Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+}
+
 #[test]
 fn test_debug_snapshot() {
     let test_env = TestEnvironment::default();

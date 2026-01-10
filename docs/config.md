@@ -1785,6 +1785,25 @@ and want to avoid manually updating each one.
 For more information on stale working copies, see the [working copy
 documentation](working-copy.md#stale-working-copy).
 
+## Workspace settings
+
+### Relative paths for workspaces
+
+By default, `jj workspace add` stores an absolute path to the repository in the
+new workspace's `.jj/repo` file. This can cause problems when using workspaces
+inside containers (e.g., Docker) or when moving workspaces and repositories
+together.
+
+You can configure `jj` to use relative paths by default:
+
+```toml
+[workspace]
+use-relative-paths = true
+```
+
+Alternatively, use the `--relative` or `--absolute` flags with `jj workspace add`
+to override the default for a single workspace.
+
 ## Working copy settings
 
 ### EOL conversion settings
