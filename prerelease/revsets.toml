@@ -5,17 +5,16 @@
 fix = "reachable(@, mutable())"
 simplify-parents = "reachable(@, mutable())"
 # log revset is also used as the default short-prefixes. If it failed to
-# evaluate, lengthy warning messages would be printed. Use present(expr) to
-# suppress symbol resolution error.
-log = "present(@) | ancestors(immutable_heads().., 2) | present(trunk())"
+# evaluate, lengthy warning messages would be printed. Use present(expr) if
+# symbols in expr might not always exist.
+log = "present(@) | ancestors(immutable_heads().., 2) | trunk()"
 # Emit the working-copy branch first, which is usually most interesting.
 # This also helps stabilize output order.
 log-graph-prioritize = "present(@)"
 sign = "reachable(@, mutable())"
 
 [revset-aliases]
-# trunk() can be overridden as '<bookmark>@<remote>'. Use present(trunk()) if
-# symbol resolution error should be suppressed.
+# trunk() can be overridden as '<bookmark>@<remote>'.
 'trunk()' = '''
 latest(
   remote_bookmarks(exact:"main", exact:"origin") |
@@ -29,8 +28,8 @@ latest(
 '''
 
 # If immutable_heads() failed to evaluate, many jj commands wouldn't work. Use
-# present(expr) to suppress symbol resolution error.
-'builtin_immutable_heads()' = 'present(trunk()) | tags() | untracked_remote_bookmarks()'
+# present(expr) if symbols in expr might not always exist.
+'builtin_immutable_heads()' = 'trunk() | tags() | untracked_remote_bookmarks()'
 'immutable_heads()' = 'builtin_immutable_heads()'
 'immutable()' = '::(immutable_heads() | root())'
 'mutable()' = '~immutable()'

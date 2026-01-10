@@ -4091,9 +4091,9 @@ page</a>.</p>
 <h3 id="set-of-immutable-commits">Set of immutable commits<a class="headerlink" href="#set-of-immutable-commits" title="Permanent link">&para;</a></h3>
 <p>You can configure the set of immutable commits via
 <code>revset-aliases."immutable_heads()"</code>. The default set of immutable heads is
-<code>builtin_immutable_heads()</code>, which in turn is defined as
-<code>present(trunk()) | tags() | untracked_remote_bookmarks()</code>. For example, to
-also consider the <code>release@origin</code> bookmark immutable:</p>
+<code>builtin_immutable_heads()</code>, which in turn is defined as <code>trunk() | tags() |
+untracked_remote_bookmarks()</code>. For example, to also consider the
+<code>release@origin</code> bookmark immutable:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[revset-aliases]</span>
 <span class="s2">&quot;immutable_heads()&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;builtin_immutable_heads() | release@origin&quot;</span>
 </code></pre></div>
@@ -4147,7 +4147,7 @@ you can add this to your config:</p>
 <span class="n">log</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;main@origin..&quot;</span>
 </code></pre></div>
 <p>The default value for <code>revsets.log</code> is
-<code>'present(@) | ancestors(immutable_heads().., 2) | present(trunk())'</code>.</p>
+<code>'present(@) | ancestors(immutable_heads().., 2) | trunk()'</code>.</p>
 <h3 id="prioritize-revsets-in-the-log-over">Prioritize Revsets in the Log over @<a class="headerlink" href="#prioritize-revsets-in-the-log-over" title="Permanent link">&para;</a></h3>
 <p>In some situations the default graph can be hard to read, for example when working with big merges.
 To improve this behavior you can configure which revset in the <code>jj log</code> graph is displayed on
