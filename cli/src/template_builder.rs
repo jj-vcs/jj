@@ -39,6 +39,7 @@ use crate::template_parser::ExpressionKind;
 use crate::template_parser::ExpressionNode;
 use crate::template_parser::FunctionCallNode;
 use crate::template_parser::LambdaNode;
+use crate::template_parser::ObjectEntry;
 use crate::template_parser::TemplateAliasesMap;
 use crate::template_parser::TemplateDiagnostics;
 use crate::template_parser::TemplateParseError;
@@ -52,6 +53,8 @@ use crate::templater::ConcatTemplate;
 use crate::templater::ConditionalTemplate;
 use crate::templater::Email;
 use crate::templater::JoinTemplate;
+use crate::templater::JsonArrayProperty;
+use crate::templater::JsonObjectProperty;
 use crate::templater::LabelTemplate;
 use crate::templater::ListPropertyTemplate;
 use crate::templater::ListTemplate;
@@ -173,6 +176,7 @@ where
 {
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self;
     fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self;
+    fn wrap_json_value(property: BoxedSerializeProperty<'a>) -> Self;
 
     /// Type name of the property output.
     fn type_name(&self) -> &'static str;
@@ -217,6 +221,8 @@ pub enum CoreTemplatePropertyKind<'a> {
     // caller expects a Template, not a TemplateProperty of Template output.
     Template(Box<dyn Template + 'a>),
     ListTemplate(Box<dyn ListTemplate + 'a>),
+    /// JSON value constructed from object/array literals for use with `json()`.
+    JsonValue(BoxedSerializeProperty<'a>),
 }
 
 /// Implements `WrapTemplateProperty<type>` for core property types.
@@ -254,6 +260,10 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         Self::ListTemplate(template)
     }
 
+    fn wrap_json_value(property: BoxedSerializeProperty<'a>) -> Self {
+        Self::JsonValue(property)
+    }
+
     fn type_name(&self) -> &'static str {
         match self {
             Self::String(_) => "String",
@@ -269,6 +279,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::TimestampRange(_) => "TimestampRange",
             Self::Template(_) => "Template",
             Self::ListTemplate(_) => "ListTemplate",
+            Self::JsonValue(_) => "JsonValue",
         }
     }
 
@@ -290,6 +301,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             // unclear whether ListTemplate should behave as a "list" or a "template".
             Self::Template(_) => None,
             Self::ListTemplate(_) => None,
+            Self::JsonValue(_) => None,
         }
     }
 
@@ -328,6 +340,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::TimestampRange(property) => Some(property.into_serialize()),
             Self::Template(_) => None,
             Self::ListTemplate(_) => None,
+            Self::JsonValue(property) => Some(property),
         }
     }
 
@@ -346,6 +359,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::TimestampRange(property) => Some(property.into_template()),
             Self::Template(template) => Some(template),
             Self::ListTemplate(template) => Some(template),
+            // JsonValue cannot be rendered as a template; wrap with json() to serialize
+            Self::JsonValue(_) => None,
         }
     }
 
@@ -391,6 +406,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::TimestampRange(_), _) => None,
             (Self::Template(_), _) => None,
             (Self::ListTemplate(_), _) => None,
+            (Self::JsonValue(_), _) => None,
         }
     }
 
@@ -421,6 +437,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::TimestampRange(_), _) => None,
             (Self::Template(_), _) => None,
             (Self::ListTemplate(_), _) => None,
+            (Self::JsonValue(_), _) => None,
         }
     }
 }
@@ -658,6 +675,17 @@ where
                 let table = &self.list_template_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, template, function)
+            }
+            CoreTemplatePropertyKind::JsonValue(_) => {
+                // JsonValue can only be used with json(), no methods available
+                Err(TemplateParseError::with_span(
+                    TemplateParseErrorKind::NoSuchMethod {
+                        type_name: type_name.to_owned(),
+                        name: function.name.to_owned(),
+                        candidates: vec![],
+                    },
+                    function.name_span,
+                ))
             }
         }
     }
@@ -2014,6 +2042,63 @@ where
     Box::new(template)
 }
 
+/// Builds a JSON object literal expression from parsed object entries.
+///
+/// Each entry's value must be serializable. The resulting `JsonValue` can only
+/// be used with the `json()` function. Duplicate keys emit a warning
+/// diagnostic.
+fn build_object_literal<'a, L: TemplateLanguage<'a> + ?Sized>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<L::Property>,
+    entries: &[ObjectEntry],
+) -> TemplateParseResult<Expression<L::Property>> {
+    let mut seen_keys: HashMap<&str, pest::Span<'_>> = HashMap::new();
+    let mut built_entries = Vec::new();
+    for entry in entries {
+        if let Some(&first_span) = seen_keys.get(entry.key.as_str()) {
+            let message = format!(
+                r#"Duplicate key "{}"; later value will overwrite earlier one at {}:{}"#,
+                entry.key,
+                first_span.start_pos().line_col().0,
+                first_span.start_pos().line_col().1,
+            );
+            diagnostics.add_warning(TemplateParseError::expression(message, entry.key_span));
+        } else {
+            seen_keys.insert(&entry.key, entry.key_span);
+        }
+        let value = expect_serialize_expression(language, diagnostics, build_ctx, &entry.value)?;
+        built_entries.push((entry.key.clone(), value));
+    }
+
+    let property = Box::new(JsonObjectProperty::new(built_entries));
+    Ok(Expression::unlabeled(L::Property::wrap_json_value(
+        property,
+    )))
+}
+
+/// Builds a JSON array literal expression from parsed elements.
+///
+/// Each element must be serializable. The resulting `JsonValue` can only
+/// be used with the `json()` function.
+fn build_array_literal<'a, L: TemplateLanguage<'a> + ?Sized>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<L::Property>,
+    elements: &[ExpressionNode],
+) -> TemplateParseResult<Expression<L::Property>> {
+    let mut built_elements = Vec::new();
+    for elem in elements {
+        let value = expect_serialize_expression(language, diagnostics, build_ctx, elem)?;
+        built_elements.push(value);
+    }
+
+    let property = Box::new(JsonArrayProperty::new(built_elements));
+    Ok(Expression::unlabeled(L::Property::wrap_json_value(
+        property,
+    )))
+}
+
 /// Builds intermediate expression tree from AST nodes.
 pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     language: &L,
@@ -2101,6 +2186,12 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
             "Lambda cannot be defined here",
             node.span,
         )),
+        ExpressionKind::ObjectLiteral(entries) => {
+            build_object_literal(language, diagnostics, build_ctx, entries)
+        }
+        ExpressionKind::ArrayLiteral(elements) => {
+            build_array_literal(language, diagnostics, build_ctx, elements)
+        }
         ExpressionKind::AliasExpanded(..) => unreachable!(),
     })
 }
@@ -2326,12 +2417,22 @@ mod tests {
         }
 
         fn parse(&self, template: &str) -> TemplateParseResult<TemplateRenderer<'static, Context>> {
-            parse(
+            self.parse_with_diagnostics(template).map(|(t, _)| t)
+        }
+
+        fn parse_with_diagnostics(
+            &self,
+            template: &str,
+        ) -> TemplateParseResult<(TemplateRenderer<'static, Context>, TemplateDiagnostics)>
+        {
+            let mut diagnostics = TemplateDiagnostics::new();
+            let result = parse(
                 &self.language,
-                &mut TemplateDiagnostics::new(),
+                &mut diagnostics,
                 template,
                 &self.aliases_map,
-            )
+            )?;
+            Ok((result, diagnostics))
         }
 
         fn parse_err(&self, template: &str) -> String {
@@ -2351,6 +2452,17 @@ mod tests {
             template.format(&Context, &mut formatter).unwrap();
             drop(formatter);
             String::from_utf8(output).unwrap()
+        }
+
+        fn render_ok_with_warnings(&self, template: &str) -> (String, Vec<String>) {
+            let (template, diagnostics) = self.parse_with_diagnostics(template).unwrap();
+            let mut output = Vec::new();
+            let mut formatter =
+                ColorFormatter::new(&mut output, self.color_rules.clone().into(), false);
+            template.format(&Context, &mut formatter).unwrap();
+            drop(formatter);
+            let warnings = diagnostics.iter().map(|d| d.to_string()).collect_vec();
+            (String::from_utf8(output).unwrap(), warnings)
         }
     }
 
@@ -3754,6 +3866,127 @@ mod tests {
           |
           = Expected expression of type `Serialize`, but actual type is `ListTemplate`
         ");
+
+        // Object literals
+        insta::assert_snapshot!(env.render_ok(r#"json({})"#), @"{}");
+        insta::assert_snapshot!(env.render_ok(r#"json({"foo": "bar"})"#), @r#"{"foo":"bar"}"#);
+        insta::assert_snapshot!(env.render_ok(r#"json({"a": 1, "b": 2,})"#), @r#"{"a":1,"b":2}"#); // trailing comma
+
+        // Key ordering is preserved (insertion order)
+        insta::assert_snapshot!(
+            env.render_ok(r#"json({"z": 1, "a": 2, "m": 3})"#),
+            @r#"{"z":1,"a":2,"m":3}"#
+        );
+
+        // Array literals
+        insta::assert_snapshot!(env.render_ok(r#"json([])"#), @"[]");
+        insta::assert_snapshot!(env.render_ok(r#"json(["a", "b", "c"])"#), @r#"["a","b","c"]"#);
+        insta::assert_snapshot!(env.render_ok(r#"json([1, 2, 3])"#), @"[1,2,3]");
+        insta::assert_snapshot!(env.render_ok(r#"json([1, 2,])"#), @"[1,2]"); // trailing comma
+
+        // Nested structures
+        insta::assert_snapshot!(
+            env.render_ok(r#"json({"arr": [1, 2], "obj": {"nested": true}})"#),
+            @r#"{"arr":[1,2],"obj":{"nested":true}}"#
+        );
+        insta::assert_snapshot!(
+            env.render_ok(r#"json([{"a": 1}, {"b": 2}])"#),
+            @r#"[{"a":1},{"b":2}]"#
+        );
+
+        // Deeply nested structures (3+ levels)
+        insta::assert_snapshot!(
+            env.render_ok(r#"json({"l1": {"l2": {"l3": {"l4": "deep"}}}})"#),
+            @r#"{"l1":{"l2":{"l3":{"l4":"deep"}}}}"#
+        );
+        insta::assert_snapshot!(
+            env.render_ok(r#"json([[["deeply", "nested"]]])"#),
+            @r#"[[["deeply","nested"]]]"#
+        );
+
+        // Literals with expressions
+        insta::assert_snapshot!(
+            env.render_ok(r#"json({"list": string_list, "sig": signature})"#),
+            @r#"{"list":["foo","bar"],"sig":{"email":"test.user@example.com","name":"Test User","timestamp":"1970-01-01T00:00:00Z"}}"#
+        );
+
+        // Expressions in values (must be serializable types, not Templates)
+        insta::assert_snapshot!(
+            env.render_ok(r#"json({"math": 1 + 2})"#),
+            @r#"{"math":3}"#
+        );
+        insta::assert_snapshot!(
+            env.render_ok(r#"json({"neg": -5, "product": 3 * 4})"#),
+            @r#"{"neg":-5,"product":12}"#
+        );
+        insta::assert_snapshot!(
+            env.render_ok(r#"json([1 + 1, 2 * 2, 10 / 2])"#),
+            @"[2,4,5]"
+        );
+        insta::assert_snapshot!(
+            env.render_ok(r#"json({"upper": "hello".upper()})"#),
+            @r#"{"upper":"HELLO"}"#
+        );
+
+        // Duplicate keys (last value wins, emits warning)
+        let (output, warnings) = env.render_ok_with_warnings(r#"json({"a": 1, "a": 2})"#);
+        insta::assert_snapshot!(output, @r#"{"a":2}"#);
+        insta::assert_snapshot!(warnings.join("\n"), @r###"
+         --> 1:15
+          |
+        1 | json({"a": 1, "a": 2})
+          |               ^-^
+          |
+          = Duplicate key "a"; later value will overwrite earlier one at 1:7
+        "###);
+
+        // Empty string as key
+        insta::assert_snapshot!(
+            env.render_ok(r#"json({"": "empty key"})"#),
+            @r#"{"":"empty key"}"#
+        );
+
+        // Unicode keys
+        insta::assert_snapshot!(
+            env.render_ok(r#"json({"日本語": "value", "émoji": "🎉"})"#),
+            @r#"{"日本語":"value","émoji":"🎉"}"#
+        );
+
+        // Error: object/array literal used without json()
+        insta::assert_snapshot!(env.parse_err(r#"{"key": "value"}"#), @r###"
+         --> 1:1
+          |
+        1 | {"key": "value"}
+          | ^--------------^
+          |
+          = Expected expression of type `Template`, but actual type is `JsonValue`
+        "###);
+        insta::assert_snapshot!(env.parse_err(r#"[1, 2, 3]"#), @r###"
+         --> 1:1
+          |
+        1 | [1, 2, 3]
+          | ^-------^
+          |
+          = Expected expression of type `Template`, but actual type is `JsonValue`
+        "###);
+
+        // Error: method calls on object/array literals
+        insta::assert_snapshot!(env.parse_err(r#"{"a": 1}.keys()"#), @r###"
+         --> 1:10
+          |
+        1 | {"a": 1}.keys()
+          |          ^--^
+          |
+          = Method `keys` doesn't exist for type `JsonValue`
+        "###);
+        insta::assert_snapshot!(env.parse_err(r#"[1, 2].len()"#), @r###"
+         --> 1:8
+          |
+        1 | [1, 2].len()
+          |        ^-^
+          |
+          = Method `len` doesn't exist for type `JsonValue`
+        "###);
     }
 
     #[test]
