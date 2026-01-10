@@ -160,6 +160,14 @@ fn do_init(
     let colocated_git_repo_path = workspace_root.join(".git");
     let init_mode = if colocate {
         if colocated_git_repo_path.exists() {
+            // Refuse to colocate inside a Git worktree
+            if is_linked_git_worktree(workspace_root) {
+                return Err(user_error_with_hint(
+                    "Cannot create a colocated jj repo inside a Git worktree.",
+                    "Run `jj git init` in the main Git repository instead, or use `jj workspace \
+                     add` to create additional jj workspaces.",
+                ));
+            }
             GitInitMode::External(colocated_git_repo_path)
         } else {
             GitInitMode::Colocate
@@ -335,4 +343,14 @@ fn print_trackable_remote_bookmarks(ui: &Ui, view: &View) -> io::Result<()> {
         }
     }
     Ok(())
+}
+
+/// Returns `true` if the path is inside a linked Git worktree.
+fn is_linked_git_worktree(workspace_root: &Path) -> bool {
+    let Ok(repo) = gix::open(workspace_root) else {
+        return false;
+    };
+    // In linked worktrees, git_dir points to .git/worktrees/<name> while
+    // common_dir points to the main .git directory
+    repo.git_dir() != repo.common_dir()
 }
