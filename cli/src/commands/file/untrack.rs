@@ -26,7 +26,7 @@ use crate::cli_util::export_working_copy_changes_to_git;
 use crate::cli_util::print_snapshot_stats;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
-use crate::command_error::user_error_with_hint;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -91,8 +91,7 @@ pub(crate) fn cmd_file_untrack(
             } else {
                 format!("'{ui_path}' is not ignored.")
             };
-            return Err(user_error_with_hint(
-                message,
+            return Err(user_error(message).hinted(
                 "Files that are not ignored will be added back by the next command.
 Make sure they're ignored, then try again.",
             ));

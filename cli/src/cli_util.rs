@@ -156,7 +156,6 @@ use crate::command_error::internal_error_with_message;
 use crate::command_error::print_error_sources;
 use crate::command_error::print_parse_diagnostics;
 use crate::command_error::user_error;
-use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
 use crate::commit_templater::CommitTemplateLanguage;
 use crate::commit_templater::CommitTemplateLanguageExtension;
@@ -1117,10 +1116,7 @@ impl WorkspaceCommandHelper {
             } else {
                 "Don't use --at-op."
             };
-            Err(user_error_with_hint(
-                "This command must be able to update the working copy.",
-                hint,
-            ))
+            Err(user_error("This command must be able to update the working copy.").hinted(hint))
         }
     }
 
@@ -2601,8 +2597,7 @@ fn map_workspace_load_error(err: WorkspaceLoadError, user_wc_path: Option<&str>)
             let message = format!(r#"There is no jj repo in "{}""#, short_wc_path.display());
             let git_dir = wc_path.join(".git");
             if git_dir.is_dir() {
-                user_error_with_hint(
-                    message,
+                user_error(message).hinted(
                     "It looks like this is a git repo. You can create a jj repo backed by it by \
                      running this:
 jj git init",
@@ -2693,17 +2688,19 @@ fn handle_stale_working_copy(
                 Ok(None)
             }
         }
-        Ok(WorkingCopyFreshness::WorkingCopyStale) => Err(
-            SnapshotWorkingCopyError::StaleWorkingCopy(user_error_with_hint(
-                format!(
+        Ok(WorkingCopyFreshness::WorkingCopyStale) => {
+            Err(SnapshotWorkingCopyError::StaleWorkingCopy(
+                user_error(format!(
                     "The working copy is stale (not updated since operation {}).",
                     short_operation_hash(&old_op_id)
-                ),
-                "Run `jj workspace update-stale` to update it.
+                ))
+                .hinted(
+                    "Run `jj workspace update-stale` to update it.
 See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
-                 for more information.",
-            )),
-        ),
+                     for more information.",
+                ),
+            ))
+        }
         Ok(WorkingCopyFreshness::SiblingOperation) => Err(
             SnapshotWorkingCopyError::StaleWorkingCopy(internal_error(format!(
                 "The repo was loaded at operation {}, which seems to be a sibling of the working \
@@ -2712,14 +2709,15 @@ See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
                 short_operation_hash(&old_op_id)
             ))),
         ),
-        Err(OpStoreError::ObjectNotFound { .. }) => Err(
-            SnapshotWorkingCopyError::StaleWorkingCopy(user_error_with_hint(
-                "Could not read working copy's operation.",
-                "Run `jj workspace update-stale` to recover.
+        Err(OpStoreError::ObjectNotFound { .. }) => {
+            Err(SnapshotWorkingCopyError::StaleWorkingCopy(
+                user_error("Could not read working copy's operation.").hinted(
+                    "Run `jj workspace update-stale` to recover.
 See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy \
-                 for more information.",
-            )),
-        ),
+                     for more information.",
+                ),
+            ))
+        }
         Err(e) => Err(snapshot_command_error(e)),
     }
 }
@@ -4014,8 +4012,7 @@ impl<'a> CliRunner<'a> {
         let cwd = env::current_dir()
             .and_then(dunce::canonicalize)
             .map_err(|_| {
-                user_error_with_hint(
-                    "Could not determine current directory",
+                user_error("Could not determine current directory").hinted(
                     "Did you update to a commit where the directory doesn't exist or can't be \
                      accessed?",
                 )
