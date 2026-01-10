@@ -339,6 +339,14 @@ A list can be implicitly converted to `Boolean`. The following methods are
 defined.
 
 * `.len() -> Integer`: Number of elements in the list.
+* `.first() -> T`: Returns the first element. Errors if the list is empty.
+* `.last() -> T`: Returns the last element. Errors if the list is empty.
+* `.get(index: Integer) -> T`: Returns the element at `index` (0-based). Errors
+  if the index is out of bounds.
+* `.reverse() -> List`: Returns the list in reverse order.
+* `.skip(count: Integer) -> List`: Skips the first `count` elements and
+  returns the rest.
+* `.take(count: Integer) -> List`: Returns only the first `count` elements.
 * `.join(separator: Template) -> Template`: Concatenate elements with
   the given `separator`.
 * `.filter(|item| expression) -> List`: Filter list elements by predicate

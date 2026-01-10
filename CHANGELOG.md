@@ -16,6 +16,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* Templates now support `first()`, `last()`, `get(index)`, `reverse()`,
+  `skip(count)`, and `take(count)` methods on list types for more flexible
+  list manipulation.
+
 ### Fixed bugs
 
 * `jj git push` now ensures that tracked remote bookmarks are updated even if
