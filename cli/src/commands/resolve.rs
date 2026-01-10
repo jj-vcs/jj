@@ -60,8 +60,8 @@ pub(crate) struct ResolveArgs {
 
     /// Specify 3-way merge tool to be used
     ///
-    /// The built-in merge tools `:ours` and `:theirs` can be used to choose
-    /// side #1 and side #2 of the conflict respectively.
+    /// The built-in merge tool `:select` can be used to interactively select a
+    /// side of the conflict to keep.
     #[arg(long, conflicts_with = "list", value_name = "NAME")]
     #[arg(add = ArgValueCandidates::new(complete::merge_editors))]
     tool: Option<String>,
