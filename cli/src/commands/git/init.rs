@@ -102,6 +102,46 @@ pub struct GitInitArgs {
     git_repo: Option<String>,
 }
 
+/// Returns `Some(gitdir_path)` if `.git` is a gitlink pointing to a Git
+/// worktree.
+fn detect_git_worktree(git_path: &Path) -> Option<PathBuf> {
+    if !git_path.is_file() {
+        return None;
+    }
+    let content = std::fs::read_to_string(git_path).ok()?;
+    let gitdir = content.strip_prefix("gitdir: ")?.trim();
+    if gitdir.is_empty() {
+        return None;
+    }
+    let gitdir_path = PathBuf::from(gitdir);
+
+    // Git worktree gitdir format:
+    // - Regular repo: <repo>/.git/worktrees/<name>
+    // - Bare repo: <repo.git>/worktrees/<name>
+    // Check that path ends with <something>/worktrees/<name> where <something>
+    // is either ".git" or ends with ".git" (bare repo convention)
+    let mut components = gitdir_path.components().rev();
+    let _name = components.next()?;
+    let worktrees = components.next()?;
+    let git_dir = components.next()?;
+
+    if !matches!(worktrees, std::path::Component::Normal(s) if s == "worktrees") {
+        return None;
+    }
+
+    // Check if the git directory is ".git" (regular repo) or ends with ".git" (bare
+    // repo)
+    let is_git_dir = match git_dir {
+        std::path::Component::Normal(s) => {
+            let s_str = s.to_str()?;
+            s_str == ".git" || s_str.ends_with(".git")
+        }
+        _ => false,
+    };
+
+    if is_git_dir { Some(gitdir_path) } else { None }
+}
+
 pub fn cmd_git_init(
     ui: &mut Ui,
     command: &CommandHelper,
@@ -159,6 +199,18 @@ fn do_init(
 
     let colocated_git_repo_path = workspace_root.join(".git");
     let init_mode = if colocate {
+        // Refuse to colocate inside a Git worktree
+        if let Some(worktree_gitdir) = detect_git_worktree(&colocated_git_repo_path) {
+            return Err(user_error_with_hint(
+                "Cannot create a colocated jj repo inside a Git worktree.",
+                format!(
+                    "This directory is a Git worktree linked to {}. Run `jj git init` in the main \
+                     Git repository instead, or use `jj workspace add` to create additional jj \
+                     workspaces.",
+                    worktree_gitdir.display()
+                ),
+            ));
+        }
         if colocated_git_repo_path.exists() {
             GitInitMode::External(colocated_git_repo_path)
         } else {
