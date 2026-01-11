@@ -516,14 +516,29 @@ impl StringMatcher {
         }
     }
 
-    /// Iterates over matching lines in `text`.
+    /// Iterates over matching lines in `text`. A '\n' at the end of the line
+    /// will be stripped before matching and won't be included in the
+    /// yielded line.
+    ///
+    /// `StringMatcher::all().match_lines(s).join("\n")` results in the input
+    /// string `s`.
     pub fn match_lines<'a>(&self, text: &'a [u8]) -> impl Iterator<Item = &'a [u8]> {
         // The pattern is matched line by line so that it can be anchored to line
         // start/end. For example, exact:"" will match blank lines.
-        text.split_inclusive(|b| *b == b'\n').filter(|line| {
-            let line = line.strip_suffix(b"\n").unwrap_or(line);
-            self.is_match_bytes(line)
+        let mut state = Some(text);
+        std::iter::from_fn(move || {
+            let text = state.as_mut()?;
+            let line;
+            if let Some(i) = text.iter().position(|b| *b == b'\n') {
+                line = &text[..i];
+                *text = &text[i + 1..];
+            } else {
+                line = text;
+                state = None;
+            };
+            Some(line)
         })
+        .filter(|line| self.is_match_bytes(line))
     }
 
     fn into_match_fn(self) -> Box<DynMatchFn> {
@@ -962,28 +977,27 @@ mod tests {
 
     #[test]
     fn test_matcher_match_lines() {
-        // TODO: Yield a match for the empty line?
         assert_eq!(
             StringMatcher::all().match_lines(b"").collect_vec(),
-            Vec::<&[u8]>::new()
+            vec!["".as_bytes()]
         );
         assert_eq!(
             StringMatcher::all().match_lines(b"\n").collect_vec(),
-            vec![b"\n"]
+            vec!["".as_bytes(), "".as_bytes()]
         );
         assert_eq!(
             StringMatcher::all().match_lines(b"foo").collect_vec(),
-            vec![b"foo"]
+            vec!["foo".as_bytes()]
         );
         assert_eq!(
             StringMatcher::all().match_lines(b"foo\n").collect_vec(),
-            vec![b"foo\n"]
+            vec!["foo".as_bytes(), "".as_bytes()]
         );
         assert_eq!(
             StringMatcher::exact("foo")
                 .match_lines(b"foo\nbar\n")
                 .collect_vec(),
-            vec![b"foo\n"]
+            vec!["foo".as_bytes()]
         );
         assert_eq!(
             StringMatcher::exact("foo\n")
