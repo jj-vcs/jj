@@ -311,6 +311,7 @@ pub enum RevsetExpression<St: ExpressionState> {
     Filter(RevsetFilterPredicate),
     /// Marker for subtree that should be intersected as filter.
     AsFilter(Arc<Self>),
+    Divergent,
     /// Resolves symbols and visibility at the specified operation.
     AtOperation {
         operation: St::Operation,
@@ -684,6 +685,9 @@ impl ResolvedRevsetExpression {
 pub enum ResolvedPredicateExpression {
     /// Pure filter predicate.
     Filter(RevsetFilterPredicate),
+    Divergent {
+        visible_heads: Vec<CommitId>,
+    },
     /// Set expression to be evaluated as filter. This is typically a subtree
     /// node of `Union` with a pure filter predicate.
     Set(Box<ResolvedExpression>),
@@ -1101,6 +1105,12 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
     map.insert("conflicts", |_diagnostics, function, _context| {
         function.expect_no_arguments()?;
         Ok(RevsetExpression::filter(RevsetFilterPredicate::HasConflict))
+    });
+    map.insert("divergent", |_diagnostics, function, _context| {
+        function.expect_no_arguments()?;
+        Ok(Arc::new(RevsetExpression::AsFilter(Arc::new(
+            RevsetExpression::Divergent,
+        ))))
     });
     map.insert("present", |diagnostics, function, context| {
         let [arg] = function.expect_exact_arguments()?;
@@ -1588,6 +1598,7 @@ fn try_transform_expression<St: ExpressionState, E>(
             RevsetExpression::AsFilter(candidates) => {
                 transform_rec(candidates, pre, post)?.map(RevsetExpression::AsFilter)
             }
+            RevsetExpression::Divergent => None,
             RevsetExpression::AtOperation {
                 operation,
                 candidates,
@@ -1838,6 +1849,7 @@ where
             let candidates = folder.fold_expression(candidates)?;
             RevsetExpression::AsFilter(candidates).into()
         }
+        RevsetExpression::Divergent => RevsetExpression::Divergent.into(),
         RevsetExpression::AtOperation {
             operation,
             candidates,
@@ -3187,6 +3199,12 @@ impl VisibilityResolutionContext<'_> {
                     predicate: self.resolve_predicate(expression),
                 }
             }
+            RevsetExpression::Divergent => ResolvedExpression::FilterWithin {
+                candidates: self.resolve_all().into(),
+                predicate: ResolvedPredicateExpression::Divergent {
+                    visible_heads: self.visible_heads.to_owned(),
+                },
+            },
             RevsetExpression::AtOperation { operation, .. } => match *operation {},
             RevsetExpression::WithinReference {
                 candidates,
@@ -3308,6 +3326,9 @@ impl VisibilityResolutionContext<'_> {
                 ResolvedPredicateExpression::Filter(predicate.clone())
             }
             RevsetExpression::AsFilter(candidates) => self.resolve_predicate(candidates),
+            RevsetExpression::Divergent => ResolvedPredicateExpression::Divergent {
+                visible_heads: self.visible_heads.to_owned(),
+            },
             RevsetExpression::AtOperation { operation, .. } => match *operation {},
             // Filters should be intersected with all() within the at-op repo.
             RevsetExpression::WithinReference { .. }
@@ -5290,6 +5311,12 @@ mod tests {
                 Filter(AuthorName(Pattern(Exact("foo")))),
                 Filter(CommitterName(Pattern(Exact("bar")))),
             ),
+        )
+        "#);
+        insta::assert_debug_snapshot!(optimize(parse("divergent() & foo").unwrap()), @r#"
+        Intersection(
+            CommitRef(Symbol("foo")),
+            AsFilter(Divergent),
         )
         "#);
 
