@@ -1355,6 +1355,13 @@ fn test_git_push_revisions() {
         .success();
     work_dir.write_file("file", "modified again");
 
+    // Bookmark at revision is up to date
+    let output = work_dir.run_jj(["git", "push", "--revisions", "bookmark1"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
     // Push an empty set
     let output = work_dir.run_jj(["git", "push", "-r=none()"]);
     insta::assert_snapshot!(output, @r"
