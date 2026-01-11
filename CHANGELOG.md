@@ -35,6 +35,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Setting the editor via `ui.editor`, `$EDITOR`, or `JJ_EDITOR` now respects shell quoting.
 
+* `jj file track --include-ignored` now works when `fsmonitor.backend="watchman"`.
+  [#8427](https://github.com/jj-vcs/jj/issues/8427)
+
 ## [0.37.0] - 2026-01-07
 
 ### Release highlights
