@@ -664,13 +664,20 @@ fn test_command_completion(shell: Shell) {
     let output = test_env.complete_at(shell, 1, ["b"]);
     match shell {
         Shell::Zsh => {
-            insta::assert_snapshot!(output, @"bookmark:Manage bookmarks [default alias: b][EOF]");
+            insta::assert_snapshot!(output, @"
+            bisect:Find a bad revision by bisection
+            bookmark:Manage bookmarks [default alias: b][EOF]
+            ");
         }
         Shell::Bash => {
-            insta::assert_snapshot!(output, @"bookmark[EOF]");
+            insta::assert_snapshot!(output, @"
+            bisect
+            bookmark[EOF]
+            ");
         }
         Shell::Fish => {
-            insta::assert_snapshot!(output, @r"
+            insta::assert_snapshot!(output, @"
+            bisect	Find a bad revision by bisection
             bookmark	Manage bookmarks [default alias: b]
             [EOF]
             ");
@@ -767,6 +774,7 @@ fn test_aliases_are_completed(shell: Shell) {
         ])
         .success();
 
+    // completion of incomplete alias
     let output = work_dir.complete_at(shell, 1, ["user-al"]);
     match shell {
         Shell::Bash => {
@@ -778,6 +786,53 @@ fn test_aliases_are_completed(shell: Shell) {
         Shell::Fish => {
             insta::assert_snapshot!(output, @r"
             user-alias
+            [EOF]
+            ");
+        }
+        _ => unimplemented!("unexpected shell '{shell}'"),
+    }
+
+    // completion of complete alias confirms it
+    let output = work_dir.complete_at(shell, 1, ["user-alias"]);
+    match shell {
+        Shell::Bash => {
+            insta::assert_snapshot!(output, @"user-alias[EOF]");
+        }
+        Shell::Zsh => {
+            insta::assert_snapshot!(output, @"user-alias[EOF]");
+        }
+        Shell::Fish => {
+            insta::assert_snapshot!(output, @"
+            user-alias
+            [EOF]
+            ");
+        }
+        _ => unimplemented!("unexpected shell '{shell}'"),
+    }
+
+    // completion after alias is based on resolved alias
+    let output = work_dir
+        .complete_at(shell, 2, ["user-alias", ""])
+        .take_stdout_n_lines(2);
+    match shell {
+        Shell::Bash => {
+            insta::assert_snapshot!(output, @"
+            c
+            d
+            [EOF]
+            ");
+        }
+        Shell::Zsh => {
+            insta::assert_snapshot!(output, @"
+            c:Create a new bookmark
+            d:Delete an existing bookmark and propagate the deletion to remotes on the next push
+            [EOF]
+            ");
+        }
+        Shell::Fish => {
+            insta::assert_snapshot!(output, @"
+            c	Create a new bookmark
+            d	Delete an existing bookmark and propagate the deletion to remotes on the next push
             [EOF]
             ");
         }
