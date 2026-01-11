@@ -308,7 +308,7 @@ Thanks to the people who made this release happen!
 * `RepoPath` template type now has a `absolute() -> String` method that returns
   the absolute path as a string.
 
-* Added `format_path(path)` template that controls how file paths are printed
+* Added `format_path(path)` template alias that controls how file paths are printed
   with `jj file list`.
 
 * New built-in revset aliases `visible()` and `hidden()`.
@@ -480,7 +480,7 @@ Thanks to the people who made this release happen!
 
 * `jj bisect run` accepts the command and arguments to pass to the command
   directly as positional arguments, such as
-  `jj bisect --range=..main -- cargo check --all-targets`.
+  `jj bisect run --range=..main -- cargo check --all-targets`.
 
 * Divergent changes are no longer marked red in immutable revisions. Since the
   revision is immutable, the user shouldn't take any action, so the red color

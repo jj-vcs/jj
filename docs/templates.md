@@ -735,17 +735,17 @@ concat(
 Get short commit IDs of the working-copy parents:
 
 ```sh
-jj log --no-graph -r @ -T 'parents.map(|c| c.commit_id().short()).join(",")'
+jj log -G -r @ -T 'parents.map(|c| c.commit_id().short()).join(",")'
 ```
 
 Show machine-readable list of full commit and change IDs:
 
 ```sh
-jj log --no-graph -T 'commit_id ++ " " ++ change_id ++ "\n"'
+jj log -G -T 'commit_id ++ " " ++ change_id ++ "\n"'
 ```
 
 Print the description of the current commit, defaulting to `(no description set)`:
 
 ```sh
-jj log -r @ --no-graph -T 'coalesce(description, "(no description set)\n")'
+jj log -G -r @ -T 'coalesce(description, "(no description set)\n")'
 ```

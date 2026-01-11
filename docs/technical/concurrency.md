@@ -10,7 +10,7 @@ of a distributed VCS.
 When conflicting changes are made in different clones, a DVCS will have to deal
 with that when you push or pull. For example, when using Mercurial, if the
 remote has updated a bookmark called `main` (Mercurial's bookmarks are similar
-to a Git's branches) and you had updated the same bookmark locally but made it
+to Git's branches) and you had updated the same bookmark locally but made it
 point to a different target, Mercurial would add a bookmark called `main@origin`
 to indicate the conflict. Git instead prevents the conflict by renaming pulled
 branches to `origin/main` whether or not there was a conflict. However, most
@@ -45,7 +45,7 @@ merge them. The working copy may mismatch what's supposed to be checked out, but
 no changes to the repo will be lost (added commits, moved bookmarks, etc.). If
 conflicting changes were made, they will appear as conflicts. For example, if a
 bookmark was moved to two different locations, they will appear in `jj log` in
-both locations but with a "?" after the name, and `jj status` will also inform
+both locations but with `??` after the name, and `jj status` will also inform
 the user about the conflict.
 
 Note that, for now, there are known bugs in this area. Most notably, with the
