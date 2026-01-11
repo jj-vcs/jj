@@ -504,3 +504,63 @@ fn test_gerrit_upload_bad_change_ids() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_gerrit_upload_rejected_by_remote() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "a", &[]);
+
+    // create a hook on the remote that prevents pushing
+    let hook_path = test_env
+        .env_root()
+        .join("remote")
+        .join(".git")
+        .join("hooks")
+        .join("update");
+
+    std::fs::write(&hook_path, "#!/bin/sh\nexit 1").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    create_commit(&local_dir, "b", &["a@origin"]);
+
+    // Add an explicit Change-Id footer to b
+    let output = local_dir.run_jj([
+        "describe",
+        "b",
+        "-m",
+        "b\n\nChange-Id: Id39b308212fe7e0b746d16c13355f3a90712d7f9\n",
+    ]);
+    insta::assert_snapshot!(output, @r###"
+    ------- stderr -------
+    Working copy  (@) now at: mzvwutvl 887a7016 b | b
+    Parent commit (@-)      : rlvkpnrz 7d980be7 a@origin | a
+    [EOF]
+    "###);
+
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "b", "--remote-branch=main"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Pushing mzvwutvl 887a7016 b | b
+    remote: error: hook declined to update refs/for/main        
+    Warning: The remote rejected the following updates:
+      refs/for/main (reason: hook declined)
+    Hint: Try checking if you have permission to push to all the bookmarks.
+    Error: Failed to push all changes to gerrit
+    [EOF]
+    [exit status: 1]
+    ");
+}

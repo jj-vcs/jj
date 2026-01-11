@@ -40,6 +40,7 @@ use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
+use crate::git_util::print_push_stats;
 use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
 
@@ -354,7 +355,7 @@ pub fn cmd_gerrit_upload(
         // how do we get better errors from the remote? 'git push' tells us
         // about rejected refs AND ALSO '(nothing changed)' when there are no
         // changes to push, but we don't get that here.
-        with_remote_git_callbacks(ui, |cb| {
+        let push_stats = with_remote_git_callbacks(ui, |cb| {
             git::push_updates(
                 tx.repo_mut(),
                 subprocess_options.clone(),
@@ -380,7 +381,10 @@ pub fn cmd_gerrit_upload(
                 user_error_with_message("Internal git error while pushing to gerrit", err)
             }
         })?;
+        print_push_stats(ui, &push_stats)?;
+        if !push_stats.all_ok() {
+            return Err(user_error("Failed to push all changes to gerrit"));
+        }
     }
-
     Ok(())
 }

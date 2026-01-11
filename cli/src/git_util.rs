@@ -33,6 +33,7 @@ use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitExportStats;
 use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitImportStats;
+use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
 use jj_lib::op_store::RefTarget;
@@ -535,6 +536,66 @@ pub fn print_git_export_stats(ui: &Ui, stats: &GitExportStats) -> Result<(), std
             to export or their "parent" bookmarks/tags.
             "#,
         )?;
+    }
+    Ok(())
+}
+
+pub fn print_push_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
+    if !stats.rejected.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "The following references unexpectedly moved on the remote:"
+        )?;
+        let mut formatter = ui.stderr_formatter();
+        for (reference, reason) in &stats.rejected {
+            write!(formatter, "  ")?;
+            write!(formatter.labeled("git_ref"), "{}", reference.as_symbol())?;
+            if let Some(r) = reason {
+                write!(formatter, " (reason: {r})")?;
+            }
+            writeln!(formatter)?;
+        }
+        drop(formatter);
+        writeln!(
+            ui.hint_default(),
+            "Try fetching from the remote, then make the bookmark point to where you want it to \
+             be, and push again.",
+        )?;
+    }
+    if !stats.remote_rejected.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "The remote rejected the following updates:"
+        )?;
+        let mut formatter = ui.stderr_formatter();
+        for (reference, reason) in &stats.remote_rejected {
+            write!(formatter, "  ")?;
+            write!(formatter.labeled("git_ref"), "{}", reference.as_symbol())?;
+            if let Some(r) = reason {
+                write!(formatter, " (reason: {r})")?;
+            }
+            writeln!(formatter)?;
+        }
+        drop(formatter);
+        writeln!(
+            ui.hint_default(),
+            "Try checking if you have permission to push to all the bookmarks."
+        )?;
+    }
+    if !stats.unexported_bookmarks.is_empty() {
+        writeln!(
+            ui.warning_default(),
+            "The following bookmarks couldn't be updated locally:"
+        )?;
+        let mut formatter = ui.stderr_formatter();
+        for (symbol, reason) in &stats.unexported_bookmarks {
+            write!(formatter, "  ")?;
+            write!(formatter.labeled("bookmark"), "{symbol}")?;
+            for err in iter::successors(Some(reason as &dyn error::Error), |err| err.source()) {
+                write!(formatter, ": {err}")?;
+            }
+            writeln!(formatter)?;
+        }
     }
     Ok(())
 }
