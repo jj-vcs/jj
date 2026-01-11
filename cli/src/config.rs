@@ -801,7 +801,7 @@ impl CommandNameAndArgs {
                     }
                 }
                 let mut args = s.split(' ').map(|s| s.to_owned());
-                (args.next().unwrap_or_default().into(), args.collect())
+                (args.next().unwrap().into(), args.collect())
             }
             Self::Vec(NonEmptyCommandArgsVec(a)) => (Cow::Borrowed(&a[0]), Cow::Borrowed(&a[1..])),
             Self::Structured {
