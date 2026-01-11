@@ -51,6 +51,7 @@ use crate::templater::CoalesceTemplate;
 use crate::templater::ConcatTemplate;
 use crate::templater::ConditionalTemplate;
 use crate::templater::Email;
+use crate::templater::HyperlinkTemplate;
 use crate::templater::JoinTemplate;
 use crate::templater::LabelTemplate;
 use crate::templater::ListPropertyTemplate;
@@ -1847,6 +1848,17 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             )))
         },
     );
+    map.insert("hyperlink", |language, diagnostics, build_ctx, function| {
+        let ([url_node, text_node], [fallback_node]) = function.expect_arguments()?;
+        let url = expect_template_expression(language, diagnostics, build_ctx, url_node)?;
+        let text = expect_template_expression(language, diagnostics, build_ctx, text_node)?;
+        let fallback = fallback_node
+            .map(|node| expect_template_expression(language, diagnostics, build_ctx, node))
+            .transpose()?;
+        Ok(L::Property::wrap_template(Box::new(
+            HyperlinkTemplate::new(url, text, fallback),
+        )))
+    });
     map.insert("stringify", |language, diagnostics, build_ctx, function| {
         let [content_node] = function.expect_exact_arguments()?;
         let content = expect_stringify_expression(language, diagnostics, build_ctx, content_node)?;
@@ -2271,6 +2283,7 @@ mod tests {
     use super::*;
     use crate::formatter;
     use crate::formatter::ColorFormatter;
+    use crate::formatter::PlainTextFormatter;
     use crate::generic_templater;
     use crate::generic_templater::GenericTemplateLanguage;
 
@@ -2350,6 +2363,14 @@ mod tests {
                 ColorFormatter::new(&mut output, self.color_rules.clone().into(), false);
             template.format(&Context, &mut formatter).unwrap();
             drop(formatter);
+            String::from_utf8(output).unwrap()
+        }
+
+        fn render_plain(&self, template: &str) -> String {
+            let template = self.parse(template).unwrap();
+            let mut output = Vec::new();
+            let mut formatter = PlainTextFormatter::new(&mut output);
+            template.format(&Context, &mut formatter).unwrap();
             String::from_utf8(output).unwrap()
         }
     }
@@ -3675,6 +3696,33 @@ mod tests {
                 ++ "Example"
                 ++ "\x1b]8;;\x1B\\")"#),
             @r"]8;;http://example.com\Example]8;;\");
+    }
+
+    #[test]
+    fn test_hyperlink_function_with_color() {
+        let env = TestTemplateEnv::new();
+        // With ColorFormatter, hyperlink emits OSC 8 escape sequences
+        insta::assert_snapshot!(
+            env.render_ok(r#"hyperlink("http://example.com", "Example")"#),
+            @r"]8;;http://example.com\Example]8;;\");
+    }
+
+    #[test]
+    fn test_hyperlink_function_without_color() {
+        let env = TestTemplateEnv::new();
+        // With PlainTextFormatter, hyperlink uses markdown fallback
+        insta::assert_snapshot!(
+            env.render_plain(r#"hyperlink("http://example.com", "Example")"#),
+            @"[Example](http://example.com)");
+    }
+
+    #[test]
+    fn test_hyperlink_function_custom_fallback() {
+        let env = TestTemplateEnv::new();
+        // Custom fallback is used when not outputting to color terminal
+        insta::assert_snapshot!(
+            env.render_plain(r#"hyperlink("http://example.com", "Example", "URL: http://example.com")"#),
+            @"URL: http://example.com");
     }
 
     #[test]

@@ -32,6 +32,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* The `hyperlink()` template function now gracefully falls back to markdown
+  format `[text](url)` when outputting to a non-terminal, instead of emitting
+  raw OSC 8 escape codes.
+
 * `jj git push` now ensures that tracked remote bookmarks are updated even if
   there are no mappings in the Git fetch refspecs.
   [#5115](https://github.com/jj-vcs/jj/issues/5115)
