@@ -377,25 +377,62 @@ pub fn parse_remote_auto_track_bookmarks_map(
         let Some(text) = &settings.auto_track_bookmarks else {
             continue;
         };
-        let mut diagnostics = RevsetDiagnostics::new();
-        let expr = revset::parse_string_expression(&mut diagnostics, text).map_err(|err| {
-            // From<RevsetParseError>, but with different message and error kind
-            let hint = revset_parse_error_hint(&err);
-            let message = format!(
-                "Invalid `remotes.{}.auto-track-bookmarks`: {}",
-                name.as_symbol(),
-                err.kind()
-            );
-            let mut cmd_err = config_error_with_message(message, err);
-            cmd_err.extend_hints(hint);
-            cmd_err
-        })?;
-        print_parse_diagnostics(
-            ui,
-            &format!("In `remotes.{}.auto-track-bookmarks`", name.as_symbol()),
-            &diagnostics,
-        )?;
+        let expr = parse_remote_auto_track_text(ui, name, text, "auto-track-bookmarks")?;
         matchers.insert(name.clone(), expr.to_matcher());
     }
     Ok(matchers)
+}
+
+/// Parses the given `remotes.<name>.auto-track-bookmarks` and
+/// `remotes.<name>.auto-track-created-bookmarks` settings into a map of string
+/// matchers. If both settings exist for the same remote, the union of the
+/// settings will be matched.
+pub fn parse_remote_auto_track_bookmarks_map_for_new_bookmarks(
+    ui: &Ui,
+    remote_settings: &RemoteSettingsMap,
+) -> Result<HashMap<RemoteNameBuf, StringMatcher>, CommandError> {
+    let mut matchers = HashMap::new();
+    for (name, settings) in remote_settings {
+        let mut expr = StringExpression::none();
+        if let Some(text) = &settings.auto_track_bookmarks {
+            expr = parse_remote_auto_track_text(ui, name, text, "auto-track-bookmarks")?;
+        }
+        if let Some(text) = &settings.auto_track_created_bookmarks {
+            expr = expr.union(parse_remote_auto_track_text(
+                ui,
+                name,
+                text,
+                "auto-track-created-bookmarks",
+            )?);
+        }
+        matchers.insert(name.clone(), expr.to_matcher());
+    }
+    Ok(matchers)
+}
+
+fn parse_remote_auto_track_text(
+    ui: &Ui,
+    name: &RemoteNameBuf,
+    text: &str,
+    field_name: &str,
+) -> Result<StringExpression, CommandError> {
+    let mut diagnostics = RevsetDiagnostics::new();
+    let expr = revset::parse_string_expression(&mut diagnostics, text).map_err(|err| {
+        // From<RevsetParseError>, but with different message and error kind
+        let hint = revset_parse_error_hint(&err);
+        let message = format!(
+            "Invalid `remotes.{}.{field_name}`: {}",
+            name.as_symbol(),
+            err.kind()
+        );
+        let mut cmd_err = config_error_with_message(message, err);
+        cmd_err.extend_hints(hint);
+        cmd_err
+    })?;
+    print_parse_diagnostics(
+        ui,
+        &format!("In `remotes.{}.{field_name}`", name.as_symbol()),
+        &diagnostics,
+    )?;
+    Ok(expr)
 }

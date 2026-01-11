@@ -2176,3 +2176,48 @@ fn test_git_fetch_auto_track_bookmarks() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_git_fetch_auto_track_created_bookmarks() {
+    let test_env = TestEnvironment::default();
+    let root_dir = test_env.work_dir("");
+    test_env.add_config(
+        "
+        [remotes.origin]
+        auto-track-created-bookmarks = '*'
+        ",
+    );
+
+    root_dir
+        .run_jj(["git", "init", "--colocate", "origin"])
+        .success();
+    let origin_dir = test_env.work_dir("origin");
+    origin_dir.run_jj(["b", "c", "non-local"]).success();
+    origin_dir.run_jj(["commit", "-mfoo"]).success();
+    let output = origin_dir.run_jj(["show", "@-"]);
+    insta::assert_snapshot!(output, @r"
+    Commit ID: a515d574a6ab5438d14e99370fba9c7f88413f9c
+    Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
+    Bookmarks: non-local non-local@git
+    Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
+    Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
+
+        foo
+
+    [EOF]
+    ");
+
+    root_dir.run_jj(["git", "init", "repo"]).success();
+    let repo_dir = test_env.work_dir("repo");
+    repo_dir
+        .run_jj(["git", "remote", "add", "origin", "../origin/.git"])
+        .success();
+
+    // jj git fetch is not affected by auto-track-created-bookmarks
+    let output = repo_dir.run_jj(["git", "fetch"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    bookmark: non-local@origin [new] untracked
+    [EOF]
+    ");
+}

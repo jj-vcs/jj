@@ -19,6 +19,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj git push --bookmark <name>` will now automatically track the bookmark if
   it isn't tracked with any remote already.
 
+* A new config option `remotes.<name>.auto-track-created-bookmarks` behaves
+  similarly to `auto-track-bookmarks`, but it only applies to bookmarks created
+  locally. Setting it to `"*"` is now the closest replacement for the deprecated
+  `git.push-new-bookmarks` option.
+
 ### Fixed bugs
 
 * `jj git push` now ensures that tracked remote bookmarks are updated even if

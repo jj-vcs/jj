@@ -66,6 +66,10 @@ pub struct RemoteSettings {
     /// String matcher expression whether to track bookmarks automatically.
     #[serde(default)]
     pub auto_track_bookmarks: Option<String>,
+    /// String matcher expression whether to track locally-created bookmarks
+    /// automatically.
+    #[serde(default)]
+    pub auto_track_created_bookmarks: Option<String>,
 }
 
 impl RemoteSettings {
