@@ -88,6 +88,7 @@ use crate::diff_util;
 use crate::diff_util::DiffStatEntry;
 use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
+use crate::git_util;
 use crate::operation_templater;
 use crate::operation_templater::OperationTemplateBuildFnTable;
 use crate::operation_templater::OperationTemplateEnvironment;
@@ -99,6 +100,7 @@ use crate::template_builder::BuildContext;
 use crate::template_builder::CoreTemplateBuildFnTable;
 use crate::template_builder::CoreTemplatePropertyKind;
 use crate::template_builder::CoreTemplatePropertyVar;
+use crate::template_builder::TemplateBuildFunctionFnMap;
 use crate::template_builder::TemplateBuildMethodFnMap;
 use crate::template_builder::TemplateLanguage;
 use crate::template_builder::expect_stringify_expression;
@@ -113,6 +115,7 @@ use crate::templater;
 use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::ListTemplate;
+use crate::templater::Literal;
 use crate::templater::PlainTextFormattedProperty;
 use crate::templater::SizeHint;
 use crate::templater::Template;
@@ -923,8 +926,10 @@ impl CommitTemplateBuildFnTable<'_> {
 
     /// Creates new symbol table containing the builtin methods.
     fn builtin() -> Self {
+        let mut core = CoreTemplateBuildFnTable::builtin();
+        merge_fn_map(&mut core.functions, builtin_commit_template_functions());
         Self {
-            core: CoreTemplateBuildFnTable::builtin(),
+            core,
             operation: OperationTemplateBuildFnTable::builtin(),
             commit_methods: builtin_commit_methods(),
             commit_list_methods: template_builder::builtin_unformattable_list_methods(),
@@ -992,6 +997,27 @@ impl<'repo> CommitKeywordCache<'repo> {
             Ok(revset.containing_fn().into())
         })
     }
+}
+
+/// Builtin functions for the commit template language.
+fn builtin_commit_template_functions<'repo>()
+-> TemplateBuildFunctionFnMap<'repo, CommitTemplateLanguage<'repo>> {
+    let mut map = TemplateBuildFunctionFnMap::<CommitTemplateLanguage>::new();
+    map.insert(
+        "git_web_url",
+        |language, diagnostics, build_ctx, function| {
+            let ([], [remote_node]) = function.expect_named_arguments(&["remote"])?;
+            let remote_property: BoxedTemplateProperty<String> = match remote_node {
+                Some(node) => expect_stringify_expression(language, diagnostics, build_ctx, node)?,
+                None => Box::new(Literal("origin".to_owned())),
+            };
+            let web_urls = git_util::get_remote_web_urls(language.repo.base_repo());
+            let out_property = remote_property
+                .map(move |remote_name| web_urls.get(&remote_name).cloned().unwrap_or_default());
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map
 }
 
 fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Commit> {

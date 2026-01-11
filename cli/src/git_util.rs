@@ -14,6 +14,7 @@
 
 //! Git utilities shared by various commands.
 
+use std::collections::HashMap;
 use std::error;
 use std::io;
 use std::io::Write as _;
@@ -23,6 +24,7 @@ use std::path::Path;
 use std::time::Duration;
 use std::time::Instant;
 
+use bstr::ByteSlice as _;
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
 use indoc::writedoc;
@@ -87,6 +89,51 @@ pub fn absolute_git_url(cwd: &Path, source: &str) -> Result<String, CommandError
     }
     // It's less likely that cwd isn't utf-8, so just fall back to original source.
     Ok(String::from_utf8(url.to_bstring().into()).unwrap_or_else(|_| source.to_owned()))
+}
+
+/// Converts a git remote URL to a normalized HTTPS URL for web browsing.
+///
+/// Returns `None` if the URL cannot be converted.
+fn git_remote_url_to_web(url: &gix::Url) -> Option<String> {
+    if url.scheme == gix::url::Scheme::File || url.host().is_none() {
+        return None;
+    }
+
+    let host = url.host()?;
+    let path = url.path.to_str().ok()?;
+    let path = path.trim_matches('/');
+    let path = path.strip_suffix(".git").unwrap_or(path);
+
+    Some(format!("https://{host}/{path}"))
+}
+
+/// Returns a map of remote names to their web URLs.
+///
+/// For each git remote, attempts to convert its URL to an HTTPS web URL.
+/// Remotes with URLs that cannot be converted are omitted.
+pub fn get_remote_web_urls(repo: &ReadonlyRepo) -> HashMap<String, String> {
+    let Ok(git_repo) = git::get_git_repo(repo.store()) else {
+        return HashMap::new();
+    };
+    let mut map = HashMap::new();
+    for remote_name in git_repo.remote_names() {
+        let Ok(remote_name) = remote_name.to_str() else {
+            continue;
+        };
+        let Some(Ok(remote)) = git_repo.try_find_remote(remote_name) else {
+            continue;
+        };
+        let Some(url) = remote
+            .url(gix::remote::Direction::Fetch)
+            .or_else(|| remote.url(gix::remote::Direction::Push))
+        else {
+            continue;
+        };
+        if let Some(web_url) = git_remote_url_to_web(url) {
+            map.insert(remote_name.to_owned(), web_url);
+        }
+    }
+    map
 }
 
 // Based on Git's implementation: https://github.com/git/git/blob/43072b4ca132437f21975ac6acc6b72dc22fd398/sideband.c#L178

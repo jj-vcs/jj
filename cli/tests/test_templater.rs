@@ -541,6 +541,62 @@ fn test_templater_config_function() {
     ");
 }
 
+#[test]
+fn test_templater_git_web_url() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // (remote_name, remote_url, expected_web_url)
+    let cases = [
+        (
+            "origin",
+            "git@github.com:org1/repo1",
+            "https://github.com/org1/repo1",
+        ),
+        (
+            "https-remote",
+            "https://github.com/org2/repo2.git",
+            "https://github.com/org2/repo2",
+        ),
+        (
+            "ssh-remote",
+            "ssh://git@github.com/org3/repo3",
+            "https://github.com/org3/repo3",
+        ),
+        (
+            "git-remote",
+            "git://github.com/org4/repo4.git",
+            "https://github.com/org4/repo4",
+        ),
+        ("file-remote", "file:///path/to/repo", ""),
+    ];
+
+    for (remote_name, remote_url, expected) in cases {
+        work_dir
+            .run_jj(["git", "remote", "add", remote_name, remote_url])
+            .success();
+        let output = get_template_output(
+            &work_dir,
+            "@-",
+            &format!(r#"git_web_url(remote="{remote_name}")"#),
+        );
+        assert_eq!(
+            output.stdout.normalized(),
+            expected,
+            "{remote_name}: {remote_url}"
+        );
+    }
+
+    // Default remote is origin
+    let output = get_template_output(&work_dir, "@-", r#"git_web_url()"#);
+    assert_eq!(output.stdout.normalized(), "https://github.com/org1/repo1");
+
+    // Non-existent remote returns empty string
+    let output = get_template_output(&work_dir, "@-", r#"git_web_url(remote="nonexistent")"#);
+    assert_eq!(output.stdout.normalized(), "");
+}
+
 #[must_use]
 fn get_template_output(work_dir: &TestWorkDir, rev: &str, template: &str) -> CommandOutput {
     work_dir.run_jj(["log", "--no-graph", "-r", rev, "-T", template])
