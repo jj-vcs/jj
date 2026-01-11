@@ -90,6 +90,13 @@ pub struct GitFetchArgs {
     /// Fetch from all remotes
     #[arg(long, conflicts_with = "remotes")]
     all_remotes: bool,
+
+    /// Show details of abandoned commits
+    ///
+    /// When enabled, lists each abandoned commit with its change ID and
+    /// description, rather than just showing a count.
+    #[arg(long, short = 'v')]
+    verbose: bool,
 }
 
 #[tracing::instrument(skip_all)]
@@ -181,6 +188,24 @@ pub fn cmd_git_fetch(
 
     let import_stats = git_fetch.import_refs()?;
     print_git_import_stats(ui, tx.repo(), &import_stats, true)?;
+
+    // Verbose: show abandoned commit details (matches jj abandon format)
+    if args.verbose
+        && !import_stats.abandoned_commits.is_empty()
+        && let Some(mut formatter) = ui.status_formatter()
+    {
+        let abandoned_commits: Vec<_> = import_stats
+            .abandoned_commits
+            .iter()
+            .map(|id| tx.repo().store().get_commit(id))
+            .try_collect()?;
+        crate::cli_util::print_updated_commits(
+            formatter.as_mut(),
+            &tx.commit_summary_template(),
+            &abandoned_commits,
+        )?;
+    }
+
     if let Some(bookmark_expr) = &common_bookmark_expr {
         warn_if_branches_not_found(ui, &tx, bookmark_expr, &matching_remotes)?;
     }
