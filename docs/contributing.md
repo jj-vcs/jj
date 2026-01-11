@@ -75,7 +75,7 @@ when you're ready. If you realize that some comments require non-trivial
 changes, please ask your reviewer to take another look.
 
 If your employer pays anyone (not necessarily you) to contribute to Jujutsu,
-please make sure your GitHub username is [recorded](paid_contributors.md).
+please make sure your GitHub username is [recorded](/docs/paid_contributors.md).
 To avoid conflicts of interest, please don't merge a PR that has only been
 approved by someone from the same organization. Similarly, as a reviewer, there
 is no need to approve your coworkers' PRs, since the author should await an
@@ -92,8 +92,8 @@ Guidelines](https://opensource.google/conduct/).
 
 Before sending a PR for a large change which designs/redesigns or reworks an
 existing component, we require an architecture review from  multiple
-stakeholders, which we do with [Design Docs](design_docs.md), see the
-[process here](design_docs.md#process).
+stakeholders, which we do with [Design Docs](/docs/design_docs.md), see the
+[process here](/docs/design_docs.md#process).
 
 ## Contributing to the documentation
 
@@ -132,7 +132,7 @@ for an overview, especially if you are familiar with C++.
 
 ## Style guide
 
-See [here](style_guide.md).
+See [here](/docs/style_guide.md).
 
 ## Setting up a development environment
 
