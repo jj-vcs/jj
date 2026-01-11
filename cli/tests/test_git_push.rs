@@ -889,6 +889,15 @@ fn test_git_push_multiple() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+
+    // Specified branch is up to date
+    let output = work_dir.run_jj(["git", "push", "--branch", "bookmark2"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Bookmark bookmark2@origin already matches bookmark2
+    Nothing changed.
+    [EOF]
+    ");
 }
 
 #[test]
