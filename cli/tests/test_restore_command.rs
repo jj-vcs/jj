@@ -230,7 +230,8 @@ fn test_restore_conflicted_merge() {
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from base to side #1
+    %%%%%%% diff from: base
+    \\\\\\\        to: side #1
     -base
     +a
     +++++++ side #2
