@@ -4078,6 +4078,7 @@ fn test_push_bookmarks_success() {
         subprocess_options,
         "origin".as_ref(),
         &targets,
+        &[],
         git::RemoteCallbacks::default(),
     )
     .unwrap();
@@ -4157,6 +4158,7 @@ fn test_push_bookmarks_deletion() {
         subprocess_options,
         "origin".as_ref(),
         &targets,
+        &[],
         git::RemoteCallbacks::default(),
     )
     .unwrap();
@@ -4235,6 +4237,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
         subprocess_options,
         "origin".as_ref(),
         &targets,
+        &[],
         git::RemoteCallbacks::default(),
     )
     .unwrap();
@@ -4316,6 +4319,7 @@ fn test_push_bookmarks_not_fast_forward() {
         subprocess_options,
         "origin".as_ref(),
         &targets,
+        &[],
         git::RemoteCallbacks::default(),
     )
     .unwrap();
@@ -4369,6 +4373,7 @@ fn test_push_bookmarks_partial_success() {
         subprocess_options,
         "origin".as_ref(),
         &targets,
+        &[],
         git::RemoteCallbacks::default(),
     )
     .unwrap();
@@ -4478,6 +4483,7 @@ fn test_push_bookmarks_unmapped_refs() {
         subprocess_options,
         "origin".as_ref(),
         &targets,
+        &[],
         git::RemoteCallbacks::default(),
     )
     .unwrap();
@@ -4575,6 +4581,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
             subprocess_options,
             "origin".as_ref(),
             &targets,
+            &[],
             git::RemoteCallbacks::default(),
         )
     };
@@ -4659,6 +4666,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
             subprocess_options,
             "origin".as_ref(),
             &targets,
+            &[],
             git::RemoteCallbacks::default(),
         )
     };
@@ -4723,6 +4731,7 @@ fn test_push_updates_unexpectedly_exists_on_remote() {
             subprocess_options,
             "origin".as_ref(),
             &targets,
+            &[],
             git::RemoteCallbacks::default(),
         )
     };
@@ -4759,6 +4768,7 @@ fn test_push_updates_success() {
             expected_current_target: Some(setup.main_commit.id().clone()),
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
+        &[],
         git::RemoteCallbacks::default(),
     )
     .unwrap();
@@ -4805,6 +4815,7 @@ fn test_push_updates_no_such_remote() {
             expected_current_target: Some(setup.main_commit.id().clone()),
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
+        &[],
         git::RemoteCallbacks::default(),
     );
     assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));
@@ -4825,6 +4836,7 @@ fn test_push_updates_invalid_remote() {
             expected_current_target: Some(setup.main_commit.id().clone()),
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
+        &[],
         git::RemoteCallbacks::default(),
     );
     assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));
@@ -4858,6 +4870,7 @@ fn test_push_environment_options() {
         subprocess_options,
         "origin".as_ref(),
         &targets,
+        &[],
         git::RemoteCallbacks::default(),
     )
     .unwrap();
@@ -5430,6 +5443,80 @@ fn test_remote_add_with_tags_specification(fetch_tags: gix::remote::fetch::Tags)
             .expect("unable to find remote")
             .fetch_tags()
     );
+}
+
+#[test]
+fn test_push_updates_with_options() {
+    let settings = testutils::user_settings();
+    let temp_dir = testutils::new_temp_dir();
+    let setup = set_up_push_repos(&settings, &temp_dir);
+    let git_settings = GitSettings::from_settings(&settings).unwrap();
+
+    std::process::Command::new("git")
+        .arg("--git-dir")
+        .arg(&setup.source_repo_dir)
+        .args(["config", "receive.advertisePushOptions", "true"])
+        .output()
+        .unwrap();
+
+    // Set up pre-receive hook to echo back received options
+    let hooks_dir = setup.source_repo_dir.join("hooks");
+    fs::create_dir_all(&hooks_dir).unwrap();
+    let hook_path = hooks_dir.join("pre-receive");
+    let hook_content = r#"#!/bin/sh
+    if [ -n "$GIT_PUSH_OPTION_COUNT" ] && [ "$GIT_PUSH_OPTION_COUNT" -gt 0 ]; then
+        i=0
+        while [ $i -lt "$GIT_PUSH_OPTION_COUNT" ]; do
+            eval "option_value=\$GIT_PUSH_OPTION_$i"
+            echo "Push-Option: $option_value"
+            i=$((i + 1))
+        done
+    fi
+    "#;
+    fs::write(&hook_path, hook_content).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+
+    let remote_output = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let output_clone = remote_output.clone();
+    let mut sideband_closure = |data: &[u8]| {
+        if let Ok(mut output) = output_clone.lock() {
+            output.extend_from_slice(data);
+        }
+    };
+    let mut callbacks = git::RemoteCallbacks::default();
+    callbacks.sideband_progress = Some(&mut sideband_closure);
+
+    let result = git::push_updates(
+        setup.jj_repo.as_ref(),
+        git_settings.to_subprocess_options(),
+        "origin".as_ref(),
+        &[GitRefUpdate {
+            qualified_name: "refs/heads/main".into(),
+            expected_current_target: Some(setup.main_commit.id().clone()),
+            new_target: Some(setup.child_of_main_commit.id().clone()),
+        }],
+        &["merge_request.create", "merge_request.draft"],
+        callbacks,
+    );
+
+    let stats = result.unwrap();
+    assert_eq!(
+        stats.pushed,
+        vec![jj_lib::ref_name::GitRefNameBuf::from("refs/heads/main")]
+    );
+    assert!(stats.rejected.is_empty());
+    assert!(stats.remote_rejected.is_empty());
+    assert!(stats.unexported_bookmarks.is_empty());
+
+    let captured_bytes = remote_output.lock().unwrap();
+    let captured_string = String::from_utf8_lossy(&captured_bytes);
+    assert!(captured_string.contains("Push-Option: merge_request.create"));
+    assert!(captured_string.contains("Push-Option: merge_request.draft"));
 }
 
 #[test]
