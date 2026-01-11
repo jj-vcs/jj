@@ -75,6 +75,11 @@ The following functions are defined.
 * `label(label: Stringify, content: Template) -> Template`: Apply a custom
   [color label](#color-labels) to the content. The `label` is evaluated as a
   space-separated string.
+* `hyperlink(url: Template, text: Template, [fallback: Template]) -> Template`:
+  Render `text` as a hyperlink to `url` using [OSC 8 escape sequences](https://github.com/Alhadis/OSC8-Adoption)
+  when outputting to a terminal that supports colors. When outputting to a
+  non-terminal (pipe, file, or `--color=never`), renders `fallback` instead,
+  which defaults to markdown format `[text](url)`.
 * `raw_escape_sequence(content: Template) -> Template`: Preserves any escape
   sequences in `content` (i.e., bypasses sanitization) and strips labels.
   Note: This function is intended for escape sequences and as such, its output
@@ -96,12 +101,6 @@ The following functions are defined.
 * `surround(prefix: Template, suffix: Template, content: Template) -> Template`:
   Surround **non-empty** content with texts such as parentheses.
 * `config(name: StringLiteral) -> ConfigValue`: Look up configuration value by `name`.
-
-## Built-in Aliases
-
-* `hyperlink(url, text)`: Creates a clickable hyperlink using [OSC8 escape sequences](https://github.com/Alhadis/OSC8-Adoption).
-  The `text` will be displayed and clickable, linking to the given `url` in
-  terminals that support OSC8 hyperlinks.
 
 ## Types
 

@@ -42,6 +42,12 @@ pub trait Formatter: Write {
     /// already formatted, such as in the graphical log.
     fn raw(&mut self) -> io::Result<Box<dyn Write + '_>>;
 
+    /// Returns whether the formatter supports outputting OSC 8 hyperlink escape
+    /// sequences.
+    fn supports_hyperlinks(&self) -> bool {
+        false
+    }
+
     fn push_label(&mut self, label: &str);
 
     fn pop_label(&mut self);
@@ -59,6 +65,10 @@ impl<T: Formatter + ?Sized> Formatter for &mut T {
     fn pop_label(&mut self) {
         <T as Formatter>::pop_label(self);
     }
+
+    fn supports_hyperlinks(&self) -> bool {
+        <T as Formatter>::supports_hyperlinks(self)
+    }
 }
 
 impl<T: Formatter + ?Sized> Formatter for Box<T> {
@@ -72,6 +82,10 @@ impl<T: Formatter + ?Sized> Formatter for Box<T> {
 
     fn pop_label(&mut self) {
         <T as Formatter>::pop_label(self);
+    }
+
+    fn supports_hyperlinks(&self) -> bool {
+        <T as Formatter>::supports_hyperlinks(self)
     }
 }
 
@@ -615,6 +629,10 @@ impl<W: Write> Formatter for ColorFormatter<W> {
 
     fn pop_label(&mut self) {
         self.labels.pop();
+    }
+
+    fn supports_hyperlinks(&self) -> bool {
+        true
     }
 }
 
