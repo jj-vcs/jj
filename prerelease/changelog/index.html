@@ -6463,8 +6463,15 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>jj git push --bookmark &lt;name&gt;</code> will now automatically track the bookmark if
-  it isn't tracked with any remote already.</li>
+<li>
+<p><code>jj git push --bookmark &lt;name&gt;</code> will now automatically track the bookmark if
+  it isn't tracked with any remote already.</p>
+</li>
+<li>
+<p>Add <code>git_web_url([remote])</code> template function that converts a git remote URL
+  to a web URL, suitable for opening in a browser. Defaults to the "origin"
+  remote.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>

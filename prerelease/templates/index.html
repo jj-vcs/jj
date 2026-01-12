@@ -2793,6 +2793,9 @@ type</a> are available as keywords. For example,
 <li><code>surround(prefix: Template, suffix: Template, content: Template) -&gt; Template</code>:
   Surround <strong>non-empty</strong> content with texts such as parentheses.</li>
 <li><code>config(name: StringLiteral) -&gt; ConfigValue</code>: Look up configuration value by <code>name</code>.</li>
+<li><code>git_web_url([remote: String]) -&gt; String</code>: Best-effort conversion of a git
+  remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
+  empty string on failure. SSH host alias resolution is currently unsupported.</li>
 </ul>
 <h2 id="built-in-aliases">Built-in Aliases<a class="headerlink" href="#built-in-aliases" title="Permanent link">&para;</a></h2>
 <ul>
