@@ -685,21 +685,12 @@ impl<I: AsCompositeIndex + Send + Sync> ChangeIdIndex for ChangeIdIndexImpl<I> {
         prefix: &HexPrefix,
     ) -> IndexResult<PrefixResolution<ResolvedChangeTargets>> {
         let index = self.index.as_composite().commits();
-        let prefix = match index.resolve_change_id_prefix(prefix) {
-            PrefixResolution::NoMatch => PrefixResolution::NoMatch,
-            PrefixResolution::SingleMatch((_change_id, positions)) => {
+        Ok(index
+            .resolve_change_id_prefix(prefix)
+            .map(|(_change_id, positions)| {
                 let mut reachable_set = self.reachable_set.lock().unwrap();
-                let targets =
-                    index.resolve_change_targets_for_positions(&positions, &mut reachable_set);
-                if targets.targets.is_empty() {
-                    PrefixResolution::NoMatch
-                } else {
-                    PrefixResolution::SingleMatch(targets)
-                }
-            }
-            PrefixResolution::AmbiguousMatch => PrefixResolution::AmbiguousMatch,
-        };
-        Ok(prefix)
+                index.resolve_change_targets_for_positions(&positions, &mut reachable_set)
+            }))
     }
 
     // Calculates the shortest prefix length of the given `change_id` among all
