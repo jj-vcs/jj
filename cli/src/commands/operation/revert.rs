@@ -24,6 +24,7 @@ use super::view_with_desired_portions_restored;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
+use crate::command_error::user_error_with_hint;
 use crate::complete;
 use crate::ui::Ui;
 
@@ -61,7 +62,12 @@ pub fn cmd_op_revert(
     let parent_of_bad_op = match bad_op.parents().at_most_one() {
         Ok(Some(parent_of_bad_op)) => parent_of_bad_op?,
         Ok(None) => return Err(user_error("Cannot revert root operation")),
-        Err(_) => return Err(user_error("Cannot revert a merge operation")),
+        Err(_) => {
+            return Err(user_error_with_hint(
+                "Cannot revert a merge operation",
+                "Consider using `jj op restore` instead",
+            ));
+        }
     };
 
     let mut tx = workspace_command.start_transaction();
