@@ -2293,8 +2293,8 @@ bookmark from the upstream repository, typically <code>main@upstream</code>
 or <code>master@upstream</code>.</p>
 <p>You might want to <code>jj git fetch</code> from "upstream" and to <code>jj git push</code>
 to "origin". You can configure the default remotes to fetch from and
-push to in your configuration file (for example,
-<code>.jj/repo/config.toml</code>):</p>
+push to in your configuration file
+(<code>jj config edit --user|repo|workspace</code>):</p>
 <div class="highlight"><pre><span></span><code><span class="k">[git]</span>
 <span class="n">fetch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;upstream&quot;</span>
 <span class="n">push</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;origin&quot;</span>

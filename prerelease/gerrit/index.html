@@ -2029,8 +2029,9 @@ $<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>re
 <span class="c1"># Option 3: Clone the repo via jj</span>
 $<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://review.gerrithub.io/your/project
 </code></pre></div>
-<p>If you used option 2 You can configure default values in your repository config
-by appending the below to <code>.jj/repo/config.toml</code>, like so:</p>
+<p>If you used option 2, you can configure default values in your repository config
+by appending the following lines to your config file, like so (to do this for
+a specific repo, run <code>jj config edit --repo</code>):</p>
 <div class="highlight"><pre><span></span><code><span class="k">[gerrit]</span>
 <span class="n">default-remote</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;gerrit&quot;</span><span class="w">       </span><span class="c1"># name of the Git remote to push to</span>
 <span class="n">default-remote-branch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;main&quot;</span><span class="w">  </span><span class="c1"># target branch in Gerrit</span>

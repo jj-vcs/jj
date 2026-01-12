@@ -3766,12 +3766,14 @@ settings are located in <a href="#user-config-files">the user config files</a>, 
 config path --user</code>.</p>
 </li>
 <li>
-<p>The repo settings. These can be edited with <code>jj config edit --repo</code> and are
-located in <code>.jj/repo/config.toml</code>.</p>
+<p>The repo settings. These can be edited with <code>jj config edit --repo</code>, or found
+  with <code>jj config path --repo</code>. For security reasons, they are not located inside
+  the repo.</p>
 </li>
 <li>
-<p>The workspace settings. These can be edited with <code>jj config edit --workspace</code>
-and are located in <code>.jj/workspace-config.toml</code> in the workspace root.</p>
+<p>The workspace settings. These can be edited with <code>jj config edit --workspace</code>,
+  or found with <code>jj config path --workspace</code>. For security reasons, they are not
+  located inside the workspace.</p>
 </li>
 <li>
 <p>Settings <a href="#specifying-config-on-the-command-line">specified in the command-line</a>.</p>

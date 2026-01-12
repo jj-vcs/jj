@@ -8247,6 +8247,7 @@ Martin von Zweigbergk</p>
 <h2 id="jj-config-path"><code>jj config path</code><a class="headerlink" href="#jj-config-path" title="Permanent link">&para;</a></h2>
 <p>Print the paths to the config files</p>
 <p>A config file at that path may or may not exist.</p>
+<p>If <code>--repo</code> or <code>--workspace</code> is specified and the config file does not exist, jj will generate a new config directory for this repo/workspace and print the path to the config file in that directory.</p>
 <p>See <code>jj config edit</code> if you'd like to immediately edit a file.</p>
 <p><strong>Usage:</strong> <code>jj config path &lt;--user|--repo|--workspace&gt;</code></p>
 <p><strong>Command Alias:</strong> <code>p</code></p>

@@ -6453,6 +6453,12 @@ and this project adheres
 to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased"><a href="https://github.com/jj-vcs/jj/compare/v0.37.0...HEAD">Unreleased</a><a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="release-highlights">Release highlights<a class="headerlink" href="#release-highlights" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Per-repo and per-workspace config is now stored outside the repo, for security
+  reasons. This is not a breaking change because we automatically migrate
+  legacy repos to this new format. <code>.jj/repo/config.toml</code> and
+  <code>.jj/workspace-config.toml</code> should no longer be used.</li>
+</ul>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>

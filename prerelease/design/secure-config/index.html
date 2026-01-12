@@ -2403,7 +2403,8 @@ created the repo.</p>
 <ol>
 <li>The victim uploads a zip file of a repository they have locally on their
     system</li>
-<li>The attacker can now see stored in the repository</li>
+<li>The attacker can now see any configs / config references stored in the
+    repository</li>
 <li>The attacker runs
     <code>jj config set --repo fix.tools.foo ‘[“malicious”, “command”]’</code></li>
 <li>The attacker copies the victim’s cryptographic signature and puts it in
@@ -2419,7 +2420,7 @@ the repo was stored at.</p>
 <ol>
 <li>The victim uploads a zip file of a repository they have locally on their
     system at <code>/path/to/repo</code></li>
-<li>The attacker can now see any cryptographic signatures stored in the
+<li>The attacker can now see any configs / config references stored in the
     repository</li>
 <li>The attacker runs
     <code>jj config set --repo fix.tools.foo ‘[“malicious”, “command”]’</code></li>
@@ -2439,7 +2440,7 @@ untamperable.</p>
 <li>The victim runs <code>jj config set --repo fix.tools.foo = [“$repo/format.py”]</code></li>
 <li>The victim uploads a zip file of a repository they have locally on their
     system at <code>/path/to/repo</code></li>
-<li>The attacker can now see any cryptographic signatures stored in the
+<li>The attacker can now see any configs / config references stored in the
     repository</li>
 <li>The attacker modifies <code>format.py</code> to be malicious</li>
 <li>The attacker zips up their repo and sends it to the victim</li>
