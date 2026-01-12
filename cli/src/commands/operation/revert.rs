@@ -61,7 +61,10 @@ pub async fn cmd_op_revert(
     let parent_of_bad_op = match bad_op.parents().await?.into_iter().at_most_one() {
         Ok(Some(parent_of_bad_op)) => parent_of_bad_op,
         Ok(None) => return Err(user_error("Cannot revert root operation")),
-        Err(_) => return Err(user_error("Cannot revert a merge operation")),
+        Err(_) => {
+            return Err(user_error("Cannot revert a merge operation")
+                .hinted("Consider using `jj op restore` instead"));
+        }
     };
 
     let mut tx = workspace_command.start_transaction();
