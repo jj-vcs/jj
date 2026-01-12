@@ -122,12 +122,12 @@ pub fn path_to_bytes(path: &Path) -> Result<&[u8], BadPathEncoding> {
     platform::os_str_to_bytes(path.as_ref()).map_err(BadPathEncoding)
 }
 
-/// Expands "~/" to "$HOME/".
+/// Expands "~/" to the user's home directory.
 pub fn expand_home_path(path_str: &str) -> PathBuf {
     if let Some(remainder) = path_str.strip_prefix("~/")
-        && let Ok(home_dir_str) = std::env::var("HOME")
+        && let Ok(home_dir) = etcetera::home_dir()
     {
-        return PathBuf::from(home_dir_str).join(remainder);
+        return home_dir.join(remainder);
     }
     PathBuf::from(path_str)
 }

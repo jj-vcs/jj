@@ -1501,17 +1501,17 @@ to the current parents may contain changes from multiple commits.
                 // the "git" command would read the file at the work-tree directory.
                 Some(self.workspace_root().join(path))
             } else {
-                xdg_config_home().ok().map(|x| x.join("git").join("ignore"))
+                xdg_config_home().map(|x| x.join("git").join("ignore"))
             }
         };
 
-        fn xdg_config_home() -> Result<PathBuf, std::env::VarError> {
+        fn xdg_config_home() -> Option<PathBuf> {
             if let Ok(x) = std::env::var("XDG_CONFIG_HOME")
                 && !x.is_empty()
             {
-                return Ok(PathBuf::from(x));
+                return Some(PathBuf::from(x));
             }
-            std::env::var("HOME").map(|x| Path::new(&x).join(".config"))
+            etcetera::home_dir().ok().map(|home| home.join(".config"))
         }
 
         let mut git_ignores = GitIgnoreFile::empty();
