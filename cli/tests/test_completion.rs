@@ -1392,6 +1392,7 @@ fn test_merge_tools() {
     insta::assert_snapshot!(output, @r"
     :summary
     :stat
+    :stat-summary
     :types
     :name-only
     :git
