@@ -902,28 +902,24 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         Ok(RevsetExpression::bookmarks(expr))
     });
     map.insert("remote_bookmarks", |diagnostics, function, context| {
-        parse_remote_bookmarks_arguments(diagnostics, function, None, context)
+        let symbol = parse_remote_refs_arguments(diagnostics, function, context)?;
+        let state = None;
+        Ok(RevsetExpression::remote_bookmarks(symbol, state))
     });
     map.insert(
         "tracked_remote_bookmarks",
         |diagnostics, function, context| {
-            parse_remote_bookmarks_arguments(
-                diagnostics,
-                function,
-                Some(RemoteRefState::Tracked),
-                context,
-            )
+            let symbol = parse_remote_refs_arguments(diagnostics, function, context)?;
+            let state = Some(RemoteRefState::Tracked);
+            Ok(RevsetExpression::remote_bookmarks(symbol, state))
         },
     );
     map.insert(
         "untracked_remote_bookmarks",
         |diagnostics, function, context| {
-            parse_remote_bookmarks_arguments(
-                diagnostics,
-                function,
-                Some(RemoteRefState::New),
-                context,
-            )
+            let symbol = parse_remote_refs_arguments(diagnostics, function, context)?;
+            let state = Some(RemoteRefState::New);
+            Ok(RevsetExpression::remote_bookmarks(symbol, state))
         },
     );
     map.insert("tags", |diagnostics, function, context| {
@@ -1264,12 +1260,11 @@ pub fn expect_date_pattern(
     })
 }
 
-fn parse_remote_bookmarks_arguments(
+fn parse_remote_refs_arguments(
     diagnostics: &mut RevsetDiagnostics,
     function: &FunctionCallNode,
-    remote_ref_state: Option<RemoteRefState>,
     context: &LoweringContext,
-) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
+) -> Result<RemoteRefSymbolExpression, RevsetParseError> {
     let ([], [name_opt_arg, remote_opt_arg]) = function.expect_named_arguments(&["", "remote"])?;
     let name = if let Some(name_arg) = name_opt_arg {
         expect_string_expression(diagnostics, name_arg, context)?
@@ -1283,10 +1278,7 @@ fn parse_remote_bookmarks_arguments(
     } else {
         StringExpression::all()
     };
-    Ok(RevsetExpression::remote_bookmarks(
-        RemoteRefSymbolExpression { name, remote },
-        remote_ref_state,
-    ))
+    Ok(RemoteRefSymbolExpression { name, remote })
 }
 
 /// Resolves function call by using the given function map.
