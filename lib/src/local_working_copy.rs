@@ -580,6 +580,7 @@ fn file_state_from_proto(proto: &crate::protos::local_working_copy::FileState) -
             exec_bit: ExecBit(true),
         },
         crate::protos::local_working_copy::FileType::Symlink => FileType::Symlink,
+        #[expect(deprecated)]
         crate::protos::local_working_copy::FileType::Conflict => FileType::Normal {
             exec_bit: ExecBit(false),
         },

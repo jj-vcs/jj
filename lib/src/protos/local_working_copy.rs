@@ -82,6 +82,7 @@ pub enum FileType {
     Normal = 0,
     Symlink = 1,
     Executable = 2,
+    #[deprecated]
     Conflict = 3,
     GitSubmodule = 4,
 }
@@ -95,6 +96,7 @@ impl FileType {
             Self::Normal => "Normal",
             Self::Symlink => "Symlink",
             Self::Executable => "Executable",
+            #[allow(deprecated)]
             Self::Conflict => "Conflict",
             Self::GitSubmodule => "GitSubmodule",
         }
@@ -105,7 +107,7 @@ impl FileType {
             "Normal" => Some(Self::Normal),
             "Symlink" => Some(Self::Symlink),
             "Executable" => Some(Self::Executable),
-            "Conflict" => Some(Self::Conflict),
+            "Conflict" => Some(#[allow(deprecated)] Self::Conflict),
             "GitSubmodule" => Some(Self::GitSubmodule),
             _ => None,
         }

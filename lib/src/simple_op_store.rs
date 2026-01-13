@@ -893,6 +893,7 @@ fn ref_target_from_proto(
         return RefTarget::absent();
     };
     match proto.value.unwrap() {
+        #[expect(deprecated)]
         crate::protos::simple_op_store::ref_target::Value::CommitId(id) => {
             // Legacy non-conflicting id
             RefTarget::normal(CommitId::new(id))

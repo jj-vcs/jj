@@ -37,8 +37,10 @@ pub mod ref_target {
     /// New `RefConflict` type represents both `commit_id` and `conflict_legacy`.
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Value {
+        #[deprecated]
         #[prost(bytes, tag = "1")]
         CommitId(::prost::alloc::vec::Vec<u8>),
+        #[deprecated]
         #[prost(message, tag = "2")]
         ConflictLegacy(super::RefConflictLegacy),
         #[prost(message, tag = "3")]
