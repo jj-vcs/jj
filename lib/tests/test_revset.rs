@@ -2894,6 +2894,191 @@ fn test_evaluate_expression_tags() {
 }
 
 #[test]
+fn test_evaluate_expression_remote_tags() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let tracked_remote_ref = |target| RemoteRef {
+        target,
+        state: RemoteRefState::Tracked,
+    };
+    let normal_tracked_remote_ref =
+        |id: &CommitId| tracked_remote_ref(RefTarget::normal(id.clone()));
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit(mut_repo);
+    let commit3 = write_random_commit(mut_repo);
+    let commit4 = write_random_commit(mut_repo);
+    let commit_git_remote = write_random_commit(mut_repo);
+
+    // Can get tags when there are none
+    assert_eq!(resolve_commit_ids(mut_repo, "remote_tags()"), vec![]);
+    // Tag 1 is untracked on remote origin
+    mut_repo.set_remote_tag(
+        remote_symbol("tag1", "origin"),
+        RemoteRef {
+            target: RefTarget::normal(commit1.id().clone()),
+            state: RemoteRefState::New,
+        },
+    );
+    // Tag 2 is tracked on remote private
+    mut_repo.set_remote_tag(
+        remote_symbol("tag2", "private"),
+        normal_tracked_remote_ref(commit2.id()),
+    );
+    // Git-tracking tags aren't included by default
+    mut_repo.set_remote_tag(
+        remote_symbol("tag", git::REMOTE_NAME_FOR_LOCAL_GIT_REPO),
+        normal_tracked_remote_ref(commit_git_remote.id()),
+    );
+    // Can get a few tags
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags()"),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+    // Can get tags with matching names
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(tag1)"),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(substring:tag)"),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(exact:tag1)"),
+        vec![commit1.id().clone()]
+    );
+    // Can get tags from matching remotes
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(*, origin)"),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(*, *ri*)"),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(*, origin)"),
+        vec![commit1.id().clone()]
+    );
+    // Can get tags with matching names from matching remotes
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(tag1, *ri*)"),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(tag*, private)"),
+        vec![commit2.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(tag1, origin)"),
+        vec![commit1.id().clone()]
+    );
+    // Can get Git-tracking tags by specifying the remote
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(remote=git)"),
+        vec![commit_git_remote.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(remote=*)"),
+        vec![
+            commit_git_remote.id().clone(),
+            commit2.id().clone(),
+            commit1.id().clone(),
+        ]
+    );
+    // Can filter tags by tracked and untracked
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "tracked_remote_tags()"),
+        vec![commit2.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "untracked_remote_tags()"),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "untracked_remote_tags(tag1, origin)"),
+        vec![commit1.id().clone()]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "tracked_remote_tags(tag2, private)"),
+        vec![commit2.id().clone()]
+    );
+    // Can silently resolve to an empty set if there's no matches
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(substring:tag3)"),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags('', upstream)"),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(tag1, private)"),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(ranch1, origin)"),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags(tag1, orig)"),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "tracked_remote_tags(tag1)"),
+        vec![]
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "untracked_remote_tags(tag2)"),
+        vec![]
+    );
+    // Two tags pointing to the same commit does not result in a duplicate in
+    // the revset
+    mut_repo.set_remote_tag(
+        remote_symbol("tag3", "origin"),
+        normal_tracked_remote_ref(commit2.id()),
+    );
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags()"),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+    // The commits don't have to be in the current set of heads to be included.
+    mut_repo.remove_head(commit2.id());
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags()"),
+        vec![commit2.id().clone(), commit1.id().clone()]
+    );
+    // Can get tags when there are conflicted refs
+    mut_repo.set_remote_tag(
+        remote_symbol("tag1", "origin"),
+        tracked_remote_ref(RefTarget::from_legacy_form(
+            [commit1.id().clone()],
+            [commit2.id().clone(), commit3.id().clone()],
+        )),
+    );
+    mut_repo.set_remote_tag(
+        remote_symbol("tag2", "private"),
+        tracked_remote_ref(RefTarget::from_legacy_form(
+            [commit2.id().clone()],
+            [commit3.id().clone(), commit4.id().clone()],
+        )),
+    );
+    mut_repo.set_remote_tag(remote_symbol("tag3", "origin"), RemoteRef::absent());
+    assert_eq!(
+        resolve_commit_ids(mut_repo, "remote_tags()"),
+        vec![
+            commit4.id().clone(),
+            commit3.id().clone(),
+            commit2.id().clone()
+        ]
+    );
+}
+
+#[test]
 fn test_evaluate_expression_latest() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;

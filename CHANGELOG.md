@@ -70,6 +70,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   matching the pattern will be fetched as `<name>@<remote>` tags. The fetched
   remote tags will be tracked by the local tags of the same name.
 
+* New `remote_tags()` revset function to query remote tags.
+
 ### Fixed bugs
 
 * `jj git init --colocate` now refuses to run inside a Git worktree, providing

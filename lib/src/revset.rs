@@ -147,6 +147,10 @@ pub enum RevsetCommitRef {
         remote_ref_state: Option<RemoteRefState>,
     },
     Tags(StringExpression),
+    RemoteTags {
+        symbol: RemoteRefSymbolExpression,
+        remote_ref_state: Option<RemoteRefState>,
+    },
     GitRefs,
     GitHead,
 }
@@ -426,6 +430,16 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
 
     pub fn tags(expression: StringExpression) -> Arc<Self> {
         Arc::new(Self::CommitRef(RevsetCommitRef::Tags(expression)))
+    }
+
+    pub fn remote_tags(
+        symbol: RemoteRefSymbolExpression,
+        remote_ref_state: Option<RemoteRefState>,
+    ) -> Arc<Self> {
+        Arc::new(Self::CommitRef(RevsetCommitRef::RemoteTags {
+            symbol,
+            remote_ref_state,
+        }))
     }
 
     pub fn git_refs() -> Arc<Self> {
@@ -930,6 +944,23 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             StringExpression::all()
         };
         Ok(RevsetExpression::tags(expr))
+    });
+    map.insert("remote_tags", |diagnostics, function, context| {
+        let symbol = parse_remote_refs_arguments(diagnostics, function, context)?;
+        let state = None;
+        Ok(RevsetExpression::remote_tags(symbol, state))
+    });
+    // TODO: Document tracked/untracked_remote_tags() if we add untracked state
+    // to remote tags.
+    map.insert("tracked_remote_tags", |diagnostics, function, context| {
+        let symbol = parse_remote_refs_arguments(diagnostics, function, context)?;
+        let state = Some(RemoteRefState::Tracked);
+        Ok(RevsetExpression::remote_tags(symbol, state))
+    });
+    map.insert("untracked_remote_tags", |diagnostics, function, context| {
+        let symbol = parse_remote_refs_arguments(diagnostics, function, context)?;
+        let state = Some(RemoteRefState::New);
+        Ok(RevsetExpression::remote_tags(symbol, state))
     });
     // TODO: Remove in jj 0.43+
     map.insert("git_refs", |diagnostics, function, _context| {
@@ -2934,6 +2965,23 @@ fn resolve_commit_ref(
                 .collect();
             Ok(commit_ids)
         }
+        RevsetCommitRef::RemoteTags {
+            symbol,
+            remote_ref_state,
+        } => {
+            let name_matcher = symbol.name.to_matcher();
+            let remote_matcher = symbol.remote.to_matcher();
+            let commit_ids = repo
+                .view()
+                .remote_tags_matching(&name_matcher, &remote_matcher)
+                .filter(|(_, remote_ref)| {
+                    remote_ref_state.is_none_or(|state| remote_ref.state == state)
+                })
+                .flat_map(|(_, remote_ref)| remote_ref.target.added_ids())
+                .cloned()
+                .collect();
+            Ok(commit_ids)
+        }
         RevsetCommitRef::GitRefs => {
             let mut commit_ids = vec![];
             for ref_target in repo.view().git_refs().values() {
@@ -3849,6 +3897,39 @@ mod tests {
         insta::assert_debug_snapshot!(parse("untracked_remote_bookmarks()").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
+                symbol: RemoteRefSymbolExpression {
+                    name: Pattern(Substring("")),
+                    remote: NotIn(Pattern(Exact("ignored"))),
+                },
+                remote_ref_state: Some(New),
+            },
+        )
+        "#);
+        insta::assert_debug_snapshot!(parse("remote_tags()").unwrap(), @r#"
+        CommitRef(
+            RemoteTags {
+                symbol: RemoteRefSymbolExpression {
+                    name: Pattern(Substring("")),
+                    remote: NotIn(Pattern(Exact("ignored"))),
+                },
+                remote_ref_state: None,
+            },
+        )
+        "#);
+        insta::assert_debug_snapshot!(parse("tracked_remote_tags()").unwrap(), @r#"
+        CommitRef(
+            RemoteTags {
+                symbol: RemoteRefSymbolExpression {
+                    name: Pattern(Substring("")),
+                    remote: NotIn(Pattern(Exact("ignored"))),
+                },
+                remote_ref_state: Some(Tracked),
+            },
+        )
+        "#);
+        insta::assert_debug_snapshot!(parse("untracked_remote_tags()").unwrap(), @r#"
+        CommitRef(
+            RemoteTags {
                 symbol: RemoteRefSymbolExpression {
                     name: Pattern(Substring("")),
                     remote: NotIn(Pattern(Exact("ignored"))),

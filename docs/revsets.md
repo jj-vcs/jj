@@ -299,6 +299,9 @@ revsets (expressions) as arguments.
   `v2`. If a tag is in a conflicted state, all its possible targets are
   included.
 
+* `remote_tags([name_pattern], [[remote=]remote_pattern])`: All remote tags
+  targets across all remotes. See `remote_bookmarks()` for arguments.
+
 * `visible_heads()`: All visible heads (same as `heads(all())` if no hidden
   revisions are mentioned).
 
