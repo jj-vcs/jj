@@ -143,13 +143,21 @@ pub enum RevsetCommitRef {
     CommitId(HexPrefix),
     Bookmarks(StringExpression),
     RemoteBookmarks {
-        bookmark: StringExpression,
-        remote: StringExpression,
+        symbol: RemoteRefSymbolExpression,
         remote_ref_state: Option<RemoteRefState>,
     },
     Tags(StringExpression),
     GitRefs,
     GitHead,
+}
+
+/// String expressions to match `name@remote` bookmarks/tags.
+#[derive(Clone, Debug)]
+pub struct RemoteRefSymbolExpression {
+    /// Matches local name.
+    pub name: StringExpression,
+    /// Matches remote name.
+    pub remote: StringExpression,
 }
 
 /// A custom revset filter expression, defined by an extension.
@@ -407,13 +415,11 @@ impl<St: ExpressionState<CommitRef = RevsetCommitRef>> RevsetExpression<St> {
     }
 
     pub fn remote_bookmarks(
-        bookmark: StringExpression,
-        remote: StringExpression,
+        symbol: RemoteRefSymbolExpression,
         remote_ref_state: Option<RemoteRefState>,
     ) -> Arc<Self> {
         Arc::new(Self::CommitRef(RevsetCommitRef::RemoteBookmarks {
-            bookmark,
-            remote,
+            symbol,
             remote_ref_state,
         }))
     }
@@ -1264,14 +1270,13 @@ fn parse_remote_bookmarks_arguments(
     remote_ref_state: Option<RemoteRefState>,
     context: &LoweringContext,
 ) -> Result<Arc<UserRevsetExpression>, RevsetParseError> {
-    let ([], [bookmark_opt_arg, remote_opt_arg]) =
-        function.expect_named_arguments(&["", "remote"])?;
-    let bookmark_expr = if let Some(bookmark_arg) = bookmark_opt_arg {
-        expect_string_expression(diagnostics, bookmark_arg, context)?
+    let ([], [name_opt_arg, remote_opt_arg]) = function.expect_named_arguments(&["", "remote"])?;
+    let name = if let Some(name_arg) = name_opt_arg {
+        expect_string_expression(diagnostics, name_arg, context)?
     } else {
         StringExpression::all()
     };
-    let remote_expr = if let Some(remote_arg) = remote_opt_arg {
+    let remote = if let Some(remote_arg) = remote_opt_arg {
         expect_string_expression(diagnostics, remote_arg, context)?
     } else if let Some(remote) = context.default_ignored_remote {
         StringExpression::exact(remote).negated()
@@ -1279,8 +1284,7 @@ fn parse_remote_bookmarks_arguments(
         StringExpression::all()
     };
     Ok(RevsetExpression::remote_bookmarks(
-        bookmark_expr,
-        remote_expr,
+        RemoteRefSymbolExpression { name, remote },
         remote_ref_state,
     ))
 }
@@ -2913,15 +2917,14 @@ fn resolve_commit_ref(
             Ok(commit_ids)
         }
         RevsetCommitRef::RemoteBookmarks {
-            bookmark,
-            remote,
+            symbol,
             remote_ref_state,
         } => {
-            let bookmark_matcher = bookmark.to_matcher();
-            let remote_matcher = remote.to_matcher();
+            let name_matcher = symbol.name.to_matcher();
+            let remote_matcher = symbol.remote.to_matcher();
             let commit_ids = repo
                 .view()
-                .remote_bookmarks_matching(&bookmark_matcher, &remote_matcher)
+                .remote_bookmarks_matching(&name_matcher, &remote_matcher)
                 .filter(|(_, remote_ref)| {
                     remote_ref_state.is_none_or(|state| remote_ref.state == state)
                 })
@@ -3832,8 +3835,10 @@ mod tests {
         insta::assert_debug_snapshot!(parse("remote_bookmarks()").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark: Pattern(Substring("")),
-                remote: NotIn(Pattern(Exact("ignored"))),
+                symbol: RemoteRefSymbolExpression {
+                    name: Pattern(Substring("")),
+                    remote: NotIn(Pattern(Exact("ignored"))),
+                },
                 remote_ref_state: None,
             },
         )
@@ -3841,8 +3846,10 @@ mod tests {
         insta::assert_debug_snapshot!(parse("tracked_remote_bookmarks()").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark: Pattern(Substring("")),
-                remote: NotIn(Pattern(Exact("ignored"))),
+                symbol: RemoteRefSymbolExpression {
+                    name: Pattern(Substring("")),
+                    remote: NotIn(Pattern(Exact("ignored"))),
+                },
                 remote_ref_state: Some(Tracked),
             },
         )
@@ -3850,8 +3857,10 @@ mod tests {
         insta::assert_debug_snapshot!(parse("untracked_remote_bookmarks()").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark: Pattern(Substring("")),
-                remote: NotIn(Pattern(Exact("ignored"))),
+                symbol: RemoteRefSymbolExpression {
+                    name: Pattern(Substring("")),
+                    remote: NotIn(Pattern(Exact("ignored"))),
+                },
                 remote_ref_state: Some(New),
             },
         )
@@ -4248,8 +4257,10 @@ mod tests {
             parse("remote_bookmarks(remote=foo)").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark: Pattern(Substring("")),
-                remote: Pattern(Exact("foo")),
+                symbol: RemoteRefSymbolExpression {
+                    name: Pattern(Substring("")),
+                    remote: Pattern(Exact("foo")),
+                },
                 remote_ref_state: None,
             },
         )
@@ -4258,8 +4269,10 @@ mod tests {
             parse("remote_bookmarks(foo, remote=bar)").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark: Pattern(Exact("foo")),
-                remote: Pattern(Exact("bar")),
+                symbol: RemoteRefSymbolExpression {
+                    name: Pattern(Exact("foo")),
+                    remote: Pattern(Exact("bar")),
+                },
                 remote_ref_state: None,
             },
         )
@@ -4268,8 +4281,10 @@ mod tests {
             parse("tracked_remote_bookmarks(foo, remote=bar)").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark: Pattern(Exact("foo")),
-                remote: Pattern(Exact("bar")),
+                symbol: RemoteRefSymbolExpression {
+                    name: Pattern(Exact("foo")),
+                    remote: Pattern(Exact("bar")),
+                },
                 remote_ref_state: Some(Tracked),
             },
         )
@@ -4278,8 +4293,10 @@ mod tests {
             parse("untracked_remote_bookmarks(foo, remote=bar)").unwrap(), @r#"
         CommitRef(
             RemoteBookmarks {
-                bookmark: Pattern(Exact("foo")),
-                remote: Pattern(Exact("bar")),
+                symbol: RemoteRefSymbolExpression {
+                    name: Pattern(Exact("foo")),
+                    remote: Pattern(Exact("bar")),
+                },
                 remote_ref_state: Some(New),
             },
         )

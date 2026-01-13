@@ -211,7 +211,7 @@ revsets (expressions) as arguments.
     brackets like `[arg]`. Some arguments also have an optional label which can
     be used to specify that argument without specifying all previous arguments.
 
-    For instance, `remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`
+    For instance, `remote_bookmarks([name_pattern], [[remote=]remote_pattern])`
     indicates that all of the following usages are valid:
 
     * `remote_bookmarks()`
@@ -270,12 +270,12 @@ revsets (expressions) as arguments.
   bookmarks `push-123` and `repushed` but not the bookmark `main`. If a bookmark
   is in a conflicted state, all its possible targets are included.
 
-* `remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`: All remote
-  bookmarks targets across all remotes. If just the `bookmark_pattern` is
-  specified, the bookmarks whose names match the given [string
-  pattern](#string-patterns) across all remotes are selected. If both
-  `bookmark_pattern` and `remote_pattern` are specified, the selection is
-  further restricted to just the remotes whose names match `remote_pattern`.
+* `remote_bookmarks([name_pattern], [[remote=]remote_pattern])`: All remote
+  bookmarks targets across all remotes. If just the `name_pattern` is specified,
+  the bookmarks whose names match the given [string pattern](#string-patterns)
+  across all remotes are selected. If both `name_pattern` and `remote_pattern`
+  are specified, the selection is further restricted to just the remotes whose
+  names match `remote_pattern`.
 
   For example, `remote_bookmarks(*push*, *ri*)` would match the bookmarks
   `push-123@origin` and `repushed@private` but not `push-123@upstream` or
@@ -285,13 +285,13 @@ revsets (expressions) as arguments.
   Git-tracking bookmarks are excluded by default. Use `remote="git"` or
   `remote="*"` to select bookmarks including `@git` ones.
 
-* `tracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`: All
+* `tracked_remote_bookmarks([name_pattern], [[remote=]remote_pattern])`: All
   targets of tracked remote bookmarks. Supports the same optional arguments as
   `remote_bookmarks()`.
 
-* `untracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`:
-  All targets of untracked remote bookmarks. Supports the same optional arguments
-  as `remote_bookmarks()`.
+* `untracked_remote_bookmarks([name_pattern], [[remote=]remote_pattern])`: All
+  targets of untracked remote bookmarks. Supports the same optional arguments as
+  `remote_bookmarks()`.
 
 * `tags([pattern])`: All tag targets. If `pattern` is specified, this selects
   the tags whose name match the given [string pattern](#string-patterns). For

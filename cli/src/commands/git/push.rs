@@ -44,6 +44,7 @@ use jj_lib::refs::BookmarkPushUpdate;
 use jj_lib::refs::LocalAndRemoteRef;
 use jj_lib::refs::classify_bookmark_push_action;
 use jj_lib::repo::Repo;
+use jj_lib::revset::RemoteRefSymbolExpression;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringExpression;
@@ -960,8 +961,10 @@ fn find_bookmarks_targeted_by_revisions<'a>(
         // remote_bookmarks(remote=<remote>)..@
         let workspace_name = workspace_command.workspace_name();
         let expression = RevsetExpression::remote_bookmarks(
-            StringExpression::all(),
-            StringExpression::exact(remote),
+            RemoteRefSymbolExpression {
+                name: StringExpression::all(),
+                remote: StringExpression::exact(remote),
+            },
             None,
         )
         .range(&RevsetExpression::working_copy(workspace_name.to_owned()))
