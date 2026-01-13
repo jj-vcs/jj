@@ -673,7 +673,7 @@ fn test_resolve_working_copies() {
 }
 
 #[test]
-fn test_resolve_symbol_bookmarks() {
+fn test_resolve_symbol_bookmarks_only() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
     let new_remote_ref = |target| RemoteRef {
@@ -974,6 +974,91 @@ fn test_resolve_symbol_tags() {
         resolve_symbol(mut_repo, "root").unwrap(),
         vec![commit3.id().clone()]
     );
+}
+
+#[test]
+fn test_resolve_symbol_remote_tags_or_bookmarks() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let new_remote_ref = |target| RemoteRef {
+        target,
+        state: RemoteRefState::New,
+    };
+    let tracked_remote_ref = |target| RemoteRef {
+        target,
+        state: RemoteRefState::Tracked,
+    };
+    let normal_tracked_remote_ref =
+        |id: &CommitId| tracked_remote_ref(RefTarget::normal(id.clone()));
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+
+    let commit1 = write_random_commit(mut_repo);
+    let commit2 = write_random_commit(mut_repo);
+    let commit3 = write_random_commit(mut_repo);
+    let commit4 = write_random_commit(mut_repo);
+    let commit5 = write_random_commit(mut_repo);
+
+    mut_repo.set_local_tag_target(
+        "tag-bookmark".as_ref(),
+        RefTarget::normal(commit1.id().clone()),
+    );
+    mut_repo.set_local_bookmark_target(
+        "tag-bookmark".as_ref(),
+        RefTarget::normal(commit2.id().clone()),
+    );
+    mut_repo.set_remote_tag(
+        remote_symbol("tag-bookmark", "origin"),
+        normal_tracked_remote_ref(commit3.id()),
+    );
+    mut_repo.set_remote_bookmark(
+        remote_symbol("tag-bookmark", "origin"),
+        normal_tracked_remote_ref(commit4.id()),
+    );
+
+    mut_repo.set_local_tag_target(
+        "local-remote-tag".as_ref(),
+        RefTarget::normal(commit5.id().clone()),
+    );
+    mut_repo.set_remote_tag(
+        remote_symbol("local-remote-tag", "untracked"),
+        new_remote_ref(mut_repo.get_local_tag("local-remote-tag".as_ref())),
+    );
+    mut_repo.set_remote_tag(
+        remote_symbol("local-remote-tag", "tracked"),
+        tracked_remote_ref(mut_repo.get_local_tag("local-remote-tag".as_ref())),
+    );
+
+    // Tag precedes bookmark
+    assert_eq!(
+        resolve_symbol(mut_repo, "tag-bookmark@origin").unwrap(),
+        vec![commit3.id().clone()],
+    );
+
+    // Duplicated names shouldn't be suggested
+    insta::assert_debug_snapshot!(
+        resolve_symbol(mut_repo, "tag-bookmark@orig").unwrap_err(), @r#"
+    NoSuchRevision {
+        name: "tag-bookmark@orig",
+        candidates: [
+            "tag-bookmark",
+            "tag-bookmark@origin",
+        ],
+    }
+    "#);
+
+    // Synced remote tags shouldn't be suggested
+    insta::assert_debug_snapshot!(
+        resolve_symbol(mut_repo, "local-emote-tag").unwrap_err(), @r#"
+    NoSuchRevision {
+        name: "local-emote-tag",
+        candidates: [
+            "local-remote-tag",
+            "local-remote-tag@untracked",
+        ],
+    }
+    "#);
 }
 
 #[test]

@@ -42,9 +42,11 @@ use crate::id_prefix::IdPrefixIndex;
 use crate::index::ResolvedChangeTargets;
 use crate::object_id::HexPrefix;
 use crate::object_id::PrefixResolution;
+use crate::op_store::LocalRemoteRefTarget;
 use crate::op_store::RefTarget;
 use crate::op_store::RemoteRefState;
 use crate::op_walk;
+use crate::ref_name::RefName;
 use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::RemoteRefSymbolBuf;
@@ -2584,13 +2586,19 @@ fn reload_repo_at_operation(
     })
 }
 
-fn resolve_remote_bookmark(
+fn resolve_remote_symbol(
     repo: &dyn Repo,
     symbol: RemoteRefSymbol<'_>,
 ) -> Result<CommitId, RevsetResolutionError> {
-    let target = &repo.view().get_remote_bookmark(symbol).target;
-    to_resolved_ref("remote_bookmark", symbol, target)?
-        .ok_or_else(|| make_no_such_symbol_error(repo, symbol.to_string()))
+    let remote_ref = repo.view().get_remote_tag(symbol);
+    if let Some(id) = to_resolved_ref("remote_tag", symbol, &remote_ref.target)? {
+        return Ok(id);
+    }
+    let remote_ref = repo.view().get_remote_bookmark(symbol);
+    if let Some(id) = to_resolved_ref("remote_bookmark", symbol, &remote_ref.target)? {
+        return Ok(id);
+    }
+    Err(make_no_such_symbol_error(repo, symbol.to_string()))
 }
 
 fn to_resolved_ref(
@@ -2609,17 +2617,16 @@ fn to_resolved_ref(
     }
 }
 
-fn all_formatted_bookmark_symbols(
-    repo: &dyn Repo,
+fn all_formatted_ref_symbols<'a>(
+    all_refs: impl Iterator<Item = (&'a RefName, LocalRemoteRefTarget<'a>)>,
     include_synced_remotes: bool,
 ) -> impl Iterator<Item = String> {
-    let view = repo.view();
-    view.bookmarks().flat_map(move |(name, bookmark_target)| {
-        let local_target = bookmark_target.local_target;
+    all_refs.flat_map(move |(name, targets)| {
+        let local_target = targets.local_target;
         let local_symbol = local_target
             .is_present()
             .then(|| format_symbol(name.as_str()));
-        let remote_symbols = bookmark_target
+        let remote_symbols = targets
             .remote_refs
             .into_iter()
             .filter(move |&(_, remote_ref)| {
@@ -2633,9 +2640,11 @@ fn all_formatted_bookmark_symbols(
 }
 
 fn make_no_such_symbol_error(repo: &dyn Repo, name: String) -> RevsetResolutionError {
-    // TODO: include tags?
-    let bookmark_names = all_formatted_bookmark_symbols(repo, name.contains('@'));
-    let candidates = collect_similar(&name, bookmark_names);
+    let include_synced_remotes = name.contains('@');
+    let tag_names = all_formatted_ref_symbols(repo.view().tags(), include_synced_remotes);
+    let bookmark_names = all_formatted_ref_symbols(repo.view().bookmarks(), include_synced_remotes);
+    let mut candidates = collect_similar(&name, itertools::chain(tag_names, bookmark_names));
+    candidates.dedup(); // tags and bookmarks may have duplicate symbols
     RevsetResolutionError::NoSuchRevision { name, candidates }
 }
 
@@ -2905,7 +2914,7 @@ fn resolve_commit_ref(
             Ok(vec![commit_id])
         }
         RevsetCommitRef::RemoteSymbol(symbol) => {
-            let commit_id = resolve_remote_bookmark(repo, symbol.as_ref())?;
+            let commit_id = resolve_remote_symbol(repo, symbol.as_ref())?;
             Ok(vec![commit_id])
         }
         RevsetCommitRef::WorkingCopy(name) => {

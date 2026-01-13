@@ -27,7 +27,7 @@ search space. They are included in `all()`, `x..`, `~x`, etc., but not in
 
 The `@` expression refers to the working copy commit in the current workspace.
 Use `<workspace name>@` to refer to the working-copy commit in another
-workspace. Use `<name>@<remote>` to refer to a remote-tracking bookmark.
+workspace. Use `<name>@<remote>` to refer to a remote-tracking tag/bookmark.
 
 A full commit ID refers to a single commit. A unique prefix of the full commit
 ID can also be used. It is an error to use a non-unique prefix.
