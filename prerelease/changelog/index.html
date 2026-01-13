@@ -6475,6 +6475,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <li>
 <p>New <code>divergent()</code> revset function for divergent changes.</p>
 </li>
+<li>
+<p>A new config option <code>remotes.&lt;name&gt;.auto-track-created-bookmarks</code> behaves
+  similarly to <code>auto-track-bookmarks</code>, but it only applies to bookmarks created
+  locally. Setting it to <code>"*"</code> is now the closest replacement for the deprecated
+  <code>git.push-new-bookmarks</code> option.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
