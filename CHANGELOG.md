@@ -19,6 +19,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* The revset function `diff_contains()` has been renamed to `diff_lines()`.
+
 ### New features
 
 * `jj git push --bookmark <name>` will now automatically track the bookmark if

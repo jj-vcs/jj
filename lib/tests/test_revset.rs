@@ -4445,7 +4445,7 @@ fn test_evaluate_expression_file(indexed: bool) {
 
 #[test_case(false; "without changed-path index")]
 #[test_case(true; "with changed-path index")]
-fn test_evaluate_expression_diff_contains(indexed: bool) {
+fn test_evaluate_expression_diff_lines(indexed: bool) {
     let test_workspace = TestWorkspace::init();
     let repo = if indexed {
         build_changed_path_index(&test_workspace.repo)
@@ -4524,7 +4524,7 @@ fn test_evaluate_expression_diff_contains(indexed: bool) {
 
     // should match both inserted and deleted lines
     assert_eq!(
-        query("diff_contains(*2*)"),
+        query("diff_lines(*2*)"),
         vec![
             commit4.id().clone(),
             commit3.id().clone(),
@@ -4532,19 +4532,19 @@ fn test_evaluate_expression_diff_contains(indexed: bool) {
         ]
     );
     assert_eq!(
-        query("diff_contains(*3*)"),
+        query("diff_lines(*3*)"),
         vec![commit4.id().clone(), commit3.id().clone()]
     );
-    assert_eq!(query("diff_contains('*2 3*')"), vec![commit3.id().clone()]);
+    assert_eq!(query("diff_lines('*2 3*')"), vec![commit3.id().clone()]);
     assert_eq!(
-        query("diff_contains('*1 3*')"),
+        query("diff_lines('*1 3*')"),
         vec![commit4.id().clone(), commit3.id().clone()]
     );
 
     // should match line with eol
     assert_eq!(
         query(&format!(
-            "diff_contains('1', {normal_inserted_modified_removed:?})",
+            "diff_lines('1', {normal_inserted_modified_removed:?})",
         )),
         vec![commit3.id().clone(), commit1.id().clone()]
     );
@@ -4552,7 +4552,7 @@ fn test_evaluate_expression_diff_contains(indexed: bool) {
     // should match line without eol
     assert_eq!(
         query(&format!(
-            "diff_contains('1', {noeol_modified_modified_clean:?})",
+            "diff_lines('1', {noeol_modified_modified_clean:?})",
         )),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
@@ -4560,13 +4560,13 @@ fn test_evaluate_expression_diff_contains(indexed: bool) {
     // exact:'' should match blank line
     assert_eq!(
         query(&format!(
-            "diff_contains(exact:'', {empty_clean_inserted_deleted:?})",
+            "diff_lines(exact:'', {empty_clean_inserted_deleted:?})",
         )),
         vec![]
     );
     assert_eq!(
         query(&format!(
-            "diff_contains(exact:'', {blank_clean_inserted_clean:?})",
+            "diff_lines(exact:'', {blank_clean_inserted_clean:?})",
         )),
         vec![commit1.id().clone()]
     );
@@ -4574,20 +4574,20 @@ fn test_evaluate_expression_diff_contains(indexed: bool) {
     // substring:'' should match anything but clean
     assert_eq!(
         query(&format!(
-            "diff_contains(substring:'', {empty_clean_inserted_deleted:?})",
+            "diff_lines(substring:'', {empty_clean_inserted_deleted:?})",
         )),
         vec![commit4.id().clone(), commit3.id().clone()]
     );
     assert_eq!(
         query(&format!(
-            "diff_contains(substring:'', {blank_clean_inserted_clean:?})",
+            "diff_lines(substring:'', {blank_clean_inserted_clean:?})",
         )),
         vec![commit3.id().clone(), commit1.id().clone()]
     );
 }
 
 #[test]
-fn test_evaluate_expression_diff_contains_non_utf8() {
+fn test_evaluate_expression_diff_lines_non_utf8() {
     let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
@@ -4605,15 +4605,15 @@ fn test_evaluate_expression_diff_contains_non_utf8() {
 
     // non-utf-8 line shouldn't be ignored
     assert_eq!(
-        query("diff_contains(regex:'(?-u)^.{2}$')"),
+        query("diff_lines(regex:'(?-u)^.{2}$')"),
         vec![commit1.id().clone()]
     );
-    assert_eq!(query("diff_contains(regex:'(?-u)^.$')"), vec![]);
+    assert_eq!(query("diff_lines(regex:'(?-u)^.$')"), vec![]);
 }
 
 #[test_case(false; "without changed-path index")]
 #[test_case(true; "with changed-path index")]
-fn test_evaluate_expression_diff_contains_conflict(indexed: bool) {
+fn test_evaluate_expression_diff_lines_conflict(indexed: bool) {
     let test_workspace = TestWorkspace::init();
     let repo = if indexed {
         build_changed_path_index(&test_workspace.repo)
@@ -4642,15 +4642,15 @@ fn test_evaluate_expression_diff_contains_conflict(indexed: bool) {
     let commit2 = create_commit(vec![commit1.id().clone()], tree4);
 
     assert_eq!(
-        resolve_commit_ids(mut_repo, "diff_contains('0')"),
+        resolve_commit_ids(mut_repo, "diff_lines('0')"),
         vec![commit1.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "diff_contains('1')"),
+        resolve_commit_ids(mut_repo, "diff_lines('1')"),
         vec![commit2.id().clone(), commit1.id().clone()]
     );
     assert_eq!(
-        resolve_commit_ids(mut_repo, "diff_contains('2')"),
+        resolve_commit_ids(mut_repo, "diff_lines('2')"),
         vec![commit2.id().clone()]
     );
 }
@@ -4711,7 +4711,7 @@ fn test_evaluate_expression_file_merged_parents(indexed: bool) {
     );
 
     assert_eq!(
-        query("diff_contains(regex:'[1234]', 'file1')"),
+        query("diff_lines(regex:'[1234]', 'file1')"),
         vec![
             commit4.id().clone(),
             commit3.id().clone(),
@@ -4720,7 +4720,7 @@ fn test_evaluate_expression_file_merged_parents(indexed: bool) {
         ]
     );
     assert_eq!(
-        query("diff_contains(regex:'[1234]', 'file2')"),
+        query("diff_lines(regex:'[1234]', 'file2')"),
         vec![
             commit3.id().clone(),
             commit2.id().clone(),

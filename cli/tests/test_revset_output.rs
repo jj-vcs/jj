@@ -549,6 +549,27 @@ fn test_default_string_pattern() {
     ");
 }
 
+// TODO: Remove in jj 0.44+
+#[test]
+fn test_deprecated_diff_contains() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["log", "-rdiff_contains('') | diff_lines('')"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: In revset expression
+     --> 1:1
+      |
+    1 | diff_contains('') | diff_lines('')
+      | ^-----------^
+      |
+      = diff_contains() is deprecated; use diff_lines() instead
+    [EOF]
+    ");
+}
+
 #[test]
 fn test_alias() {
     let test_env = TestEnvironment::default();

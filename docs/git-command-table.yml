@@ -156,7 +156,7 @@
   Git command: >
     `git log -G stuff`
   Jujutsu command: >
-    `jj log -r 'diff_contains(stuff)'`
+    `jj log -r 'diff_lines(regex:stuff)'`
   Notes: ''
 
 - Use case: List versioned files in the working copy

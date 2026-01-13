@@ -200,7 +200,7 @@ pub enum RevsetFilterPredicate {
     /// Commits modifying the paths specified by the fileset.
     File(FilesetExpression),
     /// Commits containing diffs matching the `text` pattern within the `files`.
-    DiffContains {
+    DiffLines {
         text: StringExpression,
         files: FilesetExpression,
     },
@@ -1086,7 +1086,14 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let expr = expect_fileset_expression(diagnostics, arg, ctx.path_converter)?;
         Ok(RevsetExpression::filter(RevsetFilterPredicate::File(expr)))
     });
-    map.insert("diff_contains", |diagnostics, function, context| {
+    map.insert("diff_lines", |diagnostics, function, context| {
+        if function.name != "diff_lines" {
+            // TODO: Remove in jj 0.44+
+            diagnostics.add_warning(RevsetParseError::expression(
+                "diff_contains() is deprecated; use diff_lines() instead",
+                function.name_span,
+            ));
+        }
         let ([text_arg], [files_opt_arg]) = function.expect_arguments()?;
         let text = expect_string_expression(diagnostics, text_arg, context)?;
         let files = if let Some(files_arg) = files_opt_arg {
@@ -1102,10 +1109,11 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
             // https://github.com/jj-vcs/jj/issues/2933#issuecomment-1925870731
             FilesetExpression::all()
         };
-        Ok(RevsetExpression::filter(
-            RevsetFilterPredicate::DiffContains { text, files },
-        ))
+        let predicate = RevsetFilterPredicate::DiffLines { text, files };
+        Ok(RevsetExpression::filter(predicate))
     });
+    // TODO: Remove diff_contains() in jj 0.44+
+    map.insert("diff_contains", map["diff_lines"]);
     map.insert("conflicts", |_diagnostics, function, _context| {
         function.expect_no_arguments()?;
         Ok(RevsetExpression::filter(RevsetFilterPredicate::HasConflict))

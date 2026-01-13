@@ -1316,7 +1316,7 @@ fn build_predicate_fn(
                 Ok(has_diff_from_parent(&store, index, &commit, &*matcher).block_on()?)
             })
         }
-        RevsetFilterPredicate::DiffContains { text, files } => {
+        RevsetFilterPredicate::DiffLines { text, files } => {
             let text_matcher = Rc::new(text.to_matcher());
             let files_matcher: Rc<dyn Matcher> = files.to_matcher().into();
             box_pure_predicate_fn(move |index, pos| {
