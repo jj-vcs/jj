@@ -2592,6 +2592,79 @@ fn track_ignored_with_flag_and_fsmonitor() {
 }
 
 #[test]
+fn untrack_with_fsmonitor_readds_unignored_file() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+    let workspace_root = test_repo.env.root().join("workspace");
+    let state_path = test_repo.env.root().join("state");
+    std::fs::create_dir(&workspace_root).unwrap();
+    std::fs::create_dir(&state_path).unwrap();
+    let tree_state_settings = TreeStateSettings::try_from_user_settings(repo.settings()).unwrap();
+    TreeState::init(
+        repo.store().clone(),
+        workspace_root.clone(),
+        state_path.clone(),
+        &tree_state_settings,
+    )
+    .unwrap();
+
+    let tracked_path = repo_path("file1");
+    testutils::write_working_copy_file(&workspace_root, tracked_path, "contents\n");
+
+    let snapshot = |paths: &[&RepoPath], matcher: Option<&FilesMatcher>| {
+        let changed_files = paths
+            .iter()
+            .map(|p| p.to_fs_path_unchecked(Path::new("")))
+            .collect();
+        let settings = TreeStateSettings {
+            fsmonitor_settings: FsmonitorSettings::Test { changed_files },
+            ..tree_state_settings.clone()
+        };
+        let mut tree_state = TreeState::load(
+            repo.store().clone(),
+            workspace_root.clone(),
+            state_path.clone(),
+            &settings,
+        )
+        .unwrap();
+        let mut options = SnapshotOptions {
+            ..empty_snapshot_options()
+        };
+        if let Some(matcher) = matcher {
+            options.force_scan_matcher = matcher;
+        }
+        tree_state.snapshot(&options).block_on().unwrap();
+        tree_state.save().unwrap();
+        tree_state
+    };
+
+    let mut tree_state = snapshot(&[tracked_path], None);
+
+    let expected_tree = create_tree(repo, &[(tracked_path, "contents\n")]);
+    assert_tree_eq!(*tree_state.current_tree(), expected_tree);
+
+    // Simulate `jj file untrack`: update tree state to remove the path, but keep
+    // the file on disk.
+    let empty_tree = repo.store().empty_merged_tree();
+    tree_state.reset(&empty_tree).block_on().unwrap();
+    tree_state.save().unwrap();
+
+    let tree_state = snapshot(&[], None);
+    assert_tree_eq!(*tree_state.current_tree(), empty_tree);
+
+    let force_scan_matcher = FilesMatcher::new([tracked_path]);
+    let tree_state = snapshot(&[], Some(&force_scan_matcher));
+    assert_tree_eq!(*tree_state.current_tree(), expected_tree);
+
+    // Force-scan should not add untracked paths.
+    let untracked_path = repo_path("untracked");
+    testutils::write_working_copy_file(&workspace_root, untracked_path, "other\n");
+    let force_scan_matcher = FilesMatcher::new([tracked_path]);
+    let tree_state = snapshot(&[], Some(&force_scan_matcher));
+    assert_tree_eq!(*tree_state.current_tree(), expected_tree);
+}
+
+#[test]
 fn test_snapshot_max_new_file_size() {
     let mut test_workspace = TestWorkspace::init();
     let workspace_root = test_workspace.workspace.workspace_root().to_owned();

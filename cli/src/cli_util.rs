@@ -1475,6 +1475,7 @@ to the current parents may contain changes from multiple commits.
             start_tracking_matcher,
             force_tracking_matcher: &NothingMatcher,
             max_new_file_size,
+            force_scan_matcher: &NothingMatcher,
         })
     }
 
