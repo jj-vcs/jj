@@ -962,7 +962,6 @@ mod tests {
 
     #[test]
     fn test_matcher_match_lines() {
-        // TODO: Yield a match for the empty line?
         assert_eq!(
             StringMatcher::all().match_lines(b"").collect_vec(),
             Vec::<&[u8]>::new()
