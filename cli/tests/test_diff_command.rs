@@ -3947,6 +3947,11 @@ fn test_diff_revisions() {
     [EOF]
     ");
 
+    insta::assert_snapshot!(diff_revisions("none()"), @r"
+    ------- stderr -------
+    Warning: The diff revset expanded to 0 revisions. There is no diff to show.
+    [EOF]
+    ");
     // A gap in the range is not allowed (yet at least)
     insta::assert_snapshot!(diff_revisions("A|C"), @r"
     ------- stderr -------
@@ -3989,6 +3994,9 @@ fn test_diff_revisions() {
     D
     E
     [EOF]
+    ------- stderr -------
+    Warning: Showing combined diff of potentially unrelated revisions. The revset expanded to multiple revisions and is not of the form `a::b` or `a..b`.
+    [EOF]
     ");
 
     // Can diff a set with multiple heads
@@ -3997,10 +4005,24 @@ fn test_diff_revisions() {
     C
     D
     [EOF]
+    ------- stderr -------
+    Warning: Showing combined diff of potentially unrelated revisions. The revset expanded to multiple revisions and is not of the form `a::b` or `a..b`.
+    [EOF]
     ");
 
     // Can diff a set with multiple root and multiple heads
     insta::assert_snapshot!(diff_revisions("B|C"), @r"
+    B
+    C
+    [EOF]
+    ------- stderr -------
+    Warning: Showing combined diff of potentially unrelated revisions. The revset expanded to multiple revisions and is not of the form `a::b` or `a..b`.
+    [EOF]
+    ");
+
+    // If the user has multiple `-r` arguments, they probably expect to be diffing
+    // multiple revisions. No warning is shown.
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--name-only", "-r=B", "-r=C"]), @r"
     B
     C
     [EOF]
