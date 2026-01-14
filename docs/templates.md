@@ -127,6 +127,17 @@ _Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
 
 No methods are defined. Can be constructed with `false` or `true` literal.
 
+### `ChangeId` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
+The following methods are defined.
+
+* `.normal_hex() -> String`: Normal hex representation (0-9a-f) instead of the
+  canonical "reversed" (z-k) representation.
+* `.short([len: Integer]) -> String`
+* `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
+
 ### `Commit` type
 
 _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
@@ -197,17 +208,6 @@ This type cannot be printed. The following methods are defined.
 * `.inter_diff([files: StringLiteral]) -> TreeDiff`: Changes between this commit and its
   predecessor version(s), rebased onto the parents of this commit to avoid unrelated
   changes (similar to `jj evolog -p`).
-
-### `ChangeId` type
-
-_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
-
-The following methods are defined.
-
-* `.normal_hex() -> String`: Normal hex representation (0-9a-f) instead of the
-  canonical "reversed" (z-k) representation.
-* `.short([len: Integer]) -> String`
-* `.shortest([min_len: Integer]) -> ShortestIdPrefix`: Shortest unique prefix.
 
 ### `CommitId` type
 
@@ -286,17 +286,6 @@ The following methods are defined.
     if(commit.signature(), "commit has a signature", "commit is unsigned")
     ```
 
-### `DiffStats` type
-
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
-
-This type can be printed as a histogram of the changes. The following methods
-are defined.
-
-* `.files() -> List<DiffStatEntry>`: Per-file stats for changed files.
-* `.total_added() -> Integer`: Total number of insertions.
-* `.total_removed() -> Integer`: Total number of deletions.
-
 ### `DiffStatEntry` type
 
 _Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
@@ -312,6 +301,17 @@ This type holds the diff stats per file. The following methods are defined.
 * `.status() -> String`: One of `"modified"`, `"added"`, `"removed"`, `"copied"`, or `"renamed"`.
 * `.status_char() -> String`: One of `"M"` (modified), `"A"` (added), `"D"` (removed),
   `"C"` (copied), or `"R"` (renamed).
+
+### `DiffStats` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
+
+This type can be printed as a histogram of the changes. The following methods
+are defined.
+
+* `.files() -> List<DiffStatEntry>`: Per-file stats for changed files.
+* `.total_added() -> Integer`: Total number of insertions.
+* `.total_removed() -> Integer`: Total number of deletions.
 
 ### `Email` type
 
@@ -518,6 +518,13 @@ defined.
   can use it in a template like `'{ "foo": ' ++ foo.escape_json() ++ ' }'` to
   return a JSON/JSONL.
 
+### `Stringify` type
+
+An expression that can be converted to a `String`.
+
+Any types that can be converted to `Template` can also be `Stringify`. Unlike
+`Template`, color labels are stripped.
+
 ### `StringLiteral` type
 
 A string literal known at parse time. Unlike `Stringify`, this cannot be a
@@ -545,13 +552,6 @@ inside a single-quoted string literal.
 String literals have their own type so that the value can be validated at parse
 time. For example, `contained_in(revset)` requires a literal so the revset can
 be parsed and checked before the template is evaluated.
-
-### `Stringify` type
-
-An expression that can be converted to a `String`.
-
-Any types that can be converted to `Template` can also be `Stringify`. Unlike
-`Template`, color labels are stripped.
 
 ### `StringPattern` type
 
