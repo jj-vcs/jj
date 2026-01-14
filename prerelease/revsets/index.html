@@ -2289,9 +2289,9 @@ indicates that all of the following usages are valid:</p>
 <li>
 <p><code>bookmarks([pattern])</code>: All local bookmark targets. If <code>pattern</code> is specified,
   this selects the bookmarks whose name match the given <a href="#string-patterns">string
-  pattern</a>. For example, <code>bookmarks(push)</code> would match the
-  bookmarks <code>push-123</code> and <code>repushed</code> but not the bookmark <code>main</code>. If a bookmark is
-  in a conflicted state, all its possible targets are included.</p>
+  pattern</a>. For example, <code>bookmarks(*push*)</code> would match the
+  bookmarks <code>push-123</code> and <code>repushed</code> but not the bookmark <code>main</code>. If a bookmark
+  is in a conflicted state, all its possible targets are included.</p>
 </li>
 <li>
 <p><code>remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])</code>: All remote
@@ -2300,7 +2300,7 @@ indicates that all of the following usages are valid:</p>
   pattern</a> across all remotes are selected. If both
   <code>bookmark_pattern</code> and <code>remote_pattern</code> are specified, the selection is
   further restricted to just the remotes whose names match <code>remote_pattern</code>.</p>
-<p>For example, <code>remote_bookmarks(push, ri)</code> would match the bookmarks
+<p>For example, <code>remote_bookmarks(*push*, *ri*)</code> would match the bookmarks
 <code>push-123@origin</code> and <code>repushed@private</code> but not <code>push-123@upstream</code> or
 <code>main@origin</code> or <code>main@upstream</code>. If a bookmark is in a conflicted state, all
 its possible targets are included.</p>
@@ -2318,11 +2318,11 @@ its possible targets are included.</p>
   as <code>remote_bookmarks()</code>.</p>
 </li>
 <li>
-<p><code>tags([pattern])</code>: All tag targets. If <code>pattern</code> is specified,
-  this selects the tags whose name match the given <a href="#string-patterns">string
-  pattern</a>. For example, <code>tags(v1)</code> would match the
-  tags <code>v123</code> and <code>rev1</code> but not the tag <code>v2</code>. If a tag is
-  in a conflicted state, all its possible targets are included.</p>
+<p><code>tags([pattern])</code>: All tag targets. If <code>pattern</code> is specified, this selects
+  the tags whose name match the given <a href="#string-patterns">string pattern</a>. For
+  example, <code>tags(*v1*)</code> would match the tags <code>v123</code> and <code>rev1</code> but not the tag
+  <code>v2</code>. If a tag is in a conflicted state, all its possible targets are
+  included.</p>
 </li>
 <li>
 <p><code>visible_heads()</code>: All visible heads (same as <code>heads(all())</code> if no hidden
