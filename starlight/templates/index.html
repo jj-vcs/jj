@@ -1,0 +1,840 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-bguv2lll"> <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Templates | Jujutsu docs</title><link rel="canonical" href="https://docs.jj-vcs.dev/starlight/templates/"/><link rel="sitemap" href="/starlight/sitemap-index.xml"/><link rel="shortcut icon" href="/starlight/images/jj-logo.svg" type="image/svg+xml"/><meta name="generator" content="Astro v5.16.3"/><meta name="generator" content="Starlight v0.37.0"/><meta property="og:title" content="Templates"/><meta property="og:type" content="article"/><meta property="og:url" content="https://docs.jj-vcs.dev/starlight/templates/"/><meta property="og:locale" content="en"/><meta property="og:site_name" content="Jujutsu docs"/><meta name="twitter:card" content="summary_large_image"/><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/starlight/_astro/print.DNXP8c50.css" media="print"><link rel="stylesheet" href="/starlight/_astro/index.DHaNDMTl.css">
+<style>@layer starlight.components{:root{--sl-badge-default-border: var(--sl-color-accent);--sl-badge-default-bg: var(--sl-color-accent-low);--sl-badge-default-text: #fff;--sl-badge-note-border: var(--sl-color-blue);--sl-badge-note-bg: var(--sl-color-blue-low);--sl-badge-note-text: #fff;--sl-badge-danger-border: var(--sl-color-red);--sl-badge-danger-bg: var(--sl-color-red-low);--sl-badge-danger-text: #fff;--sl-badge-success-border: var(--sl-color-green);--sl-badge-success-bg: var(--sl-color-green-low);--sl-badge-success-text: #fff;--sl-badge-caution-border: var(--sl-color-orange);--sl-badge-caution-bg: var(--sl-color-orange-low);--sl-badge-caution-text: #fff;--sl-badge-tip-border: var(--sl-color-purple);--sl-badge-tip-bg: var(--sl-color-purple-low);--sl-badge-tip-text: #fff}[data-theme=light]:root{--sl-badge-default-bg: var(--sl-color-accent-high);--sl-badge-note-bg: var(--sl-color-blue-high);--sl-badge-danger-bg: var(--sl-color-red-high);--sl-badge-success-bg: var(--sl-color-green-high);--sl-badge-caution-bg: var(--sl-color-orange-high);--sl-badge-tip-bg: var(--sl-color-purple-high)}.sl-badge:where(.astro-avdet4wd){display:inline-block;border:1px solid var(--sl-color-border-badge);border-radius:.25rem;font-family:var(--sl-font-system-mono);line-height:normal;color:var(--sl-color-text-badge);background-color:var(--sl-color-bg-badge);overflow-wrap:anywhere}.sidebar-content .sl-badge:where(.astro-avdet4wd){line-height:1;font-size:var(--sl-text-xs);padding:.125rem .375rem}.sidebar-content a[aria-current=page]>.sl-badge:where(.astro-avdet4wd){--sl-color-bg-badge: transparent;--sl-color-border-badge: currentColor;color:inherit}.default:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-default-bg);--sl-color-border-badge: var(--sl-badge-default-border);--sl-color-text-badge: var(--sl-badge-default-text)}.note:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-note-bg);--sl-color-border-badge: var(--sl-badge-note-border);--sl-color-text-badge: var(--sl-badge-note-text)}.danger:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-danger-bg);--sl-color-border-badge: var(--sl-badge-danger-border);--sl-color-text-badge: var(--sl-badge-danger-text)}.success:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-success-bg);--sl-color-border-badge: var(--sl-badge-success-border);--sl-color-text-badge: var(--sl-badge-success-text)}.tip:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-tip-bg);--sl-color-border-badge: var(--sl-badge-tip-border);--sl-color-text-badge: var(--sl-badge-tip-text)}.caution:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-caution-bg);--sl-color-border-badge: var(--sl-badge-caution-border);--sl-color-text-badge: var(--sl-badge-caution-text)}.small:where(.astro-avdet4wd){font-size:var(--sl-text-xs);padding:.125rem .25rem}.medium:where(.astro-avdet4wd){font-size:var(--sl-text-sm);padding:.175rem .35rem}.large:where(.astro-avdet4wd){font-size:var(--sl-text-base);padding:.225rem .45rem}.sl-markdown-content :is(h1,h2,h3,h4,h5,h6) .sl-badge:where(.astro-avdet4wd){vertical-align:middle}}
+@layer starlight.components{svg:where(.astro-c6vsoqas){color:var(--sl-icon-color);font-size:var(--sl-icon-size, 1em);width:1em;height:1em}}
+@layer starlight.components{starlight-tabs:where(.astro-esqgolmp){display:block}.tablist-wrapper:where(.astro-esqgolmp){overflow-x:auto}:where(.astro-esqgolmp)[role=tablist]{display:flex;list-style:none;border-bottom:2px solid var(--sl-color-gray-5);padding:0}.tab:where(.astro-esqgolmp){display:flex}.tab:where(.astro-esqgolmp)>:where(.astro-esqgolmp)[role=tab]{--sl-tab-color-border: var(--sl-color-gray-5);display:flex;align-items:center;gap:.5rem;line-height:var(--sl-line-height-headings);padding:.275rem 1.25rem;text-decoration:none;box-shadow:0 2px 0 var(--sl-tab-color-border);color:var(--sl-color-gray-3);outline-offset:var(--sl-outline-offset-inside);overflow-wrap:initial}.tab:where(.astro-esqgolmp) :where(.astro-esqgolmp)[role=tab][aria-selected=true]{--sl-tab-color-border: var(--sl-color-text-accent);color:var(--sl-color-white);font-weight:600}.tablist-wrapper:where(.astro-esqgolmp)~[role=tabpanel]{margin-top:1rem}}
+@layer starlight.components{.sl-steps{--bullet-size: calc(var(--sl-line-height) * 1rem);--bullet-margin: .375rem;list-style:none;counter-reset:steps-counter var(--sl-steps-start, 0);padding-inline-start:0}.sl-steps>li{counter-increment:steps-counter;position:relative;padding-inline-start:calc(var(--bullet-size) + 1rem);padding-bottom:1px;min-height:calc(var(--bullet-size) + var(--bullet-margin))}.sl-steps>li+li{margin-top:0}.sl-steps>li:before{content:counter(steps-counter);position:absolute;top:0;inset-inline-start:0;width:var(--bullet-size);height:var(--bullet-size);line-height:var(--bullet-size);font-size:var(--sl-text-xs);font-weight:600;text-align:center;color:var(--sl-color-white);background-color:var(--sl-color-gray-6);border-radius:99rem;box-shadow:inset 0 0 0 1px var(--sl-color-gray-5)}.sl-steps>li:after{--guide-width: 1px;content:"";position:absolute;top:calc(var(--bullet-size) + var(--bullet-margin));bottom:var(--bullet-margin);inset-inline-start:calc((var(--bullet-size) - var(--guide-width)) / 2);width:var(--guide-width);background-color:var(--sl-color-hairline-light)}}@layer starlight.content{.sl-steps>li>:first-child{--lh: calc(1em * var(--sl-line-height));--shift-y: calc(.5 * (var(--bullet-size) - var(--lh)));transform:translateY(var(--shift-y));margin-bottom:var(--shift-y)}.sl-steps>li>:first-child:where(h1,h2,h3,h4,h5,h6){--lh: calc(1em * var(--sl-line-height-headings))}@supports (--prop: 1lh){.sl-steps>li>:first-child{--lh: 1lh}}}
+@layer starlight.components{.sl-link-button:where(.astro-xwgiixxa){align-items:center;border:1px solid transparent;border-radius:999rem;display:inline-flex;font-size:var(--sl-text-sm);gap:.5em;line-height:1.1875;outline-offset:.25rem;padding:.4375rem 1.125rem;text-decoration:none}.sl-link-button:where(.astro-xwgiixxa).primary{background:var(--sl-color-text-accent);border-color:var(--sl-color-text-accent);color:var(--sl-color-black)}.sl-link-button:where(.astro-xwgiixxa).primary:hover{color:var(--sl-color-black)}.sl-link-button:where(.astro-xwgiixxa).secondary{border-color:inherit;color:var(--sl-color-white)}.sl-link-button:where(.astro-xwgiixxa).minimal{color:var(--sl-color-white);padding-inline:0}.sl-link-button:where(.astro-xwgiixxa) svg{flex-shrink:0}@media(min-width:50rem){.sl-link-button:where(.astro-xwgiixxa){font-size:var(--sl-text-base);padding:.9375rem 1.25rem}}.sl-markdown-content .sl-link-button:where(.astro-xwgiixxa){margin-inline-end:1rem}.sl-markdown-content .sl-link-button:where(.astro-xwgiixxa):not(:where(p *)){margin-block:1rem}}
+</style><script type="module" src="/starlight/_astro/page.B1D-nYk3.js"></script></head> <body class="astro-bguv2lll"> <a href="#_top" class="astro-7q3lir66">Skip to content</a>  <div class="page sl-flex astro-vrdttmbt"> <header class="header astro-vrdttmbt"><div class="header astro-kmkmnagf"> <div class="title-wrapper sl-flex astro-kmkmnagf"> <a href="/starlight/" class="site-title sl-flex astro-m46x6ez3">  <img class="astro-m46x6ez3" alt src="/starlight/_astro/jj-logo.CIiglsa3.svg" width="1024" height="1024">  <span class="astro-m46x6ez3" translate="no"> Jujutsu docs </span> </a>  </div> <div class="sl-flex print:hidden astro-kmkmnagf"> <site-search class="astro-kmkmnagf astro-v37mnknz" data-translations="{&#34;placeholder&#34;:&#34;Search&#34;}"> <button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-v37mnknz"> <svg aria-hidden="true" class="astro-v37mnknz astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg> <span class="sl-hidden md:sl-block astro-v37mnknz" aria-hidden="true">Search</span> <kbd class="sl-hidden md:sl-flex astro-v37mnknz" style="display: none;"> <kbd class="astro-v37mnknz">Ctrl</kbd><kbd class="astro-v37mnknz">K</kbd> </kbd> </button> <dialog style="padding:0" aria-label="Search" class="astro-v37mnknz"> <div class="dialog-frame sl-flex astro-v37mnknz">  <button data-close-modal class="sl-flex md:sl-hidden astro-v37mnknz"> Cancel </button> <div class="search-container astro-v37mnknz"> <div id="starlight__search" class="astro-v37mnknz"></div> </div> </div> </dialog> </site-search>  <script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script> <script type="module" src="/starlight/_astro/Search.astro_astro_type_script_index_0_lang.CIUB7SL0.js"></script>   </div> <div class="sl-hidden md:sl-flex print:hidden right-group astro-kmkmnagf"> <div class="sl-flex social-icons astro-kmkmnagf"> <a href="https://github.com/jj-vcs/jj" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">GitHub</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a><a href="https://discord.gg/dkmfj3aGQN" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">Discord</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.93-1.51 13.78 13.78 0 0 0-.64 1.28 18.27 18.27 0 0 0-5.5 0 12.64 12.64 0 0 0-.64-1.28h-.05A19.74 19.74 0 0 0 3.64 4.4 20.26 20.26 0 0 0 .11 18.09l.02.02a19.9 19.9 0 0 0 6.04 3.03l.04-.02a14.24 14.24 0 0 0 1.23-2.03.08.08 0 0 0-.05-.07 13.1 13.1 0 0 1-1.9-.92.08.08 0 0 1 .02-.1 10.2 10.2 0 0 0 .41-.31h.04a14.2 14.2 0 0 0 12.1 0l.04.01a9.63 9.63 0 0 0 .4.32.08.08 0 0 1-.03.1 12.29 12.29 0 0 1-1.9.91.08.08 0 0 0-.02.1 15.97 15.97 0 0 0 1.27 2.01h.04a19.84 19.84 0 0 0 6.03-3.05v-.03a20.12 20.12 0 0 0-3.57-13.69ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.08-2.15-2.42 0-1.33.95-2.42 2.15-2.42 1.22 0 2.18 1.1 2.16 2.42 0 1.34-.94 2.42-2.16 2.42Z"/></svg></a> </div> <div class="version-switcher astro-eanuhfmr" id="version-switcher-container" style="display: none;"> <label for="version-select" class="sl-hidden astro-eanuhfmr">Select documentation version</label> <select id="version-select" class="version-select astro-eanuhfmr"> <option class="astro-eanuhfmr">Loading versions...</option> </select> </div> <script>(function(){const siteBase = "/";
+
+    // Fetch versions client-side and populate the dropdown
+    async function loadVersions() {
+      const container = document.getElementById('version-switcher-container');
+      const select = document.getElementById('version-select');
+
+      if (!container || !select) return;
+
+      try {
+        const response = await fetch(`${siteBase}versions.json`);
+        if (!response.ok) {
+          // No versions.json available (e.g., in development)
+          return;
+        }
+
+        const versions = await response.json();
+        if (!versions || versions.length === 0) return;
+
+        // Determine current version from URL path
+        const pathMatch = window.location.pathname.match(/^\/([^\/]+)/);
+        let currentVersion = 'unknown';
+
+        if (pathMatch) {
+          const pathVersion = pathMatch[1];
+          // Check if this is a direct version match
+          let versionObj = versions.find(v => v.version === pathVersion);
+          // Check if this matches an alias
+          if (!versionObj) {
+            versionObj = versions.find(v => v.aliases && v.aliases.includes(pathVersion));
+          }
+          currentVersion = versionObj?.version || pathVersion;
+        }
+
+        // Clear and populate the select
+        select.innerHTML = '';
+        versions.forEach(v => {
+          const option = document.createElement('option');
+          option.value = v.version;
+
+          // Display title with alias if it has one
+          const displayTitle = v.aliases && v.aliases.length > 0
+            ? `${v.title} (${v.aliases.join(', ')})`
+            : v.title;
+          option.textContent = displayTitle;
+
+          if (v.version === currentVersion) {
+            option.selected = true;
+          }
+
+          select.appendChild(option);
+        });
+
+        // Show the container
+        container.style.display = 'flex';
+
+        // Add change handler
+        select.addEventListener('change', (e) => {
+          const selectedVersion = e.target.value;
+          const currentPath = window.location.pathname;
+          const versionRegex = /^\/[^\/]+/;
+          const pagePath = currentPath.replace(versionRegex, '').replace(/^\//, '');
+          window.location.href = `${siteBase}${selectedVersion}/${pagePath}`;
+        });
+      } catch (error) {
+        console.debug('Could not load versions.json:', error);
+      }
+    }
+
+    // Load versions when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadVersions);
+    } else {
+      loadVersions();
+    }
+  })();</script>  <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">Select theme</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">Dark</option><option value="light" class="astro-4yphtoen">Light</option><option value="auto" selected class="astro-4yphtoen">Auto</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script> <script type="module">const r="starlight-theme",o=e=>e==="auto"||e==="dark"||e==="light"?e:"auto",c=()=>o(typeof localStorage<"u"&&localStorage.getItem(r));function n(e){typeof localStorage<"u"&&localStorage.setItem(r,e==="light"||e==="dark"?e:"")}const l=()=>matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";function t(e){StarlightThemeProvider.updatePickers(e),document.documentElement.dataset.theme=e==="auto"?l():e,n(e)}matchMedia("(prefers-color-scheme: light)").addEventListener("change",()=>{c()==="auto"&&t("auto")});class s extends HTMLElement{constructor(){super(),t(c()),this.querySelector("select")?.addEventListener("change",a=>{a.currentTarget instanceof HTMLSelectElement&&t(o(a.currentTarget.value))})}}customElements.define("starlight-theme-select",s);</script> <script type="module">class s extends HTMLElement{constructor(){super();const e=this.querySelector("select");e&&(e.addEventListener("change",t=>{t.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=t.currentTarget.value)}),window.addEventListener("pageshow",t=>{if(!t.persisted)return;const n=e.querySelector("option[selected]")?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}}customElements.define("starlight-lang-select",s);</script> </div> </div> </header> <nav class="sidebar print:hidden astro-vrdttmbt" aria-label="Main"> <starlight-menu-button class="print:hidden astro-jif73yzw"> <button aria-expanded="false" aria-label="Menu" aria-controls="starlight__sidebar" class="sl-flex md:sl-hidden astro-jif73yzw"> <svg aria-hidden="true" class="open-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg> <svg aria-hidden="true" class="close-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg> </button> </starlight-menu-button> <script type="module">class s extends HTMLElement{constructor(){super(),this.btn=this.querySelector("button"),this.btn.addEventListener("click",()=>this.toggleExpanded());const t=this.closest("nav");t&&t.addEventListener("keyup",e=>this.closeOnEscape(e))}setExpanded(t){this.setAttribute("aria-expanded",String(t)),document.body.toggleAttribute("data-mobile-menu-expanded",t)}toggleExpanded(){this.setExpanded(this.getAttribute("aria-expanded")!=="true")}closeOnEscape(t){t.code==="Escape"&&(this.setExpanded(!1),this.btn.focus())}}customElements.define("starlight-menu-button",s);</script>   <div id="starlight__sidebar" class="sidebar-pane astro-vrdttmbt"> <div class="sidebar-content sl-flex astro-vrdttmbt"> <sl-sidebar-state-persist data-hash="0tme7ck" class="astro-kku4brbg"> <script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script>  <ul class="top-level astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Home</span>  </a> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Getting started</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="0"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/install-and-setup/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Installation and setup</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/tutorial/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Tutorial and bird&#39;s eye view</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/gerrit/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Working with Gerrit</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/github/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Working with GitHub</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/windows/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Working on Windows</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <a href="/starlight/faq/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">FAQ</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/cli-reference/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">CLI reference</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/testimonials/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Testimonials</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/community_tools/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Community-built tools</span>  </a> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Concepts</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="1"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/working-copy/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Working copy</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/bookmarks/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Bookmarks</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/conflicts/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Conflicts</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/operation-log/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Operation log</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/glossary/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Glossary</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Guides</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="2"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/guides/divergence/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Divergent changes</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/guides/multiple-remotes/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Multiple remotes</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details open class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Reference</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="3"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/config/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Settings</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/filesets/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Fileset language</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/revsets/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Revset language</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/templates/" aria-current="page" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Templating language</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Comparisons</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="4"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/git-comparison/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Git comparison</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/git-command-table/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Git command table</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/git-compatibility/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Git compatibility</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/git-experts/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Jujutsu for Git experts</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/sapling-comparison/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Sapling comparison</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/related-work/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Other related work</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Technical details</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="5"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/core_tenets/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Core tenets</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/technical/architecture/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Architecture</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/technical/concurrency/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Concurrency</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/technical/conflicts/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Conflicts</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Contributing</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="6"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/contributing/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Guidelines and &quot;How to...?&quot;</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/code-of-conduct/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Code of conduct</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/style_guide/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Style guide</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design_docs/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Design docs</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design_doc_blueprint/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Design doc blueprint</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/releasing/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Releasing</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/governance/temporary-voting/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Temporary voting for governance</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/governance/governance/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Governance</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Design docs</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="7"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/design/git-submodules/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">git-submodules</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/git-submodule-storage/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">git-submodule-storage</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/run/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">JJ run</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/sparse-v2/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Sparse patterns v2</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/tracking-branches/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Tracking branches</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/copy-tracking/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Copy tracking and tracing</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/secure-config/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Secure config</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <a href="/starlight/roadmap/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Development roadmap</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/changelog/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Changelog</span>  </a> </li> </ul>   <script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script> </sl-sidebar-state-persist>  <div class="md:sl-hidden"> <div class="mobile-preferences sl-flex astro-wu23bvmt"> <div class="social-icons astro-wu23bvmt"> <a href="https://github.com/jj-vcs/jj" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">GitHub</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a><a href="https://discord.gg/dkmfj3aGQN" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">Discord</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.93-1.51 13.78 13.78 0 0 0-.64 1.28 18.27 18.27 0 0 0-5.5 0 12.64 12.64 0 0 0-.64-1.28h-.05A19.74 19.74 0 0 0 3.64 4.4 20.26 20.26 0 0 0 .11 18.09l.02.02a19.9 19.9 0 0 0 6.04 3.03l.04-.02a14.24 14.24 0 0 0 1.23-2.03.08.08 0 0 0-.05-.07 13.1 13.1 0 0 1-1.9-.92.08.08 0 0 1 .02-.1 10.2 10.2 0 0 0 .41-.31h.04a14.2 14.2 0 0 0 12.1 0l.04.01a9.63 9.63 0 0 0 .4.32.08.08 0 0 1-.03.1 12.29 12.29 0 0 1-1.9.91.08.08 0 0 0-.02.1 15.97 15.97 0 0 0 1.27 2.01h.04a19.84 19.84 0 0 0 6.03-3.05v-.03a20.12 20.12 0 0 0-3.57-13.69ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.08-2.15-2.42 0-1.33.95-2.42 2.15-2.42 1.22 0 2.18 1.1 2.16 2.42 0 1.34-.94 2.42-2.16 2.42Z"/></svg></a> </div> <div class="version-switcher astro-eanuhfmr" id="version-switcher-container" style="display: none;"> <label for="version-select" class="sl-hidden astro-eanuhfmr">Select documentation version</label> <select id="version-select" class="version-select astro-eanuhfmr"> <option class="astro-eanuhfmr">Loading versions...</option> </select> </div> <script>(function(){const siteBase = "/";
+
+    // Fetch versions client-side and populate the dropdown
+    async function loadVersions() {
+      const container = document.getElementById('version-switcher-container');
+      const select = document.getElementById('version-select');
+
+      if (!container || !select) return;
+
+      try {
+        const response = await fetch(`${siteBase}versions.json`);
+        if (!response.ok) {
+          // No versions.json available (e.g., in development)
+          return;
+        }
+
+        const versions = await response.json();
+        if (!versions || versions.length === 0) return;
+
+        // Determine current version from URL path
+        const pathMatch = window.location.pathname.match(/^\/([^\/]+)/);
+        let currentVersion = 'unknown';
+
+        if (pathMatch) {
+          const pathVersion = pathMatch[1];
+          // Check if this is a direct version match
+          let versionObj = versions.find(v => v.version === pathVersion);
+          // Check if this matches an alias
+          if (!versionObj) {
+            versionObj = versions.find(v => v.aliases && v.aliases.includes(pathVersion));
+          }
+          currentVersion = versionObj?.version || pathVersion;
+        }
+
+        // Clear and populate the select
+        select.innerHTML = '';
+        versions.forEach(v => {
+          const option = document.createElement('option');
+          option.value = v.version;
+
+          // Display title with alias if it has one
+          const displayTitle = v.aliases && v.aliases.length > 0
+            ? `${v.title} (${v.aliases.join(', ')})`
+            : v.title;
+          option.textContent = displayTitle;
+
+          if (v.version === currentVersion) {
+            option.selected = true;
+          }
+
+          select.appendChild(option);
+        });
+
+        // Show the container
+        container.style.display = 'flex';
+
+        // Add change handler
+        select.addEventListener('change', (e) => {
+          const selectedVersion = e.target.value;
+          const currentPath = window.location.pathname;
+          const versionRegex = /^\/[^\/]+/;
+          const pagePath = currentPath.replace(versionRegex, '').replace(/^\//, '');
+          window.location.href = `${siteBase}${selectedVersion}/${pagePath}`;
+        });
+      } catch (error) {
+        console.debug('Could not load versions.json:', error);
+      }
+    }
+
+    // Load versions when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadVersions);
+    } else {
+      loadVersions();
+    }
+  })();</script>  <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">Select theme</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">Dark</option><option value="light" class="astro-4yphtoen">Light</option><option value="auto" selected class="astro-4yphtoen">Auto</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script>   </div>  </div> </div> </div> </nav> <div class="main-frame astro-vrdttmbt">  <script type="module">const a=document.getElementById("starlight__sidebar"),n=a?.querySelector("sl-sidebar-state-persist"),o="sl-sidebar-state",i=()=>{let t=[];const e=n?.dataset.hash||"";try{const s=sessionStorage.getItem(o),r=JSON.parse(s||"{}");Array.isArray(r.open)&&r.hash===e&&(t=r.open)}catch{}return{hash:e,open:t,scroll:a?.scrollTop||0}},c=t=>{try{sessionStorage.setItem(o,JSON.stringify(t))}catch{}},d=()=>c(i()),l=(t,e)=>{const s=i();s.open[e]=t,c(s)};n?.addEventListener("click",t=>{if(!(t.target instanceof Element))return;const e=t.target.closest("summary")?.closest("details");if(!e)return;const s=e.querySelector("sl-sidebar-restore"),r=parseInt(s?.dataset.index||"");isNaN(r)||l(!e.open,r)});addEventListener("visibilitychange",()=>{document.visibilityState==="hidden"&&d()});addEventListener("pageHide",d);</script> <div class="lg:sl-flex astro-67yu43on"> <aside class="right-sidebar-container print:hidden astro-67yu43on"> <div class="right-sidebar astro-67yu43on"> <div class="lg:sl-hidden astro-pb3aqygn"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-doynk5tl"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-doynk5tl"><details id="starlight__mobile-toc" class="astro-doynk5tl"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-doynk5tl"><span class="toggle sl-flex astro-doynk5tl">On this page<svg aria-hidden="true" class="caret astro-doynk5tl astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-doynk5tl"></span></summary><div class="dropdown astro-doynk5tl"><ul class="isMobile astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Overview</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#keywords" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Keywords</span> </a> <ul class="isMobile astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#commit-keywords" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Commit keywords</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#operation-keywords" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Operation keywords</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#operators" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Operators</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#global-functions" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Global functions</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#built-in-aliases" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Built-in Aliases</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#types" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Types</span> </a> <ul class="isMobile astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#annotationline-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">AnnotationLine type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#boolean-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Boolean type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#commit-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Commit type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#commitevolutionentry-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">CommitEvolutionEntry type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#changeid-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">ChangeId type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#commitid-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">CommitId type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#commitref-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">CommitRef type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#configvalue-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">ConfigValue type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#cryptographicsignature-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">CryptographicSignature type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#diffstats-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">DiffStats type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#diffstatentry-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">DiffStatEntry type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#email-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Email type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#integer-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Integer type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#list-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">List type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#listtrailer-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">List&lt;Trailer&gt; type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#listtemplate-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">ListTemplate type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#operation-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Operation type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#operationid-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">OperationId type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#option-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Option type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#refsymbol-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">RefSymbol type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#repopath-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">RepoPath type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#serialize-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Serialize type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#shortestidprefix-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">ShortestIdPrefix type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#signature-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Signature type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#sizehint-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">SizeHint type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#string-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">String type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#stringliteral-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">StringLiteral type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#stringify-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Stringify type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#stringpattern-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">StringPattern type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#template-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Template type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#timestamp-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Timestamp type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#timestamprange-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">TimestampRange type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#trailer-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Trailer type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#treediff-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">TreeDiff type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#treediffentry-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">TreeDiffEntry type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#treeentry-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">TreeEntry type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#workspaceref-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">WorkspaceRef type</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#color-labels" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Color labels</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#configuration" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Configuration</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#examples" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Examples</span> </a>  </li> </ul> </div></details></nav></mobile-starlight-toc><script type="module" src="/starlight/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C181hMzK.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-pb3aqygn"><div class="sl-container astro-pb3aqygn"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Overview</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#keywords" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Keywords</span> </a> <ul class="astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#commit-keywords" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Commit keywords</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#operation-keywords" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Operation keywords</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#operators" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Operators</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#global-functions" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Global functions</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#built-in-aliases" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Built-in Aliases</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#types" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Types</span> </a> <ul class="astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#annotationline-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">AnnotationLine type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#boolean-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Boolean type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#commit-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Commit type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#commitevolutionentry-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">CommitEvolutionEntry type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#changeid-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">ChangeId type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#commitid-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">CommitId type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#commitref-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">CommitRef type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#configvalue-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">ConfigValue type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#cryptographicsignature-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">CryptographicSignature type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#diffstats-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">DiffStats type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#diffstatentry-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">DiffStatEntry type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#email-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Email type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#integer-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Integer type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#list-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">List type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#listtrailer-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">List&lt;Trailer&gt; type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#listtemplate-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">ListTemplate type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#operation-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Operation type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#operationid-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">OperationId type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#option-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Option type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#refsymbol-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">RefSymbol type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#repopath-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">RepoPath type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#serialize-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Serialize type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#shortestidprefix-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">ShortestIdPrefix type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#signature-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Signature type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#sizehint-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">SizeHint type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#string-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">String type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#stringliteral-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">StringLiteral type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#stringify-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Stringify type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#stringpattern-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">StringPattern type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#template-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Template type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#timestamp-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Timestamp type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#timestamprange-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">TimestampRange type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#trailer-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Trailer type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#treediff-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">TreeDiff type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#treediffentry-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">TreeDiffEntry type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#treeentry-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">TreeEntry type</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#workspaceref-type" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">WorkspaceRef type</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#color-labels" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Color labels</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#configuration" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Configuration</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#examples" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Examples</span> </a>  </li> </ul> </nav></starlight-toc><script type="module" src="/starlight/_astro/TableOfContents.astro_astro_type_script_index_0_lang.CKWWgpjV.js"></script></div></div> </div> </aside> <div class="main-pane astro-67yu43on">  <main data-pagefind-body class="astro-bguv2lll" lang="en" dir="ltr">    <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <h1 id="_top" class="astro-j6tvhyss">Templates</h1>  </div> </div>  <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <div class="sl-markdown-content"> <p>Jujutsu supports a functional language to customize output of commands.
+The language consists of literals, keywords, operators, functions, and
+methods.</p>
+<p>A couple of <code dir="auto">jj</code> commands accept a template via <code dir="auto">-T</code>/<code dir="auto">--template</code> option.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="keywords">Keywords</h2><a class="sl-anchor-link" href="#keywords"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Keywords”</span></a></div>
+<p>Keywords represent objects of different types; the types are described in
+a follow-up section. In addition to context-specific keywords, the top-level
+object can be referenced as <code dir="auto">self</code>.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="commit-keywords">Commit keywords</h3><a class="sl-anchor-link" href="#commit-keywords"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Commit keywords”</span></a></div>
+<p>In <code dir="auto">jj log</code> templates, all 0-argument methods of <a href="#commit-type">the <code dir="auto">Commit</code>
+type</a> are available as keywords. For example, <code dir="auto">commit_id</code> is
+equivalent to <code dir="auto">self.commit_id()</code>.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="operation-keywords">Operation keywords</h3><a class="sl-anchor-link" href="#operation-keywords"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Operation keywords”</span></a></div>
+<p>In <code dir="auto">jj op log</code> templates, all 0-argument methods of <a href="#operation-type">the <code dir="auto">Operation</code>
+type</a> are available as keywords. For example,
+<code dir="auto">current_operation</code> is equivalent to <code dir="auto">self.current_operation()</code>.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="operators">Operators</h2><a class="sl-anchor-link" href="#operators"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Operators”</span></a></div>
+<p>The following operators are supported.</p>
+<ul>
+<li><code dir="auto">x.f()</code>: Method call.</li>
+<li><code dir="auto">-x</code>: Negate integer value.</li>
+<li><code dir="auto">!x</code>: Logical not.</li>
+<li><code dir="auto">x * y</code>, <code dir="auto">x / y</code>, <code dir="auto">x % y</code>: Multiplication/division/remainder. Operands must
+be <code dir="auto">Integer</code>s.</li>
+<li><code dir="auto">x + y</code>, <code dir="auto">x - y</code>: Addition/subtraction. Operands must be <code dir="auto">Integer</code>s.</li>
+<li><code dir="auto">x >= y</code>, <code dir="auto">x > y</code>, <code dir="auto">x &#x3C;= y</code>, <code dir="auto">x &#x3C; y</code>: Greater than or equal/greater than/
+lesser than or equal/lesser than. Operands must be <code dir="auto">Integer</code>s.</li>
+<li><code dir="auto">x == y</code>, <code dir="auto">x != y</code>: Equal/not equal. Operands must be either <code dir="auto">Boolean</code>,
+<code dir="auto">Integer</code>, or <code dir="auto">String</code>.</li>
+<li><code dir="auto">x &#x26;&#x26; y</code>: Logical and, short-circuiting.</li>
+<li><code dir="auto">x || y</code>: Logical or, short-circuiting.</li>
+<li><code dir="auto">x ++ y</code>: Concatenate <code dir="auto">x</code> and <code dir="auto">y</code> templates.</li>
+</ul>
+<p>(listed in order of binding strengths)</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="global-functions">Global functions</h2><a class="sl-anchor-link" href="#global-functions"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Global functions”</span></a></div>
+<p>The following functions are defined.</p>
+<ul>
+<li><code dir="auto">fill(width: Integer, content: Template) -> Template</code>: Fill lines at
+the given <code dir="auto">width</code>.</li>
+<li><code dir="auto">indent(prefix: Template, content: Template) -> Template</code>: Indent
+non-empty lines by the given <code dir="auto">prefix</code>.</li>
+<li><code dir="auto">pad_start(width: Integer, content: Template, [fill_char: Template])</code>: Pad (or
+right-justify) content by adding leading fill characters. The <code dir="auto">content</code>
+shouldn’t have newline character.</li>
+<li><code dir="auto">pad_end(width: Integer, content: Template, [fill_char: Template])</code>: Pad (or
+left-justify) content by adding trailing fill characters. The <code dir="auto">content</code>
+shouldn’t have newline character.</li>
+<li><code dir="auto">pad_centered(width: Integer, content: Template, [fill_char: Template])</code>: Pad
+content by adding both leading and trailing fill characters. If an odd number
+of fill characters are needed, the trailing fill will be one longer than the
+leading fill. The <code dir="auto">content</code> shouldn’t have newline characters.</li>
+<li><code dir="auto">truncate_start(width: Integer, content: Template, [ellipsis: Template])</code>:
+Truncate <code dir="auto">content</code> by removing leading characters. The <code dir="auto">content</code> shouldn’t
+have newline character. If <code dir="auto">ellipsis</code> is provided and <code dir="auto">content</code> was truncated,
+prepend the <code dir="auto">ellipsis</code> to the result.</li>
+<li><code dir="auto">truncate_end(width: Integer, content: Template, [ellipsis: Template])</code>:
+Truncate <code dir="auto">content</code> by removing trailing characters. The <code dir="auto">content</code> shouldn’t
+have newline character. If <code dir="auto">ellipsis</code> is provided and <code dir="auto">content</code> was truncated,
+append the <code dir="auto">ellipsis</code> to the result.</li>
+<li><code dir="auto">hash(content: Stringify) -> String</code>:
+Hash the input and return a hexadecimal string representation of the digest.</li>
+<li><code dir="auto">label(label: Stringify, content: Template) -> Template</code>: Apply a custom
+<a href="#color-labels">color label</a> to the content. The <code dir="auto">label</code> is evaluated as a
+space-separated string.</li>
+<li><code dir="auto">raw_escape_sequence(content: Template) -> Template</code>: Preserves any escape
+sequences in <code dir="auto">content</code> (i.e., bypasses sanitization) and strips labels.
+Note: This function is intended for escape sequences and as such, its output
+is expected to be invisible / of no display width. Outputting content with
+nonzero display width may break wrapping, indentation etc.</li>
+<li><code dir="auto">stringify(content: Stringify) -> String</code>: Format <code dir="auto">content</code> to string. This
+effectively removes color labels.</li>
+<li><code dir="auto">json(value: Serialize) -> String</code>: Serialize <code dir="auto">value</code> in JSON format.</li>
+<li><code dir="auto">if(condition: Boolean, then: Template, [else: Template]) -> Template</code>:
+Conditionally evaluate <code dir="auto">then</code>/<code dir="auto">else</code> template content.</li>
+<li><code dir="auto">coalesce(content: Template...) -> Template</code>: Returns the first <strong>non-empty</strong>
+content.</li>
+<li><code dir="auto">concat(content: Template...) -> Template</code>:
+Same as <code dir="auto">content_1 ++ ... ++ content_n</code>.</li>
+<li><code dir="auto">join(separator: Template, content: Template...) -> Template</code>: Insert
+<code dir="auto">separator</code> between <code dir="auto">content</code>s.</li>
+<li><code dir="auto">separate(separator: Template, content: Template...) -> Template</code>: Insert
+<code dir="auto">separator</code> between <strong>non-empty</strong> <code dir="auto">content</code>s.</li>
+<li><code dir="auto">surround(prefix: Template, suffix: Template, content: Template) -> Template</code>:
+Surround <strong>non-empty</strong> content with texts such as parentheses.</li>
+<li><code dir="auto">config(name: StringLiteral) -> ConfigValue</code>: Look up configuration value by <code dir="auto">name</code>.</li>
+<li><code dir="auto">git_web_url([remote: String]) -> String</code>: Best-effort conversion of a git
+remote URL to an HTTPS web URL. Defaults to the “origin” remote. Returns an
+empty string on failure. SSH host alias resolution is currently unsupported.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="built-in-aliases">Built-in Aliases</h2><a class="sl-anchor-link" href="#built-in-aliases"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Built-in Aliases”</span></a></div>
+<ul>
+<li><code dir="auto">hyperlink(url, text)</code>: Creates a clickable hyperlink using <a href="https://github.com/Alhadis/OSC8-Adoption">OSC8 escape sequences</a>.
+The <code dir="auto">text</code> will be displayed and clickable, linking to the given <code dir="auto">url</code> in
+terminals that support OSC8 hyperlinks.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="types">Types</h2><a class="sl-anchor-link" href="#types"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Types”</span></a></div>
+<div class="sl-heading-wrapper level-h3"><h3 id="annotationline-type"><code dir="auto">AnnotationLine</code> type</h3><a class="sl-anchor-link" href="#annotationline-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “AnnotationLine type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: no, <code dir="auto">Template</code>: no</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.commit() -> Commit</code>: Commit responsible for changing the relevant line.</li>
+<li><code dir="auto">.content() -> Template</code>: Line content including newline character.</li>
+<li><code dir="auto">.line_number() -> Integer</code>: 1-based line number.</li>
+<li><code dir="auto">.original_line_number() -> Integer</code>: 1-based line number in the original commit.</li>
+<li><code dir="auto">.first_line_in_hunk() -> Boolean</code>: False when the directly preceding line
+references the same commit.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="boolean-type"><code dir="auto">Boolean</code> type</h3><a class="sl-anchor-link" href="#boolean-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Boolean type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: yes, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>No methods are defined. Can be constructed with <code dir="auto">false</code> or <code dir="auto">true</code> literal.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="commit-type"><code dir="auto">Commit</code> type</h3><a class="sl-anchor-link" href="#commit-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Commit type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.description() -> String</code></li>
+<li><code dir="auto">.trailers() -> List&#x3C;Trailer></code>: The trailers at the end of the commit
+description that are formatted as <code dir="auto">&#x3C;key>: &#x3C;value></code>. These are returned in the
+same order as they appear in the description, and there may be multiple
+<code dir="auto">Trailer</code>s with the same key.</li>
+<li><code dir="auto">.change_id() -> ChangeId</code></li>
+<li><code dir="auto">.commit_id() -> CommitId</code></li>
+<li><code dir="auto">.parents() -> List&#x3C;Commit></code></li>
+<li><code dir="auto">.author() -> Signature</code></li>
+<li><code dir="auto">.committer() -> Signature</code></li>
+<li><code dir="auto">.signature() -> Option&#x3C;CryptographicSignature></code>: Cryptographic signature if
+the commit was signed.</li>
+<li><code dir="auto">.mine() -> Boolean</code>: Commits where the author’s email matches the email of
+the current user.</li>
+<li><code dir="auto">.working_copies() -> List&#x3C;WorkspaceRef></code>: For multi-workspace repositories,
+returns a list of workspace references for each workspace whose working-copy
+commit matches the current commit.</li>
+<li><code dir="auto">.current_working_copy() -> Boolean</code>: True for the working-copy commit of the
+current workspace.</li>
+<li><code dir="auto">.bookmarks() -> List&#x3C;CommitRef></code>: Local and remote bookmarks pointing to the
+commit. A tracked remote bookmark will be included only if its target is
+different from the local one.</li>
+<li><code dir="auto">.local_bookmarks() -> List&#x3C;CommitRef></code>: All local bookmarks pointing to the
+commit.</li>
+<li><code dir="auto">.remote_bookmarks() -> List&#x3C;CommitRef></code>: All remote bookmarks pointing to the
+commit.</li>
+<li><code dir="auto">.tags() -> List&#x3C;CommitRef></code>: Local and remote tags pointing to the commit. A
+tracked remote tag will be included only if its target is different from the
+local one.</li>
+<li><code dir="auto">.local_tags() -> List&#x3C;CommitRef></code>: All local tags pointing to the commit.</li>
+<li><code dir="auto">.remote_tags() -> List&#x3C;CommitRef></code>: All remote tags pointing to the commit.</li>
+<li><code dir="auto">.divergent() -> Boolean</code>: True if the commit’s change ID corresponds to multiple
+visible commits.</li>
+<li><code dir="auto">.change_offset() -> Option&#x3C;Integer></code>: The <a href="glossary.md#change-offset">change offset</a>
+of this commit. May not be available for some commits.</li>
+<li><code dir="auto">.hidden() -> Boolean</code>: True if the commit is not visible (a.k.a. abandoned).</li>
+<li><code dir="auto">.immutable() -> Boolean</code>: True if the commit is included in <a href="config.md#set-of-immutable-commits">the set of
+immutable commits</a>.</li>
+<li><code dir="auto">.contained_in(revset: StringLiteral) -> Boolean</code>: True if the commit is included in
+<a href="revsets.md">the provided revset</a>.</li>
+<li><code dir="auto">.conflict() -> Boolean</code>: True if the commit contains merge conflicts.</li>
+<li><code dir="auto">.conflicted_files() -> List&#x3C;TreeEntry></code>: Conflicted files in this commit.</li>
+<li><code dir="auto">.empty() -> Boolean</code>: True if the commit modifies no files.</li>
+<li><code dir="auto">.diff([files: StringLiteral]) -> TreeDiff</code>: Changes from the parents within <a href="filesets.md">the
+<code dir="auto">files</code> expression</a>. All files are compared by default, but it is
+likely to change in future version to respect the command line path arguments.</li>
+<li><code dir="auto">.files([files: StringLiteral]) -> List&#x3C;TreeEntry></code>: Files that exist in this commit,
+matching <a href="filesets.md">the <code dir="auto">files</code> expression</a>. Use <code dir="auto">.diff().files()</code> to list
+changed files.</li>
+<li><code dir="auto">.root() -> Boolean</code>: True if the commit is the root commit.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="commitevolutionentry-type"><code dir="auto">CommitEvolutionEntry</code> type</h3><a class="sl-anchor-link" href="#commitevolutionentry-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “CommitEvolutionEntry type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.commit() -> Commit</code>: New commit.</li>
+<li><code dir="auto">.operation() -> Operation</code>: Operation where the commit was created or
+rewritten.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="changeid-type"><code dir="auto">ChangeId</code> type</h3><a class="sl-anchor-link" href="#changeid-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “ChangeId type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.normal_hex() -> String</code>: Normal hex representation (0-9a-f) instead of the
+canonical “reversed” (z-k) representation.</li>
+<li><code dir="auto">.short([len: Integer]) -> String</code></li>
+<li><code dir="auto">.shortest([min_len: Integer]) -> ShortestIdPrefix</code>: Shortest unique prefix.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="commitid-type"><code dir="auto">CommitId</code> type</h3><a class="sl-anchor-link" href="#commitid-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “CommitId type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.short([len: Integer]) -> String</code></li>
+<li><code dir="auto">.shortest([min_len: Integer]) -> ShortestIdPrefix</code>: Shortest unique prefix.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="commitref-type"><code dir="auto">CommitRef</code> type</h3><a class="sl-anchor-link" href="#commitref-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “CommitRef type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.name() -> RefSymbol</code>: Local bookmark or tag name.</li>
+<li><code dir="auto">.remote() -> Option&#x3C;RefSymbol></code>: Remote name if this is a remote ref.</li>
+<li><code dir="auto">.present() -> Boolean</code>: True if the ref points to any commit.</li>
+<li><code dir="auto">.conflict() -> Boolean</code>: True if <a href="bookmarks.md#conflicts">the bookmark or tag is
+conflicted</a>.</li>
+<li><code dir="auto">.normal_target() -> Option&#x3C;Commit></code>: Target commit if the ref is not
+conflicted and points to a commit.</li>
+<li><code dir="auto">.removed_targets() -> List&#x3C;Commit></code>: Old target commits if conflicted.</li>
+<li><code dir="auto">.added_targets() -> List&#x3C;Commit></code>: New target commits. The list usually
+contains one “normal” target.</li>
+<li><code dir="auto">.tracked() -> Boolean</code>: True if the ref is tracked by a local ref. The local
+ref might have been deleted (but not pushed yet.)</li>
+<li><code dir="auto">.tracking_present() -> Boolean</code>: True if the ref is tracked by a local ref,
+and if the local ref points to any commit.</li>
+<li><code dir="auto">.tracking_ahead_count() -> SizeHint</code>: Number of commits ahead of the tracking
+local ref.</li>
+<li><code dir="auto">.tracking_behind_count() -> SizeHint</code>: Number of commits behind of the
+tracking local ref.</li>
+<li><code dir="auto">.synced() -> Boolean</code>: For a local bookmark, true if synced with all tracked
+remotes. For a remote bookmark, true if synced with the tracking local
+bookmark.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="configvalue-type"><code dir="auto">ConfigValue</code> type</h3><a class="sl-anchor-link" href="#configvalue-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “ConfigValue type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>This type can be printed in TOML syntax. The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.as_boolean() -> Boolean</code>: Extract boolean.</li>
+<li><code dir="auto">.as_integer() -> Integer</code>: Extract integer.</li>
+<li><code dir="auto">.as_string() -> String</code>: Extract string. This does not convert non-string
+value (e.g. integer) to string.</li>
+<li><code dir="auto">.as_string_list() -> List&#x3C;String></code>: Extract list of strings.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="cryptographicsignature-type"><code dir="auto">CryptographicSignature</code> type</h3><a class="sl-anchor-link" href="#cryptographicsignature-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “CryptographicSignature type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: no, <code dir="auto">Template</code>: no</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.status() -> String</code>: The signature’s status (<code dir="auto">"good"</code>, <code dir="auto">"bad"</code>, <code dir="auto">"unknown"</code>,
+<code dir="auto">"invalid"</code>).</li>
+<li><code dir="auto">.key() -> String</code>: The signature’s key id representation (for GPG and SSH,
+this is the public key fingerprint).</li>
+<li><code dir="auto">.display() -> String</code>: The signature’s display string (for GPG, this is the
+formatted primary user ID; for SSH, this is the principal).</li>
+</ul>
+<aside aria-label="Caution" class="starlight-aside starlight-aside--caution"><p class="starlight-aside__title" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="starlight-aside__icon"><path d="M12 16C11.8022 16 11.6089 16.0587 11.4444 16.1686C11.28 16.2784 11.1518 16.4346 11.0761 16.6173C11.0004 16.8001 10.9806 17.0011 11.0192 17.1951C11.0578 17.3891 11.153 17.5673 11.2929 17.7071C11.4327 17.847 11.6109 17.9422 11.8049 17.9808C11.9989 18.0194 12.2 17.9996 12.3827 17.9239C12.5654 17.8482 12.7216 17.72 12.8315 17.5556C12.9413 17.3911 13 17.1978 13 17C13 16.7348 12.8946 16.4805 12.7071 16.2929C12.5196 16.1054 12.2652 16 12 16ZM22.67 17.47L14.62 3.47003C14.3598 3.00354 13.9798 2.61498 13.5192 2.3445C13.0586 2.07401 12.5341 1.9314 12 1.9314C11.4659 1.9314 10.9414 2.07401 10.4808 2.3445C10.0202 2.61498 9.64019 3.00354 9.38 3.47003L1.38 17.47C1.11079 17.924 0.966141 18.441 0.960643 18.9688C0.955144 19.4966 1.089 20.0166 1.34868 20.4761C1.60837 20.9356 1.9847 21.3185 2.43968 21.5861C2.89466 21.8536 3.41218 21.9964 3.94 22H20.06C20.5921 22.0053 21.1159 21.8689 21.5779 21.6049C22.0399 21.341 22.4234 20.9589 22.689 20.4978C22.9546 20.0368 23.0928 19.5134 23.0895 18.9814C23.0862 18.4493 22.9414 17.9277 22.67 17.47ZM20.94 19.47C20.8523 19.626 20.7245 19.7556 20.5697 19.8453C20.4149 19.935 20.2389 19.9815 20.06 19.98H3.94C3.76111 19.9815 3.5851 19.935 3.43032 19.8453C3.27553 19.7556 3.14765 19.626 3.06 19.47C2.97223 19.318 2.92602 19.1456 2.92602 18.97C2.92602 18.7945 2.97223 18.622 3.06 18.47L11.06 4.47003C11.1439 4.30623 11.2714 4.16876 11.4284 4.07277C11.5855 3.97678 11.766 3.92599 11.95 3.92599C12.134 3.92599 12.3145 3.97678 12.4716 4.07277C12.6286 4.16876 12.7561 4.30623 12.84 4.47003L20.89 18.47C20.9892 18.6199 21.0462 18.7937 21.055 18.9732C21.0638 19.1527 21.0241 19.3312 20.94 19.49V19.47ZM12 8.00003C11.7348 8.00003 11.4804 8.10538 11.2929 8.29292C11.1054 8.48046 11 8.73481 11 9.00003V13C11 13.2652 11.1054 13.5196 11.2929 13.7071C11.4804 13.8947 11.7348 14 12 14C12.2652 14 12.5196 13.8947 12.7071 13.7071C12.8946 13.5196 13 13.2652 13 13V9.00003C13 8.73481 12.8946 8.48046 12.7071 8.29292C12.5196 8.10538 12.2652 8.00003 12 8.00003Z"></path></svg>Caution</p><div class="starlight-aside__content"><p>Calling any of <code dir="auto">.status()</code>, <code dir="auto">.key()</code>, or <code dir="auto">.display()</code> is slow, as it incurs
+the performance cost of verifying the signature (for example shelling out
+to <code dir="auto">gpg</code> or <code dir="auto">ssh-keygen</code>). Though consecutive calls will be faster, because
+the backend caches the verification result.</p></div></aside>
+<aside aria-label="Note" class="starlight-aside starlight-aside--note"><p class="starlight-aside__title" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="starlight-aside__icon"><path d="M12 11C11.7348 11 11.4804 11.1054 11.2929 11.2929C11.1054 11.4804 11 11.7348 11 12V16C11 16.2652 11.1054 16.5196 11.2929 16.7071C11.4804 16.8946 11.7348 17 12 17C12.2652 17 12.5196 16.8946 12.7071 16.7071C12.8946 16.5196 13 16.2652 13 16V12C13 11.7348 12.8946 11.4804 12.7071 11.2929C12.5196 11.1054 12.2652 11 12 11ZM12.38 7.08C12.1365 6.97998 11.8635 6.97998 11.62 7.08C11.4973 7.12759 11.3851 7.19896 11.29 7.29C11.2017 7.3872 11.1306 7.49882 11.08 7.62C11.024 7.73868 10.9966 7.86882 11 8C10.9992 8.13161 11.0245 8.26207 11.0742 8.38391C11.124 8.50574 11.1973 8.61656 11.29 8.71C11.3872 8.79833 11.4988 8.86936 11.62 8.92C11.7715 8.98224 11.936 9.00632 12.099 8.99011C12.2619 8.97391 12.4184 8.91792 12.5547 8.82707C12.691 8.73622 12.8029 8.61328 12.8805 8.46907C12.9582 8.32486 12.9992 8.16378 13 8C12.9963 7.73523 12.8927 7.48163 12.71 7.29C12.6149 7.19896 12.5028 7.12759 12.38 7.08ZM12 2C10.0222 2 8.08879 2.58649 6.4443 3.6853C4.79981 4.78412 3.51809 6.3459 2.76121 8.17317C2.00433 10.0004 1.8063 12.0111 2.19215 13.9509C2.578 15.8907 3.53041 17.6725 4.92894 19.0711C6.32746 20.4696 8.10929 21.422 10.0491 21.8079C11.9889 22.1937 13.9996 21.9957 15.8268 21.2388C17.6541 20.4819 19.2159 19.2002 20.3147 17.5557C21.4135 15.9112 22 13.9778 22 12C22 10.6868 21.7413 9.38642 21.2388 8.17317C20.7363 6.95991 19.9997 5.85752 19.0711 4.92893C18.1425 4.00035 17.0401 3.26375 15.8268 2.7612C14.6136 2.25866 13.3132 2 12 2ZM12 20C10.4178 20 8.87104 19.5308 7.55544 18.6518C6.23985 17.7727 5.21447 16.5233 4.60897 15.0615C4.00347 13.5997 3.84504 11.9911 4.15372 10.4393C4.4624 8.88743 5.22433 7.46197 6.34315 6.34315C7.46197 5.22433 8.88743 4.4624 10.4393 4.15372C11.9911 3.84504 13.5997 4.00346 15.0615 4.60896C16.5233 5.21447 17.7727 6.23984 18.6518 7.55544C19.5308 8.87103 20 10.4177 20 12C20 14.1217 19.1572 16.1566 17.6569 17.6569C16.1566 19.1571 14.1217 20 12 20Z"></path></svg>Note</p><div class="starlight-aside__content"><p>As opposed to calling any of <code dir="auto">.status()</code>, <code dir="auto">.key()</code>, or <code dir="auto">.display()</code>,
+checking for signature presence through boolean coercion is fast:</p><div class="expressive-code"><link rel="stylesheet" href="/starlight/_astro/ec.v4551.css"><script type="module" src="/starlight/_astro/ec.p1z7b.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">if(commit.signature(), "commit has a signature", "commit is unsigned")</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="if(commit.signature(), &#x22;commit has a signature&#x22;, &#x22;commit is unsigned&#x22;)"><div></div></button></div></figure></div></div></aside>
+<div class="sl-heading-wrapper level-h3"><h3 id="diffstats-type"><code dir="auto">DiffStats</code> type</h3><a class="sl-anchor-link" href="#diffstats-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “DiffStats type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: no, <code dir="auto">Template</code>: yes</em></p>
+<p>This type can be printed as a histogram of the changes. The following methods
+are defined.</p>
+<ul>
+<li><code dir="auto">.files() -> List&#x3C;DiffStatEntry></code>: Per-file stats for changed files.</li>
+<li><code dir="auto">.total_added() -> Integer</code>: Total number of insertions.</li>
+<li><code dir="auto">.total_removed() -> Integer</code>: Total number of deletions.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="diffstatentry-type"><code dir="auto">DiffStatEntry</code> type</h3><a class="sl-anchor-link" href="#diffstatentry-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “DiffStatEntry type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: no, <code dir="auto">Template</code>: no</em></p>
+<p>This type holds the diff stats per file. The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.bytes_delta() -> Integer</code>: The difference in size of the file, in bytes.</li>
+<li><code dir="auto">.lines_added() -> Integer</code>: Number of lines added.</li>
+<li><code dir="auto">.lines_removed() -> Integer</code>: Number of lines deleted.</li>
+<li><code dir="auto">.path() -> RepoPath</code>: Path to the entry. If the entry is a copy/rename, this
+points to the target (or right) entry.</li>
+<li><code dir="auto">.status() -> String</code>: One of <code dir="auto">"modified"</code>, <code dir="auto">"added"</code>, <code dir="auto">"removed"</code>, <code dir="auto">"copied"</code>, or <code dir="auto">"renamed"</code>.</li>
+<li><code dir="auto">.status_char() -> String</code>: One of <code dir="auto">"M"</code> (modified), <code dir="auto">"A"</code> (added), <code dir="auto">"D"</code> (removed),
+<code dir="auto">"C"</code> (copied), or <code dir="auto">"R"</code> (renamed).</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="email-type"><code dir="auto">Email</code> type</h3><a class="sl-anchor-link" href="#email-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Email type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: yes, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>The email field of a signature may or may not look like an email address. It may
+be empty, may not contain the symbol <code dir="auto">@</code>, and could in principle contain
+multiple <code dir="auto">@</code>s.</p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.local() -> String</code>: the part of the email before the first <code dir="auto">@</code>, usually the
+username.</li>
+<li><code dir="auto">.domain() -> String</code>: the part of the email after the first <code dir="auto">@</code> or the empty
+string.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="integer-type"><code dir="auto">Integer</code> type</h3><a class="sl-anchor-link" href="#integer-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Integer type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>No methods are defined.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="list-type"><code dir="auto">List</code> type</h3><a class="sl-anchor-link" href="#list-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “List type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: yes, <code dir="auto">Serialize</code>: maybe, <code dir="auto">Template</code>: maybe</em></p>
+<p>A list can be implicitly converted to <code dir="auto">Boolean</code>. The following methods are
+defined.</p>
+<ul>
+<li><code dir="auto">.len() -> Integer</code>: Number of elements in the list.</li>
+<li><code dir="auto">.join(separator: Template) -> Template</code>: Concatenate elements with
+the given <code dir="auto">separator</code>.</li>
+<li><code dir="auto">.filter(|item| expression) -> List</code>: Filter list elements by predicate
+<code dir="auto">expression</code>. Example: <code dir="auto">description.lines().filter(|s| s.contains("#"))</code></li>
+<li><code dir="auto">.map(|item| expression) -> ListTemplate</code>: Apply template <code dir="auto">expression</code>
+to each element. Example: <code dir="auto">parents.map(|c| c.commit_id().short())</code></li>
+<li><code dir="auto">.any(|item| expression) -> Boolean</code>: Returns true if any element satisfies
+the predicate <code dir="auto">expression</code>. Example: <code dir="auto">parents.any(|c| c.description().contains("fix"))</code></li>
+<li><code dir="auto">.all(|item| expression) -> Boolean</code>: Returns true if all elements satisfy
+the predicate <code dir="auto">expression</code>. Example: <code dir="auto">parents.all(|c| c.mine())</code></li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="listtrailer-type"><code dir="auto">List&#x3C;Trailer></code> type</h3><a class="sl-anchor-link" href="#listtrailer-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “List&#x3C;Trailer> type”</span></a></div>
+<p>The following methods are defined. See also the <code dir="auto">List</code> type.</p>
+<ul>
+<li><code dir="auto">.contains_key(key: Stringify) -> Boolean</code>: True if the commit description
+contains at least one trailer with the key <code dir="auto">key</code>.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="listtemplate-type"><code dir="auto">ListTemplate</code> type</h3><a class="sl-anchor-link" href="#listtemplate-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “ListTemplate type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: no, <code dir="auto">Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.join(separator: Template) -> Template</code>: Concatenate elements with
+the given <code dir="auto">separator</code>.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="operation-type"><code dir="auto">Operation</code> type</h3><a class="sl-anchor-link" href="#operation-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Operation type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.current_operation() -> Boolean</code></li>
+<li><code dir="auto">.description() -> String</code></li>
+<li><code dir="auto">.id() -> OperationId</code></li>
+<li><code dir="auto">.tags() -> String</code></li>
+<li><code dir="auto">.time() -> TimestampRange</code></li>
+<li><code dir="auto">.user() -> String</code></li>
+<li><code dir="auto">.snapshot() -> Boolean</code>: True if the operation is a snapshot operation.</li>
+<li><code dir="auto">.root() -> Boolean</code>: True if the operation is the root operation.</li>
+<li><code dir="auto">.parents() -> List&#x3C;Operation></code></li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="operationid-type"><code dir="auto">OperationId</code> type</h3><a class="sl-anchor-link" href="#operationid-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “OperationId type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.short([len: Integer]) -> String</code></li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="option-type"><code dir="auto">Option</code> type</h3><a class="sl-anchor-link" href="#option-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Option type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: yes, <code dir="auto">Serialize</code>: maybe, <code dir="auto">Template</code>: maybe</em></p>
+<p>An option can be implicitly converted to <code dir="auto">Boolean</code> denoting whether the
+contained value is set. If set, all methods of the contained value can be
+invoked. If not set, an error will be reported inline on method call.</p>
+<p>On comparison between two optional values or optional and non-optional values,
+unset value is not an error. Unset value is considered less than any set values.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="refsymbol-type"><code dir="auto">RefSymbol</code> type</h3><a class="sl-anchor-link" href="#refsymbol-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “RefSymbol type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p><a href="#string-type">A <code dir="auto">String</code> type</a>, but is formatted as revset symbol by quoting
+and escaping if necessary. Unlike strings, this cannot be implicitly converted
+to <code dir="auto">Boolean</code>.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="repopath-type"><code dir="auto">RepoPath</code> type</h3><a class="sl-anchor-link" href="#repopath-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “RepoPath type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>A slash-separated path relative to the repository root. The following methods
+are defined.</p>
+<ul>
+<li><code dir="auto">.absolute() -> String</code>: Format as absolute path using platform-native
+separator.</li>
+<li><code dir="auto">.display() -> String</code>: Format path for display. The formatted path uses
+platform-native separator, and is relative to the current working directory.</li>
+<li><code dir="auto">.parent() -> Option&#x3C;RepoPath></code>: Parent directory path.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="serialize-type"><code dir="auto">Serialize</code> type</h3><a class="sl-anchor-link" href="#serialize-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Serialize type”</span></a></div>
+<p>An expression that can be serialized in machine-readable format such as JSON.</p>
+<aside aria-label="Note" class="starlight-aside starlight-aside--note"><p class="starlight-aside__title" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="starlight-aside__icon"><path d="M12 11C11.7348 11 11.4804 11.1054 11.2929 11.2929C11.1054 11.4804 11 11.7348 11 12V16C11 16.2652 11.1054 16.5196 11.2929 16.7071C11.4804 16.8946 11.7348 17 12 17C12.2652 17 12.5196 16.8946 12.7071 16.7071C12.8946 16.5196 13 16.2652 13 16V12C13 11.7348 12.8946 11.4804 12.7071 11.2929C12.5196 11.1054 12.2652 11 12 11ZM12.38 7.08C12.1365 6.97998 11.8635 6.97998 11.62 7.08C11.4973 7.12759 11.3851 7.19896 11.29 7.29C11.2017 7.3872 11.1306 7.49882 11.08 7.62C11.024 7.73868 10.9966 7.86882 11 8C10.9992 8.13161 11.0245 8.26207 11.0742 8.38391C11.124 8.50574 11.1973 8.61656 11.29 8.71C11.3872 8.79833 11.4988 8.86936 11.62 8.92C11.7715 8.98224 11.936 9.00632 12.099 8.99011C12.2619 8.97391 12.4184 8.91792 12.5547 8.82707C12.691 8.73622 12.8029 8.61328 12.8805 8.46907C12.9582 8.32486 12.9992 8.16378 13 8C12.9963 7.73523 12.8927 7.48163 12.71 7.29C12.6149 7.19896 12.5028 7.12759 12.38 7.08ZM12 2C10.0222 2 8.08879 2.58649 6.4443 3.6853C4.79981 4.78412 3.51809 6.3459 2.76121 8.17317C2.00433 10.0004 1.8063 12.0111 2.19215 13.9509C2.578 15.8907 3.53041 17.6725 4.92894 19.0711C6.32746 20.4696 8.10929 21.422 10.0491 21.8079C11.9889 22.1937 13.9996 21.9957 15.8268 21.2388C17.6541 20.4819 19.2159 19.2002 20.3147 17.5557C21.4135 15.9112 22 13.9778 22 12C22 10.6868 21.7413 9.38642 21.2388 8.17317C20.7363 6.95991 19.9997 5.85752 19.0711 4.92893C18.1425 4.00035 17.0401 3.26375 15.8268 2.7612C14.6136 2.25866 13.3132 2 12 2ZM12 20C10.4178 20 8.87104 19.5308 7.55544 18.6518C6.23985 17.7727 5.21447 16.5233 4.60897 15.0615C4.00347 13.5997 3.84504 11.9911 4.15372 10.4393C4.4624 8.88743 5.22433 7.46197 6.34315 6.34315C7.46197 5.22433 8.88743 4.4624 10.4393 4.15372C11.9911 3.84504 13.5997 4.00346 15.0615 4.60896C16.5233 5.21447 17.7727 6.23984 18.6518 7.55544C19.5308 8.87103 20 10.4177 20 12C20 14.1217 19.1572 16.1566 17.6569 17.6569C16.1566 19.1571 14.1217 20 12 20Z"></path></svg>Note</p><div class="starlight-aside__content"><p>Field names and value types in the serialized output are usually stable
+across jj versions, but the backward compatibility isn’t guaranteed. If the
+underlying data model is updated, the serialized output may change.</p></div></aside>
+<div class="sl-heading-wrapper level-h3"><h3 id="shortestidprefix-type"><code dir="auto">ShortestIdPrefix</code> type</h3><a class="sl-anchor-link" href="#shortestidprefix-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “ShortestIdPrefix type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.prefix() -> String</code></li>
+<li><code dir="auto">.rest() -> String</code></li>
+<li><code dir="auto">.upper() -> ShortestIdPrefix</code></li>
+<li><code dir="auto">.lower() -> ShortestIdPrefix</code></li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="signature-type"><code dir="auto">Signature</code> type</h3><a class="sl-anchor-link" href="#signature-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Signature type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.name() -> String</code></li>
+<li><code dir="auto">.email() -> Email</code></li>
+<li><code dir="auto">.timestamp() -> Timestamp</code></li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="sizehint-type"><code dir="auto">SizeHint</code> type</h3><a class="sl-anchor-link" href="#sizehint-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “SizeHint type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.lower() -> Integer</code>: Lower bound.</li>
+<li><code dir="auto">.upper() -> Option&#x3C;Integer></code>: Upper bound if known.</li>
+<li><code dir="auto">.exact() -> Option&#x3C;Integer></code>: Exact value if upper bound is known and it
+equals to the lower bound.</li>
+<li><code dir="auto">.zero() -> Boolean</code>: True if upper bound is known and is <code dir="auto">0</code>. Equivalent to
+<code dir="auto">.upper() == 0</code>.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="string-type"><code dir="auto">String</code> type</h3><a class="sl-anchor-link" href="#string-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “String type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: yes, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>A string can be implicitly converted to <code dir="auto">Boolean</code>. The following methods are
+defined.</p>
+<ul>
+<li>
+<p><code dir="auto">.len() -> Integer</code>: Length in UTF-8 bytes.</p>
+</li>
+<li>
+<p><code dir="auto">.contains(needle: Stringify) -> Boolean</code>: Whether the string contains the
+provided stringifiable value as a substring.</p>
+</li>
+<li>
+<p><code dir="auto">.match(needle: StringPattern) -> String</code>: Extracts
+the first matching part of the string for the given pattern.</p>
+<p>An empty string is returned if there is no match.</p>
+</li>
+<li>
+<p><code dir="auto">.replace(pattern: StringPattern, replacement: Stringify, [limit: Integer]) -> String</code>:
+Replace occurrences of the given <code dir="auto">pattern</code> with the <code dir="auto">replacement</code> string.</p>
+<p>By default, all occurrences are replaced. If <code dir="auto">limit</code> is specified, at most
+that many occurrences are replaced.</p>
+<p>Supports capture groups in patterns using <code dir="auto">$0</code> (entire match), <code dir="auto">$1</code>, <code dir="auto">$2</code> etc.</p>
+</li>
+<li>
+<p><code dir="auto">.first_line() -> String</code></p>
+</li>
+<li>
+<p><code dir="auto">.lines() -> List&#x3C;String></code>: Split into lines excluding newline characters.</p>
+</li>
+<li>
+<p><code dir="auto">.split(separator: StringPattern, [limit: Integer]) -> List&#x3C;String></code>: Split into
+substrings by the given <code dir="auto">separator</code> pattern. If <code dir="auto">limit</code> is specified, it
+determines the maximum number of elements in the result, with the remainder
+of the string returned as the final element. A <code dir="auto">limit</code> of 0 returns an empty list.</p>
+</li>
+<li>
+<p><code dir="auto">.upper() -> String</code></p>
+</li>
+<li>
+<p><code dir="auto">.lower() -> String</code></p>
+</li>
+<li>
+<p><code dir="auto">.starts_with(needle: Stringify) -> Boolean</code></p>
+</li>
+<li>
+<p><code dir="auto">.ends_with(needle: Stringify) -> Boolean</code></p>
+</li>
+<li>
+<p><code dir="auto">.remove_prefix(needle: Stringify) -> String</code>: Removes the passed prefix, if
+present.</p>
+</li>
+<li>
+<p><code dir="auto">.remove_suffix(needle: Stringify) -> String</code>: Removes the passed suffix, if
+present.</p>
+</li>
+<li>
+<p><code dir="auto">.trim() -> String</code>: Removes leading and trailing whitespace</p>
+</li>
+<li>
+<p><code dir="auto">.trim_start() -> String</code>: Removes leading whitespace</p>
+</li>
+<li>
+<p><code dir="auto">.trim_end() -> String</code>: Removes trailing whitespace</p>
+</li>
+<li>
+<p><code dir="auto">.substr(start: Integer, end: Integer) -> String</code>: Extract substring. The
+<code dir="auto">start</code>/<code dir="auto">end</code> indices should be specified in UTF-8 bytes. Indices are 0-based
+and <code dir="auto">end</code> is exclusive. Negative values count from the end of the string,
+with <code dir="auto">-1</code> being the last byte. If the <code dir="auto">start</code> index is in the middle of a UTF-8
+codepoint, the codepoint is fully part of the result. If the <code dir="auto">end</code> index is in
+the middle of a UTF-8 codepoint, the codepoint is not part of the result.</p>
+</li>
+<li>
+<p><code dir="auto">.escape_json() -> String</code>: Serializes the string in JSON format. This
+function is useful for making machine-readable templates. For example, you
+can use it in a template like <code dir="auto">'{ "foo": ' ++ foo.escape_json() ++ ' }'</code> to
+return a JSON/JSONL.</p>
+</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="stringliteral-type"><code dir="auto">StringLiteral</code> type</h3><a class="sl-anchor-link" href="#stringliteral-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “StringLiteral type”</span></a></div>
+<p>A string literal known at parse time. Unlike <code dir="auto">Stringify</code>, this cannot be a
+dynamic expression - it must be a literal value like <code dir="auto">"main"</code> or <code dir="auto">"format"</code>.</p>
+<p>String literals must be surrounded by single or double quotes (<code dir="auto">'</code> or <code dir="auto">"</code>).
+A double-quoted string literal supports the following escape sequences:</p>
+<ul>
+<li><code dir="auto">\"</code>: double quote</li>
+<li><code dir="auto">\\</code>: backslash</li>
+<li><code dir="auto">\t</code>: horizontal tab</li>
+<li><code dir="auto">\r</code>: carriage return</li>
+<li><code dir="auto">\n</code>: new line</li>
+<li><code dir="auto">\0</code>: null</li>
+<li><code dir="auto">\e</code>: escape (i.e., <code dir="auto">\x1b</code>)</li>
+<li><code dir="auto">\xHH</code>: byte with hex value <code dir="auto">HH</code></li>
+</ul>
+<p>Other escape sequences are not supported. Any UTF-8 characters are allowed
+inside a string literal, with two exceptions: unescaped <code dir="auto">"</code>-s and uses of <code dir="auto">\</code>
+that don’t form a valid escape sequence.</p>
+<p>A single-quoted string literal has no escape syntax. <code dir="auto">'</code> can’t be expressed
+inside a single-quoted string literal.</p>
+<p>String literals have their own type so that the value can be validated at parse
+time. For example, <code dir="auto">contained_in(revset)</code> requires a literal so the revset can
+be parsed and checked before the template is evaluated.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="stringify-type"><code dir="auto">Stringify</code> type</h3><a class="sl-anchor-link" href="#stringify-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Stringify type”</span></a></div>
+<p>An expression that can be converted to a <code dir="auto">String</code>.</p>
+<p>Any types that can be converted to <code dir="auto">Template</code> can also be <code dir="auto">Stringify</code>. Unlike
+<code dir="auto">Template</code>, color labels are stripped.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="stringpattern-type"><code dir="auto">StringPattern</code> type</h3><a class="sl-anchor-link" href="#stringpattern-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “StringPattern type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: no, <code dir="auto">Template</code>: no</em></p>
+<p>These are the exact same as the <a href="revsets.md#string-patterns">String pattern type</a> in revsets, except that
+quotes are mandatory.</p>
+<p>Literal strings may be used, which are interpreted as case-sensitive substring
+matching.</p>
+<p>Currently <code dir="auto">StringPattern</code> values cannot be passed around as values and may
+only occur directly in the call site they are used in.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="template-type"><code dir="auto">Template</code> type</h3><a class="sl-anchor-link" href="#template-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Template type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: no, <code dir="auto">Template</code>: yes</em></p>
+<p>Most types can be implicitly converted to <code dir="auto">Template</code>. No methods are defined.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="timestamp-type"><code dir="auto">Timestamp</code> type</h3><a class="sl-anchor-link" href="#timestamp-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Timestamp type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.ago() -> String</code>: Format as relative timestamp.</li>
+<li><code dir="auto">.format(format: StringLiteral) -> String</code>: Format with <a href="https://docs.rs/chrono/latest/chrono/format/strftime/">the specified strftime-like
+format string</a>.</li>
+<li><code dir="auto">.utc() -> Timestamp</code>: Convert timestamp into UTC timezone.</li>
+<li><code dir="auto">.local() -> Timestamp</code>: Convert timestamp into local timezone.</li>
+<li><code dir="auto">.after(date: StringLiteral) -> Boolean</code>: True if the timestamp is exactly at or
+after the given date. Supported date formats are the same as the revset
+<a href="revsets.md#date-patterns">Date pattern type</a>.</li>
+<li><code dir="auto">.before(date: StringLiteral) -> Boolean</code>: True if the timestamp is before, but
+not including, the given date. Supported date formats are the same as the
+revset <a href="revsets.md#date-patterns">Date pattern type</a>.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="timestamprange-type"><code dir="auto">TimestampRange</code> type</h3><a class="sl-anchor-link" href="#timestamprange-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “TimestampRange type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.start() -> Timestamp</code></li>
+<li><code dir="auto">.end() -> Timestamp</code></li>
+<li><code dir="auto">.duration() -> String</code></li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="trailer-type"><code dir="auto">Trailer</code> type</h3><a class="sl-anchor-link" href="#trailer-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Trailer type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: no, <code dir="auto">Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.key() -> String</code></li>
+<li><code dir="auto">.value() -> String</code></li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="treediff-type"><code dir="auto">TreeDiff</code> type</h3><a class="sl-anchor-link" href="#treediff-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “TreeDiff type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: no, <code dir="auto">Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.files() -> List&#x3C;TreeDiffEntry></code>: Changed files.</li>
+<li><code dir="auto">.color_words([context: Integer]) -> Template</code>: Format as a word-level diff
+with changes indicated only by color.</li>
+<li><code dir="auto">.git([context: Integer]) -> Template</code>: Format as a Git diff.</li>
+<li><code dir="auto">.stat([width: Integer]) -> DiffStats</code>: Calculate stats of changed lines.</li>
+<li><code dir="auto">.summary() -> Template</code>: Format as a list of status code and path pairs.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="treediffentry-type"><code dir="auto">TreeDiffEntry</code> type</h3><a class="sl-anchor-link" href="#treediffentry-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “TreeDiffEntry type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: no, <code dir="auto">Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.path() -> RepoPath</code>: Path to the entry. If the entry is a copy/rename, this
+points to the target (or right) entry.</li>
+<li><code dir="auto">.status() -> String</code>: One of <code dir="auto">"modified"</code>, <code dir="auto">"added"</code>, <code dir="auto">"removed"</code>,
+<code dir="auto">"copied"</code>, or <code dir="auto">"renamed"</code>.</li>
+<li><code dir="auto">.source() -> TreeEntry</code>: The source (or left) entry.</li>
+<li><code dir="auto">.target() -> TreeEntry</code>: The target (or right) entry.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="treeentry-type"><code dir="auto">TreeEntry</code> type</h3><a class="sl-anchor-link" href="#treeentry-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “TreeEntry type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: no, <code dir="auto">Template</code>: no</em></p>
+<p>This type cannot be printed. The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.path() -> RepoPath</code>: Path to the entry.</li>
+<li><code dir="auto">.conflict() -> Boolean</code>: True if the entry is a merge conflict.</li>
+<li><code dir="auto">.file_type() -> String</code>: One of <code dir="auto">"file"</code>, <code dir="auto">"symlink"</code>, <code dir="auto">"tree"</code>,
+<code dir="auto">"git-submodule"</code>, or <code dir="auto">"conflict"</code>.</li>
+<li><code dir="auto">.executable() -> Boolean</code>: True if the entry is an executable file.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="workspaceref-type"><code dir="auto">WorkspaceRef</code> type</h3><a class="sl-anchor-link" href="#workspaceref-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “WorkspaceRef type”</span></a></div>
+<p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code dir="auto">.name() -> RefSymbol</code>: Returns the workspace name as a symbol.</li>
+<li><code dir="auto">.target() -> Commit</code>: Returns the working-copy commit of this workspace.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="color-labels">Color labels</h2><a class="sl-anchor-link" href="#color-labels"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Color labels”</span></a></div>
+<p>You can <a href="config.md#custom-colors-and-styles">customize the output colors</a> by using color labels. <code dir="auto">jj</code>
+adds some labels automatically; they can also be added manually.</p>
+<p>Template fragments are usually <strong>automatically</strong> labeled with the command name,
+the context (or the top-level object), and the method names. For example, the
+following template is labeled as <code dir="auto">op_log operation id short</code> automatically:</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="sh"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">op</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-T</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">self.id().short()</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj op log -T &#x27;self.id().short()&#x27;"><div></div></button></div></figure></div>
+<p>The exact names of such labels are often straightforward, but are not currently
+documented. You can discover the actual label names used with the
+<code dir="auto">--color=debug</code> option, e.g.</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="sh"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">op</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-T</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">self.id().short()</span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--color=debug</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj op log -T &#x27;self.id().short()&#x27; --color=debug"><div></div></button></div></figure></div>
+<p>Additionally, you can <strong>manually</strong> insert arbitrary labels using the
+<code dir="auto">label(label, content)</code> function. For example,</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="sh"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">op</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-T</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">"ID: " ++ self.id().short().substr(0, 1) ++ label("id short",  "&#x3C;redacted>")</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj op log -T &#x27;&#x22;ID: &#x22; ++ self.id().short().substr(0, 1) ++ label(&#x22;id short&#x22;,  &#x22;<redacted>&#x22;)&#x27;"><div></div></button></div></figure></div>
+<p>will print “ID:” in the default style, and the string <code dir="auto">&#x3C;redacted></code> in the same
+style as the first character of the id. It would also be fine to use an
+arbitrary template instead of the string <code dir="auto">"&#x3C;redacted>"</code>, possibly including
+nested invocations of <code dir="auto">label()</code>.</p>
+<p>You are free to use custom label names as well. This will only have a visible
+effect if you also <a href="config.md#custom-colors-and-styles">customize their colors</a> explicitly.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="configuration">Configuration</h2><a class="sl-anchor-link" href="#configuration"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Configuration”</span></a></div>
+<p>The default templates and aliases() are defined in the <code dir="auto">[templates]</code> and
+<code dir="auto">[template-aliases]</code> sections of the config respectively. The exact definitions
+can be seen in the <a href="https://github.com/jj-vcs/jj/blob/main/cli/src/config/templates.toml"><code dir="auto">cli/src/config/templates.toml</code></a> file in jj’s source
+tree.</p>
+<!--- TODO: Find a way to embed the default config files in the docs -->
+<p>New keywords and functions can be defined as aliases, by using any
+combination of the predefined keywords/functions and other aliases.</p>
+<p>Alias functions can be overloaded by the number of parameters. However, builtin
+functions will be shadowed by name, and can’t co-exist with aliases.</p>
+<p>For example:</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="toml"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">[template-aliases]</span></div></div><div class="ec-line"><div class="code"><span style="--0:#C5E478;--1:#3B61B0">'commit_change_ids'</span><span style="--0:#D6DEEB;--1:#403F53"> = </span><span style="--0:#D9F5DD;--1:#111111">'''</span></div></div><div class="ec-line"><div class="code"><span style="--0:#ECC48D;--1:#984E4D">concat(</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#ECC48D;--1:#984E4D">  </span></span><span style="--0:#ECC48D;--1:#984E4D">format_field("Commit ID", commit_id),</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#ECC48D;--1:#984E4D">  </span></span><span style="--0:#ECC48D;--1:#984E4D">format_field("Change ID", change_id),</span></div></div><div class="ec-line"><div class="code"><span style="--0:#ECC48D;--1:#984E4D">)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#D9F5DD;--1:#111111">'''</span></div></div><div class="ec-line"><div class="code"><span style="--0:#C5E478;--1:#3B61B0">'format_field(key, value)'</span><span style="--0:#D6DEEB;--1:#403F53"> = </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">key ++ ": " ++ value ++ "\n"</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="[template-aliases]&#x27;commit_change_ids&#x27; = &#x27;&#x27;&#x27;concat(  format_field(&#x22;Commit ID&#x22;, commit_id),  format_field(&#x22;Change ID&#x22;, change_id),)&#x27;&#x27;&#x27;&#x27;format_field(key, value)&#x27; = &#x27;key ++ &#x22;: &#x22; ++ value ++ &#x22;\n&#x22;&#x27;"><div></div></button></div></figure></div>
+<div class="sl-heading-wrapper level-h2"><h2 id="examples">Examples</h2><a class="sl-anchor-link" href="#examples"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Examples”</span></a></div>
+<p>Get short commit IDs of the working-copy parents:</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="sh"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--no-graph</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-r</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">@</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-T</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">parents.map(|c| c.commit_id().short()).join(",")</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj log --no-graph -r @ -T &#x27;parents.map(|c| c.commit_id().short()).join(&#x22;,&#x22;)&#x27;"><div></div></button></div></figure></div>
+<p>Show machine-readable list of full commit and change IDs:</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="sh"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--no-graph</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-T</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">commit_id ++ " " ++ change_id ++ "\n"</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj log --no-graph -T &#x27;commit_id ++ &#x22; &#x22; ++ change_id ++ &#x22;\n&#x22;&#x27;"><div></div></button></div></figure></div>
+<p>Print the description of the current commit, defaulting to <code dir="auto">(no description set)</code>:</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="sh"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-r</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">@</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--no-graph</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-T</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">coalesce(description, "(no description set)\n")</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj log -r @ --no-graph -T &#x27;coalesce(description, &#x22;(no description set)\n&#x22;)&#x27;"><div></div></button></div></figure></div> </div> <footer class="sl-flex astro-3yyafb3n"> <div class="meta sl-flex astro-3yyafb3n">   </div> <div class="pagination-links print:hidden astro-u2l5gyhi" dir="ltr"> <a href="/starlight/revsets/" rel="prev" class="astro-u2l5gyhi"> <svg aria-hidden="true" class="astro-u2l5gyhi astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;"><path d="M17 11H9.41l3.3-3.29a1.004 1.004 0 1 0-1.42-1.42l-5 5a1 1 0 0 0-.21.33 1 1 0 0 0 0 .76 1 1 0 0 0 .21.33l5 5a1.002 1.002 0 0 0 1.639-.325 1 1 0 0 0-.219-1.095L9.41 13H17a1 1 0 0 0 0-2Z"/></svg> <span class="astro-u2l5gyhi"> Previous <br class="astro-u2l5gyhi"> <span class="link-title astro-u2l5gyhi">Revset language</span> </span> </a> <a href="/starlight/git-comparison/" rel="next" class="astro-u2l5gyhi"> <svg aria-hidden="true" class="astro-u2l5gyhi astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;"><path d="M17.92 11.62a1.001 1.001 0 0 0-.21-.33l-5-5a1.003 1.003 0 1 0-1.42 1.42l3.3 3.29H7a1 1 0 0 0 0 2h7.59l-3.3 3.29a1.002 1.002 0 0 0 .325 1.639 1 1 0 0 0 1.095-.219l5-5a1 1 0 0 0 .21-.33 1 1 0 0 0 0-.76Z"/></svg> <span class="astro-u2l5gyhi"> Next <br class="astro-u2l5gyhi"> <span class="link-title astro-u2l5gyhi">Git comparison</span> </span> </a> </div>   </footer>  </div> </div>   </main> </div> </div>  </div> </div>  </body></html>

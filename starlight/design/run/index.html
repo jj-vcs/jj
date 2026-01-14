@@ -1,0 +1,448 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-bguv2lll"> <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Introducing JJ run | Jujutsu docs</title><link rel="canonical" href="https://docs.jj-vcs.dev/starlight/design/run/"/><link rel="sitemap" href="/starlight/sitemap-index.xml"/><link rel="shortcut icon" href="/starlight/images/jj-logo.svg" type="image/svg+xml"/><meta name="generator" content="Astro v5.16.3"/><meta name="generator" content="Starlight v0.37.0"/><meta property="og:title" content="Introducing JJ run"/><meta property="og:type" content="article"/><meta property="og:url" content="https://docs.jj-vcs.dev/starlight/design/run/"/><meta property="og:locale" content="en"/><meta property="og:site_name" content="Jujutsu docs"/><meta name="twitter:card" content="summary_large_image"/><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/starlight/_astro/print.DNXP8c50.css" media="print"><link rel="stylesheet" href="/starlight/_astro/index.DHaNDMTl.css">
+<style>@layer starlight.components{:root{--sl-badge-default-border: var(--sl-color-accent);--sl-badge-default-bg: var(--sl-color-accent-low);--sl-badge-default-text: #fff;--sl-badge-note-border: var(--sl-color-blue);--sl-badge-note-bg: var(--sl-color-blue-low);--sl-badge-note-text: #fff;--sl-badge-danger-border: var(--sl-color-red);--sl-badge-danger-bg: var(--sl-color-red-low);--sl-badge-danger-text: #fff;--sl-badge-success-border: var(--sl-color-green);--sl-badge-success-bg: var(--sl-color-green-low);--sl-badge-success-text: #fff;--sl-badge-caution-border: var(--sl-color-orange);--sl-badge-caution-bg: var(--sl-color-orange-low);--sl-badge-caution-text: #fff;--sl-badge-tip-border: var(--sl-color-purple);--sl-badge-tip-bg: var(--sl-color-purple-low);--sl-badge-tip-text: #fff}[data-theme=light]:root{--sl-badge-default-bg: var(--sl-color-accent-high);--sl-badge-note-bg: var(--sl-color-blue-high);--sl-badge-danger-bg: var(--sl-color-red-high);--sl-badge-success-bg: var(--sl-color-green-high);--sl-badge-caution-bg: var(--sl-color-orange-high);--sl-badge-tip-bg: var(--sl-color-purple-high)}.sl-badge:where(.astro-avdet4wd){display:inline-block;border:1px solid var(--sl-color-border-badge);border-radius:.25rem;font-family:var(--sl-font-system-mono);line-height:normal;color:var(--sl-color-text-badge);background-color:var(--sl-color-bg-badge);overflow-wrap:anywhere}.sidebar-content .sl-badge:where(.astro-avdet4wd){line-height:1;font-size:var(--sl-text-xs);padding:.125rem .375rem}.sidebar-content a[aria-current=page]>.sl-badge:where(.astro-avdet4wd){--sl-color-bg-badge: transparent;--sl-color-border-badge: currentColor;color:inherit}.default:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-default-bg);--sl-color-border-badge: var(--sl-badge-default-border);--sl-color-text-badge: var(--sl-badge-default-text)}.note:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-note-bg);--sl-color-border-badge: var(--sl-badge-note-border);--sl-color-text-badge: var(--sl-badge-note-text)}.danger:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-danger-bg);--sl-color-border-badge: var(--sl-badge-danger-border);--sl-color-text-badge: var(--sl-badge-danger-text)}.success:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-success-bg);--sl-color-border-badge: var(--sl-badge-success-border);--sl-color-text-badge: var(--sl-badge-success-text)}.tip:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-tip-bg);--sl-color-border-badge: var(--sl-badge-tip-border);--sl-color-text-badge: var(--sl-badge-tip-text)}.caution:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-caution-bg);--sl-color-border-badge: var(--sl-badge-caution-border);--sl-color-text-badge: var(--sl-badge-caution-text)}.small:where(.astro-avdet4wd){font-size:var(--sl-text-xs);padding:.125rem .25rem}.medium:where(.astro-avdet4wd){font-size:var(--sl-text-sm);padding:.175rem .35rem}.large:where(.astro-avdet4wd){font-size:var(--sl-text-base);padding:.225rem .45rem}.sl-markdown-content :is(h1,h2,h3,h4,h5,h6) .sl-badge:where(.astro-avdet4wd){vertical-align:middle}}
+@layer starlight.components{svg:where(.astro-c6vsoqas){color:var(--sl-icon-color);font-size:var(--sl-icon-size, 1em);width:1em;height:1em}}
+@layer starlight.components{starlight-tabs:where(.astro-esqgolmp){display:block}.tablist-wrapper:where(.astro-esqgolmp){overflow-x:auto}:where(.astro-esqgolmp)[role=tablist]{display:flex;list-style:none;border-bottom:2px solid var(--sl-color-gray-5);padding:0}.tab:where(.astro-esqgolmp){display:flex}.tab:where(.astro-esqgolmp)>:where(.astro-esqgolmp)[role=tab]{--sl-tab-color-border: var(--sl-color-gray-5);display:flex;align-items:center;gap:.5rem;line-height:var(--sl-line-height-headings);padding:.275rem 1.25rem;text-decoration:none;box-shadow:0 2px 0 var(--sl-tab-color-border);color:var(--sl-color-gray-3);outline-offset:var(--sl-outline-offset-inside);overflow-wrap:initial}.tab:where(.astro-esqgolmp) :where(.astro-esqgolmp)[role=tab][aria-selected=true]{--sl-tab-color-border: var(--sl-color-text-accent);color:var(--sl-color-white);font-weight:600}.tablist-wrapper:where(.astro-esqgolmp)~[role=tabpanel]{margin-top:1rem}}
+@layer starlight.components{.sl-steps{--bullet-size: calc(var(--sl-line-height) * 1rem);--bullet-margin: .375rem;list-style:none;counter-reset:steps-counter var(--sl-steps-start, 0);padding-inline-start:0}.sl-steps>li{counter-increment:steps-counter;position:relative;padding-inline-start:calc(var(--bullet-size) + 1rem);padding-bottom:1px;min-height:calc(var(--bullet-size) + var(--bullet-margin))}.sl-steps>li+li{margin-top:0}.sl-steps>li:before{content:counter(steps-counter);position:absolute;top:0;inset-inline-start:0;width:var(--bullet-size);height:var(--bullet-size);line-height:var(--bullet-size);font-size:var(--sl-text-xs);font-weight:600;text-align:center;color:var(--sl-color-white);background-color:var(--sl-color-gray-6);border-radius:99rem;box-shadow:inset 0 0 0 1px var(--sl-color-gray-5)}.sl-steps>li:after{--guide-width: 1px;content:"";position:absolute;top:calc(var(--bullet-size) + var(--bullet-margin));bottom:var(--bullet-margin);inset-inline-start:calc((var(--bullet-size) - var(--guide-width)) / 2);width:var(--guide-width);background-color:var(--sl-color-hairline-light)}}@layer starlight.content{.sl-steps>li>:first-child{--lh: calc(1em * var(--sl-line-height));--shift-y: calc(.5 * (var(--bullet-size) - var(--lh)));transform:translateY(var(--shift-y));margin-bottom:var(--shift-y)}.sl-steps>li>:first-child:where(h1,h2,h3,h4,h5,h6){--lh: calc(1em * var(--sl-line-height-headings))}@supports (--prop: 1lh){.sl-steps>li>:first-child{--lh: 1lh}}}
+@layer starlight.components{.sl-link-button:where(.astro-xwgiixxa){align-items:center;border:1px solid transparent;border-radius:999rem;display:inline-flex;font-size:var(--sl-text-sm);gap:.5em;line-height:1.1875;outline-offset:.25rem;padding:.4375rem 1.125rem;text-decoration:none}.sl-link-button:where(.astro-xwgiixxa).primary{background:var(--sl-color-text-accent);border-color:var(--sl-color-text-accent);color:var(--sl-color-black)}.sl-link-button:where(.astro-xwgiixxa).primary:hover{color:var(--sl-color-black)}.sl-link-button:where(.astro-xwgiixxa).secondary{border-color:inherit;color:var(--sl-color-white)}.sl-link-button:where(.astro-xwgiixxa).minimal{color:var(--sl-color-white);padding-inline:0}.sl-link-button:where(.astro-xwgiixxa) svg{flex-shrink:0}@media(min-width:50rem){.sl-link-button:where(.astro-xwgiixxa){font-size:var(--sl-text-base);padding:.9375rem 1.25rem}}.sl-markdown-content .sl-link-button:where(.astro-xwgiixxa){margin-inline-end:1rem}.sl-markdown-content .sl-link-button:where(.astro-xwgiixxa):not(:where(p *)){margin-block:1rem}}
+</style><script type="module" src="/starlight/_astro/page.B1D-nYk3.js"></script></head> <body class="astro-bguv2lll"> <a href="#_top" class="astro-7q3lir66">Skip to content</a>  <div class="page sl-flex astro-vrdttmbt"> <header class="header astro-vrdttmbt"><div class="header astro-kmkmnagf"> <div class="title-wrapper sl-flex astro-kmkmnagf"> <a href="/starlight/" class="site-title sl-flex astro-m46x6ez3">  <img class="astro-m46x6ez3" alt src="/starlight/_astro/jj-logo.CIiglsa3.svg" width="1024" height="1024">  <span class="astro-m46x6ez3" translate="no"> Jujutsu docs </span> </a>  </div> <div class="sl-flex print:hidden astro-kmkmnagf"> <site-search class="astro-kmkmnagf astro-v37mnknz" data-translations="{&#34;placeholder&#34;:&#34;Search&#34;}"> <button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-v37mnknz"> <svg aria-hidden="true" class="astro-v37mnknz astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg> <span class="sl-hidden md:sl-block astro-v37mnknz" aria-hidden="true">Search</span> <kbd class="sl-hidden md:sl-flex astro-v37mnknz" style="display: none;"> <kbd class="astro-v37mnknz">Ctrl</kbd><kbd class="astro-v37mnknz">K</kbd> </kbd> </button> <dialog style="padding:0" aria-label="Search" class="astro-v37mnknz"> <div class="dialog-frame sl-flex astro-v37mnknz">  <button data-close-modal class="sl-flex md:sl-hidden astro-v37mnknz"> Cancel </button> <div class="search-container astro-v37mnknz"> <div id="starlight__search" class="astro-v37mnknz"></div> </div> </div> </dialog> </site-search>  <script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script> <script type="module" src="/starlight/_astro/Search.astro_astro_type_script_index_0_lang.CIUB7SL0.js"></script>   </div> <div class="sl-hidden md:sl-flex print:hidden right-group astro-kmkmnagf"> <div class="sl-flex social-icons astro-kmkmnagf"> <a href="https://github.com/jj-vcs/jj" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">GitHub</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a><a href="https://discord.gg/dkmfj3aGQN" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">Discord</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.93-1.51 13.78 13.78 0 0 0-.64 1.28 18.27 18.27 0 0 0-5.5 0 12.64 12.64 0 0 0-.64-1.28h-.05A19.74 19.74 0 0 0 3.64 4.4 20.26 20.26 0 0 0 .11 18.09l.02.02a19.9 19.9 0 0 0 6.04 3.03l.04-.02a14.24 14.24 0 0 0 1.23-2.03.08.08 0 0 0-.05-.07 13.1 13.1 0 0 1-1.9-.92.08.08 0 0 1 .02-.1 10.2 10.2 0 0 0 .41-.31h.04a14.2 14.2 0 0 0 12.1 0l.04.01a9.63 9.63 0 0 0 .4.32.08.08 0 0 1-.03.1 12.29 12.29 0 0 1-1.9.91.08.08 0 0 0-.02.1 15.97 15.97 0 0 0 1.27 2.01h.04a19.84 19.84 0 0 0 6.03-3.05v-.03a20.12 20.12 0 0 0-3.57-13.69ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.08-2.15-2.42 0-1.33.95-2.42 2.15-2.42 1.22 0 2.18 1.1 2.16 2.42 0 1.34-.94 2.42-2.16 2.42Z"/></svg></a> </div> <div class="version-switcher astro-eanuhfmr" id="version-switcher-container" style="display: none;"> <label for="version-select" class="sl-hidden astro-eanuhfmr">Select documentation version</label> <select id="version-select" class="version-select astro-eanuhfmr"> <option class="astro-eanuhfmr">Loading versions...</option> </select> </div> <script>(function(){const siteBase = "/";
+
+    // Fetch versions client-side and populate the dropdown
+    async function loadVersions() {
+      const container = document.getElementById('version-switcher-container');
+      const select = document.getElementById('version-select');
+
+      if (!container || !select) return;
+
+      try {
+        const response = await fetch(`${siteBase}versions.json`);
+        if (!response.ok) {
+          // No versions.json available (e.g., in development)
+          return;
+        }
+
+        const versions = await response.json();
+        if (!versions || versions.length === 0) return;
+
+        // Determine current version from URL path
+        const pathMatch = window.location.pathname.match(/^\/([^\/]+)/);
+        let currentVersion = 'unknown';
+
+        if (pathMatch) {
+          const pathVersion = pathMatch[1];
+          // Check if this is a direct version match
+          let versionObj = versions.find(v => v.version === pathVersion);
+          // Check if this matches an alias
+          if (!versionObj) {
+            versionObj = versions.find(v => v.aliases && v.aliases.includes(pathVersion));
+          }
+          currentVersion = versionObj?.version || pathVersion;
+        }
+
+        // Clear and populate the select
+        select.innerHTML = '';
+        versions.forEach(v => {
+          const option = document.createElement('option');
+          option.value = v.version;
+
+          // Display title with alias if it has one
+          const displayTitle = v.aliases && v.aliases.length > 0
+            ? `${v.title} (${v.aliases.join(', ')})`
+            : v.title;
+          option.textContent = displayTitle;
+
+          if (v.version === currentVersion) {
+            option.selected = true;
+          }
+
+          select.appendChild(option);
+        });
+
+        // Show the container
+        container.style.display = 'flex';
+
+        // Add change handler
+        select.addEventListener('change', (e) => {
+          const selectedVersion = e.target.value;
+          const currentPath = window.location.pathname;
+          const versionRegex = /^\/[^\/]+/;
+          const pagePath = currentPath.replace(versionRegex, '').replace(/^\//, '');
+          window.location.href = `${siteBase}${selectedVersion}/${pagePath}`;
+        });
+      } catch (error) {
+        console.debug('Could not load versions.json:', error);
+      }
+    }
+
+    // Load versions when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadVersions);
+    } else {
+      loadVersions();
+    }
+  })();</script>  <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">Select theme</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">Dark</option><option value="light" class="astro-4yphtoen">Light</option><option value="auto" selected class="astro-4yphtoen">Auto</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script> <script type="module">const r="starlight-theme",o=e=>e==="auto"||e==="dark"||e==="light"?e:"auto",c=()=>o(typeof localStorage<"u"&&localStorage.getItem(r));function n(e){typeof localStorage<"u"&&localStorage.setItem(r,e==="light"||e==="dark"?e:"")}const l=()=>matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";function t(e){StarlightThemeProvider.updatePickers(e),document.documentElement.dataset.theme=e==="auto"?l():e,n(e)}matchMedia("(prefers-color-scheme: light)").addEventListener("change",()=>{c()==="auto"&&t("auto")});class s extends HTMLElement{constructor(){super(),t(c()),this.querySelector("select")?.addEventListener("change",a=>{a.currentTarget instanceof HTMLSelectElement&&t(o(a.currentTarget.value))})}}customElements.define("starlight-theme-select",s);</script> <script type="module">class s extends HTMLElement{constructor(){super();const e=this.querySelector("select");e&&(e.addEventListener("change",t=>{t.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=t.currentTarget.value)}),window.addEventListener("pageshow",t=>{if(!t.persisted)return;const n=e.querySelector("option[selected]")?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}}customElements.define("starlight-lang-select",s);</script> </div> </div> </header> <nav class="sidebar print:hidden astro-vrdttmbt" aria-label="Main"> <starlight-menu-button class="print:hidden astro-jif73yzw"> <button aria-expanded="false" aria-label="Menu" aria-controls="starlight__sidebar" class="sl-flex md:sl-hidden astro-jif73yzw"> <svg aria-hidden="true" class="open-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg> <svg aria-hidden="true" class="close-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg> </button> </starlight-menu-button> <script type="module">class s extends HTMLElement{constructor(){super(),this.btn=this.querySelector("button"),this.btn.addEventListener("click",()=>this.toggleExpanded());const t=this.closest("nav");t&&t.addEventListener("keyup",e=>this.closeOnEscape(e))}setExpanded(t){this.setAttribute("aria-expanded",String(t)),document.body.toggleAttribute("data-mobile-menu-expanded",t)}toggleExpanded(){this.setExpanded(this.getAttribute("aria-expanded")!=="true")}closeOnEscape(t){t.code==="Escape"&&(this.setExpanded(!1),this.btn.focus())}}customElements.define("starlight-menu-button",s);</script>   <div id="starlight__sidebar" class="sidebar-pane astro-vrdttmbt"> <div class="sidebar-content sl-flex astro-vrdttmbt"> <sl-sidebar-state-persist data-hash="0tme7ck" class="astro-kku4brbg"> <script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script>  <ul class="top-level astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Home</span>  </a> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Getting started</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="0"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/install-and-setup/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Installation and setup</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/tutorial/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Tutorial and bird&#39;s eye view</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/gerrit/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Working with Gerrit</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/github/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Working with GitHub</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/windows/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Working on Windows</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <a href="/starlight/faq/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">FAQ</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/cli-reference/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">CLI reference</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/testimonials/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Testimonials</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/community_tools/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Community-built tools</span>  </a> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Concepts</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="1"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/working-copy/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Working copy</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/bookmarks/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Bookmarks</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/conflicts/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Conflicts</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/operation-log/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Operation log</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/glossary/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Glossary</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Guides</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="2"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/guides/divergence/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Divergent changes</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/guides/multiple-remotes/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Multiple remotes</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Reference</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="3"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/config/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Settings</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/filesets/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Fileset language</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/revsets/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Revset language</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/templates/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Templating language</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Comparisons</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="4"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/git-comparison/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Git comparison</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/git-command-table/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Git command table</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/git-compatibility/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Git compatibility</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/git-experts/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Jujutsu for Git experts</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/sapling-comparison/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Sapling comparison</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/related-work/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Other related work</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Technical details</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="5"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/core_tenets/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Core tenets</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/technical/architecture/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Architecture</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/technical/concurrency/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Concurrency</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/technical/conflicts/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Conflicts</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Contributing</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="6"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/contributing/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Guidelines and &quot;How to...?&quot;</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/code-of-conduct/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Code of conduct</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/style_guide/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Style guide</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design_docs/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Design docs</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design_doc_blueprint/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Design doc blueprint</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/releasing/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Releasing</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/governance/temporary-voting/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Temporary voting for governance</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/governance/governance/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Governance</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details open class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Design docs</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="7"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/design/git-submodules/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">git-submodules</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/git-submodule-storage/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">git-submodule-storage</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/run/" aria-current="page" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">JJ run</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/sparse-v2/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Sparse patterns v2</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/tracking-branches/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Tracking branches</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/copy-tracking/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Copy tracking and tracing</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/secure-config/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Secure config</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <a href="/starlight/roadmap/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Development roadmap</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/changelog/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Changelog</span>  </a> </li> </ul>   <script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script> </sl-sidebar-state-persist>  <div class="md:sl-hidden"> <div class="mobile-preferences sl-flex astro-wu23bvmt"> <div class="social-icons astro-wu23bvmt"> <a href="https://github.com/jj-vcs/jj" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">GitHub</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a><a href="https://discord.gg/dkmfj3aGQN" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">Discord</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.93-1.51 13.78 13.78 0 0 0-.64 1.28 18.27 18.27 0 0 0-5.5 0 12.64 12.64 0 0 0-.64-1.28h-.05A19.74 19.74 0 0 0 3.64 4.4 20.26 20.26 0 0 0 .11 18.09l.02.02a19.9 19.9 0 0 0 6.04 3.03l.04-.02a14.24 14.24 0 0 0 1.23-2.03.08.08 0 0 0-.05-.07 13.1 13.1 0 0 1-1.9-.92.08.08 0 0 1 .02-.1 10.2 10.2 0 0 0 .41-.31h.04a14.2 14.2 0 0 0 12.1 0l.04.01a9.63 9.63 0 0 0 .4.32.08.08 0 0 1-.03.1 12.29 12.29 0 0 1-1.9.91.08.08 0 0 0-.02.1 15.97 15.97 0 0 0 1.27 2.01h.04a19.84 19.84 0 0 0 6.03-3.05v-.03a20.12 20.12 0 0 0-3.57-13.69ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.08-2.15-2.42 0-1.33.95-2.42 2.15-2.42 1.22 0 2.18 1.1 2.16 2.42 0 1.34-.94 2.42-2.16 2.42Z"/></svg></a> </div> <div class="version-switcher astro-eanuhfmr" id="version-switcher-container" style="display: none;"> <label for="version-select" class="sl-hidden astro-eanuhfmr">Select documentation version</label> <select id="version-select" class="version-select astro-eanuhfmr"> <option class="astro-eanuhfmr">Loading versions...</option> </select> </div> <script>(function(){const siteBase = "/";
+
+    // Fetch versions client-side and populate the dropdown
+    async function loadVersions() {
+      const container = document.getElementById('version-switcher-container');
+      const select = document.getElementById('version-select');
+
+      if (!container || !select) return;
+
+      try {
+        const response = await fetch(`${siteBase}versions.json`);
+        if (!response.ok) {
+          // No versions.json available (e.g., in development)
+          return;
+        }
+
+        const versions = await response.json();
+        if (!versions || versions.length === 0) return;
+
+        // Determine current version from URL path
+        const pathMatch = window.location.pathname.match(/^\/([^\/]+)/);
+        let currentVersion = 'unknown';
+
+        if (pathMatch) {
+          const pathVersion = pathMatch[1];
+          // Check if this is a direct version match
+          let versionObj = versions.find(v => v.version === pathVersion);
+          // Check if this matches an alias
+          if (!versionObj) {
+            versionObj = versions.find(v => v.aliases && v.aliases.includes(pathVersion));
+          }
+          currentVersion = versionObj?.version || pathVersion;
+        }
+
+        // Clear and populate the select
+        select.innerHTML = '';
+        versions.forEach(v => {
+          const option = document.createElement('option');
+          option.value = v.version;
+
+          // Display title with alias if it has one
+          const displayTitle = v.aliases && v.aliases.length > 0
+            ? `${v.title} (${v.aliases.join(', ')})`
+            : v.title;
+          option.textContent = displayTitle;
+
+          if (v.version === currentVersion) {
+            option.selected = true;
+          }
+
+          select.appendChild(option);
+        });
+
+        // Show the container
+        container.style.display = 'flex';
+
+        // Add change handler
+        select.addEventListener('change', (e) => {
+          const selectedVersion = e.target.value;
+          const currentPath = window.location.pathname;
+          const versionRegex = /^\/[^\/]+/;
+          const pagePath = currentPath.replace(versionRegex, '').replace(/^\//, '');
+          window.location.href = `${siteBase}${selectedVersion}/${pagePath}`;
+        });
+      } catch (error) {
+        console.debug('Could not load versions.json:', error);
+      }
+    }
+
+    // Load versions when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadVersions);
+    } else {
+      loadVersions();
+    }
+  })();</script>  <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">Select theme</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">Dark</option><option value="light" class="astro-4yphtoen">Light</option><option value="auto" selected class="astro-4yphtoen">Auto</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script>   </div>  </div> </div> </div> </nav> <div class="main-frame astro-vrdttmbt">  <script type="module">const a=document.getElementById("starlight__sidebar"),n=a?.querySelector("sl-sidebar-state-persist"),o="sl-sidebar-state",i=()=>{let t=[];const e=n?.dataset.hash||"";try{const s=sessionStorage.getItem(o),r=JSON.parse(s||"{}");Array.isArray(r.open)&&r.hash===e&&(t=r.open)}catch{}return{hash:e,open:t,scroll:a?.scrollTop||0}},c=t=>{try{sessionStorage.setItem(o,JSON.stringify(t))}catch{}},d=()=>c(i()),l=(t,e)=>{const s=i();s.open[e]=t,c(s)};n?.addEventListener("click",t=>{if(!(t.target instanceof Element))return;const e=t.target.closest("summary")?.closest("details");if(!e)return;const s=e.querySelector("sl-sidebar-restore"),r=parseInt(s?.dataset.index||"");isNaN(r)||l(!e.open,r)});addEventListener("visibilitychange",()=>{document.visibilityState==="hidden"&&d()});addEventListener("pageHide",d);</script> <div class="lg:sl-flex astro-67yu43on"> <aside class="right-sidebar-container print:hidden astro-67yu43on"> <div class="right-sidebar astro-67yu43on"> <div class="lg:sl-hidden astro-pb3aqygn"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-doynk5tl"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-doynk5tl"><details id="starlight__mobile-toc" class="astro-doynk5tl"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-doynk5tl"><span class="toggle sl-flex astro-doynk5tl">On this page<svg aria-hidden="true" class="caret astro-doynk5tl astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-doynk5tl"></span></summary><div class="dropdown astro-doynk5tl"><ul class="isMobile astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Overview</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#preface" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Preface</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#context-and-scope" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Context and Scope</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#goals-and-non-goals" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Goals and Non-Goals</span> </a> <ul class="isMobile astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#goals" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Goals</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#non-goals" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Non-Goals</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#use-cases-of-jj-run" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Use-Cases of jj run</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#design" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Design</span> </a> <ul class="isMobile astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#base-design" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Base Design</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#modifying-the-working-copy" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Modifying the Working Copy</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#modifying-the-repo" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Modifying the Repo</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#rewriting-the-revisions" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Rewriting the revisions</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#execution-orderparallelism" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Execution order/parallelism</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#dealing-with-failure" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Dealing with failure</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#resource-constraints" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Resource constraints</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#command-options" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Command Options</span> </a> <ul class="isMobile astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#integrating-with-other-commands" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Integrating with other commands</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#open-points" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Open Points</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#future-possibilities" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Future possibilities</span> </a>  </li> </ul> </div></details></nav></mobile-starlight-toc><script type="module" src="/starlight/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C181hMzK.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-pb3aqygn"><div class="sl-container astro-pb3aqygn"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Overview</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#preface" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Preface</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#context-and-scope" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Context and Scope</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#goals-and-non-goals" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Goals and Non-Goals</span> </a> <ul class="astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#goals" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Goals</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#non-goals" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Non-Goals</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#use-cases-of-jj-run" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Use-Cases of jj run</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#design" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Design</span> </a> <ul class="astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#base-design" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Base Design</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#modifying-the-working-copy" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Modifying the Working Copy</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#modifying-the-repo" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Modifying the Repo</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 1;"> <a href="#rewriting-the-revisions" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Rewriting the revisions</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#execution-orderparallelism" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Execution order/parallelism</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#dealing-with-failure" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Dealing with failure</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#resource-constraints" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Resource constraints</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#command-options" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Command Options</span> </a> <ul class="astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#integrating-with-other-commands" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Integrating with other commands</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#open-points" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Open Points</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#future-possibilities" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Future possibilities</span> </a>  </li> </ul> </nav></starlight-toc><script type="module" src="/starlight/_astro/TableOfContents.astro_astro_type_script_index_0_lang.CKWWgpjV.js"></script></div></div> </div> </aside> <div class="main-pane astro-67yu43on">  <main data-pagefind-body class="astro-bguv2lll" lang="en" dir="ltr">    <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <h1 id="_top" class="astro-j6tvhyss">Introducing JJ run</h1>  </div> </div>  <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <div class="sl-markdown-content"> <p>Authors: <a href="mailto:philipmetzger@bluewin.ch">Philip Metzger</a>, <a href="mailto:martinvonz@google.com">Martin von Zweigberk</a>, <a href="mailto:hooper@google.com">Danny Hooper</a>, <a href="mailto:me@waleedkhan.name">Waleed Khan</a></p>
+<p>Initial Version, 10.12.2022 (view full history <a href="https://docs.google.com/document/d/14BiAoEEy_e-BRPHYpXRFjvHMfgYVKh-pKWzzTDi-v-g/edit">here</a>)</p>
+<p><strong>Summary:</strong> This Document documents the design of a new <code dir="auto">run</code> command for
+Jujutsu which will be used to seamlessly integrate with build systems, linters
+and formatters. This is achieved by running a user-provided command or script
+across multiple revisions. For more details, read the
+<a href="#use-cases-of-jj-run">Use-Cases of jj run</a>.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="preface">Preface</h2><a class="sl-anchor-link" href="#preface"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Preface”</span></a></div>
+<p>The goal of this Design Document is to specify the correct behavior of <code dir="auto">jj run</code>.
+The points we decide on here I (Philip Metzger) will try to implement. There
+exists some prior work in other DVCS:</p>
+<ul>
+<li><code dir="auto">git test</code>: part of <a href="https://github.com/arxanas/git-branchless">git-branchless</a>. Similar to this proposal for <code dir="auto">jj run</code>.</li>
+<li><code dir="auto">hg run</code>: Google’s internal Mercurial extension. Similar to this proposal for
+<code dir="auto">jj run</code>.
+Details not available.</li>
+<li><code dir="auto">hg fix</code>: Google’s open source Mercurial extension: <a href="https://repo.mercurial-scm.org/hg/file/tip/hgext/fix.py">source code</a>. A
+more specialized approach to rewriting file content without full context of the
+working directory.</li>
+<li><code dir="auto">git rebase -x</code>: runs commands opportunistically as part of rebase.</li>
+<li><code dir="auto">git bisect run</code>: run a command to determine which commit introduced a bug.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="context-and-scope">Context and Scope</h2><a class="sl-anchor-link" href="#context-and-scope"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Context and Scope”</span></a></div>
+<p>The initial need for some kind of command runner integrated in the VCS, surfaced
+in a <a href="https://github.com/jj-vcs/jj/issues/405">github discussion</a>. In a <a href="https://discord.com/channels/968932220549103686/969829516539228222/1047958933161119795">discussion on discord</a> about
+the git-hook model, there was consensus about not repeating their mistakes.</p>
+<p>For <code dir="auto">jj run</code> there is prior art in Mercurial, git branchless and Google’s
+internal Mercurial. Currently git-branchless <code dir="auto">git test</code> and <code dir="auto">hg fix</code> implement
+some kind of command runner. The Google internal <code dir="auto">hg run</code> works in conjunction
+with CitC (Clients in the Cloud) which allows it to lazily apply the current
+command to any affected file. Currently no open-source Jujutsu backend (Git,
+Simple) has a fancy virtual filesystem supporting it, so we can’t apply this
+optimization. We could do the same once we have an implementation of the working
+copy based on a virtual file system. Until then, we have to run the commands in
+regular local-disk working copies.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="goals-and-non-goals">Goals and Non-Goals</h2><a class="sl-anchor-link" href="#goals-and-non-goals"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Goals and Non-Goals”</span></a></div>
+<div class="sl-heading-wrapper level-h3"><h3 id="goals">Goals</h3><a class="sl-anchor-link" href="#goals"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Goals”</span></a></div>
+<ul>
+<li>We should be able to apply the command to any revision, published or unpublished.</li>
+<li>We should be able to parallelize running the actual command, while preserving a
+good console output.</li>
+<li>The run command should be able to work in any commit, the working-copy commit
+itself or any other commit.</li>
+<li>There should exist some way to signal hard failure.</li>
+<li>The command should build enough infrastructure for <code dir="auto">jj test</code>, <code dir="auto">jj fix</code> and
+<code dir="auto">jj format</code>.</li>
+<li>The main goal is to be good enough, as we can always expand the functionality
+in the future.</li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="non-goals">Non-Goals</h3><a class="sl-anchor-link" href="#non-goals"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Non-Goals”</span></a></div>
+<ul>
+<li>While we should build a base for <code dir="auto">jj test</code>, <code dir="auto">jj format</code> and <code dir="auto">jj fix</code>, we
+shouldn’t mash their use-cases into <code dir="auto">jj run</code>.</li>
+<li>The command shouldn’t be too smart, as too many assumptions about workflows
+makes the command confusing for users.</li>
+<li>The smart caching of outputs, as user input commands can be unpredictable.
+makes the command confusing for users.</li>
+<li>Avoid the smart caching of outputs, as user input commands can be
+unpredictable.</li>
+<li>Fine grained user facing configuration, as it’s unwarranted complexity.</li>
+<li>A <code dir="auto">fix</code> subcommand as it cuts too much design space.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="use-cases-of-jj-run">Use-Cases of jj run</h2><a class="sl-anchor-link" href="#use-cases-of-jj-run"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Use-Cases of jj run”</span></a></div>
+<p><strong>Linting and Formatting:</strong></p>
+<ul>
+<li><code dir="auto">jj run 'pre-commit run' -r $revset</code></li>
+<li><code dir="auto">jj run 'cargo clippy' -r $revset</code></li>
+<li><code dir="auto">jj run 'cargo +nightly fmt'</code></li>
+</ul>
+<p><strong>Large scale changes across repositories, local and remote:</strong></p>
+<ul>
+<li><code dir="auto">jj run 'sed /some/test/' -r 'mine() &#x26; ~remote_bookmarks(exact:"origin")'</code></li>
+<li><code dir="auto">jj run '$rewrite-tool' -r '$revset'</code></li>
+</ul>
+<p><strong>Build systems:</strong></p>
+<ul>
+<li><code dir="auto">jj run 'bazel build //some/target:somewhere'</code></li>
+<li><code dir="auto">jj run 'ninja check-lld'</code></li>
+</ul>
+<p>Some of these use-cases should get a specialized command, as this allows
+further optimization. A command could be <code dir="auto">jj format</code>, which runs a list of
+formatters over a subset of a file in a revision. Another command could be
+<code dir="auto">jj fix</code>, which runs a command like <code dir="auto">rustfmt --fix</code> or <code dir="auto">cargo clippy --fix</code> over
+a subset of a file in a revision.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="design">Design</h2><a class="sl-anchor-link" href="#design"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Design”</span></a></div>
+<div class="sl-heading-wrapper level-h3"><h3 id="base-design">Base Design</h3><a class="sl-anchor-link" href="#base-design"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Base Design”</span></a></div>
+<p>All the work will be done in the <code dir="auto">.jj/</code> directory. This allows us to hide all
+complexity from the users, while preserving the user’s current workspace.</p>
+<p>We will copy the approach from git-branchless’s <code dir="auto">git test</code> of creating a
+temporary working copy for each parallel command. The working copies will be
+reused between <code dir="auto">jj run</code> invocations. They will also be reused within <code dir="auto">jj run</code>
+invocation if there are more commits to run on than there are parallel jobs.</p>
+<p>We will leave ignored files in the temporary directory between runs. That
+enables incremental builds (e.g. by letting cargo reuse its <code dir="auto">target/</code>
+directory). However, it also means that runs potentially become less
+reproducible. We will provide a flag for removing ignored files from the
+temporary working copies to address that.</p>
+<p>Another problem with leaving ignored files in the temporary directories is that
+they take up space. That is especially problematic in the case of cargo (the
+<code dir="auto">target/</code> directory often takes up tens of GBs). The same flag for cleaning up
+ignored files can be used to address that. We may want to also have a flag for
+cleaning up temporary working copies <em>after</em> running the command.</p>
+<p>An early version of the command will directly use <a href="https://github.com/jj-vcs/jj/blob/af85f552b676d66ed0e9ae0d401cd0c4ffbbeb21/lib/src/working_copy.rs#L117">Treestate</a> to
+to manage the temporary working copies. That means that running <code dir="auto">jj</code> inside the
+temporary working copies will not work . We can later extend that to use a full
+<a href="https://github.com/jj-vcs/jj/blob/af85f552b676d66ed0e9ae0d401cd0c4ffbbeb21/lib/src/workspace.rs#L54">Workspace</a>. To prevent operations in the working copies from
+impacting the repo, we can use a separate <a href="https://github.com/jj-vcs/jj/blob/main/lib/src/op_heads_store.rs">OpHeadsStore</a> for it.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="modifying-the-working-copy">Modifying the Working Copy</h3><a class="sl-anchor-link" href="#modifying-the-working-copy"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Modifying the Working Copy”</span></a></div>
+<p>Since the subprocesses will run in temporary working copies, they
+won’t interfere with the user’s working copy. The user can therefore continue
+to work in it while <code dir="auto">jj run</code> is running.</p>
+<p>We want subprocesses to be able to make changes to the repo by updating their
+assigned working copy. Let’s say the user runs <code dir="auto">jj run</code> on just commits A and
+B, where B’s parent is A. Any changes made on top of A would be squashed into
+A, forming A’. Similarly B’ would be formed by squasing it into B. We can then
+either do a normal rebase of B’ onto A’, or we can simply update its parent to
+A’. The former is useful, e.g. when the subprocess only makes a partial update
+of the tree based on the parent commit. In addition to these two modes, we may
+want to have an option to ignore any changes made in the subprocess’s working
+copy.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="modifying-the-repo">Modifying the Repo</h3><a class="sl-anchor-link" href="#modifying-the-repo"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Modifying the Repo”</span></a></div>
+<p>Once we give the subprocess access to a fork of the repo via separate
+<a href="https://github.com/jj-vcs/jj/blob/main/lib/src/op_heads_store.rs">OpHeadsStore</a>, it will be able to create new operations in its fork.
+If the user runs <code dir="auto">jj run -r foo</code> and the subprocess checks out another commit,
+it’s not clear what that should do. We should probably just verify that the
+working-copy commit’s parents are unchanged after the subprocess returns. Any
+operations created by the subprocess will be ignored.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="rewriting-the-revisions">Rewriting the revisions</h3><a class="sl-anchor-link" href="#rewriting-the-revisions"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Rewriting the revisions”</span></a></div>
+<p>Like all commands, <code dir="auto">jj run</code> will refuse to rewrite public/immutable commits.
+For private/unpublished revisions, we either amend or reparent the changes,
+which are available as command options.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="execution-orderparallelism">Execution order/parallelism</h2><a class="sl-anchor-link" href="#execution-orderparallelism"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Execution order/parallelism”</span></a></div>
+<p>It may be useful to execute commands in topological order. For example,
+commands with costs proportional to incremental changes, like build systems.
+There may also be other relevant heuristics, but topological order is an easy
+and effective way to start.</p>
+<p>Parallel execution of commands on different commits may choose to schedule
+commits to still reduce incremental changes in the working copy used by each
+execution slot/“thread”. However, running the command on all commits
+concurrently should be possible if desired.</p>
+<p>Executing commands in topological order allows for more meaningful use of any
+potential features that stop execution “at the first failure”. For example,
+when running tests on a chain of commits, it might be useful to proceed in
+topological/chronological order, and stop on the first failure, because it
+might imply that the remaining executions will be undesirable because they will
+also fail.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="dealing-with-failure">Dealing with failure</h2><a class="sl-anchor-link" href="#dealing-with-failure"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Dealing with failure”</span></a></div>
+<p>It will be useful to have multiple strategies to deal with failures on a single
+or multiple revisions. The reason for these strategies is to allow customized
+conflict handling. These strategies then can be exposed in the ui with a
+matching option.</p>
+<p><strong>Continue:</strong> If any subprocess fails, we will continue the work on child
+revisions. Notify the user on exit about the failed revisions.</p>
+<p><strong>Stop:</strong> Signal a fatal failure and cancel any scheduled work that has not
+yet started running, but let any already started subprocess finish. Notify the
+user about the failed command and display the generated error from the
+subprocess.</p>
+<p><strong>Fatal:</strong> Signal a fatal failure and immediately stop processing and kill any
+running processes. Notify the user that we failed to apply the command to the
+specific revision.</p>
+<p>We will leave any affected commit in its current state, if any subprocess fails.
+This allows us to provide a better user experience, as leaving revisions in an
+undesirable state, e.g partially formatted, may confuse users.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="resource-constraints">Resource constraints</h2><a class="sl-anchor-link" href="#resource-constraints"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Resource constraints”</span></a></div>
+<p>It will be useful to constrain the execution to prevent resource exhaustion.
+Relevant resources could include:</p>
+<ul>
+<li>CPU and memory available on the machine running the commands. <code dir="auto">jj run</code> can
+provide some simple mitigations like limiting parallelism to “number of CPUs”
+by default, and limiting parallelism by dividing “available memory” by some
+estimate or measurement of per-invocation memory use of the commands.</li>
+<li>External resources that are not immediately known to jj. For example,
+commands run in parallel may wish to limit the total number of connections
+to a server. We might choose to defer any handling of this to the
+implementation of the command being invoked, instead of trying to
+communicate that information to jj.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="command-options">Command Options</h2><a class="sl-anchor-link" href="#command-options"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Command Options”</span></a></div>
+<p>The base command of any jj command should be usable. By default <code dir="auto">jj run</code> works
+on the <code dir="auto">@</code> the current working copy.</p>
+<ul>
+<li>—command, explicit name of the first argument</li>
+<li>-x, for git compatibility (may alias another command)</li>
+<li>-j, —jobs, the amount of parallelism to use</li>
+<li>-k, —keep-going, continue on failure (may alias another command)</li>
+<li>—show, display the diff for an affected revision</li>
+<li>—dry-run, do the command execution without doing any work, logging all
+intended files and arguments</li>
+<li>—rebase, rebase all parents on the consulitng diff (may alias another
+command)</li>
+<li>—reparent, change the parent of an effected revision to the new change
+(may alias another command)</li>
+<li>—clean, remove existing workspaces and remove the ignored files</li>
+<li>—readonly, ignore changes across multiple run invocations</li>
+<li>—error-strategy=<code dir="auto">continue|stop|fatal</code>, see <a href="#dealing-with-failure">Dealing with failure</a></li>
+</ul>
+<div class="sl-heading-wrapper level-h3"><h3 id="integrating-with-other-commands">Integrating with other commands</h3><a class="sl-anchor-link" href="#integrating-with-other-commands"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Integrating with other commands”</span></a></div>
+<p><code dir="auto">jj log</code>: No special handling needed
+<code dir="auto">jj diff</code>: No special handling needed
+<code dir="auto">jj st</code>: For now reprint the final output of <code dir="auto">jj run</code>
+<code dir="auto">jj op log</code>: No special handling needed, but awaits further discussion in
+<a href="https://github.com/jj-vcs/jj/issues/963">#963</a>
+<code dir="auto">jj undo/jj op revert</code>: No special handling needed</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="open-points">Open Points</h2><a class="sl-anchor-link" href="#open-points"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Open Points”</span></a></div>
+<p>Should the command be working copy backend specific?
+How do we manage the Processes which the command will spawn?
+Configuration options, User and Repository Wide?</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="future-possibilities">Future possibilities</h2><a class="sl-anchor-link" href="#future-possibilities"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Future possibilities”</span></a></div>
+<ul>
+<li>We could rewrite the file in memory, which is a neat optimization</li>
+<li>Exposing some internal state, to allow preciser resource constraints</li>
+<li>Integration options for virtual filesystems, which allow them to cache the
+needed working copies.</li>
+<li>A Jujutsu wide concept for a cached working copy, as they could be expensive
+to materialize.</li>
+<li>Customized failure messages, this maybe useful for bots, it could be similar
+to Bazel’s <code dir="auto">select(..., message = "arch not supported for $project")</code>.</li>
+<li>Make <code dir="auto">jj run</code> asynchronous by spawning a <code dir="auto">main</code> process, directly return to the
+user and incrementally updating the output of <code dir="auto">jj st</code>.</li>
+</ul> </div> <footer class="sl-flex astro-3yyafb3n"> <div class="meta sl-flex astro-3yyafb3n">   </div> <div class="pagination-links print:hidden astro-u2l5gyhi" dir="ltr"> <a href="/starlight/design/git-submodule-storage/" rel="prev" class="astro-u2l5gyhi"> <svg aria-hidden="true" class="astro-u2l5gyhi astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;"><path d="M17 11H9.41l3.3-3.29a1.004 1.004 0 1 0-1.42-1.42l-5 5a1 1 0 0 0-.21.33 1 1 0 0 0 0 .76 1 1 0 0 0 .21.33l5 5a1.002 1.002 0 0 0 1.639-.325 1 1 0 0 0-.219-1.095L9.41 13H17a1 1 0 0 0 0-2Z"/></svg> <span class="astro-u2l5gyhi"> Previous <br class="astro-u2l5gyhi"> <span class="link-title astro-u2l5gyhi">git-submodule-storage</span> </span> </a> <a href="/starlight/design/sparse-v2/" rel="next" class="astro-u2l5gyhi"> <svg aria-hidden="true" class="astro-u2l5gyhi astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;"><path d="M17.92 11.62a1.001 1.001 0 0 0-.21-.33l-5-5a1.003 1.003 0 1 0-1.42 1.42l3.3 3.29H7a1 1 0 0 0 0 2h7.59l-3.3 3.29a1.002 1.002 0 0 0 .325 1.639 1 1 0 0 0 1.095-.219l5-5a1 1 0 0 0 .21-.33 1 1 0 0 0 0-.76Z"/></svg> <span class="astro-u2l5gyhi"> Next <br class="astro-u2l5gyhi"> <span class="link-title astro-u2l5gyhi">Sparse patterns v2</span> </span> </a> </div>   </footer>  </div> </div>   </main> </div> </div>  </div> </div>  </body></html>

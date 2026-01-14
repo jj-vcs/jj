@@ -1,0 +1,816 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-bguv2lll"> <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Revsets | Jujutsu docs</title><link rel="canonical" href="https://docs.jj-vcs.dev/starlight/revsets/"/><link rel="sitemap" href="/starlight/sitemap-index.xml"/><link rel="shortcut icon" href="/starlight/images/jj-logo.svg" type="image/svg+xml"/><meta name="generator" content="Astro v5.16.3"/><meta name="generator" content="Starlight v0.37.0"/><meta property="og:title" content="Revsets"/><meta property="og:type" content="article"/><meta property="og:url" content="https://docs.jj-vcs.dev/starlight/revsets/"/><meta property="og:locale" content="en"/><meta property="og:site_name" content="Jujutsu docs"/><meta name="twitter:card" content="summary_large_image"/><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/starlight/_astro/print.DNXP8c50.css" media="print"><link rel="stylesheet" href="/starlight/_astro/index.DHaNDMTl.css">
+<style>@layer starlight.components{:root{--sl-badge-default-border: var(--sl-color-accent);--sl-badge-default-bg: var(--sl-color-accent-low);--sl-badge-default-text: #fff;--sl-badge-note-border: var(--sl-color-blue);--sl-badge-note-bg: var(--sl-color-blue-low);--sl-badge-note-text: #fff;--sl-badge-danger-border: var(--sl-color-red);--sl-badge-danger-bg: var(--sl-color-red-low);--sl-badge-danger-text: #fff;--sl-badge-success-border: var(--sl-color-green);--sl-badge-success-bg: var(--sl-color-green-low);--sl-badge-success-text: #fff;--sl-badge-caution-border: var(--sl-color-orange);--sl-badge-caution-bg: var(--sl-color-orange-low);--sl-badge-caution-text: #fff;--sl-badge-tip-border: var(--sl-color-purple);--sl-badge-tip-bg: var(--sl-color-purple-low);--sl-badge-tip-text: #fff}[data-theme=light]:root{--sl-badge-default-bg: var(--sl-color-accent-high);--sl-badge-note-bg: var(--sl-color-blue-high);--sl-badge-danger-bg: var(--sl-color-red-high);--sl-badge-success-bg: var(--sl-color-green-high);--sl-badge-caution-bg: var(--sl-color-orange-high);--sl-badge-tip-bg: var(--sl-color-purple-high)}.sl-badge:where(.astro-avdet4wd){display:inline-block;border:1px solid var(--sl-color-border-badge);border-radius:.25rem;font-family:var(--sl-font-system-mono);line-height:normal;color:var(--sl-color-text-badge);background-color:var(--sl-color-bg-badge);overflow-wrap:anywhere}.sidebar-content .sl-badge:where(.astro-avdet4wd){line-height:1;font-size:var(--sl-text-xs);padding:.125rem .375rem}.sidebar-content a[aria-current=page]>.sl-badge:where(.astro-avdet4wd){--sl-color-bg-badge: transparent;--sl-color-border-badge: currentColor;color:inherit}.default:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-default-bg);--sl-color-border-badge: var(--sl-badge-default-border);--sl-color-text-badge: var(--sl-badge-default-text)}.note:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-note-bg);--sl-color-border-badge: var(--sl-badge-note-border);--sl-color-text-badge: var(--sl-badge-note-text)}.danger:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-danger-bg);--sl-color-border-badge: var(--sl-badge-danger-border);--sl-color-text-badge: var(--sl-badge-danger-text)}.success:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-success-bg);--sl-color-border-badge: var(--sl-badge-success-border);--sl-color-text-badge: var(--sl-badge-success-text)}.tip:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-tip-bg);--sl-color-border-badge: var(--sl-badge-tip-border);--sl-color-text-badge: var(--sl-badge-tip-text)}.caution:where(.astro-avdet4wd){--sl-color-bg-badge: var(--sl-badge-caution-bg);--sl-color-border-badge: var(--sl-badge-caution-border);--sl-color-text-badge: var(--sl-badge-caution-text)}.small:where(.astro-avdet4wd){font-size:var(--sl-text-xs);padding:.125rem .25rem}.medium:where(.astro-avdet4wd){font-size:var(--sl-text-sm);padding:.175rem .35rem}.large:where(.astro-avdet4wd){font-size:var(--sl-text-base);padding:.225rem .45rem}.sl-markdown-content :is(h1,h2,h3,h4,h5,h6) .sl-badge:where(.astro-avdet4wd){vertical-align:middle}}
+@layer starlight.components{svg:where(.astro-c6vsoqas){color:var(--sl-icon-color);font-size:var(--sl-icon-size, 1em);width:1em;height:1em}}
+@layer starlight.components{starlight-tabs:where(.astro-esqgolmp){display:block}.tablist-wrapper:where(.astro-esqgolmp){overflow-x:auto}:where(.astro-esqgolmp)[role=tablist]{display:flex;list-style:none;border-bottom:2px solid var(--sl-color-gray-5);padding:0}.tab:where(.astro-esqgolmp){display:flex}.tab:where(.astro-esqgolmp)>:where(.astro-esqgolmp)[role=tab]{--sl-tab-color-border: var(--sl-color-gray-5);display:flex;align-items:center;gap:.5rem;line-height:var(--sl-line-height-headings);padding:.275rem 1.25rem;text-decoration:none;box-shadow:0 2px 0 var(--sl-tab-color-border);color:var(--sl-color-gray-3);outline-offset:var(--sl-outline-offset-inside);overflow-wrap:initial}.tab:where(.astro-esqgolmp) :where(.astro-esqgolmp)[role=tab][aria-selected=true]{--sl-tab-color-border: var(--sl-color-text-accent);color:var(--sl-color-white);font-weight:600}.tablist-wrapper:where(.astro-esqgolmp)~[role=tabpanel]{margin-top:1rem}}
+@layer starlight.components{.sl-steps{--bullet-size: calc(var(--sl-line-height) * 1rem);--bullet-margin: .375rem;list-style:none;counter-reset:steps-counter var(--sl-steps-start, 0);padding-inline-start:0}.sl-steps>li{counter-increment:steps-counter;position:relative;padding-inline-start:calc(var(--bullet-size) + 1rem);padding-bottom:1px;min-height:calc(var(--bullet-size) + var(--bullet-margin))}.sl-steps>li+li{margin-top:0}.sl-steps>li:before{content:counter(steps-counter);position:absolute;top:0;inset-inline-start:0;width:var(--bullet-size);height:var(--bullet-size);line-height:var(--bullet-size);font-size:var(--sl-text-xs);font-weight:600;text-align:center;color:var(--sl-color-white);background-color:var(--sl-color-gray-6);border-radius:99rem;box-shadow:inset 0 0 0 1px var(--sl-color-gray-5)}.sl-steps>li:after{--guide-width: 1px;content:"";position:absolute;top:calc(var(--bullet-size) + var(--bullet-margin));bottom:var(--bullet-margin);inset-inline-start:calc((var(--bullet-size) - var(--guide-width)) / 2);width:var(--guide-width);background-color:var(--sl-color-hairline-light)}}@layer starlight.content{.sl-steps>li>:first-child{--lh: calc(1em * var(--sl-line-height));--shift-y: calc(.5 * (var(--bullet-size) - var(--lh)));transform:translateY(var(--shift-y));margin-bottom:var(--shift-y)}.sl-steps>li>:first-child:where(h1,h2,h3,h4,h5,h6){--lh: calc(1em * var(--sl-line-height-headings))}@supports (--prop: 1lh){.sl-steps>li>:first-child{--lh: 1lh}}}
+@layer starlight.components{.sl-link-button:where(.astro-xwgiixxa){align-items:center;border:1px solid transparent;border-radius:999rem;display:inline-flex;font-size:var(--sl-text-sm);gap:.5em;line-height:1.1875;outline-offset:.25rem;padding:.4375rem 1.125rem;text-decoration:none}.sl-link-button:where(.astro-xwgiixxa).primary{background:var(--sl-color-text-accent);border-color:var(--sl-color-text-accent);color:var(--sl-color-black)}.sl-link-button:where(.astro-xwgiixxa).primary:hover{color:var(--sl-color-black)}.sl-link-button:where(.astro-xwgiixxa).secondary{border-color:inherit;color:var(--sl-color-white)}.sl-link-button:where(.astro-xwgiixxa).minimal{color:var(--sl-color-white);padding-inline:0}.sl-link-button:where(.astro-xwgiixxa) svg{flex-shrink:0}@media(min-width:50rem){.sl-link-button:where(.astro-xwgiixxa){font-size:var(--sl-text-base);padding:.9375rem 1.25rem}}.sl-markdown-content .sl-link-button:where(.astro-xwgiixxa){margin-inline-end:1rem}.sl-markdown-content .sl-link-button:where(.astro-xwgiixxa):not(:where(p *)){margin-block:1rem}}
+</style><script type="module" src="/starlight/_astro/page.B1D-nYk3.js"></script></head> <body class="astro-bguv2lll"> <a href="#_top" class="astro-7q3lir66">Skip to content</a>  <div class="page sl-flex astro-vrdttmbt"> <header class="header astro-vrdttmbt"><div class="header astro-kmkmnagf"> <div class="title-wrapper sl-flex astro-kmkmnagf"> <a href="/starlight/" class="site-title sl-flex astro-m46x6ez3">  <img class="astro-m46x6ez3" alt src="/starlight/_astro/jj-logo.CIiglsa3.svg" width="1024" height="1024">  <span class="astro-m46x6ez3" translate="no"> Jujutsu docs </span> </a>  </div> <div class="sl-flex print:hidden astro-kmkmnagf"> <site-search class="astro-kmkmnagf astro-v37mnknz" data-translations="{&#34;placeholder&#34;:&#34;Search&#34;}"> <button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-v37mnknz"> <svg aria-hidden="true" class="astro-v37mnknz astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg> <span class="sl-hidden md:sl-block astro-v37mnknz" aria-hidden="true">Search</span> <kbd class="sl-hidden md:sl-flex astro-v37mnknz" style="display: none;"> <kbd class="astro-v37mnknz">Ctrl</kbd><kbd class="astro-v37mnknz">K</kbd> </kbd> </button> <dialog style="padding:0" aria-label="Search" class="astro-v37mnknz"> <div class="dialog-frame sl-flex astro-v37mnknz">  <button data-close-modal class="sl-flex md:sl-hidden astro-v37mnknz"> Cancel </button> <div class="search-container astro-v37mnknz"> <div id="starlight__search" class="astro-v37mnknz"></div> </div> </div> </dialog> </site-search>  <script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script> <script type="module" src="/starlight/_astro/Search.astro_astro_type_script_index_0_lang.CIUB7SL0.js"></script>   </div> <div class="sl-hidden md:sl-flex print:hidden right-group astro-kmkmnagf"> <div class="sl-flex social-icons astro-kmkmnagf"> <a href="https://github.com/jj-vcs/jj" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">GitHub</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a><a href="https://discord.gg/dkmfj3aGQN" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">Discord</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.93-1.51 13.78 13.78 0 0 0-.64 1.28 18.27 18.27 0 0 0-5.5 0 12.64 12.64 0 0 0-.64-1.28h-.05A19.74 19.74 0 0 0 3.64 4.4 20.26 20.26 0 0 0 .11 18.09l.02.02a19.9 19.9 0 0 0 6.04 3.03l.04-.02a14.24 14.24 0 0 0 1.23-2.03.08.08 0 0 0-.05-.07 13.1 13.1 0 0 1-1.9-.92.08.08 0 0 1 .02-.1 10.2 10.2 0 0 0 .41-.31h.04a14.2 14.2 0 0 0 12.1 0l.04.01a9.63 9.63 0 0 0 .4.32.08.08 0 0 1-.03.1 12.29 12.29 0 0 1-1.9.91.08.08 0 0 0-.02.1 15.97 15.97 0 0 0 1.27 2.01h.04a19.84 19.84 0 0 0 6.03-3.05v-.03a20.12 20.12 0 0 0-3.57-13.69ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.08-2.15-2.42 0-1.33.95-2.42 2.15-2.42 1.22 0 2.18 1.1 2.16 2.42 0 1.34-.94 2.42-2.16 2.42Z"/></svg></a> </div> <div class="version-switcher astro-eanuhfmr" id="version-switcher-container" style="display: none;"> <label for="version-select" class="sl-hidden astro-eanuhfmr">Select documentation version</label> <select id="version-select" class="version-select astro-eanuhfmr"> <option class="astro-eanuhfmr">Loading versions...</option> </select> </div> <script>(function(){const siteBase = "/";
+
+    // Fetch versions client-side and populate the dropdown
+    async function loadVersions() {
+      const container = document.getElementById('version-switcher-container');
+      const select = document.getElementById('version-select');
+
+      if (!container || !select) return;
+
+      try {
+        const response = await fetch(`${siteBase}versions.json`);
+        if (!response.ok) {
+          // No versions.json available (e.g., in development)
+          return;
+        }
+
+        const versions = await response.json();
+        if (!versions || versions.length === 0) return;
+
+        // Determine current version from URL path
+        const pathMatch = window.location.pathname.match(/^\/([^\/]+)/);
+        let currentVersion = 'unknown';
+
+        if (pathMatch) {
+          const pathVersion = pathMatch[1];
+          // Check if this is a direct version match
+          let versionObj = versions.find(v => v.version === pathVersion);
+          // Check if this matches an alias
+          if (!versionObj) {
+            versionObj = versions.find(v => v.aliases && v.aliases.includes(pathVersion));
+          }
+          currentVersion = versionObj?.version || pathVersion;
+        }
+
+        // Clear and populate the select
+        select.innerHTML = '';
+        versions.forEach(v => {
+          const option = document.createElement('option');
+          option.value = v.version;
+
+          // Display title with alias if it has one
+          const displayTitle = v.aliases && v.aliases.length > 0
+            ? `${v.title} (${v.aliases.join(', ')})`
+            : v.title;
+          option.textContent = displayTitle;
+
+          if (v.version === currentVersion) {
+            option.selected = true;
+          }
+
+          select.appendChild(option);
+        });
+
+        // Show the container
+        container.style.display = 'flex';
+
+        // Add change handler
+        select.addEventListener('change', (e) => {
+          const selectedVersion = e.target.value;
+          const currentPath = window.location.pathname;
+          const versionRegex = /^\/[^\/]+/;
+          const pagePath = currentPath.replace(versionRegex, '').replace(/^\//, '');
+          window.location.href = `${siteBase}${selectedVersion}/${pagePath}`;
+        });
+      } catch (error) {
+        console.debug('Could not load versions.json:', error);
+      }
+    }
+
+    // Load versions when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadVersions);
+    } else {
+      loadVersions();
+    }
+  })();</script>  <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">Select theme</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">Dark</option><option value="light" class="astro-4yphtoen">Light</option><option value="auto" selected class="astro-4yphtoen">Auto</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script> <script type="module">const r="starlight-theme",o=e=>e==="auto"||e==="dark"||e==="light"?e:"auto",c=()=>o(typeof localStorage<"u"&&localStorage.getItem(r));function n(e){typeof localStorage<"u"&&localStorage.setItem(r,e==="light"||e==="dark"?e:"")}const l=()=>matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";function t(e){StarlightThemeProvider.updatePickers(e),document.documentElement.dataset.theme=e==="auto"?l():e,n(e)}matchMedia("(prefers-color-scheme: light)").addEventListener("change",()=>{c()==="auto"&&t("auto")});class s extends HTMLElement{constructor(){super(),t(c()),this.querySelector("select")?.addEventListener("change",a=>{a.currentTarget instanceof HTMLSelectElement&&t(o(a.currentTarget.value))})}}customElements.define("starlight-theme-select",s);</script> <script type="module">class s extends HTMLElement{constructor(){super();const e=this.querySelector("select");e&&(e.addEventListener("change",t=>{t.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=t.currentTarget.value)}),window.addEventListener("pageshow",t=>{if(!t.persisted)return;const n=e.querySelector("option[selected]")?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}}customElements.define("starlight-lang-select",s);</script> </div> </div> </header> <nav class="sidebar print:hidden astro-vrdttmbt" aria-label="Main"> <starlight-menu-button class="print:hidden astro-jif73yzw"> <button aria-expanded="false" aria-label="Menu" aria-controls="starlight__sidebar" class="sl-flex md:sl-hidden astro-jif73yzw"> <svg aria-hidden="true" class="open-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg> <svg aria-hidden="true" class="close-menu astro-jif73yzw astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg> </button> </starlight-menu-button> <script type="module">class s extends HTMLElement{constructor(){super(),this.btn=this.querySelector("button"),this.btn.addEventListener("click",()=>this.toggleExpanded());const t=this.closest("nav");t&&t.addEventListener("keyup",e=>this.closeOnEscape(e))}setExpanded(t){this.setAttribute("aria-expanded",String(t)),document.body.toggleAttribute("data-mobile-menu-expanded",t)}toggleExpanded(){this.setExpanded(this.getAttribute("aria-expanded")!=="true")}closeOnEscape(t){t.code==="Escape"&&(this.setExpanded(!1),this.btn.focus())}}customElements.define("starlight-menu-button",s);</script>   <div id="starlight__sidebar" class="sidebar-pane astro-vrdttmbt"> <div class="sidebar-content sl-flex astro-vrdttmbt"> <sl-sidebar-state-persist data-hash="0tme7ck" class="astro-kku4brbg"> <script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script>  <ul class="top-level astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Home</span>  </a> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Getting started</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="0"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/install-and-setup/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Installation and setup</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/tutorial/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Tutorial and bird&#39;s eye view</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/gerrit/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Working with Gerrit</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/github/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Working with GitHub</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/windows/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Working on Windows</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <a href="/starlight/faq/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">FAQ</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/cli-reference/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">CLI reference</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/testimonials/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Testimonials</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/community_tools/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Community-built tools</span>  </a> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Concepts</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="1"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/working-copy/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Working copy</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/bookmarks/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Bookmarks</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/conflicts/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Conflicts</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/operation-log/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Operation log</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/glossary/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Glossary</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Guides</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="2"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/guides/divergence/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Divergent changes</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/guides/multiple-remotes/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Multiple remotes</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details open class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Reference</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="3"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/config/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Settings</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/filesets/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Fileset language</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/revsets/" aria-current="page" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Revset language</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/templates/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Templating language</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Comparisons</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="4"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/git-comparison/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Git comparison</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/git-command-table/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Git command table</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/git-compatibility/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Git compatibility</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/git-experts/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Jujutsu for Git experts</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/sapling-comparison/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Sapling comparison</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/related-work/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Other related work</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Technical details</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="5"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/core_tenets/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Core tenets</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/technical/architecture/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Architecture</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/technical/concurrency/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Concurrency</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/technical/conflicts/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Conflicts</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Contributing</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="6"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/contributing/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Guidelines and &quot;How to...?&quot;</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/code-of-conduct/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Code of conduct</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/style_guide/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Style guide</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design_docs/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Design docs</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design_doc_blueprint/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Design doc blueprint</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/releasing/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Releasing</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/governance/temporary-voting/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Temporary voting for governance</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/governance/governance/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Governance</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <details class="astro-3ii7xxms"> <summary class="astro-3ii7xxms"> <span class="group-label astro-3ii7xxms"> <span class="large astro-3ii7xxms">Design docs</span>  </span> <svg aria-hidden="true" class="caret astro-3ii7xxms astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg> </summary> <sl-sidebar-restore data-index="7"></sl-sidebar-restore> <ul class="astro-3ii7xxms"> <li class="astro-3ii7xxms"> <a href="/starlight/design/git-submodules/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">git-submodules</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/git-submodule-storage/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">git-submodule-storage</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/run/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">JJ run</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/sparse-v2/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Sparse patterns v2</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/tracking-branches/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Tracking branches</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/copy-tracking/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Copy tracking and tracing</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/design/secure-config/" aria-current="false" class="astro-3ii7xxms"> <span class="astro-3ii7xxms">Secure config</span>  </a> </li> </ul>  </details> </li><li class="astro-3ii7xxms"> <a href="/starlight/roadmap/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Development roadmap</span>  </a> </li><li class="astro-3ii7xxms"> <a href="/starlight/changelog/" aria-current="false" class="large astro-3ii7xxms"> <span class="astro-3ii7xxms">Changelog</span>  </a> </li> </ul>   <script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script> </sl-sidebar-state-persist>  <div class="md:sl-hidden"> <div class="mobile-preferences sl-flex astro-wu23bvmt"> <div class="social-icons astro-wu23bvmt"> <a href="https://github.com/jj-vcs/jj" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">GitHub</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"/></svg></a><a href="https://discord.gg/dkmfj3aGQN" rel="me" class="sl-flex astro-wy4te6ga"><span class="sr-only astro-wy4te6ga">Discord</span><svg aria-hidden="true" class="astro-wy4te6ga astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.93-1.51 13.78 13.78 0 0 0-.64 1.28 18.27 18.27 0 0 0-5.5 0 12.64 12.64 0 0 0-.64-1.28h-.05A19.74 19.74 0 0 0 3.64 4.4 20.26 20.26 0 0 0 .11 18.09l.02.02a19.9 19.9 0 0 0 6.04 3.03l.04-.02a14.24 14.24 0 0 0 1.23-2.03.08.08 0 0 0-.05-.07 13.1 13.1 0 0 1-1.9-.92.08.08 0 0 1 .02-.1 10.2 10.2 0 0 0 .41-.31h.04a14.2 14.2 0 0 0 12.1 0l.04.01a9.63 9.63 0 0 0 .4.32.08.08 0 0 1-.03.1 12.29 12.29 0 0 1-1.9.91.08.08 0 0 0-.02.1 15.97 15.97 0 0 0 1.27 2.01h.04a19.84 19.84 0 0 0 6.03-3.05v-.03a20.12 20.12 0 0 0-3.57-13.69ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.08-2.15-2.42 0-1.33.95-2.42 2.15-2.42 1.22 0 2.18 1.1 2.16 2.42 0 1.34-.94 2.42-2.16 2.42Z"/></svg></a> </div> <div class="version-switcher astro-eanuhfmr" id="version-switcher-container" style="display: none;"> <label for="version-select" class="sl-hidden astro-eanuhfmr">Select documentation version</label> <select id="version-select" class="version-select astro-eanuhfmr"> <option class="astro-eanuhfmr">Loading versions...</option> </select> </div> <script>(function(){const siteBase = "/";
+
+    // Fetch versions client-side and populate the dropdown
+    async function loadVersions() {
+      const container = document.getElementById('version-switcher-container');
+      const select = document.getElementById('version-select');
+
+      if (!container || !select) return;
+
+      try {
+        const response = await fetch(`${siteBase}versions.json`);
+        if (!response.ok) {
+          // No versions.json available (e.g., in development)
+          return;
+        }
+
+        const versions = await response.json();
+        if (!versions || versions.length === 0) return;
+
+        // Determine current version from URL path
+        const pathMatch = window.location.pathname.match(/^\/([^\/]+)/);
+        let currentVersion = 'unknown';
+
+        if (pathMatch) {
+          const pathVersion = pathMatch[1];
+          // Check if this is a direct version match
+          let versionObj = versions.find(v => v.version === pathVersion);
+          // Check if this matches an alias
+          if (!versionObj) {
+            versionObj = versions.find(v => v.aliases && v.aliases.includes(pathVersion));
+          }
+          currentVersion = versionObj?.version || pathVersion;
+        }
+
+        // Clear and populate the select
+        select.innerHTML = '';
+        versions.forEach(v => {
+          const option = document.createElement('option');
+          option.value = v.version;
+
+          // Display title with alias if it has one
+          const displayTitle = v.aliases && v.aliases.length > 0
+            ? `${v.title} (${v.aliases.join(', ')})`
+            : v.title;
+          option.textContent = displayTitle;
+
+          if (v.version === currentVersion) {
+            option.selected = true;
+          }
+
+          select.appendChild(option);
+        });
+
+        // Show the container
+        container.style.display = 'flex';
+
+        // Add change handler
+        select.addEventListener('change', (e) => {
+          const selectedVersion = e.target.value;
+          const currentPath = window.location.pathname;
+          const versionRegex = /^\/[^\/]+/;
+          const pagePath = currentPath.replace(versionRegex, '').replace(/^\//, '');
+          window.location.href = `${siteBase}${selectedVersion}/${pagePath}`;
+        });
+      } catch (error) {
+        console.debug('Could not load versions.json:', error);
+      }
+    }
+
+    // Load versions when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadVersions);
+    } else {
+      loadVersions();
+    }
+  })();</script>  <starlight-theme-select>  <label style="--sl-select-width: 6.25em" class="astro-4yphtoen"> <span class="sr-only astro-4yphtoen">Select theme</span> <svg aria-hidden="true" class="icon label-icon astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg> <select autocomplete="off" class="astro-4yphtoen"> <option value="dark" class="astro-4yphtoen">Dark</option><option value="light" class="astro-4yphtoen">Light</option><option value="auto" selected class="astro-4yphtoen">Auto</option> </select> <svg aria-hidden="true" class="icon caret astro-4yphtoen astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"/></svg> </label>  </starlight-theme-select>  <script>
+	StarlightThemeProvider.updatePickers();
+</script>   </div>  </div> </div> </div> </nav> <div class="main-frame astro-vrdttmbt">  <script type="module">const a=document.getElementById("starlight__sidebar"),n=a?.querySelector("sl-sidebar-state-persist"),o="sl-sidebar-state",i=()=>{let t=[];const e=n?.dataset.hash||"";try{const s=sessionStorage.getItem(o),r=JSON.parse(s||"{}");Array.isArray(r.open)&&r.hash===e&&(t=r.open)}catch{}return{hash:e,open:t,scroll:a?.scrollTop||0}},c=t=>{try{sessionStorage.setItem(o,JSON.stringify(t))}catch{}},d=()=>c(i()),l=(t,e)=>{const s=i();s.open[e]=t,c(s)};n?.addEventListener("click",t=>{if(!(t.target instanceof Element))return;const e=t.target.closest("summary")?.closest("details");if(!e)return;const s=e.querySelector("sl-sidebar-restore"),r=parseInt(s?.dataset.index||"");isNaN(r)||l(!e.open,r)});addEventListener("visibilitychange",()=>{document.visibilityState==="hidden"&&d()});addEventListener("pageHide",d);</script> <div class="lg:sl-flex astro-67yu43on"> <aside class="right-sidebar-container print:hidden astro-67yu43on"> <div class="right-sidebar astro-67yu43on"> <div class="lg:sl-hidden astro-pb3aqygn"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-doynk5tl"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-doynk5tl"><details id="starlight__mobile-toc" class="astro-doynk5tl"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-doynk5tl"><span class="toggle sl-flex astro-doynk5tl">On this page<svg aria-hidden="true" class="caret astro-doynk5tl astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-doynk5tl"></span></summary><div class="dropdown astro-doynk5tl"><ul class="isMobile astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Overview</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#hidden-revisions" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Hidden revisions</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#symbols" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Symbols</span> </a> <ul class="isMobile astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#priority" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Priority</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#operators" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Operators</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#functions" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Functions</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#string-patterns" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">String patterns</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#date-patterns" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Date patterns</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#aliases" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Aliases</span> </a> <ul class="isMobile astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#built-in-aliases" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Built-in Aliases</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#examples" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Examples</span> </a>  </li> </ul> </div></details></nav></mobile-starlight-toc><script type="module" src="/starlight/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C181hMzK.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block astro-pb3aqygn"><div class="sl-container astro-pb3aqygn"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-g2bywc46" style="--depth: 0;"> <li class="astro-g2bywc46" style="--depth: 0;"> <a href="#_top" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Overview</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#hidden-revisions" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Hidden revisions</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#symbols" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Symbols</span> </a> <ul class="astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#priority" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Priority</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#operators" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Operators</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#functions" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Functions</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#string-patterns" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">String patterns</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#date-patterns" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Date patterns</span> </a>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#aliases" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Aliases</span> </a> <ul class="astro-g2bywc46" style="--depth: 1;"> <li class="astro-g2bywc46" style="--depth: 1;"> <a href="#built-in-aliases" class="astro-g2bywc46" style="--depth: 1;"> <span class="astro-g2bywc46" style="--depth: 1;">Built-in Aliases</span> </a>  </li> </ul>  </li><li class="astro-g2bywc46" style="--depth: 0;"> <a href="#examples" class="astro-g2bywc46" style="--depth: 0;"> <span class="astro-g2bywc46" style="--depth: 0;">Examples</span> </a>  </li> </ul> </nav></starlight-toc><script type="module" src="/starlight/_astro/TableOfContents.astro_astro_type_script_index_0_lang.CKWWgpjV.js"></script></div></div> </div> </aside> <div class="main-pane astro-67yu43on">  <main data-pagefind-body class="astro-bguv2lll" lang="en" dir="ltr">    <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <h1 id="_top" class="astro-j6tvhyss">Revsets</h1>  </div> </div>  <div class="content-panel astro-7nkwcw3z"> <div class="sl-container astro-7nkwcw3z"> <div class="sl-markdown-content"> <p>Jujutsu supports a functional language for selecting a set of revisions.
+Expressions in this language are called “revsets” (the idea comes from
+<a href="https://www.mercurial-scm.org/repo/hg/help/revsets">Mercurial</a>). The language
+consists of symbols, operators, and functions.</p>
+<p>Most <code dir="auto">jj</code> commands accept a revset (or multiple). Many commands, such as
+<code dir="auto">jj edit &#x3C;revset></code> expect the revset to resolve to a single commit; it is an
+error to pass a revset that resolves to more than one commit (or zero commits)
+to such commands.</p>
+<p>The words “revisions” and “commits” are used interchangeably in this document.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="hidden-revisions">Hidden revisions</h2><a class="sl-anchor-link" href="#hidden-revisions"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Hidden revisions”</span></a></div>
+<p>Most revsets search only the <a href="glossary.md#visible-commits">visible commits</a>.
+Other commits are only included if you explicitly mention them (e.g. by commit
+ID, <code dir="auto">&#x3C;name>@&#x3C;remote></code> symbol, or <code dir="auto">at_operation()</code> function).</p>
+<p>If hidden commits are specified, their ancestors also become available to the
+search space. They are included in <code dir="auto">all()</code>, <code dir="auto">x..</code>, <code dir="auto">~x</code>, etc., but not in
+<code dir="auto">..visible_heads()</code>, etc. For example, <code dir="auto">hidden_id | all()</code> is equivalent to
+<code dir="auto">hidden_id | ::(hidden_id | visible_heads())</code>.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="symbols">Symbols</h2><a class="sl-anchor-link" href="#symbols"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Symbols”</span></a></div>
+<p>The <code dir="auto">@</code> expression refers to the working copy commit in the current workspace.
+Use <code dir="auto">&#x3C;workspace name>@</code> to refer to the working-copy commit in another
+workspace. Use <code dir="auto">&#x3C;name>@&#x3C;remote></code> to refer to a remote-tracking bookmark.</p>
+<p>A full commit ID refers to a single commit. A unique prefix of the full commit
+ID can also be used. It is an error to use a non-unique prefix.</p>
+<p>A full change ID refers to a visible commit with that change ID. A unique prefix
+of the full change ID can also be used. It is an error to use a non-unique
+prefix or <a href="glossary.md#divergent-change">a divergent change ID</a>. To refer to a
+<a href="#hidden-revisions">hidden</a> commit or <a href="glossary.md#divergent-change">divergent change</a>, a
+<a href="glossary.md#change-offset">change offset</a> can be added using <code dir="auto">&#x3C;change ID>/&#x3C;offset></code> syntax.</p>
+<p>Use <a href="templates.md#stringliteral-type">single or double quotes</a> to prevent a symbol from being
+interpreted as an expression. For example, <code dir="auto">"x-"</code> is the symbol <code dir="auto">x-</code>, not the
+parents of symbol <code dir="auto">x</code>. Taking shell quoting into account, you may need to use
+something like <code dir="auto">jj log -r '"x-"'</code>.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="priority">Priority</h3><a class="sl-anchor-link" href="#priority"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Priority”</span></a></div>
+<p>Jujutsu attempts to resolve a symbol in the following order:</p>
+<ol>
+<li>Tag name</li>
+<li>Bookmark name</li>
+<li>Git ref</li>
+<li>Commit ID or change ID</li>
+</ol>
+<p>To override the priority, use the appropriate <a href="#functions">revset function</a>. For
+example, to resolve <code dir="auto">abc</code> as a commit ID even if there happens to be a bookmark
+by the same name, use <code dir="auto">commit_id(abc)</code>. This is particularly useful in scripts.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="operators">Operators</h2><a class="sl-anchor-link" href="#operators"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Operators”</span></a></div>
+<p>The following operators are supported. <code dir="auto">x</code> and <code dir="auto">y</code> below can be any revset, not
+only symbols.</p>
+<ul>
+<li><code dir="auto">x-</code>: Parents of <code dir="auto">x</code>, can be empty.</li>
+<li><code dir="auto">x+</code>: Children of <code dir="auto">x</code>, can be empty.</li>
+<li><code dir="auto">x::</code>: Descendants of <code dir="auto">x</code>, including the commits in <code dir="auto">x</code> itself. Equivalent to
+<code dir="auto">x::visible_heads()</code> if no hidden revisions are mentioned.</li>
+<li><code dir="auto">x..</code>: Revisions that are not ancestors of <code dir="auto">x</code>. Equivalent to <code dir="auto">~::x</code>, and
+<code dir="auto">x..visible_heads()</code> if no hidden revisions are mentioned.</li>
+<li><code dir="auto">::x</code>: Ancestors of <code dir="auto">x</code>, including the commits in <code dir="auto">x</code> itself. Shorthand for
+<code dir="auto">root()::x</code>.</li>
+<li><code dir="auto">..x</code>: Ancestors of <code dir="auto">x</code>, including the commits in <code dir="auto">x</code> itself, but excluding
+the root commit. Shorthand for <code dir="auto">root()..x</code>. Equivalent to <code dir="auto">::x ~ root()</code>.</li>
+<li><code dir="auto">x::y</code>: Descendants of <code dir="auto">x</code> that are also ancestors of <code dir="auto">y</code>. Equivalent
+to <code dir="auto">x:: &#x26; ::y</code>. This is what <code dir="auto">git log</code> calls <code dir="auto">--ancestry-path x..y</code>.</li>
+<li><code dir="auto">x..y</code>: Ancestors of <code dir="auto">y</code> that are not also ancestors of <code dir="auto">x</code>. Equivalent to
+<code dir="auto">::y ~ ::x</code>. This is what <code dir="auto">git log</code> calls <code dir="auto">x..y</code> (i.e. the same as we call it).</li>
+<li><code dir="auto">::</code>: All visible commits in the repo. Equivalent to <code dir="auto">all()</code>, and
+<code dir="auto">root()::visible_heads()</code> if no hidden revisions are mentioned.</li>
+<li><code dir="auto">..</code>: All visible commits in the repo, but excluding the root commit.
+Equivalent to <code dir="auto">~root()</code>, and <code dir="auto">root()..visible_heads()</code> if no hidden revisions
+are mentioned.</li>
+<li><code dir="auto">~x</code>: Revisions that are not in <code dir="auto">x</code>.</li>
+<li><code dir="auto">x &#x26; y</code>: Revisions that are in both <code dir="auto">x</code> and <code dir="auto">y</code>.</li>
+<li><code dir="auto">x ~ y</code>: Revisions that are in <code dir="auto">x</code> but not in <code dir="auto">y</code>.</li>
+<li><code dir="auto">x | y</code>: Revisions that are in either <code dir="auto">x</code> or <code dir="auto">y</code> (or both).</li>
+</ul>
+<p>(listed in order of binding strengths)</p>
+<p>You can use parentheses to control evaluation order, such as <code dir="auto">(x &#x26; y) | z</code> or
+<code dir="auto">x &#x26; (y | z)</code>.</p>
+<!-- The following format will be understood by the web site generator, and will
+ generate a folded section that can be unfolded at will. -->
+<details>
+<summary>Examples</summary>
+Given this history:
+<div class="expressive-code"><link rel="stylesheet" href="/starlight/_astro/ec.v4551.css"><script type="module" src="/starlight/_astro/ec.p1z7b.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">o D</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">|\</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">| o C</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">| |</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">o | B</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">|/</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">o A</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">|</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">o root()</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="o D|\| o C| |o | B|/o A|o root()"><div></div></button></div></figure></div>
+<p><strong>Operator</strong> <code dir="auto">x-</code></p>
+<ul>
+<li><code dir="auto">D-</code> ⇒ <code dir="auto">{C,B}</code></li>
+<li><code dir="auto">B-</code> ⇒ <code dir="auto">{A}</code></li>
+<li><code dir="auto">A-</code> ⇒ <code dir="auto">{root()}</code></li>
+<li><code dir="auto">root()-</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+<li><code dir="auto">none()-</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+<li><code dir="auto">(D|A)-</code> ⇒ <code dir="auto">{C,B,root()}</code></li>
+<li><code dir="auto">(C|B)-</code> ⇒ <code dir="auto">{A}</code></li>
+</ul>
+<p><strong>Operator</strong> <code dir="auto">x+</code></p>
+<ul>
+<li><code dir="auto">D+</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+<li><code dir="auto">B+</code> ⇒ <code dir="auto">{D}</code></li>
+<li><code dir="auto">A+</code> ⇒ <code dir="auto">{B,C}</code></li>
+<li><code dir="auto">root()+</code> ⇒ <code dir="auto">{A}</code></li>
+<li><code dir="auto">none()+</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+<li><code dir="auto">(C|B)+</code> ⇒ <code dir="auto">{D}</code></li>
+<li><code dir="auto">(B|root())+</code> ⇒ <code dir="auto">{D,A}</code></li>
+</ul>
+<p><strong>Operator</strong> <code dir="auto">x::</code></p>
+<ul>
+<li><code dir="auto">D::</code> ⇒ <code dir="auto">{D}</code></li>
+<li><code dir="auto">B::</code> ⇒ <code dir="auto">{D,B}</code></li>
+<li><code dir="auto">A::</code> ⇒ <code dir="auto">{D,C,B,A}</code></li>
+<li><code dir="auto">root()::</code> ⇒ <code dir="auto">{D,C,B,A,root()}</code></li>
+<li><code dir="auto">none()::</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+<li><code dir="auto">(C|B)::</code> ⇒ <code dir="auto">{D,C,B}</code></li>
+</ul>
+<p><strong>Operator</strong> <code dir="auto">x..</code></p>
+<ul>
+<li><code dir="auto">D..</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+<li><code dir="auto">B..</code> ⇒ <code dir="auto">{D,C}</code> (note that, unlike <code dir="auto">B::</code>, this includes <code dir="auto">C</code>)</li>
+<li><code dir="auto">A..</code> ⇒ <code dir="auto">{D,C,B}</code></li>
+<li><code dir="auto">root()..</code> ⇒ <code dir="auto">{D,C,B,A}</code></li>
+<li><code dir="auto">none()..</code> ⇒ <code dir="auto">{D,C,B,A,root()}</code></li>
+<li><code dir="auto">(C|B)..</code> ⇒ <code dir="auto">{D}</code></li>
+</ul>
+<p><strong>Operator</strong> <code dir="auto">::x</code></p>
+<ul>
+<li><code dir="auto">::D</code> ⇒ <code dir="auto">{D,C,B,A,root()}</code></li>
+<li><code dir="auto">::B</code> ⇒ <code dir="auto">{B,A,root()}</code></li>
+<li><code dir="auto">::A</code> ⇒ <code dir="auto">{A,root()}</code></li>
+<li><code dir="auto">::root()</code> ⇒ <code dir="auto">{root()}</code></li>
+<li><code dir="auto">::none()</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+<li><code dir="auto">::(C|B)</code> ⇒ <code dir="auto">{C,B,A,root()}</code></li>
+</ul>
+<p><strong>Operator</strong> <code dir="auto">..x</code></p>
+<ul>
+<li><code dir="auto">..D</code> ⇒ <code dir="auto">{D,C,B,A}</code></li>
+<li><code dir="auto">..B</code> ⇒ <code dir="auto">{B,A}</code></li>
+<li><code dir="auto">..A</code> ⇒ <code dir="auto">{A}</code></li>
+<li><code dir="auto">..root()</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+<li><code dir="auto">..none()</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+<li><code dir="auto">..(C|B)</code> ⇒ <code dir="auto">{C,B,A}</code></li>
+</ul>
+<p><strong>Operator</strong> <code dir="auto">x::y</code></p>
+<ul>
+<li><code dir="auto">D::D</code> ⇒ <code dir="auto">{D}</code></li>
+<li><code dir="auto">B::D</code> ⇒ <code dir="auto">{D,B}</code> (note that, unlike <code dir="auto">B..D</code>, this includes <code dir="auto">B</code> and excludes <code dir="auto">C</code>)</li>
+<li><code dir="auto">B::C</code> ⇒ <code dir="auto">{}</code> (empty set) (note that, unlike <code dir="auto">B..C</code>, this excludes <code dir="auto">C</code>)</li>
+<li><code dir="auto">A::D</code> ⇒ <code dir="auto">{D,C,B,A}</code></li>
+<li><code dir="auto">root()::D</code> ⇒ <code dir="auto">{D,C,B,A,root()}</code></li>
+<li><code dir="auto">none()::D</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+<li><code dir="auto">D::B</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+<li><code dir="auto">(C|B)::(C|B)</code> ⇒ <code dir="auto">{C,B}</code></li>
+</ul>
+<p><strong>Operator</strong> <code dir="auto">x..y</code></p>
+<ul>
+<li><code dir="auto">D..D</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+<li><code dir="auto">B..D</code> ⇒ <code dir="auto">{D,C}</code> (note that, unlike <code dir="auto">B::D</code>, this includes <code dir="auto">C</code> and excludes <code dir="auto">B</code>)</li>
+<li><code dir="auto">B..C</code> ⇒ <code dir="auto">{C}</code> (note that, unlike <code dir="auto">B::C</code>, this includes <code dir="auto">C</code>)</li>
+<li><code dir="auto">A..D</code> ⇒ <code dir="auto">{D,C,B}</code></li>
+<li><code dir="auto">root()..D</code> ⇒ <code dir="auto">{D,C,B,A}</code></li>
+<li><code dir="auto">none()..D</code> ⇒ <code dir="auto">{D,C,B,A,root()}</code></li>
+<li><code dir="auto">D..B</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+<li><code dir="auto">(C|B)..(C|B)</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+</ul>
+</details>
+<div class="sl-heading-wrapper level-h2"><h2 id="functions">Functions</h2><a class="sl-anchor-link" href="#functions"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Functions”</span></a></div>
+<p>You can also specify revisions by using functions. Some functions take other
+revsets (expressions) as arguments.</p>
+<details>
+<summary>Function argument syntax</summary>
+In this documentation, optional arguments are indicated with square
+brackets like `[arg]`. Some arguments also have an optional label which can
+be used to specify that argument without specifying all previous arguments.
+<p>For instance, <code dir="auto">remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])</code>
+indicates that all of the following usages are valid:</p>
+<ul>
+<li><code dir="auto">remote_bookmarks()</code></li>
+<li><code dir="auto">remote_bookmarks("main")</code></li>
+<li><code dir="auto">remote_bookmarks("main", "origin")</code></li>
+<li><code dir="auto">remote_bookmarks("main", remote="origin")</code></li>
+<li><code dir="auto">remote_bookmarks(remote="origin")</code></li>
+</ul>
+</details>
+<ul>
+<li>
+<p><code dir="auto">parents(x, [depth])</code>: <code dir="auto">parents(x)</code> is the same as <code dir="auto">x-</code>.
+<code dir="auto">parents(x, depth)</code> returns the parents of <code dir="auto">x</code> at the given <code dir="auto">depth</code>. For
+instance, <code dir="auto">parents(x, 3)</code> is equivalent to <code dir="auto">x---</code>.</p>
+</li>
+<li>
+<p><code dir="auto">children(x, [depth])</code>: <code dir="auto">children(x)</code> is the same as <code dir="auto">x+</code>.
+<code dir="auto">children(x, depth)</code> returns the children of <code dir="auto">x</code> at the given <code dir="auto">depth</code>. For
+instance, <code dir="auto">children(x, 3)</code> is equivalent to <code dir="auto">x+++</code>.</p>
+</li>
+<li>
+<p><code dir="auto">ancestors(x, [depth])</code>: <code dir="auto">ancestors(x)</code> is the same as <code dir="auto">::x</code>.
+<code dir="auto">ancestors(x, depth)</code> returns the ancestors of <code dir="auto">x</code> limited to the given
+<code dir="auto">depth</code>.</p>
+</li>
+<li>
+<p><code dir="auto">descendants(x, [depth])</code>: <code dir="auto">descendants(x)</code> is the same as <code dir="auto">x::</code>.
+<code dir="auto">descendants(x, depth)</code> returns the descendants of <code dir="auto">x</code> limited to the given
+<code dir="auto">depth</code>.</p>
+</li>
+<li>
+<p><code dir="auto">first_parent(x, [depth])</code>: <code dir="auto">first_parent(x)</code> is similar to <code dir="auto">parents(x)</code>, but
+for merges, it only returns the first parent instead of returning all parents.
+The <code dir="auto">depth</code> argument also works similarly, so <code dir="auto">first_parent(x, 2)</code> is
+equivalent to <code dir="auto">first_parent(first_parent(x))</code>.</p>
+</li>
+<li>
+<p><code dir="auto">first_ancestors(x, [depth])</code>: Similar to <code dir="auto">ancestors(x, [depth])</code>, but only
+traverses the first parent of each commit. In Git, the first parent of a merge
+commit is conventionally the branch into which changes are being merged, so
+<code dir="auto">first_ancestors()</code> can be used to exclude changes made on other branches.</p>
+</li>
+<li>
+<p><code dir="auto">reachable(srcs, domain)</code>: All commits reachable from <code dir="auto">srcs</code> within
+<code dir="auto">domain</code>, traversing all parent and child edges. <code dir="auto">srcs</code> outside <code dir="auto">domain</code> are
+not considered even if a parent or child edge would reach into <code dir="auto">domain</code>.</p>
+</li>
+<li>
+<p><code dir="auto">connected(x)</code>: Same as <code dir="auto">x::x</code>. Useful when <code dir="auto">x</code> includes several commits.</p>
+</li>
+<li>
+<p><code dir="auto">all()</code>: All visible commits and ancestors of commits explicitly mentioned.</p>
+</li>
+<li>
+<p><code dir="auto">none()</code>: No commits. This function is rarely useful; it is provided for
+completeness.</p>
+</li>
+<li>
+<p><code dir="auto">change_id(prefix)</code>: Commits with the given change ID prefix. If the specified
+change is divergent, this resolves to multiple commits. It is an error to use a
+non-unique prefix. Unmatched prefix isn’t an error.</p>
+</li>
+<li>
+<p><code dir="auto">commit_id(prefix)</code>: Commits with the given commit ID prefix. It is an error
+to use a non-unique prefix. Unmatched prefix isn’t an error.</p>
+</li>
+<li>
+<p><code dir="auto">bookmarks([pattern])</code>: All local bookmark targets. If <code dir="auto">pattern</code> is specified,
+this selects the bookmarks whose name match the given <a href="#string-patterns">string
+pattern</a>. For example, <code dir="auto">bookmarks(push)</code> would match the
+bookmarks <code dir="auto">push-123</code> and <code dir="auto">repushed</code> but not the bookmark <code dir="auto">main</code>. If a bookmark is
+in a conflicted state, all its possible targets are included.</p>
+</li>
+<li>
+<p><code dir="auto">remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])</code>: All remote
+bookmarks targets across all remotes. If just the <code dir="auto">bookmark_pattern</code> is
+specified, the bookmarks whose names match the given <a href="#string-patterns">string
+pattern</a> across all remotes are selected. If both
+<code dir="auto">bookmark_pattern</code> and <code dir="auto">remote_pattern</code> are specified, the selection is
+further restricted to just the remotes whose names match <code dir="auto">remote_pattern</code>.</p>
+<p>For example, <code dir="auto">remote_bookmarks(push, ri)</code> would match the bookmarks
+<code dir="auto">push-123@origin</code> and <code dir="auto">repushed@private</code> but not <code dir="auto">push-123@upstream</code> or
+<code dir="auto">main@origin</code> or <code dir="auto">main@upstream</code>. If a bookmark is in a conflicted state, all
+its possible targets are included.</p>
+<p>Git-tracking bookmarks are excluded by default. Use <code dir="auto">remote=exact:"git"</code> or
+<code dir="auto">remote=glob:"*"</code> to select bookmarks including <code dir="auto">@git</code> ones.</p>
+</li>
+<li>
+<p><code dir="auto">tracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])</code>: All
+targets of tracked remote bookmarks. Supports the same optional arguments as
+<code dir="auto">remote_bookmarks()</code>.</p>
+</li>
+<li>
+<p><code dir="auto">untracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])</code>:
+All targets of untracked remote bookmarks. Supports the same optional arguments
+as <code dir="auto">remote_bookmarks()</code>.</p>
+</li>
+<li>
+<p><code dir="auto">tags([pattern])</code>: All tag targets. If <code dir="auto">pattern</code> is specified,
+this selects the tags whose name match the given <a href="#string-patterns">string
+pattern</a>. For example, <code dir="auto">tags(v1)</code> would match the
+tags <code dir="auto">v123</code> and <code dir="auto">rev1</code> but not the tag <code dir="auto">v2</code>. If a tag is
+in a conflicted state, all its possible targets are included.</p>
+</li>
+<li>
+<p><code dir="auto">visible_heads()</code>: All visible heads (same as <code dir="auto">heads(all())</code> if no hidden
+revisions are mentioned).</p>
+</li>
+<li>
+<p><code dir="auto">root()</code>: The virtual commit that is the oldest ancestor of all other commits.</p>
+</li>
+<li>
+<p><code dir="auto">heads(x)</code>: Commits in <code dir="auto">x</code> that are not ancestors of other commits in <code dir="auto">x</code>.
+Equivalent to <code dir="auto">x ~ ::x-</code>. Note that this is different from
+<a href="https://repo.mercurial-scm.org/hg/help/revsets">Mercurial’s</a> <code dir="auto">heads(x)</code>
+function, which is equivalent to <code dir="auto">x ~ x-</code>.</p>
+</li>
+<li>
+<p><code dir="auto">roots(x)</code>: Commits in <code dir="auto">x</code> that are not descendants of other commits in <code dir="auto">x</code>.
+Equivalent to <code dir="auto">x ~ x+::</code>. Note that this is different from
+<a href="https://repo.mercurial-scm.org/hg/help/revsets">Mercurial’s</a> <code dir="auto">roots(x)</code>
+function, which is equivalent to <code dir="auto">x ~ x+</code>.</p>
+</li>
+<li>
+<p><code dir="auto">latest(x, [count])</code>: Latest <code dir="auto">count</code> commits in <code dir="auto">x</code>, based on committer
+timestamp. The default <code dir="auto">count</code> is 1.</p>
+</li>
+<li>
+<p><code dir="auto">fork_point(x)</code>: The fork point of all commits in <code dir="auto">x</code>. The fork point is the
+common ancestor(s) of all commits in <code dir="auto">x</code> which do not have any descendants
+that are also common ancestors of all commits in <code dir="auto">x</code>. It is equivalent to
+the revset <code dir="auto">heads(::x_1 &#x26; ::x_2 &#x26; ... &#x26; ::x_N)</code>, where <code dir="auto">x_{1..N}</code> are commits
+in <code dir="auto">x</code>. If <code dir="auto">x</code> resolves to a single commit, <code dir="auto">fork_point(x)</code> resolves to <code dir="auto">x</code>.</p>
+</li>
+<li>
+<p><code dir="auto">bisect(x)</code>: Finds commits in the input set for which about half of the input
+set are descendants. The current implementation deals somewhat poorly with
+non-linear history.</p>
+</li>
+<li>
+<p><code dir="auto">exactly(x, count)</code>: Evaluates <code dir="auto">x</code>, and errors if it is not of exactly size
+<code dir="auto">count</code>. Otherwise, returns <code dir="auto">x</code>. This is useful in particular with <code dir="auto">count=1</code>
+when you want to ensure that some revset expression has exactly one target.</p>
+</li>
+<li>
+<p><code dir="auto">merges()</code>: Merge commits.</p>
+</li>
+<li>
+<p><code dir="auto">description(pattern)</code>: Commits that have a description matching the given
+<a href="#string-patterns">string pattern</a>.</p>
+<p>A non-empty description is usually terminated with newline character. For
+example, <code dir="auto">description(exact:"")</code> matches commits without description, and
+<code dir="auto">description(exact:"foo\n")</code> matches commits with description <code dir="auto">"foo\n"</code>.</p>
+</li>
+<li>
+<p><code dir="auto">subject(pattern)</code>: Commits that have a subject matching the given <a href="#string-patterns">string
+pattern</a>. A subject is the first line of the description
+(without newline character.)</p>
+</li>
+<li>
+<p><code dir="auto">author(pattern)</code>: Commits with the author’s name or email matching the given
+<a href="#string-patterns">string pattern</a>. Equivalent to <code dir="auto">author_name(pattern) | author_email(pattern)</code>.</p>
+</li>
+<li>
+<p><code dir="auto">author_name(pattern)</code>: Commits with the author’s name matching the given
+<a href="#string-patterns">string pattern</a>.</p>
+</li>
+<li>
+<p><code dir="auto">author_email(pattern)</code>: Commits with the author’s email matching the given
+<a href="#string-patterns">string pattern</a>.</p>
+</li>
+<li>
+<p><code dir="auto">author_date(pattern)</code>: Commits with author dates matching the specified <a href="#date-patterns">date
+pattern</a>.</p>
+</li>
+<li>
+<p><code dir="auto">mine()</code>: Commits where the author’s email matches the email of the current
+user. Equivalent to <code dir="auto">author_email(exact-i:&#x3C;user-email>)</code></p>
+</li>
+<li>
+<p><code dir="auto">committer(pattern)</code>: Commits with the committer’s name or email matching the
+given <a href="#string-patterns">string pattern</a>. Equivalent to
+<code dir="auto">committer_name(pattern) | committer_email(pattern)</code>.</p>
+</li>
+<li>
+<p><code dir="auto">committer_name(pattern)</code>: Commits with the committer’s name matching the
+given <a href="#string-patterns">string pattern</a>.</p>
+</li>
+<li>
+<p><code dir="auto">committer_email(pattern)</code>: Commits with the committer’s email matching the
+given <a href="#string-patterns">string pattern</a>.</p>
+</li>
+<li>
+<p><code dir="auto">committer_date(pattern)</code>: Commits with committer dates matching the specified
+<a href="#date-patterns">date pattern</a>.</p>
+</li>
+<li>
+<p><code dir="auto">signed()</code>: Commits that are cryptographically signed.</p>
+</li>
+<li>
+<p><code dir="auto">empty()</code>: Commits modifying no files. This also includes <code dir="auto">merges()</code> without
+user modifications and <code dir="auto">root()</code>.</p>
+</li>
+<li>
+<p><code dir="auto">files(expression)</code>: Commits modifying paths matching the given <a href="filesets.md">fileset
+expression</a>.</p>
+<p>Paths are relative to the directory <code dir="auto">jj</code> was invoked from. A directory name
+will match all files in that directory and its subdirectories.</p>
+<p>For example, <code dir="auto">files(foo)</code> will match files <code dir="auto">foo</code>, <code dir="auto">foo/bar</code>, <code dir="auto">foo/bar/baz</code>.
+It will <em>not</em> match <code dir="auto">foobar</code> or <code dir="auto">bar/foo</code>.</p>
+<p>Some file patterns might need quoting because the <code dir="auto">expression</code> must also be
+parsable as a revset. For example, <code dir="auto">.</code> has to be quoted in <code dir="auto">files(".")</code>.</p>
+</li>
+<li>
+<p><code dir="auto">diff_contains(text, [files])</code>: Commits containing diffs matching the given
+<code dir="auto">text</code> pattern line by line.</p>
+<p>The search paths can be narrowed by the <code dir="auto">files</code> expression. All modified files
+are scanned by default, but it is likely to change in future version to
+respect the command line path arguments.</p>
+<p>For example, <code dir="auto">diff_contains("*TODO*", "src")</code> will search revisions where “TODO”
+is added to or removed from files under “src”.</p>
+</li>
+<li>
+<p><code dir="auto">conflicts()</code>: Commits with conflicts.</p>
+</li>
+<li>
+<p><code dir="auto">divergent()</code>: Commits that are <a href="glossary.md#divergent-change">divergent</a>.</p>
+</li>
+<li>
+<p><code dir="auto">present(x)</code>: Same as <code dir="auto">x</code>, but evaluated to <code dir="auto">none()</code> if any of the commits
+in <code dir="auto">x</code> doesn’t exist (e.g. is an unknown bookmark name.)</p>
+</li>
+<li>
+<p><code dir="auto">coalesce(revsets...)</code>: Commits in the first revset in the list of <code dir="auto">revsets</code>
+which does not evaluate to <code dir="auto">none()</code>. If all revsets evaluate to <code dir="auto">none()</code>, then
+the result of <code dir="auto">coalesce</code> will also be <code dir="auto">none()</code>.</p>
+</li>
+<li>
+<p><code dir="auto">working_copies()</code>: The working copy commits across all the workspaces.</p>
+</li>
+<li>
+<p><code dir="auto">at_operation(op, x)</code>: Evaluates <code dir="auto">x</code> at the specified <a href="glossary.md#operation">operation</a>. For
+example, <code dir="auto">at_operation(@-, visible_heads())</code> will return all heads which were
+visible at the previous operation.</p>
+<p>Since <code dir="auto">at_operation(op, x)</code> brings all commits that were visible at the
+operation to the search space, <code dir="auto">at_operation(op, x) | all()</code> is equivalent to
+<code dir="auto">at_operation(op, x) | ::(at_operation(op, x | visible_heads()) | visible_heads())</code>.</p>
+</li>
+</ul>
+<details>
+<summary>Examples</summary>
+Given this history:
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">o E</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">|</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">| o D</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">|/|</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">| o C</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">| |</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">o | B</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">|/</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">o A</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">|</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">o root()</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="o E|| o D|/|| o C| |o | B|/o A|o root()"><div></div></button></div></figure></div>
+<p><strong>function</strong> <code dir="auto">reachable()</code></p>
+<ul>
+<li><code dir="auto">reachable(E, A..)</code> ⇒ <code dir="auto">{E,D,C,B}</code></li>
+<li><code dir="auto">reachable(D, A..)</code> ⇒ <code dir="auto">{E,D,C,B}</code></li>
+<li><code dir="auto">reachable(C, A..)</code> ⇒ <code dir="auto">{E,D,C,B}</code></li>
+<li><code dir="auto">reachable(B, A..)</code> ⇒ <code dir="auto">{E,D,C,B}</code></li>
+<li><code dir="auto">reachable(A, A..)</code> ⇒ <code dir="auto">{}</code> (empty set)</li>
+</ul>
+<p><strong>function</strong> <code dir="auto">connected()</code></p>
+<ul>
+<li><code dir="auto">connected(E|A)</code> ⇒ <code dir="auto">{E,B,A}</code></li>
+<li><code dir="auto">connected(D|A)</code> ⇒ <code dir="auto">{D,C,B,A}</code></li>
+<li><code dir="auto">connected(A)</code> ⇒ <code dir="auto">{A}</code></li>
+</ul>
+<p><strong>function</strong> <code dir="auto">heads()</code></p>
+<ul>
+<li><code dir="auto">heads(E|D)</code> ⇒ <code dir="auto">{E,D}</code></li>
+<li><code dir="auto">heads(E|C)</code> ⇒ <code dir="auto">{E,C}</code></li>
+<li><code dir="auto">heads(E|B)</code> ⇒ <code dir="auto">{E}</code></li>
+<li><code dir="auto">heads(E|A)</code> ⇒ <code dir="auto">{E}</code></li>
+<li><code dir="auto">heads(A)</code> ⇒ <code dir="auto">{A}</code></li>
+</ul>
+<p><strong>function</strong> <code dir="auto">roots()</code></p>
+<ul>
+<li><code dir="auto">roots(E|D)</code> ⇒ <code dir="auto">{E,D}</code></li>
+<li><code dir="auto">roots(E|C)</code> ⇒ <code dir="auto">{E,C}</code></li>
+<li><code dir="auto">roots(E|B)</code> ⇒ <code dir="auto">{B}</code></li>
+<li><code dir="auto">roots(E|A)</code> ⇒ <code dir="auto">{A}</code></li>
+<li><code dir="auto">roots(A)</code> ⇒ <code dir="auto">{A}</code></li>
+</ul>
+<p><strong>function</strong> <code dir="auto">fork_point()</code></p>
+<ul>
+<li><code dir="auto">fork_point(E|D)</code> ⇒ <code dir="auto">{B}</code></li>
+<li><code dir="auto">fork_point(E|C)</code> ⇒ <code dir="auto">{A}</code></li>
+<li><code dir="auto">fork_point(E|B)</code> ⇒ <code dir="auto">{B}</code></li>
+<li><code dir="auto">fork_point(E|A)</code> ⇒ <code dir="auto">{A}</code></li>
+<li><code dir="auto">fork_point(D|C)</code> ⇒ <code dir="auto">{C}</code></li>
+<li><code dir="auto">fork_point(D|B)</code> ⇒ <code dir="auto">{B}</code></li>
+<li><code dir="auto">fork_point(B|C)</code> ⇒ <code dir="auto">{A}</code></li>
+<li><code dir="auto">fork_point(A)</code> ⇒ <code dir="auto">{A}</code></li>
+<li><code dir="auto">fork_point(none())</code> ⇒ <code dir="auto">{}</code></li>
+</ul>
+</details>
+<div class="sl-heading-wrapper level-h2"><h2 id="string-patterns">String patterns</h2><a class="sl-anchor-link" href="#string-patterns"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “String patterns”</span></a></div>
+<p>Functions that perform string matching support the following pattern syntax (the
+quotes are optional).</p>
+<p>By default, <code dir="auto">"string"</code> is parsed as a <code dir="auto">substring:</code> pattern in revsets. The
+default will be changed to <code dir="auto">glob:</code> in a future release. The new behavior can be
+enabled by: <code dir="auto">ui.revsets-use-glob-by-default=true</code>.</p>
+<ul>
+<li><code dir="auto">exact:"string"</code>: Matches strings exactly equal to <code dir="auto">string</code>.</li>
+<li><code dir="auto">glob:"pattern"</code>: Matches strings with Unix-style shell <a href="https://docs.rs/globset/latest/globset/#syntax">wildcard
+<code dir="auto">pattern</code></a>.</li>
+<li><code dir="auto">regex:"pattern"</code>: Matches substrings with <a href="https://docs.rs/regex/latest/regex/#syntax">regular
+expression <code dir="auto">pattern</code></a>.</li>
+<li><code dir="auto">substring:"string"</code>: Matches strings that contain <code dir="auto">string</code>.</li>
+</ul>
+<p>You can append <code dir="auto">-i</code> after the kind to match case‐insensitively (e.g.
+<code dir="auto">glob-i:"fix*jpeg*"</code>).</p>
+<p>String patterns can be combined by using logical operators
+(e.g. <code dir="auto">bookmarks(~glob:"ci/*")</code>):</p>
+<ul>
+<li><code dir="auto">~x</code>: Matches everything but <code dir="auto">x</code>.</li>
+<li><code dir="auto">x &#x26; y</code>: Matches both <code dir="auto">x</code> and <code dir="auto">y</code>.</li>
+<li><code dir="auto">x ~ y</code>: Matches <code dir="auto">x</code> but not <code dir="auto">y</code>.</li>
+<li><code dir="auto">x | y</code>: Matches either <code dir="auto">x</code> or <code dir="auto">y</code> (or both).</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="date-patterns">Date patterns</h2><a class="sl-anchor-link" href="#date-patterns"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Date patterns”</span></a></div>
+<p>Functions that perform date matching support the following pattern syntax:</p>
+<ul>
+<li><code dir="auto">after:"string"</code>: Matches dates exactly at or after the given date.</li>
+<li><code dir="auto">before:"string"</code>: Matches dates before, but not including, the given date.</li>
+</ul>
+<p>Date strings can be specified in several forms, including:</p>
+<ul>
+<li>2024-02-01</li>
+<li>2024-02-01T12:00:00</li>
+<li>2024-02-01T12:00:00-08:00</li>
+<li>2024-02-01 12:00:00</li>
+<li>2 days ago</li>
+<li>5 minutes ago</li>
+<li>yesterday</li>
+<li>yesterday 5pm</li>
+<li>yesterday 10:30</li>
+<li>yesterday 15:30</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="aliases">Aliases</h2><a class="sl-anchor-link" href="#aliases"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Aliases”</span></a></div>
+<p>New symbols and functions can be defined in the config file, by using any
+combination of the predefined symbols/functions and other aliases.</p>
+<p>Alias functions can be overloaded by the number of parameters. However, builtin
+function will be shadowed by name, and can’t co-exist with aliases.</p>
+<p>For example:</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="toml"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">[revset-aliases]</span></div></div><div class="ec-line"><div class="code"><span style="--0:#C5E478;--1:#3B61B0">'HEAD'</span><span style="--0:#D6DEEB;--1:#403F53"> = </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">@-</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div><div class="ec-line"><div class="code"><span style="--0:#C5E478;--1:#3B61B0">'user()'</span><span style="--0:#D6DEEB;--1:#403F53"> = </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">user("me@example.org")</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div><div class="ec-line"><div class="code"><span style="--0:#C5E478;--1:#3B61B0">'user(x)'</span><span style="--0:#D6DEEB;--1:#403F53"> = </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">author(x) | committer(x)</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="[revset-aliases]&#x27;HEAD&#x27; = &#x27;@-&#x27;&#x27;user()&#x27; = &#x27;user(&#x22;me@example.org&#x22;)&#x27;&#x27;user(x)&#x27; = &#x27;author(x) | committer(x)&#x27;"><div></div></button></div></figure></div>
+<div class="sl-heading-wrapper level-h3"><h3 id="built-in-aliases">Built-in Aliases</h3><a class="sl-anchor-link" href="#built-in-aliases"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Built-in Aliases”</span></a></div>
+<p>The following aliases are built-in and used for certain operations. These functions
+are defined as aliases in order to allow you to overwrite them as needed.
+See <a href="https://github.com/jj-vcs/jj/blob/main/cli/src/config/revsets.toml">revsets.toml</a>
+for a comprehensive list.</p>
+<ul>
+<li>
+<p><code dir="auto">trunk()</code>: Resolves to the head commit for the default bookmark of the default
+remote, or the remote named <code dir="auto">upstream</code> or <code dir="auto">origin</code>. This is set at the
+repository level upon initialization of a Jujutsu repository.</p>
+<p>If the default bookmark cannot be resolved during initialization, the default
+global configuration tries the bookmarks <code dir="auto">main</code>, <code dir="auto">master</code>, and <code dir="auto">trunk</code> on the
+<code dir="auto">upstream</code> and <code dir="auto">origin</code> remotes. If more than one potential trunk commit
+exists, the newest one is chosen. If none of the bookmarks exist, the revset
+evaluates to <code dir="auto">root()</code>.</p>
+<p>You can <a href="./config.md">override</a> this as appropriate. If you do, make sure it
+always resolves to exactly one commit. For example:</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="toml"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">[revset-aliases]</span></div></div><div class="ec-line"><div class="code"><span style="--0:#C5E478;--1:#3B61B0">'trunk()'</span><span style="--0:#D6DEEB;--1:#403F53"> = </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">your-bookmark@your-remote</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="[revset-aliases]&#x27;trunk()&#x27; = &#x27;your-bookmark@your-remote&#x27;"><div></div></button></div></figure></div>
+</li>
+<li>
+<p><code dir="auto">builtin_immutable_heads()</code>: Resolves to
+<code dir="auto">present(trunk()) | tags() | untracked_remote_bookmarks()</code>. It is used as the
+default definition for <code dir="auto">immutable_heads()</code> below. It is not recommended to
+redefine this alias. Prefer to redefine <code dir="auto">immutable_heads()</code> instead.</p>
+</li>
+<li>
+<p><code dir="auto">immutable_heads()</code>: Resolves to
+<code dir="auto">present(trunk()) | tags() | untracked_remote_bookmarks()</code> by default. It is
+actually defined as <code dir="auto">builtin_immutable_heads()</code>, and can be overridden as
+required. See <a href="config.md#set-of-immutable-commits">here</a> for details.</p>
+</li>
+<li>
+<p><code dir="auto">immutable()</code>: The set of commits that <code dir="auto">jj</code> treats as immutable. This is
+equivalent to <code dir="auto">::(immutable_heads() | root())</code>. It is not recommended to redefine
+this alias. Note that modifying this will <em>not</em> change whether a commit is immutable.
+To do that, edit <code dir="auto">immutable_heads()</code>.</p>
+</li>
+<li>
+<p><code dir="auto">mutable()</code>: The set of commits that <code dir="auto">jj</code> treats as mutable. This is
+equivalent to <code dir="auto">~immutable()</code>. It is not recommended to redefined this alias.
+Note that modifying this will <em>not</em> change whether a commit is immutable.
+To do that, edit <code dir="auto">immutable_heads()</code>.</p>
+</li>
+<li>
+<p><code dir="auto">visible()</code>: The set of visible commits. Resolves to <code dir="auto">::visible_heads()</code>.
+This is equal to <code dir="auto">all()</code> unless your revset includes
+<a href="#hidden-revisions">hidden revisions</a>.</p>
+</li>
+<li>
+<p><code dir="auto">hidden()</code>: The set of hidden commits. Resolves to <code dir="auto">~visible()</code>. This is empty
+unless your revset includes <a href="#hidden-revisions">hidden revisions</a>. Note that
+this is <em>not</em> <a href="https://github.com/jj-vcs/jj/issues/2623">the set of all previously visible
+commits</a>.</p>
+</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="examples">Examples</h2><a class="sl-anchor-link" href="#examples"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Examples”</span></a></div>
+<p>Show the parent(s) of the working-copy commit (like <code dir="auto">git log -1 HEAD</code>):</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="shell"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-r</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">@-</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj log -r @-"><div></div></button></div></figure></div>
+<p>Show all ancestors of the working copy (like plain <code dir="auto">git log</code>)</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="shell"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-r</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">::@</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj log -r ::@"><div></div></button></div></figure></div>
+<p>Show commits not on any remote bookmark:</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="shell"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-r</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">remote_bookmarks()..</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj log -r &#x27;remote_bookmarks()..&#x27;"><div></div></button></div></figure></div>
+<p>Show commits not on <code dir="auto">origin</code> (if you have other remotes like <code dir="auto">fork</code>):</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="shell"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-r</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">remote_bookmarks(remote=origin)..</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj log -r &#x27;remote_bookmarks(remote=origin)..&#x27;"><div></div></button></div></figure></div>
+<p>Show the initial commits in the repo (the ones Git calls “root commits”):</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="shell"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-r</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">root()+</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj log -r &#x27;root()+&#x27;"><div></div></button></div></figure></div>
+<p>Show some important commits (like <code dir="auto">git log --simplify-by-decoration</code>):</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="shell"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-r</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">tags() | bookmarks()</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj log -r &#x27;tags() | bookmarks()&#x27;"><div></div></button></div></figure></div>
+<p>Show local commits leading up to the working copy, as well as descendants of
+those commits:</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="shell"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-r</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">(remote_bookmarks()..@)::</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj log -r &#x27;(remote_bookmarks()..@)::&#x27;"><div></div></button></div></figure></div>
+<p>Show commits authored by “martinvonz” and containing the word “reset” in the
+description:</p>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="shell"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-r</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">author(martinvonz) &#x26; description(reset)</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj log -r &#x27;author(martinvonz) &#x26; description(reset)&#x27;"><div></div></button></div></figure></div> </div> <footer class="sl-flex astro-3yyafb3n"> <div class="meta sl-flex astro-3yyafb3n">   </div> <div class="pagination-links print:hidden astro-u2l5gyhi" dir="ltr"> <a href="/starlight/filesets/" rel="prev" class="astro-u2l5gyhi"> <svg aria-hidden="true" class="astro-u2l5gyhi astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;"><path d="M17 11H9.41l3.3-3.29a1.004 1.004 0 1 0-1.42-1.42l-5 5a1 1 0 0 0-.21.33 1 1 0 0 0 0 .76 1 1 0 0 0 .21.33l5 5a1.002 1.002 0 0 0 1.639-.325 1 1 0 0 0-.219-1.095L9.41 13H17a1 1 0 0 0 0-2Z"/></svg> <span class="astro-u2l5gyhi"> Previous <br class="astro-u2l5gyhi"> <span class="link-title astro-u2l5gyhi">Fileset language</span> </span> </a> <a href="/starlight/templates/" rel="next" class="astro-u2l5gyhi"> <svg aria-hidden="true" class="astro-u2l5gyhi astro-c6vsoqas" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;"><path d="M17.92 11.62a1.001 1.001 0 0 0-.21-.33l-5-5a1.003 1.003 0 1 0-1.42 1.42l3.3 3.29H7a1 1 0 0 0 0 2h7.59l-3.3 3.29a1.002 1.002 0 0 0 .325 1.639 1 1 0 0 0 1.095-.219l5-5a1 1 0 0 0 .21-.33 1 1 0 0 0 0-.76Z"/></svg> <span class="astro-u2l5gyhi"> Next <br class="astro-u2l5gyhi"> <span class="link-title astro-u2l5gyhi">Templating language</span> </span> </a> </div>   </footer>  </div> </div>   </main> </div> </div>  </div> </div>  </body></html>
