@@ -903,10 +903,10 @@ fn test_squash_from_multiple() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon d64492cf f | (no description set)
-    Parent commit (@-)      : yostqsxw 7e58dc67 e | (no description set)
+    Working copy  (@) now at: kpqxywon f584da5f f | (no description set)
+    Parent commit (@-)      : yostqsxw 6fbe5593 e | (no description set)
     New conflicts appeared in 1 commits:
-      yqosqzyt 4198211f d | (conflict) (no description set)
+      yqosqzyt 3592e886 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yqosqzyt
@@ -916,10 +916,10 @@ fn test_squash_from_multiple() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  d64492cf8e79 f
-    ○    7e58dc679ec0 e
+    @  f584da5f6b0d f
+    ○    6fbe5593f24a e
     ├─╮
-    × │  4198211f54c1 d
+    × │  3592e886b254 d
     ├─╯
     ○  e88768e65e67 a b c
     ◆  000000000000 (empty)
@@ -1049,10 +1049,10 @@ fn test_squash_from_multiple_partial() {
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 2 descendant commits
-    Working copy  (@) now at: kpqxywon 316211c8 f | (no description set)
-    Parent commit (@-)      : yostqsxw 6a7086c8 e | (no description set)
+    Working copy  (@) now at: kpqxywon 9113246b f | (no description set)
+    Parent commit (@-)      : yostqsxw f069c595 e | (no description set)
     New conflicts appeared in 1 commits:
-      yqosqzyt 7aca142d d | (conflict) (no description set)
+      yqosqzyt 35455ce2 d | (conflict) (no description set)
     Hint: To resolve the conflicts, start by creating a commit on top of
     the conflicted commit:
       jj new yqosqzyt
@@ -1062,13 +1062,13 @@ fn test_squash_from_multiple_partial() {
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  316211c82ebb f
-    ○      6a7086c8dda4 e
+    @  9113246bdbc0 f
+    ○      f069c5953603 e
     ├─┬─╮
     │ │ ○  e9db15b956c4 b
     │ ○ │  83cbe51db94d c
     │ ├─╯
-    × │  7aca142da791 d
+    × │  35455ce2c7a8 d
     ├─╯
     ○  64ea60be8d77 a
     ◆  000000000000 (empty)
