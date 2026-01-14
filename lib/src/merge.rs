@@ -351,7 +351,7 @@ impl<T> Merge<T> {
     ///
     /// The merge is simplified by removing identical values in add and remove
     /// values.
-    fn get_simplified_mapping(&self) -> Vec<usize>
+    pub fn get_simplified_mapping(&self) -> Vec<usize>
     where
         T: PartialEq,
     {
