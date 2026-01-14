@@ -379,6 +379,9 @@ pub fn parse_remote_auto_track_bookmarks_map_for_new_bookmarks(
                 "auto-track-created-bookmarks",
             )?);
         }
+        if exprs.is_empty() {
+            continue;
+        }
         matchers.insert(
             name.clone(),
             StringExpression::union_all(exprs).to_matcher(),
