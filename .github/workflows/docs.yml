@@ -44,6 +44,7 @@ jobs:
 
   starlight-docs-build-deploy:
     # Deploy Starlight-based docs to /starlight for comparison with MkDocs version
+    needs: prerelease-docs-build-deploy
     permissions:
       contents: write
     if: github.repository_owner == 'jj-vcs' # Stops this job from running on forks
