@@ -17,7 +17,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
-* Deprecated `ui.always-allow-large-revsets` setting has been removed.
+* Deprecated `ui.always-allow-large-revsets` setting and `all:` revset modifier
+  have been removed.
 
 ### Deprecations
 

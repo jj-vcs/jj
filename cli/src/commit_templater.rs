@@ -68,7 +68,6 @@ use jj_lib::revset;
 use jj_lib::revset::Revset;
 use jj_lib::revset::RevsetContainingFn;
 use jj_lib::revset::RevsetDiagnostics;
-use jj_lib::revset::RevsetModifier;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::UserRevsetExpression;
 use jj_lib::rewrite::rebase_to_dest_parent;
@@ -1438,7 +1437,7 @@ fn evaluate_user_revset<'repo>(
     revset: &str,
 ) -> Result<Box<dyn Revset + 'repo>, TemplateParseError> {
     let mut inner_diagnostics = RevsetDiagnostics::new();
-    let (expression, modifier) = revset::parse_with_modifier(
+    let expression = revset::parse(
         &mut inner_diagnostics,
         revset,
         &language.revset_parse_context,
@@ -1447,8 +1446,6 @@ fn evaluate_user_revset<'repo>(
     diagnostics.extend_with(inner_diagnostics, |diag| {
         TemplateParseError::expression("In revset expression", span).with_source(diag)
     });
-    let (None | Some(RevsetModifier::All)) = modifier;
-
     evaluate_revset_expression(language, span, &expression)
 }
 

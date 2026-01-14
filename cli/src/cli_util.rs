@@ -111,7 +111,6 @@ use jj_lib::revset::RevsetExtensions;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetFunction;
 use jj_lib::revset::RevsetIteratorExt as _;
-use jj_lib::revset::RevsetModifier;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetWorkspaceContext;
 use jj_lib::revset::SymbolResolverExtension;
@@ -934,14 +933,13 @@ impl WorkspaceCommandEnvironment {
             Ok(None)
         } else {
             let mut diagnostics = RevsetDiagnostics::new();
-            let (expression, modifier) = revset::parse_with_modifier(
+            let expression = revset::parse(
                 &mut diagnostics,
                 &revset_string,
                 &self.revset_parse_context(),
             )
             .map_err(|err| config_error_with_message("Invalid `revsets.short-prefixes`", err))?;
             print_parse_diagnostics(ui, "In `revsets.short-prefixes`", &diagnostics)?;
-            let (None | Some(RevsetModifier::All)) = modifier;
             Ok(Some(expression))
         }
     }
@@ -1661,8 +1659,7 @@ to the current parents may contain changes from multiple commits.
     ) -> Result<IndexSet<CommitId>, CommandError> {
         let mut all_commits = IndexSet::new();
         for revision_arg in revision_args {
-            let (expression, modifier) = self.parse_revset_with_modifier(ui, revision_arg)?;
-            let (None | Some(RevsetModifier::All)) = modifier;
+            let expression = self.parse_revset(ui, revision_arg)?;
             for commit_id in expression.evaluate_to_commit_ids()? {
                 all_commits.insert(commit_id?);
             }
@@ -1690,24 +1687,11 @@ to the current parents may contain changes from multiple commits.
         ui: &Ui,
         revision_arg: &RevisionArg,
     ) -> Result<RevsetExpressionEvaluator<'_>, CommandError> {
-        let (expression, modifier) = self.parse_revset_with_modifier(ui, revision_arg)?;
-        // Whether the caller accepts multiple revisions or not, "all:" should
-        // be valid. For example, "all:@" is a valid single-rev expression.
-        let (None | Some(RevsetModifier::All)) = modifier;
-        Ok(expression)
-    }
-
-    fn parse_revset_with_modifier(
-        &self,
-        ui: &Ui,
-        revision_arg: &RevisionArg,
-    ) -> Result<(RevsetExpressionEvaluator<'_>, Option<RevsetModifier>), CommandError> {
         let mut diagnostics = RevsetDiagnostics::new();
         let context = self.env.revset_parse_context();
-        let (expression, modifier) =
-            revset::parse_with_modifier(&mut diagnostics, revision_arg.as_ref(), &context)?;
+        let expression = revset::parse(&mut diagnostics, revision_arg.as_ref(), &context)?;
         print_parse_diagnostics(ui, "In revset expression", &diagnostics)?;
-        Ok((self.attach_revset_evaluator(expression), modifier))
+        Ok(self.attach_revset_evaluator(expression))
     }
 
     /// Parses the given revset expressions and concatenates them all.
@@ -1720,8 +1704,7 @@ to the current parents may contain changes from multiple commits.
         let context = self.env.revset_parse_context();
         let expressions: Vec<_> = revision_args
             .iter()
-            .map(|arg| revset::parse_with_modifier(&mut diagnostics, arg.as_ref(), &context))
-            .map_ok(|(expression, None | Some(RevsetModifier::All))| expression)
+            .map(|arg| revset::parse(&mut diagnostics, arg.as_ref(), &context))
             .try_collect()?;
         print_parse_diagnostics(ui, "In revset expression", &diagnostics)?;
         let expression = RevsetExpression::union_all(&expressions);

@@ -130,8 +130,6 @@ impl Rule {
             Self::neighbors_expression => None,
             Self::range_expression => None,
             Self::expression => None,
-            Self::program_modifier => None,
-            Self::program_with_modifier => None,
             Self::program => None,
             Self::symbol_name => None,
             Self::function_alias_declaration => None,
@@ -174,8 +172,6 @@ pub enum RevsetParseErrorKind {
         similar_op: String,
         description: String,
     },
-    #[error("Modifier `{0}` doesn't exist")]
-    NoSuchModifier(String),
     #[error("Function `{name}` doesn't exist")]
     NoSuchFunction {
         name: String,
@@ -342,8 +338,6 @@ pub enum ExpressionKind<'i> {
     /// `x | y | ..`
     UnionAll(Vec<ExpressionNode<'i>>),
     FunctionCall(Box<FunctionCallNode<'i>>),
-    /// `name: body`
-    Modifier(Box<ModifierNode<'i>>),
     /// Identity node to preserve the span in the source text.
     AliasExpanded(AliasId<'i>, Box<ExpressionNode<'i>>),
 }
@@ -376,14 +370,6 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
                 Ok(Self::UnionAll(nodes))
             }
             Self::FunctionCall(function) => folder.fold_function_call(function, span),
-            Self::Modifier(modifier) => {
-                let modifier = Box::new(ModifierNode {
-                    name: modifier.name,
-                    name_span: modifier.name_span,
-                    body: folder.fold_expression(modifier.body)?,
-                });
-                Ok(Self::Modifier(modifier))
-            }
             Self::AliasExpanded(id, subst) => {
                 let subst = Box::new(folder.fold_expression(*subst)?);
                 Ok(Self::AliasExpanded(id, subst))
@@ -439,17 +425,6 @@ pub enum BinaryOp {
 pub type ExpressionNode<'i> = dsl_util::ExpressionNode<'i, ExpressionKind<'i>>;
 pub type FunctionCallNode<'i> = dsl_util::FunctionCallNode<'i, ExpressionKind<'i>>;
 
-/// Expression with modifier `name: body`.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ModifierNode<'i> {
-    /// Modifier name.
-    pub name: &'i str,
-    /// Span of the modifier name.
-    pub name_span: pest::Span<'i>,
-    /// Expression body.
-    pub body: ExpressionNode<'i>,
-}
-
 fn union_nodes<'i>(lhs: ExpressionNode<'i>, rhs: ExpressionNode<'i>) -> ExpressionNode<'i> {
     let span = lhs.span.start_pos().span(&rhs.span.end_pos());
     let expr = match lhs.kind {
@@ -462,35 +437,6 @@ fn union_nodes<'i>(lhs: ExpressionNode<'i>, rhs: ExpressionNode<'i>) -> Expressi
         _ => ExpressionKind::UnionAll(vec![lhs, rhs]),
     };
     ExpressionNode::new(expr, span)
-}
-
-/// Parses text into expression tree. The text may be prefixed with `all:`.
-/// No name resolution is made at this stage.
-// TODO: drop support for legacy "all:" modifier in jj 0.38+
-pub fn parse_program_with_modifier(
-    revset_str: &str,
-) -> Result<ExpressionNode<'_>, RevsetParseError> {
-    let mut pairs = RevsetParser::parse(Rule::program_with_modifier, revset_str)?;
-    let first = pairs.next().unwrap();
-    match first.as_rule() {
-        Rule::expression => parse_expression_node(first),
-        Rule::program_modifier => {
-            let [lhs, op] = first.into_inner().collect_array().unwrap();
-            let rhs = pairs.next().unwrap();
-            assert_eq!(lhs.as_rule(), Rule::strict_identifier);
-            assert_eq!(op.as_rule(), Rule::pattern_kind_op);
-            assert_eq!(rhs.as_rule(), Rule::expression);
-            let span = lhs.as_span().start_pos().span(&rhs.as_span().end_pos());
-            let modifier = Box::new(ModifierNode {
-                name: lhs.as_str(),
-                name_span: lhs.as_span(),
-                body: parse_expression_node(rhs)?,
-            });
-            let expr = ExpressionKind::Modifier(modifier);
-            Ok(ExpressionNode::new(expr, span))
-        }
-        r => panic!("unexpected revset parse rule: {r:?}"),
-    }
 }
 
 /// Parses text into expression tree. No name resolution is made at this stage.
@@ -766,7 +712,7 @@ impl AliasDefinitionParser for RevsetAliasParser {
     type Error = RevsetParseError;
 
     fn parse_definition<'i>(&self, source: &'i str) -> Result<ExpressionNode<'i>, Self::Error> {
-        parse_program_with_modifier(source)
+        parse_program(source)
     }
 }
 
@@ -879,7 +825,7 @@ mod tests {
         }
 
         fn parse(&'i self, text: &'i str) -> Result<ExpressionNode<'i>, RevsetParseError> {
-            let node = parse_program_with_modifier(text)?;
+            let node = parse_program(text)?;
             dsl_util::expand_aliases_with_locals(node, &self.aliases_map, &self.locals)
         }
 
@@ -908,7 +854,7 @@ mod tests {
     }
 
     fn parse_normalized(text: &str) -> ExpressionNode<'_> {
-        normalize_tree(parse_program_with_modifier(text).unwrap())
+        normalize_tree(parse_program(text).unwrap())
     }
 
     /// Drops auxiliary data from parsed tree so it can be compared with other.
@@ -964,14 +910,6 @@ mod tests {
             ExpressionKind::FunctionCall(function) => {
                 let function = Box::new(normalize_function_call(*function));
                 ExpressionKind::FunctionCall(function)
-            }
-            ExpressionKind::Modifier(modifier) => {
-                let modifier = Box::new(ModifierNode {
-                    name: modifier.name,
-                    name_span: empty_span(),
-                    body: normalize_tree(modifier.body),
-                });
-                ExpressionKind::Modifier(modifier)
             }
             ExpressionKind::AliasExpanded(_, subst) => normalize_tree(*subst).kind,
         };
@@ -1094,74 +1032,6 @@ mod tests {
         assert_eq!(parse_program(" (x) ").unwrap().span.as_str(), "(x)");
         assert_eq!(parse_program("~( x|y) ").unwrap().span.as_str(), "~( x|y)");
         assert_eq!(parse_program(" ( x )- ").unwrap().span.as_str(), "( x )-");
-    }
-
-    #[test]
-    fn test_parse_revset_with_modifier() {
-        fn parse_into_kind(text: &str) -> Result<ExpressionKind<'_>, RevsetParseErrorKind> {
-            parse_program_with_modifier(text)
-                .map(|node| node.kind)
-                .map_err(|err| *err.kind)
-        }
-
-        // all: is a program modifier, but all:: isn't
-        assert_eq!(
-            parse_into_kind("all:"),
-            Err(RevsetParseErrorKind::SyntaxError)
-        );
-        assert_matches!(
-            parse_into_kind("all:foo"),
-            Ok(ExpressionKind::Modifier(modifier)) if modifier.name == "all"
-        );
-        assert_matches!(
-            parse_into_kind("all::"),
-            Ok(ExpressionKind::Unary(UnaryOp::DagRangePost, _))
-        );
-        assert_matches!(
-            parse_into_kind("all::foo"),
-            Ok(ExpressionKind::Binary(BinaryOp::DagRange, _, _))
-        );
-
-        // all::: could be parsed as all:(::), but rejected for simplicity
-        assert_eq!(
-            parse_into_kind("all:::"),
-            Err(RevsetParseErrorKind::SyntaxError)
-        );
-        assert_eq!(
-            parse_into_kind("all:::foo"),
-            Err(RevsetParseErrorKind::SyntaxError)
-        );
-
-        assert_eq!(parse_normalized("all:(foo)"), parse_normalized("all:foo"));
-        assert_eq!(
-            parse_normalized("all:all::foo"),
-            parse_normalized("all:(all::foo)"),
-        );
-        assert_eq!(
-            parse_normalized("all:all | foo"),
-            parse_normalized("all:(all | foo)"),
-        );
-
-        assert_eq!(
-            parse_normalized("all: ::foo"),
-            parse_normalized("all:(::foo)"),
-        );
-        assert_eq!(parse_normalized(" all: foo"), parse_normalized("all:foo"));
-        assert_eq!(
-            parse_into_kind("(all:foo)"),
-            Ok(ExpressionKind::StringPattern {
-                kind: "all",
-                value: "foo".to_owned()
-            })
-        );
-        assert_matches!(
-            parse_into_kind("all :foo"),
-            Err(RevsetParseErrorKind::SyntaxError)
-        );
-        assert_eq!(
-            parse_normalized("all:all:all"),
-            parse_normalized("all:(all:all)"),
-        );
     }
 
     #[test]
@@ -1729,18 +1599,6 @@ mod tests {
             parse_normalized("a@B")
         );
 
-        // Modifier cannot be substituted.
-        assert_eq!(
-            with_aliases([("all", "ALL")]).parse_normalized("all:all"),
-            parse_normalized("all:ALL")
-        );
-
-        // Top-level alias can be substituted to modifier expression.
-        assert_eq!(
-            with_aliases([("A", "all:a")]).parse_normalized("A"),
-            parse_normalized("all:a")
-        );
-
         // Multi-level substitution.
         assert_eq!(
             with_aliases([("A", "BC"), ("BC", "b|C"), ("C", "c")]).parse_normalized("A"),
@@ -1820,12 +1678,6 @@ mod tests {
         assert_eq!(
             with_aliases([("F(x)", r#"x|"x""#)]).parse_normalized("F(a)"),
             parse_normalized("a|'x'")
-        );
-
-        // Modifier expression body as parameter.
-        assert_eq!(
-            with_aliases([("F(x)", "all:x")]).parse_normalized("F(a|b)"),
-            parse_normalized("all:(a|b)")
         );
 
         // Function and symbol aliases reside in separate namespaces.

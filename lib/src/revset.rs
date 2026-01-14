@@ -66,7 +66,6 @@ pub use crate::revset_parser::RevsetParseErrorKind;
 pub use crate::revset_parser::UnaryOp;
 pub use crate::revset_parser::expect_literal;
 pub use crate::revset_parser::parse_program;
-pub use crate::revset_parser::parse_program_with_modifier;
 pub use crate::revset_parser::parse_symbol;
 use crate::store::Store;
 use crate::str_util::StringExpression;
@@ -132,17 +131,6 @@ pub const GENERATION_RANGE_FULL: Range<u64> = 0..u64::MAX;
 pub const GENERATION_RANGE_EMPTY: Range<u64> = 0..0;
 
 pub const PARENTS_RANGE_FULL: Range<u32> = 0..u32::MAX;
-
-/// Global flag applied to the entire expression.
-///
-/// The core revset engine doesn't use this value. It's up to caller to
-/// interpret it to change the evaluation behavior.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum RevsetModifier {
-    /// Expression can be evaluated to multiple revisions even if a single
-    /// revision is expected by default.
-    All,
-}
 
 /// Symbol or function to be resolved to `CommitId`s.
 #[derive(Clone, Debug)]
@@ -1247,7 +1235,7 @@ fn expect_string_expression_inner(
                     .try_collect()?;
                 Ok(StringExpression::union_all(expressions))
             }
-            ExpressionKind::FunctionCall(_) | ExpressionKind::Modifier(_) => Err(expr_error()),
+            ExpressionKind::FunctionCall(_) => Err(expr_error()),
             ExpressionKind::AliasExpanded(..) => unreachable!(),
         }
     })
@@ -1381,13 +1369,6 @@ pub fn lower_expression(
         ExpressionKind::FunctionCall(function) => {
             lower_function_call(diagnostics, function, context)
         }
-        ExpressionKind::Modifier(modifier) => {
-            let name = modifier.name;
-            Err(RevsetParseError::expression(
-                format!("Modifier `{name}:` is not allowed in sub expression"),
-                modifier.name_span,
-            ))
-        }
         ExpressionKind::AliasExpanded(..) => unreachable!(),
     })
 }
@@ -1402,43 +1383,6 @@ pub fn parse(
         dsl_util::expand_aliases_with_locals(node, context.aliases_map, &context.local_variables)?;
     lower_expression(diagnostics, &node, &context.to_lowering_context())
         .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
-}
-
-pub fn parse_with_modifier(
-    diagnostics: &mut RevsetDiagnostics,
-    revset_str: &str,
-    context: &RevsetParseContext,
-) -> Result<(Arc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
-    let node = parse_program_with_modifier(revset_str)?;
-    let node =
-        dsl_util::expand_aliases_with_locals(node, context.aliases_map, &context.local_variables)?;
-    revset_parser::catch_aliases(diagnostics, &node, |diagnostics, node| match &node.kind {
-        ExpressionKind::Modifier(modifier) => {
-            let parsed_modifier = match modifier.name {
-                "all" => {
-                    diagnostics.add_warning(RevsetParseError::expression(
-                        "Multiple revisions are allowed by default; `all:` is planned for removal",
-                        modifier.name_span,
-                    ));
-                    RevsetModifier::All
-                }
-                _ => {
-                    return Err(RevsetParseError::with_span(
-                        RevsetParseErrorKind::NoSuchModifier(modifier.name.to_owned()),
-                        modifier.name_span,
-                    ));
-                }
-            };
-            let parsed_body =
-                lower_expression(diagnostics, &modifier.body, &context.to_lowering_context())?;
-            Ok((parsed_body, Some(parsed_modifier)))
-        }
-        _ => {
-            let parsed_body = lower_expression(diagnostics, node, &context.to_lowering_context())?;
-            Ok((parsed_body, None))
-        }
-    })
-    .map_err(|err| err.extend_function_candidates(context.aliases_map.function_names()))
 }
 
 /// Parses text into a string matcher expression.
@@ -3654,33 +3598,6 @@ mod tests {
         super::parse(&mut RevsetDiagnostics::new(), revset_str, &context)
     }
 
-    fn parse_with_modifier(
-        revset_str: &str,
-    ) -> Result<(Arc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
-        parse_with_aliases_and_modifier(revset_str, [] as [(&str, &str); 0])
-    }
-
-    fn parse_with_aliases_and_modifier(
-        revset_str: &str,
-        aliases: impl IntoIterator<Item = (impl AsRef<str>, impl Into<String>)>,
-    ) -> Result<(Arc<UserRevsetExpression>, Option<RevsetModifier>), RevsetParseError> {
-        let mut aliases_map = RevsetAliasesMap::new();
-        for (decl, defn) in aliases {
-            aliases_map.insert(decl, defn).unwrap();
-        }
-        let context = RevsetParseContext {
-            aliases_map: &aliases_map,
-            local_variables: HashMap::new(),
-            user_email: "test.user@example.com",
-            date_pattern_context: chrono::Utc::now().fixed_offset().into(),
-            default_ignored_remote: Some("ignored".as_ref()),
-            use_glob_by_default: true,
-            extensions: &RevsetExtensions::default(),
-            workspace: None,
-        };
-        super::parse_with_modifier(&mut RevsetDiagnostics::new(), revset_str, &context)
-    }
-
     fn insta_settings() -> insta::Settings {
         let mut settings = insta::Settings::clone_current();
         // Collapse short "Thing(_,)" repeatedly to save vertical space and make
@@ -4034,25 +3951,6 @@ mod tests {
             CommitRef(Symbol("bar")),
         )
         "#);
-    }
-
-    #[test]
-    fn test_parse_revset_with_modifier() {
-        let settings = insta_settings();
-        let _guard = settings.bind_to_scope();
-
-        insta::assert_debug_snapshot!(
-            parse_with_modifier("all:foo").unwrap(), @r#"
-        (
-            CommitRef(Symbol("foo")),
-            Some(All),
-        )
-        "#);
-
-        // Top-level string pattern can't be parsed, which is an error anyway
-        insta::assert_debug_snapshot!(
-            parse_with_modifier(r#"exact:"foo""#).unwrap_err().kind(),
-            @r#"NoSuchModifier("exact")"#);
     }
 
     #[test]
@@ -4445,16 +4343,9 @@ mod tests {
         insta::assert_debug_snapshot!(
             parse_with_aliases("author_name(A)", [("A", "a")]).unwrap(),
             @r#"Filter(AuthorName(Pattern(Exact("a"))))"#);
-        // However, parentheses are required because top-level x:y is parsed as
-        // program modifier.
         insta::assert_debug_snapshot!(
-            parse_with_aliases("author_name(A)", [("A", "(exact:a)")]).unwrap(),
+            parse_with_aliases("author_name(A)", [("A", "exact:a")]).unwrap(),
             @r#"Filter(AuthorName(Pattern(Exact("a"))))"#);
-
-        // Sub-expression alias cannot be substituted to modifier expression.
-        insta::assert_debug_snapshot!(
-            parse_with_aliases_and_modifier("A-", [("A", "all:a")]).unwrap_err().kind(),
-            @r#"InAliasExpansion("A")"#);
     }
 
     #[test]

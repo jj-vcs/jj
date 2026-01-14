@@ -1388,14 +1388,6 @@ mod tests {
     }
 
     #[test]
-    fn test_split_revset_trailing_name_with_modifier() {
-        assert_eq!(split_revset_trailing_name("all:"), Some(("all:", "")));
-        assert_eq!(split_revset_trailing_name("all: "), Some(("all: ", "")));
-        assert_eq!(split_revset_trailing_name("all:f"), Some(("all:", "f")));
-        assert_eq!(split_revset_trailing_name("all: f"), Some(("all: ", "f")));
-    }
-
-    #[test]
     fn test_config_keys() {
         // Just make sure the schema is parsed without failure.
         config_keys();
