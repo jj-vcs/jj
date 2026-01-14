@@ -256,9 +256,9 @@ revsets (expressions) as arguments.
 
 * `bookmarks([pattern])`: All local bookmark targets. If `pattern` is specified,
   this selects the bookmarks whose name match the given [string
-  pattern](#string-patterns). For example, `bookmarks(push)` would match the
-  bookmarks `push-123` and `repushed` but not the bookmark `main`. If a bookmark is
-  in a conflicted state, all its possible targets are included.
+  pattern](#string-patterns). For example, `bookmarks(*push*)` would match the
+  bookmarks `push-123` and `repushed` but not the bookmark `main`. If a bookmark
+  is in a conflicted state, all its possible targets are included.
 
 * `remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])`: All remote
   bookmarks targets across all remotes. If just the `bookmark_pattern` is
@@ -267,7 +267,7 @@ revsets (expressions) as arguments.
   `bookmark_pattern` and `remote_pattern` are specified, the selection is
   further restricted to just the remotes whose names match `remote_pattern`.
 
-  For example, `remote_bookmarks(push, ri)` would match the bookmarks
+  For example, `remote_bookmarks(*push*, *ri*)` would match the bookmarks
   `push-123@origin` and `repushed@private` but not `push-123@upstream` or
   `main@origin` or `main@upstream`. If a bookmark is in a conflicted state, all
   its possible targets are included.
@@ -283,11 +283,11 @@ revsets (expressions) as arguments.
   All targets of untracked remote bookmarks. Supports the same optional arguments
   as `remote_bookmarks()`.
 
-* `tags([pattern])`: All tag targets. If `pattern` is specified,
-  this selects the tags whose name match the given [string
-  pattern](#string-patterns). For example, `tags(v1)` would match the
-  tags `v123` and `rev1` but not the tag `v2`. If a tag is
-  in a conflicted state, all its possible targets are included.
+* `tags([pattern])`: All tag targets. If `pattern` is specified, this selects
+  the tags whose name match the given [string pattern](#string-patterns). For
+  example, `tags(*v1*)` would match the tags `v123` and `rev1` but not the tag
+  `v2`. If a tag is in a conflicted state, all its possible targets are
+  included.
 
 * `visible_heads()`: All visible heads (same as `heads(all())` if no hidden
   revisions are mentioned).
