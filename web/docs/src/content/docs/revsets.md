@@ -101,6 +101,7 @@ You can use parentheses to control evaluation order, such as `(x & y) | z` or
 
 <details>
 <summary>Examples</summary>
+
 Given this history:
 
 ```
@@ -192,6 +193,7 @@ o root()
 * `none()..D` ⇒ `{D,C,B,A,root()}`
 * `D..B` ⇒ `{}` (empty set)
 * `(C|B)..(C|B)` ⇒ `{}` (empty set)
+
 </details>
 
 ## Functions
@@ -201,6 +203,7 @@ revsets (expressions) as arguments.
 
 <details>
 <summary>Function argument syntax</summary>
+
 In this documentation, optional arguments are indicated with square
 brackets like `[arg]`. Some arguments also have an optional label which can
 be used to specify that argument without specifying all previous arguments.
@@ -213,6 +216,7 @@ indicates that all of the following usages are valid:
 * `remote_bookmarks("main", "origin")`
 * `remote_bookmarks("main", remote="origin")`
 * `remote_bookmarks(remote="origin")`
+
 </details>
 
 * `parents(x, [depth])`: `parents(x)` is the same as `x-`.
@@ -421,6 +425,7 @@ indicates that all of the following usages are valid:
 
 <details>
 <summary>Examples</summary>
+
 Given this history:
 
 ```
@@ -478,6 +483,7 @@ o root()
 * `fork_point(B|C)` ⇒ `{A}`
 * `fork_point(A)` ⇒ `{A}`
 * `fork_point(none())` ⇒ `{}`
+
 </details>
 
 ## String patterns
