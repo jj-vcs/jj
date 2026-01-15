@@ -1197,7 +1197,8 @@ fn expect_string_expression_inner(
         match &node.kind {
             ExpressionKind::Identifier(value) => default_pattern(diagnostics, value),
             ExpressionKind::String(value) => default_pattern(diagnostics, value),
-            ExpressionKind::StringPattern { kind, value } => {
+            ExpressionKind::Pattern { kind, value } => {
+                let value = revset_parser::expect_string_literal("string", value)?;
                 let pattern = StringPattern::from_str_kind(value, kind)
                     .map_err(|err| pattern_error().with_source(err))?;
                 Ok(StringExpression::pattern(pattern))
@@ -1314,7 +1315,7 @@ pub fn lower_expression(
     revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| match &node.kind {
         ExpressionKind::Identifier(name) => Ok(RevsetExpression::symbol((*name).to_owned())),
         ExpressionKind::String(name) => Ok(RevsetExpression::symbol(name.to_owned())),
-        ExpressionKind::StringPattern { .. } => Err(RevsetParseError::with_span(
+        ExpressionKind::Pattern { .. } => Err(RevsetParseError::with_span(
             RevsetParseErrorKind::NotInfixOperator {
                 op: ":".to_owned(),
                 similar_op: "::".to_owned(),

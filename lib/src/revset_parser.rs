@@ -318,10 +318,10 @@ pub enum ExpressionKind<'i> {
     Identifier(&'i str),
     /// Quoted symbol or string.
     String(String),
-    /// `<kind>:<value>`
-    StringPattern {
+    /// `<kind>:<value>` where `<value>` should be `Identifier` or `String`.
+    Pattern {
         kind: &'i str,
-        value: String,
+        value: Box<ExpressionNode<'i>>,
     },
     /// `<name>@<remote>`
     RemoteSymbol(RemoteRefSymbolBuf),
@@ -350,7 +350,7 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
         match self {
             Self::Identifier(name) => folder.fold_identifier(name, span),
             Self::String(_)
-            | Self::StringPattern { .. }
+            | Self::Pattern { .. }
             | Self::RemoteSymbol(_)
             | ExpressionKind::AtWorkspace(_)
             | Self::AtCurrentWorkspace
@@ -595,8 +595,13 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
             assert_eq!(lhs.as_rule(), Rule::strict_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
             let kind = lhs.as_str();
-            let value = parse_as_string_literal(rhs);
-            ExpressionKind::StringPattern { kind, value }
+            let value_span = rhs.as_span();
+            let value_expr = match rhs.as_rule() {
+                Rule::identifier => ExpressionKind::Identifier(rhs.as_str()),
+                _ => ExpressionKind::String(parse_as_string_literal(rhs)),
+            };
+            let value = Box::new(ExpressionNode::new(value_expr, value_span));
+            ExpressionKind::Pattern { kind, value }
         }
         // Identifier without "@" may be substituted by aliases. Primary expression including "@"
         // is considered an indecomposable unit, and no alias substitution would be made.
@@ -723,7 +728,10 @@ pub(super) fn expect_string_pattern<'a>(
     catch_aliases_no_diagnostics(node, |node| match &node.kind {
         ExpressionKind::Identifier(name) => Ok((*name, None)),
         ExpressionKind::String(name) => Ok((name, None)),
-        ExpressionKind::StringPattern { kind, value } => Ok((value, Some(*kind))),
+        ExpressionKind::Pattern { kind, value } => {
+            let value = expect_string_literal("string", value)?;
+            Ok((value, Some(*kind)))
+        }
         _ => Err(RevsetParseError::expression(
             format!("Expected {type_name}"),
             node.span,
@@ -886,10 +894,12 @@ mod tests {
         }
 
         let normalized_kind = match node.kind {
-            ExpressionKind::Identifier(_)
-            | ExpressionKind::String(_)
-            | ExpressionKind::StringPattern { .. }
-            | ExpressionKind::RemoteSymbol(_)
+            ExpressionKind::Identifier(_) | ExpressionKind::String(_) => node.kind,
+            ExpressionKind::Pattern { kind, value } => {
+                let value = Box::new(normalize_tree(*value));
+                ExpressionKind::Pattern { kind, value }
+            }
+            ExpressionKind::RemoteSymbol(_)
             | ExpressionKind::AtWorkspace(_)
             | ExpressionKind::AtCurrentWorkspace
             | ExpressionKind::DagRangeAll
@@ -1159,12 +1169,15 @@ mod tests {
 
     #[test]
     fn test_parse_string_pattern() {
-        assert_eq!(
+        assert_matches!(
             parse_into_kind(r#"substring:"foo""#),
-            Ok(ExpressionKind::StringPattern {
-                kind: "substring",
-                value: "foo".to_owned()
-            })
+            Ok(ExpressionKind::Pattern { kind: "substring", value })
+                if value.kind == ExpressionKind::String("foo".to_owned())
+        );
+        assert_matches!(
+            parse_into_kind("exact:foo"),
+            Ok(ExpressionKind::Pattern { kind: "exact", value })
+                if value.kind == ExpressionKind::Identifier("foo")
         );
         assert_eq!(
             parse_into_kind(r#""exact:foo""#),
@@ -1174,12 +1187,10 @@ mod tests {
             parse_normalized(r#"(exact:"foo" )"#),
             parse_normalized(r#"(exact:"foo")"#),
         );
-        assert_eq!(
+        assert_matches!(
             parse_into_kind(r#"exact:'\'"#),
-            Ok(ExpressionKind::StringPattern {
-                kind: "exact",
-                value: r"\".to_owned()
-            })
+            Ok(ExpressionKind::Pattern { kind: "exact", value })
+                if value.kind == ExpressionKind::String(r"\".to_owned())
         );
         assert_matches!(
             parse_into_kind(r#"exact:("foo" )"#),
