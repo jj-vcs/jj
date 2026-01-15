@@ -42,7 +42,7 @@ use crate::cli_util::WorkspaceCommandTransaction;
 use crate::cli_util::compute_commit_location;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
-use crate::command_error::user_error_with_hint;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::description_util::add_trailers;
 use crate::description_util::description_template;
@@ -209,13 +209,11 @@ impl SplitArgs {
     ) -> Result<ResolvedSplitArgs, CommandError> {
         let target_commit = workspace_command.resolve_single_rev(ui, &self.revision)?;
         if target_commit.is_empty(workspace_command.repo().as_ref())? {
-            return Err(user_error_with_hint(
-                format!(
-                    "Refusing to split empty commit {}.",
-                    target_commit.id().hex()
-                ),
-                "Use `jj new` if you want to create another empty commit.",
-            ));
+            return Err(user_error(format!(
+                "Refusing to split empty commit {}.",
+                target_commit.id().hex()
+            ))
+            .hinted("Use `jj new` if you want to create another empty commit."));
         }
         workspace_command.check_rewritable([target_commit.id()])?;
         let repo = workspace_command.repo();

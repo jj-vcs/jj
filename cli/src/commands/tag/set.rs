@@ -21,7 +21,7 @@ use jj_lib::ref_name::RefNameBuf;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
-use crate::command_error::user_error_with_hint;
+use crate::command_error::user_error;
 use crate::complete;
 use crate::revset_util;
 use crate::ui::Ui;
@@ -66,10 +66,11 @@ pub fn cmd_tag_set(
         // TODO: If we add support for tracked remote tags, deleted tags should
         // be considered present until they get pushed. See cmd_bookmark_set().
         if old_target.is_present() && !args.allow_move {
-            return Err(user_error_with_hint(
-                format!("Refusing to move tag: {name}", name = name.as_symbol()),
-                "Use --allow-move to update existing tags.",
-            ));
+            return Err(user_error(format!(
+                "Refusing to move tag: {name}",
+                name = name.as_symbol()
+            ))
+            .hinted("Use --allow-move to update existing tags."));
         }
         if old_target.is_absent() {
             new_count += 1;
