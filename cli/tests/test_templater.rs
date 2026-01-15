@@ -108,6 +108,20 @@ fn test_templater_parse_error() {
     [exit status: 1]
     ");
 
+    // Unexpanded identifier in string pattern
+    insta::assert_snapshot!(render(r#"''.match(exact:foo)"#), @"
+    ------- stderr -------
+    Error: Failed to parse template: Expected string literal
+    Caused by:  --> 1:16
+      |
+    1 | ''.match(exact:foo)
+      |                ^-^
+      |
+      = Expected string literal
+    [EOF]
+    [exit status: 1]
+    ");
+
     // "at least N arguments"
     insta::assert_snapshot!(render("separate()"), @r"
     ------- stderr -------
