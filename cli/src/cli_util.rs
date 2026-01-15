@@ -1662,26 +1662,9 @@ to the current parents may contain changes from multiple commits.
         let mut all_commits = IndexSet::new();
         for revision_arg in revision_args {
             let (expression, modifier) = self.parse_revset_with_modifier(ui, revision_arg)?;
-            let all = match modifier {
-                Some(RevsetModifier::All) => true,
-                None => self.settings().get_bool("ui.always-allow-large-revsets")?,
-            };
-            if all {
-                for commit_id in expression.evaluate_to_commit_ids()? {
-                    all_commits.insert(commit_id?);
-                }
-            } else {
-                let commit = revset_util::evaluate_revset_to_single_commit(
-                    revision_arg.as_ref(),
-                    &expression,
-                    || self.commit_summary_template(),
-                )?;
-                if !all_commits.insert(commit.id().clone()) {
-                    let commit_hash = short_commit_hash(commit.id());
-                    return Err(user_error(format!(
-                        r#"More than one revset resolved to revision {commit_hash}"#,
-                    )));
-                }
+            let (None | Some(RevsetModifier::All)) = modifier;
+            for commit_id in expression.evaluate_to_commit_ids()? {
+                all_commits.insert(commit_id?);
             }
         }
         Ok(all_commits)

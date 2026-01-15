@@ -1,6 +1,5 @@
 #:schema ../../../src/config-schema.json
 [ui]
-always-allow-large-revsets = true
 default-command = "status"
 default-description = "feat: "
 diff-formatter = ":git"

@@ -776,58 +776,6 @@ fn test_rebase_multiple_destinations() {
     [EOF]
     ");
 
-    let setup_opid2 = work_dir.current_operation_id();
-    let output = work_dir.run_jj([
-        "rebase",
-        "--config=ui.always-allow-large-revsets=false",
-        "-r",
-        "a",
-        "-o",
-        "b|c",
-    ]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Error: Revset `b|c` resolved to more than one revision
-    Hint: The revset `b|c` resolved to these revisions:
-      royxmykx c12952d9 c | c
-      zsuskuln d18ca3e8 b | b
-    [EOF]
-    [exit status: 1]
-    ");
-
-    // try with 'all:' and succeed
-    let output = work_dir.run_jj([
-        "rebase",
-        "--config=ui.always-allow-large-revsets=false",
-        "-r",
-        "a",
-        "-o",
-        "all:b|c",
-    ]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: In revset expression
-     --> 1:1
-      |
-    1 | all:b|c
-      | ^-^
-      |
-      = Multiple revisions are allowed by default; `all:` is planned for removal
-    Rebased 1 commits to destination
-    [EOF]
-    ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    ○    a: c b
-    ├─╮
-    │ ○  b
-    @ │  c
-    ├─╯
-    ◆
-    [EOF]
-    ");
-
-    // undo and do it again, but without 'ui.always-allow-large-revsets=false'
-    work_dir.run_jj(["op", "restore", &setup_opid2]).success();
     work_dir.run_jj(["rebase", "-r=a", "-d=b|c"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
     ○    a: c b
