@@ -560,17 +560,39 @@ mod tests {
     #[test]
     fn test_nothing_matcher() {
         let m = NothingMatcher;
+        assert!(!m.matches(RepoPath::root()));
         assert!(!m.matches(repo_path("file")));
         assert!(!m.matches(repo_path("dir/file")));
         assert_eq!(m.visit(RepoPath::root()), Visit::Nothing);
     }
 
     #[test]
+    fn test_everything_matcher() {
+        let m = EverythingMatcher;
+        assert!(m.matches(RepoPath::root()));
+        assert!(m.matches(repo_path("file")));
+        assert!(m.matches(repo_path("dir/file")));
+        assert_eq!(m.visit(RepoPath::root()), Visit::AllRecursively);
+    }
+
+    #[test]
     fn test_files_matcher_empty() {
         let m = FilesMatcher::new([] as [&RepoPath; 0]);
+        assert!(!m.matches(RepoPath::root()));
         assert!(!m.matches(repo_path("file")));
         assert!(!m.matches(repo_path("dir/file")));
         assert_eq!(m.visit(RepoPath::root()), Visit::Nothing);
+    }
+
+    #[test]
+    fn test_files_matcher_root() {
+        let m = FilesMatcher::new([RepoPath::root()]);
+        assert!(m.matches(RepoPath::root()));
+        assert!(!m.matches(repo_path("file")));
+        assert!(!m.matches(repo_path("dir/file")));
+        // No sub directories nor files will match
+        assert_eq!(m.visit(RepoPath::root()), Visit::Nothing);
+        assert_eq!(m.visit(repo_path("dir")), Visit::Nothing);
     }
 
     #[test]
@@ -582,6 +604,7 @@ mod tests {
             repo_path("file4"),
         ]);
 
+        assert!(!m.matches(RepoPath::root()));
         assert!(!m.matches(repo_path("dir1")));
         assert!(!m.matches(repo_path("dir1/subdir1")));
         assert!(m.matches(repo_path("dir1/subdir1/file1")));
@@ -624,6 +647,7 @@ mod tests {
     #[test]
     fn test_prefix_matcher_empty() {
         let m = PrefixMatcher::new([] as [&RepoPath; 0]);
+        assert!(!m.matches(RepoPath::root()));
         assert!(!m.matches(repo_path("file")));
         assert!(!m.matches(repo_path("dir/file")));
         assert_eq!(m.visit(RepoPath::root()), Visit::Nothing);
@@ -633,6 +657,7 @@ mod tests {
     fn test_prefix_matcher_root() {
         let m = PrefixMatcher::new([RepoPath::root()]);
         // Matches all files
+        assert!(m.matches(RepoPath::root()));
         assert!(m.matches(repo_path("file")));
         assert!(m.matches(repo_path("dir/file")));
         // Visits all directories
@@ -645,6 +670,7 @@ mod tests {
         let m = PrefixMatcher::new([repo_path("foo/bar")]);
 
         // Parts of the prefix should not match
+        assert!(!m.matches(RepoPath::root()));
         assert!(!m.matches(repo_path("foo")));
         assert!(!m.matches(repo_path("bar")));
         // A file matching the prefix exactly should match
