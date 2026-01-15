@@ -693,6 +693,27 @@ fn test_alias() {
     [exit status: 1]
     ");
 
+    let output = work_dir.run_jj(["log", "-r", "author(exact:my-root)"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Failed to parse revset: In alias `my-root`
+    Caused by:
+    1:  --> 1:14
+      |
+    1 | author(exact:my-root)
+      |              ^-----^
+      |
+      = In alias `my-root`
+    2:  --> 1:1
+      |
+    1 | root()
+      | ^----^
+      |
+      = Expected string
+    [EOF]
+    [exit status: 1]
+    ");
+
     let output = work_dir.run_jj(["log", "-r", "root() & recurse"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------

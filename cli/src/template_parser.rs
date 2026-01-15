@@ -289,7 +289,8 @@ pub enum ExpressionKind<'i> {
     Boolean(bool),
     Integer(i64),
     String(String),
-    /// `<kind>:<value>` where `<value>` should be `Identifier` or `String`.
+    /// `<kind>:<value>` where `<value>` should be `Identifier` or `String`, but
+    /// may be an arbitrary expression after alias substitution.
     Pattern {
         kind: &'i str,
         value: Box<ExpressionNode<'i>>,
@@ -311,10 +312,11 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
     {
         match self {
             Self::Identifier(name) => folder.fold_identifier(name, span),
-            ExpressionKind::Boolean(_)
-            | ExpressionKind::Integer(_)
-            | ExpressionKind::String(_)
-            | ExpressionKind::Pattern { .. } => Ok(self),
+            Self::Boolean(_) | Self::Integer(_) | Self::String(_) => Ok(self),
+            Self::Pattern { kind, value } => {
+                let value = Box::new(folder.fold_expression(*value)?);
+                Ok(Self::Pattern { kind, value })
+            }
             Self::Unary(op, arg) => {
                 let arg = Box::new(folder.fold_expression(*arg)?);
                 Ok(Self::Unary(op, arg))
@@ -1361,6 +1363,23 @@ mod tests {
         assert_eq!(
             with_aliases([("AB", "a ++ b")]).parse_normalized("if(AB, label(c, AB))"),
             parse_normalized("if((a ++ b), label(c, (a ++ b)))"),
+        );
+
+        // Kind of string pattern should not be substituted, which is similar to
+        // function name.
+        assert_eq!(
+            with_aliases([("A", "'a'")]).parse_normalized("A:b"),
+            parse_normalized("A:b")
+        );
+
+        // Value of string pattern can be substituted if it's an identifier.
+        assert_eq!(
+            with_aliases([("A", "'a'")]).parse_normalized("exact:A"),
+            parse_normalized("exact:'a'")
+        );
+        assert_eq!(
+            with_aliases([("A", "'a'")]).parse_normalized("exact:'A'"),
+            parse_normalized("exact:'A'")
         );
 
         // Multi-level substitution.

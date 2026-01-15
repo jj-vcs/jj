@@ -39,6 +39,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * New `divergent()` revset function for divergent changes.
 
+* String pattern values in revsets and templates can now be substituted by
+  aliases. For example, `grep(x) = description(regex:x)` now works.
+
 * A new config option `remotes.<name>.auto-track-created-bookmarks` behaves
   similarly to `auto-track-bookmarks`, but it only applies to bookmarks created
   locally. Setting it to `"*"` is now the closest replacement for the deprecated

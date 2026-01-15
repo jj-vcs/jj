@@ -318,7 +318,8 @@ pub enum ExpressionKind<'i> {
     Identifier(&'i str),
     /// Quoted symbol or string.
     String(String),
-    /// `<kind>:<value>` where `<value>` should be `Identifier` or `String`.
+    /// `<kind>:<value>` where `<value>` should be `Identifier` or `String`, but
+    /// may be an arbitrary expression after alias substitution.
     Pattern {
         kind: &'i str,
         value: Box<ExpressionNode<'i>>,
@@ -349,9 +350,12 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
     {
         match self {
             Self::Identifier(name) => folder.fold_identifier(name, span),
-            Self::String(_)
-            | Self::Pattern { .. }
-            | Self::RemoteSymbol(_)
+            Self::String(_) => Ok(self),
+            Self::Pattern { kind, value } => {
+                let value = Box::new(folder.fold_expression(*value)?);
+                Ok(Self::Pattern { kind, value })
+            }
+            Self::RemoteSymbol(_)
             | ExpressionKind::AtWorkspace(_)
             | Self::AtCurrentWorkspace
             | Self::DagRangeAll
@@ -1590,10 +1594,21 @@ mod tests {
             parse_normalized("a|'A'|'A'")
         );
 
-        // Part of string pattern cannot be substituted.
+        // Kind of string pattern should not be substituted, which is similar to
+        // function name.
+        assert_eq!(
+            with_aliases([("A", "a")]).parse_normalized("author(A:b)"),
+            parse_normalized("author(A:b)")
+        );
+
+        // Value of string pattern can be substituted if it's an identifier.
         assert_eq!(
             with_aliases([("A", "a")]).parse_normalized("author(exact:A)"),
-            parse_normalized("author(exact:A)")
+            parse_normalized("author(exact:a)")
+        );
+        assert_eq!(
+            with_aliases([("A", "a")]).parse_normalized("author(exact:'A')"),
+            parse_normalized("author(exact:'A')")
         );
 
         // Part of @ symbol cannot be substituted.
