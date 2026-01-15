@@ -15,6 +15,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use indoc::indoc;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
 use jj_lib::fix::FileFixer;
@@ -25,6 +26,8 @@ use jj_lib::fix::fix_files;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo_path::RepoPath;
+use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use pollster::FutureExt as _;
@@ -38,17 +41,56 @@ use testutils::read_file;
 use testutils::repo_path;
 use thiserror::Error;
 
-struct TestFileFixer {}
+type ReplacementKey = (RepoPathBuf, Vec<u8>);
+
+#[derive(Clone, Debug)]
+struct TestFileFixer {
+    replacements: HashMap<ReplacementKey, Vec<u8>>,
+}
 
 impl TestFileFixer {
     fn new() -> Self {
-        Self {}
+        Self {
+            replacements: HashMap::new(),
+        }
+    }
+
+    fn add_replacement(
+        &mut self,
+        repo_path: &RepoPath,
+        old_content: impl AsRef<[u8]>,
+        new_content: impl AsRef<[u8]>,
+    ) {
+        self.replacements.insert(
+            (repo_path.to_owned(), old_content.as_ref().to_vec()),
+            new_content.as_ref().to_vec(),
+        );
+    }
+
+    fn fix_file(&mut self, store: &Store, file_to_fix: &FileToFix) -> Result<FileId, FixError> {
+        let old_content = read_file(store, &file_to_fix.repo_path, &file_to_fix.file_id);
+
+        let key = (file_to_fix.repo_path.clone(), old_content.clone());
+        let Some(new_content) = self.replacements.remove(&key) else {
+            return Err(make_fix_content_error(&format!(
+                indoc! {"
+                    Unexpected fix request:
+                    path: {}
+                    old_content: {:?}
+                "},
+                file_to_fix.repo_path.as_internal_file_string(),
+                String::from_utf8_lossy(&old_content)
+            )));
+        };
+
+        let new_file_id = store
+            .write_file(&file_to_fix.repo_path, &mut new_content.as_slice())
+            .block_on()
+            .unwrap();
+        Ok(new_file_id)
     }
 }
 
-// A file fixer that changes files to uppercase if the file content starts with
-// "fixme", returns an error if the content starts with "error", and otherwise
-// leaves files unchanged.
 impl FileFixer for TestFileFixer {
     fn fix_files<'a>(
         &mut self,
@@ -57,10 +99,10 @@ impl FileFixer for TestFileFixer {
     ) -> Result<HashMap<&'a FileToFix, FileId>, FixError> {
         let mut changed_files = HashMap::new();
         for file_to_fix in files_to_fix {
-            if let Some(new_file_id) = fix_file(store, file_to_fix)? {
-                changed_files.insert(file_to_fix, new_file_id);
-            }
+            let new_file_id = self.fix_file(store, file_to_fix)?;
+            changed_files.insert(file_to_fix, new_file_id);
         }
+        assert!(self.replacements.is_empty());
         Ok(changed_files)
     }
 }
@@ -76,6 +118,8 @@ fn make_fix_content_error(message: &str) -> FixError {
 // Reads the file from store. If the file starts with "fixme", its contents are
 // changed to uppercase and the new file id is returned. If the file starts with
 // "error", an error is raised. Otherwise returns None.
+//
+// This is used for testing `ParallelFileFixer`.
 fn fix_file(store: &Store, file_to_fix: &FileToFix) -> Result<Option<FileId>, FixError> {
     let old_content = read_file(store, &file_to_fix.repo_path, &file_to_fix.file_id);
 
@@ -107,12 +151,13 @@ fn test_fix_one_file() -> TestResult {
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "fixme:content")]);
+    let tree1 = create_tree(repo, &[(path1, "unformatted")]);
     let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
 
     let root_commits = vec![commit_a.clone()];
     let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
+    file_fixer.add_replacement(path1, b"unformatted", b"Formatted");
 
     let summary = fix_files(
         root_commits,
@@ -123,7 +168,7 @@ fn test_fix_one_file() -> TestResult {
     )
     .block_on()?;
 
-    let expected_tree_a = create_tree(repo, &[(path1, "CONTENT")]);
+    let expected_tree_a = create_tree(repo, &[(path1, "Formatted")]);
     assert_eq!(summary.rewrites.len(), 1);
     assert!(summary.rewrites.contains_key(&commit_a));
     assert_eq!(summary.num_checked_commits, 1);
@@ -143,12 +188,13 @@ fn test_fixer_does_not_change_content() -> TestResult {
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "content")]);
+    let tree1 = create_tree(repo, &[(path1, "Formatted")]);
     let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
 
     let root_commits = vec![commit_a.clone()];
     let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
+    file_fixer.add_replacement(path1, b"Formatted", b"Formatted");
 
     let summary = fix_files(
         root_commits,
@@ -200,7 +246,7 @@ fn test_fixer_fails() -> TestResult {
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "error:boo")]);
+    let tree1 = create_tree(repo, &[(path1, "unformatted")]);
     let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
 
     let root_commits = vec![commit_a.clone()];
@@ -217,7 +263,14 @@ fn test_fixer_fails() -> TestResult {
     .block_on();
 
     let error = result.err().unwrap();
-    assert_eq!(error.to_string(), "Forced failure: boo");
+    assert_eq!(
+        error.to_string(),
+        indoc! {r#"
+            Forced failure: Unexpected fix request:
+            path: file1
+            old_content: "unformatted"
+        "#}
+    );
     Ok(())
 }
 
@@ -228,10 +281,10 @@ fn test_unchanged_file_is_not_fixed() -> TestResult {
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "fixme:content")]);
-    let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
 
-    let tree2 = create_tree(repo, &[(path1, "fixme:content")]);
+    let tree1 = create_tree(repo, &[(path1, "unformatted")]);
+    let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
+    let tree2 = create_tree(repo, &[(path1, "unformatted")]);
     let commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2);
 
     let root_commits = vec![commit_b.clone()];
@@ -260,25 +313,27 @@ fn test_unchanged_file_is_fixed() -> TestResult {
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "fixme:content")]);
-    let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
 
-    let tree2 = create_tree(repo, &[(path1, "fixme:content")]);
+    let tree1 = create_tree(repo, &[(path1, "unformatted")]);
+    let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
+    let tree2 = create_tree(repo, &[(path1, "unformatted")]);
     let commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2);
 
     let root_commits = vec![commit_b.clone()];
     let mut file_fixer = TestFileFixer::new();
+    let include_unchanged_files = true;
+    file_fixer.add_replacement(path1, b"unformatted", b"Formatted");
 
     let summary = fix_files(
         root_commits,
         &EverythingMatcher,
-        true,
+        include_unchanged_files,
         tx.repo_mut(),
         &mut file_fixer,
     )
     .block_on()?;
 
-    let expected_tree_b = create_tree(repo, &[(path1, "CONTENT")]);
+    let expected_tree_b = create_tree(repo, &[(path1, "Formatted")]);
     assert_eq!(summary.rewrites.len(), 1);
     assert!(summary.rewrites.contains_key(&commit_b));
     assert_eq!(summary.num_checked_commits, 1);
@@ -300,19 +355,22 @@ fn test_already_fixed_descendant() -> TestResult {
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "fixme:content")]);
-    let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
 
-    let tree2 = create_tree(repo, &[(path1, "CONTENT")]);
+    let tree1 = create_tree(repo, &[(path1, "unformatted")]);
+    let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
+    let tree2 = create_tree(repo, &[(path1, "Formatted")]);
     let commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2.clone());
 
     let root_commits = vec![commit_a.clone()];
     let mut file_fixer = TestFileFixer::new();
+    let include_unchanged_files = true;
+    file_fixer.add_replacement(path1, b"unformatted", b"Formatted");
+    file_fixer.add_replacement(path1, b"Formatted", b"Formatted");
 
     let summary = fix_files(
         root_commits,
         &EverythingMatcher,
-        true,
+        include_unchanged_files,
         tx.repo_mut(),
         &mut file_fixer,
     )
@@ -490,9 +548,6 @@ fn test_fix_multiple_revisions() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
-    // Commit B was replaced by commit D. Commit C should have the changes from
-    // commit C and commit D, but not the changes from commit B.
-    //
     // D
     // | C
     // | B
@@ -500,21 +555,28 @@ fn test_fix_multiple_revisions() -> TestResult {
     // A
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path1, "fixme:xyz")]);
+    let tree1 = create_tree(repo, &[(path1, "unformatted")]);
     let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
+
     let path2 = repo_path("file2");
-    let tree2 = create_tree(repo, &[(path2, "content")]);
+    let tree2 = create_tree(repo, &[(path2, "unformatted")]);
     let commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2);
+
     let path3 = repo_path("file3");
-    let tree3 = create_tree(repo, &[(path3, "content")]);
-    let _commit_c = create_commit(&mut tx, vec![commit_b.clone()], tree3);
+    let tree3 = create_tree(repo, &[(path3, "unformatted")]);
+    let commit_c = create_commit(&mut tx, vec![commit_b.clone()], tree3);
+
     let path4 = repo_path("file4");
-    let tree4 = create_tree(repo, &[(path4, "content")]);
-    let _commit_d = create_commit(&mut tx, vec![commit_a.clone()], tree4);
+    let tree4 = create_tree(repo, &[(path4, "unformatted")]);
+    let commit_d = create_commit(&mut tx, vec![commit_a.clone()], tree4);
 
     let root_commits = vec![commit_a.clone()];
     let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
+    file_fixer.add_replacement(path1, b"unformatted", b"Formatted");
+    file_fixer.add_replacement(path2, b"unformatted", b"Formatted");
+    file_fixer.add_replacement(path3, b"unformatted", b"Formatted");
+    file_fixer.add_replacement(path4, b"unformatted", b"Formatted");
 
     let summary = fix_files(
         root_commits,
@@ -525,11 +587,31 @@ fn test_fix_multiple_revisions() -> TestResult {
     )
     .block_on()?;
 
-    let expected_tree_a = create_tree(repo, &[(path1, "XYZ")]);
+    let expected_tree_a = create_tree(repo, &[(path1, "Formatted")]);
+    let expected_tree_b = create_tree(repo, &[(path2, "Formatted")]);
+    let expected_tree_c = create_tree(repo, &[(path3, "Formatted")]);
+    let expected_tree_d = create_tree(repo, &[(path4, "Formatted")]);
 
     let new_commit_a = repo
         .store()
-        .get_commit(summary.rewrites.get(&commit_a).unwrap())?;
+        .get_commit(summary.rewrites.get(&commit_a).unwrap())
+        .unwrap();
+    let new_commit_b = repo
+        .store()
+        .get_commit(summary.rewrites.get(&commit_b).unwrap())
+        .unwrap();
+    let new_commit_c = repo
+        .store()
+        .get_commit(summary.rewrites.get(&commit_c).unwrap())
+        .unwrap();
+    let new_commit_d = repo
+        .store()
+        .get_commit(summary.rewrites.get(&commit_d).unwrap())
+        .unwrap();
+
     assert_tree_eq!(new_commit_a.tree(), expected_tree_a);
+    assert_tree_eq!(new_commit_b.tree(), expected_tree_b);
+    assert_tree_eq!(new_commit_c.tree(), expected_tree_c);
+    assert_tree_eq!(new_commit_d.tree(), expected_tree_d);
     Ok(())
 }
