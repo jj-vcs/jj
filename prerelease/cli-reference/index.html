@@ -10155,6 +10155,10 @@ achieved with <code>jj new</code>.</p>
 <li><code>-a</code>, <code>--all-remotes</code> — Show all tracked and untracked remote tags including the ones whose targets are synchronized with the local tags</li>
 <li><code>-c</code>, <code>--conflicted</code> — Show conflicted tags only</li>
 <li>
+<p><code>-r</code>, <code>--revisions &lt;REVSETS&gt;</code> — Show tags whose local targets are in the given revisions</p>
+<p>Note that <code>-r deleted_tag</code> will not work since <code>deleted_tag</code> wouldn't have a local target.</p>
+</li>
+<li>
 <p><code>-T</code>, <code>--template &lt;TEMPLATE&gt;</code> — Render each tag using the given template</p>
 <p>All 0-argument methods of the [<code>CommitRef</code> type] are available as keywords in the template expression. See [<code>jj help -k templates</code>] for more information.</p>
 </li>
