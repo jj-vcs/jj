@@ -76,6 +76,56 @@ struct Args {
     /// the next byte.
     #[arg(long, default_value_t = false)]
     byte_mode: bool,
+
+    /// Format lines from first to last inclusive [f, l] (1-indexed)
+    /// For example `--line-ranges 1-2,4-5` or `--line-ranges 1-2 --line-ranges
+    /// 4-5` formats lines 1 and 2, and lines 4 and 5.
+    #[arg(long, value_delimiter = ',')]
+    line_ranges: Vec<String>,
+
+    /// Split even lines into two lines. Used only with `--line-ranges`.
+    /// Replicating formatters that expand beyond the line ranges.
+    /// For example, "abcd" becomes "ab\ncd".
+    #[arg(long, default_value_t = false, requires = "line_ranges")]
+    split_even_lines: bool,
+}
+
+/// Represents an inclusive range of lines.
+#[derive(Debug)]
+struct LineRange {
+    first: usize,
+    last: usize,
+}
+
+impl LineRange {
+    /// Creates a new line range from a string slice.
+    fn from_str(s: &str) -> Self {
+        let (first, last) = s.split_once('-').unwrap();
+        Self {
+            first: first.parse::<usize>().unwrap(),
+            last: last.parse::<usize>().unwrap(),
+        }
+    }
+
+    /// Checks if the line range contains the given line number (1-indexed and
+    /// inclusive).
+    fn contains(&self, line_num: usize) -> bool {
+        line_num >= self.first && line_num <= self.last
+    }
+}
+
+fn split_even_line(line: &str) -> String {
+    let line_len = if line.ends_with('\n') {
+        line.len() - 1
+    } else {
+        line.len()
+    };
+    if line_len % 2 == 0 {
+        let (first, second) = line.split_at(line_len / 2);
+        format!("{first}\n{second}")
+    } else {
+        line.to_owned()
+    }
 }
 
 fn main() -> ExitCode {
@@ -118,19 +168,46 @@ fn main() -> ExitCode {
             .expect("Output is not a valid UTF-8 string")
             .to_owned()
     } else {
+        let line_ranges: Vec<LineRange> = if !args.line_ranges.is_empty() {
+            args.line_ranges
+                .iter()
+                .map(|rng| LineRange::from_str(rng))
+                .collect_vec()
+        } else {
+            vec![LineRange {
+                first: 1,
+                last: usize::MAX,
+            }]
+        };
+
         let mut input = vec![];
         std::io::stdin()
             .read_to_end(&mut input)
             .expect("Failed to read from stdin");
         let mut stdout = input
             .lines_with_terminator()
-            .map(|line| {
+            .enumerate()
+            .map(|(i, line)| {
                 let line = line
                     .to_str()
                     .expect("The input is not valid UTF-8 string")
                     .to_owned();
+
+                let line_num = i + 1;
+                let in_range = line_ranges
+                    .iter()
+                    .any(|line_range| line_range.contains(line_num));
+                if !in_range {
+                    return line;
+                }
+
                 let line = if args.reverse {
                     line.chars().rev().collect()
+                } else {
+                    line
+                };
+                let line = if args.split_even_lines {
+                    split_even_line(&line)
                 } else {
                     line
                 };

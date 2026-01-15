@@ -24,9 +24,12 @@ use jj_lib::commit::Commit;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
+use jj_lib::fix::ComputeModifiedLineRangesArgs;
 use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
 use jj_lib::fix::ParallelFileFixer;
+use jj_lib::fix::RegionsToFormat;
+use jj_lib::fix::compute_modified_line_ranges;
 use jj_lib::fix::fix_files;
 use jj_lib::matchers::Matcher;
 use jj_lib::repo::Repo as _;
@@ -169,6 +172,11 @@ pub(crate) struct FixArgs {
     /// specified, all files in the repo will be fixed.
     #[arg(long)]
     include_unchanged_files: bool,
+
+    /// Format all lines instead of only modified lines even if the formatter
+    /// supports formatting only modified lines.
+    #[arg(long, short)]
+    all_lines: bool,
 }
 
 #[instrument(skip_all)]
@@ -218,6 +226,7 @@ pub(crate) fn cmd_fix(
             &tools_config,
             store,
             file_to_fix,
+            args.all_lines,
         )
         .block_on()
     });
@@ -260,22 +269,71 @@ async fn fix_one_file(
     tools_config: &ToolsConfig,
     store: &Store,
     file_to_fix: &FileToFix,
+    all_lines_arg: bool,
 ) -> Result<Option<FileId>, FixError> {
     let mut matching_tools = tools_config
         .tools
         .iter()
         .filter(|tool_config| tool_config.matcher.matches(&file_to_fix.repo_path))
         .peekable();
+
     if matching_tools.peek().is_some() {
         // The first matching tool gets its input from the committed file, and any
         // subsequent matching tool gets its input from the previous matching tool's
         // output.
+
+        // TODO: Consider adding a check for some max file size config or some global
+        // limit for both `old_content` and `base_content`.
         let mut old_content = vec![];
         let mut read = store
             .read_file(&file_to_fix.repo_path, &file_to_fix.file_id)
             .await?;
         read.read_to_end(&mut old_content).await?;
+
+        // Load the base content from the file_to_fix (if exists) iff any tool needs it.
+        let base_content = match &file_to_fix.base_file_id {
+            Some(base_file_id) if matching_tools.clone().any(|t| t.line_range_arg.is_some()) => {
+                let mut content = vec![];
+                let mut read = store
+                    .read_file(&file_to_fix.repo_path, base_file_id)
+                    .await?;
+                read.read_to_end(&mut content).await?;
+                Some(content)
+            }
+            _ => None,
+        };
+
         let new_content = matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
+            let mut extra_args = Vec::new();
+
+            if let Some(line_range_arg) = &tool_config.line_range_arg {
+                let ranges = match compute_modified_line_ranges(
+                    base_content.as_deref(),
+                    &prev_content,
+                    ComputeModifiedLineRangesArgs {
+                        all_lines: all_lines_arg,
+                        skip_unchanged_files: tool_config.skip_unchanged_files,
+                    },
+                ) {
+                    RegionsToFormat::LineRanges(ranges) => ranges,
+                    RegionsToFormat::ByteRanges(_) => {
+                        unimplemented!("byte ranges not supported yet")
+                    }
+                };
+
+                if ranges.is_empty() {
+                    return prev_content;
+                }
+
+                for range in ranges {
+                    extra_args.push(
+                        line_range_arg
+                            .replace("$first", &range.first.to_string())
+                            .replace("$last", &range.last.to_string()),
+                    );
+                }
+            }
+
             match run_tool(
                 ui,
                 workspace_root,
@@ -283,6 +341,7 @@ async fn fix_one_file(
                 &tool_config.command,
                 file_to_fix,
                 &prev_content,
+                &extra_args,
             ) {
                 Ok(next_content) => next_content,
                 // TODO: Because the stderr is passed through, this isn't always failing
@@ -291,6 +350,7 @@ async fn fix_one_file(
                 Err(()) => prev_content,
             }
         });
+
         if new_content != old_content {
             // TODO: send futures back over channel
             let new_file_id = store
@@ -317,6 +377,7 @@ fn run_tool(
     tool_command: &CommandNameAndArgs,
     file_to_fix: &FileToFix,
     old_content: &[u8],
+    extra_args: &[String],
 ) -> Result<Vec<u8>, ()> {
     let mut vars: HashMap<&str, &str> = HashMap::new();
     vars.insert("path", file_to_fix.repo_path.as_internal_file_string());
@@ -328,6 +389,10 @@ fn run_tool(
         vars.insert("root", root);
     }
     let mut command = tool_command.to_command_with_variables(&vars);
+    if !extra_args.is_empty() {
+        command.args(extra_args);
+    }
+
     tracing::debug!(?command, ?file_to_fix.repo_path, "spawning fix tool");
     let Ok(mut child) = command
         .current_dir(workspace_root)
@@ -387,6 +452,20 @@ struct ToolConfig {
     matcher: Box<dyn Matcher>,
     /// Whether the tool is enabled
     enabled: bool,
+    /// Arguments to pass changed line ranges to the tool.
+    /// The string is a template where `$first` and `$last` are replaced by the
+    /// 1-based first and last inclusive line numbers of the changed range.
+    /// For example, `"--lines=$first-$last"`.
+    line_range_arg: Option<String>,
+    /// Whether to skip the formatting step for this tool on files that had no
+    /// additions or modifications in the revision being fixed.
+    ///
+    /// This serves two main purposes:
+    /// - Avoiding unnecessary executions of tools. Set this to `false` if the
+    ///   tool should run regardless of diffs (e.g. to sort imports).
+    /// - Preventing tools configured with `line-range-arg` from making overly
+    ///   broad changes when no line ranges are available.
+    skip_unchanged_files: bool,
     // TODO: Store the `name` field here and print it with the command's stderr, to clearly
     // associate any errors/warnings with the tool and its configuration entry.
 }
@@ -406,9 +485,17 @@ struct RawToolConfig {
     patterns: Vec<String>,
     #[serde(default = "default_tool_enabled")]
     enabled: bool,
+    #[serde(default)]
+    line_range_arg: Option<String>,
+    #[serde(default = "default_tool_skip_unchanged_files")]
+    skip_unchanged_files: bool,
 }
 
 fn default_tool_enabled() -> bool {
+    true
+}
+
+fn default_tool_skip_unchanged_files() -> bool {
     true
 }
 
@@ -445,6 +532,8 @@ fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig,
                 command: tool.command,
                 matcher: expression.to_matcher(),
                 enabled: tool.enabled,
+                line_range_arg: tool.line_range_arg,
+                skip_unchanged_files: tool.skip_unchanged_files,
             })
         })
         .try_collect()?;

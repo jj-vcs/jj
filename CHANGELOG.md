@@ -82,6 +82,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj gerrit upload` no longer requires the `-r` flag, and will default to
   uploading what you're currently working on.
 
+* `jj fix` now supports line range-limited formatting via the `fix.tools.<name>.line-range-arg`
+  and `skip-unchanged-files` options. This allows running tools only on modified
+  lines or skipping unchanged files. Use `--all-lines` to match the previous
+  behavior of formatting the entire file.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04

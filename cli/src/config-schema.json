@@ -857,6 +857,15 @@
                                 "type": "boolean",
                                 "description": "Disables this tool if set to false",
                                 "default": true
+                            },
+                            "line-range-arg": {
+                                "type": "string",
+                                "description": "Argument template for changed line ranges (e.g. '--lines=$first-$last')"
+                            },
+                            "skip-unchanged-files": {
+                                "type": "boolean",
+                                "description": "Whether to skip the tool for unchanged files",
+                                "default": true
                             }
                         }
                     },
