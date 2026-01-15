@@ -1022,6 +1022,78 @@ pub fn diff<'a, T: AsRef<[u8]> + ?Sized + 'a>(
     diff.hunks().collect()
 }
 
+/// Representation of different ranges formatters can use to emit diff ranges.
+#[derive(Debug, PartialEq, Eq)]
+pub enum RegionsToFormat {
+    LineRanges(Vec<LineRange>),
+    ByteRanges(Vec<ByteRange>),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct FormatRange {
+    pub start: usize,
+    pub end: usize,
+}
+
+impl FormatRange {
+    pub fn new(start: usize, end: usize) -> Self {
+        Self { start, end }
+    }
+}
+
+pub type LineRange = FormatRange;
+pub type ByteRange = FormatRange;
+
+impl From<Range<usize>> for FormatRange {
+    fn from(range: Range<usize>) -> Self {
+        Self {
+            start: range.start,
+            end: range.end,
+        }
+    }
+}
+
+/// Computes the 1-based line or byte ranges in `current` that are different from `base`.
+/// The ranges produced can be empty.
+pub fn compute_changed_ranges(base: &[u8], current: &[u8]) -> RegionsToFormat {
+    let mut ranges: Vec<LineRange> = Vec::new();
+
+    let diff = ContentDiff::by_line([base, current]);
+    let mut current_line = 1;
+    for hunk in diff.hunks() {
+        match hunk.kind {
+            DiffHunkKind::Matching => {
+                let text = hunk.contents[0];
+                let line_count = compute_file_line_count(text);
+                current_line += line_count;
+            }
+            DiffHunkKind::Different => {
+                let current_text = hunk.contents[1];
+                let line_count = compute_file_line_count(current_text);
+                if line_count > 0 {
+                    ranges.push(LineRange {
+                        start: current_line,
+                        end: current_line + line_count,
+                    });
+                }
+                current_line += line_count;
+            }
+        }
+    }
+
+    RegionsToFormat::LineRanges(ranges)
+}
+
+pub fn compute_file_line_count(text: &[u8]) -> usize {
+    let line_count = text.iter().filter(|&&b| b == b'\n').count();
+    let extra = if !text.is_empty() && !text.ends_with(b"\n") {
+        1
+    } else {
+        0
+    };
+    line_count + extra
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1777,5 +1849,57 @@ int main(int argc, char **argv)
                DiffHunk::matching([");\n\t}\n\treturn 0;\n}\n\nint main(int argc, char **argv)\n{\n\tint fd;\n\tunsigned char sha1[20];\n\n\tif (argc != 2)\n\t\tusage(\"read-tree <key>\");\n\tif (get_sha1_hex(argv[1], sha1) < 0)\n\t\tusage(\"read-tree <key>\");\n\tsha1_file_directory = getenv(DB_ENVIRONMENT);\n\tif (!sha1_file_directory)\n\t\tsha1_file_directory = DEFAULT_DB_ENVIRONMENT;\n\tif (unpack(sha1) < 0)\n\t\tusage(\"unpack failed\");\n\treturn 0;\n}\n"].repeat(2)),
             ]
         );
+    }
+
+    #[test]
+    fn test_compute_changed_line_ranges() {
+        // Insert & Delete & Modify.
+        assert_eq!(
+            compute_changed_ranges(b"a\n", b"a\nb\n"),
+            RegionsToFormat::LineRanges(vec![(2..3).into()])
+        );
+        assert_eq!(
+            compute_changed_ranges(b"a\nb\nc\n", b"a\nc\n"),
+            RegionsToFormat::LineRanges(vec![])
+        );
+        assert_eq!(
+            compute_changed_ranges(b"a\nb\nc\n", b"a\nB\nc\n"),
+            RegionsToFormat::LineRanges(vec![(2..3).into()])
+        );
+
+        // Modify multiple & Insert at start.
+        assert_eq!(
+            compute_changed_ranges(b"a\nb\nc\n", b"a\nB\nC\n"),
+            RegionsToFormat::LineRanges(vec![(2..4).into()])
+        );
+        assert_eq!(
+            compute_changed_ranges(b"a\n", b"new\na\n"),
+            RegionsToFormat::LineRanges(vec![(1..2).into()])
+        );
+
+        // Inserting new line at EOF & Insert at EOF but no newline.
+        assert_eq!(
+            compute_changed_ranges(b"a", b"a\n"),
+            RegionsToFormat::LineRanges(vec![(1..2).into()])
+        );
+        assert_eq!(
+            compute_changed_ranges(b"a\n", b"a\nb"),
+            RegionsToFormat::LineRanges(vec![(2..3).into()])
+        );
+
+        // Complex case with multiple modifications and insertions.
+        assert_eq!(
+            compute_changed_ranges(b"a\nb\nc\nd\ne\nf\n", b"a\nB\nC\nd\ne\nF\n"),
+            RegionsToFormat::LineRanges(vec![(2..4).into(), (6..7).into()])
+        );
+    }
+
+    #[test]
+    fn test_compute_file_line_count() {
+        assert_eq!(compute_file_line_count(b""), 0);
+        assert_eq!(compute_file_line_count(b"a"), 1);
+        assert_eq!(compute_file_line_count(b"a\n"), 1);
+        assert_eq!(compute_file_line_count(b"a\nb"), 2);
+        assert_eq!(compute_file_line_count(b"a\nb\n"), 2);
     }
 }
