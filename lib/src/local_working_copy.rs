@@ -664,6 +664,85 @@ fn sparse_patterns_from_proto(
     sparse_patterns
 }
 
+/// Set of paths known to be untracked, stored persistently in TreeState.
+///
+/// Files in this set won't be automatically tracked on subsequent snapshots.
+/// The decision to not track is made once when the file is first noticed
+/// (based on .gitignore, snapshot.auto-track, or explicit `jj file untrack`).
+#[derive(Clone, Debug)]
+struct UntrackedPathsSet {
+    /// Paths stored in sorted order for efficient lookup.
+    paths: Vec<RepoPathBuf>,
+}
+
+impl UntrackedPathsSet {
+    fn new() -> Self {
+        Self { paths: Vec::new() }
+    }
+
+    fn from_proto(paths: Vec<String>) -> Self {
+        let mut repo_paths: Vec<RepoPathBuf> = paths
+            .into_iter()
+            .filter_map(|p| RepoPathBuf::from_internal_string(&p).ok())
+            .collect();
+        // Proto data is always stored sorted, but sort anyway for robustness
+        repo_paths.sort_unstable();
+        repo_paths.dedup();
+        Self { paths: repo_paths }
+    }
+
+    fn to_proto(&self) -> Vec<String> {
+        self.paths
+            .iter()
+            .map(|p| p.as_internal_file_string().to_owned())
+            .collect()
+    }
+
+    fn contains(&self, path: &RepoPath) -> bool {
+        self.paths
+            .binary_search_by(|p| p.as_ref().cmp(path))
+            .is_ok()
+    }
+
+    fn insert(&mut self, path: RepoPathBuf) {
+        match self.paths.binary_search_by(|p| p.as_ref().cmp(&path)) {
+            Ok(_) => {} // Already present
+            Err(pos) => self.paths.insert(pos, path),
+        }
+    }
+
+    /// Merges new paths into the set and removes deleted paths.
+    /// The `new_paths` must be sorted.
+    fn merge_in(&mut self, new_paths: Vec<RepoPathBuf>, deleted_paths: &HashSet<RepoPathBuf>) {
+        if new_paths.is_empty() && deleted_paths.is_empty() {
+            return;
+        }
+        debug_assert!(
+            new_paths.is_sorted_by(|p1, p2| p1 < p2),
+            "new_paths must be sorted and have no duplicates"
+        );
+        self.paths =
+            itertools::merge_join_by(mem::take(&mut self.paths), new_paths, |existing, new| {
+                existing.cmp(new)
+            })
+            .filter_map(|diff| match diff {
+                EitherOrBoth::Both(existing, _) | EitherOrBoth::Left(existing) => {
+                    (!deleted_paths.contains(&existing)).then_some(existing)
+                }
+                EitherOrBoth::Right(new) => Some(new),
+            })
+            .collect();
+    }
+
+    fn clear(&mut self) {
+        self.paths.clear();
+    }
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = &RepoPath> {
+        self.paths.iter().map(|p| p.as_ref())
+    }
+}
+
 /// Creates intermediate directories from the `working_copy_path` to the
 /// `repo_path` parent. Returns disk path for the `repo_path` file.
 ///
@@ -974,6 +1053,9 @@ pub struct TreeState {
     file_states: FileStatesMap,
     // Currently only path prefixes
     sparse_patterns: Vec<RepoPathBuf>,
+    /// Paths of files known to be untracked. These won't be automatically
+    /// tracked on subsequent snapshots.
+    untracked_paths: UntrackedPathsSet,
     own_mtime: MillisSinceEpoch,
     symlink_support: bool,
 
@@ -1022,6 +1104,32 @@ impl TreeState {
         &self.sparse_patterns
     }
 
+    /// Returns iterator over paths of files known to be untracked.
+    pub fn untracked_paths(&self) -> impl ExactSizeIterator<Item = &RepoPath> {
+        self.untracked_paths.iter()
+    }
+
+    /// Returns true if the given path is in the untracked list.
+    pub fn is_untracked(&self, path: &RepoPath) -> bool {
+        self.untracked_paths.contains(path)
+    }
+
+    /// Removes paths matching the given matcher from the untracked list.
+    /// Used by `jj file track` to allow tracking of previously-untracked files.
+    pub fn remove_from_untracked(&mut self, matcher: &dyn Matcher) {
+        self.untracked_paths
+            .paths
+            .retain(|path| !matcher.matches(path));
+    }
+
+    /// Adds paths to the untracked list.
+    /// Used by `jj file untrack` to mark files as untracked.
+    pub fn add_to_untracked(&mut self, paths: impl IntoIterator<Item = RepoPathBuf>) {
+        for path in paths {
+            self.untracked_paths.insert(path);
+        }
+    }
+
     fn sparse_matcher(&self) -> Box<dyn Matcher> {
         Box::new(PrefixMatcher::new(&self.sparse_patterns))
     }
@@ -1056,6 +1164,7 @@ impl TreeState {
             tree: store.empty_merged_tree(),
             file_states: FileStatesMap::new(),
             sparse_patterns: vec![RepoPathBuf::root()],
+            untracked_paths: UntrackedPathsSet::new(),
             own_mtime: MillisSinceEpoch(0),
             symlink_support: check_symlink_support().unwrap_or(false),
             watchman_clock: None,
@@ -1136,6 +1245,7 @@ impl TreeState {
         self.file_states =
             FileStatesMap::from_proto(proto.file_states, proto.is_file_states_sorted);
         self.sparse_patterns = sparse_patterns_from_proto(proto.sparse_patterns.as_ref());
+        self.untracked_paths = UntrackedPathsSet::from_proto(proto.untracked_paths);
         self.watchman_clock = proto.watchman_clock;
         Ok(())
     }
@@ -1160,6 +1270,7 @@ impl TreeState {
                 .push(path.as_internal_file_string().to_owned());
         }
         proto.sparse_patterns = Some(sparse_patterns);
+        proto.untracked_paths = self.untracked_paths.to_proto();
         proto.watchman_clock = self.watchman_clock.clone();
 
         let wrap_write_err = |source| TreeStateError::WriteTreeState {
@@ -1294,6 +1405,7 @@ impl TreeState {
         let (tree_entries_tx, tree_entries_rx) = channel();
         let (file_states_tx, file_states_rx) = channel();
         let (untracked_paths_tx, untracked_paths_rx) = channel();
+        let (new_untracked_paths_tx, new_untracked_paths_rx) = channel();
         let (deleted_files_tx, deleted_files_rx) = channel();
 
         trace_span!("traverse filesystem").in_scope(|| -> Result<(), SnapshotError> {
@@ -1307,6 +1419,7 @@ impl TreeState {
                 tree_entries_tx,
                 file_states_tx,
                 untracked_paths_tx,
+                new_untracked_paths_tx,
                 deleted_files_tx,
                 error: OnceLock::new(),
                 progress,
@@ -1353,6 +1466,32 @@ impl TreeState {
             self.file_states
                 .merge_in(changed_file_states, &deleted_files);
         });
+        trace_span!("process untracked paths").in_scope(|| {
+            // Collect newly untracked paths (sorted) and merge into persistent set.
+            // Also remove paths for files that no longer exist on disk.
+            let new_untracked = new_untracked_paths_rx
+                .iter()
+                .sorted_unstable()
+                .dedup()
+                .collect_vec();
+            // Find untracked paths that no longer exist (deleted from disk)
+            let deleted_untracked: HashSet<RepoPathBuf> = self
+                .untracked_paths
+                .iter()
+                .filter(|path| {
+                    !path
+                        .to_fs_path(&self.working_copy_path)
+                        .map(|p| p.exists())
+                        .unwrap_or(false)
+                })
+                .map(|p| p.to_owned())
+                .collect();
+            if !new_untracked.is_empty() || !deleted_untracked.is_empty() {
+                is_dirty = true;
+            }
+            self.untracked_paths
+                .merge_in(new_untracked, &deleted_untracked);
+        });
         trace_span!("write tree").in_scope(|| -> Result<(), BackendError> {
             let new_tree = tree_builder.write_tree()?;
             is_dirty |= new_tree.tree_ids_and_labels() != self.tree.tree_ids_and_labels();
@@ -1369,14 +1508,9 @@ impl TreeState {
             let state_paths: HashSet<_> = file_states.paths().map(|path| path.to_owned()).collect();
             assert_eq!(state_paths, tree_paths);
         }
-        // Since untracked paths aren't cached in the tree state, we'll need to
-        // rescan the working directory changes to report or track them later.
-        // TODO: store untracked paths and update watchman_clock?
-        if stats.untracked_paths.is_empty() || watchman_clock.is_none() {
-            self.watchman_clock = watchman_clock;
-        } else {
-            tracing::info!("not updating watchman clock because there are untracked files");
-        }
+        // Now that untracked paths are cached in tree state, we can update watchman
+        // clock.
+        self.watchman_clock = watchman_clock;
         Ok((is_dirty, stats))
     }
 
@@ -1455,6 +1589,8 @@ struct FileSnapshotter<'a> {
     tree_entries_tx: Sender<(RepoPathBuf, MergedTreeValue)>,
     file_states_tx: Sender<(RepoPathBuf, FileState)>,
     untracked_paths_tx: Sender<(RepoPathBuf, UntrackedReason)>,
+    /// Channel for newly-untracked paths to add to the persistent set.
+    new_untracked_paths_tx: Sender<RepoPathBuf>,
     deleted_files_tx: Sender<RepoPathBuf>,
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
@@ -1597,17 +1733,30 @@ impl FileSnapshotter<'_> {
             if let Some(progress) = self.progress {
                 progress(&path);
             }
+            // Check if the file is in the persistent untracked list first.
+            // If so, skip filter evaluation unless force_tracking_matcher matches.
             if maybe_current_file_state.is_none()
+                && self.tree_state.untracked_paths.contains(&path)
+                && !self.force_tracking_matcher.matches(&path)
+            {
+                // Already known to be untracked - skip evaluation
+                self.untracked_paths_tx
+                    .send((path, UntrackedReason::FileNotAutoTracked))
+                    .ok();
+                Ok(None)
+            } else if maybe_current_file_state.is_none()
                 && (git_ignore.matches(path.as_internal_file_string())
                     && !self.force_tracking_matcher.matches(&path))
             {
                 // If it wasn't already tracked and it matches
-                // the ignored paths, then ignore it.
+                // the ignored paths, add to persistent untracked list.
+                self.new_untracked_paths_tx.send(path).ok();
                 Ok(None)
             } else if maybe_current_file_state.is_none()
                 && !self.start_tracking_matcher.matches(&path)
             {
-                // Leave the file untracked
+                // Leave the file untracked and add to persistent list
+                self.new_untracked_paths_tx.send(path.clone()).ok();
                 self.untracked_paths_tx
                     .send((path, UntrackedReason::FileNotAutoTracked))
                     .ok();
@@ -1621,7 +1770,8 @@ impl FileSnapshotter<'_> {
                     && (metadata.len() > self.max_new_file_size
                         && !self.force_tracking_matcher.matches(&path))
                 {
-                    // Leave the large file untracked
+                    // Leave the large file untracked and add to persistent list
+                    self.new_untracked_paths_tx.send(path.clone()).ok();
                     let reason = UntrackedReason::FileTooLarge {
                         size: metadata.len(),
                         max_size: self.max_new_file_size,
@@ -2439,6 +2589,7 @@ impl TreeState {
 
     pub async fn recover(&mut self, new_tree: &MergedTree) -> Result<(), ResetError> {
         self.file_states.clear();
+        self.untracked_paths.clear();
         self.tree = self.store.empty_merged_tree();
         self.reset(new_tree).await
     }
@@ -2669,6 +2820,15 @@ impl LocalWorkingCopy {
         Ok(self.tree_state()?.file_states())
     }
 
+    /// Returns iterator over paths of files known to be untracked.
+    pub fn untracked_paths(&self) -> Result<Vec<RepoPathBuf>, WorkingCopyStateError> {
+        Ok(self
+            .tree_state()?
+            .untracked_paths()
+            .map(|p| p.to_owned())
+            .collect())
+    }
+
     #[cfg(feature = "watchman")]
     pub async fn query_watchman(
         &self,
@@ -2852,6 +3012,38 @@ impl LockedLocalWorkingCopy {
         self.wc.tree_state_mut()?.reset_watchman();
         self.tree_state_dirty = true;
         Ok(())
+    }
+
+    /// Removes paths matching the given matcher from the untracked list.
+    /// Used by `jj file track` to allow tracking of previously-untracked files.
+    pub fn remove_from_untracked(
+        &mut self,
+        matcher: &dyn Matcher,
+    ) -> Result<(), WorkingCopyStateError> {
+        self.wc.tree_state_mut()?.remove_from_untracked(matcher);
+        self.tree_state_dirty = true;
+        Ok(())
+    }
+
+    /// Adds paths to the untracked list.
+    /// Used by `jj file untrack` to mark files as untracked.
+    pub fn add_to_untracked(
+        &mut self,
+        paths: impl IntoIterator<Item = RepoPathBuf>,
+    ) -> Result<(), WorkingCopyStateError> {
+        self.wc.tree_state_mut()?.add_to_untracked(paths);
+        self.tree_state_dirty = true;
+        Ok(())
+    }
+
+    /// Returns iterator over paths of files known to be untracked.
+    pub fn untracked_paths(&self) -> Result<Vec<RepoPathBuf>, WorkingCopyStateError> {
+        Ok(self
+            .wc
+            .tree_state()?
+            .untracked_paths()
+            .map(|p| p.to_owned())
+            .collect())
     }
 }
 

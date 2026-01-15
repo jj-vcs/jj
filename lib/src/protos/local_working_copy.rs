@@ -48,6 +48,13 @@ pub struct TreeState {
     pub sparse_patterns: ::core::option::Option<SparsePatterns>,
     #[prost(message, optional, tag = "4")]
     pub watchman_clock: ::core::option::Option<WatchmanClock>,
+    /// Paths of files that are known to be untracked.
+    /// These files won't be automatically tracked on subsequent snapshots.
+    /// The decision to not track is made once when the file is first noticed
+    /// (based on .gitignore, snapshot.auto-track, or explicit `jj file untrack`).
+    /// Always stored in sorted order.
+    #[prost(string, repeated, tag = "8")]
+    pub untracked_paths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct WatchmanClock {
