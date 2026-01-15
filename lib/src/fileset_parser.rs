@@ -173,9 +173,10 @@ fn rename_rules_in_pest_error(err: pest::error::Error<Rule>) -> pest::error::Err
 pub enum ExpressionKind<'i> {
     Identifier(&'i str),
     String(String),
-    StringPattern {
+    /// `<kind>:<value>` where `<value>` should be `Identifier` or `String`.
+    Pattern {
         kind: &'i str,
-        value: String,
+        value: Box<ExpressionNode<'i>>,
     },
     Unary(UnaryOp, Box<ExpressionNode<'i>>),
     Binary(BinaryOp, Box<ExpressionNode<'i>>, Box<ExpressionNode<'i>>),
@@ -265,8 +266,13 @@ fn parse_primary_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
             assert_eq!(lhs.as_rule(), Rule::strict_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
             let kind = lhs.as_str();
-            let value = parse_as_string_literal(rhs);
-            ExpressionKind::StringPattern { kind, value }
+            let value_span = rhs.as_span();
+            let value_expr = match rhs.as_rule() {
+                Rule::identifier => ExpressionKind::Identifier(rhs.as_str()),
+                _ => ExpressionKind::String(parse_as_string_literal(rhs)),
+            };
+            let value = Box::new(ExpressionNode::new(value_expr, value_span));
+            ExpressionKind::Pattern { kind, value }
         }
         Rule::identifier => ExpressionKind::Identifier(first.as_str()),
         Rule::string_literal | Rule::raw_string_literal => {
@@ -338,13 +344,29 @@ pub fn parse_program_or_bare_string(text: &str) -> FilesetParseResult<Expression
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
             assert_eq!(rhs.as_rule(), Rule::bare_string);
             let kind = lhs.as_str();
-            let value = rhs.as_str().to_owned();
-            ExpressionKind::StringPattern { kind, value }
+            let value_span = rhs.as_span();
+            let value_expr = ExpressionKind::String(rhs.as_str().to_owned());
+            let value = Box::new(ExpressionNode::new(value_expr, value_span));
+            ExpressionKind::Pattern { kind, value }
         }
         Rule::bare_string => ExpressionKind::String(first.as_str().to_owned()),
         r => panic!("unexpected program or bare string rule: {r:?}"),
     };
     Ok(ExpressionNode::new(expr, span))
+}
+
+pub(super) fn expect_string_literal<'a>(
+    type_name: &str,
+    node: &'a ExpressionNode<'_>,
+) -> FilesetParseResult<&'a str> {
+    match &node.kind {
+        ExpressionKind::Identifier(name) => Ok(*name),
+        ExpressionKind::String(name) => Ok(name),
+        _ => Err(FilesetParseError::expression(
+            format!("Expected {type_name}"),
+            node.span,
+        )),
+    }
 }
 
 #[cfg(test)]
@@ -403,9 +425,11 @@ mod tests {
         }
 
         let normalized_kind = match node.kind {
-            ExpressionKind::Identifier(_)
-            | ExpressionKind::String(_)
-            | ExpressionKind::StringPattern { .. } => node.kind,
+            ExpressionKind::Identifier(_) | ExpressionKind::String(_) => node.kind,
+            ExpressionKind::Pattern { kind, value } => {
+                let value = Box::new(normalize_tree(*value));
+                ExpressionKind::Pattern { kind, value }
+            }
             ExpressionKind::Unary(op, arg) => {
                 let arg = Box::new(normalize_tree(*arg));
                 ExpressionKind::Unary(op, arg)
@@ -539,40 +563,30 @@ mod tests {
 
     #[test]
     fn test_parse_string_pattern() {
-        assert_eq!(
+        assert_matches!(
             parse_into_kind(r#" foo:bar "#),
-            Ok(ExpressionKind::StringPattern {
-                kind: "foo",
-                value: "bar".to_owned()
-            })
+            Ok(ExpressionKind::Pattern { kind: "foo", value })
+                if value.kind == ExpressionKind::Identifier("bar")
         );
-        assert_eq!(
+        assert_matches!(
             parse_into_kind(" foo:glob*[chars]? "),
-            Ok(ExpressionKind::StringPattern {
-                kind: "foo",
-                value: "glob*[chars]?".to_owned()
-            })
+            Ok(ExpressionKind::Pattern { kind: "foo", value })
+                if value.kind == ExpressionKind::Identifier("glob*[chars]?")
         );
-        assert_eq!(
+        assert_matches!(
             parse_into_kind(r#" foo:"bar" "#),
-            Ok(ExpressionKind::StringPattern {
-                kind: "foo",
-                value: "bar".to_owned()
-            })
+            Ok(ExpressionKind::Pattern { kind: "foo", value })
+                if value.kind == ExpressionKind::String("bar".to_owned())
         );
-        assert_eq!(
+        assert_matches!(
             parse_into_kind(r#" foo:"" "#),
-            Ok(ExpressionKind::StringPattern {
-                kind: "foo",
-                value: "".to_owned()
-            })
+            Ok(ExpressionKind::Pattern { kind: "foo", value })
+                if value.kind == ExpressionKind::String("".to_owned())
         );
-        assert_eq!(
+        assert_matches!(
             parse_into_kind(r#" foo:'\' "#),
-            Ok(ExpressionKind::StringPattern {
-                kind: "foo",
-                value: r"\".to_owned()
-            })
+            Ok(ExpressionKind::Pattern { kind: "foo", value })
+                if value.kind == ExpressionKind::String(r"\".to_owned())
         );
         assert_eq!(
             parse_into_kind(r#" foo: "#),
@@ -676,6 +690,11 @@ mod tests {
             parse_maybe_bare_normalized("f(x)&y"),
             parse_normalized("f(x)&y")
         );
+        assert_matches!(
+            parse_maybe_bare_into_kind("foo:bar"),
+            Ok(ExpressionKind::Pattern { kind: "foo", value })
+                if value.kind == ExpressionKind::Identifier("bar")
+        );
 
         // Bare string
         assert_eq!(
@@ -706,19 +725,15 @@ mod tests {
         );
 
         // Bare string pattern
-        assert_eq!(
+        assert_matches!(
             parse_maybe_bare_into_kind("foo: bar baz"),
-            Ok(ExpressionKind::StringPattern {
-                kind: "foo",
-                value: " bar baz".to_owned()
-            })
+            Ok(ExpressionKind::Pattern { kind: "foo", value })
+                if value.kind == ExpressionKind::String(" bar baz".to_owned())
         );
-        assert_eq!(
+        assert_matches!(
             parse_maybe_bare_into_kind("foo:glob * [chars]?"),
-            Ok(ExpressionKind::StringPattern {
-                kind: "foo",
-                value: "glob * [chars]?".to_owned()
-            })
+            Ok(ExpressionKind::Pattern { kind: "foo", value })
+                if value.kind == ExpressionKind::String("glob * [chars]?".to_owned())
         );
         assert_eq!(
             parse_maybe_bare_into_kind("foo:bar:baz"),
