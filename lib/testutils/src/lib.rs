@@ -151,6 +151,7 @@ pub fn empty_snapshot_options() -> SnapshotOptions<'static> {
         start_tracking_matcher: &EverythingMatcher,
         force_tracking_matcher: &NothingMatcher,
         max_new_file_size: u64::MAX,
+        force_scan_matcher: &NothingMatcher,
     }
 }
 

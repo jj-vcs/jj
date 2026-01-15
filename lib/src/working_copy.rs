@@ -230,6 +230,9 @@ pub struct SnapshotOptions<'a> {
     /// (depending on implementation)
     /// return `SnapshotError::NewFileTooLarge`.
     pub max_new_file_size: u64,
+    /// Paths that should always be scanned even if the filesystem monitor
+    /// doesn't report them as changed. This does not force tracking.
+    pub force_scan_matcher: &'a dyn Matcher,
 }
 
 /// A callback for getting progress updates.

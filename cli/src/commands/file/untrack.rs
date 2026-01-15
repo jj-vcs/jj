@@ -52,8 +52,9 @@ pub(crate) fn cmd_file_untrack(
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
     let auto_tracking_matcher = workspace_command.auto_tracking_matcher(ui)?;
-    let options =
+    let mut options =
         workspace_command.snapshot_options_with_start_tracking_matcher(&auto_tracking_matcher)?;
+    options.force_scan_matcher = matcher.as_ref();
 
     let working_copy_shared_with_git = workspace_command.working_copy_shared_with_git();
 
