@@ -2705,6 +2705,10 @@ achieved with <code dir="auto">jj new</code>.</p>
 <p><code dir="auto">-c</code>, <code dir="auto">--conflicted</code> — Show conflicted tags only</p>
 </li>
 <li>
+<p><code dir="auto">-r</code>, <code dir="auto">--revisions &#x3C;REVSETS></code> — Show tags whose local targets are in the given revisions</p>
+<p>Note that <code dir="auto">-r deleted_tag</code> will not work since <code dir="auto">deleted_tag</code> wouldn't have a local target.</p>
+</li>
+<li>
 <p><code dir="auto">-T</code>, <code dir="auto">--template &#x3C;TEMPLATE></code> — Render each tag using the given template</p>
 <p>All 0-argument methods of the <a href="https://docs.jj-vcs.dev/latest/templates/#commitref-type"><code dir="auto">CommitRef</code> type</a> are available as keywords in the template expression. See <a href="https://docs.jj-vcs.dev/latest/templates/"><code dir="auto">jj help -k templates</code></a> for more information.</p>
 </li>
