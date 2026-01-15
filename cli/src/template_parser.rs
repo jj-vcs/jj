@@ -471,10 +471,16 @@ fn parse_lambda_node(pair: Pair<Rule>) -> TemplateParseResult<LambdaNode> {
     })
 }
 
-fn parse_raw_string_literal(pair: Pair<Rule>) -> String {
-    let [content] = pair.into_inner().collect_array().unwrap();
-    assert_eq!(content.as_rule(), Rule::raw_string_content);
-    content.as_str().to_owned()
+fn parse_string_literal(pair: Pair<Rule>) -> String {
+    match pair.as_rule() {
+        Rule::string_literal => STRING_LITERAL_PARSER.parse(pair.into_inner()),
+        Rule::raw_string_literal => {
+            let [content] = pair.into_inner().collect_array().unwrap();
+            assert_eq!(content.as_rule(), Rule::raw_string_content);
+            content.as_str().to_owned()
+        }
+        other => panic!("unexpected string literal: {other:?}"),
+    }
 }
 
 fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
@@ -485,13 +491,8 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
     let primary_span = primary.as_span();
     let expr = primary.into_inner().next().unwrap();
     let primary_kind = match expr.as_rule() {
-        Rule::string_literal => {
-            let text = STRING_LITERAL_PARSER.parse(expr.into_inner());
-            ExpressionKind::String(text)
-        }
-        Rule::raw_string_literal => {
-            let text = parse_raw_string_literal(expr);
-            ExpressionKind::String(text)
+        Rule::string_literal | Rule::raw_string_literal => {
+            ExpressionKind::String(parse_string_literal(expr))
         }
         Rule::integer_literal => {
             let value = expr.as_str().parse().map_err(|err| {
@@ -505,15 +506,9 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
             assert_eq!(kind.as_rule(), Rule::string_pattern_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
             let kind = kind.as_str();
-            let text = match literal.as_rule() {
-                Rule::string_literal => STRING_LITERAL_PARSER.parse(literal.into_inner()),
-                Rule::raw_string_literal => parse_raw_string_literal(literal),
-                other => {
-                    panic!("Unexpected literal rule in string pattern: {other:?}")
-                }
-            };
+            let value = parse_string_literal(literal);
             // The actual parsing and construction of the pattern is deferred to later.
-            ExpressionKind::StringPattern { kind, value: text }
+            ExpressionKind::StringPattern { kind, value }
         }
         Rule::identifier => parse_identifier_or_literal(expr),
         Rule::function => {
