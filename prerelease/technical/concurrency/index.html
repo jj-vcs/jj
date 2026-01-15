@@ -1994,8 +1994,9 @@ both locations but with a "?" after the name, and <code>jj status</code> will al
 the user about the conflict.</p>
 <p>Note that, for now, there are known bugs in this area. Most notably, with the
 Git backend, <a href="https://github.com/jj-vcs/jj/issues/2193">repository corruption is possible because the backend is not
-entirely lock-free</a>. If you know
-about the bug, it is relatively easy to recover from.</p>
+entirely lock-free</a>. If that
+corruption occurs, there is an easy recovery path: <code>jj debug reindex</code>
+(documented in the linked issue).</p>
 <p>Moreover, such use of Jujutsu is not currently thoroughly tested,
 especially in the context of <a href="../../glossary/#colocated-workspaces">colocated
 repositories</a>. While the contents of commits
