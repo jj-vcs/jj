@@ -106,6 +106,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bookmark even if the new name already exists, effectively replacing the
   existing bookmark.
 
+* `jj fix` now supports line range-limited formatting via the `fix.tools.<name>.line-range-arg`
+  and `skip-unchanged-files` options. This allows running tools only on modified
+  lines or skipping unchanged files. Use `--all-lines` to match the previous
+  behavior of formatting the entire file.
+
 ### Fixed bugs
 
 * Windows: use native file locks (`LockFileEx`) instead of polling with file
