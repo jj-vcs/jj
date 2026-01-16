@@ -12,7 +12,7 @@
   "dependencies": {
     "@astrojs/starlight": "^0.37.0",
     "js-yaml": "^4.1.0",
-    "astro": "^5.6.1",
+    "astro": "^5.16.10",
     "astro-starlight-remark-asides": "^0.0.7",
     "marked": "^17.0.1",
     "mdast-util-from-markdown": "^2.0.2",
