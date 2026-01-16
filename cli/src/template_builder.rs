@@ -2854,6 +2854,80 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"some_i64_0 > some_i64_1"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"none_i64 < 0"#), @"true");
         insta::assert_snapshot!(env.render_ok(r#"1 > some_i64_0"#), @"true");
+
+        // invalid comparisons
+        assert_matches!(
+            env.parse_err_kind("42 >= true"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("none_i64 >= true"),
+            TemplateParseErrorKind::Expression(_)
+        );
+
+        // un-comparable types
+        env.add_keyword("str_list", || {
+            literal(vec!["foo".to_owned(), "bar".to_owned()])
+        });
+        env.add_keyword("cfg_val", || {
+            literal(ConfigValue::from_iter([("foo", "bar")]))
+        });
+        env.add_keyword("signature", || {
+            literal(new_signature("User", "user@example.com"))
+        });
+        env.add_keyword("email", || literal(Email("me@example.com".to_owned())));
+        env.add_keyword("size_hint", || literal((10, None)));
+        env.add_keyword("timestamp", || literal(new_timestamp(0, 0)));
+        env.add_keyword("timestamp_range", || {
+            literal(TimestampRange {
+                start: new_timestamp(0, 0),
+                end: new_timestamp(0, 0),
+            })
+        });
+        assert_matches!(
+            env.parse_err_kind("'a' >= 'a'"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("str_list >= str_list"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("true >= true"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("cfg_val >= cfg_val"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("signature >= signature"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("email >= email"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("size_hint >= size_hint"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("timestamp >= timestamp"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("timestamp_range >= timestamp_range"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("label('', '') >= label('', '')"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("str_list.map(|s| s) >= str_list.map(|s| s)"),
+            TemplateParseErrorKind::Expression(_)
+        );
     }
 
     #[test]
