@@ -2829,6 +2829,9 @@ mod tests {
             env.render_ok(r#"1 / 0"#),
             @"<Error: Attempt to divide by zero>");
         insta::assert_snapshot!(
+            env.render_ok("i64_min % -1"),
+            @"<Error: Attempt to divide with overflow>");
+        insta::assert_snapshot!(
             env.render_ok(r#"1 % 0"#),
             @"<Error: Attempt to divide by zero>");
     }
