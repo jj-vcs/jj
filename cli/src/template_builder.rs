@@ -3465,7 +3465,7 @@ mod tests {
     }
 
     #[test]
-    fn test_signature() {
+    fn test_signature_and_email_methods() {
         let mut env = TestTemplateEnv::new();
 
         env.add_keyword("author", || {
@@ -3474,6 +3474,9 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <test.user@example.com>");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user@example.com");
+        insta::assert_snapshot!(env.render_ok("author.email().local()"), @"test.user");
+        insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"example.com");
+        insta::assert_snapshot!(env.render_ok("author.timestamp()"), @"1970-01-01 00:00:00.000 +00:00");
 
         env.add_keyword("author", || {
             literal(new_signature("Another Test User", "test.user@example.com"))
@@ -3488,22 +3491,30 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <test.user@invalid@example.com>");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user@invalid@example.com");
+        insta::assert_snapshot!(env.render_ok("author.email().local()"), @"test.user");
+        insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"invalid@example.com");
 
         env.add_keyword("author", || {
             literal(new_signature("Test User", "test.user"))
         });
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <test.user>");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user");
+        insta::assert_snapshot!(env.render_ok("author.email().local()"), @"test.user");
+        insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"");
 
         env.add_keyword("author", || {
             literal(new_signature("Test User", "test.user+tag@example.com"))
         });
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <test.user+tag@example.com>");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"test.user+tag@example.com");
+        insta::assert_snapshot!(env.render_ok("author.email().local()"), @"test.user+tag");
+        insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"example.com");
 
         env.add_keyword("author", || literal(new_signature("Test User", "x@y")));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User <x@y>");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"x@y");
+        insta::assert_snapshot!(env.render_ok("author.email().local()"), @"x");
+        insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"y");
 
         env.add_keyword("author", || {
             literal(new_signature("", "test.user@example.com"))
@@ -3516,6 +3527,8 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.name()"#), @"Test User");
         insta::assert_snapshot!(env.render_ok(r#"author.email()"#), @"");
+        insta::assert_snapshot!(env.render_ok("author.email().local()"), @"");
+        insta::assert_snapshot!(env.render_ok("author.email().domain()"), @"");
 
         env.add_keyword("author", || literal(new_signature("", "")));
         insta::assert_snapshot!(env.render_ok(r#"author"#), @"");
