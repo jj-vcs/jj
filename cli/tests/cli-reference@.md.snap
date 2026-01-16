@@ -352,7 +352,7 @@ See [`jj help -k bookmarks`] for more information.
 * `list` — List bookmarks and their targets
 * `move` — Move existing bookmarks to target revision
 * `rename` — Rename `old` bookmark name to `new` bookmark name
-* `set` — Create or update a bookmark to point to a certain commit
+* `set` — Create a new bookmark, or update an existing one by name
 * `track` — Start tracking given remote bookmarks
 * `untrack` — Stop tracking given remote bookmarks
 
@@ -487,6 +487,8 @@ See [`jj help -k bookmarks`] for more information.
 
 Move existing bookmarks to target revision
 
+Unlike `jj bookmark set`, this command cannot create new bookmarks.
+
 If bookmark names are given, the specified bookmarks will be updated to point to the target revision.
 
 If `--from` options are given, bookmarks currently pointing to the specified revisions will be updated. The bookmarks can also be filtered by names.
@@ -536,7 +538,9 @@ The new bookmark name points at the same commit as the old bookmark name.
 
 ## `jj bookmark set`
 
-Create or update a bookmark to point to a certain commit
+Create a new bookmark, or update an existing one by name
+
+If you want to move bookmarks based on their current location rather than by name, use `jj bookmark move --from <REVSETS>`.
 
 **Usage:** `jj bookmark set [OPTIONS] <NAMES>...`
 

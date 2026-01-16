@@ -33,6 +33,8 @@ use crate::ui::Ui;
 
 /// Move existing bookmarks to target revision
 ///
+/// Unlike `jj bookmark set`, this command cannot create new bookmarks.
+///
 /// If bookmark names are given, the specified bookmarks will be updated to
 /// point to the target revision.
 ///

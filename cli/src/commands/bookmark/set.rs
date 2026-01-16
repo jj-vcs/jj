@@ -31,7 +31,10 @@ use crate::complete;
 use crate::revset_util;
 use crate::ui::Ui;
 
-/// Create or update a bookmark to point to a certain commit
+/// Create a new bookmark, or update an existing one by name
+///
+/// If you want to move bookmarks based on their current location rather than
+/// by name, use `jj bookmark move --from <REVSETS>`.
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkSetArgs {
     /// The bookmark's target revision
