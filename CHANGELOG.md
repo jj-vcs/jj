@@ -68,6 +68,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Conflict labels are now preserved correctly when restoring files from commits
   with different conflict labels.
 
+* The empty tree is now always written when the working copy is empty.
+  [#8480](https://github.com/jj-vcs/jj/issues/8480)
+
 ## [0.37.0] - 2026-01-07
 
 ### Release highlights

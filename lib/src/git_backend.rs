@@ -1295,6 +1295,18 @@ impl Backend for GitBackend {
             ));
         }
 
+        if tree_ids.iter().any(|id| id == &self.empty_tree_id) {
+            let tree = gix::objs::Tree::empty();
+            let tree_id =
+                locked_repo
+                    .write_object(&tree)
+                    .map_err(|err| BackendError::WriteObject {
+                        object_type: "tree",
+                        source: Box::new(err),
+                    })?;
+            assert!(tree_id.is_empty_tree());
+        }
+
         let extras = serialize_extras(&contents);
 
         // If two writers write commits of the same id with different metadata, they
