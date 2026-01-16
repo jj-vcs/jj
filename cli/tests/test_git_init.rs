@@ -210,6 +210,40 @@ fn test_git_init_external(bare: bool) {
     }
 }
 
+#[test]
+fn test_git_init_external_with_colocate_config() {
+    let test_env = TestEnvironment::default();
+    let git_repo_path = test_env.env_root().join("git-repo");
+    init_git_repo(&git_repo_path, true);
+
+    // Explicitly enable git.colocate (which is also the default)
+    test_env.add_config("git.colocate = true");
+
+    // --git-repo takes precedence over git.colocate.true
+    let output = test_env.run_jj_in(
+        ".",
+        [
+            "git",
+            "init",
+            "repo",
+            "--git-repo",
+            git_repo_path.to_str().unwrap(),
+        ],
+    );
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Working copy  (@) now at: sqpuoqvx ed6b5138 (empty) (no description set)
+    Parent commit (@-)      : nntyzxmz e80a42cc my-bookmark | My commit message
+    Added 1 files, modified 0 files, removed 0 files
+    Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
+    [EOF]
+    "#);
+    }
+}
+
 #[test_case(false; "full")]
 #[test_case(true; "bare")]
 fn test_git_init_external_import_trunk(bare: bool) {

@@ -97,7 +97,8 @@ pub struct GitInitArgs {
     /// same working directory), then both `jj` and `git` commands
     /// will work on the same repo. This is called a colocated workspace.
     ///
-    /// This option is mutually exclusive with `--colocate`.
+    /// This option is mutually exclusive with `--colocate`, and so if passed,
+    /// turns colocation off.
     #[arg(long, conflicts_with = "colocate", value_hint = clap::ValueHint::DirPath)]
     git_repo: Option<String>,
 }
@@ -158,7 +159,17 @@ fn do_init(
     }
 
     let colocated_git_repo_path = workspace_root.join(".git");
-    let init_mode = if colocate {
+    let init_mode = if let Some(path_str) = git_repo {
+        let mut git_repo_path = command.cwd().join(path_str);
+        if !git_repo_path.ends_with(".git") {
+            git_repo_path.push(".git");
+            // Undo if .git doesn't exist - likely a bare repo.
+            if !git_repo_path.exists() {
+                git_repo_path.pop();
+            }
+        }
+        GitInitMode::External(git_repo_path)
+    } else if colocate {
         if colocated_git_repo_path.exists() {
             // Refuse to colocate inside a Git worktree
             if is_linked_git_worktree(workspace_root) {
@@ -172,16 +183,6 @@ fn do_init(
         } else {
             GitInitMode::Colocate
         }
-    } else if let Some(path_str) = git_repo {
-        let mut git_repo_path = command.cwd().join(path_str);
-        if !git_repo_path.ends_with(".git") {
-            git_repo_path.push(".git");
-            // Undo if .git doesn't exist - likely a bare repo.
-            if !git_repo_path.exists() {
-                git_repo_path.pop();
-            }
-        }
-        GitInitMode::External(git_repo_path)
     } else {
         if colocated_git_repo_path.exists() {
             return Err(user_error_with_hint(
