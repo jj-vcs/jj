@@ -15,6 +15,8 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::ref_name::WorkspaceNameBuf;
+use jj_lib::workspace_store::SimpleWorkspaceStore;
+use jj_lib::workspace_store::WorkspaceStore as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -70,12 +72,18 @@ pub fn cmd_workspace_forget(
         return Ok(());
     }
 
+    let workspace_store = SimpleWorkspaceStore::load(workspace_command.repo_path())?;
+
     // bundle every workspace forget into a single transaction, so that e.g.
     // undo correctly restores all of them at once.
     let mut tx = workspace_command.start_transaction();
-    forget_ws
-        .iter()
-        .try_for_each(|ws| tx.repo_mut().remove_wc_commit(ws))?;
+
+    for ws in &forget_ws {
+        tx.repo_mut().remove_wc_commit(ws)?;
+    }
+
+    workspace_store.forget(&forget_ws.iter().map(|x| x.as_ref()).collect::<Vec<_>>())?;
+
     let description = if let [ws] = forget_ws.as_slice() {
         format!("forget workspace {}", ws.as_symbol())
     } else {
