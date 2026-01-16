@@ -3795,7 +3795,8 @@ mod tests {
             env.render_ok("json(timestamp_range)"),
             @r#"{"start":"1970-01-01T00:00:00Z","end":"1970-01-01T23:00:00-01:00"}"#);
 
-        insta::assert_snapshot!(env.parse_err(r#"json(string_list.map(|s| s))"#), @r"
+        // Template and ListTemplate are unserializable
+        insta::assert_snapshot!(env.parse_err(r#"json(string_list.map(|s| s))"#), @"
          --> 1:6
           |
         1 | json(string_list.map(|s| s))
@@ -3803,6 +3804,10 @@ mod tests {
           |
           = Expected expression of type `Serialize`, but actual type is `ListTemplate`
         ");
+        assert_matches!(
+            env.parse_err_kind("json(label('', ''))"),
+            TemplateParseErrorKind::Expression(_)
+        );
     }
 
     #[test]
