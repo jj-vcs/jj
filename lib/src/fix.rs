@@ -70,6 +70,10 @@ pub enum FixError {
     /// Error occurred while processing the file content.
     #[error(transparent)]
     FixContent(Box<dyn std::error::Error + Send + Sync>),
+    /// Error when `jj fix --no-index` attempted to read a path directly from
+    /// disk
+    #[error(transparent)]
+    Path(#[from] jj_lib::file_util::PathError),
 }
 
 /// Fixes a set of files.
