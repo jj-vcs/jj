@@ -1061,6 +1061,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#changeid-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ChangeId type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#commit-type" class="md-nav__link">
     <span class="md-ellipsis">
       Commit type
@@ -1073,15 +1082,6 @@
   <a href="#commitevolutionentry-type" class="md-nav__link">
     <span class="md-ellipsis">
       CommitEvolutionEntry type
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#changeid-type" class="md-nav__link">
-    <span class="md-ellipsis">
-      ChangeId type
     </span>
   </a>
   
@@ -1124,18 +1124,18 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#diffstats-type" class="md-nav__link">
+  <a href="#diffstatentry-type" class="md-nav__link">
     <span class="md-ellipsis">
-      DiffStats type
+      DiffStatEntry type
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#diffstatentry-type" class="md-nav__link">
+  <a href="#diffstats-type" class="md-nav__link">
     <span class="md-ellipsis">
-      DiffStatEntry type
+      DiffStats type
     </span>
   </a>
   
@@ -1277,18 +1277,18 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#stringliteral-type" class="md-nav__link">
+  <a href="#stringify-type" class="md-nav__link">
     <span class="md-ellipsis">
-      StringLiteral type
+      Stringify type
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#stringify-type" class="md-nav__link">
+  <a href="#stringliteral-type" class="md-nav__link">
     <span class="md-ellipsis">
-      Stringify type
+      StringLiteral type
     </span>
   </a>
   
@@ -2337,6 +2337,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#changeid-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      ChangeId type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#commit-type" class="md-nav__link">
     <span class="md-ellipsis">
       Commit type
@@ -2349,15 +2358,6 @@
   <a href="#commitevolutionentry-type" class="md-nav__link">
     <span class="md-ellipsis">
       CommitEvolutionEntry type
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#changeid-type" class="md-nav__link">
-    <span class="md-ellipsis">
-      ChangeId type
     </span>
   </a>
   
@@ -2400,18 +2400,18 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#diffstats-type" class="md-nav__link">
+  <a href="#diffstatentry-type" class="md-nav__link">
     <span class="md-ellipsis">
-      DiffStats type
+      DiffStatEntry type
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#diffstatentry-type" class="md-nav__link">
+  <a href="#diffstats-type" class="md-nav__link">
     <span class="md-ellipsis">
-      DiffStatEntry type
+      DiffStats type
     </span>
   </a>
   
@@ -2553,18 +2553,18 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#stringliteral-type" class="md-nav__link">
+  <a href="#stringify-type" class="md-nav__link">
     <span class="md-ellipsis">
-      StringLiteral type
+      Stringify type
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#stringify-type" class="md-nav__link">
+  <a href="#stringliteral-type" class="md-nav__link">
     <span class="md-ellipsis">
-      Stringify type
+      StringLiteral type
     </span>
   </a>
   
@@ -2818,6 +2818,15 @@ type</a> are available as keywords. For example,
 <h3 id="boolean-type"><code>Boolean</code> type<a class="headerlink" href="#boolean-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: yes, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
 <p>No methods are defined. Can be constructed with <code>false</code> or <code>true</code> literal.</p>
+<h3 id="changeid-type"><code>ChangeId</code> type<a class="headerlink" href="#changeid-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.normal_hex() -&gt; String</code>: Normal hex representation (0-9a-f) instead of the
+  canonical "reversed" (z-k) representation.</li>
+<li><code>.short([len: Integer]) -&gt; String</code></li>
+<li><code>.shortest([min_len: Integer]) -&gt; ShortestIdPrefix</code>: Shortest unique prefix.</li>
+</ul>
 <h3 id="commit-type"><code>Commit</code> type<a class="headerlink" href="#commit-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: no</em></p>
 <p>This type cannot be printed. The following methods are defined.</p>
@@ -2884,15 +2893,6 @@ type</a> are available as keywords. For example,
 <li><code>.inter_diff([files: StringLiteral]) -&gt; TreeDiff</code>: Changes between this commit and its
   predecessor version(s), rebased onto the parents of this commit to avoid unrelated
   changes (similar to <code>jj evolog -p</code>).</li>
-</ul>
-<h3 id="changeid-type"><code>ChangeId</code> type<a class="headerlink" href="#changeid-type" title="Permanent link">&para;</a></h3>
-<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
-<p>The following methods are defined.</p>
-<ul>
-<li><code>.normal_hex() -&gt; String</code>: Normal hex representation (0-9a-f) instead of the
-  canonical "reversed" (z-k) representation.</li>
-<li><code>.short([len: Integer]) -&gt; String</code></li>
-<li><code>.shortest([min_len: Integer]) -&gt; ShortestIdPrefix</code>: Shortest unique prefix.</li>
 </ul>
 <h3 id="commitid-type"><code>CommitId</code> type<a class="headerlink" href="#commitid-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
@@ -2962,15 +2962,6 @@ checking for signature presence through boolean coercion is fast:
 <div class="highlight"><pre><span></span><code>if(commit.signature(), &quot;commit has a signature&quot;, &quot;commit is unsigned&quot;)
 </code></pre></div></p>
 </div>
-<h3 id="diffstats-type"><code>DiffStats</code> type<a class="headerlink" href="#diffstats-type" title="Permanent link">&para;</a></h3>
-<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: yes</em></p>
-<p>This type can be printed as a histogram of the changes. The following methods
-are defined.</p>
-<ul>
-<li><code>.files() -&gt; List&lt;DiffStatEntry&gt;</code>: Per-file stats for changed files.</li>
-<li><code>.total_added() -&gt; Integer</code>: Total number of insertions.</li>
-<li><code>.total_removed() -&gt; Integer</code>: Total number of deletions.</li>
-</ul>
 <h3 id="diffstatentry-type"><code>DiffStatEntry</code> type<a class="headerlink" href="#diffstatentry-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
 <p>This type holds the diff stats per file. The following methods are defined.</p>
@@ -2984,6 +2975,15 @@ are defined.</p>
 <li><code>.status() -&gt; String</code>: One of <code>"modified"</code>, <code>"added"</code>, <code>"removed"</code>, <code>"copied"</code>, or <code>"renamed"</code>.</li>
 <li><code>.status_char() -&gt; String</code>: One of <code>"M"</code> (modified), <code>"A"</code> (added), <code>"D"</code> (removed),
   <code>"C"</code> (copied), or <code>"R"</code> (renamed).</li>
+</ul>
+<h3 id="diffstats-type"><code>DiffStats</code> type<a class="headerlink" href="#diffstats-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: yes</em></p>
+<p>This type can be printed as a histogram of the changes. The following methods
+are defined.</p>
+<ul>
+<li><code>.files() -&gt; List&lt;DiffStatEntry&gt;</code>: Per-file stats for changed files.</li>
+<li><code>.total_added() -&gt; Integer</code>: Total number of insertions.</li>
+<li><code>.total_removed() -&gt; Integer</code>: Total number of deletions.</li>
 </ul>
 <h3 id="email-type"><code>Email</code> type<a class="headerlink" href="#email-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: yes, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
@@ -3159,6 +3159,10 @@ that many occurrences are replaced.</p>
   can use it in a template like <code>'{ "foo": ' ++ foo.escape_json() ++ ' }'</code> to
   return a JSON/JSONL.</li>
 </ul>
+<h3 id="stringify-type"><code>Stringify</code> type<a class="headerlink" href="#stringify-type" title="Permanent link">&para;</a></h3>
+<p>An expression that can be converted to a <code>String</code>.</p>
+<p>Any types that can be converted to <code>Template</code> can also be <code>Stringify</code>. Unlike
+<code>Template</code>, color labels are stripped.</p>
 <h3 id="stringliteral-type"><code>StringLiteral</code> type<a class="headerlink" href="#stringliteral-type" title="Permanent link">&para;</a></h3>
 <p>A string literal known at parse time. Unlike <code>Stringify</code>, this cannot be a
 dynamic expression - it must be a literal value like <code>"main"</code> or <code>"format"</code>.</p>
@@ -3182,10 +3186,6 @@ inside a single-quoted string literal.</p>
 <p>String literals have their own type so that the value can be validated at parse
 time. For example, <code>contained_in(revset)</code> requires a literal so the revset can
 be parsed and checked before the template is evaluated.</p>
-<h3 id="stringify-type"><code>Stringify</code> type<a class="headerlink" href="#stringify-type" title="Permanent link">&para;</a></h3>
-<p>An expression that can be converted to a <code>String</code>.</p>
-<p>Any types that can be converted to <code>Template</code> can also be <code>Stringify</code>. Unlike
-<code>Template</code>, color labels are stripped.</p>
 <h3 id="stringpattern-type"><code>StringPattern</code> type<a class="headerlink" href="#stringpattern-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: no</em></p>
 <p>These are the exact same as the <a href="../revsets/#string-patterns">String pattern type</a> in revsets, except that
