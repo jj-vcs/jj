@@ -2265,6 +2265,7 @@ fn expect_expression_of_type<'a, L: TemplateLanguage<'a> + ?Sized, T>(
 
 #[cfg(test)]
 mod tests {
+    use assert_matches::assert_matches;
     use jj_lib::backend::MillisSinceEpoch;
     use jj_lib::config::StackedConfig;
 
@@ -2341,6 +2342,14 @@ mod tests {
                 .expect("Got unexpected successful template rendering");
 
             iter::successors(Some(&err as &dyn std::error::Error), |e| e.source()).join("\n")
+        }
+
+        fn parse_err_kind(&self, template: &str) -> TemplateParseErrorKind {
+            self.parse(template)
+                .err()
+                .expect("Got unexpected successful template rendering")
+                .kind()
+                .clone()
         }
 
         fn render_ok(&self, template: &str) -> String {
@@ -2731,6 +2740,46 @@ mod tests {
         });
         insta::assert_snapshot!(env.render_ok(r#"if(empty_email, true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if(nonempty_email, true, false)"#), @"true");
+
+        // even boolean config values must be extracted
+        env.add_keyword("config_bool", || literal(ConfigValue::from(true)));
+        insta::assert_snapshot!(env.parse_err("if(config_bool, true, false)"), @"
+         --> 1:4
+          |
+        1 | if(config_bool, true, false)
+          |    ^---------^
+          |
+          = Expected expression of type `Boolean`, but actual type is `ConfigValue`
+        ");
+
+        // misc uncastable types
+        env.add_keyword("signature", || {
+            literal(new_signature("Test User", "test.user@example.com"))
+        });
+        env.add_keyword("size_hint", || literal((5, None)));
+        env.add_keyword("timestamp", || literal(new_timestamp(0, 0)));
+        env.add_keyword("timestamp_range", || {
+            literal(TimestampRange {
+                start: new_timestamp(0, 0),
+                end: new_timestamp(0, 0),
+            })
+        });
+        assert_matches!(
+            env.parse_err_kind("if(signature, true, false)"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("if(size_hint, true, false)"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("if(timestamp, true, false)"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("if(timestamp_range, true, false)"),
+            TemplateParseErrorKind::Expression(_)
+        );
     }
 
     #[test]
