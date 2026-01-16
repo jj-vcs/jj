@@ -3943,6 +3943,41 @@ mod tests {
           |
           = Function `join`: Unexpected keyword arguments
         "#);
+
+        // only size hints cannot be templated / joined
+        env.add_keyword("str_list", || {
+            literal(vec!["foo".to_owned(), "bar".to_owned()])
+        });
+        env.add_keyword("none_int", || literal(None));
+        env.add_keyword("some_int", || literal(Some(67)));
+        env.add_keyword("cfg_val", || {
+            literal(ConfigValue::from_iter([("foo", "bar")]))
+        });
+        env.add_keyword("email", || literal(Email("me@example.com".to_owned())));
+        env.add_keyword("signature", || {
+            literal(new_signature("User", "user@example.com"))
+        });
+        env.add_keyword("size_hint", || literal((10, None)));
+        env.add_keyword("timestamp", || literal(new_timestamp(0, 0)));
+        env.add_keyword("timestamp_range", || {
+            literal(TimestampRange {
+                start: new_timestamp(0, 0),
+                end: new_timestamp(0, 0),
+            })
+        });
+        insta::assert_snapshot!(
+            env.render_ok("join('|', str_list, 42, none_int, some_int)"),
+            @"foo bar|42||67");
+        insta::assert_snapshot!(
+            env.render_ok("join('|', cfg_val, email, signature)"),
+            @r#"{ foo = "bar" }|me@example.com|User <user@example.com>"#);
+        insta::assert_snapshot!(
+            env.render_ok("join('|', timestamp, timestamp_range, str_list.map(|x| x))"),
+            @"1970-01-01 00:00:00.000 +00:00|1970-01-01 00:00:00.000 +00:00 - 1970-01-01 00:00:00.000 +00:00|foo bar");
+        assert_matches!(
+            env.parse_err_kind("join('|', size_hint)"),
+            TemplateParseErrorKind::Expression(_)
+        );
     }
 
     #[test]
