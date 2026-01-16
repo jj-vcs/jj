@@ -217,6 +217,57 @@ impl<T: Template> Template for RawEscapeSequenceTemplate<T> {
     }
 }
 
+/// Renders a hyperlink using OSC 8 escape sequences when supported, or a
+/// fallback otherwise.
+pub struct HyperlinkTemplate<U, T, F> {
+    url: U,
+    text: T,
+    fallback: Option<F>,
+}
+
+impl<U, T, F> HyperlinkTemplate<U, T, F> {
+    pub fn new(url: U, text: T, fallback: Option<F>) -> Self {
+        Self {
+            url,
+            text,
+            fallback,
+        }
+    }
+}
+
+impl<U, T, F> Template for HyperlinkTemplate<U, T, F>
+where
+    U: Template,
+    T: Template,
+    F: Template,
+{
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        if formatter.supports_hyperlinks() {
+            // Write OSC 8 hyperlink: \x1b]8;;{url}\x1b\\ {text} \x1b]8;;\x1b\\
+            let rewrap = formatter.rewrap_fn();
+            let mut raw = formatter.raw()?;
+            write!(raw, "\x1b]8;;")?;
+            let mut raw_formatter = PlainTextFormatter::new(&mut *raw);
+            self.url.format(&mut rewrap(&mut raw_formatter))?;
+            write!(raw, "\x1b\\")?;
+            drop(raw);
+            self.text.format(formatter)?;
+            write!(formatter.raw()?, "\x1b]8;;\x1b\\")?;
+            Ok(())
+        } else if let Some(fallback) = &self.fallback {
+            fallback.format(formatter)
+        } else {
+            // Default fallback: markdown [text](url)
+            write!(formatter, "[")?;
+            self.text.format(formatter)?;
+            write!(formatter, "](")?;
+            self.url.format(formatter)?;
+            write!(formatter, ")")?;
+            Ok(())
+        }
+    }
+}
+
 /// Renders contents in order, and returns the first non-empty output.
 pub struct CoalesceTemplate<T>(pub Vec<T>);
 
@@ -825,6 +876,10 @@ impl<'a> TemplateFormatter<'a> {
 
     pub fn pop_label(&mut self) {
         self.formatter.pop_label();
+    }
+
+    pub fn supports_hyperlinks(&self) -> bool {
+        self.formatter.supports_hyperlinks()
     }
 
     pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {
