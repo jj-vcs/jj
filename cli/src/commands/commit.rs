@@ -153,6 +153,7 @@ new working-copy commit.
         )
     };
     let tree = diff_selector.select(
+        ui,
         Diff::new(&base_tree, &commit.tree()),
         Diff::new(commit.parents_conflict_label()?, commit.conflict_label()),
         matcher.as_ref(),
