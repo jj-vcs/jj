@@ -42,6 +42,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj tag list` can now be filtered by revset.
 
+* `jj gerrit upload` accepts `-o` flag to pass push options to the Gerrit
+  remote, which can perform various actions on the uploaded changes such as
+  adding reviewers or voting. For documentation on supported options, see
+  https://gerrit-review.googlesource.com/Documentation/user-upload.html#push_options.
+
+
 ### Fixed bugs
 
 * `jj git push` now ensures that tracked remote bookmarks are updated even if

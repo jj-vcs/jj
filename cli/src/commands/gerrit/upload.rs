@@ -29,17 +29,17 @@ use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
-use jj_lib::trailer::Trailer;
 use jj_lib::trailer::parse_description_trailers;
+use jj_lib::trailer::Trailer;
 
+use crate::cli_util::short_change_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
-use crate::cli_util::short_change_hash;
-use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
+use crate::command_error::CommandError;
 use crate::git_util::print_push_stats;
 use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
@@ -89,6 +89,12 @@ pub struct UploadArgs {
     /// Do not actually push the changes to Gerrit
     #[arg(long = "dry-run", short = 'n')]
     dry_run: bool,
+
+    /// Options to pass to Gerrit when uploading
+    ///
+    /// For documentation on the available options, see https://gerrit-review.googlesource.com/Documentation/user-upload.html#push_options.
+    #[arg(long = "option", short = 'o')]
+    options: Vec<String>,
 }
 
 fn calculate_push_remote(
@@ -130,9 +136,7 @@ fn calculate_push_remote(
     }
 
     // Otherwise error out
-    Err(user_error(
-        "No remote specified, and no 'gerrit' remote was found",
-    ))
+    Err(user_error("No remote specified, and no 'gerrit' remote was found"))
 }
 
 /// Determine what Gerrit ref and remote to use. The logic is:
@@ -168,14 +172,10 @@ pub fn cmd_gerrit_upload(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
 
-    let target_expr = workspace_command
-        .parse_union_revsets(ui, &args.revisions)?
-        .resolve()?;
+    let target_expr = workspace_command.parse_union_revsets(ui, &args.revisions)?.resolve()?;
     workspace_command.check_rewritable_expr(&target_expr)?;
-    let revisions: Vec<_> = target_expr
-        .evaluate(workspace_command.repo().as_ref())?
-        .iter()
-        .try_collect()?;
+    let revisions: Vec<_> =
+        target_expr.evaluate(workspace_command.repo().as_ref())?.iter().try_collect()?;
     if revisions.is_empty() {
         writeln!(ui.status(), "No revisions to upload.")?;
         return Ok(());
@@ -209,10 +209,7 @@ pub fn cmd_gerrit_upload(
     let base_repo = tx.base_repo();
     let store = base_repo.store().clone();
 
-    let old_heads = base_repo
-        .index()
-        .heads(&mut revisions.iter())
-        .map_err(internal_error)?;
+    let old_heads = base_repo.index().heads(&mut revisions.iter()).map_err(internal_error)?;
 
     let subprocess_options = GitSubprocessOptions::from_settings(command.settings())?;
     let remote = calculate_push_remote(&store, command.settings(), args.remote.as_deref())?;
@@ -245,10 +242,8 @@ pub fn cmd_gerrit_upload(
     for original_commit in to_upload.into_iter().rev() {
         let trailers = parse_description_trailers(original_commit.description());
 
-        let change_id_trailers: Vec<&Trailer> = trailers
-            .iter()
-            .filter(|trailer| trailer.key == "Change-Id")
-            .collect();
+        let change_id_trailers: Vec<&Trailer> =
+            trailers.iter().filter(|trailer| trailer.key == "Change-Id").collect();
 
         // There shouldn't be multiple change-ID fields. So just error out if
         // there is.
@@ -327,6 +322,15 @@ pub fn cmd_gerrit_upload(
         remote_branch,
     )?;
 
+    if !args.options.is_empty()
+        && let Some(mut formatter) = ui.status_formatter()
+    {
+        writeln!(formatter, "Using options:")?;
+        for option in &args.options {
+            writeln!(formatter, "  {option}")?;
+        }
+    }
+
     // NOTE (aseipp): because we are pushing everything to the same remote ref,
     // we have to loop and push each commit one at a time, even though
     // push_updates in theory supports multiple GitRefUpdates at once, because
@@ -365,6 +369,7 @@ pub fn cmd_gerrit_upload(
                     expected_current_target: None,
                     new_target: Some(new_commit.id().clone()),
                 }],
+                &args.options.iter().map(|o| o.as_ref()).collect::<Vec<&str>>(),
                 cb,
             )
         })

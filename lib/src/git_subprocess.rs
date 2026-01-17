@@ -84,10 +84,7 @@ pub(crate) struct GitSubprocessContext {
 
 impl GitSubprocessContext {
     pub(crate) fn new(git_dir: impl Into<PathBuf>, options: GitSubprocessOptions) -> Self {
-        Self {
-            git_dir: git_dir.into(),
-            options,
-        }
+        Self { git_dir: git_dir.into(), options }
     }
 
     pub(crate) fn from_git_backend(
@@ -147,10 +144,7 @@ impl GitSubprocessContext {
 
         git_cmd.spawn().map_err(|error| {
             if self.options.executable_path.is_absolute() {
-                GitSubprocessError::Spawn {
-                    path: self.options.executable_path.clone(),
-                    error,
-                }
+                GitSubprocessError::Spawn { path: self.options.executable_path.clone(), error }
             } else {
                 GitSubprocessError::SpawnInPath {
                     path: self.options.executable_path.clone(),
@@ -265,6 +259,7 @@ impl GitSubprocessContext {
         &self,
         remote_name: &RemoteName,
         references: &[RefToPush],
+        push_options: &[&str],
         callbacks: &mut RemoteCallbacks<'_>,
     ) -> Result<GitPushStats, GitSubprocessError> {
         let mut command = self.create_command();
@@ -283,14 +278,13 @@ impl GitSubprocessContext {
                 .iter()
                 .map(|reference| format!("--force-with-lease={}", reference.to_git_lease())),
         );
+        for option in push_options {
+            command.arg(format!("--push-option={option}"));
+        }
         command.args(["--", remote_name.as_str()]);
         // with --force-with-lease we cannot have the forced refspec,
         // as it ignores the lease
-        command.args(
-            references
-                .iter()
-                .map(|r| r.refspec.to_git_format_not_forced()),
-        );
+        command.args(references.iter().map(|r| r.refspec.to_git_format_not_forced()));
 
         let output = wait_with_progress(self.spawn_cmd(command)?, callbacks)?;
 
@@ -301,10 +295,7 @@ impl GitSubprocessContext {
 /// Generate a GitSubprocessError::ExternalGitError if the stderr output was not
 /// recognizable
 fn external_git_error(stderr: &[u8]) -> GitSubprocessError {
-    GitSubprocessError::External(format!(
-        "External git program failed:\n{}",
-        stderr.to_str_lossy()
-    ))
+    GitSubprocessError::External(format!("External git program failed:\n{}", stderr.to_str_lossy()))
 }
 
 /// Parse no such remote errors output from git
@@ -379,9 +370,7 @@ fn parse_unknown_option(stderr: &[u8]) -> Option<String> {
     let first_line = stderr.lines().next()?;
     first_line
         .strip_prefix(b"unknown option: --")
-        .or(first_line
-            .strip_prefix(b"error: unknown option `")
-            .and_then(|s| s.strip_suffix(b"'")))
+        .or(first_line.strip_prefix(b"error: unknown option `").and_then(|s| s.strip_suffix(b"'")))
         .map(|s| s.to_str_lossy().into())
 }
 
@@ -488,12 +477,7 @@ fn parse_ref_pushes(stdout: &[u8]) -> Result<GitPushStats, GitSubprocessError> {
     }
 
     let mut push_stats = GitPushStats::default();
-    for (idx, line) in stdout
-        .lines()
-        .skip(1)
-        .take_while(|line| line != b"Done")
-        .enumerate()
-    {
+    for (idx, line) in stdout.lines().skip(1).take_while(|line| line != b"Done").enumerate() {
         tracing::debug!("response #{idx}: {}", line.to_str_lossy());
         let [flag, reference, summary] = line.split_str("\t").collect_array().ok_or_else(|| {
             GitSubprocessError::External(format!(
@@ -579,11 +563,7 @@ fn parse_git_push_output(output: Output) -> Result<GitPushStats, GitSubprocessEr
         return Err(GitSubprocessError::NoSuchRepository(remote));
     }
 
-    if output
-        .stderr
-        .lines()
-        .any(|line| line.starts_with(b"error: failed to push some refs to "))
-    {
+    if output.stderr.lines().any(|line| line.starts_with(b"error: failed to push some refs to ")) {
         parse_ref_pushes(&output.stdout)
     } else {
         Err(external_git_error(&output.stderr))
@@ -630,11 +610,7 @@ fn wait_with_progress(
     })
     .map_err(GitSubprocessError::Wait)?;
     let status = child.wait().map_err(GitSubprocessError::Wait)?;
-    Ok(Output {
-        status,
-        stdout,
-        stderr,
-    })
+    Ok(Output { status, stdout, stderr })
 }
 
 #[derive(Default)]
@@ -818,19 +794,10 @@ Done";
             parse_no_such_remote(SAMPLE_NO_SUCH_REPOSITORY_ERROR),
             Some("origin".to_string())
         );
-        assert_eq!(
-            parse_no_such_remote(SAMPLE_NO_SUCH_REMOTE_ERROR),
-            Some("origin".to_string())
-        );
+        assert_eq!(parse_no_such_remote(SAMPLE_NO_SUCH_REMOTE_ERROR), Some("origin".to_string()));
         assert_eq!(parse_no_such_remote(SAMPLE_NO_REMOTE_REF_ERROR), None);
-        assert_eq!(
-            parse_no_such_remote(SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR),
-            None
-        );
-        assert_eq!(
-            parse_no_such_remote(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT),
-            None
-        );
+        assert_eq!(parse_no_such_remote(SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR), None);
+        assert_eq!(parse_no_such_remote(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT), None);
         assert_eq!(parse_no_such_remote(SAMPLE_OK_STDERR), None);
     }
 
@@ -842,36 +809,21 @@ Done";
             parse_no_remote_ref(SAMPLE_NO_REMOTE_REF_ERROR),
             Some("refs/heads/noexist".to_string())
         );
-        assert_eq!(
-            parse_no_remote_ref(SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR),
-            None
-        );
+        assert_eq!(parse_no_remote_ref(SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR), None);
         assert_eq!(parse_no_remote_ref(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT), None);
         assert_eq!(parse_no_remote_ref(SAMPLE_OK_STDERR), None);
     }
 
     #[test]
     fn test_parse_no_remote_tracking_branch() {
-        assert_eq!(
-            parse_no_remote_tracking_branch(SAMPLE_NO_SUCH_REPOSITORY_ERROR),
-            None
-        );
-        assert_eq!(
-            parse_no_remote_tracking_branch(SAMPLE_NO_SUCH_REMOTE_ERROR),
-            None
-        );
-        assert_eq!(
-            parse_no_remote_tracking_branch(SAMPLE_NO_REMOTE_REF_ERROR),
-            None
-        );
+        assert_eq!(parse_no_remote_tracking_branch(SAMPLE_NO_SUCH_REPOSITORY_ERROR), None);
+        assert_eq!(parse_no_remote_tracking_branch(SAMPLE_NO_SUCH_REMOTE_ERROR), None);
+        assert_eq!(parse_no_remote_tracking_branch(SAMPLE_NO_REMOTE_REF_ERROR), None);
         assert_eq!(
             parse_no_remote_tracking_branch(SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR),
             Some("bookmark".to_string())
         );
-        assert_eq!(
-            parse_no_remote_tracking_branch(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT),
-            None
-        );
+        assert_eq!(parse_no_remote_tracking_branch(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT), None);
         assert_eq!(parse_no_remote_tracking_branch(SAMPLE_OK_STDERR), None);
     }
 
@@ -881,12 +833,8 @@ Done";
         assert!(parse_ref_pushes(SAMPLE_NO_SUCH_REMOTE_ERROR).is_err());
         assert!(parse_ref_pushes(SAMPLE_NO_REMOTE_REF_ERROR).is_err());
         assert!(parse_ref_pushes(SAMPLE_NO_REMOTE_TRACKING_BRANCH_ERROR).is_err());
-        let GitPushStats {
-            pushed,
-            rejected,
-            remote_rejected,
-            unexported_bookmarks: _,
-        } = parse_ref_pushes(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT).unwrap();
+        let GitPushStats { pushed, rejected, remote_rejected, unexported_bookmarks: _ } =
+            parse_ref_pushes(SAMPLE_PUSH_REFS_PORCELAIN_OUTPUT).unwrap();
         assert_eq!(
             pushed,
             [
@@ -901,20 +849,14 @@ Done";
         assert_eq!(
             rejected,
             vec![
-                (
-                    "refs/heads/bookmark6".into(),
-                    Some("failure lease".to_string())
-                ),
+                ("refs/heads/bookmark6".into(), Some("failure lease".to_string())),
                 ("refs/heads/bookmark7".into(), None),
             ]
         );
         assert_eq!(
             remote_rejected,
             vec![
-                (
-                    "refs/heads/bookmark8".into(),
-                    Some("hook failure".to_string())
-                ),
+                ("refs/heads/bookmark8".into(), Some("hook failure".to_string())),
                 ("refs/heads/bookmark9".into(), None)
             ]
         );
@@ -947,10 +889,8 @@ Done";
         let (output, sideband, progress) = read(sample.as_bytes());
         assert_eq!(
             sideband,
-            [
-                "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
-            ]
-            .map(|s| s.as_bytes().to_owned())
+            ["line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"]
+                .map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message\n");
         insta::assert_debug_snapshot!(progress, @r"
@@ -966,38 +906,24 @@ Done";
         let (output, sideband, _progress) = read(sample.as_bytes().trim_end());
         assert_eq!(
             sideband,
-            [
-                "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
-            ]
-            .map(|s| s.as_bytes().to_owned())
+            ["line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"]
+                .map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message");
     }
 
     #[test]
     fn test_read_progress_line() {
-        assert_eq!(
-            read_progress_line(b"Receiving objects: (42/100)\r"),
-            Some((42, 100))
-        );
-        assert_eq!(
-            read_progress_line(b"Resolving deltas: (0/1000)\r"),
-            Some((0, 1000))
-        );
+        assert_eq!(read_progress_line(b"Receiving objects: (42/100)\r"), Some((42, 100)));
+        assert_eq!(read_progress_line(b"Resolving deltas: (0/1000)\r"), Some((0, 1000)));
         assert_eq!(read_progress_line(b"Receiving objects: (420/100)\r"), None);
-        assert_eq!(
-            read_progress_line(b"remote: this is something else\n"),
-            None
-        );
+        assert_eq!(read_progress_line(b"remote: this is something else\n"), None);
         assert_eq!(read_progress_line(b"fatal: this is a git error\n"), None);
     }
 
     #[test]
     fn test_parse_unknown_option() {
-        assert_eq!(
-            parse_unknown_option(b"unknown option: --abc").unwrap(),
-            "abc".to_string()
-        );
+        assert_eq!(parse_unknown_option(b"unknown option: --abc").unwrap(), "abc".to_string());
         assert_eq!(
             parse_unknown_option(b"error: unknown option `abc'").unwrap(),
             "abc".to_string()
