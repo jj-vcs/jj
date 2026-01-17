@@ -45,7 +45,6 @@ use jj_lib::refs::LocalAndRemoteRef;
 use jj_lib::refs::classify_bookmark_push_action;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
-use jj_lib::settings::UserSettings;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringExpression;
 use jj_lib::view::View;
@@ -539,13 +538,9 @@ fn validate_commits_ready_to_push(
             reasons.push("it has no description");
         }
         if commit.author().name.is_empty()
-            || commit.author().name == UserSettings::USER_NAME_PLACEHOLDER
             || commit.author().email.is_empty()
-            || commit.author().email == UserSettings::USER_EMAIL_PLACEHOLDER
             || commit.committer().name.is_empty()
-            || commit.committer().name == UserSettings::USER_NAME_PLACEHOLDER
             || commit.committer().email.is_empty()
-            || commit.committer().email == UserSettings::USER_EMAIL_PLACEHOLDER
         {
             reasons.push("it has no author and/or committer set");
         }

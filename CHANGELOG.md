@@ -20,6 +20,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Deprecated `ui.always-allow-large-revsets` setting and `all:` revset modifier
   have been removed.
 
+* Legacy placeholder support used for unset `user.name` or `user.email` has been
+  removed. Commits containing these values will now be pushed with `jj git push`
+  without producing an error.
+
 ### Deprecations
 
 * The revset function `diff_contains()` has been renamed to `diff_lines()`.

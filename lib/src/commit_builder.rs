@@ -235,14 +235,10 @@ impl DetachedCommitBuilder {
         commit.committer = settings.signature();
         // If the user had not configured a name and email before but now they have,
         // update the author fields with the new information.
-        if commit.author.name.is_empty()
-            || commit.author.name == UserSettings::USER_NAME_PLACEHOLDER
-        {
+        if commit.author.name.is_empty() {
             commit.author.name.clone_from(&commit.committer.name);
         }
-        if commit.author.email.is_empty()
-            || commit.author.email == UserSettings::USER_EMAIL_PLACEHOLDER
-        {
+        if commit.author.email.is_empty() {
             commit.author.email.clone_from(&commit.committer.email);
         }
 
