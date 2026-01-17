@@ -2902,3 +2902,187 @@ fn test_workspace_add_colocate_empty_repo() {
         ".git should be a file (worktree), not directory"
     );
 }
+
+// =============================================================================
+// Tests for import checking all worktrees' HEAD
+// =============================================================================
+
+#[test]
+fn test_import_detects_secondary_worktree_head_change() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+    let secondary_work_dir = test_env.work_dir("secondary");
+
+    // 1. Create colocated repo in primary/
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+
+    // 2. Create secondary workspace with --colocate
+    primary_work_dir
+        .run_jj(["workspace", "add", "--colocate", "../secondary"])
+        .success();
+
+    // 3. In secondary, make a git commit bypassing jj
+    {
+        let mut repo = gix::open(secondary_work_dir.root()).unwrap();
+        {
+            use gix::config::tree::*;
+            let mut config = repo.config_snapshot_mut();
+            let (name, email) = ("JJ test", "jj@example.com");
+            config.set_value(&Author::NAME, name).unwrap();
+            config.set_value(&Author::EMAIL, email).unwrap();
+            config.set_value(&Committer::NAME, name).unwrap();
+            config.set_value(&Committer::EMAIL, email).unwrap();
+        }
+        let tree = repo.head_tree_id().unwrap();
+        let current = repo.head_commit().unwrap().id;
+        repo.commit("HEAD", "git commit in secondary worktree", tree, [current])
+            .unwrap();
+    }
+
+    // 4. In primary, run any jj command (triggers import)
+    let output = primary_work_dir
+        .run_jj(["log", "--no-graph", "-T", "description"])
+        .success();
+
+    // 5. Verify: The git commit appears in jj log
+    assert!(
+        output
+            .stdout
+            .normalized()
+            .contains("git commit in secondary worktree"),
+        "Git commit from secondary worktree should be imported, got: {}",
+        output.stdout.normalized()
+    );
+
+    // 6. Verify: The imported commit is usable (can be rebased)
+    // This is a critical test - if the commit structure is broken, rebase will fail
+    let output = primary_work_dir.run_jj([
+        "rebase",
+        "-r",
+        "description('git commit in secondary worktree')",
+        "-d",
+        "root()",
+        "--skip-emptied",
+    ]);
+    assert!(
+        output.status.success(),
+        "Should be able to rebase imported commit: {}",
+        output.stderr.normalized()
+    );
+
+    // 7. Verify: Primary workspace data is preserved and functional
+    assert!(
+        primary_work_dir.root().join("file").exists(),
+        "Primary workspace file should be preserved"
+    );
+    let output = primary_work_dir.run_jj(["status"]);
+    assert!(
+        output.status.success(),
+        "jj status should work after import"
+    );
+}
+
+#[test]
+fn test_import_all_worktrees_heads() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+    let secondary_work_dir = test_env.work_dir("secondary");
+    let tertiary_work_dir = test_env.work_dir("tertiary");
+
+    // 1. Create colocated repo + 2 secondary workspaces
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    primary_work_dir
+        .run_jj(["workspace", "add", "--colocate", "../secondary"])
+        .success();
+    primary_work_dir
+        .run_jj(["workspace", "add", "--colocate", "../tertiary"])
+        .success();
+
+    // 2. Make git commits in both secondary workspaces
+    for (work_dir, msg) in [
+        (&secondary_work_dir, "commit from secondary"),
+        (&tertiary_work_dir, "commit from tertiary"),
+    ] {
+        let mut repo = gix::open(work_dir.root()).unwrap();
+        {
+            use gix::config::tree::*;
+            let mut config = repo.config_snapshot_mut();
+            let (name, email) = ("JJ test", "jj@example.com");
+            config.set_value(&Author::NAME, name).unwrap();
+            config.set_value(&Author::EMAIL, email).unwrap();
+            config.set_value(&Committer::NAME, name).unwrap();
+            config.set_value(&Committer::EMAIL, email).unwrap();
+        }
+        let tree = repo.head_tree_id().unwrap();
+        let current = repo.head_commit().unwrap().id;
+        repo.commit("HEAD", msg, tree, [current]).unwrap();
+    }
+
+    // 3. Run jj in primary
+    let output = primary_work_dir
+        .run_jj(["log", "--no-graph", "-T", "description"])
+        .success();
+
+    // 4. Verify: Both commits imported
+    let stdout = output.stdout.normalized();
+    assert!(
+        stdout.contains("commit from secondary"),
+        "Commit from secondary should be imported, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("commit from tertiary"),
+        "Commit from tertiary should be imported, got: {stdout}"
+    );
+
+    // 5. Verify: Both commits are usable (can be rebased)
+    // This is a critical test - if the commit structure is broken, rebase will fail
+    for commit_desc in ["commit from secondary", "commit from tertiary"] {
+        let output = primary_work_dir.run_jj([
+            "rebase",
+            "-r",
+            &format!("description('{commit_desc}')"),
+            "-d",
+            "root()",
+            "--skip-emptied",
+        ]);
+        assert!(
+            output.status.success(),
+            "Should be able to rebase '{}': {}",
+            commit_desc,
+            output.stderr.normalized()
+        );
+    }
+
+    // 6. Verify: Primary workspace data is preserved and functional
+    assert!(
+        primary_work_dir.root().join("file").exists(),
+        "Primary workspace file should be preserved"
+    );
+    let output = primary_work_dir.run_jj(["status"]);
+    assert!(
+        output.status.success(),
+        "jj status should work after import"
+    );
+}
