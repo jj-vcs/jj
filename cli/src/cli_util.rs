@@ -173,6 +173,13 @@ use crate::diff_util::DiffRenderer;
 use crate::formatter::FormatRecorder;
 use crate::formatter::Formatter;
 use crate::formatter::FormatterExt as _;
+use crate::git_util::is_colocated_git_workspace;
+#[cfg(feature = "git")]
+use crate::git_util::load_git_import_options;
+#[cfg(feature = "git")]
+use crate::git_util::print_git_export_stats;
+#[cfg(feature = "git")]
+use crate::git_util::print_git_import_stats_summary;
 use crate::merge_tools::DiffEditor;
 use crate::merge_tools::MergeEditor;
 use crate::merge_tools::MergeToolConfigError;
@@ -1086,8 +1093,16 @@ impl WorkspaceCommandHelper {
         let op_summary_template_text = settings.get_string("templates.op_summary")?;
         let may_update_working_copy =
             loaded_at_head && !env.command.global_args().ignore_working_copy;
+        // Only show warnings about unexpected .git directories if we're actually
+        // going to interact with the working copy. When --ignore-working-copy is set,
+        // the user is explicitly saying they don't care about working copy state.
+        let ui_for_warning = if may_update_working_copy {
+            Some(ui)
+        } else {
+            None
+        };
         let working_copy_shared_with_git =
-            crate::git_util::is_colocated_git_workspace(Some(ui), &workspace, &repo);
+            is_colocated_git_workspace(ui_for_warning, &workspace, &repo);
 
         let helper = Self {
             workspace,
@@ -1281,11 +1296,10 @@ impl WorkspaceCommandHelper {
         use jj_lib::git;
         let git_settings = git::GitSettings::from_settings(self.settings())?;
         let remote_settings = self.settings().remote_settings()?;
-        let import_options =
-            crate::git_util::load_git_import_options(ui, &git_settings, &remote_settings)?;
+        let import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
         let mut tx = self.start_transaction();
         let stats = git::import_refs(tx.repo_mut(), &import_options)?;
-        crate::git_util::print_git_import_stats_summary(ui, &stats)?;
+        print_git_import_stats_summary(ui, &stats)?;
         if !tx.repo().has_changes() {
             return Ok(());
         }
@@ -2139,7 +2153,7 @@ to the current parents may contain changes from multiple commits.
                 }
             }
             let stats = jj_lib::git::export_refs(tx.repo_mut())?;
-            crate::git_util::print_git_export_stats(ui, &stats)?;
+            print_git_export_stats(ui, &stats)?;
         }
 
         self.user_repo = ReadonlyUserRepo::new(tx.commit(description)?);
@@ -2409,7 +2423,7 @@ pub fn export_working_copy_changes_to_git(
     let repo = mut_repo.base_repo().as_ref();
     jj_lib::git::update_intent_to_add(repo, old_tree, new_tree)?;
     let stats = jj_lib::git::export_refs(mut_repo)?;
-    crate::git_util::print_git_export_stats(ui, &stats)?;
+    print_git_export_stats(ui, &stats)?;
     Ok(())
 }
 #[cfg(not(feature = "git"))]
