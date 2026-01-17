@@ -1712,3 +1712,109 @@ fn test_merge_simplify_file_conflict_with_absent() {
     .unwrap();
     assert_tree_eq!(merged, expected_merged);
 }
+
+#[test]
+fn test_diff_with_trees_dir_added_removed() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let file_path = repo_path("file");
+    let dir_path = repo_path("dir");
+    let dir_file_path = repo_path("dir/file");
+
+    // Tree 1: root has "file"
+    let tree1 = create_single_tree(repo, &[(file_path, "content")]);
+
+    // Tree 2: root has "file" and "dir/file"
+    let tree2 = create_single_tree(repo, &[(file_path, "content"), (dir_file_path, "content")]);
+
+    let tree1_merged = MergedTree::resolved(repo.store().clone(), tree1.id().clone());
+    let tree2_merged = MergedTree::resolved(repo.store().clone(), tree2.id().clone());
+
+    // Forward diff: tree1 -> tree2 (Directory "dir" added)
+    let diff: Vec<_> = tree1_merged
+        .diff_stream_with_trees(&tree2_merged, &EverythingMatcher)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+
+    // Expecting 3 entries: the root directory, the directory itself, and the file
+    // inside it.
+    assert_eq!(diff.len(), 3);
+
+    // 1. Change in the root directory
+    assert_eq!(diff[0].0, RepoPathBuf::root());
+    assert!(diff[0].1.0.is_tree()); // Before: Tree
+    assert!(diff[0].1.1.is_tree()); // After: Tree 
+
+    // 2. The directory "dir" is added
+    assert_eq!(diff[1].0, dir_path.to_owned());
+    assert!(diff[1].1.0.is_absent()); // Before: Absent
+    assert!(diff[1].1.1.is_tree()); // After: Tree
+
+    // 3. The file "dir/file" is added
+    assert_eq!(diff[2].0, dir_file_path.to_owned());
+    assert!(diff[2].1.0.is_absent()); // Before: Absent
+    assert!(diff[2].1.1.is_present()); // After: Present (File)
+
+    // Reverse diff: tree2 -> tree1 (Directory "dir" removed)
+    let diff_rev: Vec<_> = tree2_merged
+        .diff_stream_with_trees(&tree1_merged, &EverythingMatcher)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+
+    assert_eq!(diff_rev.len(), 3);
+    assert_eq!(diff_rev[1].0, dir_path.to_owned());
+    assert!(diff_rev[1].1.0.is_tree()); // Before: Tree
+    assert!(diff_rev[1].1.1.is_absent()); // After: Absent
+}
+
+#[test]
+fn test_diff_with_trees_recursive_modification() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let path = repo_path("dir/subdir/file");
+    let dir_path = repo_path("dir");
+    let subdir_path = repo_path("dir/subdir");
+
+    // Two trees with different content in the deep file
+    let tree1 = create_single_tree(repo, &[(path, "a")]);
+    let tree2 = create_single_tree(repo, &[(path, "b")]);
+
+    let merged1 = MergedTree::resolved(repo.store().clone(), tree1.id().clone());
+    let merged2 = MergedTree::resolved(repo.store().clone(), tree2.id().clone());
+
+    let diff: Vec<_> = merged1
+        .diff_stream_with_trees(&merged2, &EverythingMatcher)
+        .map(diff_entry_tuple)
+        .collect()
+        .block_on();
+
+    // Expecting 4 entries: root, dir, dir/subdir, and dir/subdir/file
+    assert_eq!(diff.len(), 4);
+
+    // 1. root changed (Tree -> Tree)
+    assert_eq!(diff[0].0, RepoPathBuf::root());
+    assert!(diff[0].1.0.is_tree());
+    assert!(diff[0].1.1.is_tree());
+    assert_ne!(diff[0].1.0, diff[0].1.1); // IDs should differ
+
+    // 2. "dir" changed (Tree -> Tree)
+    assert_eq!(diff[1].0, dir_path.to_owned());
+    assert!(diff[1].1.0.is_tree());
+    assert!(diff[1].1.1.is_tree());
+    assert_ne!(diff[1].1.0, diff[1].1.1); // IDs should differ
+
+    // 3. "dir/subdir" changed (Tree -> Tree)
+    assert_eq!(diff[2].0, subdir_path.to_owned());
+    assert!(diff[2].1.0.is_tree());
+    assert!(diff[2].1.1.is_tree());
+    assert_ne!(diff[2].1.0, diff[2].1.1); // IDs should differ
+
+    // 4. "dir/subdir/file" changed (File -> File)
+    assert_eq!(diff[3].0, path.to_owned());
+    assert!(diff[3].1.0.is_present());
+    assert!(diff[3].1.1.is_present());
+}
