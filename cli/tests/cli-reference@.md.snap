@@ -1478,7 +1478,13 @@ Convert into a non-colocated Jujutsu/Git repository
 
 This moves the Git repository that is at the root of the Jujutsu workspace into the .jj directory. Once this is done you will no longer be able to use Git commands directly in the Jujutsu workspace.
 
-**Usage:** `jj git colocation disable`
+If there are secondary colocated workspaces (created with `jj workspace add --colocate`), this command will fail unless --force is specified. Without --force, you should first forget those workspaces with `jj workspace forget`.
+
+**Usage:** `jj git colocation disable [OPTIONS]`
+
+###### **Options:**
+
+* `--force` — Force disabling colocation even if secondary colocated workspaces exist. This will leave those workspaces in a broken state
 
 
 

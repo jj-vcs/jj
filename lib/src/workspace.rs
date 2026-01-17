@@ -381,8 +381,8 @@ impl Workspace {
         fs::write(&repo_file_path, repo_dir_bytes).context(&repo_file_path)?;
 
         // Load the new repo from the file we just wrote.
-        // This gives e.g. GitBackend has an opportunity to check if we
-        // are colocated, given we have a new workspace root.
+        // This gives e.g. GitBackend an opportunity to check if we are
+        // colocated, given we have a new workspace root.
         let repo_loader = RepoLoader::init_from_file_system(
             user_settings,
             repo_path,
