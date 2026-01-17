@@ -255,7 +255,20 @@ pub struct View {
     pub remote_views: BTreeMap<RemoteNameBuf, RemoteView>,
     pub git_refs: BTreeMap<GitRefNameBuf, RefTarget>,
     /// The commit the Git HEAD points to.
-    // TODO: Support multiple Git worktrees?
+    ///
+    /// ## Known Limitation: Single git_head for Multiple Workspaces
+    ///
+    /// This field stores a single `git_head`, but when multiple colocated
+    /// workspaces exist (each with its own Git worktree), each worktree has
+    /// an independent HEAD. The value here reflects whichever workspace last
+    /// performed a Git export.
+    ///
+    /// **Impact:** The `git_head()` template may show incorrect values in
+    /// non-default workspaces.
+    ///
+    /// **Workaround:** Export now writes to each worktree's HEAD file
+    /// independently, but this field doesn't track per-workspace state.
+    // TODO: Support multiple Git worktrees by storing per-workspace git_head
     // TODO: Do we want to store the current bookmark name too?
     pub git_head: RefTarget,
     // The commit that *should be* checked out in the workspace. Note that the working copy
