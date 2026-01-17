@@ -13,11 +13,17 @@
 // limitations under the License.
 
 use std::fs;
+#[cfg(feature = "git")]
+use std::path::PathBuf;
+#[cfg(feature = "git")]
+use std::process::Command;
 
 use itertools::Itertools as _;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::file_util;
 use jj_lib::file_util::IoResultExt as _;
+#[cfg(feature = "git")]
+use jj_lib::git;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
@@ -30,7 +36,53 @@ use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error_with_message;
 use crate::command_error::user_error;
+#[cfg(feature = "git")]
+use crate::git_util::is_colocated_git_workspace;
 use crate::ui::Ui;
+
+/// Guard that removes a git worktree on drop, unless defused.
+#[cfg(feature = "git")]
+struct GitWorktreeGuard {
+    git_dir: PathBuf,
+    worktree_path: PathBuf,
+    defused: bool,
+}
+
+#[cfg(feature = "git")]
+impl GitWorktreeGuard {
+    fn new(git_dir: PathBuf, worktree_path: PathBuf) -> Self {
+        Self {
+            git_dir,
+            worktree_path,
+            defused: false,
+        }
+    }
+
+    /// Prevent the guard from cleaning up the worktree.
+    fn defuse(mut self) {
+        self.defused = true;
+    }
+}
+
+#[cfg(feature = "git")]
+impl Drop for GitWorktreeGuard {
+    fn drop(&mut self) {
+        if self.defused {
+            return;
+        }
+        // Best-effort cleanup - ignore errors
+        drop(
+            Command::new("git")
+                .arg("-C")
+                .arg(&self.git_dir)
+                .arg("worktree")
+                .arg("remove")
+                .arg("--force")
+                .arg(&self.worktree_path)
+                .status(),
+        );
+    }
+}
 
 /// How to handle sparse patterns when creating a new workspace.
 #[derive(clap::ValueEnum, Clone, Debug, Eq, PartialEq)]
@@ -78,6 +130,15 @@ pub struct WorkspaceAddArgs {
     /// How to handle sparse patterns when creating a new workspace.
     #[arg(long, value_enum, default_value_t = SparseInheritance::Copy)]
     sparse_patterns: SparseInheritance,
+
+    /// Create a Git worktree for the new workspace (requires colocated repo)
+    ///
+    /// When used with a colocated Git repository, this creates a Git worktree
+    /// at the new workspace location, allowing the workspace to also be
+    /// colocated with Git.
+    #[cfg(feature = "git")]
+    #[arg(long)]
+    colocate: bool,
 }
 
 #[instrument(skip_all)]
@@ -108,12 +169,86 @@ pub fn cmd_workspace_add(
             name = workspace_name.as_symbol()
         )));
     }
-    if !destination_path.exists() {
-        fs::create_dir(&destination_path).context(&destination_path)?;
-    } else if !file_util::is_empty_dir(&destination_path)? {
-        return Err(user_error(
-            "Destination path exists and is not an empty directory",
-        ));
+
+    // Validate and set up --colocate if requested
+    // The guard will clean up the worktree if we return early due to an error
+    #[cfg(feature = "git")]
+    let worktree_guard = if args.colocate {
+        if !is_colocated_git_workspace(None, old_workspace_command.workspace(), repo.as_ref()) {
+            return Err(user_error(
+                "Cannot use --colocate: repository is not colocated with Git",
+            ));
+        }
+
+        let git_backend = git::get_git_backend(repo.store())?;
+        let git_repo = git_backend.git_repo();
+        // git -C works from any directory within the repo, so workdir() is fine.
+        // For bare repos backing worktrees, use common_dir() instead.
+        let git_dir = git_repo.workdir().unwrap_or(git_repo.common_dir());
+
+        // Check if HEAD points to a valid commit (it won't in an empty repo)
+        let head_check = Command::new("git")
+            .arg("-C")
+            .arg(git_dir)
+            .arg("rev-parse")
+            .arg("--verify")
+            .arg("HEAD")
+            .output();
+
+        let head_valid = head_check
+            .map(|output| output.status.success())
+            .unwrap_or(false);
+
+        if !head_valid {
+            return Err(user_error(
+                "Cannot create colocated workspace: repository has no commits yet.\nCreate at \
+                 least one commit first, then try again.",
+            ));
+        }
+
+        // Create git worktree with detached HEAD at the current HEAD
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(git_dir)
+            .arg("worktree")
+            .arg("add")
+            .arg("--detach")
+            .arg(&destination_path)
+            .arg("HEAD")
+            .output()
+            .map_err(|e| user_error(format!("Failed to run git worktree add: {e}")))?;
+
+        if !output.status.success() {
+            return Err(user_error(format!(
+                "Failed to create Git worktree: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            )));
+        }
+
+        Some(GitWorktreeGuard::new(
+            git_dir.to_path_buf(),
+            destination_path.clone(),
+        ))
+    } else {
+        if !destination_path.exists() {
+            fs::create_dir(&destination_path).context(&destination_path)?;
+        } else if !file_util::is_empty_dir(&destination_path)? {
+            return Err(user_error(
+                "Destination path exists and is not an empty directory",
+            ));
+        }
+        None
+    };
+
+    #[cfg(not(feature = "git"))]
+    {
+        if !destination_path.exists() {
+            fs::create_dir(&destination_path).context(&destination_path)?;
+        } else if !file_util::is_empty_dir(&destination_path)? {
+            return Err(user_error(
+                "Destination path exists and is not an empty directory",
+            ));
+        }
     }
 
     let working_copy_factory = command.get_working_copy_factory()?;
@@ -129,11 +264,21 @@ pub fn cmd_workspace_add(
         command.get_store_factories(),
         workspace_name.clone(),
     )?;
+
+    // Add .gitignore to .jj directory to prevent git from tracking jj files.
+    // Do this before printing success message so user sees accurate state.
+    #[cfg(feature = "git")]
+    if worktree_guard.is_some() {
+        let gitignore_path = destination_path.join(".jj").join(".gitignore");
+        fs::write(&gitignore_path, "*\n").context(&gitignore_path)?;
+    }
+
     writeln!(
         ui.status(),
         "Created workspace in \"{}\"",
         file_util::relative_path(command.cwd(), &destination_path).display()
     )?;
+
     // Show a warning if the user passed a path without a separator, since they
     // may have intended the argument to only be the name for the workspace.
     if !args.destination.contains(std::path::is_separator) {
@@ -210,5 +355,11 @@ pub fn cmd_workspace_add(
             name = workspace_name.as_symbol()
         ),
     )?;
+
+    // All operations succeeded - don't clean up the worktree
+    #[cfg(feature = "git")]
+    if let Some(guard) = worktree_guard {
+        guard.defuse();
+    }
     Ok(())
 }
