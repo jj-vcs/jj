@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::common::TestEnvironment;
 use crate::common::create_commit;
 use crate::common::create_commit_with_files;
+use crate::common::TestEnvironment;
 
 #[test]
 fn test_gerrit_upload_dryrun() {
@@ -51,13 +51,7 @@ fn test_gerrit_upload_dryrun() {
     [exit status: 1]
     ");
 
-    let output = work_dir.run_jj([
-        "git",
-        "remote",
-        "add",
-        "origin",
-        "http://example.com/repo/foo",
-    ]);
+    let output = work_dir.run_jj(["git", "remote", "add", "origin", "http://example.com/repo/foo"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--remote=origin"]);
     insta::assert_snapshot!(output, @r"
@@ -88,15 +82,11 @@ fn test_gerrit_upload_dryrun() {
 #[test]
 fn test_gerrit_upload_failure() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "--colocate", "remote"]).success();
     let remote_dir = test_env.work_dir("remote");
     create_commit(&remote_dir, "a", &[]);
 
-    test_env
-        .run_jj_in(".", ["git", "clone", "remote", "local"])
-        .success();
+    test_env.run_jj_in(".", ["git", "clone", "remote", "local"]).success();
     let local_dir = test_env.work_dir("local");
 
     // construct test revisions
@@ -133,9 +123,7 @@ fn test_gerrit_upload_failure() {
     ");
 
     // upload failure
-    local_dir
-        .run_jj(["git", "remote", "set-url", "origin", "nonexistent"])
-        .success();
+    local_dir.run_jj(["git", "remote", "set-url", "origin", "nonexistent"]).success();
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "d", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -151,15 +139,11 @@ fn test_gerrit_upload_failure() {
 #[test]
 fn test_gerrit_upload_local_implicit_change_ids() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "--colocate", "remote"]).success();
     let remote_dir = test_env.work_dir("remote");
     create_commit(&remote_dir, "a", &[]);
 
-    test_env
-        .run_jj_in(".", ["git", "clone", "remote", "local"])
-        .success();
+    test_env.run_jj_in(".", ["git", "clone", "remote", "local"]).success();
     let local_dir = test_env.work_dir("local");
     create_commit(&local_dir, "b", &["a@origin"]);
     create_commit(&local_dir, "c", &["b"]);
@@ -243,15 +227,11 @@ fn test_gerrit_upload_local_implicit_change_ids() {
 #[test]
 fn test_gerrit_upload_local_explicit_change_ids() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "--colocate", "remote"]).success();
     let remote_dir = test_env.work_dir("remote");
     create_commit(&remote_dir, "a", &[]);
 
-    test_env
-        .run_jj_in(".", ["git", "clone", "remote", "local"])
-        .success();
+    test_env.run_jj_in(".", ["git", "clone", "remote", "local"]).success();
     let local_dir = test_env.work_dir("local");
     create_commit(&local_dir, "b", &["a@origin"]);
 
@@ -353,15 +333,11 @@ fn test_gerrit_upload_local_explicit_change_ids() {
 #[test]
 fn test_gerrit_upload_local_mixed_change_ids() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "--colocate", "remote"]).success();
     let remote_dir = test_env.work_dir("remote");
     create_commit(&remote_dir, "a", &[]);
 
-    test_env
-        .run_jj_in(".", ["git", "clone", "remote", "local"])
-        .success();
+    test_env.run_jj_in(".", ["git", "clone", "remote", "local"]).success();
     let local_dir = test_env.work_dir("local");
     create_commit(&local_dir, "b", &["a@origin"]);
     create_commit(&local_dir, "c", &["b"]);
@@ -448,23 +424,17 @@ fn test_gerrit_upload_local_mixed_change_ids() {
 #[test]
 fn test_gerrit_upload_bad_change_ids() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "--colocate", "remote"]).success();
     let remote_dir = test_env.work_dir("remote");
     create_commit(&remote_dir, "a", &[]);
 
-    test_env
-        .run_jj_in(".", ["git", "clone", "remote", "local"])
-        .success();
+    test_env.run_jj_in(".", ["git", "clone", "remote", "local"]).success();
     let local_dir = test_env.work_dir("local");
     create_commit(&local_dir, "b", &["a@origin"]);
     create_commit(&local_dir, "c", &["a@origin"]);
     create_commit(&local_dir, "bb", &["b"]);
 
-    local_dir
-        .run_jj(["describe", "-rb", "-m\n\nChange-Id: malformed\n"])
-        .success();
+    local_dir.run_jj(["describe", "-rb", "-m\n\nChange-Id: malformed\n"]).success();
     local_dir
         .run_jj([
             "describe",
@@ -508,19 +478,12 @@ fn test_gerrit_upload_bad_change_ids() {
 #[test]
 fn test_gerrit_upload_rejected_by_remote() {
     let test_env = TestEnvironment::default();
-    test_env
-        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
-        .success();
+    test_env.run_jj_in(".", ["git", "init", "--colocate", "remote"]).success();
     let remote_dir = test_env.work_dir("remote");
     create_commit(&remote_dir, "a", &[]);
 
     // create a hook on the remote that prevents pushing
-    let hook_path = test_env
-        .env_root()
-        .join("remote")
-        .join(".git")
-        .join("hooks")
-        .join("update");
+    let hook_path = test_env.env_root().join("remote").join(".git").join("hooks").join("update");
 
     std::fs::write(&hook_path, "#!/bin/sh\nexit 1").unwrap();
     #[cfg(unix)]
@@ -530,9 +493,7 @@ fn test_gerrit_upload_rejected_by_remote() {
         std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700)).unwrap();
     }
 
-    test_env
-        .run_jj_in(".", ["git", "clone", "remote", "local"])
-        .success();
+    test_env.run_jj_in(".", ["git", "clone", "remote", "local"]).success();
     let local_dir = test_env.work_dir("local");
     create_commit(&local_dir, "b", &["a@origin"]);
 
@@ -562,5 +523,27 @@ fn test_gerrit_upload_rejected_by_remote() {
     Error: Failed to push all changes to gerrit
     [EOF]
     [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_gerrit_upload_with_options() {
+    // Test uses dry run mode because local filesystem remote refuses to accept push options.
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "--colocate", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    create_commit(&work_dir, "a", &[]);
+
+    work_dir.run_jj(["git", "remote", "add", "gerrit", "http://example.com/repo/foo"]).success();
+    test_env.add_config(r#"gerrit.default-remote-branch="main""#);
+    let output =
+        work_dir.run_jj(["gerrit", "upload", "--dry-run", "-r", "a", "-o", "r=m@example.com"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'gerrit'), target branch 'main'
+    Using options:
+      r=m@example.com
+    Dry-run: Would push rlvkpnrz 7d980be7 a | a
+    [EOF]
     ");
 }
