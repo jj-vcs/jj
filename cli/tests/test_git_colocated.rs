@@ -3021,3 +3021,208 @@ fn test_import_all_worktrees_heads() {
         "jj status should work after import"
     );
 }
+
+// =============================================================================
+// Tests for `jj workspace forget` with git worktree cleanup
+// =============================================================================
+
+#[test]
+fn test_workspace_forget_removes_git_worktree() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+
+    // 1. Create colocated repo
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+
+    // 2. Add colocated workspace
+    primary_work_dir
+        .run_jj(["workspace", "add", "--colocate", "../second"])
+        .success();
+
+    // 3. Verify: git worktree list shows two worktrees
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(primary_work_dir.root())
+        .arg("worktree")
+        .arg("list")
+        .output()
+        .expect("git command failed");
+    let worktree_list = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        worktree_list.contains("primary") && worktree_list.contains("second"),
+        "Should have two worktrees listed: {worktree_list}"
+    );
+
+    // 4. Forget the workspace
+    primary_work_dir
+        .run_jj(["workspace", "forget", "second"])
+        .success();
+
+    // 5. Verify: git worktree list shows only one worktree
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(primary_work_dir.root())
+        .arg("worktree")
+        .arg("list")
+        .output()
+        .expect("git command failed");
+    let worktree_list = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !worktree_list.contains("second"),
+        "Second worktree should be removed: {worktree_list}"
+    );
+}
+
+#[test]
+fn test_workspace_forget_with_custom_name_removes_git_worktree() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+
+    // 1. Create colocated repo
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+
+    // 2. Add colocated workspace with a CUSTOM NAME that differs from directory
+    // The directory will be "seconddir" but workspace name will be "myworkspace"
+    primary_work_dir
+        .run_jj([
+            "workspace",
+            "add",
+            "--colocate",
+            "--name",
+            "myworkspace",
+            "../seconddir",
+        ])
+        .success();
+
+    // Verify workspace is created with the custom name
+    let output = primary_work_dir.run_jj(["workspace", "list"]).success();
+    assert!(
+        output.stdout.normalized().contains("myworkspace"),
+        "Workspace should be named myworkspace"
+    );
+
+    // 3. Verify: git worktree list shows the worktree (named after directory)
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(primary_work_dir.root())
+        .arg("worktree")
+        .arg("list")
+        .output()
+        .expect("git command failed");
+    let worktree_list = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        worktree_list.contains("seconddir"),
+        "Should have seconddir worktree: {worktree_list}"
+    );
+
+    // 4. Forget the workspace by its jj name (myworkspace, not seconddir)
+    primary_work_dir
+        .run_jj(["workspace", "forget", "myworkspace"])
+        .success();
+
+    // 5. Verify: git worktree should be removed even though name differs
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(primary_work_dir.root())
+        .arg("worktree")
+        .arg("list")
+        .output()
+        .expect("git command failed");
+    let worktree_list = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !worktree_list.contains("seconddir"),
+        "seconddir worktree should be removed: {worktree_list}"
+    );
+}
+
+#[test]
+fn test_workspace_forget_handles_missing_worktree() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+    let secondary_dir = test_env.env_root().join("second");
+
+    // 1. Create colocated repo + secondary workspace
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    primary_work_dir
+        .run_jj(["workspace", "add", "--colocate", "../second"])
+        .success();
+
+    // 2. Manually delete the secondary workspace directory
+    std::fs::remove_dir_all(&secondary_dir).unwrap();
+
+    // 3. Forget the workspace - should succeed without error
+    let output = primary_work_dir.run_jj(["workspace", "forget", "second"]);
+    // Should not fail (though may warn)
+    assert!(
+        output.status.success(),
+        "Forgetting workspace with missing directory should succeed: {}",
+        output.stderr.normalized()
+    );
+}
+
+#[test]
+fn test_workspace_forget_non_colocated_no_git_cleanup() {
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+    let secondary_dir = test_env.env_root().join("second");
+
+    // 1. Create non-colocated repo
+    primary_work_dir.create_dir_all("");
+    primary_work_dir.run_jj(["git", "init"]).success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+
+    // 2. Add regular workspace (no --colocate)
+    primary_work_dir
+        .run_jj(["workspace", "add", "../second"])
+        .success();
+
+    // Verify the secondary workspace exists
+    assert!(secondary_dir.exists(), "Secondary workspace should exist");
+
+    // 3. Forget the workspace
+    primary_work_dir
+        .run_jj(["workspace", "forget", "second"])
+        .success();
+
+    // 4. Verify: Directory still exists (current behavior - not touched on disk)
+    assert!(
+        secondary_dir.exists(),
+        "Secondary workspace directory should still exist (not a git worktree)"
+    );
+}

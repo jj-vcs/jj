@@ -2383,6 +2383,7 @@ dependencies = [
  "pollster",
  "proptest",
  "proptest-state-machine",
+ "prost",
  "rand 0.9.2",
  "rand_chacha",
  "rayon",
