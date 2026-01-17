@@ -246,9 +246,18 @@ pub fn print_git_import_stats(
     tx: &WorkspaceCommandTransaction<'_>,
     stats: &GitImportStats,
 ) -> Result<(), CommandError> {
-    let Some(mut formatter) = ui.status_formatter() else {
-        return Ok(());
-    };
+    if let Some(mut formatter) = ui.status_formatter() {
+        print_imported_changes(formatter.as_mut(), tx, stats)?;
+    }
+    print_failed_git_import(ui, stats)?;
+    Ok(())
+}
+
+fn print_imported_changes(
+    formatter: &mut dyn Formatter,
+    tx: &WorkspaceCommandTransaction<'_>,
+    stats: &GitImportStats,
+) -> Result<(), CommandError> {
     for (kind, changes) in [
         (GitRefKind::Bookmark, &stats.changed_remote_bookmarks),
         (GitRefKind::Tag, &stats.changed_remote_tags),
@@ -263,7 +272,7 @@ pub fn print_git_import_stats(
             continue;
         };
         for status in refs_stats {
-            status.output(max_width, &mut *formatter)?;
+            status.output(max_width, formatter)?;
         }
     }
 
@@ -279,10 +288,9 @@ pub fn print_git_import_stats(
             .map(|id| tx.repo().store().get_commit(id))
             .try_collect()?;
         let template = tx.commit_summary_template();
-        print_updated_commits(&mut *formatter, &template, &abandoned_commits)?;
+        print_updated_commits(formatter, &template, &abandoned_commits)?;
     }
 
-    print_failed_git_import(ui, stats)?;
     Ok(())
 }
 
