@@ -363,6 +363,27 @@ impl Workspace {
         let repo_file_path = jj_dir.join("repo");
         fs::write(&repo_file_path, repo_dir_bytes).context(&repo_file_path)?;
 
+        // Load the new repo from the file we just wrote.
+        // This gives e.g. GitBackend an opportunity to check if we are
+        // colocated, given we have a new workspace root.
+        let repo_loader = RepoLoader::init_from_file_system(
+            user_settings,
+            repo_path,
+            store_factories,
+            Some(workspace_root),
+        )
+        .map_err(WorkspaceLoadNewlyCreatedError::LoadStore)?;
+
+        // Now load a repo at the current operation. We go through
+        // OperationId as the Operation struct contains a reference
+        // to the old workspace's Store.
+        let current_op = repo_loader
+            .load_operation(existing_repo.operation().id())
+            .map_err(WorkspaceLoadNewlyCreatedError::LoadOperation)?;
+        let repo = repo_loader
+            .load_at(&current_op)
+            .map_err(WorkspaceLoadNewlyCreatedError::LoadRepo)?;
+
         let (working_copy, repo) = init_working_copy(
             repo,
             workspace_root,
