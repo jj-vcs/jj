@@ -2681,6 +2681,39 @@ fn test_colocated_workspace_independent_heads() {
     }
 }
 
+#[test]
+fn test_colocated_workspace_git_symlink_to_wrong_repo() {
+    let test_env = TestEnvironment::default();
+
+    // Create a non-colocated jj repo
+    test_env
+        .run_jj_in(
+            test_env.env_root(),
+            ["git", "init", "--no-colocate", "repo"],
+        )
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let workspace_root = work_dir.root();
+
+    // Create another git repo that we'll symlink to
+    let other_git_repo = test_env.env_root().join("other-git-repo");
+    git::init(&other_git_repo);
+
+    // Create a .git symlink pointing to the other repo
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&other_git_repo, workspace_root.join(".git")).unwrap();
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_dir(&other_git_repo, workspace_root.join(".git")).unwrap();
+
+    // Run a jj command and verify the warning is shown
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output.stderr, @r"
+    Warning: Workspace has a .git symlink (pointing to $TEST_ENV/other-git-repo), that isn't pointing to jj's git repo
+    Hint: To remove this symlink, run `rm .git`
+    [EOF]
+    ");
+}
+
 // =============================================================================
 // Tests for `jj workspace add --colocate`
 // =============================================================================
@@ -3225,4 +3258,123 @@ fn test_workspace_forget_non_colocated_no_git_cleanup() {
         secondary_dir.exists(),
         "Secondary workspace directory should still exist (not a git worktree)"
     );
+}
+
+#[test]
+fn test_workspace_forget_dirty_worktree_warns() {
+    // This test verifies that forgetting a colocated workspace with uncommitted
+    // changes shows a warning and preserves the data (unless --force is used).
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+    let secondary_dir = test_env.env_root().join("second");
+
+    // 1. Create colocated repo + secondary workspace
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    primary_work_dir
+        .run_jj(["workspace", "add", "--colocate", "../second"])
+        .success();
+
+    // 2. Create uncommitted file in secondary workspace
+    std::fs::write(secondary_dir.join("important.txt"), "user data").unwrap();
+
+    // 3. Forget without --force - should warn about dirty worktree
+    let output = primary_work_dir.run_jj(["workspace", "forget", "second"]);
+    // The command succeeds (workspace is forgotten from jj) but warns about git
+    // worktree
+    assert!(output.status.success());
+    insta::assert_snapshot!(output.stderr.normalized(), @r"
+    Warning: Git worktree for workspace second has uncommitted changes and was not removed.
+    Hint: Use --force to remove it anyway, or manually clean up with `git worktree remove --force $TEST_ENV/second`
+    ");
+
+    // 4. Verify: The uncommitted file should still exist
+    assert!(
+        secondary_dir.join("important.txt").exists(),
+        "Uncommitted file should be preserved when not using --force"
+    );
+
+    // 5. Verify: The workspace directory still exists (git worktree not removed)
+    assert!(
+        secondary_dir.exists(),
+        "Workspace directory should still exist"
+    );
+}
+
+#[test]
+fn test_workspace_forget_force_removes_dirty_worktree() {
+    // This test verifies that --force removes the git worktree even with
+    // uncommitted changes.
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+    let secondary_dir = test_env.env_root().join("second");
+
+    // 1. Create colocated repo + secondary workspace
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    primary_work_dir
+        .run_jj(["workspace", "add", "--colocate", "../second"])
+        .success();
+
+    // 2. Create uncommitted file in secondary workspace
+    std::fs::write(secondary_dir.join("important.txt"), "user data").unwrap();
+
+    // 3. Forget WITH --force - should remove worktree despite dirty state
+    let output = primary_work_dir.run_jj(["workspace", "forget", "--force", "second"]);
+    assert!(output.status.success());
+    // No warning when --force is used
+    let stderr = output.stderr.normalized();
+    assert!(
+        !stderr.contains("uncommitted changes"),
+        "Should not warn about uncommitted changes with --force, got: {stderr}"
+    );
+
+    // 4. Verify: The workspace directory should be removed
+    assert!(
+        !secondary_dir.exists(),
+        "Workspace directory should be removed with --force"
+    );
+}
+
+#[test]
+fn test_workspace_add_colocate_empty_repo_error() {
+    // This test verifies that workspace add --colocate on an empty repo
+    // gives a clear error message instead of a cryptic git error.
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+
+    // 1. Create colocated repo WITHOUT any commits
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+
+    // 2. Try to add colocated workspace - should fail with clear error
+    let output = work_dir.run_jj(["workspace", "add", "--colocate", "../second"]);
+    assert!(!output.status.success());
+    insta::assert_snapshot!(output.stderr.normalized(), @r"
+    Error: Cannot create colocated workspace: repository has no commits yet.
+    Create at least one commit first, then try again.
+    ");
 }
