@@ -23,6 +23,7 @@ use std::ffi::OsString;
 use std::fs::File;
 use std::iter;
 use std::num::NonZeroU32;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -973,28 +974,35 @@ fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
         .collect()
 }
 
-/// Imports HEAD from the underlying Git repo.
+/// Imports HEAD from the underlying Git repo for a specific workspace.
 ///
 /// Unlike `import_refs()`, the old HEAD branch is not abandoned because HEAD
 /// move doesn't always mean the old HEAD branch has been rewritten.
 ///
 /// Unlike `reset_head()`, this function doesn't move the working-copy commit to
 /// the child of the new HEAD revision.
-pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
+///
+/// Returns `true` if the HEAD changed for this workspace, `false` otherwise.
+pub fn import_head(
+    mut_repo: &mut MutableRepo,
+    workspace_name: &crate::ref_name::WorkspaceName,
+) -> Result<bool, GitImportError> {
     let store = mut_repo.store().clone();
     let git_backend = get_git_backend(&store)?;
     let git_repo = git_backend.git_repo();
 
-    let old_git_head = mut_repo.view().git_head();
     let new_git_head_id = if let Ok(oid) = git_repo.head_id() {
         Some(CommitId::from_bytes(oid.as_bytes()))
     } else {
         None
     };
-    if old_git_head.as_resolved() == Some(&new_git_head_id) {
-        // Even if the main HEAD hasn't changed, check worktrees
+
+    // Compare against this workspace's stored git_head, not the global one
+    let old_workspace_git_head = mut_repo.get_workspace_git_head(workspace_name);
+    if old_workspace_git_head.as_resolved() == Some(&new_git_head_id) {
+        // HEAD hasn't changed for this workspace; still check other worktrees
         import_worktree_heads(mut_repo, git_backend, &git_repo)?;
-        return Ok(());
+        return Ok(false);
     }
 
     // Import new head
@@ -1016,12 +1024,17 @@ pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
             .map_err(GitImportError::Backend)?;
     }
 
+    // Update this workspace's git_head
+    let new_target = RefTarget::resolved(new_git_head_id.clone());
+    mut_repo.set_workspace_git_head(workspace_name, new_target.clone());
+
+    // Also update global git_head for backwards compatibility
     mut_repo.set_git_head_target(RefTarget::resolved(new_git_head_id));
 
     // Also import commits from other worktrees' HEADs
     import_worktree_heads(mut_repo, git_backend, &git_repo)?;
 
-    Ok(())
+    Ok(true)
 }
 
 /// Imports commits from all Git worktrees' HEADs.
@@ -1645,20 +1658,64 @@ impl GitResetHeadError {
 
 /// Sets Git HEAD to the parent of the given working-copy commit and resets
 /// the Git index.
-pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), GitResetHeadError> {
-    let git_repo = get_git_repo(mut_repo.store())?;
+///
+/// If `workspace_path` is provided and is a colocated workspace (has a `.git`
+/// pointing to the same repo), the git repo will be opened at that path to
+/// support secondary colocated workspaces with their own git worktrees.
+pub fn reset_head(
+    mut_repo: &mut MutableRepo,
+    wc_commit: &Commit,
+    workspace_name: &crate::ref_name::WorkspaceName,
+) -> Result<(), GitResetHeadError> {
+    reset_head_at_workspace(mut_repo, wc_commit, workspace_name, None)
+}
+
+/// Sets Git HEAD to the parent of the given working-copy commit and resets
+/// the Git index at the specified workspace path.
+///
+/// If `workspace_path` is provided and is a colocated workspace (has a `.git`
+/// pointing to the same repo), the git repo will be opened at that path to
+/// support secondary colocated workspaces with their own git worktrees.
+pub fn reset_head_at_workspace(
+    mut_repo: &mut MutableRepo,
+    wc_commit: &Commit,
+    workspace_name: &crate::ref_name::WorkspaceName,
+    workspace_path: Option<&Path>,
+) -> Result<(), GitResetHeadError> {
+    let store = mut_repo.store();
+    let git_backend = get_git_backend(store)?;
+
+    // If a workspace path is provided and has a .git, try to open it as a worktree
+    let git_repo = if let Some(ws_path) = workspace_path {
+        let git_dir_path = ws_path.join(".git");
+        if git_dir_path.exists() {
+            // Try to open the git repo at the workspace path as a worktree.
+            // Configure committer for reflog updates (required by gix).
+            let open_opts = gix::open::Options::default()
+                .open_path_as_is(true)
+                .config_overrides(["committer.name=jj", "committer.email=jj@example.com"]);
+            match gix::ThreadSafeRepository::open_opts(&git_dir_path, open_opts) {
+                Ok(repo) => repo.to_thread_local(),
+                Err(_) => git_backend.git_repo(),
+            }
+        } else {
+            git_backend.git_repo()
+        }
+    } else {
+        git_backend.git_repo()
+    };
 
     let first_parent_id = &wc_commit.parent_ids()[0];
-    let new_head_target = if first_parent_id != mut_repo.store().root_commit_id() {
+    let new_head_target = if first_parent_id != store.root_commit_id() {
         RefTarget::normal(first_parent_id.clone())
     } else {
         RefTarget::absent()
     };
 
-    // If the first parent of the working copy has changed, reset the Git HEAD.
-    let old_head_target = mut_repo.git_head();
-    if old_head_target != new_head_target {
-        let expected_ref = if let Some(id) = old_head_target.as_normal() {
+    // Compare against this workspace's stored git_head
+    let old_workspace_head = mut_repo.get_workspace_git_head(workspace_name);
+    if old_workspace_head != new_head_target {
+        let expected_ref = if let Some(id) = old_workspace_head.as_normal() {
             // We have to check the actual HEAD state because we don't record a
             // symbolic ref as such.
             let actual_head = git_repo.head().map_err(GitResetHeadError::from_git)?;
@@ -1671,14 +1728,17 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
                 gix::refs::transaction::PreviousValue::MustExist
             }
         } else {
-            // Just overwrite if unborn (or conflict), which is also unusual.
-            gix::refs::transaction::PreviousValue::MustExist
+            // For new workspaces that haven't been tracked yet, allow any current state
+            gix::refs::transaction::PreviousValue::Any
         };
         let new_oid = new_head_target
             .as_normal()
             .map(|id| gix::ObjectId::from_bytes_or_panic(id.as_bytes()));
         update_git_head(&git_repo, expected_ref, new_oid)
             .map_err(|err| GitResetHeadError::UpdateHeadRef(err.into()))?;
+        // Update this workspace's git_head
+        mut_repo.set_workspace_git_head(workspace_name, new_head_target.clone());
+        // Also update global git_head for backwards compatibility
         mut_repo.set_git_head_target(new_head_target);
     }
 

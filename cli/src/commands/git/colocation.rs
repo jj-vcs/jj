@@ -355,8 +355,9 @@ fn set_git_head_to_wc_parent(
     workspace_command: &mut crate::cli_util::WorkspaceCommandHelper,
     wc_commit: &Commit,
 ) -> Result<(), CommandError> {
+    let workspace_name = workspace_command.workspace_name().to_owned();
     let mut tx = workspace_command.start_transaction();
-    git::reset_head(tx.repo_mut(), wc_commit)?;
+    git::reset_head(tx.repo_mut(), wc_commit, &workspace_name)?;
     if tx.repo().has_changes() {
         tx.finish(ui, "set git head to working copy parent")?;
     }

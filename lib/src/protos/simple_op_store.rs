@@ -136,6 +136,12 @@ pub struct View {
     pub git_head_legacy: ::prost::alloc::vec::Vec<u8>,
     #[prost(message, optional, tag = "9")]
     pub git_head: ::core::option::Option<RefTarget>,
+    /// Per-workspace Git HEAD for colocated worktrees. Maps workspace name to HEAD target.
+    #[prost(btree_map = "string, message", tag = "13")]
+    pub workspace_git_heads: ::prost::alloc::collections::BTreeMap<
+        ::prost::alloc::string::String,
+        RefTarget,
+    >,
     /// Whether "@git" tags have been migrated to remote_views.
     #[prost(bool, tag = "12")]
     pub has_git_refs_migrated_to_remote_tags: bool,
