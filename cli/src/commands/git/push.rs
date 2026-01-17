@@ -201,6 +201,9 @@ pub struct GitPushArgs {
     /// Only display what will change on the remote
     #[arg(long)]
     dry_run: bool,
+    /// Git push options
+    #[arg(long, short)]
+    option: Vec<String>,
 }
 
 fn make_bookmark_term(bookmark_names: &[impl fmt::Display]) -> String {
@@ -470,6 +473,7 @@ pub fn cmd_git_push(
             git_settings.to_subprocess_options(),
             remote,
             &targets,
+            &args.option.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
             cb,
         )
     })?;
