@@ -184,6 +184,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj workspace forget` now warns about unknown workspaces instead of failing.
 
+* `jj config get` gained a `--allow-missing` option that suppresses the error
+  when the desired key is not in the config. Instead, the command returns
+  nothing, successfully. This is intended for scripting and external tools.
+
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
