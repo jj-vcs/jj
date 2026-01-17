@@ -1233,17 +1233,42 @@ impl WorkspaceCommandHelper {
     ) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
         let workspace_name = self.workspace_name().to_owned();
+        // Check if workspace had a git_head before we start the transaction
+        let old_workspace_git_head_present = self
+            .repo()
+            .view()
+            .get_workspace_git_head(&workspace_name)
+            .is_present();
         let mut tx = self.start_transaction();
-        jj_lib::git::import_head(tx.repo_mut(), &workspace_name)?;
-        if !tx.repo().has_changes() {
+        let head_changed = jj_lib::git::import_head(tx.repo_mut(), &workspace_name)?;
+        if !head_changed {
+            // No change for this workspace's git HEAD
+            if tx.repo().has_changes() {
+                // Other worktree heads may have been imported
+                self.user_repo = ReadonlyUserRepo::new(tx.into_inner().commit("import git head")?);
+            }
             return Ok(());
         }
 
         let mut tx = tx.into_inner();
-        let old_git_head = self.repo().view().git_head().clone();
-        let new_git_head = tx.repo().view().git_head().clone();
-        if let Some(new_git_head_id) = new_git_head.as_normal() {
-            let workspace_name = self.workspace_name().to_owned();
+        let new_workspace_git_head = tx
+            .repo()
+            .view()
+            .get_workspace_git_head(&workspace_name)
+            .clone();
+        if let Some(new_git_head_id) = new_workspace_git_head.as_normal() {
+            // Check if workspace already has a WC commit with the correct parent.
+            // This avoids creating spurious commits when switching between workspaces.
+            if let Some(current_wc_id) = tx.repo().view().get_wc_commit_id(&workspace_name) {
+                let current_wc = tx.repo().store().get_commit(current_wc_id)?;
+                if current_wc.parent_ids().contains(new_git_head_id) {
+                    // Workspace already has a working copy with the correct parent,
+                    // no new checkout needed
+                    self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head")?);
+                    return Ok(());
+                }
+            }
+
             let new_git_head_commit = tx.repo().store().get_commit(new_git_head_id)?;
             let wc_commit = tx
                 .repo_mut()
@@ -1256,7 +1281,7 @@ impl WorkspaceCommandHelper {
             tx.repo_mut().rebase_descendants()?;
             self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head")?);
             locked_ws.finish(self.user_repo.repo.op_id().clone())?;
-            if old_git_head.is_present() {
+            if old_workspace_git_head_present {
                 writeln!(
                     ui.status(),
                     "Reset the working copy parent to the new Git HEAD."
@@ -2136,7 +2161,12 @@ to the current parents may contain changes from multiple commits.
                 // This can still fail if HEAD was updated concurrently by another JJ process
                 // (overlapping transaction) or a non-JJ process (e.g., git checkout). In that
                 // case, the actual state will be imported on the next snapshot.
-                match jj_lib::git::reset_head(tx.repo_mut(), wc_commit, self.workspace_name()) {
+                match jj_lib::git::reset_head_at_workspace(
+                    tx.repo_mut(),
+                    wc_commit,
+                    self.workspace_name(),
+                    Some(self.workspace_root()),
+                ) {
                     Ok(()) => {}
                     Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
                         writeln!(ui.warning_default(), "{err}")?;

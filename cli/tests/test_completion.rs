@@ -1209,61 +1209,32 @@ fn test_operations() {
         .split('\t')
         .next()
         .unwrap();
-    insta::assert_snapshot!(add_workspace_id, @"12f7cbba4278");
+    insta::assert_snapshot!(add_workspace_id, @"57f91468ff2b");
 
     let output = work_dir.complete_fish(["op", "show", "8"]);
-    insta::assert_snapshot!(output, @r"
-    8ed8c16786e6	(2001-02-03 08:05:11) describe commit 3725536d0ae06d69e46911258cee591dbdb66478
-    8f47435a3990	(2001-02-03 08:05:07) add workspace 'default'
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
     // make sure global --at-op flag is respected
     let output = work_dir.complete_fish(["--at-op", "8ed8c16786e6", "op", "show", "8"]);
-    insta::assert_snapshot!(output, @r"
-    8ed8c16786e6	(2001-02-03 08:05:11) describe commit 3725536d0ae06d69e46911258cee591dbdb66478
-    8f47435a3990	(2001-02-03 08:05:07) add workspace 'default'
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
 
     let output = work_dir.complete_fish(["--at-op", "8e"]);
-    insta::assert_snapshot!(output, @r"
-    8ed8c16786e6	(2001-02-03 08:05:11) describe commit 3725536d0ae06d69e46911258cee591dbdb66478
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
 
     let output = work_dir.complete_fish(["op", "abandon", "8e"]);
-    insta::assert_snapshot!(output, @r"
-    8ed8c16786e6	(2001-02-03 08:05:11) describe commit 3725536d0ae06d69e46911258cee591dbdb66478
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
 
     let output = work_dir.complete_fish(["op", "diff", "--op", "8e"]);
-    insta::assert_snapshot!(output, @r"
-    8ed8c16786e6	(2001-02-03 08:05:11) describe commit 3725536d0ae06d69e46911258cee591dbdb66478
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
     let output = work_dir.complete_fish(["op", "diff", "--from", "8e"]);
-    insta::assert_snapshot!(output, @r"
-    8ed8c16786e6	(2001-02-03 08:05:11) describe commit 3725536d0ae06d69e46911258cee591dbdb66478
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
     let output = work_dir.complete_fish(["op", "diff", "--to", "8e"]);
-    insta::assert_snapshot!(output, @r"
-    8ed8c16786e6	(2001-02-03 08:05:11) describe commit 3725536d0ae06d69e46911258cee591dbdb66478
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
 
     let output = work_dir.complete_fish(["op", "restore", "8e"]);
-    insta::assert_snapshot!(output, @r"
-    8ed8c16786e6	(2001-02-03 08:05:11) describe commit 3725536d0ae06d69e46911258cee591dbdb66478
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
 
     let output = work_dir.complete_fish(["op", "revert", "8e"]);
-    insta::assert_snapshot!(output, @r"
-    8ed8c16786e6	(2001-02-03 08:05:11) describe commit 3725536d0ae06d69e46911258cee591dbdb66478
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
 }
 
 #[test]

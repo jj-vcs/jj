@@ -78,27 +78,87 @@ pub fn is_colocated_git_workspace(
     let Ok(git_backend) = git::get_git_backend(repo.store()) else {
         return false;
     };
-    let Some(git_workdir) = git_backend.git_workdir() else {
+
+    let dot_git_path = workspace.workspace_root().join(".git");
+    let dot_git_exists = dot_git_path.exists();
+
+    // Check if the git backend has a working directory (non-bare)
+    if let Some(git_workdir) = git_backend.git_workdir() {
+        // Primary colocated workspace: git workdir matches workspace root
+        if git_workdir == workspace.workspace_root() {
+            return true;
+        }
+
+        // Colocated workspace should have ".git" directory, file, or symlink. Compare
+        // its parent as the git_workdir might be resolved from the real ".git" path.
+        if let Ok(dot_git_canonical) = dunce::canonicalize(&dot_git_path)
+            && dunce::canonicalize(git_workdir).ok().as_deref() == dot_git_canonical.parent()
+        {
+            return true;
+        }
+
+        // Fall through to check if this might be a secondary colocated
+        // workspace (git worktree) created with `jj workspace add --colocate`
+    } else {
         // Bare repository - still check for unexpected .git
         if let Some(ui) = ui {
             warn_about_unexpected_git_in_workspace(ui, workspace, git_backend);
         }
         return false;
-    };
-    if git_workdir == workspace.workspace_root() {
-        return true;
-    }
-    // Colocated workspace should have ".git" directory, file, or symlink. Compare
-    // its parent as the git_workdir might be resolved from the real ".git" path.
-    let Ok(dot_git_path) = dunce::canonicalize(workspace.workspace_root().join(".git")) else {
-        return false;
-    };
-    if dunce::canonicalize(git_workdir).ok().as_deref() == dot_git_path.parent() {
-        return true;
     }
 
-    // At this point we're not colocated. If there's a .git, warn the user.
-    if let Some(ui) = ui {
+    // Check for secondary colocated workspaces (git worktrees) by comparing the
+    // common_dir of the workspace's .git with jj's backing repo. This only applies
+    // to gitlink files (.git files pointing to worktree directories), not .git
+    // directories.
+    tracing::debug!(
+        ?dot_git_path,
+        exists = dot_git_exists,
+        "Checking for worktree colocation"
+    );
+    let is_gitlink = dot_git_exists
+        && dot_git_path
+            .symlink_metadata()
+            .map(|m| m.is_file())
+            .unwrap_or(false);
+    if is_gitlink {
+        match gix::ThreadSafeRepository::open_opts(&dot_git_path, gix::open::Options::isolated()) {
+            Ok(workspace_repo) => {
+                let workspace_common_dir = workspace_repo.to_thread_local().common_dir().to_owned();
+                let store_common_dir = git_backend.git_repo().common_dir().to_owned();
+                tracing::debug!(
+                    ?workspace_common_dir,
+                    ?store_common_dir,
+                    "Comparing common_dirs"
+                );
+                if let (Ok(ws_canonical), Ok(store_canonical)) = (
+                    dunce::canonicalize(&workspace_common_dir),
+                    dunce::canonicalize(&store_common_dir),
+                ) {
+                    tracing::debug!(?ws_canonical, ?store_canonical, "Canonicalized common_dirs");
+                    if ws_canonical == store_canonical {
+                        return true;
+                    }
+                }
+                // .git opened successfully but common_dir doesn't match - warn
+                if let Some(ui) = ui {
+                    warn_about_unexpected_git_in_workspace(ui, workspace, git_backend);
+                }
+            }
+            Err(e) => {
+                tracing::debug!(?e, "Failed to open workspace as git repo");
+                // .git gitlink file exists but couldn't be opened (broken worktree) - warn
+                if let Some(ui) = ui {
+                    warn_about_unexpected_git_in_workspace(ui, workspace, git_backend);
+                }
+            }
+        }
+        return false;
+    }
+
+    // No gitlink file - warn if there's an unexpected .git directory/symlink
+    // (works even when git backend is bare, e.g., after force-disabling colocation)
+    if dot_git_exists && let Some(ui) = ui {
         warn_about_unexpected_git_in_workspace(ui, workspace, git_backend);
     }
 

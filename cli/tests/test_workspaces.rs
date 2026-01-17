@@ -622,9 +622,9 @@ fn test_workspace_add_override_path_in_store() {
 
     // Undoing workspace addition
     let output = main_dir.run_jj(["operation", "restore", "@--"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: aa2f9df55a11 (2001-02-03 08:05:08) commit 006bd1130b84e90ab082adeabd7409270d5a86da
+    Restored to operation: 1ecb8056fe00 (2001-02-03 08:05:08) commit 006bd1130b84e90ab082adeabd7409270d5a86da
     [EOF]
     ");
 
@@ -711,9 +711,9 @@ fn test_workspaces_conflicting_edits() {
     [EOF]
     ");
     let output = secondary_dir.run_jj(["st"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation bd4f780d0422).
+    Error: The working copy is stale (not updated since operation 5b7827864695).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -721,9 +721,9 @@ fn test_workspaces_conflicting_edits() {
     ");
     // Same error on second run, and from another command
     let output = secondary_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation bd4f780d0422).
+    Error: The working copy is stale (not updated since operation 5b7827864695).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -812,9 +812,9 @@ fn test_workspaces_updated_by_other() {
     [EOF]
     ");
     let output = secondary_dir.run_jj(["st"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation bd4f780d0422).
+    Error: The working copy is stale (not updated since operation 5b7827864695).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -963,15 +963,15 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         r#"id.short(10) ++ " " ++ description"#,
     ]);
     insta::allow_duplicates! {
-        insta::assert_snapshot!(output, @r"
-        @  b0789def13 abandon commit de90575a14d8b9198dc0930f9de4a69f846ded36
-        ○  778c9aae54 create initial working-copy commit in workspace secondary
-        ○  219d4aca5c add workspace 'secondary'
-        ○  31ad55e98c new empty commit
-        ○  4ba7680cbe snapshot working copy
-        ○  9739176f19 new empty commit
-        ○  4b5baa44b7 snapshot working copy
-        ○  8f47435a39 add workspace 'default'
+        insta::assert_snapshot!(output, @"
+        @  e4a0d61c7f abandon commit de90575a14d8b9198dc0930f9de4a69f846ded36
+        ○  f6233b3a9e create initial working-copy commit in workspace secondary
+        ○  64732beabc add workspace 'secondary'
+        ○  5b43a9b7e0 new empty commit
+        ○  c730b8436b snapshot working copy
+        ○  25ef9ce683 new empty commit
+        ○  1ea153c314 snapshot working copy
+        ○  92406f6867 add workspace 'default'
         ○  0000000000
         [EOF]
         ");
@@ -997,7 +997,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         secondary_dir.run_jj(["help"]).success();
 
         let output = secondary_dir.run_jj(["st"]);
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         Working copy changes:
         C {modified => added}
         D deleted
@@ -1006,7 +1006,7 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         Parent commit (@-): rzvqmyuk 891f0006 (empty) (no description set)
         [EOF]
         ------- stderr -------
-        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 778c9aae54957e842bede2223fda227be33e08061732276a4cfb7b431a3e146e5c62187d640aa883095d3b2c6cf43d31ad5fde72076bb9a88b8594fb8b5e6606 of type operation not found
+        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object f6233b3a9eb3d04992ad5fe11a32a564edfab56c5132f2245256ac88011c54b48977d89e7ca13133a70009bf276db3ed87a2f5fd15acd4c8263d9fff1d12b378 of type operation not found
         Created and checked out recovery commit 866928d1e0fd
         [EOF]
         ");
@@ -1022,9 +1022,9 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
         ");
 
         let output = secondary_dir.run_jj(["workspace", "update-stale"]);
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ------- stderr -------
-        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object 778c9aae54957e842bede2223fda227be33e08061732276a4cfb7b431a3e146e5c62187d640aa883095d3b2c6cf43d31ad5fde72076bb9a88b8594fb8b5e6606 of type operation not found
+        Failed to read working copy's current operation; attempting recovery. Error message from read attempt: Object f6233b3a9eb3d04992ad5fe11a32a564edfab56c5132f2245256ac88011c54b48977d89e7ca13133a70009bf276db3ed87a2f5fd15acd4c8263d9fff1d12b378 of type operation not found
         Created and checked out recovery commit 866928d1e0fd
         [EOF]
         ");
@@ -1072,23 +1072,23 @@ fn test_workspaces_current_op_discarded_by_other(automatic: bool) {
 
     let output = secondary_dir.run_jj(["evolog"]);
     if automatic {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
-        │  -- operation 0a26da4b0149 snapshot working copy
+        │  -- operation 946403ff7b56 snapshot working copy
         ○  kmkuslsw/1 test.user@example.com 2001-02-03 08:05:18 866928d1 (hidden)
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
-           -- operation 83f707034db1 recovery commit
+           -- operation 5f22bad8d0f0 recovery commit
         [EOF]
         ");
     } else {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         @  kmkuslsw test.user@example.com 2001-02-03 08:05:18 secondary@ 18851b39
         │  RECOVERY COMMIT FROM `jj workspace update-stale`
-        │  -- operation 0f876590219e snapshot working copy
+        │  -- operation 940ea2ca820a snapshot working copy
         ○  kmkuslsw/1 test.user@example.com 2001-02-03 08:05:18 866928d1 (hidden)
            (empty) RECOVERY COMMIT FROM `jj workspace update-stale`
-           -- operation 83f707034db1 recovery commit
+           -- operation 5f22bad8d0f0 recovery commit
         [EOF]
         ");
     }
@@ -1144,10 +1144,10 @@ fn test_workspaces_unpublished_operation_same_tree() {
         .success();
     // The working copy should be stale
     let output = main_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Internal error: The repo was loaded at operation 502db81004ba, which seems to be a sibling of the working copy's operation 48631817a82e
-    Hint: Run `jj op integrate 48631817a82e` to add the working copy's operation to the operation log.
+    Internal error: The repo was loaded at operation e4d9ae08f802, which seems to be a sibling of the working copy's operation 97106e44bd54
+    Hint: Run `jj op integrate 97106e44bd54` to add the working copy's operation to the operation log.
     [EOF]
     [exit status: 255]
     ");
@@ -1273,9 +1273,9 @@ fn test_colocated_workspace_update_stale() {
 
     // The main workspace's working copy is now stale.
     let output = main_dir.run_jj(["st"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation b0dfa4a0da08).
+    Error: The working copy is stale (not updated since operation cde2c3971562).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -1472,7 +1472,7 @@ fn test_workspaces_forget_multi_transaction() {
     // the op log should have the multiple valid workspaces forgotten in a single tx
     let output = main_dir.run_jj(["op", "log", "--limit", "1"]);
     insta::assert_snapshot!(output, @"
-    @  86a599409515 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    @  a23728a0881b test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
     │  forget workspaces second, third
     │  args: jj workspace forget second third fourth
     [EOF]
@@ -1656,25 +1656,25 @@ fn test_debug_snapshot() {
     work_dir.write_file("file", "contents");
     work_dir.run_jj(["debug", "snapshot"]).success();
     let output = work_dir.run_jj(["op", "log"]);
-    insta::assert_snapshot!(output, @r"
-    @  594dfebf2565 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    insta::assert_snapshot!(output, @"
+    @  3a7f55db3d2f test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  snapshot working copy
     │  args: jj debug snapshot
-    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    ○  92406f686752 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]
     ");
     work_dir.run_jj(["describe", "-m", "initial"]).success();
     let output = work_dir.run_jj(["op", "log"]);
-    insta::assert_snapshot!(output, @r"
-    @  81e4a0f2e793 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    insta::assert_snapshot!(output, @"
+    @  27c4bd6fbf05 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     │  describe commit 006bd1130b84e90ab082adeabd7409270d5a86da
     │  args: jj describe -m initial
-    ○  594dfebf2565 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ○  3a7f55db3d2f test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  snapshot working copy
     │  args: jj debug snapshot
-    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    ○  92406f686752 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]

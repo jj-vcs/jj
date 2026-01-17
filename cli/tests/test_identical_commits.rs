@@ -89,13 +89,13 @@ fn test_identical_commits_by_cycling_rewrite() {
     [EOF]
     [exit status: 255]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @"
     @  oxmtprsl test.user@example.com 2001-01-01 11:00:00 c5abd225
     │  (empty) test2
-    │  -- operation f184243937e9 describe commit 053222c21fa06b9492e22346f8f70e732231ad4f
+    │  -- operation 730c88fcef3b describe commit 053222c21fa06b9492e22346f8f70e732231ad4f
     ○  oxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 053222c2 (hidden)
        (empty) test1
-       -- operation 509c18587028 new empty commit
+       -- operation 0a2b99c8dd9b new empty commit
     [EOF]
     ");
     // TODO: Test `jj op diff --from @--`
@@ -124,10 +124,10 @@ fn test_identical_commits_by_convergent_rewrite() {
     ");
     // TODO: The "test3" commit should have either "test1" or "test2" as predecessor
     // (or both?)
-    insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @"
     @  oxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 c5abd225 (divergent)
        (empty) test2
-       -- operation a1561db9359b new empty commit
+       -- operation 85e38de9a2d1 new empty commit
     [EOF]
     ");
 }
@@ -160,10 +160,10 @@ fn test_identical_commits_by_convergent_rewrite_one_operation() {
     ");
     // TODO: The "test3" commit should have either "test1" or "test2" as predecessor
     // (or both?)
-    insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["evolog"]), @"
     @  oxmtprsl/0 test.user@example.com 2001-01-01 11:00:00 c5abd225 (divergent)
        (empty) test2
-       -- operation a1561db9359b new empty commit
+       -- operation 85e38de9a2d1 new empty commit
     [EOF]
     ");
 }
@@ -201,16 +201,16 @@ fn test_identical_commits_swap_by_reordering() {
     [EOF]
     ");
     // TODO: Each commit should be a predecessor of the other
-    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r=@"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r=@"]), @"
     @  oxmtprsl/0 test.user@example.com 2001-01-01 11:00:00 5bae90c9 (divergent)
        (empty) test
-       -- operation 380fbe20623e new empty commit
+       -- operation d3ede8ba482f new empty commit
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r=@-"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r=@-"]), @"
     ○  oxmtprsl/1 test.user@example.com 2001-01-01 11:00:00 e94ed463 (divergent)
        (empty) test
-       -- operation 40e37b931010 new empty commit
+       -- operation 3416bb3faf06 new empty commit
     [EOF]
     ");
     // TODO: Test that `jj op show` displays something reasonable

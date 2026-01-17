@@ -1432,9 +1432,9 @@ fn test_git_fetch_undo() {
     [EOF]
     "#);
     let output = target_dir.run_jj(["undo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: 8aeac520a856 (2001-02-03 08:05:07) add git remote origin
+    Restored to operation: f44f86360348 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
     // The undo works as expected
@@ -1522,9 +1522,9 @@ fn test_fetch_undo_what() {
     // We can undo the change in the repo without moving the remote-tracking
     // bookmark
     let output = work_dir.run_jj(["op", "restore", "--what", "repo", &base_operation_id]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: 8aeac520a856 (2001-02-03 08:05:07) add git remote origin
+    Restored to operation: f44f86360348 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
@@ -1554,9 +1554,9 @@ fn test_fetch_undo_what() {
         "remote-tracking",
         &base_operation_id,
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: 8aeac520a856 (2001-02-03 08:05:07) add git remote origin
+    Restored to operation: f44f86360348 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
