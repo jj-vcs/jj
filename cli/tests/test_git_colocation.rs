@@ -439,3 +439,105 @@ fn test_git_colocation_in_secondary_workspace() {
     [exit status: 1]
     ");
 }
+
+#[test]
+fn test_git_colocation_disable_with_secondary_workspaces_fails() {
+    // This test verifies that colocation disable fails with a helpful error
+    // when secondary colocated workspaces exist (since disabling would break them).
+    let test_env = TestEnvironment::default();
+    let primary_dir = test_env.work_dir("primary");
+
+    // 1. Create colocated repo with a commit
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_dir.write_file("file", "contents");
+    primary_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    // 2. Add colocated secondary workspace
+    primary_dir
+        .run_jj(["workspace", "add", "--colocate", "../secondary"])
+        .success();
+
+    // 3. Try to disable colocation - should fail
+    let output = primary_dir.run_jj(["git", "colocation", "disable"]);
+    assert!(!output.status.success());
+    insta::assert_snapshot!(output.stderr.normalized(), @r"
+    Error: Cannot disable colocation: secondary colocated workspaces exist.
+    These workspaces would become broken Git worktrees.
+    Either:
+      - Run `jj workspace forget <name>` for each secondary workspace first
+      - Use --force to disable anyway (secondary workspaces will be broken)
+    ");
+}
+
+#[test]
+fn test_git_colocation_disable_force_with_secondary_workspaces() {
+    // This test verifies that colocation disable --force succeeds even with
+    // secondary workspaces (though it leaves them broken).
+    let test_env = TestEnvironment::default();
+    let primary_dir = test_env.work_dir("primary");
+    let secondary_dir = test_env.work_dir("secondary");
+
+    // 1. Create colocated repo with a commit
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_dir.write_file("file", "contents");
+    primary_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    // 2. Add colocated secondary workspace
+    primary_dir
+        .run_jj(["workspace", "add", "--colocate", "../secondary"])
+        .success();
+
+    // Verify secondary workspace has the file
+    assert!(
+        secondary_dir.root().join("file").exists(),
+        "Secondary workspace should have file before disable"
+    );
+
+    // 3. Disable colocation with --force - should succeed
+    let output = primary_dir.run_jj(["git", "colocation", "disable", "--force"]);
+    assert!(output.status.success());
+
+    // 4. Verify primary is now non-colocated
+    let output = primary_dir.run_jj(["git", "colocation", "status"]);
+    assert!(output.stdout.normalized().contains("not colocated"));
+
+    // 5. Verify primary workspace data is preserved (critical: no data loss)
+    assert!(
+        primary_dir.root().join("file").exists(),
+        "Primary workspace file should be preserved after force disable"
+    );
+    let contents = std::fs::read_to_string(primary_dir.root().join("file")).unwrap();
+    assert_eq!(
+        contents, "contents",
+        "Primary workspace file contents should be unchanged"
+    );
+
+    // 6. Verify primary workspace is still functional
+    let output = primary_dir.run_jj(["status"]);
+    assert!(
+        output.status.success(),
+        "jj status should work in primary workspace after force disable"
+    );
+
+    // 7. Verify secondary workspace directory and file still exist (data preserved)
+    assert!(
+        secondary_dir.root().exists(),
+        "Secondary workspace directory should still exist"
+    );
+    assert!(
+        secondary_dir.root().join("file").exists(),
+        "Secondary workspace file should be preserved (even if workspace is broken)"
+    );
+
+    // 8. Verify secondary workspace has a warning about broken git worktree
+    let output = secondary_dir.run_jj(["status"]);
+    let stderr = output.stderr.normalized();
+    assert!(
+        stderr.contains("broken Git worktree") || stderr.contains("Warning"),
+        "Secondary workspace should show warning about broken state, got: {stderr}"
+    );
+}
