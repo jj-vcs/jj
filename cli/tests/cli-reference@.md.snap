@@ -3457,13 +3457,19 @@ By default, the new workspace inherits the sparse patterns of the current worksp
 
 Stop tracking a workspace's working-copy commit in the repo
 
-The workspace will not be touched on disk. It can be deleted from disk before or after running this command.
+For colocated workspaces, this also removes the associated Git worktree. By default, removal will fail if the worktree has uncommitted changes. Use --force to remove the worktree even with uncommitted changes.
 
-**Usage:** `jj workspace forget [WORKSPACES]...`
+For non-colocated workspaces, the workspace directory is not touched on disk. It can be deleted from disk before or after running this command.
+
+**Usage:** `jj workspace forget [OPTIONS] [WORKSPACES]...`
 
 ###### **Arguments:**
 
 * `<WORKSPACES>` — Names of the workspaces to forget. By default, forgets only the current workspace
+
+###### **Options:**
+
+* `--force` — Force removal of Git worktrees even if they have uncommitted changes
 
 
 
