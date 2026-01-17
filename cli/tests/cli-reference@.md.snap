@@ -3465,6 +3465,14 @@ By default, the new workspace inherits the sparse patterns of the current worksp
   - `empty`:
     Clear all files from the workspace (it will be empty)
 
+* `--colocate` — Create a Git worktree for the new workspace
+
+   When used with a colocated Git repository, this creates a Git worktree at the new workspace location, allowing the workspace to also be colocated with Git.
+
+   This is the default when the parent workspace is colocated.
+* `--no-colocate` — Do not create a Git worktree for the new workspace
+
+   The new workspace will not be colocated with Git, even if the parent workspace is colocated.
 
 
 

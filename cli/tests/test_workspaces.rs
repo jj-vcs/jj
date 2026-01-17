@@ -1229,8 +1229,9 @@ fn test_colocated_workspace_update_stale() {
         .run_jj(["bookmark", "set", "-rsubject('old book1')", "book1"])
         .success();
 
+    // Use --no-colocate to keep secondary non-colocated for this test
     main_dir
-        .run_jj(["workspace", "add", "../secondary"])
+        .run_jj(["workspace", "add", "--no-colocate", "../secondary"])
         .success();
 
     // Rewrite the check-out commit from the secondary workspace.

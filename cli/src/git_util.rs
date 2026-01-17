@@ -79,7 +79,11 @@ pub fn is_colocated_git_workspace(
         return false;
     };
     let Some(git_workdir) = git_backend.git_workdir() else {
-        return false; // Bare repository
+        // Bare repository - still check for unexpected .git
+        if let Some(ui) = ui {
+            warn_about_unexpected_git_in_workspace(ui, workspace, git_backend);
+        }
+        return false;
     };
     if git_workdir == workspace.workspace_root() {
         return true;
