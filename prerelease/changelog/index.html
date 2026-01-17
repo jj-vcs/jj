@@ -6471,6 +6471,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p><code>jj git fetch</code> now shows details of abandoned commits (change IDs and
+  descriptions) by default, matching the <code>jj abandon</code> output format.
+  <a href="https://github.com/jj-vcs/jj/issues/3081">#3081</a></p>
+</li>
+<li>
 <p><code>jj git push --bookmark &lt;name&gt;</code> will now automatically track the bookmark if
   it isn't tracked with any remote already.</p>
 </li>
@@ -6494,6 +6499,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
+<li>
+<p><code>jj git init --colocate</code> now refuses to run inside a Git worktree, providing
+  a helpful error message with alternatives.
+  <a href="https://github.com/jj-vcs/jj/issues/8052">#8052</a></p>
+</li>
 <li>
 <p><code>jj git push</code> now ensures that tracked remote bookmarks are updated even if
   there are no mappings in the Git fetch refspecs.
