@@ -114,8 +114,8 @@ fn test_edit_current() {
 
     // No operation created
     let output = work_dir.run_jj(["op", "log", "--limit=1"]);
-    insta::assert_snapshot!(output, @r"
-    @  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    insta::assert_snapshot!(output, @"
+    @  92406f686752 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     [EOF]
     ");

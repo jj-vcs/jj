@@ -403,38 +403,38 @@ fn test_split_with_descendants() {
     // - The rewritten commit once the description is added during `jj commit`.
     // - The rewritten commit after the split.
     let evolog_1 = work_dir.run_jj(["evolog", "-r", "qpvun"]);
-    insta::assert_snapshot!(evolog_1, @r"
+    insta::assert_snapshot!(evolog_1, @"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 74306e35
     │  Add file1
-    │  -- operation 994b490f285d split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
+    │  -- operation ff3010f8f8fb split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 1d2499e7 (hidden)
     │  Add file1 & file2
-    │  -- operation adf4f33386c9 commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation 940ed601b9b8 commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
-    │  -- operation 78ead2155fcc snapshot working copy
+    │  -- operation c8ee651c7ac1 snapshot working copy
     ○  qpvuntsm/3 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
-       -- operation 8f47435a3990 add workspace 'default'
+       -- operation 92406f686752 add workspace 'default'
     [EOF]
     ");
 
     // The evolog for the second commit is the same, except that the change id
     // changes after the split.
     let evolog_2 = work_dir.run_jj(["evolog", "-r", "royxm"]);
-    insta::assert_snapshot!(evolog_2, @r"
+    insta::assert_snapshot!(evolog_2, @"
     ○  royxmykx test.user@example.com 2001-02-03 08:05:12 0a37745e
     │  Add file2
-    │  -- operation 994b490f285d split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
+    │  -- operation ff3010f8f8fb split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 1d2499e7 (hidden)
     │  Add file1 & file2
-    │  -- operation adf4f33386c9 commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation 940ed601b9b8 commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
-    │  -- operation 78ead2155fcc snapshot working copy
+    │  -- operation c8ee651c7ac1 snapshot working copy
     ○  qpvuntsm/3 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
-       -- operation 8f47435a3990 add workspace 'default'
+       -- operation 92406f686752 add workspace 'default'
     [EOF]
     ");
 }
@@ -559,32 +559,32 @@ fn test_split_parallel_no_descendants() {
     // - The rewritten commit from the snapshot after the files were added.
     // - The rewritten commit after the split.
     let evolog_1 = work_dir.run_jj(["evolog", "-r", "qpvun"]);
-    insta::assert_snapshot!(evolog_1, @r"
+    insta::assert_snapshot!(evolog_1, @"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 7bcd474c
     │  TESTED=TODO
-    │  -- operation 2b21c33e1596 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation bb02c4b811de split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
-    │  -- operation 1663cd1cc445 snapshot working copy
+    │  -- operation d423e79ea521 snapshot working copy
     ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
-       -- operation 8f47435a3990 add workspace 'default'
+       -- operation 92406f686752 add workspace 'default'
     [EOF]
     ");
 
     // The evolog for the second commit is the same, except that the change id
     // changes after the split.
     let evolog_2 = work_dir.run_jj(["evolog", "-r", "kkmpp"]);
-    insta::assert_snapshot!(evolog_2, @r"
+    insta::assert_snapshot!(evolog_2, @"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 431886f6
     │  (no description set)
-    │  -- operation 2b21c33e1596 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation bb02c4b811de split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
-    │  -- operation 1663cd1cc445 snapshot working copy
+    │  -- operation d423e79ea521 snapshot working copy
     ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
-       -- operation 8f47435a3990 add workspace 'default'
+       -- operation 92406f686752 add workspace 'default'
     [EOF]
     ");
 }

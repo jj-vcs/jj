@@ -94,12 +94,12 @@ fn test_gc_operation_log() {
 
     // Now this doesn't work.
     let output = work_dir.run_jj(["debug", "object", "operation", &op_to_remove]);
-    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @"
     ------- stderr -------
     Internal error: Failed to load an operation
     Caused by:
-    1: Object b50d0a8f111a9d30d45d429d62c8e54016cc7c891706921a6493756c8074e883671cf3dac0ac9f94ef0fa8c79738a3dfe38c3e1f6c5e1a4a4d0857d266ef2040 of type operation not found
-    2: Cannot access $TEST_ENV/repo/.jj/repo/op_store/operations/b50d0a8f111a9d30d45d429d62c8e54016cc7c891706921a6493756c8074e883671cf3dac0ac9f94ef0fa8c79738a3dfe38c3e1f6c5e1a4a4d0857d266ef2040
+    1: Object 29b464d74c465a42e467ca4c5a5fd29159e6f455d172b730835c4778304665227757ff54145cb2dc3985de6ea7d32607d9d46e0d1992e888a0f85120f6d3638f of type operation not found
+    2: Cannot access $TEST_ENV/repo/.jj/repo/op_store/operations/29b464d74c465a42e467ca4c5a5fd29159e6f455d172b730835c4778304665227757ff54145cb2dc3985de6ea7d32607d9d46e0d1992e888a0f85120f6d3638f
     [EOF]
     [exit status: 255]
     ");

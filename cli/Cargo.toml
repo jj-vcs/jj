@@ -87,6 +87,7 @@ once_cell = { workspace = true }
 pest = { workspace = true }
 pest_derive = { workspace = true }
 pollster = { workspace = true }
+prost = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 regex = { workspace = true }

@@ -116,9 +116,9 @@ fn test_git_export_undo() {
     // Exported refs won't be removed by undoing the export, but the git-tracking
     // bookmark is. This is the same as remote-tracking bookmarks.
     let output = work_dir.run_jj(["undo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: 503f3c779aff (2001-02-03 08:05:08) create bookmark a pointing to commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    Restored to operation: 726f686bf554 (2001-02-03 08:05:08) create bookmark a pointing to commit e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
     insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @r#"
@@ -191,9 +191,9 @@ fn test_git_import_undo() {
 
     // "git import" can be undone by default.
     let output = work_dir.run_jj(["op", "restore", &base_operation_id]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+    Restored to operation: 92406f686752 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
@@ -273,9 +273,9 @@ fn test_git_import_move_export_with_default_undo() {
     // the previous test. However, "git export" can't: the bookmarks in the git
     // repo stay where they were.
     let output = work_dir.run_jj(["op", "restore", &base_operation_id]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+    Restored to operation: 92406f686752 (2001-02-03 08:05:07) add workspace 'default'
     Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]

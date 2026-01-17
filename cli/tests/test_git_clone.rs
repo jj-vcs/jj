@@ -830,9 +830,9 @@ fn test_git_clone_ignore_working_copy() {
 
     // TODO: Correct, but might be better to check out the root commit?
     let output = clone_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 8f47435a3990).
+    Error: The working copy is stale (not updated since operation 92406f686752).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -1144,9 +1144,9 @@ fn test_git_clone_malformed() {
 
     // The cloned workspace isn't usable.
     let output = clone_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 353078ed182b).
+    Error: The working copy is stale (not updated since operation f7c050ef816e).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
