@@ -57,6 +57,12 @@ message TreeState {
   bool is_file_states_sorted = 6;
   SparsePatterns sparse_patterns = 3;
   WatchmanClock watchman_clock = 4;
+  // Paths of files that are known to be untracked.
+  // These files won't be automatically tracked on subsequent snapshots.
+  // The decision to not track is made once when the file is first noticed
+  // (based on .gitignore, snapshot.auto-track, or explicit `jj file untrack`).
+  // Always stored in sorted order.
+  repeated string untracked_paths = 8;
 }
 
 message WatchmanClock {

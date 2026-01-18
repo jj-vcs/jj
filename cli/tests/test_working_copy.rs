@@ -45,16 +45,18 @@ fn test_snapshot_large_file() {
     ");
 
     // test with a larger file using 'KB' human-readable syntax
+    // Use a new file name because 'large' is already in the persistent untracked
+    // list
     test_env.add_config(r#"snapshot.max-new-file-size = "10KB""#);
-    let big_string = vec![0; 1024 * 11];
-    work_dir.write_file("large", &big_string);
+    let big_string = vec![0u8; 1024 * 11];
+    work_dir.write_file("large_kb", &big_string);
     let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     empty
     [EOF]
     ------- stderr -------
     Warning: Refused to snapshot some files:
-      large: 11.0KiB (11264 bytes); the maximum size allowed is 10.0KiB (10240 bytes)
+      large_kb: 11.0KiB (11264 bytes); the maximum size allowed is 10.0KiB (10240 bytes)
     Hint: This is to prevent large files from being added by accident. You can fix this by:
       - Adding the file to `.gitignore`
       - Run `jj config set --repo snapshot.max-new-file-size 11264`
@@ -64,27 +66,21 @@ fn test_snapshot_large_file() {
     [EOF]
     ");
 
-    // test with file track for hint formatting, both files should appear in
-    // warnings even though they were snapshotted separately
-    work_dir.write_file("large2", big_string);
-    let output = work_dir.run_jj([
-        "file",
-        "--config=snapshot.auto-track='large'",
-        "track",
-        "large2",
-    ]);
+    // test with file track for hint formatting
+    // Create another large file to test file track hint
+    work_dir.write_file("large2", &big_string);
+    let output = work_dir.run_jj(["file", "track", "large2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Refused to snapshot some files:
-      large: 11.0KiB (11264 bytes); the maximum size allowed is 10.0KiB (10240 bytes)
       large2: 11.0KiB (11264 bytes); the maximum size allowed is 10.0KiB (10240 bytes)
     Hint: This is to prevent large files from being added by accident. You can fix this by:
       - Adding the file to `.gitignore`
       - Run `jj config set --repo snapshot.max-new-file-size 11264`
         This will increase the maximum file size allowed for new files, in this repository only.
-      - Run `jj --config snapshot.max-new-file-size=11264 file track large large2`
+      - Run `jj --config snapshot.max-new-file-size=11264 file track large2`
         This will increase the maximum file size allowed for new files, for this command only.
-      - Run `jj file track --include-ignored large large2`
+      - Run `jj file track --include-ignored large2`
         This will track the files even though they exceed the size limit.
     [EOF]
     ");
@@ -107,12 +103,30 @@ fn test_snapshot_large_file() {
     [EOF]
     ");
 
-    // max-new-file-size=0 means no limit
+    // max-new-file-size=0 means no limit for NEW files, but files already in the
+    // persistent untracked list stay untracked (sticky decision)
     let output = work_dir.run_jj(["file", "list", "--config=snapshot.max-new-file-size=0"]);
+    insta::assert_snapshot!(output, @r"
+    empty
+    [EOF]
+    ");
+
+    // To track previously-untracked files, use `jj file track --include-ignored`
+    let output = work_dir.run_jj([
+        "file",
+        "track",
+        "--include-ignored",
+        "large_kb",
+        "large",
+        "large2",
+    ]);
+    insta::assert_snapshot!(output, @"");
+    let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     empty
     large
     large2
+    large_kb
     [EOF]
     ");
 }

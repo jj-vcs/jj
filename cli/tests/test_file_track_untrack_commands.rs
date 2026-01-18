@@ -55,21 +55,8 @@ fn test_track_untrack() {
     [EOF]
     [exit status: 2]
     ");
-    // Errors out when a specified file is not ignored
-    let output = work_dir.run_jj(["file", "untrack", "file1", "file1.bak"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Error: 'file1' is not ignored.
-    Hint: Files that are not ignored will be added back by the next command.
-    Make sure they're ignored, then try again.
-    [EOF]
-    [exit status: 1]
-    ");
-    let files_after = work_dir.run_jj(["file", "list"]).success();
-    // There should be no changes to the state when there was an error
-    assert_eq!(files_after, files_before);
-
-    // Can untrack a single file
+    // Can untrack a single file even if not ignored (goes to persistent untracked
+    // list)
     assert!(files_before.stdout.raw().contains("file1.bak\n"));
     let output = work_dir.run_jj(["file", "untrack", "file1.bak"]);
     insta::assert_snapshot!(output, @"");
@@ -82,6 +69,18 @@ fn test_track_untrack() {
     assert!(work_dir.root().join("file1.bak").exists());
     assert!(work_dir.root().join("file2.bak").exists());
 
+    // Can untrack a file that's not ignored (no .gitignore required anymore)
+    let output = work_dir.run_jj(["file", "untrack", "file1"]);
+    insta::assert_snapshot!(output, @"");
+    let files_after = work_dir.run_jj(["file", "list"]).success();
+    assert!(!files_after.stdout.raw().contains("file1\n"));
+    // The file still exists on disk
+    assert!(work_dir.root().join("file1").exists());
+    // Can track it back
+    work_dir.run_jj(["file", "track", "file1"]).success();
+    let files_after = work_dir.run_jj(["file", "list"]).success();
+    assert!(files_after.stdout.raw().contains("file1\n"));
+
     // Warns if path doesn't exist
     let output = work_dir.run_jj(["file", "untrack", "nonexistent"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
@@ -90,21 +89,9 @@ fn test_track_untrack() {
     [EOF]
     ");
 
-    // Errors out when multiple specified files are not ignored
+    // Can untrack multiple files in a directory (no longer requires .gitignore)
     let output = work_dir.run_jj(["file", "untrack", "target"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
-    ------- stderr -------
-    Error: 'target/file2' and 1 other files are not ignored.
-    Hint: Files that are not ignored will be added back by the next command.
-    Make sure they're ignored, then try again.
-    [EOF]
-    [exit status: 1]
-    ");
-
-    // Can untrack after adding to ignore patterns
-    work_dir.write_file(".gitignore", "*.bak\ntarget/\n");
-    let output = work_dir.run_jj(["file", "untrack", "target"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output.normalize_backslash(), @"");
     let files_after = work_dir.run_jj(["file", "list"]).success();
     assert!(!files_after.stdout.raw().contains("target"));
 }
@@ -325,21 +312,11 @@ fn test_track_large_file_with_flag() {
     ");
 
     // Track large file with --include-ignored
+    // The file was added to the persistent untracked list during the first
+    // snapshot. With --include-ignored, it gets removed from the untracked list
+    // and tracked.
     let output = work_dir.run_jj(["file", "track", "--include-ignored", "large.txt"]);
-    insta::assert_snapshot!(output, @r"
-    ------- stderr -------
-    Warning: Refused to snapshot some files:
-      large.txt: 20.0B (20 bytes); the maximum size allowed is 10.0B (10 bytes)
-    Hint: This is to prevent large files from being added by accident. You can fix this by:
-      - Adding the file to `.gitignore`
-      - Run `jj config set --repo snapshot.max-new-file-size 20`
-        This will increase the maximum file size allowed for new files, in this repository only.
-      - Run `jj --config snapshot.max-new-file-size=20 file track large.txt`
-        This will increase the maximum file size allowed for new files, for this command only.
-      - Run `jj file track --include-ignored large.txt`
-        This will track the files even though they exceed the size limit.
-    [EOF]
-    ");
+    insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
     insta::assert_snapshot!(output, @r"
     large.txt
@@ -374,6 +351,123 @@ fn test_track_ignored_directory() {
     .gitignore
     ignored_dir/file1.txt
     ignored_dir/file2.txt
+    [EOF]
+    ");
+}
+
+/// Test that switching between commits with different .gitignore content
+/// should NOT auto-track files that were previously ignored.
+///
+/// This test demonstrates the desired behavior: once a file is determined to be
+/// untracked (because it was ignored when first seen), it should stay untracked
+/// even if the .gitignore changes to no longer ignore it.
+///
+/// It also tests that `jj st` should NOT show files as "Untracked" when they
+/// are covered by .gitignore - files in the persistent untracked list that are
+/// also ignored should be completely hidden from the user.
+#[test]
+fn test_gitignore_change_should_not_auto_track() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create commit with .gitignore that ignores *.log files
+    work_dir.write_file(".gitignore", "*.log\n");
+    work_dir.run_jj(["commit", "-m", "ignoring"]).success();
+
+    // Create a sibling commit with .gitignore that does NOT ignore *.log files
+    work_dir.run_jj(["new", "root()"]).success();
+    work_dir.write_file(".gitignore", "# nothing ignored\n");
+    work_dir.run_jj(["commit", "-m", "allowing"]).success();
+
+    // Go back to parent and check out the first commit
+    work_dir
+        .run_jj(["new", "description(substring:ignoring)"])
+        .success();
+
+    // Verify we're at a commit where *.log is ignored
+    let output = work_dir.run_jj(["file", "show", ".gitignore"]);
+    insta::assert_snapshot!(output, @r"
+    *.log
+    [EOF]
+    ");
+
+    // Create a log file - it should be ignored (not tracked)
+    work_dir.write_file("debug.log", "some log content");
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @r"
+    .gitignore
+    [EOF]
+    ");
+
+    // Check jj st - file should not appear because it's ignored by .gitignore.
+    // Even though it's in the persistent untracked list, ignored files should
+    // not be shown as "Untracked" to the user.
+    let output = work_dir.run_jj(["st"]);
+    insta::assert_snapshot!(output, @r"
+    Working copy  (@) : mzvwutvl 89f2a771 (empty) (no description set)
+    Parent commit (@-): qpvuntsm e7da7a2d ignoring
+    [EOF]
+    ");
+
+    // Now move to the sibling commit (where *.log is NOT ignored)
+    // The file should NOT be auto-tracked because it was ignored when first seen
+    work_dir
+        .run_jj(["new", "description(substring:allowing)"])
+        .success();
+
+    // Verify we're at a commit where *.log is NOT ignored
+    let output = work_dir.run_jj(["file", "show", ".gitignore"]);
+    insta::assert_snapshot!(output, @r"
+    # nothing ignored
+    [EOF]
+    ");
+
+    // The log file should still NOT be tracked (desired behavior with persistent
+    // untracked list) With old behavior, this would incorrectly show debug.log
+    // as tracked
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @r"
+    .gitignore
+    [EOF]
+    ");
+
+    // Check jj st - file is in persistent untracked list and NOT ignored here,
+    // so it correctly shows as untracked (this is the expected behavior)
+    let output = work_dir.run_jj(["st"]);
+    insta::assert_snapshot!(output, @r"
+    Untracked paths:
+    ? debug.log
+    Working copy  (@) : yostqsxw cb9ed267 (empty) (no description set)
+    Parent commit (@-): kkmpptxz baecfe5f allowing
+    [EOF]
+    ");
+
+    // Now go back to the first commit (where *.log IS ignored again)
+    work_dir
+        .run_jj(["new", "description(substring:ignoring)"])
+        .success();
+
+    // Verify we're back at a commit where *.log is ignored
+    let output = work_dir.run_jj(["file", "show", ".gitignore"]);
+    insta::assert_snapshot!(output, @r"
+    *.log
+    [EOF]
+    ");
+
+    // The log file should still NOT be tracked
+    let output = work_dir.run_jj(["file", "list"]);
+    insta::assert_snapshot!(output, @r"
+    .gitignore
+    [EOF]
+    ");
+
+    // Check jj st - file is in persistent untracked list but IS ignored here,
+    // so it should NOT be shown as untracked (same as the first jj st above)
+    let output = work_dir.run_jj(["st"]);
+    insta::assert_snapshot!(output, @r"
+    Working copy  (@) : wqnwkozp 221a6888 (empty) (no description set)
+    Parent commit (@-): qpvuntsm e7da7a2d ignoring
     [EOF]
     ");
 }
