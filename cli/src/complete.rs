@@ -419,8 +419,10 @@ fn revisions(match_prefix: &str, revset_filter: Option<&str>) -> Vec<CompletionC
         // revset aliases
 
         let revset_aliases = load_revset_aliases(&Ui::null(), settings.config())?;
-        let mut symbol_names: Vec<_> = revset_aliases.symbol_names().collect();
-        symbol_names.sort();
+        let symbol_names = revset_aliases
+            .symbol_names()
+            .sorted_unstable()
+            .collect_vec();
         candidates.extend(
             symbol_names
                 .into_iter()

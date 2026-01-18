@@ -605,7 +605,7 @@ mod tests {
             let resolution: PrefixResolution<(_, Vec<_>)> =
                 id_index.resolve_prefix_with(&*source, prefix, |(_, v)| *v);
             resolution.map(|(key, mut values)| {
-                values.sort(); // order of values might not be preserved by IdIndex
+                values.sort_unstable(); // order of values might not be preserved by IdIndex
                 (key, values)
             })
         };
@@ -648,7 +648,7 @@ mod tests {
             let resolution: PrefixResolution<(_, Vec<_>)> =
                 id_index.resolve_prefix_with(&*source, prefix, |(_, v)| *v);
             resolution.map(|(key, mut values)| {
-                values.sort(); // order of values might not be preserved by IdIndex
+                values.sort_unstable(); // order of values might not be preserved by IdIndex
                 (key, values)
             })
         };
