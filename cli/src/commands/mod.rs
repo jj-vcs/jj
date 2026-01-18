@@ -71,10 +71,20 @@ use clap::Subcommand as _;
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
 use clap_complete::engine::SubcommandCandidates;
+use jj_lib::config::ConfigGetResultExt as _;
+#[cfg(feature = "git")]
+use jj_lib::git::UnexpectedGitBackendError;
+#[cfg(feature = "git")]
+use jj_lib::git::get_all_remote_names;
+use jj_lib::ref_name::RemoteName;
+use jj_lib::ref_name::RemoteNameBuf;
+use jj_lib::repo::Repo as _;
+use jj_lib::store::Store;
 use tracing::instrument;
 
 use crate::cli_util::Args;
 use crate::cli_util::CommandHelper;
+use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
@@ -240,6 +250,40 @@ pub(crate) fn renamed_cmd<Args>(
         )?;
         cmd(ui, command, args)
     }
+}
+
+const DEFAULT_REMOTE: &RemoteName = RemoteName::new("origin");
+
+fn get_default_remote(
+    ui: &Ui,
+    workspace_command: &WorkspaceCommandHelper,
+) -> Result<RemoteNameBuf, CommandError> {
+    let settings = workspace_command.settings();
+    if let Some(remote) = settings.get_string("git.push").optional()? {
+        return Ok(remote.into());
+    }
+    #[cfg(feature = "git")]
+    if let Some(remote) = get_single_remote(workspace_command.repo().store())? {
+        // similar to get_default_fetch_remotes
+        if remote != DEFAULT_REMOTE {
+            writeln!(
+                ui.hint_default(),
+                "Defaulting to the only existing remote: {remote}",
+                remote = remote.as_symbol()
+            )?;
+        }
+        return Ok(remote);
+    }
+    Ok(DEFAULT_REMOTE.to_owned())
+}
+
+#[cfg(feature = "git")]
+fn get_single_remote(store: &Store) -> Result<Option<RemoteNameBuf>, UnexpectedGitBackendError> {
+    let mut names = get_all_remote_names(store)?;
+    Ok(match names.len() {
+        1 => names.pop(),
+        _ => None,
+    })
 }
 
 #[cfg(test)]

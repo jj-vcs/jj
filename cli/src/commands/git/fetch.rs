@@ -35,7 +35,7 @@ use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
-use crate::commands::git::get_single_remote;
+use crate::commands::get_single_remote;
 use crate::complete;
 use crate::git_util::load_git_import_options;
 use crate::git_util::print_git_import_stats;

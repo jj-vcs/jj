@@ -135,9 +135,9 @@ fn test_git_push_default_remote_selection() {
         .run_jj(["git", "remote", "remove", "origin"])
         .success();
     let output = work_dir.run_jj(["git", "push", "-b", "bookmark1"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Hint: Pushing to the only existing remote: other
+    Hint: Defaulting to the only existing remote: other
     Changes to push to other:
       Add bookmark bookmark1 to 9b2e76de3920
     [EOF]

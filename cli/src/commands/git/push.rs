@@ -27,7 +27,6 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
-use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitSettings;
@@ -61,7 +60,7 @@ use crate::command_error::cli_error_with_message;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_hint;
 use crate::command_error::user_error_with_message;
-use crate::commands::git::get_single_remote;
+use crate::commands::get_default_remote;
 use crate::complete;
 use crate::formatter::Formatter;
 use crate::git_util::print_push_stats;
@@ -209,8 +208,6 @@ fn make_bookmark_term(bookmark_names: &[impl fmt::Display]) -> String {
     }
 }
 
-const DEFAULT_REMOTE: &RemoteName = RemoteName::new("origin");
-
 const TX_DESC_PUSH: &str = "push ";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -238,7 +235,7 @@ pub fn cmd_git_push(
     let remote = if let Some(name) = &args.remote {
         name
     } else {
-        default_remote = get_default_push_remote(ui, &workspace_command)?;
+        default_remote = get_default_remote(ui, &workspace_command)?;
         &default_remote
     };
 
@@ -693,28 +690,6 @@ fn print_commits_ready_to_push(
         }
     }
     Ok(())
-}
-
-fn get_default_push_remote(
-    ui: &Ui,
-    workspace_command: &WorkspaceCommandHelper,
-) -> Result<RemoteNameBuf, CommandError> {
-    let settings = workspace_command.settings();
-    if let Some(remote) = settings.get_string("git.push").optional()? {
-        Ok(remote.into())
-    } else if let Some(remote) = get_single_remote(workspace_command.repo().store())? {
-        // similar to get_default_fetch_remotes
-        if remote != DEFAULT_REMOTE {
-            writeln!(
-                ui.hint_default(),
-                "Pushing to the only existing remote: {remote}",
-                remote = remote.as_symbol()
-            )?;
-        }
-        Ok(remote)
-    } else {
-        Ok(DEFAULT_REMOTE.to_owned())
-    }
 }
 
 #[derive(Clone, Debug)]

@@ -24,6 +24,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removed. Commits containing these values will now be pushed with `jj git push`
   without producing an error.
 
+* The command `jj bookmark track <name>` without the `--remote` flag now
+  defaults to the remote "origin" if there are multiple, instead of tracking the
+  bookmark with all remotes. To achieve the previous behavior, use
+  `jj bookmark track <name> --remote='*'` instead.
+
 ### Deprecations
 
 * The revset function `diff_contains()` has been renamed to `diff_lines()`.

@@ -1703,14 +1703,17 @@ fn test_bookmark_track_absent() {
     [EOF]
     ");
 
-    // Track newly-created bookmark: both remotes are tracked
+    // Track newly-created bookmark without --remote: default remote is tracked
     work_dir
         .run_jj(["bookmark", "create", "new-feature"])
         .success();
+    work_dir
+        .run_jj(["git", "remote", "add", "origin", "dummy-path"])
+        .success();
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "track", "new-feature", "--remote=*"]), @r"
+        work_dir.run_jj(["bookmark", "track", "new-feature"]), @r"
     ------- stderr -------
-    Started tracking 2 remote bookmarks.
+    Started tracking 1 remote bookmarks.
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
@@ -1718,8 +1721,7 @@ fn test_bookmark_track_absent() {
       @remote1: quutswnw 3fb14832 commit
       @remote2 (not created yet)
     new-feature: qpvuntsm e8849ae1 (empty) (no description set)
-      @remote1 (not created yet)
-      @remote2 (not created yet)
+      @origin (not created yet)
     [EOF]
     ");
 }

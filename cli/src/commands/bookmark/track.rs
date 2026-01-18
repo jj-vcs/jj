@@ -17,8 +17,6 @@ use std::rc::Rc;
 
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
-use jj_lib::repo::Repo as _;
-use jj_lib::str_util::StringExpression;
 
 use super::find_trackable_remote_bookmarks;
 use super::trackable_remote_bookmarks_matching;
@@ -26,9 +24,9 @@ use super::warn_unmatched_local_or_remote_bookmarks;
 use super::warn_unmatched_remotes;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RemoteBookmarkNamePattern;
-use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
+use crate::commands::get_default_remote;
 use crate::commit_templater::CommitRef;
 use crate::complete;
 use crate::revset_util::parse_union_name_patterns;
@@ -91,14 +89,12 @@ pub fn cmd_bookmark_track(
             .map_err(cli_error)?;
         find_trackable_remote_bookmarks(ui, view, &name_patterns)?
     } else {
-        let ignored_remote = default_ignored_remote_name(repo.store())
-            // suppress unmatched remotes warning for default-ignored remote
-            .filter(|name| view.get_remote_view(name).is_some());
         let bookmark_expr = parse_union_name_patterns(ui, &args.names)?;
-        let remote_expr = match (&args.remotes, ignored_remote) {
-            (Some(text), _) => parse_union_name_patterns(ui, text)?,
-            (None, Some(ignored)) => StringExpression::exact(ignored).negated(),
-            (None, None) => StringExpression::all(),
+        let remote_expr = if let Some(text) = &args.remotes {
+            parse_union_name_patterns(ui, text)?
+        } else {
+            let default_remote = get_default_remote(ui, &workspace_command)?;
+            parse_union_name_patterns(ui, &[default_remote])?
         };
         let bookmark_matcher = bookmark_expr.to_matcher();
         let remote_matcher = remote_expr.to_matcher();
