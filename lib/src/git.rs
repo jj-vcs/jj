@@ -895,8 +895,8 @@ fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
 /// Unlike `reset_head()`, this function doesn't move the working-copy commit to
 /// the child of the new HEAD revision.
 pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
-    let store = mut_repo.store();
-    let git_backend = get_git_backend(store)?;
+    let store = mut_repo.store().clone();
+    let git_backend = get_git_backend(&store)?;
     let git_repo = git_backend.git_repo();
 
     let old_git_head = mut_repo.view().git_head();
@@ -906,6 +906,8 @@ pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
         None
     };
     if old_git_head.as_resolved() == Some(&new_git_head_id) {
+        // Even if the main HEAD hasn't changed, check worktrees
+        import_worktree_heads(mut_repo, git_backend, &git_repo)?;
         return Ok(());
     }
 
@@ -929,6 +931,101 @@ pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
     }
 
     mut_repo.set_git_head_target(RefTarget::resolved(new_git_head_id));
+
+    // Also import commits from other worktrees' HEADs
+    import_worktree_heads(mut_repo, git_backend, &git_repo)?;
+
+    Ok(())
+}
+
+/// Imports commits from all Git worktrees' HEADs.
+///
+/// This ensures that commits made via git in secondary worktrees are
+/// imported into the jj repo, even when running jj in a different workspace.
+fn import_worktree_heads(
+    mut_repo: &mut MutableRepo,
+    git_backend: &crate::git_backend::GitBackend,
+    git_repo: &gix::Repository,
+) -> Result<(), GitImportError> {
+    let worktrees = match git_repo.worktrees() {
+        Ok(wts) => wts,
+        Err(err) => {
+            tracing::debug!(?err, "Failed to enumerate git worktrees");
+            return Ok(());
+        }
+    };
+
+    for worktree in worktrees {
+        // Save git_dir for logging before consuming the worktree
+        let worktree_git_dir = worktree.git_dir().to_path_buf();
+
+        // Open the worktree as a repository to access its HEAD.
+        // Use the variant that works even if the worktree directory is inaccessible.
+        let wt_repo = match worktree.into_repo_with_possibly_inaccessible_worktree() {
+            Ok(repo) => repo,
+            Err(err) => {
+                tracing::debug!(
+                    ?err,
+                    ?worktree_git_dir,
+                    "Failed to open worktree as repository"
+                );
+                continue;
+            }
+        };
+
+        let commit_id = match wt_repo.head_id() {
+            Ok(id) => CommitId::from_bytes(id.as_bytes()),
+            Err(err) => {
+                tracing::debug!(?err, ?worktree_git_dir, "Failed to get worktree HEAD");
+                continue;
+            }
+        };
+
+        // Check if already in index
+        match mut_repo.index().has_id(&commit_id) {
+            Ok(true) => continue,
+            Ok(false) => {}
+            Err(err) => {
+                tracing::debug!(
+                    ?err,
+                    ?worktree_git_dir,
+                    "Failed to check index for worktree HEAD"
+                );
+                continue;
+            }
+        }
+
+        // Import the commit
+        if let Err(err) = git_backend.import_head_commits([&commit_id]) {
+            tracing::debug!(
+                ?err,
+                ?worktree_git_dir,
+                "Failed to import worktree HEAD commit"
+            );
+            continue;
+        }
+
+        // Add to heads
+        match mut_repo.store().get_commit(&commit_id) {
+            Ok(commit) => {
+                if let Err(err) = mut_repo.add_head(&commit) {
+                    tracing::debug!(
+                        ?err,
+                        ?worktree_git_dir,
+                        "Failed to add worktree HEAD as head"
+                    );
+                }
+            }
+            Err(err) => {
+                tracing::debug!(
+                    ?err,
+                    ?worktree_git_dir,
+                    "Failed to get worktree HEAD commit"
+                );
+            }
+        }
+    }
+
     Ok(())
 }
 
