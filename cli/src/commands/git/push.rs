@@ -899,11 +899,11 @@ fn create_change_bookmarks(
 
     for (commit, name) in iter::zip(&all_commits, &bookmark_names) {
         let target = RefTarget::normal(commit.id().clone());
-        if tx.base_repo().view().get_local_bookmark(name) == &target {
+        if tx.repo().view().get_local_bookmark(name) == &target {
             // Existing bookmark pointing to the commit, which is allowed
             continue;
         }
-        ensure_new_bookmark_name(tx.base_repo().as_ref(), name)?;
+        ensure_new_bookmark_name(tx.repo(), name)?;
         writeln!(
             ui.status(),
             "Creating bookmark {name} for revision {change_id:.12}",
