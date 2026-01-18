@@ -33,8 +33,6 @@ string_literal = ${ "\"" ~ (string_content | string_escape)* ~ "\"" }
 raw_string_content = @{ (!"'" ~ ANY)* }
 raw_string_literal = ${ "'" ~ raw_string_content ~ "'" }
 
-any_string_literal = _{ string_literal | raw_string_literal }
-
 integer_literal = @{
   ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*
   | "0"
@@ -96,9 +94,9 @@ formal_parameters = {
 // ambiguity. This may prove annoying at some future point.
 string_pattern_identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "-")* }
 string_pattern = ${
-    // Unlike the revset language, we're not allowing bare words here because
-    // templates are generally not written on-the-fly.
-    string_pattern_identifier ~ pattern_kind_op ~ any_string_literal
+    string_pattern_identifier
+    ~ pattern_kind_op
+    ~ (identifier | string_literal | raw_string_literal)
 }
 
 primary = {
