@@ -45,8 +45,10 @@ backends, that may have their own data or networking models—like [Mercurial] o
 
 Today, we use Git repositories as a storage layer to serve and track content,
 making it **compatible with many of your favorite Git-based tools, right now!**
-All core developers use Jujutsu to develop Jujutsu, right here on GitHub. But it
-should hopefully work with your favorite Git forges, too.
+However, note that only commits and files are stored in Git; bookmarks
+(branches) and other higher-level metadata are stored in custom storage outside
+of Git. All core developers use Jujutsu to develop Jujutsu, right here on
+GitHub. But it should hopefully work with your favorite Git forges, too.
 
 We combine many distinct design choices and concepts from other version control
 systems into a single tool. Some of those sources of inspiration include:
