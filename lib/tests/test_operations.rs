@@ -172,7 +172,7 @@ fn test_concurrent_operations() {
 }
 
 fn assert_heads(repo: &dyn Repo, expected: Vec<&CommitId>) {
-    let expected = expected.iter().cloned().cloned().collect();
+    let expected = expected.iter().copied().cloned().collect();
     assert_eq!(*repo.view().heads(), expected);
 }
 

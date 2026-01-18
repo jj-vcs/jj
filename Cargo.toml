@@ -137,6 +137,7 @@ testutils = { path = "lib/testutils" }
 [workspace.lints.clippy]
 borrow_as_ptr = "warn"
 cast_lossless = "warn"
+cloned_instead_of_copied = "warn"
 explicit_into_iter_loop = "warn"
 explicit_iter_loop = "warn"
 flat_map_option = "warn"
