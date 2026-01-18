@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::fs;
 use std::io;
 use std::io::Write as _;
@@ -416,7 +417,7 @@ pub fn add_trailers_with_template(
     }
     for new_trailer in new_trailers {
         if !trailers.contains(&new_trailer) {
-            description.push_str(&format!("{}: {}\n", new_trailer.key, new_trailer.value));
+            writeln!(description, "{}: {}", new_trailer.key, new_trailer.value).unwrap();
         }
     }
     Ok(description)
