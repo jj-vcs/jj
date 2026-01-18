@@ -21,7 +21,6 @@ use jj_lib::file_util::PathError;
 use jj_lib::settings::UserSettings;
 use jj_lib::trailer::parse_description_trailers;
 use jj_lib::trailer::parse_trailers;
-use std::fmt::Write as _;
 use thiserror::Error;
 
 use crate::cli_util::WorkspaceCommandTransaction;
@@ -351,16 +350,13 @@ pub fn combine_messages_for_editing(
             .into_string()
             .map_err(|_| user_error("Trailers should be valid utf-8"))?;
         let new_trailers = parse_trailers(&trailer_lines)?;
-        let trailers = new_trailers
+        let mut trailers = new_trailers
             .iter()
             .filter(|&t| !old_trailers.contains(t))
-            .fold(String::new(), |mut out, t| {
-                writeln!(out, "{}: {}", t.key, t.value).unwrap();
-                out
-            });
-        if !trailers.is_empty() {
+            .peekable();
+        if trailers.peek().is_some() {
             combined.push_str("\nJJ: Trailers not found in the squashed commits:\n");
-            combined.push_str(&trailers);
+            combined.extend(trailers.flat_map(|t| [&t.key, ": ", &t.value, "\n"]));
         }
     }
 
