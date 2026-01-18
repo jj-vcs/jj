@@ -98,6 +98,9 @@ impl Rule {
             Self::function_arguments => None,
             Self::lambda => None,
             Self::formal_parameters => None,
+            Self::object_entry => None,
+            Self::object_literal => None,
+            Self::array_literal => None,
             Self::string_pattern_identifier => None,
             Self::string_pattern => None,
             Self::primary => None,
@@ -301,6 +304,10 @@ pub enum ExpressionKind<'i> {
     FunctionCall(Box<FunctionCallNode<'i>>),
     MethodCall(Box<MethodCallNode<'i>>),
     Lambda(Box<LambdaNode<'i>>),
+    /// Object literal: `{"key": value, ...}`
+    ObjectLiteral(Vec<ObjectEntry<'i>>),
+    /// Array literal: `[value, ...]`
+    ArrayLiteral(Vec<ExpressionNode<'i>>),
     /// Identity node to preserve the span in the source template text.
     AliasExpanded(AliasId<'i>, Box<ExpressionNode<'i>>),
 }
@@ -345,6 +352,20 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
                 });
                 Ok(Self::Lambda(lambda))
             }
+            Self::ObjectLiteral(entries) => {
+                let mut folded = Vec::new();
+                for entry in entries {
+                    folded.push(ObjectEntry {
+                        key: entry.key,
+                        key_span: entry.key_span,
+                        value: folder.fold_expression(entry.value)?,
+                    });
+                }
+                Ok(Self::ObjectLiteral(folded))
+            }
+            Self::ArrayLiteral(elements) => Ok(Self::ArrayLiteral(
+                dsl_util::fold_expression_nodes(folder, elements)?,
+            )),
             Self::AliasExpanded(id, subst) => {
                 let subst = Box::new(folder.fold_expression(*subst)?);
                 Ok(Self::AliasExpanded(id, subst))
@@ -421,6 +442,14 @@ pub struct LambdaNode<'i> {
     pub body: ExpressionNode<'i>,
 }
 
+/// Entry in an object literal: `"key": value`
+#[derive(Clone, Debug, PartialEq)]
+pub struct ObjectEntry<'i> {
+    pub key: String,
+    pub key_span: pest::Span<'i>,
+    pub value: ExpressionNode<'i>,
+}
+
 fn parse_identifier_or_literal(pair: Pair<Rule>) -> ExpressionKind {
     assert_eq!(pair.as_rule(), Rule::identifier);
     match pair.as_str() {
@@ -469,6 +498,42 @@ fn parse_lambda_node(pair: Pair<Rule>) -> TemplateParseResult<LambdaNode> {
         params_span,
         body,
     })
+}
+
+fn parse_object_literal(pair: Pair<Rule>) -> TemplateParseResult<ExpressionKind> {
+    assert_eq!(pair.as_rule(), Rule::object_literal);
+    let mut entries = Vec::new();
+    for entry_pair in pair.into_inner() {
+        // Skip implicit tokens (braces, commas) that pest may yield
+        if entry_pair.as_rule() != Rule::object_entry {
+            continue;
+        }
+        let mut inner = entry_pair.into_inner();
+        let key_pair = inner.next().unwrap();
+        let key_span = key_pair.as_span();
+        let key = STRING_LITERAL_PARSER.parse(key_pair.into_inner());
+        let value = parse_template_node(inner.next().unwrap())?;
+        entries.push(ObjectEntry {
+            key,
+            key_span,
+            value,
+        });
+    }
+    Ok(ExpressionKind::ObjectLiteral(entries))
+}
+
+fn parse_array_literal(pair: Pair<Rule>) -> TemplateParseResult<ExpressionKind> {
+    assert_eq!(pair.as_rule(), Rule::array_literal);
+    let mut elements = Vec::new();
+    for elem_pair in pair.into_inner() {
+        // Skip implicit tokens (brackets, commas) that pest may yield
+        if elem_pair.as_rule() != Rule::template {
+            continue;
+        }
+        let element = parse_template_node(elem_pair)?;
+        elements.push(element);
+    }
+    Ok(ExpressionKind::ArrayLiteral(elements))
 }
 
 fn parse_raw_string_literal(pair: Pair<Rule>) -> String {
@@ -528,6 +593,8 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
             let lambda = Box::new(parse_lambda_node(expr)?);
             ExpressionKind::Lambda(lambda)
         }
+        Rule::object_literal => parse_object_literal(expr)?,
+        Rule::array_literal => parse_array_literal(expr)?,
         // Ignore inner span to preserve parenthesized expression as such.
         Rule::template => parse_template_node(expr)?.kind,
         other => panic!("unexpected term: {other:?}"),
@@ -918,6 +985,20 @@ mod tests {
                     body: normalize_tree(lambda.body),
                 });
                 ExpressionKind::Lambda(lambda)
+            }
+            ExpressionKind::ObjectLiteral(entries) => {
+                let mut normalized = Vec::new();
+                for entry in entries {
+                    normalized.push(ObjectEntry {
+                        key: entry.key,
+                        key_span: empty_span(),
+                        value: normalize_tree(entry.value),
+                    });
+                }
+                ExpressionKind::ObjectLiteral(normalized)
+            }
+            ExpressionKind::ArrayLiteral(elements) => {
+                ExpressionKind::ArrayLiteral(normalize_list(elements))
             }
             ExpressionKind::AliasExpanded(_, subst) => normalize_tree(*subst).kind,
         };
