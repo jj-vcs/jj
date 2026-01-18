@@ -104,7 +104,7 @@ pub enum GitBackendInitError {
     #[error("Failed to initialize git repository")]
     InitRepository(#[source] gix::init::Error),
     #[error("Failed to open git repository")]
-    OpenRepository(#[source] gix::open::Error),
+    OpenRepository(#[source] Box<gix::open::Error>),
     #[error("Failed to encode git repository path")]
     EncodeRepositoryPath(#[source] BadPathEncoding),
     #[error(transparent)]
@@ -122,7 +122,7 @@ impl From<Box<GitBackendInitError>> for BackendInitError {
 #[derive(Debug, Error)]
 pub enum GitBackendLoadError {
     #[error("Failed to open git repository")]
-    OpenRepository(#[source] gix::open::Error),
+    OpenRepository(#[source] Box<gix::open::Error>),
     #[error("Failed to decode git repository path")]
     DecodeRepositoryPath(#[source] BadPathEncoding),
     #[error(transparent)]
@@ -175,6 +175,7 @@ pub struct GitBackend {
     cached_extra_metadata: Mutex<Option<Arc<ReadonlyTable>>>,
     git_executable: PathBuf,
     write_change_id_header: bool,
+    colocated: bool,
 }
 
 impl GitBackend {
@@ -183,10 +184,14 @@ impl GitBackend {
     }
 
     fn new(
-        base_repo: gix::ThreadSafeRepository,
+        base_repo: MaybeColocatedGitRepo,
         extra_metadata_store: TableStore,
         git_settings: GitSettings,
     ) -> Self {
+        let MaybeColocatedGitRepo {
+            git_repo: base_repo,
+            colocated,
+        } = base_repo;
         let repo = Mutex::new(base_repo.to_thread_local());
         let root_commit_id = CommitId::from_bytes(&[0; HASH_LENGTH]);
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
@@ -202,6 +207,7 @@ impl GitBackend {
             cached_extra_metadata: Mutex::new(None),
             git_executable: git_settings.executable_path,
             write_change_id_header: git_settings.write_change_id_header,
+            colocated,
         }
     }
 
@@ -219,7 +225,15 @@ impl GitBackend {
         .map_err(GitBackendInitError::InitRepository)?;
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
-        Self::init_with_repo(store_path, git_repo_path, git_repo, git_settings)
+        Self::init_with_repo(
+            store_path,
+            git_repo_path,
+            MaybeColocatedGitRepo {
+                git_repo,
+                colocated: false,
+            },
+            git_settings,
+        )
     }
 
     /// Initializes backend by creating a new Git repo at the specified
@@ -245,7 +259,15 @@ impl GitBackend {
         let git_repo_path = workspace_root.join(".git");
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendInitError::Config)?;
-        Self::init_with_repo(store_path, &git_repo_path, git_repo, git_settings)
+        Self::init_with_repo(
+            store_path,
+            &git_repo_path,
+            MaybeColocatedGitRepo {
+                git_repo,
+                colocated: true,
+            },
+            git_settings,
+        )
     }
 
     /// Initializes backend with an existing Git repo at the specified path.
@@ -253,6 +275,7 @@ impl GitBackend {
         settings: &UserSettings,
         store_path: &Path,
         git_repo_path: &Path,
+        workspace_root: Option<&Path>,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let canonical_git_repo_path = {
             let path = store_path.join(git_repo_path);
@@ -260,8 +283,9 @@ impl GitBackend {
                 .context(&path)
                 .map_err(GitBackendInitError::Path)?
         };
-        let git_repo = gix::ThreadSafeRepository::open_opts(
-            canonical_git_repo_path,
+        let git_repo = MaybeColocatedGitRepo::open_automatic(
+            &canonical_git_repo_path,
+            workspace_root,
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendInitError::OpenRepository)?;
@@ -273,7 +297,7 @@ impl GitBackend {
     fn init_with_repo(
         store_path: &Path,
         git_repo_path: &Path,
-        repo: gix::ThreadSafeRepository,
+        repo: MaybeColocatedGitRepo,
         git_settings: GitSettings,
     ) -> Result<Self, Box<GitBackendInitError>> {
         let extra_path = store_path.join("extra");
@@ -304,6 +328,7 @@ impl GitBackend {
     pub fn load(
         settings: &UserSettings,
         store_path: &Path,
+        workspace_root: Option<&Path>,
     ) -> Result<Self, Box<GitBackendLoadError>> {
         let git_repo_path = {
             let target_path = store_path.join("git_target");
@@ -317,8 +342,9 @@ impl GitBackend {
                 .context(&git_repo_path)
                 .map_err(GitBackendLoadError::Path)?
         };
-        let repo = gix::ThreadSafeRepository::open_opts(
-            git_repo_path,
+        let repo = MaybeColocatedGitRepo::open_automatic(
+            &git_repo_path,
+            workspace_root,
             gix_open_opts_from_settings(settings),
         )
         .map_err(GitBackendLoadError::OpenRepository)?;
@@ -364,6 +390,12 @@ impl GitBackend {
                 Ok(commit_ids)
             })
             .map(AsRef::as_ref)
+    }
+
+    /// Whether the git repo is colocated and we can therefore import/export
+    /// HEAD
+    pub fn is_colocated(&self) -> bool {
+        self.colocated
     }
 
     fn cached_extra_metadata_table(&self) -> BackendResult<Arc<ReadonlyTable>> {
@@ -1541,6 +1573,136 @@ recover.
     Ok(id.detach())
 }
 
+/// Helper for the GitBackend to open a git repo and detect colocation.
+///
+/// A workspace is considered "colocated" when Git regards the workspace root
+/// as a working directory for the same repo that jj uses internally. This
+/// enables automatic import/export of Git refs on every jj command.
+///
+/// ## Detection Algorithm
+///
+/// Colocation is detected by comparing `common_dir()` paths (canonicalized):
+/// 1. Open the Git repository that jj's store points to
+/// 2. Attempt to open `<workspace_root>/.git` as a Git repository
+/// 3. If both succeed and their `common_dir()` paths match, we're colocated
+///
+/// The `common_dir()` comparison handles Git worktrees correctly, as all
+/// worktrees of a repository share the same common directory.
+///
+/// ## Supported Scenarios
+///
+/// - **Bare repo**: In `.jj/repo/store/git` directory (not colocated)
+/// - **Colocated non-bare**: `.git` directory at workspace root
+/// - **Git worktree**: `.git` file pointing to same repo as jj store
+/// - **Symlink**: `.git` symlink pointing to same repo as jj store
+///
+/// ## Corner Cases
+///
+/// When detection fails or finds a mismatch, jj is not colocated but may warn
+/// the user (see `warn_about_unexpected_git_in_workspace` in
+/// `cli/src/git_util.rs`):
+///
+/// - **gix::open fails**: Not colocated (e.g., broken worktree, invalid `.git`
+///   file)
+/// - **Canonicalization fails**: Assume not colocated (logged at debug level)
+/// - **common_dir mismatch**: Not colocated (`.git` exists but points
+///   elsewhere)
+///
+/// See `docs/design/colocated-workspaces.md` for full specification.
+pub(crate) struct MaybeColocatedGitRepo {
+    pub git_repo: gix::ThreadSafeRepository,
+    pub colocated: bool,
+}
+
+impl MaybeColocatedGitRepo {
+    /// Opens the Git repository and detects colocation with the workspace.
+    ///
+    /// First opens the repository at `store_repo_path` (which may be bare).
+    /// If `workspace_root` is provided, attempts to detect if the workspace
+    /// is colocated by checking for a `.git` directory/file/symlink that
+    /// points to the same underlying Git repository.
+    ///
+    /// Returns a `MaybeColocatedGitRepo` with `colocated = true` if:
+    /// - A `.git` exists at the workspace root
+    /// - It can be opened as a Git repository
+    /// - Its `common_dir()` matches the store repo's `common_dir()`
+    pub(crate) fn open_automatic(
+        store_repo_path: &Path,
+        workspace_root: Option<&Path>,
+        open_opts: gix::open::Options,
+    ) -> Result<Self, Box<gix::open::Error>> {
+        let maybe = Self::open_store_repo(store_repo_path, open_opts.clone())?;
+        if let Some(workspace_root) = workspace_root {
+            return Ok(maybe.try_detect_colocated_workspace(workspace_root, open_opts));
+        }
+        Ok(maybe)
+    }
+
+    fn open_store_repo(
+        store_repo_path: &Path,
+        open_opts: gix::open::Options,
+    ) -> Result<Self, Box<gix::open::Error>> {
+        let git_repo = gix::ThreadSafeRepository::open_opts(store_repo_path, open_opts)?;
+
+        Ok(Self {
+            git_repo,
+            colocated: false,
+        })
+    }
+
+    /// Try to open `<workspace_root>/.git` as a git repository.
+    ///
+    /// If it succeeds, and the commondir matches jj's backing repo, then the
+    /// workspace is colocated, and we return the newly opened repository.
+    ///
+    /// Easy to sanity check with git -- if `git` works and addresses the same
+    /// underlying repo (commondir), then the workspace will be colocated. So
+    /// things like worktrees, symlinks, etc just work.
+    fn try_detect_colocated_workspace(
+        self,
+        workspace_root: &Path,
+        open_opts: gix::open::Options,
+    ) -> Self {
+        let store_repo = &self.git_repo;
+
+        let Ok(workspace_repo) =
+            gix::ThreadSafeRepository::open_opts(workspace_root.join(".git"), open_opts)
+        else {
+            // If gix can't open it, we are not colocated.
+            return self;
+        };
+
+        // Especially for worktrees, common_dir() returns paths with ../.. in them,
+        // usually. Must canonicalize.
+        let workspace_common_dir_raw = workspace_repo.to_thread_local().common_dir().to_owned();
+        let Ok(workspace_common_dir) = workspace_common_dir_raw.canonicalize() else {
+            tracing::debug!(
+                ?workspace_root,
+                ?workspace_common_dir_raw,
+                "Failed to canonicalize workspace common_dir, assuming not colocated"
+            );
+            return self;
+        };
+        let store_common_dir_raw = store_repo.to_thread_local().common_dir().to_owned();
+        let Ok(store_common_dir) = store_common_dir_raw.canonicalize() else {
+            tracing::debug!(
+                ?store_common_dir_raw,
+                "Failed to canonicalize store common_dir, assuming not colocated"
+            );
+            return self;
+        };
+
+        if workspace_common_dir != store_common_dir {
+            return self;
+        }
+
+        Self {
+            git_repo: workspace_repo,
+            colocated: true,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
@@ -1662,7 +1824,8 @@ mod tests {
             .unwrap();
         let commit_id2 = CommitId::from_bytes(git_commit_id2.as_bytes());
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend =
+            GitBackend::init_external(&settings, store_path, git_repo.path(), None).unwrap();
 
         // Import the head commit and its ancestors
         backend.import_head_commits([&commit_id2]).unwrap();
@@ -1778,7 +1941,8 @@ mod tests {
             )
             .unwrap();
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend =
+            GitBackend::init_external(&settings, store_path, git_repo.path(), None).unwrap();
 
         // read_commit() without import_head_commits() works as of now. This might be
         // changed later.
@@ -1837,7 +2001,8 @@ mod tests {
 
         let git_commit_id = git_repo.write_object(&commit).unwrap();
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend =
+            GitBackend::init_external(&settings, store_path, git_repo.path(), None).unwrap();
 
         let commit = backend
             .read_commit(&CommitId::from_bytes(git_commit_id.as_bytes()))
@@ -1933,7 +2098,8 @@ mod tests {
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(git_repo_path);
 
-        let backend = GitBackend::init_external(&settings, &store_path, git_repo.path()).unwrap();
+        let backend =
+            GitBackend::init_external(&settings, &store_path, git_repo.path(), None).unwrap();
         let original_change_id = ChangeId::from_hex("1111eeee1111eeee1111eeee1111eeee");
         let commit = Commit {
             parents: vec![backend.root_commit_id().clone()],
@@ -1959,7 +2125,7 @@ mod tests {
         // initialize a new store without those files, but reuse the same git
         // storage. This change-id must be derived from the git commit header.
         let no_extra_backend =
-            GitBackend::init_external(&settings, &empty_store_path, git_repo.path()).unwrap();
+            GitBackend::init_external(&settings, &empty_store_path, git_repo.path(), None).unwrap();
         let no_extra_commit = no_extra_backend
             .read_commit(&initial_commit_id)
             .block_on()
@@ -2026,7 +2192,8 @@ mod tests {
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(&git_repo_path);
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend =
+            GitBackend::init_external(&settings, store_path, git_repo.path(), None).unwrap();
         let mut commit = Commit {
             parents: vec![],
             predecessors: vec![],
@@ -2096,7 +2263,8 @@ mod tests {
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(&git_repo_path);
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend =
+            GitBackend::init_external(&settings, store_path, git_repo.path(), None).unwrap();
         let create_tree = |i| {
             let blob_id = git_repo.write_blob(format!("content {i}")).unwrap();
             let mut tree_builder = git_repo.empty_tree().edit().unwrap();
