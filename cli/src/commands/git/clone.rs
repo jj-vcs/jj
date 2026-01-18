@@ -23,6 +23,7 @@ use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
+use jj_lib::git::GitFetchRefExpression;
 use jj_lib::git::GitSettings;
 use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::ref_name::RefName;
@@ -130,6 +131,7 @@ pub struct GitCloneArgs {
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
     #[arg(long = "branch", short, alias = "bookmark", value_name = "BRANCH")]
     branches: Option<Vec<String>>,
+    // TODO: add --tag option and save it in jj's repo config? (#7819)
 }
 
 fn clone_destination_for_source(source: &str) -> Option<&str> {
@@ -173,9 +175,16 @@ pub fn cmd_git_clone(
     } else {
         args.colocate
     };
-    let bookmark_expr = match &args.branches {
-        Some(texts) => parse_union_name_patterns(ui, texts)?,
-        None => StringExpression::all(),
+    let ref_expr = {
+        let bookmark = match &args.branches {
+            Some(texts) => parse_union_name_patterns(ui, texts)?,
+            None => StringExpression::all(),
+        };
+        GitFetchRefExpression {
+            bookmark,
+            // TODO: disable implicit fetching and set this to "all" (#7528)
+            tag: StringExpression::none(),
+        }
     };
 
     // Canonicalize because fs::remove_dir_all() doesn't seem to like e.g.
@@ -195,7 +204,7 @@ pub fn cmd_git_clone(
             // If not explicitly specified on the CLI, configure the remote for only fetching
             // included tags for future fetches.
             args.fetch_tags.unwrap_or(FetchTagsMode::Included),
-            &bookmark_expr,
+            &ref_expr,
         )?;
         let default_branch = fetch_new_remote(
             ui,
@@ -203,7 +212,7 @@ pub fn cmd_git_clone(
             remote_name,
             // If we add default fetch patterns to jj's config, these patterns
             // will be loaded here?
-            &bookmark_expr,
+            &ref_expr,
             args.depth,
             args.fetch_tags,
         )?;
@@ -292,7 +301,7 @@ fn configure_remote(
     remote_name: &RemoteName,
     source: &str,
     fetch_tags: FetchTagsMode,
-    bookmark_expr: &StringExpression,
+    ref_expr: &GitFetchRefExpression,
 ) -> Result<WorkspaceCommandHelper, CommandError> {
     let mut tx = workspace_command.start_transaction();
     git::add_remote(
@@ -301,7 +310,7 @@ fn configure_remote(
         source,
         None,
         fetch_tags.as_fetch_tags(),
-        bookmark_expr,
+        &ref_expr.bookmark,
     )?;
     tx.finish(ui, format!("add git remote {}", remote_name.as_symbol()))?;
     // Reload workspace to apply new remote configuration to
@@ -321,7 +330,7 @@ fn fetch_new_remote(
     ui: &Ui,
     workspace_command: &mut WorkspaceCommandHelper,
     remote_name: &RemoteName,
-    bookmark_expr: &StringExpression,
+    ref_expr: &GitFetchRefExpression,
     depth: Option<NonZeroU32>,
     fetch_tags: Option<FetchTagsMode>,
 ) -> Result<(Option<RefNameBuf>, bool), CommandError> {
@@ -340,7 +349,7 @@ fn fetch_new_remote(
     let (default_branch, import_stats) = {
         let mut git_fetch = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options)?;
 
-        let fetch_refspecs = expand_fetch_refspecs(remote_name, bookmark_expr.clone())?;
+        let fetch_refspecs = expand_fetch_refspecs(remote_name, ref_expr.clone())?;
 
         with_remote_git_callbacks(ui, |cb| {
             git_fetch.fetch(
@@ -376,8 +385,9 @@ fn fetch_new_remote(
     // default branch of the remote.
     let mut missing_branches = vec![];
     let mut working_branch = None;
-    let bookmark_matcher = bookmark_expr.to_matcher();
-    let exact_bookmarks = bookmark_expr
+    let bookmark_matcher = ref_expr.bookmark.to_matcher();
+    let exact_bookmarks = ref_expr
+        .bookmark
         .exact_strings()
         .filter(|name| bookmark_matcher.is_match(name)) // exclude negative patterns
         .map(RefName::new);
@@ -405,6 +415,7 @@ fn fetch_new_remote(
                 .join(", ")
         )?;
     }
+    // TODO: warn missing tags if we add --tag=pattern
 
     let working_is_default = working_branch == default_branch.as_deref();
     if let Some(name) = working_branch

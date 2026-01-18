@@ -18,13 +18,15 @@ use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
+use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitFetch;
+use jj_lib::git::GitFetchRefExpression;
 use jj_lib::git::GitSettings;
 use jj_lib::git::IgnoredRefspec;
 use jj_lib::git::IgnoredRefspecs;
-use jj_lib::git::expand_default_fetch_refspecs;
 use jj_lib::git::expand_fetch_refspecs;
 use jj_lib::git::get_git_backend;
+use jj_lib::git::load_default_fetch_bookmarks;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RemoteName;
 use jj_lib::repo::Repo as _;
@@ -48,6 +50,7 @@ use crate::ui::Ui;
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
 #[derive(clap::Args, Clone, Debug)]
+#[command(group(clap::ArgGroup::new("specific").multiple(true)))]
 pub struct GitFetchArgs {
     /// Name of the branch to fetch (can be repeated)
     ///
@@ -61,15 +64,35 @@ pub struct GitFetchArgs {
     ///
     /// [logical operators]:
     ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
-    #[arg(long = "branch", short, alias = "bookmark", value_name = "BRANCH")]
+    #[arg(
+        long = "branch",
+        short,
+        alias = "bookmark",
+        group = "specific",
+        value_name = "BRANCH"
+    )]
     #[arg(add = ArgValueCandidates::new(complete::bookmarks))]
     branches: Option<Vec<String>>,
+
+    /// Fetch only some of the tags (can be repeated)
+    ///
+    /// By default, the specified pattern matches tag names with glob syntax,
+    /// but only `*` is expanded. Other wildcard characters such as `?` are
+    /// *not* supported. Patterns can be repeated or combined with [logical
+    /// operators] to specify multiple tags, but only union and negative
+    /// intersection are supported.
+    ///
+    /// [logical operators]:
+    ///     https://docs.jj-vcs.dev/latest/revsets/#string-patterns
+    #[arg(long = "tag", short, group = "specific", value_name = "TAG")]
+    #[arg(hide = true)] // TODO: unhide when this gets stabilized (#7528)
+    tags: Option<Vec<String>>,
 
     /// Fetch only tracked bookmarks
     ///
     /// This fetches only bookmarks that are already tracked from the specified
     /// remote(s).
-    #[arg(long, conflicts_with = "branches")]
+    #[arg(long, conflicts_with = "specific")]
     tracked: bool,
 
     /// The remote to fetch from (only named remotes are supported, can be
@@ -137,10 +160,14 @@ pub fn cmd_git_fetch(
         Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
         None => None,
     };
+    let common_tag_expr = match &args.tags {
+        Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
+        None => None,
+    };
     let mut expansions = Vec::with_capacity(matching_remotes.len());
     if args.tracked {
         for remote in &matching_remotes {
-            let bookmark_expr = StringExpression::union_all(
+            let bookmark = StringExpression::union_all(
                 tx.repo()
                     .view()
                     .local_remote_bookmarks(remote)
@@ -148,18 +175,34 @@ pub fn cmd_git_fetch(
                     .map(|(name, _)| StringExpression::exact(name))
                     .collect(),
             );
-            expansions.push((remote, expand_fetch_refspecs(remote, bookmark_expr)?));
-        }
-    } else if let Some(bookmark_expr) = &common_bookmark_expr {
-        for remote in &matching_remotes {
-            let expanded = expand_fetch_refspecs(remote, bookmark_expr.clone())?;
-            expansions.push((remote, expanded));
+            let tag = StringExpression::union_all(
+                tx.repo()
+                    .view()
+                    .local_remote_tags(remote)
+                    .filter(|(_, targets)| targets.remote_ref.is_tracked())
+                    .map(|(name, _)| StringExpression::exact(name))
+                    .collect(),
+            );
+            let ref_expr = GitFetchRefExpression { bookmark, tag };
+            expansions.push((remote, expand_fetch_refspecs(remote, ref_expr)?));
         }
     } else {
         let git_repo = get_git_backend(tx.repo_mut().store())?.git_repo();
         for remote in &matching_remotes {
-            let (ignored, expanded) = expand_default_fetch_refspecs(remote, &git_repo)?;
-            warn_ignored_refspecs(ui, remote, ignored)?;
+            // TODO: add native config for default bookmark/tag patterns? (#7819)
+            let bookmark = if let Some(expr) = &common_bookmark_expr {
+                expr.clone()
+            } else {
+                let (ignored, expr) = load_default_fetch_bookmarks(remote, &git_repo)?;
+                warn_ignored_refspecs(ui, remote, ignored)?;
+                expr
+            };
+            let tag = common_tag_expr
+                .clone()
+                // TODO: disable implicit fetching and set this to "all" (#7528)
+                .unwrap_or_else(StringExpression::none);
+            let ref_expr = GitFetchRefExpression { bookmark, tag };
+            let expanded = expand_fetch_refspecs(remote, ref_expr)?;
             expansions.push((remote, expanded));
         }
     }
@@ -172,10 +215,13 @@ pub fn cmd_git_fetch(
         git_settings.to_subprocess_options(),
         &import_options,
     )?;
+    // Disable implicit tag fetching if patterns are explicitly set. NoTags will
+    // be the default when this feature gets stabilized. (#7528)
+    let fetch_tags = (args.tags.is_some() || args.tracked).then_some(FetchTagsOverride::NoTags);
 
     for (remote, expanded) in expansions {
         with_remote_git_callbacks(ui, |callbacks| {
-            git_fetch.fetch(remote, expanded, callbacks, None, None)
+            git_fetch.fetch(remote, expanded, callbacks, None, fetch_tags)
         })?;
     }
 
@@ -185,6 +231,7 @@ pub fn cmd_git_fetch(
     if let Some(bookmark_expr) = &common_bookmark_expr {
         warn_if_branches_not_found(ui, &tx, bookmark_expr, &matching_remotes)?;
     }
+    // TODO: warn_if_tags_not_found()
     tx.finish(
         ui,
         format!(
