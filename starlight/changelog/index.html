@@ -309,6 +309,14 @@ configuration options which are set.
 <a href="https://github.com/jj-vcs/jj/issues/7774">#7774</a></p>
 </li>
 <li>
+<p>Dynamic shell completion no longer attempts to resolve aliases at the
+completion position. This previously prevented a fully-typed alias from
+being accepted on some shells and replaced it entirely with its expansion on
+bash. Now, the completion will only resolve the alias, and suggest candidates
+accordingly, after the cursor has been advanced to the next position.
+<a href="https://github.com/jj-vcs/jj/issues/7773">#7773</a></p>
+</li>
+<li>
 <p>Setting the editor via <code dir="auto">ui.editor</code>, <code dir="auto">$EDITOR</code>, or <code dir="auto">JJ_EDITOR</code> now respects shell quoting.</p>
 </li>
 <li>
