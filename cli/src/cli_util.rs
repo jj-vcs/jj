@@ -4275,9 +4275,72 @@ fn warn_if_args_mismatch(
     Ok(())
 }
 
+pub async fn visit_collapsed_untracked_files(
+    untracked_paths: impl IntoIterator<Item = impl AsRef<RepoPath>>,
+    tree: MergedTree,
+    mut on_path: impl FnMut(&RepoPath, bool) -> Result<(), CommandError>,
+) -> Result<(), CommandError> {
+    let trees = tree.trees().await?;
+    let mut stack = vec![trees];
+
+    // TODO: This loop can be improved with BTreeMap cursors once that's stable,
+    // would remove the need for the whole `skip_prefixed_by` thing and turn it
+    // into a B-tree lookup.
+    let mut skip_prefixed_by_dir: Option<RepoPathBuf> = None;
+    'untracked: for path in untracked_paths {
+        let path = path.as_ref();
+        if skip_prefixed_by_dir
+            .as_ref()
+            .is_some_and(|p| path.starts_with(p))
+        {
+            continue;
+        } else {
+            skip_prefixed_by_dir = None;
+        }
+
+        let mut it = path.components().dropping_back(1);
+        let first_mismatch = it.by_ref().enumerate().find(|(i, component)| {
+            stack.get(i + 1).is_none_or(|tree| {
+                tree.dir()
+                    .components()
+                    .next_back()
+                    .expect("should always have at least one element (the root)")
+                    != *component
+            })
+        });
+
+        if let Some((i, component)) = first_mismatch {
+            stack.truncate(i + 1);
+            for component in std::iter::once(component).chain(it) {
+                let parent = stack
+                    .last()
+                    .expect("should always have at least one element (the root)");
+
+                if let Some(subtree) = parent.sub_tree(component).await? {
+                    stack.push(subtree);
+                } else {
+                    let dir = parent.dir().join(component);
+
+                    on_path(&dir, true)?;
+                    skip_prefixed_by_dir = Some(dir);
+
+                    continue 'untracked;
+                }
+            }
+        }
+
+        on_path(path, false)?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use clap::CommandFactory as _;
+    use testutils::TestRepo;
+    use testutils::TestTreeBuilder;
+    use testutils::repo_path;
 
     use super::*;
 
@@ -4313,6 +4376,70 @@ mod tests {
         assert_eq!(
             parse(&["jj", "--foo=1", "--baz", "--bar=2", "--foo", "3"]),
             vec![("foo", 1), ("bar", 2), ("foo", 3)]
+        );
+    }
+
+    fn collect_collapsed_untracked_files_string(
+        untracked_paths: &[&RepoPath],
+        tree: MergedTree,
+    ) -> String {
+        let mut result = String::new();
+        visit_collapsed_untracked_files(untracked_paths, tree, |path, is_dir| {
+            result.push_str("? ");
+            if is_dir {
+                result.push_str(&path.to_internal_dir_string());
+            } else {
+                result.push_str(path.as_internal_file_string());
+            }
+            result.push('\n');
+            Ok(())
+        })
+        .block_on()
+        .unwrap();
+        result
+    }
+
+    #[test]
+    fn test_collapsed_untracked_files() {
+        let repo = TestRepo::init();
+
+        let tracked = {
+            let mut builder = TestTreeBuilder::new(repo.repo.store().clone());
+
+            builder.file(repo_path("top_level_file"), "");
+            // ? "untracked_top_level_file"
+            // ? "dir"
+            // ? "dir2/c"
+            builder.file(repo_path("dir2/d"), "");
+            // ? "dir3/partially_tracked/e"
+            builder.file(repo_path("dir3/partially_tracked/f"), "");
+            // ? "dir3/fully_untracked/"
+            builder.file(repo_path("dir3/j"), "");
+            // ? "dir3/k"
+
+            builder.write_merged_tree()
+        };
+        let untracked = &[
+            repo_path("untracked_top_level_file"),
+            repo_path("dir/a"),
+            repo_path("dir/b"),
+            repo_path("dir2/c"),
+            repo_path("dir3/partially_tracked/e"),
+            repo_path("dir3/fully_untracked/g"),
+            repo_path("dir3/fully_untracked/h"),
+            repo_path("dir3/k"),
+        ];
+
+        insta::assert_snapshot!(
+            collect_collapsed_untracked_files_string(untracked, tracked),
+            @r"
+        ? untracked_top_level_file
+        ? dir/
+        ? dir2/c
+        ? dir3/partially_tracked/e
+        ? dir3/fully_untracked/
+        ? dir3/k
+        "
         );
     }
 }
