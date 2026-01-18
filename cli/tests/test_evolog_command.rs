@@ -423,11 +423,13 @@ fn test_evolog_squash() {
     │ │ │     1     : <<<<<<< conflict 1 of 1
     │ │ │     2     : +++++++ side #1
     │ │ │     3    1: squashed 2
-    │ │ │     4     : %%%%%%% diff from base #1 to side #2
-    │ │ │     5     : +fourth
-    │ │ │     6    1: %%%%%%% diff from base #2 to side #3
-    │ │ │     7     : +fifth
-    │ │ │     8     : >>>>>>> conflict 1 of 1 ends
+    │ │ │     4     : %%%%%%% diff from: base #1
+    │ │ │     5     : \\\\\\\        to: side #2
+    │ │ │     6     : +fourth
+    │ │ │     7     : %%%%%%% diff from: base #2
+    │ │ │     8    1: \\\\\\\        to: side #3
+    │ │ │     9     : +fifth
+    │ │ │    10     : >>>>>>> conflict 1 of 1 ends
     │ │ ○  vruxwmqv/0 test.user@example.com 2001-02-03 08:05:15 770795d0 (hidden)
     │ │ │  fifth
     │ │ │  -- operation b22b0aceb94e snapshot working copy
@@ -455,9 +457,10 @@ fn test_evolog_squash() {
     │ │     1     : <<<<<<< conflict 1 of 1
     │ │     2     : +++++++ side #1
     │ │     3    1: squashed 1
-    │ │     4    1: %%%%%%% diff from base to side #2
-    │ │     5     : +third
-    │ │     6     : >>>>>>> conflict 1 of 1 ends
+    │ │     4     : %%%%%%% diff from: base
+    │ │     5    1: \\\\\\\        to: side #2
+    │ │     6     : +third
+    │ │     7     : >>>>>>> conflict 1 of 1 ends
     │ │  Removed regular file file2:
     │ │     1     : foo2
     │ │  Removed regular file file3:
@@ -486,11 +489,12 @@ fn test_evolog_squash() {
     │ │  -- operation 65c81703100d squash commits into 5878cbe03cdf599c9353e5a1a52a01f4c5e0e0fa
     │ │  Modified commit description:
     │ │     1     : <<<<<<< conflict 1 of 1
-    │ │     2     : %%%%%%% diff from base to side #1
-    │ │     3     : +first
-    │ │     4     : +++++++ side #2
-    │ │     5     : second
-    │ │     6     : >>>>>>> conflict 1 of 1 ends
+    │ │     2     : %%%%%%% diff from: base
+    │ │     3     : \\\\\\\        to: side #1
+    │ │     4     : +first
+    │ │     5     : +++++++ side #2
+    │ │     6     : second
+    │ │     7     : >>>>>>> conflict 1 of 1 ends
     │ │          1: squashed 1
     │ ○  kkmpptxz/0 test.user@example.com 2001-02-03 08:05:10 a3759c9d (hidden)
     │ │  second
