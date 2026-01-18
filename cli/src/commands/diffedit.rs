@@ -117,7 +117,7 @@ pub(crate) fn cmd_diffedit(
             .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
         base_commits = target_commit.parents().try_collect()?;
         diff_description = "The diff initially shows the commit's changes.".to_string();
-    };
+    }
     workspace_command.check_rewritable([target_commit.id()])?;
 
     let diff_editor = workspace_command.diff_editor(ui, args.tool.as_deref())?;

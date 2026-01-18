@@ -295,7 +295,7 @@ fn diff_formatter_tool(
         return Err(cli_error(format!(
             "The tool `{name}` cannot be used for diff formatting"
         )));
-    };
+    }
     Ok(maybe_tool)
 }
 
@@ -1194,7 +1194,7 @@ fn show_color_words_inline_hunks(
     let (_, data) = line_hunks.last().expect("diff line must not be empty");
     if !data.ends_with(b"\n") {
         writeln!(formatter)?;
-    };
+    }
     Ok(())
 }
 
@@ -1208,7 +1208,7 @@ fn show_color_words_single_sided_line(
     let (_, data) = tokens.last().expect("diff line must not be empty");
     if !data.ends_with(b"\n") {
         writeln!(formatter)?;
-    };
+    }
     Ok(())
 }
 
@@ -2071,7 +2071,7 @@ pub fn show_diff_stats(
         // Ensure 30% of the space for displaying the ++-- graph:
         max_path_width =
             max_path_width.min((0.7 * available_width.saturating_sub(width) as f64) as usize);
-    };
+    }
 
     // Measure widest right side for binary diffs and reduce max_path_width if
     // needed.

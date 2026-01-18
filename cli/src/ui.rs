@@ -330,7 +330,7 @@ impl PagerConfig {
     fn from_config(config: &StackedConfig) -> Result<Self, ConfigGetError> {
         if matches!(config.get("ui.paginate")?, PaginationChoice::Never) {
             return Ok(Self::Disabled);
-        };
+        }
         let args: CommandNameAndArgs = config.get("ui.pager")?;
         if args.as_str() == Some(BUILTIN_PAGER_NAME) {
             Ok(Self::Builtin(config.get("ui.streampager")?))

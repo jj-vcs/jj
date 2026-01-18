@@ -893,7 +893,7 @@ fn merge_items(lower_item: &mut ConfigItem, upper_item: &ConfigItem) {
             toml_edit::Entry::Vacant(entry) => {
                 entry.insert(upper.clone());
             }
-        };
+        }
     }
 }
 

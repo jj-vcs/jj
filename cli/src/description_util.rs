@@ -267,7 +267,7 @@ where
             return Err(ParseBulkEditMessageError::LineWithoutCommitHeader(
                 line.to_owned(),
             ));
-        };
+        }
     }
 
     for (commit_id_prefix, description_lines) in messages {

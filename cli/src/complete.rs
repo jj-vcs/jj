@@ -688,7 +688,7 @@ fn config_values(path: &ConfigNamePathBuf) -> Option<Vec<String>> {
     if let Some(reference) = config_entry.get("$ref") {
         let reference = reference.as_str()?.strip_prefix("#/")?;
         config_entry = json_keypath(&schema, reference, "/")?;
-    };
+    }
 
     if let Some(possible_values) = config_entry.get("enum") {
         return Some(
@@ -1065,7 +1065,7 @@ pub fn log_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
         rev = "@".into();
     } else {
         rev = format!("latest(heads(({rev})))"); // limit to one
-    };
+    }
     all_files_from_rev(rev, current)
 }
 
@@ -1249,7 +1249,7 @@ mod parse {
                     }
                 }) {
                     return Some(strip_shell_quotes(value).into());
-                };
+                }
             }
             None
         })

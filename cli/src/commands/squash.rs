@@ -226,7 +226,7 @@ pub(crate) fn cmd_squash(
         }
         sources = vec![source];
         pre_existing_destination = Some(parents.pop().unwrap());
-    };
+    }
 
     workspace_command.check_rewritable(sources.iter().chain(&pre_existing_destination).ids())?;
 

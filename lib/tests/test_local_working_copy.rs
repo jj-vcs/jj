@@ -383,7 +383,7 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
                 // Not supported for now
                 assert!(maybe_metadata.is_err(), "{path:?} should not exist");
             }
-        };
+        }
     }
 }
 

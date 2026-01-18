@@ -218,7 +218,7 @@ impl DefaultIndexStore {
                 changed_path_segment_ids = vec![];
             }
             Err(err) => return Err(DefaultIndexStoreError::LoadAssociation(err)),
-        };
+        }
 
         let commits = ReadonlyCommitIndexSegment::load(
             &self.commit_segments_dir(),

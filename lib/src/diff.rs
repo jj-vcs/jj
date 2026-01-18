@@ -720,7 +720,7 @@ impl<'input> ContentDiff<'input> {
                             )
                         },
                     ));
-                };
+                }
                 // Add an empty range at the end to make life easier for hunks().
                 unchanged_regions.push(UnchangedRange {
                     base: base_input.len()..base_input.len(),

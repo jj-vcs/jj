@@ -101,7 +101,7 @@ pub(crate) fn cmd_resolve(
             ui.stdout_formatter().as_mut(),
             &workspace_command,
         );
-    };
+    }
 
     let repo_paths = conflicts
         .iter()

@@ -404,7 +404,7 @@ pub(crate) fn cmd_rebase(
                 &abandoned_divergent,
             )?;
         }
-    };
+    }
     let stats = computed_move.apply(tx.repo_mut(), &rebase_options)?;
     print_move_commits_stats(ui, &stats)?;
     tx.finish(ui, tx_description(&loc.target))?;

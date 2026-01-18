@@ -1210,7 +1210,7 @@ impl Backend for GitBackend {
         };
         if commit.parents.is_empty() {
             commit.parents.push(self.root_commit_id.clone());
-        };
+        }
 
         let table = self.cached_extra_metadata_table()?;
         if let Some(extras) = table.get_value(id.as_bytes()) {

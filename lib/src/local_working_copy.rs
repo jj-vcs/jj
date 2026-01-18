@@ -1473,7 +1473,7 @@ impl FileSnapshotter<'_> {
             match body(scope) {
                 Ok(()) => {}
                 Err(err) => self.error.set(err).unwrap_or(()),
-            };
+            }
         });
     }
 

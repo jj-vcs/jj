@@ -218,7 +218,7 @@ impl Iterator for TreeEntriesIterator<'_> {
                             return Some((path, value));
                         }
                     }
-                };
+                }
             } else {
                 self.stack.pop();
             }

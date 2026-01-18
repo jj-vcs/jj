@@ -403,7 +403,7 @@ impl<W: Write> ColorFormatter<W> {
             {
                 queue!(self.output, SetAttribute(Attribute::Reset))?;
                 self.current_style = Style::default();
-            };
+            }
             if new_style.bold != self.current_style.bold && new_bold {
                 queue!(self.output, SetAttribute(Attribute::Bold))?;
             }

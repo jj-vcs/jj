@@ -2088,7 +2088,7 @@ pub fn remove_remote(
         return Err(GitRemoteManagementError::NoSuchRemote(
             remote_name.to_owned(),
         ));
-    };
+    }
 
     let mut config = git_repo.config_snapshot().clone();
     remove_remote_git_branch_config_sections(&mut config, remote_name)?;

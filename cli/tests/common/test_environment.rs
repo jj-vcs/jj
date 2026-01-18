@@ -311,7 +311,7 @@ impl TestEnvironment {
                 normalized = regex
                     .replace_all(&normalized, regex::NoExpand(replacement))
                     .to_string();
-            };
+            }
         }
         CommandOutputString { raw, normalized }
     }

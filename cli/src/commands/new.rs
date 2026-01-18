@@ -196,7 +196,7 @@ pub(crate) fn cmd_new(
             advanceable_bookmarks =
                 workspace_command.get_advanceable_bookmarks(ui, parent_commits[0].parent_ids())?;
         }
-    };
+    }
 
     let parent_commit_ids_set: HashSet<CommitId> = parent_commit_ids.iter().cloned().collect();
 

@@ -604,7 +604,7 @@ impl<'matcher> TreeDiffIterator<'matcher> {
                     Diff::new(tree1.to_merged_tree_value(), tree2.to_merged_tree_value()),
                 )],
             });
-        };
+        }
         Self {
             store: tree1.store().clone(),
             stack,
@@ -699,7 +699,7 @@ impl Iterator for TreeDiffIterator<'_> {
                 let subdir =
                     TreeDiffDir::from_trees(&path, &before_tree, &after_tree, self.matcher);
                 self.stack.push(subdir);
-            };
+            }
             if diff.before.is_file_like() || diff.after.is_file_like() {
                 return Some(TreeDiffEntry {
                     path,

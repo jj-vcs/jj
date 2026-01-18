@@ -554,7 +554,7 @@ impl CompositeChangedPathIndex {
         };
         if segment.is_empty() {
             return Ok(());
-        };
+        }
         let segment = segment.save_in(dir)?;
         self.readonly_segments.push(segment);
         Ok(())

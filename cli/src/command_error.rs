@@ -1100,7 +1100,7 @@ fn handle_clap_error(ui: &mut Ui, err: &clap::Error, hints: &[ErrorHint]) -> io:
         clap::error::ErrorKind::DisplayHelp
         | clap::error::ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand => ui.request_pager(),
         _ => {}
-    };
+    }
     // Definitions for exit codes and streams come from
     // https://github.com/clap-rs/clap/blob/master/src/error/mod.rs
     match err.kind() {

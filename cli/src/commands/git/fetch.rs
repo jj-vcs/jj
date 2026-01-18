@@ -162,7 +162,7 @@ pub fn cmd_git_fetch(
             warn_ignored_refspecs(ui, remote, ignored)?;
             expansions.push((remote, expanded));
         }
-    };
+    }
 
     let git_settings = GitSettings::from_settings(tx.settings())?;
     let remote_settings = tx.settings().remote_settings()?;

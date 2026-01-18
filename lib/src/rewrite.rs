@@ -735,7 +735,7 @@ pub fn compute_move_commits(
                         target_commit_external_descendants
                             .insert(parent_id.clone(), children.iter().cloned().collect());
                     }
-                };
+                }
             }
         }
 
@@ -784,7 +784,7 @@ pub fn compute_move_commits(
                             new_child_parent_ids.extend(target_heads.clone());
                         } else {
                             new_child_parent_ids.insert(id.clone());
-                        };
+                        }
                     }
                 }
 

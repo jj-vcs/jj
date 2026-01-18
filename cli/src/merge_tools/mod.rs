@@ -226,7 +226,7 @@ pub fn get_external_tool_config(
     };
     if tool.program.is_empty() {
         tool.program = name.to_owned();
-    };
+    }
     Ok(Some(tool))
 }
 
@@ -351,7 +351,7 @@ impl MergeToolFile {
                 path: repo_path.to_owned(),
                 sides: file.ids.num_sides(),
             });
-        };
+        }
         if file.executable.is_none() {
             return Err(ConflictResolveError::ExecutableConflict {
                 path: repo_path.to_owned(),
