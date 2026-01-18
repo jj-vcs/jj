@@ -81,26 +81,24 @@ pub fn cmd_redo(ui: &mut Ui, command: &CommandHelper, _: &RedoArgs) -> Result<()
     //                            |                        |   |
     //                            * A   <------------------+ <-+
     //
-    // The first interesting operation here is I:
+    // The first interesting operation here is H:
     // - Attempt to redo G.
-    // - G is an undo-operation, attempt to restore its parent F.
+    // - G is an undo-operation, so attempt to restore its parent F.
     // - F is a redo-opreation. Restore its original operation D, instead of F.
     //
-    // The operation H is also noteworthy:
+    // The operation I is also noteworthy:
     // - Attempt to redo H.
     // - H is a redo-operation restoring to D, so attempt to redo D.
     // - D is an undo-operation. Redo it by restoring its parent C.
     //
-    if let Some(id_of_restored_op) = op_to_redo
+    if let Some(restored_op) = op_to_redo
         .metadata()
         .description
         .strip_prefix(REDO_OP_DESC_PREFIX)
     {
-        let Some(id_of_restored_op) = OperationId::try_from_hex(id_of_restored_op) else {
-            return Err(internal_error(
-                "Failed to parse ID of restored operation in redo-stack",
-            ));
-        };
+        let id_of_restored_op = OperationId::try_from_hex(restored_op).ok_or_else(|| {
+            internal_error("Failed to parse ID of restored operation in redo-stack")
+        })?;
         op_to_redo = workspace_command
             .repo()
             .loader()
@@ -116,16 +114,15 @@ pub fn cmd_redo(ui: &mut Ui, command: &CommandHelper, _: &RedoArgs) -> Result<()
         return Err(user_error("Nothing to redo"));
     }
 
-    let mut op_to_restore = match op_to_redo.parents().at_most_one().ok().flatten() {
-        Some(parent_of_op_to_redo) => parent_of_op_to_redo?,
-        None => {
-            return Err(internal_error("Undo operation should have a single parent"));
-        }
-    };
+    let parent_of_op_to_redo = op_to_redo
+        .parents()
+        .exactly_one()
+        .map_err(|_| internal_error("Undo operation should have a single parent"))?;
+    let mut op_to_restore = parent_of_op_to_redo?;
 
     // Avoid the creation of a linked list by restoring to the original
     // operation directly, if we're about to restore a redo-operation. If
-    // we didn't to this, repeated calls of `jj undo ; jj redo` would create
+    // we didn't do this, repeated calls of `jj undo; jj redo` would create
     // an ever-growing linked list of redo-operations that restore each
     // other. Calling `jj redo` one more time would have to redo a potential
     // undo-operation at the very beginning of the linked list, which would
@@ -135,11 +132,9 @@ pub fn cmd_redo(ui: &mut Ui, command: &CommandHelper, _: &RedoArgs) -> Result<()
         .description
         .strip_prefix(REDO_OP_DESC_PREFIX)
     {
-        let Some(id_of_original_op) = OperationId::try_from_hex(original_op) else {
-            return Err(internal_error(
-                "Failed to parse ID of restored operation in redo-stack",
-            ));
-        };
+        let id_of_original_op = OperationId::try_from_hex(original_op).ok_or_else(|| {
+            internal_error("Failed to parse ID of restored operation in redo-stack")
+        })?;
         op_to_restore = workspace_command
             .repo()
             .loader()
