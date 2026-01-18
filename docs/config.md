@@ -253,10 +253,11 @@ When the `--sort` option is used, the configuration is ignored.
 ### Commit trailers
 
 You can configure automatic addition of one or more trailers to commit
-descriptions using the `commit_trailers` template.
+descriptions using the `commit_trailers` template. Trailers are lines at the end
+of a commit description that have the format `Key: Value` (the value is
+optional).
 
-Each line of the template is an individual trailer, usually in `Key: Value`
-format.
+Each line of the template is an individual trailer.
 
 Trailers defined in this template are deduplicated with the existing
 description: if the entire line of a trailer is already present, it will not be
@@ -274,7 +275,7 @@ Some ready-to-use trailer templates are available for frequently used trailers:
 * `format_signed_off_by_trailer(commit)` creates a "Signed-off-by" trailer
   using the committer info.
 * `format_gerrit_change_id_trailer(commit)` creates a "Change-Id" trailer
-  suitable to be used with Gerrit. It is based Jujutsu's change id.
+  suitable to be used with Gerrit. It is based on Jujutsu's change id.
 
 Existing trailers are also accessible via `commit.trailers()`.
 
