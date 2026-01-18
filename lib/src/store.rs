@@ -111,6 +111,16 @@ impl Store {
         self.backend.get_copy_records(paths, root, head)
     }
 
+    pub fn get_copy_records_for_tree_ids(
+        &self,
+        paths: Option<&[RepoPathBuf]>,
+        root_tree_id: &TreeId,
+        head_tree_id: &TreeId,
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
+        self.backend
+            .get_copy_records_for_tree_ids(paths, root_tree_id, head_tree_id)
+    }
+
     pub fn commit_id_length(&self) -> usize {
         self.backend.commit_id_length()
     }
