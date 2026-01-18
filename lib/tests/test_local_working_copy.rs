@@ -26,6 +26,7 @@ use std::time::SystemTime;
 
 use assert_matches::assert_matches;
 use bstr::BString;
+use gix::odb::pack::FindExt as _;
 use indoc::indoc;
 use itertools::Itertools as _;
 use jj_lib::backend::CopyId;
@@ -39,6 +40,7 @@ use jj_lib::file_util::symlink_dir;
 use jj_lib::file_util::symlink_file;
 use jj_lib::files::FileMergeHunkLevel;
 use jj_lib::fsmonitor::FsmonitorSettings;
+use jj_lib::git::get_git_backend;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 use jj_lib::local_working_copy::TreeState;
@@ -2845,4 +2847,23 @@ fn test_snapshot_and_update_valid_symlink(get_link_target: impl FnOnce(&Path, &P
         is_verbatim_path(&link_contents),
         "When we checkout a symlink to a verbatim path, it should still point to a verbatim path."
     );
+}
+
+#[test]
+fn test_always_store_empty_tree() {
+    let mut test_workspace = TestWorkspace::init_with_backend(TestRepoBackend::Git);
+    let git_backend = get_git_backend(test_workspace.repo.store()).unwrap();
+    let git_repo = git_backend.git_repo();
+    let empty_tree_id = gix::ObjectId::empty_tree(gix::hash::Kind::Sha1);
+
+    test_workspace.snapshot().unwrap();
+
+    let mut buf = Vec::new();
+    // Use objects.find as it doesn't short-circuit when asked for the empty tree
+    let (empty_tree, _) = git_repo
+        .objects
+        .find(&empty_tree_id, &mut buf)
+        .expect("empty tree should be stored in the git repo");
+    assert_eq!(empty_tree.kind, gix::objs::Kind::Tree);
+    assert!(empty_tree.data.is_empty());
 }
