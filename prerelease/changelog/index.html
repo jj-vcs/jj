@@ -6527,6 +6527,14 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   <a href="https://github.com/jj-vcs/jj/issues/7774">#7774</a></p>
 </li>
 <li>
+<p>Dynamic shell completion no longer attempts to resolve aliases at the
+  completion position. This previously prevented a fully-typed alias from
+  being accepted on some shells and replaced it entirely with its expansion on
+  bash. Now, the completion will only resolve the alias, and suggest candidates
+  accordingly, after the cursor has been advanced to the next position.
+  <a href="https://github.com/jj-vcs/jj/issues/7773">#7773</a></p>
+</li>
+<li>
 <p>Setting the editor via <code>ui.editor</code>, <code>$EDITOR</code>, or <code>JJ_EDITOR</code> now respects shell quoting.</p>
 </li>
 <li>
