@@ -3704,7 +3704,8 @@ fn handle_shell_completion(
                 .chain(std::iter::repeat_n(OsString::new(), pad_len));
 
             // Expand aliases left of the completion index.
-            let mut expanded_args = expand_args(ui, app, padded_args.take(index + 1), config)?;
+            let mut expanded_args =
+                expand_args_for_completion(ui, app, padded_args.take(index + 1), config)?;
 
             // Adjust env var to compensate for shift of the completion point in the
             // expanded command line.
@@ -3729,7 +3730,7 @@ fn handle_shell_completion(
             expanded_args.extend(to_string_args(orig_args)?);
             expanded_args
         } else {
-            expand_args(ui, app, orig_args, config)?
+            expand_args_for_completion(ui, app, orig_args, config)?
         };
         args.extend(resolved_aliases.into_iter().map(OsString::from));
     }
@@ -3755,6 +3756,27 @@ pub fn expand_args(
     let string_args = to_string_args(args_os)?;
     let string_args = resolve_default_command(ui, config, app, string_args)?;
     resolve_aliases(ui, config, app, string_args)
+}
+
+fn expand_args_for_completion(
+    ui: &Ui,
+    app: &Command,
+    args_os: impl IntoIterator<Item = OsString>,
+    config: &StackedConfig,
+) -> Result<Vec<String>, CommandError> {
+    let string_args = to_string_args(args_os)?;
+
+    // If a subcommand has been given, including the potentially incomplete argument
+    // that is being completed, the default command is not resolved and the
+    // completion candidates for the subcommand are prioritized.
+    let mut string_args = resolve_default_command(ui, config, app, string_args)?;
+
+    // Resolution of subcommand aliases must not consider the argument that is being
+    // completed.
+    let cursor_arg = string_args.pop();
+    let mut resolved_args = resolve_aliases(ui, config, app, string_args)?;
+    resolved_args.extend(cursor_arg);
+    Ok(resolved_args)
 }
 
 fn to_string_args(

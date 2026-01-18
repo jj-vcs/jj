@@ -68,6 +68,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   configuration options which are set.
   [#7774](https://github.com/jj-vcs/jj/issues/7774)
 
+* Dynamic shell completion no longer attempts to resolve aliases at the
+  completion position. This previously prevented a fully-typed alias from
+  being accepted on some shells and replaced it entirely with its expansion on
+  bash. Now, the completion will only resolve the alias, and suggest candidates
+  accordingly, after the cursor has been advanced to the next position.
+  [#7773](https://github.com/jj-vcs/jj/issues/7773)
+
 * Setting the editor via `ui.editor`, `$EDITOR`, or `JJ_EDITOR` now respects shell quoting.
 
 * `jj gerrit upload` will no longer swallow errors and surface if changes fail
