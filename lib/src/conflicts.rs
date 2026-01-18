@@ -95,7 +95,7 @@ fn write_diff_hunks(hunks: &[DiffHunk], file: &mut dyn Write) -> io::Result<()> 
 async fn get_file_contents(
     store: &Store,
     path: &RepoPath,
-    term: &Option<FileId>,
+    term: Option<&FileId>,
 ) -> BackendResult<BString> {
     match term {
         Some(id) => {
@@ -123,7 +123,7 @@ pub async fn extract_as_single_hunk(
     path: &RepoPath,
 ) -> BackendResult<Merge<BString>> {
     merge
-        .try_map_async(|term| get_file_contents(store, path, term))
+        .try_map_async(|term| get_file_contents(store, path, term.as_ref()))
         .await
 }
 

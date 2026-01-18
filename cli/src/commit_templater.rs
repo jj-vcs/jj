@@ -1784,6 +1784,7 @@ fn builtin_workspace_ref_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'rep
     map
 }
 
+#[expect(clippy::ref_option)]
 fn serialize_tracking_target<S>(
     tracking_ref: &Option<TrackingRef>,
     serializer: S,

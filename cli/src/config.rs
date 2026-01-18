@@ -390,7 +390,7 @@ impl ConfigEnv {
     fn load_secure_config(
         &self,
         ui: &Ui,
-        config: &Option<SecureConfig>,
+        config: Option<&SecureConfig>,
         kind: &str,
         force: bool,
     ) -> Result<Option<LoadedSecureConfig>, CommandError> {
@@ -478,7 +478,7 @@ impl ConfigEnv {
     /// Returns a path to the existing repo-specific config file.
     fn maybe_repo_config_path(&self, ui: &Ui) -> Result<Option<PathBuf>, CommandError> {
         Ok(self
-            .load_secure_config(ui, &self.repo_config, REPO_CONFIG_DIR, false)?
+            .load_secure_config(ui, self.repo_config.as_ref(), REPO_CONFIG_DIR, false)?
             .and_then(|c| c.config_file))
     }
 
@@ -487,7 +487,7 @@ impl ConfigEnv {
     /// create a new directory for this.
     pub fn repo_config_path(&self, ui: &Ui) -> Result<Option<PathBuf>, CommandError> {
         Ok(self
-            .load_secure_config(ui, &self.repo_config, REPO_CONFIG_DIR, true)?
+            .load_secure_config(ui, self.repo_config.as_ref(), REPO_CONFIG_DIR, true)?
             .and_then(|c| c.config_file))
     }
 
@@ -536,7 +536,12 @@ impl ConfigEnv {
     /// Returns a path to the workspace-specific config file, if it exists.
     fn maybe_workspace_config_path(&self, ui: &Ui) -> Result<Option<PathBuf>, CommandError> {
         Ok(self
-            .load_secure_config(ui, &self.workspace_config, WORKSPACE_CONFIG_DIR, false)?
+            .load_secure_config(
+                ui,
+                self.workspace_config.as_ref(),
+                WORKSPACE_CONFIG_DIR,
+                false,
+            )?
             .and_then(|c| c.config_file))
     }
 
@@ -545,7 +550,12 @@ impl ConfigEnv {
     /// create a new directory for this.
     pub fn workspace_config_path(&self, ui: &Ui) -> Result<Option<PathBuf>, CommandError> {
         Ok(self
-            .load_secure_config(ui, &self.workspace_config, WORKSPACE_CONFIG_DIR, true)?
+            .load_secure_config(
+                ui,
+                self.workspace_config.as_ref(),
+                WORKSPACE_CONFIG_DIR,
+                true,
+            )?
             .and_then(|c| c.config_file))
     }
 
