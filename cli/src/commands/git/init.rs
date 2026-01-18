@@ -119,7 +119,11 @@ pub fn cmd_git_init(
         .and_then(|_| dunce::canonicalize(wc_path))
         .map_err(|e| user_error_with_message("Failed to create workspace", e))?;
 
-    let colocate = if command.settings().get_bool("git.colocate")? {
+    let colocate = if args.git_repo.is_some() {
+        // --git-repo implies non-colocate mode; the actual colocation is
+        // determined by whether the path happens to be the workspace root
+        false
+    } else if command.settings().get_bool("git.colocate")? {
         !args.no_colocate
     } else {
         args.colocate

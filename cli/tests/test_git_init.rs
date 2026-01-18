@@ -203,6 +203,57 @@ fn test_git_init_external(bare: bool) {
 
 #[test_case(false; "full")]
 #[test_case(true; "bare")]
+fn test_git_init_external_with_colocate_config(bare: bool) {
+    let test_env = TestEnvironment::default();
+    let git_repo_path = test_env.env_root().join("git-repo");
+    init_git_repo(&git_repo_path, bare);
+
+    // Explicitly enable git.colocate (which is also the default)
+    test_env.add_config("git.colocate = true");
+
+    // Using --git-repo should still work and import refs from the external repo
+    let output = test_env.run_jj_in(
+        ".",
+        [
+            "git",
+            "init",
+            "repo",
+            "--git-repo",
+            git_repo_path.to_str().unwrap(),
+        ],
+    );
+    insta::allow_duplicates! {
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Working copy  (@) now at: sqpuoqvx ed6b5138 (empty) (no description set)
+    Parent commit (@-)      : nntyzxmz e80a42cc my-bookmark | My commit message
+    Added 1 files, modified 0 files, removed 0 files
+    Initialized repo in "repo"
+    [EOF]
+    "#);
+    }
+
+    let work_dir = test_env.work_dir("repo");
+
+    // Check that the Git repo's HEAD got checked out and refs were imported
+    insta::allow_duplicates! {
+        insta::assert_snapshot!(get_log_output(&work_dir), @r"
+        @  ed6b513890ae
+        ○  e80a42cccd06 my-bookmark My commit message
+        ◆  000000000000
+        [EOF]
+        ");
+        insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+        Workspace is currently not colocated with Git.
+        Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
+        [EOF]
+        ");
+    }
+}
+
+#[test_case(false; "full")]
+#[test_case(true; "bare")]
 fn test_git_init_external_import_trunk(bare: bool) {
     let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("git-repo");
