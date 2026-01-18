@@ -6461,8 +6461,15 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </ul>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Deprecated <code>ui.always-allow-large-revsets</code> setting and <code>all:</code> revset modifier
-  have been removed.</li>
+<li>
+<p>Deprecated <code>ui.always-allow-large-revsets</code> setting and <code>all:</code> revset modifier
+  have been removed.</p>
+</li>
+<li>
+<p>Legacy placeholder support used for unset <code>user.name</code> or <code>user.email</code> has been
+  removed. Commits containing these values will now be pushed with <code>jj git push</code>
+  without producing an error.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <ul>
