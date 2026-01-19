@@ -3677,6 +3677,35 @@ mod tests {
     }
 
     #[test]
+    fn test_timestamp_range_method() {
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("instant", || {
+            literal(TimestampRange {
+                start: new_timestamp(0, 0),
+                end: new_timestamp(0, 0),
+            })
+        });
+        env.add_keyword("one_msec", || {
+            literal(TimestampRange {
+                start: new_timestamp(0, 0),
+                end: new_timestamp(1, -60),
+            })
+        });
+
+        insta::assert_snapshot!(
+            env.render_ok("instant.start().format('%Y%m%d %H:%M:%S %Z')"),
+            @"19700101 00:00:00 +00:00");
+        insta::assert_snapshot!(
+            env.render_ok("one_msec.end().format('%Y%m%d %H:%M:%S %Z')"),
+            @"19691231 23:00:00 -01:00");
+
+        insta::assert_snapshot!(
+            env.render_ok("instant.duration()"), @"less than a microsecond");
+        insta::assert_snapshot!(
+            env.render_ok("one_msec.duration()"), @"1 millisecond");
+    }
+
+    #[test]
     fn test_fill_function() {
         let mut env = TestTemplateEnv::new();
         env.add_color("error", crossterm::style::Color::DarkRed);
