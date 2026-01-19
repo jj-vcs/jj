@@ -649,7 +649,6 @@ struct GitProgress {
 impl GitProgress {
     fn to_progress(&self) -> Progress {
         Progress {
-            bytes_downloaded: None,
             overall: if self.total() != 0 {
                 self.fraction() as f32 / self.total() as f32
             } else {

@@ -2950,8 +2950,6 @@ pub struct RemoteCallbacks<'a> {
 
 #[derive(Clone, Debug)]
 pub struct Progress {
-    /// `Some` iff data transfer is currently in progress
-    pub bytes_downloaded: Option<u64>,
     pub overall: f32,
 }
 
