@@ -265,3 +265,28 @@ fn test_bisect_disjoint_sets() {
         BisectionResult::Found(vec![commit2.clone(), commit1.clone()])
     );
 }
+
+#[test]
+fn test_bisect_abort() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let commit1 = write_random_commit(tx.repo_mut());
+    let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
+    let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
+    let commit4 = write_random_commit_with_parents(tx.repo_mut(), &[&commit3]);
+    let commit5 = write_random_commit_with_parents(tx.repo_mut(), &[&commit4]);
+    let commit6 = write_random_commit_with_parents(tx.repo_mut(), &[&commit5]);
+    let commit7 = write_random_commit_with_parents(tx.repo_mut(), &[&commit6]);
+
+    let input_range = ResolvedRevsetExpression::commit(commit7.id().clone()).ancestors();
+
+    // Commit 5 is an abort commit
+    let expected_tests = [
+        (commit3.id(), Evaluation::Good),
+        (commit5.id(), Evaluation::Abort),
+    ];
+    let result = test_bisection(tx.repo(), &input_range, expected_tests);
+    assert_eq!(result, BisectionResult::Abort);
+}

@@ -46,6 +46,8 @@ pub enum Evaluation {
     Bad,
     /// It could not be determined whether the commit was good or bad
     Skip,
+    /// The commit caused an abort
+    Abort,
 }
 
 impl Evaluation {
@@ -58,6 +60,7 @@ impl Evaluation {
             Good => Bad,
             Bad => Good,
             Skip => Skip,
+            Abort => Abort,
         }
     }
 }
@@ -69,6 +72,7 @@ pub struct Bisector<'repo> {
     good_commits: HashSet<CommitId>,
     bad_commits: HashSet<CommitId>,
     skipped_commits: HashSet<CommitId>,
+    aborted: bool,
 }
 
 /// The result of bisection.
@@ -80,6 +84,8 @@ pub enum BisectionResult {
     /// Could not determine the first bad commit because it was in a
     /// skipped range.
     Indeterminate,
+    /// Bisection was aborted.
+    Abort,
 }
 
 /// The next bisection step.
@@ -105,6 +111,7 @@ impl<'repo> Bisector<'repo> {
             bad_commits,
             good_commits: HashSet::new(),
             skipped_commits: HashSet::new(),
+            aborted: false,
         })
     }
 
@@ -112,6 +119,7 @@ impl<'repo> Bisector<'repo> {
     pub fn mark_good(&mut self, id: CommitId) {
         assert!(!self.bad_commits.contains(&id));
         assert!(!self.skipped_commits.contains(&id));
+        assert!(!self.aborted);
         self.good_commits.insert(id);
     }
 
@@ -119,6 +127,7 @@ impl<'repo> Bisector<'repo> {
     pub fn mark_bad(&mut self, id: CommitId) {
         assert!(!self.good_commits.contains(&id));
         assert!(!self.skipped_commits.contains(&id));
+        assert!(!self.aborted);
         self.bad_commits.insert(id);
     }
 
@@ -126,7 +135,20 @@ impl<'repo> Bisector<'repo> {
     pub fn mark_skipped(&mut self, id: CommitId) {
         assert!(!self.good_commits.contains(&id));
         assert!(!self.bad_commits.contains(&id));
+        assert!(!self.aborted);
         self.skipped_commits.insert(id);
+    }
+
+    /// Mark a commit as causing an abort
+    pub fn mark_abort(&mut self, id: CommitId) {
+        // TODO: Right now, we only use this state for triggering an abort.
+        // A potential improvement would be to make the CLI print out the revset with
+        // the current status of each change, making it possible for a user
+        // to restart an aborted bisect in progress.
+        assert!(!self.good_commits.contains(&id));
+        assert!(!self.bad_commits.contains(&id));
+        assert!(!self.skipped_commits.contains(&id));
+        self.aborted = true;
     }
 
     /// Mark a commit as good, bad, or skipped, according to the outcome in
@@ -136,6 +158,7 @@ impl<'repo> Bisector<'repo> {
             Evaluation::Good => self.mark_good(id),
             Evaluation::Bad => self.mark_bad(id),
             Evaluation::Skip => self.mark_skipped(id),
+            Evaluation::Abort => self.mark_abort(id),
         }
     }
 
@@ -157,6 +180,9 @@ impl<'repo> Bisector<'repo> {
     /// Find the next commit to evaluate, or determine that there are no more
     /// steps.
     pub fn next_step(&mut self) -> Result<NextStep, BisectionError> {
+        if self.aborted {
+            return Ok(NextStep::Done(BisectionResult::Abort));
+        }
         let good_expr = RevsetExpression::commits(self.good_commits.iter().cloned().collect());
         let bad_expr = RevsetExpression::commits(self.bad_commits.iter().cloned().collect());
         let skipped_expr =

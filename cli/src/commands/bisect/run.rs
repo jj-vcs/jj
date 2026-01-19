@@ -150,6 +150,10 @@ pub(crate) fn cmd_bisect_run(
                         Evaluation::Skip => {
                             "It could not be determined if the revision is good or bad."
                         }
+                        Evaluation::Abort => {
+                            "Evaluation command returned 127 (command not found) - aborting \
+                             bisection."
+                        }
                     };
                     writeln!(formatter, "{message}")?;
                     writeln!(formatter)?;
@@ -185,6 +189,9 @@ pub(crate) fn cmd_bisect_run(
 
     let target = if args.find_good { "good" } else { "bad" };
     match bisection_result {
+        BisectionResult::Abort => {
+            return Err(user_error("Bisection aborted"));
+        }
         BisectionResult::Indeterminate => {
             return Err(user_error(format!(
                 "Could not find the first {target} revision. Was the input range empty?"
@@ -247,11 +254,7 @@ fn evaluate_commit(
     } else {
         match status.code() {
             Some(125) => Evaluation::Skip,
-            Some(127) => {
-                return Err(user_error(
-                    "Evaluation command returned 127 (command not found) - aborting bisection.",
-                ));
-            }
+            Some(127) => Evaluation::Abort,
             _ => Evaluation::Bad,
         }
     };

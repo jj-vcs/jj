@@ -256,12 +256,16 @@ fn test_bisect_run_abort() {
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Evaluation command returned 127 (command not found) - aborting bisection.
+
+    Search complete. To discard any revisions created during search, run:
+      jj op restore 3b48f5aca4df
     [EOF]
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 538d9e7f (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
-    Error: Evaluation command returned 127 (command not found) - aborting bisection.
+    Error: Bisection aborted
     [EOF]
     [exit status: 1]
     ");
