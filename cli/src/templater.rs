@@ -25,6 +25,7 @@ use std::rc::Rc;
 
 use bstr::BStr;
 use bstr::BString;
+use indexmap::IndexMap;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigValue;
@@ -404,6 +405,66 @@ tuple_impls! {
 pub type BoxedTemplateProperty<'a, O> = Box<dyn TemplateProperty<Output = O> + 'a>;
 pub type BoxedSerializeProperty<'a> =
     BoxedTemplateProperty<'a, Box<dyn erased_serde::Serialize + 'a>>;
+
+/// Builds a JSON object from key-value pairs.
+///
+/// Keys are preserved in insertion order using [`IndexMap`].
+pub struct JsonObjectProperty<'a> {
+    entries: Vec<(String, BoxedSerializeProperty<'a>)>,
+}
+
+impl<'a> JsonObjectProperty<'a> {
+    pub fn new(entries: Vec<(String, BoxedSerializeProperty<'a>)>) -> Self {
+        Self { entries }
+    }
+}
+
+impl<'a> TemplateProperty for JsonObjectProperty<'a> {
+    type Output = Box<dyn erased_serde::Serialize + 'a>;
+
+    fn extract(&self) -> Result<Self::Output, TemplatePropertyError> {
+        let mut map: IndexMap<String, serde_json::Value> = IndexMap::new();
+        for (key, value_prop) in &self.entries {
+            let value = value_prop.extract()?;
+            let json_value = serde_json::to_value(&*value).map_err(|err| {
+                TemplatePropertyError(
+                    format!(r#"Failed to serialize value for key "{key}": {err}"#).into(),
+                )
+            })?;
+            map.insert(key.clone(), json_value);
+        }
+        Ok(Box::new(map))
+    }
+}
+
+/// Builds a JSON array.
+pub struct JsonArrayProperty<'a> {
+    elements: Vec<BoxedSerializeProperty<'a>>,
+}
+
+impl<'a> JsonArrayProperty<'a> {
+    pub fn new(elements: Vec<BoxedSerializeProperty<'a>>) -> Self {
+        Self { elements }
+    }
+}
+
+impl<'a> TemplateProperty for JsonArrayProperty<'a> {
+    type Output = Box<dyn erased_serde::Serialize + 'a>;
+
+    fn extract(&self) -> Result<Self::Output, TemplatePropertyError> {
+        let mut values = Vec::new();
+        for (index, prop) in self.elements.iter().enumerate() {
+            let value = prop.extract()?;
+            let json_value = serde_json::to_value(&*value).map_err(|err| {
+                TemplatePropertyError(
+                    format!("Failed to serialize element at index {index}: {err}").into(),
+                )
+            })?;
+            values.push(json_value);
+        }
+        Ok(Box::new(values))
+    }
+}
 
 /// [`TemplateProperty`] adapters that are useful when implementing methods.
 pub trait TemplatePropertyExt: TemplateProperty {

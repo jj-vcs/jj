@@ -497,6 +497,10 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         Self::Core(CoreTemplatePropertyKind::wrap_list_template(template))
     }
 
+    fn wrap_json_value(property: BoxedSerializeProperty<'repo>) -> Self {
+        Self::Core(CoreTemplatePropertyKind::wrap_json_value(property))
+    }
+
     fn type_name(&self) -> &'static str {
         match self {
             Self::Core(property) => property.type_name(),

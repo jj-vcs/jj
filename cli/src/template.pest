@@ -91,6 +91,15 @@ formal_parameters = {
   | ""
 }
 
+// Object literal: {"key": value, "key2": value2}
+// Keys must be quoted strings; trailing commas are allowed.
+object_entry = { string_literal ~ ":" ~ template }
+object_literal = { "{" ~ (object_entry ~ ("," ~ object_entry)* ~ ","?)? ~ "}" }
+
+// Array literal: [value1, value2, value3]
+// Trailing commas are allowed.
+array_literal = { "[" ~ (template ~ ("," ~ template)* ~ ","?)? ~ "]" }
+
 // NOTE: string pattern identifiers additionally allow "-" in them, which
 // results in some oddness with the `-` operator, though does not yet cause
 // ambiguity. This may prove annoying at some future point.
@@ -103,6 +112,8 @@ string_pattern = ${
 
 primary = {
   ("(" ~ template ~ ")")
+  | object_literal
+  | array_literal
   | function
   | lambda
   | string_pattern
