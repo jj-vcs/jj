@@ -3570,7 +3570,9 @@ mod tests {
     #[test]
     fn test_timestamp_method() {
         let mut env = TestTemplateEnv::new();
+        env.add_keyword("now", || literal(Timestamp::now()));
         env.add_keyword("t0", || literal(new_timestamp(0, 0)));
+        env.add_keyword("t0_plus1", || literal(new_timestamp(0, 60)));
 
         insta::assert_snapshot!(
             env.render_ok(r#"t0.format("%Y%m%d %H:%M:%S")"#),
@@ -3624,6 +3626,54 @@ mod tests {
           |
           = Invalid time format
         "#);
+
+        insta::assert_snapshot!(env.render_ok("t0_plus1.utc()"), @"1970-01-01 00:00:00.000 +00:00");
+
+        // TODO: exercise ago() and local() deterministically
+        // Just make sure these methods work for now
+        assert!(!env.render_ok("now.ago()").is_empty());
+        assert!(!env.render_ok("now.local()").is_empty());
+
+        insta::assert_snapshot!(env.render_ok("t0.after('1969')"), @"true");
+        insta::assert_snapshot!(env.render_ok("t0.before('1969')"), @"false");
+        insta::assert_snapshot!(env.render_ok("t0.after('now')"), @"false");
+        insta::assert_snapshot!(env.render_ok("t0.before('now')"), @"true");
+        insta::assert_snapshot!(env.parse_err("t0.before('invalid')"), @"
+         --> 1:11
+          |
+        1 | t0.before('invalid')
+          |           ^-------^
+          |
+          = Invalid date pattern
+        expected unsupported identifier as position 0..7
+        ");
+        insta::assert_snapshot!(env.parse_err("t0.before('invalid')"), @"
+         --> 1:11
+          |
+        1 | t0.before('invalid')
+          |           ^-------^
+          |
+          = Invalid date pattern
+        expected unsupported identifier as position 0..7
+        ");
+
+        // Can only compare timestamps against string literals
+        insta::assert_snapshot!(env.parse_err("t0.after(t0)"), @"
+         --> 1:10
+          |
+        1 | t0.after(t0)
+          |          ^^
+          |
+          = Expected string literal
+        ");
+        insta::assert_snapshot!(env.parse_err("t0.before(t0)"), @"
+         --> 1:11
+          |
+        1 | t0.before(t0)
+          |           ^^
+          |
+          = Expected string literal
+        ");
     }
 
     #[test]
