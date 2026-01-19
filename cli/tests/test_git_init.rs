@@ -1085,6 +1085,39 @@ fn test_git_init_bad_wc_path() {
 }
 
 #[test]
+fn test_git_init_with_invalid_gitlink() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    work_dir.write_file(".git", "invalid");
+
+    // `jj git init --colocate` first checks for a worktree, make it fail
+    // subsequent errors are not specific to colocation
+    let output = work_dir.run_jj(["git", "init", "--colocate"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to access the repository
+    Caused by:
+    1: Failed to open git repository
+    2: "$TEST_ENV/repo/.git" does not appear to be a git repository
+    3: Format should be 'gitdir: <path>', but got: "invalid"
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    let output = work_dir.run_jj(["git", "init", "--git-repo", "."]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to access the repository
+    Caused by:
+    1: Failed to open git repository
+    2: "$TEST_ENV/repo/.git" does not appear to be a git repository
+    3: Format should be 'gitdir: <path>', but got: "invalid"
+    [EOF]
+    [exit status: 1]
+    "#);
+}
+
+#[test]
 fn test_git_init_colocate_in_git_worktree() {
     let test_env = TestEnvironment::default();
     let main_repo_path = test_env.env_root().join("main-repo");
