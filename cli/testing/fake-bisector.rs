@@ -58,6 +58,7 @@ fn main() {
         let parts = command.split(' ').collect_vec();
         match parts.as_slice() {
             [""] => {}
+            ["crash"] => std::process::abort(),
             ["abort"] => exit(127),
             ["skip"] => exit(125),
             ["fail"] => exit(1),

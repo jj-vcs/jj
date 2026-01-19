@@ -182,6 +182,49 @@ fn test_bisect_run_find_first_good() {
 }
 
 #[test]
+fn test_bisect_run_missing_bisector() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit(&work_dir, "a", &[]);
+    create_commit(&work_dir, "b", &["a"]);
+    create_commit(&work_dir, "c", &["b"]);
+    create_commit(&work_dir, "d", &["c"]);
+    create_commit(&work_dir, "e", &["d"]);
+    create_commit(&work_dir, "f", &["e"]);
+
+    let output = work_dir.run_jj(["bisect", "run", "--range=..", "nonexistent"]);
+    if cfg!(unix) {
+        insta::assert_snapshot!(output, @"
+        Now evaluating: royxmykx dffaa0d4 c | c
+        [EOF]
+        ------- stderr -------
+        Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
+        Parent commit (@-)      : royxmykx dffaa0d4 c | c
+        Added 0 files, modified 0 files, removed 3 files
+        Error: Failed to run evaluation command
+        Caused by: No such file or directory (os error 2)
+        [EOF]
+        [exit status: 1]
+        ");
+    } else if cfg!(windows) {
+        insta::assert_snapshot!(output, @"
+        Now evaluating: royxmykx dffaa0d4 c | c
+        [EOF]
+        ------- stderr -------
+        Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
+        Parent commit (@-)      : royxmykx dffaa0d4 c | c
+        Added 0 files, modified 0 files, removed 3 files
+        Error: Failed to run evaluation command
+        Caused by: program not found
+        [EOF]
+        [exit status: 1]
+        ");
+    }
+}
+
+#[test]
 fn test_bisect_run_with_args() {
     let mut test_env = TestEnvironment::default();
     let bisector_path = fake_bisector_path();
@@ -235,6 +278,47 @@ fn test_bisect_run_with_args() {
     ○  zsuskulnrvyr 123b4d91f6e5 'b' files: b
     ○  rlvkpnrzqnoo 7d980be7a1d4 'a' files: a
     ◆  zzzzzzzzzzzz 000000000000 '' files:
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_bisect_run_crash() {
+    let mut test_env = TestEnvironment::default();
+    let bisector_path = fake_bisector_path();
+    let bisection_script = test_env.set_up_fake_bisector();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit(&work_dir, "a", &[]);
+    create_commit(&work_dir, "b", &["a"]);
+    create_commit(&work_dir, "c", &["b"]);
+    create_commit(&work_dir, "d", &["c"]);
+    create_commit(&work_dir, "e", &["d"]);
+    create_commit(&work_dir, "f", &["e"]);
+
+    // bisector crash is equivalent to a failure
+    std::fs::write(&bisection_script, ["crash"].join("\0")).unwrap();
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    Now evaluating: royxmykx dffaa0d4 c | c
+    fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
+    The revision is bad.
+
+    Now evaluating: rlvkpnrz 7d980be7 a | a
+    fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    The revision is bad.
+
+    Search complete. To discard any revisions created during search, run:
+      jj op restore 9152b6b19cce
+    The first bad revision is: rlvkpnrz 7d980be7 a | a
+    [EOF]
+    ------- stderr -------
+    Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
+    Parent commit (@-)      : royxmykx dffaa0d4 c | c
+    Added 0 files, modified 0 files, removed 3 files
+    Working copy  (@) now at: rsllmpnm 5f328bc5 (empty) (no description set)
+    Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
+    Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
 }
