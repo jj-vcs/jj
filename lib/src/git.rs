@@ -44,6 +44,7 @@ use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::git_backend::GitBackend;
 pub use crate::git_subprocess::GitProgress;
+pub use crate::git_subprocess::GitSubprocessCallback;
 use crate::git_subprocess::GitSubprocessContext;
 use crate::git_subprocess::GitSubprocessError;
 use crate::index::IndexError;
@@ -2648,7 +2649,7 @@ impl<'a> GitFetch<'a> {
     ///
     /// Keeps track of the {branch_names, remote_name} pair the refs can be
     /// subsequently imported into the `jj` repo by calling `import_refs()`.
-    #[tracing::instrument(skip(self, callbacks))]
+    #[tracing::instrument(skip(self, callback))]
     pub fn fetch(
         &mut self,
         remote_name: &RemoteName,
@@ -2657,7 +2658,7 @@ impl<'a> GitFetch<'a> {
             refspecs: mut remaining_refspecs,
             negative_refspecs,
         }: ExpandedFetchRefSpecs,
-        mut callbacks: RemoteCallbacks,
+        callback: &mut dyn GitSubprocessCallback,
         depth: Option<NonZeroU32>,
         fetch_tags_override: Option<FetchTagsOverride>,
     ) -> Result<(), GitFetchError> {
@@ -2689,7 +2690,7 @@ impl<'a> GitFetch<'a> {
             remote_name,
             &remaining_refspecs,
             &negative_refspecs,
-            &mut callbacks,
+            callback,
             depth,
             fetch_tags_override,
         )? {
@@ -2796,7 +2797,7 @@ pub fn push_branches(
     subprocess_options: GitSubprocessOptions,
     remote: &RemoteName,
     targets: &GitBranchPushTargets,
-    callbacks: RemoteCallbacks,
+    callback: &mut dyn GitSubprocessCallback,
 ) -> Result<GitPushStats, GitPushError> {
     validate_remote_name(remote)?;
 
@@ -2810,13 +2811,7 @@ pub fn push_branches(
         })
         .collect_vec();
 
-    let push_stats = push_updates(
-        mut_repo,
-        subprocess_options,
-        remote,
-        &ref_updates,
-        callbacks,
-    )?;
+    let push_stats = push_updates(mut_repo, subprocess_options, remote, &ref_updates, callback)?;
     tracing::debug!(?push_stats);
 
     let pushed: HashSet<&GitRefName> = push_stats.pushed.iter().map(AsRef::as_ref).collect();
@@ -2868,7 +2863,7 @@ pub fn push_updates(
     subprocess_options: GitSubprocessOptions,
     remote_name: &RemoteName,
     updates: &[GitRefUpdate],
-    mut callbacks: RemoteCallbacks,
+    callback: &mut dyn GitSubprocessCallback,
 ) -> Result<GitPushStats, GitPushError> {
     let mut qualified_remote_refs_expected_locations = HashMap::new();
     let mut refspecs = vec![];
@@ -2904,7 +2899,7 @@ pub fn push_updates(
         .map(|full_refspec| RefToPush::new(full_refspec, &qualified_remote_refs_expected_locations))
         .collect();
 
-    let mut push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, &mut callbacks)?;
+    let mut push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, callback)?;
     push_stats.pushed.sort();
     push_stats.rejected.sort();
     push_stats.remote_rejected.sort();
@@ -2939,14 +2934,6 @@ fn build_pushed_bookmarks_to_export<'a>(
         to_delete,
         failed: vec![],
     }
-}
-
-#[non_exhaustive]
-#[derive(Default)]
-#[expect(clippy::type_complexity)]
-pub struct RemoteCallbacks<'a> {
-    pub progress: Option<&'a mut dyn FnMut(&GitProgress)>,
-    pub sideband_progress: Option<&'a mut dyn FnMut(&[u8])>,
 }
 
 /// Allows temporarily overriding the behavior of a single `git fetch`

@@ -38,6 +38,7 @@ use jj_lib::git::GitProgress;
 use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
+use jj_lib::git::GitSubprocessCallback;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::ref_name::RemoteRefSymbol;
@@ -123,6 +124,49 @@ pub fn get_remote_web_url(repo: &ReadonlyRepo, remote_name: &str) -> Option<Stri
     git_remote_url_to_web(url)
 }
 
+/// [`Ui`] adapter to forward Git command outputs.
+pub struct GitSubprocessUi<'a> {
+    ui: &'a Ui,
+    progress_output: Option<ProgressOutput<io::Stderr>>,
+    progress: Progress,
+    remote_sideband: GitSidebandProgressMessageWriter,
+}
+
+impl<'a> GitSubprocessUi<'a> {
+    pub fn new(ui: &'a Ui) -> Self {
+        Self {
+            ui,
+            progress_output: ui.progress_output(),
+            progress: Progress::new(Instant::now()),
+            remote_sideband: GitSidebandProgressMessageWriter::new(ui),
+        }
+    }
+
+    pub fn flush(&mut self) -> io::Result<()> {
+        self.remote_sideband.flush(self.ui)
+    }
+}
+
+impl GitSubprocessCallback for GitSubprocessUi<'_> {
+    fn needs_progress(&self) -> bool {
+        self.progress_output.is_some()
+    }
+
+    fn progress(&mut self, progress: &GitProgress) -> io::Result<()> {
+        if let Some(output) = &mut self.progress_output {
+            self.progress.update(Instant::now(), progress, output)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn remote_sideband(&mut self, message: &[u8]) -> io::Result<()> {
+        // TODO: maybe progress should be temporarily cleared if there are
+        // sideband lines to write.
+        self.remote_sideband.write(self.ui, message)
+    }
+}
+
 // Based on Git's implementation: https://github.com/git/git/blob/43072b4ca132437f21975ac6acc6b72dc22fd398/sideband.c#L178
 pub struct GitSidebandProgressMessageWriter {
     display_prefix: &'static [u8],
@@ -206,26 +250,13 @@ impl GitSidebandProgressMessageWriter {
     }
 }
 
-pub fn with_remote_git_callbacks<T>(ui: &Ui, f: impl FnOnce(git::RemoteCallbacks<'_>) -> T) -> T {
-    let mut callbacks = git::RemoteCallbacks::default();
-
-    let mut progress_callback;
-    if let Some(mut output) = ui.progress_output() {
-        let mut progress = Progress::new(Instant::now());
-        progress_callback = move |x: &GitProgress| {
-            progress.update(Instant::now(), x, &mut output).ok();
-        };
-        callbacks.progress = Some(&mut progress_callback);
-    }
-
-    let mut sideband_progress_writer = GitSidebandProgressMessageWriter::new(ui);
-    let mut sideband_progress_callback = |progress_message: &[u8]| {
-        sideband_progress_writer.write(ui, progress_message).ok();
-    };
-    callbacks.sideband_progress = Some(&mut sideband_progress_callback);
-
-    let result = f(callbacks);
-    sideband_progress_writer.flush(ui).ok();
+pub fn with_remote_git_callbacks<T>(
+    ui: &Ui,
+    f: impl FnOnce(&mut dyn GitSubprocessCallback) -> T,
+) -> T {
+    let mut callback = GitSubprocessUi::new(ui);
+    let result = f(&mut callback);
+    callback.flush().ok();
     result
 }
 
