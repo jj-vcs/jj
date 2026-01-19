@@ -3885,6 +3885,21 @@ mod tests {
     }
 
     #[test]
+    fn test_hash_function() {
+        let mut env = TestTemplateEnv::new();
+        env.add_color("red", crossterm::style::Color::Red);
+
+        // hash is currently of stringified content
+        // NOTE: hash algo and per-type behavior are not codified requirements
+        assert_eq!(env.render_ok("hash(false)"), env.render_ok("hash('false')"));
+        assert_eq!(env.render_ok("hash(0)"), env.render_ok("hash('0')"));
+        assert_eq!(
+            env.render_ok("hash(0)"),
+            env.render_ok("hash(label('red', '0'))")
+        );
+    }
+
+    #[test]
     fn test_truncate_function() {
         let mut env = TestTemplateEnv::new();
         env.add_color("red", crossterm::style::Color::Red);
