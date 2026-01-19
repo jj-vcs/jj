@@ -43,6 +43,7 @@ use crate::config::ConfigGetError;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::git_backend::GitBackend;
+pub use crate::git_subprocess::GitProgress;
 use crate::git_subprocess::GitSubprocessContext;
 use crate::git_subprocess::GitSubprocessError;
 use crate::index::IndexError;
@@ -2944,13 +2945,8 @@ fn build_pushed_bookmarks_to_export<'a>(
 #[derive(Default)]
 #[expect(clippy::type_complexity)]
 pub struct RemoteCallbacks<'a> {
-    pub progress: Option<&'a mut dyn FnMut(&Progress)>,
+    pub progress: Option<&'a mut dyn FnMut(&GitProgress)>,
     pub sideband_progress: Option<&'a mut dyn FnMut(&[u8])>,
-}
-
-#[derive(Clone, Debug)]
-pub struct Progress {
-    pub overall: f32,
 }
 
 /// Allows temporarily overriding the behavior of a single `git fetch`

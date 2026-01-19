@@ -31,7 +31,6 @@ use crate::git::FetchTagsOverride;
 use crate::git::GitPushStats;
 use crate::git::GitSubprocessOptions;
 use crate::git::NegativeRefSpec;
-use crate::git::Progress;
 use crate::git::RefSpec;
 use crate::git::RefToPush;
 use crate::git::RemoteCallbacks;
@@ -637,23 +636,27 @@ fn wait_with_progress(
     })
 }
 
-#[derive(Default)]
-struct GitProgress {
-    // (frac, total)
-    deltas: (u64, u64),
-    objects: (u64, u64),
-    counted_objects: (u64, u64),
-    compressed_objects: (u64, u64),
+/// Progress of underlying `git` command operation.
+#[derive(Clone, Debug, Default)]
+pub struct GitProgress {
+    /// `(frac, total)` of "Resolving deltas".
+    pub deltas: (u64, u64),
+    /// `(frac, total)` of "Receiving objects".
+    pub objects: (u64, u64),
+    /// `(frac, total)` of remote "Counting objects".
+    pub counted_objects: (u64, u64),
+    /// `(frac, total)` of remote "Compressing objects".
+    pub compressed_objects: (u64, u64),
 }
 
+// TODO: maybe let callers print each field separately and remove overall()?
 impl GitProgress {
-    fn to_progress(&self) -> Progress {
-        Progress {
-            overall: if self.total() != 0 {
-                self.fraction() as f32 / self.total() as f32
-            } else {
-                0.0
-            },
+    /// Overall progress normalized to 0 to 1 range.
+    pub fn overall(&self) -> f32 {
+        if self.total() != 0 {
+            self.fraction() as f32 / self.total() as f32
+        } else {
+            0.0
         }
     }
 
@@ -672,7 +675,7 @@ fn read_to_end_with_progress<R: Read>(
 ) -> io::Result<Vec<u8>> {
     let mut reader = BufReader::new(src);
     let mut data = Vec::new();
-    let mut git_progress = GitProgress::default();
+    let mut progress = GitProgress::default();
 
     loop {
         // progress sent through sideband channel may be terminated by \r
@@ -683,21 +686,21 @@ fn read_to_end_with_progress<R: Read>(
             break;
         }
 
-        if update_progress(line, &mut git_progress.objects, b"Receiving objects:")
-            || update_progress(line, &mut git_progress.deltas, b"Resolving deltas:")
+        if update_progress(line, &mut progress.objects, b"Receiving objects:")
+            || update_progress(line, &mut progress.deltas, b"Resolving deltas:")
             || update_progress(
                 line,
-                &mut git_progress.counted_objects,
+                &mut progress.counted_objects,
                 b"remote: Counting objects:",
             )
             || update_progress(
                 line,
-                &mut git_progress.compressed_objects,
+                &mut progress.compressed_objects,
                 b"remote: Compressing objects:",
             )
         {
             if let Some(cb) = callbacks.progress.as_mut() {
-                cb(&git_progress.to_progress());
+                cb(&progress);
             }
             data.truncate(start);
         } else if let Some(message) = line.strip_prefix(b"remote: ") {
@@ -926,7 +929,7 @@ Done";
             let mut progress = Vec::new();
             let mut sideband = Vec::new();
             let mut callbacks = RemoteCallbacks::default();
-            let mut progress_cb = |p: &Progress| progress.push(p.clone());
+            let mut progress_cb = |p: &GitProgress| progress.push(p.clone());
             callbacks.progress = Some(&mut progress_cb);
             let mut sideband_cb = |s: &[u8]| sideband.push(s.to_owned());
             callbacks.sideband_progress = Some(&mut sideband_cb);
@@ -952,11 +955,25 @@ Done";
             .map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message\n");
-        insta::assert_debug_snapshot!(progress, @r"
+        insta::assert_debug_snapshot!(progress, @"
         [
-            Progress {
-                bytes_downloaded: None,
-                overall: 0.5,
+            GitProgress {
+                deltas: (
+                    12,
+                    24,
+                ),
+                objects: (
+                    0,
+                    0,
+                ),
+                counted_objects: (
+                    0,
+                    0,
+                ),
+                compressed_objects: (
+                    0,
+                    0,
+                ),
             },
         ]
         ");
@@ -1006,6 +1023,6 @@ Done";
 
     #[test]
     fn test_initial_overall_progress_is_zero() {
-        assert_eq!(GitProgress::default().to_progress().overall, 0.0);
+        assert_eq!(GitProgress::default().overall(), 0.0);
     }
 }

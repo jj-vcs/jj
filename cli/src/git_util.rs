@@ -34,6 +34,7 @@ use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitExportStats;
 use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitImportStats;
+use jj_lib::git::GitProgress;
 use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
@@ -211,7 +212,7 @@ pub fn with_remote_git_callbacks<T>(ui: &Ui, f: impl FnOnce(git::RemoteCallbacks
     let mut progress_callback;
     if let Some(mut output) = ui.progress_output() {
         let mut progress = Progress::new(Instant::now());
-        progress_callback = move |x: &git::Progress| {
+        progress_callback = move |x: &GitProgress| {
             progress.update(Instant::now(), x, &mut output).ok();
         };
         callbacks.progress = Some(&mut progress_callback);
@@ -354,12 +355,12 @@ impl Progress {
     pub fn update<W: std::io::Write>(
         &mut self,
         now: Instant,
-        progress: &git::Progress,
+        progress: &GitProgress,
         output: &mut ProgressOutput<W>,
     ) -> io::Result<()> {
         use std::fmt::Write as _;
 
-        if progress.overall == 1.0 {
+        if progress.overall() == 1.0 {
             write!(output, "\r{}", Clear(ClearType::CurrentLine))?;
             output.flush()?;
             return Ok(());
@@ -382,7 +383,7 @@ impl Progress {
         // Overwrite the current local or sideband progress line if any.
         self.buffer.push('\r');
         let control_chars = self.buffer.len();
-        write!(self.buffer, "{: >3.0}% ", 100.0 * progress.overall).unwrap();
+        write!(self.buffer, "{: >3.0}% ", 100.0 * progress.overall()).unwrap();
 
         let bar_width = output
             .term_width()
@@ -390,7 +391,7 @@ impl Progress {
             .unwrap_or(0)
             .saturating_sub(self.buffer.len() - control_chars + 2);
         self.buffer.push('[');
-        draw_progress(progress.overall, &mut self.buffer, bar_width);
+        draw_progress(progress.overall(), &mut self.buffer, bar_width);
         self.buffer.push(']');
 
         write!(self.buffer, "{}", Clear(ClearType::UntilNewLine)).unwrap();
@@ -708,30 +709,35 @@ mod tests {
         let start = Instant::now();
         let mut progress = Progress::new(start);
         let mut current_time = start;
-        let mut update = |duration, overall| -> String {
+        let mut update = |duration, overall: u64| -> String {
             current_time += duration;
             let mut buf = vec![];
             let mut output = ProgressOutput::for_test(&mut buf, 25);
             progress
                 .update(
                     current_time,
-                    &jj_lib::git::Progress { overall },
+                    &GitProgress {
+                        deltas: (overall, 100),
+                        objects: (0, 0),
+                        counted_objects: (0, 0),
+                        compressed_objects: (0, 0),
+                    },
                     &mut output,
                 )
                 .unwrap();
             String::from_utf8(buf).unwrap()
         };
         // First output is after the initial delay
-        assert_snapshot!(update(crate::progress::INITIAL_DELAY - Duration::from_millis(1), 0.1), @"");
-        assert_snapshot!(update(Duration::from_millis(1), 0.10), @"\u{1b}[?25l\r 10% [█▊                ]\u{1b}[K");
+        assert_snapshot!(update(crate::progress::INITIAL_DELAY - Duration::from_millis(1), 1), @"");
+        assert_snapshot!(update(Duration::from_millis(1), 10), @"\u{1b}[?25l\r 10% [█▊                ]\u{1b}[K");
         // No updates for the next 30 milliseconds
-        assert_snapshot!(update(Duration::from_millis(10), 0.11), @"");
-        assert_snapshot!(update(Duration::from_millis(10), 0.12), @"");
-        assert_snapshot!(update(Duration::from_millis(10), 0.13), @"");
+        assert_snapshot!(update(Duration::from_millis(10), 11), @"");
+        assert_snapshot!(update(Duration::from_millis(10), 12), @"");
+        assert_snapshot!(update(Duration::from_millis(10), 13), @"");
         // We get an update now that we go over the threshold
-        assert_snapshot!(update(Duration::from_millis(100), 0.30), @"\r 30% [█████▍            ]\u{1b}[K");
+        assert_snapshot!(update(Duration::from_millis(100), 30), @"\r 30% [█████▍            ]\u{1b}[K");
         // Even though we went over by quite a bit, the new threshold is relative to the
         // previous output, so we don't get an update here
-        assert_snapshot!(update(Duration::from_millis(30), 0.40), @"");
+        assert_snapshot!(update(Duration::from_millis(30), 40), @"");
     }
 }
