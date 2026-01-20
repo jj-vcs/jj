@@ -4340,4 +4340,38 @@ mod tests {
             env.render_ok(r#"surround(lt, gt, if(empty_content, "not empty", ""))"#),
             @"");
     }
+
+    #[test]
+    fn test_config_function() {
+        let env = TestTemplateEnv::new();
+
+        // values from the test default config
+        insta::assert_snapshot!(env.render_ok("config('user')"), @r#"{ email = "", name = "" }"#);
+
+        // nonexistent config path
+        insta::assert_snapshot!(env.parse_err("config('invalid')"), @"
+         --> 1:1
+          |
+        1 | config('invalid')
+          | ^----^
+          |
+          = Failed to get config value
+        Value not found for invalid
+        ");
+
+        // malformed config path
+        insta::assert_snapshot!(env.parse_err("config('user|name')"), @"
+         --> 1:8
+          |
+        1 | config('user|name')
+          |        ^---------^
+          |
+          = Failed to parse config name
+        TOML parse error at line 1, column 5
+          |
+        1 | user|name
+          |     ^
+        invalid unquoted key, expected letters, numbers, `-`, `_`
+        ");
+    }
 }
