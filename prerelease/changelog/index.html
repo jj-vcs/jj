@@ -6470,6 +6470,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   removed. Commits containing these values will now be pushed with <code>jj git push</code>
   without producing an error.</p>
 </li>
+<li>
+<p>If any side of a conflicted file is missing a terminating newline, then the
+  materialized file in the working copy will no longer be terminated by a
+  newline.</p>
+</li>
 </ul>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
 <ul>

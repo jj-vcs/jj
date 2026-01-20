@@ -2103,26 +2103,29 @@ New Heading
 &gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt; conflict 1 of 1 ends
 </code></pre></div>
 <h2 id="conflicts-with-missing-terminating-newline">Conflicts with missing terminating newline<a class="headerlink" href="#conflicts-with-missing-terminating-newline" title="Permanent link">&para;</a></h2>
-<p>When materializing conflicts, <code>jj</code> outputs them in a line-based format. This
-format is easiest to interpret for text files that consist of a series of lines,
-with each line terminated by a newline character (<code>\n</code>). This means that a text
-file should either be empty, or it should end with a newline character.</p>
-<p>While most text files follow this convention, some do not. When <code>jj</code> encounters
-a missing terminating newline character in a conflict, it will add a comment to
-the conflict markers to make the conflict easier to interpret. If you don't care
-about whether your file ends with a terminating newline character, you can
-generally ignore this comment and resolve the conflict normally.</p>
+<p>When materializing conflicts, <code>jj</code> outputs them in a line-based format, with
+each conflict marker line terminated by a newline character (<code>\n</code>). This format
+works well for text files that consist of a series of lines, with each line
+terminated by a newline character as well.</p>
+<p>While most text files follow this convention, some do not. Since conflict
+markers must appear on their own line, when <code>jj</code> encounters a missing
+terminating newline character in a conflict, it still needs to ensure that
+there is a newline before the next conflict marker. To do this, it adds an
+extra newline to each term of the conflict. Then, to compensate for this extra
+newline, it also omits the terminating newline from the "end of conflict"
+marker (<code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code>).</p>
 <p>For instance, if a file originally contained <code>grape</code> with no terminating newline
 character, and one person changed <code>grape</code> to <code>grapefruit</code>, while another person
 added the missing newline character to make <code>grape\n</code>, the resulting conflict
-would look like this:</p>
-<div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; conflict 1 of 1
-+++++++ tlwwkqxk d121763d &quot;commit A&quot; (no terminating newline)
-grapefruit
-%%%%%%% diff from: qwpqssno fe561d93 &quot;merge base&quot; (no terminating newline)
-\\\\\\\        to: poxkmrxy c735fe02 &quot;commit B&quot;
--grape
-+grape
+would look like this (␊ demonstrates the <code>\n</code> character explicitly, note that
+the last line doesn't have the terminating <code>\n</code> character):</p>
+<div class="highlight"><pre><span></span><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; conflict 1 of 1␊
++++++++ tlwwkqxk d121763d &quot;commit A&quot; (no terminating newline)␊
+grapefruit␊
+%%%%%%% diff from: qwpqssno fe561d93 &quot;merge base&quot; (no terminating newline)␊
+\\\\\\\        to: poxkmrxy c735fe02 &quot;commit B&quot;␊
+ grape␊
++␊
 &gt;&gt;&gt;&gt;&gt;&gt;&gt; conflict 1 of 1 ends
 </code></pre></div>
 <p>Therefore, a resolution of this conflict could be <code>grapefruit\n</code>, with the
