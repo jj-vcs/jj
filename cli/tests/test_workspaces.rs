@@ -122,6 +122,77 @@ fn test_workspaces_add_second_and_third_workspace() {
     assert!(!test_env.env_root().join("tertiary").exists());
 }
 
+#[test]
+fn test_workspaces_add_with_message() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    let output = main_dir.run_jj([
+        "workspace",
+        "add",
+        "--name",
+        "second",
+        "-m",
+        "add second workspace",
+        "../secondary",
+    ]);
+
+    // Check that the newly created workspace has a description for the commit
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created workspace in "../secondary"
+    Working copy  (@) now at: pmmvwywv 47a2d9a1 (empty) add second workspace
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+
+    main_dir
+        .run_jj([
+            "workspace",
+            "add",
+            "--name",
+            "third",
+            "-m",
+            "first message",
+            "-m",
+            "second message",
+            "../tertiary",
+        ])
+        .success();
+
+    // Check that multiple messages work as expected like with the "new" command
+    let output = main_dir.run_jj(["log", "-r", "third@", "-Tdescription", "--no-graph"]);
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    first message
+
+    second message
+    [EOF]
+    ");
+
+    // Test that adding workspace with no message has no trailers
+    test_env.add_config(
+        r#"[templates]
+        commit_trailers = '"Signed-off-by: " ++ committer.email()'
+        "#,
+    );
+
+    let output = main_dir.run_jj(["workspace", "add", "--name", "fourth", "../quaternary"]);
+
+    insta::assert_snapshot!(output.normalize_backslash(), @r#"
+    ------- stderr -------
+    Created workspace in "../quaternary"
+    Working copy  (@) now at: nppvrztz 0bfa7004 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm 7b22a8cb initial
+    Added 1 files, modified 0 files, removed 0 files
+    [EOF]
+    "#);
+}
+
 /// Test how sparse patterns are inherited
 #[test]
 fn test_workspaces_sparse_patterns() {

@@ -30,6 +30,8 @@ use crate::cli_util::RevisionArg;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error_with_message;
 use crate::command_error::user_error;
+use crate::description_util::add_trailers;
+use crate::description_util::join_message_paragraphs;
 use crate::ui::Ui;
 
 /// How to handle sparse patterns when creating a new workspace.
@@ -74,6 +76,10 @@ pub struct WorkspaceAddArgs {
     /// new r1 r2 r3 ...`.
     #[arg(long, short, value_name = "REVSETS")]
     revision: Vec<RevisionArg>,
+
+    /// The change description to use
+    #[arg(long = "message", short, value_name = "MESSAGE")]
+    message_paragraphs: Vec<String>,
 
     /// How to handle sparse patterns when creating a new workspace.
     #[arg(long, value_enum, default_value_t = SparseInheritance::Copy)]
@@ -198,7 +204,18 @@ pub fn cmd_workspace_add(
 
     let tree = merge_commit_trees(tx.repo(), &parents).block_on()?;
     let parent_ids = parents.iter().ids().cloned().collect_vec();
-    let new_wc_commit = tx.repo_mut().new_commit(parent_ids, tree).write()?;
+    let mut commit_builder = tx.repo_mut().new_commit(parent_ids, tree).detach();
+    let mut description = join_message_paragraphs(&args.message_paragraphs);
+    if !description.is_empty() {
+        // The first trailer would become the first line of the description.
+        // Also, a commit with no description is treated in a special way in jujutsu: it
+        // can be discarded as soon as it's no longer the working copy. Adding a
+        // trailer to an empty description would break that logic.
+        commit_builder.set_description(description);
+        description = add_trailers(ui, &tx, &commit_builder)?;
+    }
+    commit_builder.set_description(&description);
+    let new_wc_commit = commit_builder.write(tx.repo_mut())?;
 
     tx.edit(&new_wc_commit)?;
     tx.finish(
