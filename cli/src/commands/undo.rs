@@ -158,7 +158,7 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
             "Undoing a push operation often leads to conflicted bookmarks."
         )?;
         writeln!(ui.hint_default(), "To avoid this, run `jj redo` now.")?;
-    };
+    }
 
     let mut op_to_restore = match op_to_undo.parents().at_most_one() {
         Ok(Some(parent_of_op_to_undo)) => parent_of_op_to_undo?,
