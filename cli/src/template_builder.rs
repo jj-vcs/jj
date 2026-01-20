@@ -3882,6 +3882,11 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r"pad_centered(5, 'foo', fill_char=bad_string)"),
             @"<Error: Bad>foo<Error: Bad>");
+
+        // Invalid pad width is not a parse error
+        insta::assert_snapshot!(
+            env.render_ok("pad_start(-1, 'foo')"),
+            @"<Error: out of range integral type conversion attempted>");
     }
 
     #[test]
@@ -3919,6 +3924,11 @@ mod tests {
             env.render_ok("truncate_end(5, 'foo', 'bar')"), @"foo");
         insta::assert_snapshot!(
             env.render_ok("truncate_end(9, 'foobarbazquux', 'dotdot')"), @"foodotdot");
+
+        // invalid truncate width is not a parse error
+        insta::assert_snapshot!(
+            env.render_ok("truncate_end(-1, 'foo')"),
+            @"<Error: out of range integral type conversion attempted>");
     }
 
     #[test]
