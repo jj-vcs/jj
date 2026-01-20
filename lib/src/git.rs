@@ -504,6 +504,9 @@ struct RefsToImport {
     changed_remote_tags: Vec<(RemoteRefSymbolBuf, (RemoteRef, RefTarget))>,
     /// Git ref names that couldn't be imported, sorted by name.
     failed_ref_names: Vec<BString>,
+    /// The pseudo-ref FETCH_HEAD. We import this because it can be confusing if
+    /// commits fetched by Git are not visible via Jujutsu.
+    fetch_head: Option<RefTarget>,
 }
 
 /// Reflect changes made in the underlying Git repo in the Jujutsu repo.
@@ -552,6 +555,7 @@ fn import_refs_inner(
         changed_remote_bookmarks,
         changed_remote_tags,
         failed_ref_names,
+        fetch_head,
     } = refs_to_import;
 
     // Bulk-import all reachable Git commits to the backend to reduce overhead
@@ -563,6 +567,7 @@ fn import_refs_inner(
     let index = mut_repo.index();
     let missing_head_ids: Vec<&CommitId> = iter_changed_refs()
         .flat_map(|(_, (_, new_target))| new_target.added_ids())
+        .chain(fetch_head.iter().flat_map(|f| f.added_ids()))
         .filter_map(|id| match index.has_id(id) {
             Ok(false) => Some(Ok(id)),
             Ok(true) => None,
@@ -589,6 +594,12 @@ fn import_refs_inner(
     for (symbol, (_, new_target)) in iter_changed_refs() {
         for id in new_target.added_ids() {
             let commit = get_commit(id, symbol)?;
+            head_commits.push(commit);
+        }
+    }
+    if let Some(fetch_head) = fetch_head {
+        for id in fetch_head.added_ids() {
+            let commit = store.get_commit(id)?;
             head_commits.push(commit);
         }
     }
@@ -769,6 +780,18 @@ fn diff_refs_to_import(
             changed_remote_tags.push((symbol.to_owned(), (old.clone(), RefTarget::absent())));
         }
     }
+    let fetch_head = actual
+        .pseudo()
+        .map_err(GitImportError::from_git)?
+        .filter_map(|r| {
+            let r = r.ok()?;
+            if r.name().as_bstr() != "FETCH_HEAD" {
+                return None;
+            }
+            let r = r.into_fully_peeled_id().ok()?;
+            Some(RefTarget::normal(CommitId::from_bytes(r.as_bytes())))
+        })
+        .next();
 
     // Stabilize merge order and output.
     changed_git_refs.sort_unstable_by(|(name1, _), (name2, _)| name1.cmp(name2));
@@ -780,6 +803,7 @@ fn diff_refs_to_import(
         changed_remote_bookmarks,
         changed_remote_tags,
         failed_ref_names,
+        fetch_head,
     })
 }
 
