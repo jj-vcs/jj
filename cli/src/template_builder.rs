@@ -3908,8 +3908,17 @@ mod tests {
             env.render_ok(r"truncate_start(2, label('red', 'foobar')) ++ 'baz'"),
             @"[38;5;9mar[39mbaz");
         insta::assert_snapshot!(
+            env.render_ok("truncate_start(5, 'foo', 'bar')"), @"foo");
+        insta::assert_snapshot!(
+            env.render_ok("truncate_start(9, 'foobarbazquux', 'dotdot')"), @"dotdotuux");
+
+        insta::assert_snapshot!(
             env.render_ok(r"truncate_end(2, label('red', 'foobar')) ++ 'baz'"),
             @"[38;5;9mfo[39mbaz");
+        insta::assert_snapshot!(
+            env.render_ok("truncate_end(5, 'foo', 'bar')"), @"foo");
+        insta::assert_snapshot!(
+            env.render_ok("truncate_end(9, 'foobarbazquux', 'dotdot')"), @"foodotdot");
     }
 
     #[test]
