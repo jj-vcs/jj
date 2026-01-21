@@ -8002,7 +8002,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><code>list</code> — List bookmarks and their targets</li>
 <li><code>move</code> — Move existing bookmarks to target revision</li>
 <li><code>rename</code> — Rename <code>old</code> bookmark name to <code>new</code> bookmark name</li>
-<li><code>set</code> — Create or update a bookmark to point to a certain commit</li>
+<li><code>set</code> — Create a new bookmark, or update an existing one by name</li>
 <li><code>track</code> — Start tracking given remote bookmarks</li>
 <li><code>untrack</code> — Stop tracking given remote bookmarks</li>
 </ul>
@@ -8098,6 +8098,7 @@ does not match the <code>jj help</code> output exactly.</p>
 </ul>
 <h2 id="jj-bookmark-move"><code>jj bookmark move</code><a class="headerlink" href="#jj-bookmark-move" title="Permanent link">&para;</a></h2>
 <p>Move existing bookmarks to target revision</p>
+<p>Unlike <code>jj bookmark set</code>, this command cannot create new bookmarks.</p>
 <p>If bookmark names are given, the specified bookmarks will be updated to point to the target revision.</p>
 <p>If <code>--from</code> options are given, bookmarks currently pointing to the specified revisions will be updated. The bookmarks can also be filtered by names.</p>
 <p>Example: pull up the nearest bookmarks to the working-copy parent</p>
@@ -8133,7 +8134,8 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><code>&lt;NEW&gt;</code> — The new name of the bookmark</li>
 </ul>
 <h2 id="jj-bookmark-set"><code>jj bookmark set</code><a class="headerlink" href="#jj-bookmark-set" title="Permanent link">&para;</a></h2>
-<p>Create or update a bookmark to point to a certain commit</p>
+<p>Create a new bookmark, or update an existing one by name</p>
+<p>If you want to move bookmarks based on their current location rather than by name, use <code>jj bookmark move --from &lt;REVSETS&gt;</code>.</p>
 <p><strong>Usage:</strong> <code>jj bookmark set [OPTIONS] &lt;NAMES&gt;...</code></p>
 <p><strong>Command Alias:</strong> <code>s</code></p>
 <h6 id="arguments_9"><strong>Arguments:</strong><a class="headerlink" href="#arguments_9" title="Permanent link">&para;</a></h6>
