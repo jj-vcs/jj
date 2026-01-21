@@ -17,6 +17,7 @@ use std::io::Write as _;
 
 use indoc::writedoc;
 use itertools::Itertools as _;
+use jj_lib::local_working_copy::LockedLocalWorkingCopy;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
@@ -71,6 +72,14 @@ pub(crate) fn cmd_file_track(
 
     let mut tx = workspace_command.start_transaction().into_inner();
     let (mut locked_ws, _wc_commit) = workspace_command.start_working_copy_mutation()?;
+    // Remove paths from the persistent untracked list before snapshotting.
+    // This allows previously-untracked files to be tracked.
+    if let Some(locked_local_wc) = locked_ws
+        .locked_wc()
+        .downcast_mut::<LockedLocalWorkingCopy>()
+    {
+        locked_local_wc.remove_from_untracked(&matcher)?;
+    }
     let (_tree, track_stats) = locked_ws.locked_wc().snapshot(&options).block_on()?;
     let num_rebased = tx.repo_mut().rebase_descendants()?;
     if num_rebased > 0 {

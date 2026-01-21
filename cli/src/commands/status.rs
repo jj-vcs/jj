@@ -12,8 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::path::Path;
+use std::sync::Arc;
+
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
+use jj_lib::gitignore::GitIgnoreError;
+use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
@@ -110,25 +115,38 @@ pub(crate) fn cmd_status(
             }
 
             if wc_has_untracked {
-                writeln!(formatter, "Untracked paths:")?;
-                visit_collapsed_untracked_files(
-                    snapshot_stats.untracked_paths.keys(),
-                    tree.clone(),
-                    |path, is_dir| {
-                        let ui_path = workspace_command.path_converter().format_file_path(path);
-                        writeln!(
-                            formatter.labeled("diff").labeled("untracked"),
-                            "? {ui_path}{}",
-                            if is_dir {
-                                std::path::MAIN_SEPARATOR_STR
-                            } else {
-                                ""
-                            }
-                        )?;
-                        Ok(())
-                    },
-                )
-                .block_on()?;
+                // Build current gitignore from the disk (same way snapshot does)
+                let current_gitignore =
+                    build_current_gitignore(workspace_command.workspace_root())?;
+
+                // Filter out untracked files that are currently ignored
+                let non_ignored_untracked: Vec<_> = snapshot_stats
+                    .untracked_paths
+                    .keys()
+                    .filter(|path| !current_gitignore.matches(path.as_internal_file_string()))
+                    .collect();
+
+                if !non_ignored_untracked.is_empty() {
+                    writeln!(formatter, "Untracked paths:")?;
+                    visit_collapsed_untracked_files(
+                        non_ignored_untracked,
+                        tree.clone(),
+                        |path, is_dir| {
+                            let ui_path = workspace_command.path_converter().format_file_path(path);
+                            writeln!(
+                                formatter.labeled("diff").labeled("untracked"),
+                                "? {ui_path}{}",
+                                if is_dir {
+                                    std::path::MAIN_SEPARATOR_STR
+                                } else {
+                                    ""
+                                }
+                            )?;
+                            Ok(())
+                        },
+                    )
+                    .block_on()?;
+                }
             }
         }
 
@@ -228,6 +246,42 @@ pub(crate) fn cmd_status(
     }
 
     Ok(())
+}
+
+/// Builds a GitIgnoreFile from .gitignore files in the workspace.
+/// This recursively scans directories and chains ignore patterns.
+fn build_current_gitignore(workspace_root: &Path) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
+    fn recurse(
+        current_ignore: Arc<GitIgnoreFile>,
+        path: &Path,
+        prefix: &str,
+    ) -> Result<Arc<GitIgnoreFile>, GitIgnoreError> {
+        let gitignore_path = path.join(".gitignore");
+        let mut current_ignore = current_ignore.chain_with_file(prefix, gitignore_path)?;
+
+        // Recurse into subdirectories
+        if let Ok(entries) = std::fs::read_dir(path) {
+            for entry in entries.flatten() {
+                let subpath = entry.path();
+                if subpath.is_dir()
+                    && !subpath.ends_with(".git")
+                    && !subpath.ends_with(".jj")
+                    && let Ok(file_name) = subpath.file_name().unwrap().to_os_string().into_string()
+                {
+                    let next_prefix = if prefix.is_empty() {
+                        file_name.clone()
+                    } else {
+                        format!("{prefix}/{file_name}")
+                    };
+                    current_ignore = recurse(current_ignore, &subpath, &next_prefix)?;
+                }
+            }
+        }
+
+        Ok(current_ignore)
+    }
+
+    recurse(GitIgnoreFile::empty(), workspace_root, "")
 }
 
 async fn visit_collapsed_untracked_files(
