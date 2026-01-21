@@ -77,6 +77,7 @@ fn read_git_target(work_dir: &TestWorkDir) -> String {
 #[test]
 fn test_git_init_internal() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = false");
     let output = test_env.run_jj_in(".", ["git", "init", "repo"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -100,6 +101,7 @@ fn test_git_init_internal() {
 #[test]
 fn test_git_init_internal_preexisting_git_repo() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = false");
     test_env.work_dir("").create_dir_all("repo/.git");
     let output = test_env.run_jj_in(".", ["git", "init", "repo"]);
     insta::assert_snapshot!(output, @"
@@ -114,6 +116,7 @@ fn test_git_init_internal_preexisting_git_repo() {
 #[test]
 fn test_git_init_ignore_working_copy() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     let work_dir = test_env.work_dir("").create_dir("repo");
     work_dir.write_file("file1", "");
 
@@ -129,6 +132,7 @@ fn test_git_init_ignore_working_copy() {
 #[test]
 fn test_git_init_at_operation() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     let work_dir = test_env.work_dir("").create_dir("repo");
 
     let output = work_dir.run_jj(["git", "init", "--at-op=@-"]);
@@ -147,6 +151,10 @@ fn test_git_init_external(bare: bool) {
     let git_repo_path = test_env.env_root().join("git-repo");
     init_git_repo(&git_repo_path, bare);
 
+    // Explicitly enable git.colocate (which is also the default)
+    test_env.add_config("git.colocate = true");
+
+    // --git-repo takes precedence over git.colocate=true
     let output = test_env.run_jj_in(
         ".",
         [
@@ -165,6 +173,7 @@ fn test_git_init_external(bare: bool) {
     Parent commit (@-)      : nntyzxmz e80a42cc my-bookmark | My commit message
     Added 1 files, modified 0 files, removed 0 files
     Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     }
@@ -208,6 +217,9 @@ fn test_git_init_external_import_trunk(bare: bool) {
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = init_git_repo(&git_repo_path, bare);
 
+    // Explicitly enable git.colocate (which is also the default)
+    test_env.add_config("git.colocate = true");
+
     // Add remote bookmark "trunk" for remote "origin", and set it as "origin/HEAD"
     let oid = git_repo
         .find_reference("refs/heads/my-bookmark")
@@ -248,6 +260,7 @@ fn test_git_init_external_import_trunk(bare: bool) {
     Parent commit (@-)      : nntyzxmz e80a42cc my-bookmark trunk@origin | My commit message
     Added 1 files, modified 0 files, removed 0 files
     Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     }
@@ -268,6 +281,9 @@ fn test_git_init_external_import_trunk_upstream_takes_precedence() {
     let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = init_git_repo(&git_repo_path, false);
+
+    // Explicitly enable git.colocate (which is also the default)
+    test_env.add_config("git.colocate = true");
 
     let oid = git_repo
         .find_reference("refs/heads/my-bookmark")
@@ -327,6 +343,7 @@ fn test_git_init_external_import_trunk_upstream_takes_precedence() {
     Parent commit (@-)      : nntyzxmz e80a42cc develop@upstream my-bookmark trunk@origin | My commit message
     Added 1 files, modified 0 files, removed 0 files
     Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     }
@@ -345,6 +362,7 @@ fn test_git_init_external_import_trunk_upstream_takes_precedence() {
 #[test]
 fn test_git_init_external_non_existent_directory() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     let output = test_env.run_jj_in(".", ["git", "init", "repo", "--git-repo", "non-existent"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
     ------- stderr -------
@@ -359,6 +377,7 @@ fn test_git_init_external_non_existent_directory() {
 #[test]
 fn test_git_init_external_non_existent_git_directory() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     let work_dir = test_env.work_dir("repo");
     let output = test_env.run_jj_in(".", ["git", "init", "repo", "--git-repo", "repo"]);
     insta::assert_snapshot!(output, @r#"
@@ -378,6 +397,7 @@ fn test_git_init_external_non_existent_git_directory() {
 #[test]
 fn test_git_init_colocated_via_git_repo_path() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     let work_dir = test_env.work_dir("repo");
     init_git_repo(work_dir.root(), false);
     let output = work_dir.run_jj(["git", "init", "--git-repo", "."]);
@@ -385,6 +405,7 @@ fn test_git_init_colocated_via_git_repo_path() {
     ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -434,6 +455,7 @@ fn test_git_init_colocated_via_git_repo_path() {
 #[test]
 fn test_git_init_colocated_via_git_repo_path_gitlink() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     // <jj_work_dir>/.git -> <git_repo_path>
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = init_git_repo(&git_repo_path, false);
@@ -446,6 +468,7 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
     ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     insta::assert_snapshot!(read_git_target(&jj_work_dir), @"../../../.git");
@@ -483,6 +506,7 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
 #[test]
 fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     // <jj_work_dir>/.git -> <git_repo_path>
     let git_repo_path = test_env.env_root().join("git-repo");
     init_git_repo(&git_repo_path, false);
@@ -494,6 +518,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
     ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     insta::assert_snapshot!(read_git_target(&jj_work_dir), @"../../../.git");
@@ -531,6 +556,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
 #[test]
 fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_config() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     // <jj_work_dir>/.git -> <git_repo_path>
     let git_repo_path = test_env.env_root().join("git-repo.git");
     let jj_work_dir = test_env.work_dir("repo");
@@ -546,6 +572,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
     ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     insta::assert_snapshot!(read_git_target(&jj_work_dir), @"../../../.git");
@@ -583,6 +610,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
 #[test]
 fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     // <jj_work_dir>/.git -> <git_workdir_path>/.git -> <git_repo_path>
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_workdir_path = test_env.env_root().join("git-workdir");
@@ -601,6 +629,7 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
     ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     insta::assert_snapshot!(read_git_target(&jj_work_dir), @"../../../.git");
@@ -637,10 +666,13 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
 #[test]
 fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
 
     // Set up remote refs
-    test_env.run_jj_in(".", ["git", "init", "remote"]).success();
+    test_env
+        .run_jj_in(".", ["git", "init", "--no-colocate", "remote"])
+        .success();
     let remote_dir = test_env.work_dir("remote");
     remote_dir
         .run_jj(["bookmark", "create", "-r@", "local-remote", "remote-only"])
@@ -674,6 +706,7 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&local_dir), @r"
@@ -699,6 +732,7 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
     Hint: Run the following command to keep local bookmarks updated on future pulls:
       jj bookmark track local-remote --remote=origin
     Initialized repo in "."
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     insta::assert_snapshot!(get_bookmark_output(&local_dir), @r"
@@ -713,6 +747,7 @@ fn test_git_init_colocated_via_git_repo_path_imported_refs() {
 #[test]
 fn test_git_init_colocated_dirty_working_copy() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     let work_dir = test_env.work_dir("repo");
     let git_repo = init_git_repo(work_dir.root(), false);
 
@@ -751,6 +786,7 @@ fn test_git_init_colocated_dirty_working_copy() {
     ------- stderr -------
     Done importing changes from the underlying Git repo.
     Initialized repo in "."
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -822,10 +858,16 @@ fn test_git_init_external_but_git_dir_exists() {
     let work_dir = test_env.work_dir("repo");
     git::init(&git_repo_path);
     init_git_repo(work_dir.root(), false);
+
+    // Explicitly enable git.colocate (which is also the default)
+    test_env.add_config("git.colocate = true");
+
+    // --git-repo takes precedence over git.colocate=true
     let output = work_dir.run_jj(["git", "init", "--git-repo", git_repo_path.to_str().unwrap()]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Initialized repo in "."
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
 
@@ -854,6 +896,7 @@ fn test_git_init_external_but_git_dir_exists() {
 #[test]
 fn test_git_init_colocated_via_flag_git_dir_exists() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     let work_dir = test_env.work_dir("repo");
     init_git_repo(work_dir.root(), false);
 
@@ -959,8 +1002,56 @@ fn test_git_init_no_colocate() {
 }
 
 #[test]
+fn test_git_init_not_colocated_via_false_config() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config("git.colocate = false");
+
+    let output = test_env.run_jj_in(".", ["git", "init", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Initialized repo in "repo"
+    [EOF]
+    "#);
+
+    assert!(!work_dir.root().join(".git").exists());
+    assert!(work_dir.root().join(".jj/repo/store/git").is_dir());
+}
+
+#[test]
+fn test_git_init_colocated_via_flag_overrides_false_config() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    init_git_repo(work_dir.root(), false);
+    test_env.add_config("git.colocate = false");
+
+    // --colocate flag takes precedence over git.colocate=false
+    let output = test_env.run_jj_in(".", ["git", "init", "--colocate", "repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Initialized repo in "repo"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
+    [EOF]
+    "#);
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  f3fe58bc88cc
+    ○  e80a42cccd06 my-bookmark My commit message
+    ◆  000000000000
+    [EOF]
+    ");
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    Workspace is currently colocated with Git.
+    Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     let work_dir = test_env.work_dir("repo");
     let output = test_env.run_jj_in(".", ["git", "init", "--colocate", "repo"]);
     insta::assert_snapshot!(output, @r#"
@@ -1003,6 +1094,7 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
 #[test]
 fn test_git_init_conditional_config() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     let old_workspace_dir = test_env.work_dir("old");
     let new_workspace_dir = test_env.work_dir("new");
 
@@ -1052,6 +1144,7 @@ fn test_git_init_conditional_config() {
     insta::assert_snapshot!(output.normalize_backslash(), @r#"
     ------- stderr -------
     Initialized repo in "../new"
+    Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
     run_jj(&new_workspace_dir, &["new"]).success();
@@ -1074,6 +1167,7 @@ fn test_git_init_conditional_config() {
 #[test]
 fn test_git_init_bad_wc_path() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     std::fs::write(test_env.env_root().join("existing-file"), b"").unwrap();
     let output = test_env.run_jj_in(".", ["git", "init", "existing-file"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
@@ -1087,6 +1181,7 @@ fn test_git_init_bad_wc_path() {
 #[test]
 fn test_git_init_with_invalid_gitlink() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     let work_dir = test_env.work_dir("repo");
     work_dir.write_file(".git", "invalid");
 
@@ -1120,6 +1215,7 @@ fn test_git_init_with_invalid_gitlink() {
 #[test]
 fn test_git_init_colocate_in_git_worktree() {
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
     let main_repo_path = test_env.env_root().join("main-repo");
     init_git_repo(&main_repo_path, false);
 
@@ -1164,6 +1260,7 @@ fn test_git_init_colocate_gitlink_not_worktree() {
     // user directory (NOT in the .git/worktrees/<name> pattern) is NOT
     // incorrectly detected as a Git worktree
     let test_env = TestEnvironment::default();
+    test_env.add_config("git.colocate = true");
 
     // Create a bare git repo at a path containing "worktrees" as a directory name
     let git_repo_path = test_env.env_root().join("worktrees").join("my-repo.git");
