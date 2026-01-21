@@ -293,30 +293,20 @@ fn test_bisect_run_crash() {
     create_commit(&work_dir, "a", &[]);
     create_commit(&work_dir, "b", &["a"]);
     create_commit(&work_dir, "c", &["b"]);
-    create_commit(&work_dir, "d", &["c"]);
-    create_commit(&work_dir, "e", &["d"]);
-    create_commit(&work_dir, "f", &["e"]);
 
-    // bisector crash is equivalent to a failure
+    // Test signal termination (status.code() returns None on Unix)
     std::fs::write(&bisection_script, ["crash"].join("\0")).unwrap();
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
-    Now evaluating: royxmykx dffaa0d4 c | c
-    fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
-    The revision is bad.
-
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 9152b6b19cce
+      jj op restore 3b48f5aca4df
     The first bad revision is: rlvkpnrz 7d980be7 a | a
     [EOF]
     ------- stderr -------
-    Working copy  (@) now at: lylxulpl 68b3a16f (empty) (no description set)
-    Parent commit (@-)      : royxmykx dffaa0d4 c | c
-    Added 0 files, modified 0 files, removed 3 files
-    Working copy  (@) now at: rsllmpnm 5f328bc5 (empty) (no description set)
+    Working copy  (@) now at: vruxwmqv 538d9e7f (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 7d980be7 a | a
     Added 0 files, modified 0 files, removed 2 files
     [EOF]

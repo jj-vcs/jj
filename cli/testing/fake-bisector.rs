@@ -58,7 +58,6 @@ fn main() {
         let parts = command.split(' ').collect_vec();
         match parts.as_slice() {
             [""] => {}
-            ["crash"] => std::process::abort(),
             ["abort"] => exit(127),
             ["skip"] => exit(125),
             ["fail"] => exit(1),
@@ -69,6 +68,20 @@ fn main() {
             }
             ["write", path] => {
                 fs::write(path, payload).unwrap_or_else(|_| panic!("Failed to write file {path}"));
+            }
+            ["crash"] => {
+                // On Unix, use SIGTERM to avoid generating core dump files that
+                // pollute the working directory and cause test failures.
+                #[cfg(unix)]
+                {
+                    // SAFETY: Sending SIGTERM to current process is safe.
+                    unsafe {
+                        libc::raise(libc::SIGTERM);
+                    }
+                    unreachable!()
+                }
+                #[cfg(not(unix))]
+                std::process::abort();
             }
             ["jj", args @ ..] => {
                 let jj_executable_path = PathBuf::from(env::var_os("JJ_EXECUTABLE_PATH").unwrap());
