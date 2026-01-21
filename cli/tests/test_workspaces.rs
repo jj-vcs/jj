@@ -1197,7 +1197,12 @@ fn test_workspaces_forget() {
         .run_jj(["workspace", "add", "../secondary"])
         .success();
     let output = main_dir.run_jj(["workspace", "forget"]);
-    insta::assert_snapshot!(output, @"");
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: The current workspace 'default' no longer exists after this operation. The working copy was left untouched.
+    Hint: Restore to an operation that contains the workspace (e.g. `jj redo` or `jj op restore <operation_id>`).
+    [EOF]
+    ");
 
     // When listing workspaces, only the secondary workspace shows up
     let output = main_dir.run_jj(["workspace", "list"]);
