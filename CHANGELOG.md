@@ -61,6 +61,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj tag list` can now be filtered by revset.
 
+* Added support `revsets.git-push` which allows you to customize the default
+  set of commits to push. See issue
+  [#3649](https://github.com/jj-vcs/jj/issues/3650).
+
 ### Fixed bugs
 
 * `jj git init --colocate` now refuses to run inside a Git worktree, providing
@@ -100,6 +104,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * The empty tree is now always written when the working copy is empty.
   [#8480](https://github.com/jj-vcs/jj/issues/8480)
+
 
 ## [0.37.0] - 2026-01-07
 
@@ -565,6 +570,7 @@ Thanks to the people who made this release happen!
 * `jj file track` now accepts an `--include-ignored` flag to track files that
   are ignored by `.gitignore` or exceed the `snapshot.max-new-file-size` limit.
   [#2837](https://github.com/jj-vcs/jj/issues/2837)
+
 
 ### Fixed bugs
 
