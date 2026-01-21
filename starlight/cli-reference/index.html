@@ -541,7 +541,7 @@ does not match the <code dir="auto">jj help</code> output exactly.</p><p>Run <co
 <li><code dir="auto">list</code> — List bookmarks and their targets</li>
 <li><code dir="auto">move</code> — Move existing bookmarks to target revision</li>
 <li><code dir="auto">rename</code> — Rename <code dir="auto">old</code> bookmark name to <code dir="auto">new</code> bookmark name</li>
-<li><code dir="auto">set</code> — Create or update a bookmark to point to a certain commit</li>
+<li><code dir="auto">set</code> — Create a new bookmark, or update an existing one by name</li>
 <li><code dir="auto">track</code> — Start tracking given remote bookmarks</li>
 <li><code dir="auto">untrack</code> — Stop tracking given remote bookmarks</li>
 </ul>
@@ -639,6 +639,7 @@ does not match the <code dir="auto">jj help</code> output exactly.</p><p>Run <co
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="jj-bookmark-move"><code dir="auto">jj bookmark move</code></h2><a class="sl-anchor-link" href="#jj-bookmark-move"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “jj bookmark move”</span></a></div>
 <p>Move existing bookmarks to target revision</p>
+<p>Unlike <code dir="auto">jj bookmark set</code>, this command cannot create new bookmarks.</p>
 <p>If bookmark names are given, the specified bookmarks will be updated to point to the target revision.</p>
 <p>If <code dir="auto">--from</code> options are given, bookmarks currently pointing to the specified revisions will be updated. The bookmarks can also be filtered by names.</p>
 <p>Example: pull up the nearest bookmarks to the working-copy parent</p>
@@ -676,7 +677,8 @@ does not match the <code dir="auto">jj help</code> output exactly.</p><p>Run <co
 <li><code dir="auto">&#x3C;NEW></code> — The new name of the bookmark</li>
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="jj-bookmark-set"><code dir="auto">jj bookmark set</code></h2><a class="sl-anchor-link" href="#jj-bookmark-set"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “jj bookmark set”</span></a></div>
-<p>Create or update a bookmark to point to a certain commit</p>
+<p>Create a new bookmark, or update an existing one by name</p>
+<p>If you want to move bookmarks based on their current location rather than by name, use <code dir="auto">jj bookmark move --from &#x3C;REVSETS></code>.</p>
 <p><strong>Usage:</strong> <code dir="auto">jj bookmark set [OPTIONS] &#x3C;NAMES>...</code></p>
 <p><strong>Command Alias:</strong> <code dir="auto">s</code></p>
 <div class="sl-heading-wrapper level-h6"><h6 id="arguments-9"><strong>Arguments:</strong></h6><a class="sl-anchor-link" href="#arguments-9"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Arguments:”</span></a></div>
