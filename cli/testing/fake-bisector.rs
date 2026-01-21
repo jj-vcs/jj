@@ -58,7 +58,6 @@ fn main() {
         let parts = command.split(' ').collect_vec();
         match parts.as_slice() {
             [""] => {}
-            ["crash"] => std::process::abort(),
             ["abort"] => exit(127),
             ["skip"] => exit(125),
             ["fail"] => exit(1),
@@ -69,6 +68,17 @@ fn main() {
             }
             ["write", path] => {
                 fs::write(path, payload).unwrap_or_else(|_| panic!("Failed to write file {path}"));
+            }
+            #[cfg(unix)]
+            ["crash"] => {
+                // Use SIGTERM instead of std::process::abort() to avoid generating
+                // core dumps during test runs. abort() sends SIGABRT which typically
+                // triggers core dump creation on Unix systems.
+                // SAFETY: Sending SIGTERM to current process is safe.
+                unsafe {
+                    libc::raise(libc::SIGTERM);
+                }
+                unreachable!()
             }
             ["jj", args @ ..] => {
                 let jj_executable_path = PathBuf::from(env::var_os("JJ_EXECUTABLE_PATH").unwrap());
