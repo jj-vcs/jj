@@ -6488,6 +6488,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   <a href="https://github.com/jj-vcs/jj/issues/3081">#3081</a></p>
 </li>
 <li>
+<p><code>jj workspace root</code> now accepts an optional <code>--name</code> argument to show
+  the root path of the specified workspace (defaults to the current one). When
+  given a workspace that was created before this release, it errors out.</p>
+</li>
+<li>
 <p><code>jj git push --bookmark &lt;name&gt;</code> will now automatically track the bookmark if
   it isn't tracked with any remote already.</p>
 </li>

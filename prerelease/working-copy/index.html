@@ -1993,7 +1993,8 @@ directory together is called a "workspace". Each workspace can have a different
 commit checked out.</p>
 <p>Having multiple workspaces can be useful for running long-running tests in a one
 while you continue developing in another, for example. If needed,
-<code>jj workspace root</code> prints the root path of the current workspace.</p>
+<code>jj workspace root --name &lt;workspace&gt;</code> prints the root path of the specified
+workspace (defaults to the current one).</p>
 <p>When you're done using a workspace, use <code>jj workspace forget</code> to make the repo
 forget about it. The files can be deleted from disk separately (either before or
 after).</p>
