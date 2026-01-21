@@ -1042,7 +1042,7 @@ mod tests {
         assert!(parse("'foo").is_err());
         assert!(parse(r#" bar" "#).is_err());
         assert!(parse("[0 1]").is_err());
-        assert!(parse("{ x = }").is_err());
+        assert!(parse("{ x = y }").is_err());
         assert!(parse("\n { x").is_err());
         assert!(parse(" x ] ").is_err());
         assert!(parse("[table]\nkey = 'value'").is_err());
