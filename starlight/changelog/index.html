@@ -270,6 +270,11 @@ descriptions) by default, matching the <code dir="auto">jj abandon</code> output
 <a href="https://github.com/jj-vcs/jj/issues/3081">#3081</a></p>
 </li>
 <li>
+<p><code dir="auto">jj workspace root</code> now accepts an optional <code dir="auto">--name</code> argument to show
+the root path of the specified workspace (defaults to the current one). When
+given a workspace that was created before this release, it errors out.</p>
+</li>
+<li>
 <p><code dir="auto">jj git push --bookmark &#x3C;name></code> will now automatically track the bookmark if
 it isn't tracked with any remote already.</p>
 </li>
