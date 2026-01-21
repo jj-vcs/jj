@@ -34,7 +34,7 @@ clap_complete_nushell = "4.5.10"
 # will need regenerating.
 clap-markdown = "=0.1.5"
 clap_mangen = "0.2.25"
-chrono = { version = "0.4.42", default-features = false, features = [
+chrono = { version = "0.4.43", default-features = false, features = [
     "std",
     "clock",
     "serde",
@@ -61,10 +61,10 @@ hashbrown = { version = "0.16.1", default-features = false, features = ["inline-
 ignore = "0.4.25"
 indexmap = { version = "2.13.0", features = ["serde"] }
 indoc = "2.0.7"
-insta = { version = "1.46.0", features = ["filters"] }
+insta = { version = "1.46.1", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
-jsonschema = { version = "0.38.1", default-features = false }
+jsonschema = { version = "0.40.0", default-features = false }
 libc = { version = "0.2.180" }
 maplit = "1.0.2"
 nix = "0.30.1"
@@ -90,8 +90,8 @@ rpassword = "7.4.0"
 rustix = { version = "1.1.3", features = ["fs"] }
 same-file = "1.0.6"
 sapling-renderdag = "0.1.0"
-sapling-streampager = "0.11.2"
-scm-record = "0.9.0"
+sapling-streampager = "0.12.0"
+scm-record = "0.10.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0.149"
 shlex = "1.3.0"
@@ -108,7 +108,7 @@ rustversion = "1.0.22"
 tempfile = "3.24.0"
 test-case = "3.3.1"
 textwrap = "0.16.2"
-thiserror = "2.0.17"
+thiserror = "2.0.18"
 timeago = { version = "0.5.0", default-features = false }
 tokio = { version = "1.49.0", features = ["io-util"] }
 toml = "0.9.11"
@@ -121,7 +121,7 @@ tracing-subscriber = { version = "0.3.22", default-features = false, features = 
     "env-filter",
     "fmt",
 ] }
-unicode-width = "0.2.0"
+unicode-width = "0.2.2"
 version_check = "0.9.5"
 watchman_client = { version = "0.9.0" }
 whoami = "2.0.2"
