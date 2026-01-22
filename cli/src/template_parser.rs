@@ -957,6 +957,7 @@ mod tests {
             parse_normalized(&format!("{ascii_whitespaces}f()")),
             parse_normalized("f()"),
         );
+        assert_eq!(parse_normalized(&ascii_whitespaces), parse_normalized(""));
     }
 
     #[test]
