@@ -1627,6 +1627,7 @@ impl GitRepoData {
                     settings,
                     store_path,
                     git_repo.path(),
+                    None,
                 )?))
             },
             Signer::from_settings(&settings).unwrap(),
@@ -3203,6 +3204,7 @@ fn test_init() {
                 settings,
                 store_path,
                 git_repo.path(),
+                None,
             )?))
         },
         Signer::from_settings(&settings).unwrap(),
@@ -4007,6 +4009,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
                 settings,
                 store_path,
                 clone_repo.path(),
+                None,
             )?))
         },
         Signer::from_settings(settings).unwrap(),

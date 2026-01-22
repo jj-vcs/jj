@@ -208,7 +208,7 @@ fn do_init(
                 Workspace::init_external_git(&settings, workspace_root, git_repo_path)?;
             // Import refs first so all the reachable commits are indexed in
             // chronological order.
-            let colocated = is_colocated_git_workspace(&workspace, &repo);
+            let colocated = is_colocated_git_workspace(Some(ui), &workspace, &repo);
             let repo = init_git_refs(ui, repo, command.string_args(), colocated)?;
             let mut workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
