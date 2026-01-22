@@ -43,6 +43,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   highlighted as "added" in editors when checking out a conflicted commit in a
   colocated workspace.
 
+* New template function `Timestamp::since(ts)` that returns the `TimestampRange`
+  between two timestamps. It can be used in conjunction with `.duration()` in
+  order to obtain a human-friendly duration between two `Timestamp`s.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04

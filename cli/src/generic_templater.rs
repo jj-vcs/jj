@@ -201,6 +201,13 @@ where
         }
     }
 
+    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, jj_lib::backend::Timestamp>> {
+        match self {
+            Self::Core(property) => property.try_into_timestamp(),
+            Self::Self_(_) => None,
+        }
+    }
+
     fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
         match self {
             Self::Core(property) => property.try_into_stringify(),

@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use std::io;
 
 use itertools::Itertools as _;
+use jj_lib::backend::Timestamp;
 use jj_lib::extensions_map::ExtensionsMap;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
@@ -209,6 +210,10 @@ impl<'a> OperationTemplatePropertyKind<'a> {
         None
     }
 
+    pub fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
+        None
+    }
+
     pub fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
         let template = self.try_into_template()?;
         Some(PlainTextFormattedProperty::new(template).into_dyn())
@@ -311,6 +316,15 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind 
         match self {
             Self::Core(property) => property.try_into_integer(),
             Self::Operation(property) => property.try_into_integer(),
+        }
+    }
+
+    fn try_into_timestamp(
+        self,
+    ) -> Option<BoxedTemplateProperty<'static, jj_lib::backend::Timestamp>> {
+        match self {
+            Self::Core(property) => property.try_into_timestamp(),
+            Self::Operation(property) => property.try_into_timestamp(),
         }
     }
 

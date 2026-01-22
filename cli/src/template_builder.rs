@@ -182,6 +182,7 @@ where
 
     fn try_into_boolean(self) -> Option<BoxedTemplateProperty<'a, bool>>;
     fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>>;
+    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>>;
 
     /// Transforms into a string property by formatting the value if needed.
     fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>>;
@@ -304,6 +305,13 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         match self {
             Self::Integer(property) => Some(property),
             Self::IntegerOpt(property) => Some(property.try_unwrap("Integer").into_dyn()),
+            _ => None,
+        }
+    }
+
+    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
+        match self {
+            Self::Timestamp(property) => Some(property),
             _ => None,
         }
     }
@@ -714,6 +722,10 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
 
     pub fn try_into_integer(self) -> Option<BoxedTemplateProperty<'a, i64>> {
         self.property.try_into_integer()
+    }
+
+    pub fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
+        self.property.try_into_timestamp()
     }
 
     pub fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>> {
@@ -1423,6 +1435,22 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         },
     );
     map.insert("before", map["after"]);
+    map.insert(
+        "since",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [date_node] = function.expect_exact_arguments()?;
+            let date_property =
+                expect_timestamp_expression(language, diagnostics, build_ctx, date_node)?;
+            let out_property =
+                (self_property, date_property).and_then(move |(self_timestamp, arg_timestamp)| {
+                    Ok(TimestampRange {
+                        start: arg_timestamp,
+                        end: self_timestamp,
+                    })
+                });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
     map
 }
 
@@ -2325,6 +2353,22 @@ pub fn expect_stringify_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
         node,
         "Stringify",
         |expression| expression.try_into_stringify(),
+    )
+}
+
+pub fn expect_timestamp_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<L::Property>,
+    node: &ExpressionNode,
+) -> TemplateParseResult<BoxedTemplateProperty<'a, Timestamp>> {
+    expect_expression_of_type(
+        language,
+        diagnostics,
+        build_ctx,
+        node,
+        "Timestamp",
+        |expression| expression.try_into_timestamp(),
     )
 }
 
@@ -3872,6 +3916,17 @@ mod tests {
           |           ^^
           |
           = Expected string literal
+        ");
+
+        insta::assert_snapshot!(env.render_ok("t0.since(t0_plus1)"), @"1970-01-01 01:00:00.000 +01:00 - 1970-01-01 00:00:00.000 +00:00");
+        insta::assert_snapshot!(env.render_ok("t0_plus1.since(t0)"), @"1970-01-01 00:00:00.000 +00:00 - 1970-01-01 01:00:00.000 +01:00");
+        insta::assert_snapshot!(env.parse_err("t0.since(false)"), @"
+         --> 1:10
+          |
+        1 | t0.since(false)
+          |          ^---^
+          |
+          = Expected expression of type `Timestamp`, but actual type is `Boolean`
         ");
     }
 

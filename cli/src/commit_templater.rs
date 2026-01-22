@@ -32,6 +32,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
+use jj_lib::backend::Timestamp;
 use jj_lib::backend::TreeValue;
 use jj_lib::commit::Commit;
 use jj_lib::conflict_labels::ConflictLabels;
@@ -577,6 +578,14 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         match self {
             Self::Core(property) => property.try_into_integer(),
             Self::Operation(property) => property.try_into_integer(),
+            _ => None,
+        }
+    }
+
+    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'repo, Timestamp>> {
+        match self {
+            Self::Core(property) => property.try_into_timestamp(),
+            Self::Operation(property) => property.try_into_timestamp(),
             _ => None,
         }
     }

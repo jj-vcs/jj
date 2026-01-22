@@ -599,6 +599,9 @@ The following methods are defined.
 * `.before(date: StringLiteral) -> Boolean`: True if the timestamp is before, but
   not including, the given date. Supported date formats are the same as the
   revset [Date pattern type].
+* `.since(start: Timestamp) -> TimestampRange`: The TimestampRange between `start` and
+  `self`. It may be used in conjunction with `TimestampRange::duration` to obtain
+  a human-friendly duration between two `Timestamp`s.
 
 [Date pattern type]: revsets.md#date-patterns
 
