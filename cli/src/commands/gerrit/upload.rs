@@ -39,8 +39,8 @@ use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
+use crate::git_util::GitSubprocessUi;
 use crate::git_util::print_push_stats;
-use crate::git_util::with_remote_git_callbacks;
 use crate::ui::Ui;
 
 /// Upload changes to Gerrit for code review, or update existing changes.
@@ -352,19 +352,17 @@ pub fn cmd_gerrit_upload(
         // how do we get better errors from the remote? 'git push' tells us
         // about rejected refs AND ALSO '(nothing changed)' when there are no
         // changes to push, but we don't get that here.
-        let push_stats = with_remote_git_callbacks(ui, |cb| {
-            git::push_updates(
-                tx.repo_mut(),
-                subprocess_options.clone(),
-                remote.as_ref(),
-                &[GitRefUpdate {
-                    qualified_name: remote_ref.clone().into(),
-                    expected_current_target: None,
-                    new_target: Some(new_commit.id().clone()),
-                }],
-                cb,
-            )
-        })
+        let push_stats = git::push_updates(
+            tx.repo_mut(),
+            subprocess_options.clone(),
+            remote.as_ref(),
+            &[GitRefUpdate {
+                qualified_name: remote_ref.clone().into(),
+                expected_current_target: None,
+                new_target: Some(new_commit.id().clone()),
+            }],
+            &mut GitSubprocessUi::new(ui),
+        )
         // Despite the fact that a manual git push will error out with 'no new
         // changes' if you're up to date, this git backend appears to silently
         // succeed - no idea why.

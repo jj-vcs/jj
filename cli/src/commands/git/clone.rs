@@ -43,10 +43,10 @@ use crate::command_error::user_error_with_message;
 use crate::commands::git::FetchTagsMode;
 use crate::commands::git::maybe_add_gitignore;
 use crate::config::ConfigEnv;
+use crate::git_util::GitSubprocessUi;
 use crate::git_util::absolute_git_url;
 use crate::git_util::load_git_import_options;
 use crate::git_util::print_git_import_stats;
-use crate::git_util::with_remote_git_callbacks;
 use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
@@ -342,28 +342,26 @@ fn fetch_new_remote(
 
         let fetch_refspecs = expand_fetch_refspecs(remote_name, bookmark_expr.clone())?;
 
-        with_remote_git_callbacks(ui, |cb| {
-            git_fetch.fetch(
-                remote_name,
-                fetch_refspecs,
-                cb,
-                depth,
-                match fetch_tags {
-                    // If not explicitly specified on the CLI, override the remote
-                    // configuration and fetch all tags by default since this is
-                    // the Git default behavior.
-                    None => Some(FetchTagsOverride::AllTags),
+        git_fetch.fetch(
+            remote_name,
+            fetch_refspecs,
+            &mut GitSubprocessUi::new(ui),
+            depth,
+            match fetch_tags {
+                // If not explicitly specified on the CLI, override the remote
+                // configuration and fetch all tags by default since this is
+                // the Git default behavior.
+                None => Some(FetchTagsOverride::AllTags),
 
-                    // Technically by this point the remote should already be
-                    // configured based on the CLI parameters so we shouldn't *need*
-                    // to apply an override here but all the cases are expanded here
-                    // for clarity.
-                    Some(FetchTagsMode::All) => Some(FetchTagsOverride::AllTags),
-                    Some(FetchTagsMode::None) => Some(FetchTagsOverride::NoTags),
-                    Some(FetchTagsMode::Included) => None,
-                },
-            )
-        })?;
+                // Technically by this point the remote should already be
+                // configured based on the CLI parameters so we shouldn't *need*
+                // to apply an override here but all the cases are expanded here
+                // for clarity.
+                Some(FetchTagsMode::All) => Some(FetchTagsOverride::AllTags),
+                Some(FetchTagsMode::None) => Some(FetchTagsOverride::NoTags),
+                Some(FetchTagsMode::Included) => None,
+            },
+        )?;
 
         let import_stats = git_fetch.import_refs()?;
 

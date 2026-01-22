@@ -63,8 +63,8 @@ use crate::command_error::user_error_with_message;
 use crate::commands::git::get_single_remote;
 use crate::complete;
 use crate::formatter::Formatter;
+use crate::git_util::GitSubprocessUi;
 use crate::git_util::print_push_stats;
-use crate::git_util::with_remote_git_callbacks;
 use crate::revset_util::parse_bookmark_name;
 use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
@@ -462,15 +462,13 @@ pub fn cmd_git_push(
         branch_updates: bookmark_updates,
     };
     let git_settings = GitSettings::from_settings(tx.settings())?;
-    let push_stats = with_remote_git_callbacks(ui, |cb| {
-        git::push_branches(
-            tx.repo_mut(),
-            git_settings.to_subprocess_options(),
-            remote,
-            &targets,
-            cb,
-        )
-    })?;
+    let push_stats = git::push_branches(
+        tx.repo_mut(),
+        git_settings.to_subprocess_options(),
+        remote,
+        &targets,
+        &mut GitSubprocessUi::new(ui),
+    )?;
     print_push_stats(ui, &push_stats)?;
     // TODO: On partial success, locally-created --change/--named bookmarks will
     // be committed. It's probably better to remove failed local bookmarks.

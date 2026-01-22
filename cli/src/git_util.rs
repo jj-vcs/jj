@@ -147,6 +147,12 @@ impl<'a> GitSubprocessUi<'a> {
     }
 }
 
+impl Drop for GitSubprocessUi<'_> {
+    fn drop(&mut self) {
+        self.flush().ok();
+    }
+}
+
 impl GitSubprocessCallback for GitSubprocessUi<'_> {
     fn needs_progress(&self) -> bool {
         self.progress_output.is_some()
@@ -248,16 +254,6 @@ impl GitSidebandProgressMessageWriter {
 
         Ok(())
     }
-}
-
-pub fn with_remote_git_callbacks<T>(
-    ui: &Ui,
-    f: impl FnOnce(&mut dyn GitSubprocessCallback) -> T,
-) -> T {
-    let mut callback = GitSubprocessUi::new(ui);
-    let result = f(&mut callback);
-    callback.flush().ok();
-    result
 }
 
 pub fn load_git_import_options(
