@@ -250,6 +250,10 @@ revsets (expressions) as arguments.
   `domain`, traversing all parent and child edges. `srcs` outside `domain` are
   not considered even if a parent or child edge would reach into `domain`.
 
+  This is useful for finding all related commits in a branch or feature without
+  traversing outside a defined scope. For example, `reachable(@, mutable())`
+  returns the stack of commits you are working on.
+
 * `connected(x)`: Same as `x::x`. Useful when `x` includes several commits.
 
 * `all()`: All visible commits and ancestors of commits explicitly mentioned.
@@ -446,11 +450,14 @@ revsets (expressions) as arguments.
 
     **function** `reachable()`
 
-    * `reachable(E, A..)` ⇒ `{E,D,C,B}`
-    * `reachable(D, A..)` ⇒ `{E,D,C,B}`
-    * `reachable(C, A..)` ⇒ `{E,D,C,B}`
-    * `reachable(B, A..)` ⇒ `{E,D,C,B}`
-    * `reachable(A, A..)` ⇒ `{}` (empty set)
+    `reachable(srcs, domain)` finds all commits reachable from `srcs` by
+    following parent or child edges, but limited to commits within `domain`.
+
+    * `reachable(E, A..)` ⇒ `{E,D,C,B}` — All commits after A are reachable
+    * `reachable(E, B..)` ⇒ `{E}` — E is isolated: its only edge (to B) leaves the domain
+    * `reachable(C, B..)` ⇒ `{D,C}` — C and D are connected; the C→A edge leaves the domain
+    * `reachable(D, B..)` ⇒ `{D,C}` — Same result: D reaches C, but D→B leaves the domain
+    * `reachable(A, A..)` ⇒ `{}` (empty set) — A is not in domain `A..`, so it's ignored
 
     **function** `connected()`
 
