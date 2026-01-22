@@ -217,6 +217,52 @@ fn test_log_author_timestamp_after_before() {
 }
 
 #[test]
+fn test_log_author_timestamp_since() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["describe", "-m", "first"]).success();
+
+    // Test since() with a stringify expression (format returns a string)
+    let template = r#"author.timestamp().since(committer.timestamp()).duration()"#;
+    let output = work_dir.run_jj(["log", "-r@", "--no-graph", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    less than a microsecond[EOF]
+    ");
+
+    // Test since() returns a TimestampRange (end timestamp is in local timezone)
+    let template = r#"author.timestamp().since(committer.timestamp()).start()"#;
+    let output = work_dir.run_jj(["log", "-r@", "--no-graph", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    2001-02-03 04:05:08.000 +07:00[EOF]
+    ");
+
+    // Test since() error with invalid date at runtime
+    let template = r#"author.timestamp().since("invalid date")"#;
+    let output = work_dir.run_jj(["log", "-r@", "--no-graph", "-T", template]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Failed to parse template: Expected expression of type `Timestamp`, but actual type is `String`
+    Caused by:  --> 1:26
+      |
+    1 | author.timestamp().since("invalid date")
+      |                          ^------------^
+      |
+      = Expected expression of type `Timestamp`, but actual type is `String`
+    [EOF]
+    [exit status: 1]
+    "#);
+
+    // Test duration_short() returns compact format
+    let template = r#"author.timestamp().since(committer.timestamp()).duration_short()"#;
+    let output = work_dir.run_jj(["log", "-r@", "--no-graph", "-T", template]);
+    insta::assert_snapshot!(output, @r"
+    0s[EOF]
+    ");
+}
+
+#[test]
 fn test_mine_is_true_when_author_is_user() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

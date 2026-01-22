@@ -26,6 +26,7 @@ use jj_lib::content_hash::blake2b_hash;
 use jj_lib::hex_util;
 use jj_lib::op_store::TimestampRange;
 use jj_lib::settings::UserSettings;
+use jj_lib::time_util::DateExact;
 use jj_lib::time_util::DatePattern;
 use serde::Deserialize;
 use serde::de::IntoDeserializer as _;
@@ -184,6 +185,7 @@ where
     fn try_into_stringify(self) -> Option<BoxedTemplateProperty<'a, String>>;
     fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>>;
     fn try_into_template(self) -> Option<Box<dyn Template + 'a>>;
+    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>>;
 
     /// Transforms into a property that will evaluate to `self == other`.
     fn try_into_eq(self, other: Self) -> Option<BoxedTemplateProperty<'a, bool>>;
@@ -308,6 +310,13 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
                 let template = self.try_into_template()?;
                 Some(PlainTextFormattedProperty::new(template).into_dyn())
             }
+        }
+    }
+
+    fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
+        match self {
+            Self::Timestamp(property) => Some(property),
+            _ => None,
         }
     }
 
@@ -700,6 +709,10 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
 
     pub fn try_into_serialize(self) -> Option<BoxedSerializeProperty<'a>> {
         self.property.try_into_serialize()
+    }
+
+    pub fn try_into_timestamp(self) -> Option<BoxedTemplateProperty<'a, Timestamp>> {
+        self.property.try_into_timestamp()
     }
 
     pub fn try_into_template(self) -> Option<Box<dyn Template + 'a>> {
@@ -1401,6 +1414,20 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         },
     );
     map.insert("before", map["after"]);
+    map.insert(
+        "since",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [date_node] = function.expect_exact_arguments()?;
+            let date_property =
+                expect_timestamp_expression(language, diagnostics, build_ctx, date_node)?;
+            let out_property =
+                (self_property, date_property).and_then(move |(self_timestamp, arg_timestamp)| {
+                    let self_date_exact = DateExact::new(self_timestamp);
+                    Ok(self_date_exact.since(&arg_timestamp))
+                });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
     map
 }
 
@@ -1439,6 +1466,19 @@ fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
                 } else {
                     Ok(duration)
                 }
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "duration_short",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|time_range| {
+                Ok(time_util::format_duration_short(
+                    &time_range.start,
+                    &time_range.end,
+                )?)
             });
             Ok(out_property.into_dyn_wrapped())
         },
@@ -2212,6 +2252,24 @@ pub fn expect_stringify_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
         node,
         "Stringify",
         |expression| expression.try_into_stringify(),
+    )
+}
+
+pub fn expect_timestamp_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<L::Property>,
+    node: &ExpressionNode,
+) -> TemplateParseResult<BoxedTemplateProperty<'a, Timestamp>> {
+    // Since any formattable type can be converted to a string property, the
+    // expected type is not a String.
+    expect_expression_of_type(
+        language,
+        diagnostics,
+        build_ctx,
+        node,
+        "Timestamp",
+        |expression| expression.try_into_timestamp(),
     )
 }
 
