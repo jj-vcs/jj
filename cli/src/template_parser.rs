@@ -983,8 +983,8 @@ mod tests {
             parse_normalized("((x.f()) || (y == y)) || z"),
         );
         assert_eq!(
-            parse_normalized("x || y == y && z.h() == z"),
-            parse_normalized("x || ((y == y) && ((z.h()) == z))"),
+            parse_normalized("x || y == y && z.h() > z"),
+            parse_normalized("x || ((y == y) && ((z.h()) > z))"),
         );
         assert_eq!(
             parse_normalized("x == y || y != z && !z"),
