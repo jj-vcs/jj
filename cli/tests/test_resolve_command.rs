@@ -20,6 +20,7 @@ use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 use crate::common::create_commit_with_files;
+use crate::common::force_interactive;
 
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
@@ -1173,6 +1174,7 @@ fn test_resolve_conflicts_with_executable() {
     let output = work_dir.run_jj(["resolve", "--tool=:ours"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: The ':ours' merge tool is deprecated. Use ':select' instead.
     Working copy  (@) now at: znkkpsqq d902c14b conflict | conflict
     Parent commit (@-)      : mzvwutvl 86f7f0e3 a | a
     Parent commit (@-)      : yqosqzyt 36361412 b | b
@@ -1216,6 +1218,7 @@ fn test_resolve_conflicts_with_executable() {
     let output = work_dir.run_jj(["resolve", "--tool=:theirs"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: The ':theirs' merge tool is deprecated. Use ':select' instead.
     Working copy  (@) now at: znkkpsqq a340ca5f conflict | conflict
     Parent commit (@-)      : mzvwutvl 86f7f0e3 a | a
     Parent commit (@-)      : yqosqzyt 36361412 b | b
@@ -1450,6 +1453,7 @@ fn test_resolve_change_delete_executable() {
     let output = work_dir.run_jj(["resolve", "file4", "--tool=:ours"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: The ':ours' merge tool is deprecated. Use ':select' instead.
     Working copy  (@) now at: kmkuslsw a70e40cc conflict | (conflict) conflict
     Parent commit (@-)      : mzvwutvl e2d3924b a | a
     Parent commit (@-)      : vruxwmqv 888b6cc3 b | b
@@ -1463,6 +1467,7 @@ fn test_resolve_change_delete_executable() {
     let output = work_dir.run_jj(["resolve", "file5", "--tool=:theirs"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: The ':theirs' merge tool is deprecated. Use ':select' instead.
     Working copy  (@) now at: kmkuslsw 7337267a conflict | conflict
     Parent commit (@-)      : mzvwutvl e2d3924b a | a
     Parent commit (@-)      : vruxwmqv 888b6cc3 b | b
@@ -2274,8 +2279,9 @@ fn test_resolve_with_contents_of_side() {
     // Check that ":ours" merge tool works correctly
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     let output = work_dir.run_jj(["resolve", "-r", "conflict", "--tool", ":ours"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: The ':ours' merge tool is deprecated. Use ':select' instead.
     Rebased 1 descendant commits
     Working copy  (@) now at: kmkuslsw 6cca6d79 tip | (empty) tip
     Parent commit (@-)      : znkkpsqq b84d5da4 conflict | conflict
@@ -2295,8 +2301,9 @@ fn test_resolve_with_contents_of_side() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     let output = work_dir.run_jj(["resolve", "-r", "conflict", "--tool", ":theirs"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Warning: The ':theirs' merge tool is deprecated. Use ':select' instead.
     Rebased 1 descendant commits
     Working copy  (@) now at: kmkuslsw 4a54e224 tip | (empty) tip
     Parent commit (@-)      : znkkpsqq ffd341c7 conflict | conflict
@@ -2305,6 +2312,476 @@ fn test_resolve_with_contents_of_side() {
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @"b");
     insta::assert_snapshot!(work_dir.read_file("other"), @"right");
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    ------- stderr -------
+    Error: No conflicts found at this revision
+    [EOF]
+    [exit status: 2]
+    ");
+}
+
+#[test]
+fn test_select_tool_file_conflicts() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(
+        &work_dir,
+        "base",
+        &[],
+        &[("file1", "line 1\nline 2\nline 3\n"), ("file2", "base\n")],
+    );
+    create_commit_with_files(
+        &work_dir,
+        "a",
+        &["base"],
+        &[
+            ("file1", "line 1 - a\nline 2\nline 3 - a\n"),
+            ("file2", "base\n"),
+        ],
+    );
+    create_commit_with_files(
+        &work_dir,
+        "b",
+        &["base"],
+        &[("file1", "line 1\nline 2\nline 3\n"), ("file2", "b\n")],
+    );
+    create_commit_with_files(
+        &work_dir,
+        "c",
+        &["base"],
+        &[("file1", "line 1\nline 2\nline 3 - c\n"), ("file2", "c\n")],
+    );
+    create_commit_with_files(&work_dir, "conflict", &["a", "b", "c"], &[]);
+    create_commit_with_files(&work_dir, "tip", &["conflict"], &[]);
+
+    // Test the setup
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  tip
+    ×      conflict
+    ├─┬─╮
+    │ │ ○  c
+    │ ○ │  b
+    │ ├─╯
+    ○ │  a
+    ├─╯
+    ○  base
+    ◆
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    file1    2-sided conflict
+    file2    2-sided conflict
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file1"), @r#"
+    line 1 - a
+    line 2
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from: rlvkpnrz 79ff29f9 "base"
+    \\\\\\\        to: zsuskuln 0ea757f5 "a"
+    -line 3
+    +line 3 - a
+    +++++++ vruxwmqv 78f0da53 "c"
+    line 3 - c
+    >>>>>>> conflict 1 of 1 ends
+    "#);
+    insta::assert_snapshot!(work_dir.read_file("file2"), @r#"
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from: rlvkpnrz 79ff29f9 "base"
+    \\\\\\\        to: royxmykx 91f1e4b4 "b"
+    -base
+    +b
+    +++++++ vruxwmqv 78f0da53 "c"
+    c
+    >>>>>>> conflict 1 of 1 ends
+    "#);
+    let setup_opid = work_dir.current_operation_id();
+
+    // Select side 3 (commit "c"), which resolves both conflicts.
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["resolve", "--tool", ":select"])
+            .write_stdin("3\n")
+    });
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Select a side (1-3) or a base (b1-b2) to keep:
+
+    Sides:
+       1: zsuskuln 0ea757f5 "a"
+       2: royxmykx 91f1e4b4 "b"
+       3: vruxwmqv 78f0da53 "c"
+
+    Bases:
+      b1: rlvkpnrz 79ff29f9 "base" [not present in files]
+      b2: rlvkpnrz 79ff29f9 "base"
+
+    Hint: Some terms of this conflict are not present in any of the conflicted
+    files. This happens because `jj` simplifies conflicts before materializing them
+    in files, so any unnecessary terms are omitted.
+
+    Enter a side or base number (or "q" to quit): Working copy  (@) now at: kmkuslsw a12ed721 tip | tip
+    Parent commit (@-)      : znkkpsqq 3d19e00f conflict | (conflict) (empty) conflict
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    "#);
+    // The changes in line 1 are from "a" since these are from a resolved hunk.
+    insta::assert_snapshot!(work_dir.read_file("file1"), @r"
+    line 1 - a
+    line 2
+    line 3 - c
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file2"), @"c");
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    ------- stderr -------
+    Error: No conflicts found at this revision
+    [EOF]
+    [exit status: 2]
+    ");
+
+    // We can select a base instead of a side.
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["resolve", "--tool", ":select"])
+            .write_stdin("b2\n")
+    });
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Select a side (1-3) or a base (b1-b2) to keep:
+
+    Sides:
+       1: zsuskuln 0ea757f5 "a"
+       2: royxmykx 91f1e4b4 "b"
+       3: vruxwmqv 78f0da53 "c"
+
+    Bases:
+      b1: rlvkpnrz 79ff29f9 "base" [not present in files]
+      b2: rlvkpnrz 79ff29f9 "base"
+
+    Hint: Some terms of this conflict are not present in any of the conflicted
+    files. This happens because `jj` simplifies conflicts before materializing them
+    in files, so any unnecessary terms are omitted.
+
+    Enter a side or base number (or "q" to quit): Working copy  (@) now at: kmkuslsw 325d0008 tip | tip
+    Parent commit (@-)      : znkkpsqq 3d19e00f conflict | (conflict) (empty) conflict
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    "#);
+    // The changes in line 1 are from "a" since these are from a resolved hunk.
+    insta::assert_snapshot!(work_dir.read_file("file1"), @r"
+    line 1 - a
+    line 2
+    line 3
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file2"), @"base");
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    ------- stderr -------
+    Error: No conflicts found at this revision
+    [EOF]
+    [exit status: 2]
+    ");
+
+    // Select side 1 (commit "a"), which only resolves the first conflict, since the
+    // second conflict doesn't involve this side.
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["resolve", "--tool", ":select"])
+            .write_stdin("1\n")
+    });
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Select a side (1-3) or a base (b1-b2) to keep:
+
+    Sides:
+       1: zsuskuln 0ea757f5 "a"
+       2: royxmykx 91f1e4b4 "b"
+       3: vruxwmqv 78f0da53 "c"
+
+    Bases:
+      b1: rlvkpnrz 79ff29f9 "base" [not present in files]
+      b2: rlvkpnrz 79ff29f9 "base"
+
+    Hint: Some terms of this conflict are not present in any of the conflicted
+    files. This happens because `jj` simplifies conflicts before materializing them
+    in files, so any unnecessary terms are omitted.
+
+    Enter a side or base number (or "q" to quit): Warning: Skipped resolving conflicts in 1 files where the selected side was not present.
+    Hint: Try selecting a different side for the remaining files.
+    Working copy  (@) now at: kmkuslsw f15c6904 tip | (conflict) tip
+    Parent commit (@-)      : znkkpsqq 3d19e00f conflict | (conflict) (empty) conflict
+    Added 0 files, modified 2 files, removed 0 files
+    Warning: There are unresolved conflicts at these paths:
+    file2    2-sided conflict
+    New conflicts appeared in 1 commits:
+      kmkuslsw f15c6904 tip | (conflict) tip
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the conflicted commit:
+      jj new kmkuslsw
+    Then use `jj resolve`, or edit the conflict markers in the file directly.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
+    Then run `jj squash` to move the resolution into the conflicted commit.
+    [EOF]
+    "#);
+    insta::assert_snapshot!(work_dir.read_file("file1"), @r"
+    line 1 - a
+    line 2
+    line 3 - a
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file2"), @r#"
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from: rlvkpnrz 79ff29f9 "base"
+    \\\\\\\        to: royxmykx 91f1e4b4 "b"
+    -base
+    +b
+    +++++++ vruxwmqv 78f0da53 "c"
+    c
+    >>>>>>> conflict 1 of 1 ends
+    "#);
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    file2    2-sided conflict
+    [EOF]
+    ");
+    // Now we can run `jj resolve --tool :select` again to resolve the second
+    // conflict (the conflict has now been simplified to only have 2 sides).
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["resolve", "--tool", ":select"])
+            .write_stdin("1\n")
+    });
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Select a side (1-2) or a base (b1) to keep:
+
+    Sides:
+       1: royxmykx 91f1e4b4 "b"
+       2: vruxwmqv 78f0da53 "c"
+
+    Bases:
+      b1: rlvkpnrz 79ff29f9 "base"
+
+    Enter a side or base number (or "q" to quit): Working copy  (@) now at: kmkuslsw 8ce35fbe tip | tip
+    Parent commit (@-)      : znkkpsqq 3d19e00f conflict | (conflict) (empty) conflict
+    Added 0 files, modified 1 files, removed 0 files
+    Existing conflicts were resolved or abandoned from 1 commits.
+    [EOF]
+    "#);
+    insta::assert_snapshot!(work_dir.read_file("file1"), @r"
+    line 1 - a
+    line 2
+    line 3 - a
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file2"), @"b");
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    ------- stderr -------
+    Error: No conflicts found at this revision
+    [EOF]
+    [exit status: 2]
+    ");
+
+    // We can select a single file to resolve the conflict in.
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["resolve", "--tool", ":select", "file2"])
+            .write_stdin("3\n")
+    });
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Select a side (1-3) or a base (b1-b2) to keep:
+
+    Sides:
+       1: zsuskuln 0ea757f5 "a" [not present in files]
+       2: royxmykx 91f1e4b4 "b"
+       3: vruxwmqv 78f0da53 "c"
+
+    Bases:
+      b1: rlvkpnrz 79ff29f9 "base" [not present in files]
+      b2: rlvkpnrz 79ff29f9 "base"
+
+    Hint: Some terms of this conflict are not present in any of the conflicted
+    files. This happens because `jj` simplifies conflicts before materializing them
+    in files, so any unnecessary terms are omitted.
+
+    Enter a side or base number (or "q" to quit): Working copy  (@) now at: kmkuslsw 7f3b4162 tip | (conflict) tip
+    Parent commit (@-)      : znkkpsqq 3d19e00f conflict | (conflict) (empty) conflict
+    Added 0 files, modified 2 files, removed 0 files
+    Warning: There are unresolved conflicts at these paths:
+    file1    2-sided conflict
+    New conflicts appeared in 1 commits:
+      kmkuslsw 7f3b4162 tip | (conflict) tip
+    Hint: To resolve the conflicts, start by creating a commit on top of
+    the conflicted commit:
+      jj new kmkuslsw
+    Then use `jj resolve`, or edit the conflict markers in the file directly.
+    Once the conflicts are resolved, you can inspect the result with `jj diff`.
+    Then run `jj squash` to move the resolution into the conflicted commit.
+    [EOF]
+    "#);
+    insta::assert_snapshot!(work_dir.read_file("file1"), @r#"
+    line 1 - a
+    line 2
+    <<<<<<< conflict 1 of 1
+    %%%%%%% diff from: rlvkpnrz 79ff29f9 "base"
+    \\\\\\\        to: zsuskuln 0ea757f5 "a"
+    -line 3
+    +line 3 - a
+    +++++++ vruxwmqv 78f0da53 "c"
+    line 3 - c
+    >>>>>>> conflict 1 of 1 ends
+    "#);
+    insta::assert_snapshot!(work_dir.read_file("file2"), @"c");
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    file1    2-sided conflict
+    [EOF]
+    ");
+
+    // If we try to select a side that isn't present in any selected file, then it
+    // should fail.
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["resolve", "--tool", ":select", "file2"])
+            .write_stdin("1\n")
+    });
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Select a side (1-3) or a base (b1-b2) to keep:
+
+    Sides:
+       1: zsuskuln 0ea757f5 "a" [not present in files]
+       2: royxmykx 91f1e4b4 "b"
+       3: vruxwmqv 78f0da53 "c"
+
+    Bases:
+      b1: rlvkpnrz 79ff29f9 "base" [not present in files]
+      b2: rlvkpnrz 79ff29f9 "base"
+
+    Hint: Some terms of this conflict are not present in any of the conflicted
+    files. This happens because `jj` simplifies conflicts before materializing them
+    in files, so any unnecessary terms are omitted.
+
+    Enter a side or base number (or "q" to quit): Error: Failed to resolve conflicts
+    Caused by: The selected side is not present in any matching conflicted files
+    [EOF]
+    [exit status: 1]
+    "#);
+}
+
+#[test]
+fn test_select_tool_non_file_conflicts() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(&work_dir, "base", &[], &[("modify-delete", "base\n")]);
+    create_commit_with_files(
+        &work_dir,
+        "a",
+        &["base"],
+        &[("file-or-dir", "file\n"), ("modify-delete", "modify\n")],
+    );
+    create_commit_with_files(&work_dir, "b", &["base"], &[("file-or-dir/file", "dir\n")]);
+    work_dir.remove_file("modify-delete");
+    create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
+    create_commit_with_files(&work_dir, "tip", &["conflict"], &[]);
+
+    // Test the setup
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  tip
+    ×    conflict
+    ├─╮
+    │ ○  b
+    ○ │  a
+    ├─╯
+    ○  base
+    ◆
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    file-or-dir      2-sided conflict including a directory
+    modify-delete    2-sided conflict including 1 deletion
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.read_file("file-or-dir"), @r#"
+    Conflict:
+      Adding file with id f73f3093ff865c514c6c51f867e35f693487d0d3 (zsuskuln 92f8d5cc "a")
+      Adding tree with id 8bd47635b8ed2d7d2cc5dc59691489626b3fa865 (royxmykx 38db711c "b")
+    "#);
+    insta::assert_snapshot!(work_dir.read_file("modify-delete"), @r#"
+    <<<<<<< conflict 1 of 1
+    +++++++ zsuskuln 92f8d5cc "a"
+    modify
+    %%%%%%% diff from: rlvkpnrz 3de7c13d "base"
+    \\\\\\\        to: royxmykx 38db711c "b"
+    -base
+    >>>>>>> conflict 1 of 1 ends
+    "#);
+    let setup_opid = work_dir.current_operation_id();
+
+    // If we select commit "a", then we should get plain files for both.
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["resolve", "--tool", ":select"])
+            .write_stdin("1\n")
+    });
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Select a side (1-2) or a base (b1) to keep:
+
+    Sides:
+       1: zsuskuln 92f8d5cc "a"
+       2: royxmykx 38db711c "b"
+
+    Bases:
+      b1: rlvkpnrz 3de7c13d "base"
+
+    Enter a side or base number (or "q" to quit): Working copy  (@) now at: znkkpsqq ba15e09f tip | tip
+    Parent commit (@-)      : vruxwmqv b1aef6d3 conflict | (conflict) (empty) conflict
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    "#);
+    insta::assert_snapshot!(work_dir.read_file("file-or-dir"), @"file");
+    insta::assert_snapshot!(work_dir.read_file("modify-delete"), @"modify");
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    ------- stderr -------
+    Error: No conflicts found at this revision
+    [EOF]
+    [exit status: 2]
+    ");
+
+    // If we select commit "b", then we should get a directory and deleted file.
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir.run_jj_with(|cmd| {
+        force_interactive(cmd)
+            .args(["resolve", "--tool", ":select"])
+            .write_stdin("2\n")
+    });
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Select a side (1-2) or a base (b1) to keep:
+
+    Sides:
+       1: zsuskuln 92f8d5cc "a"
+       2: royxmykx 38db711c "b"
+
+    Bases:
+      b1: rlvkpnrz 3de7c13d "base"
+
+    Enter a side or base number (or "q" to quit): Working copy  (@) now at: znkkpsqq 4ea76ad1 tip | tip
+    Parent commit (@-)      : vruxwmqv b1aef6d3 conflict | (conflict) (empty) conflict
+    Added 1 files, modified 0 files, removed 2 files
+    [EOF]
+    "#);
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--summary"]).normalize_backslash(), @r"
+    D file-or-dir
+    A file-or-dir/file
+    D modify-delete
+    [EOF]
+    ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     ------- stderr -------
     Error: No conflicts found at this revision

@@ -11,6 +11,12 @@
 "conflict_description" = "yellow"
 "conflict_description difficult" = "red"
 
+"resolve_select side" = { fg = "green", bold = true }
+"resolve_select base" = { fg = "red", bold = true }
+"resolve_select missing" = { fg = "bright black" }
+"resolve_select missing side" = { bold = false, dim = true }
+"resolve_select missing base" = { bold = false, dim = true }
+
 "commit_id" = "blue"
 "change_id" = "magenta"
 

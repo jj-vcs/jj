@@ -369,7 +369,7 @@ impl<T> Merge<T> {
     ///
     /// The merge is simplified by removing identical values in add and remove
     /// values.
-    fn get_simplified_mapping(&self) -> Vec<usize>
+    pub fn get_simplified_mapping(&self) -> Vec<usize>
     where
         T: PartialEq,
     {
@@ -401,7 +401,7 @@ impl<T> Merge<T> {
 
     /// Apply the mapping returned by [`Self::get_simplified_mapping`].
     #[must_use]
-    fn apply_simplified_mapping(&self, mapping: &[usize]) -> Self
+    pub fn apply_simplified_mapping(&self, mapping: &[usize]) -> Self
     where
         T: Clone,
     {
