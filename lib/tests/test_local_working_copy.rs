@@ -2546,9 +2546,6 @@ fn track_ignored_with_flag_and_fsmonitor() {
     let gitignore_path = repo_path(".gitignore");
     testutils::write_working_copy_file(&workspace_root, ignored_path, "contents\n");
     testutils::write_working_copy_file(&workspace_root, gitignore_path, "*.ignored\n");
-    let base_ignores = GitIgnoreFile::empty()
-        .chain_with_file("", gitignore_path.to_fs_path_unchecked(&workspace_root))
-        .unwrap();
 
     let snapshot = |paths: &[&RepoPath], matcher: Option<&FilesMatcher>| {
         let changed_files = paths
@@ -2566,11 +2563,7 @@ fn track_ignored_with_flag_and_fsmonitor() {
             &settings,
         )
         .unwrap();
-        let base_ignores = base_ignores.clone();
-        let mut options = SnapshotOptions {
-            base_ignores,
-            ..empty_snapshot_options()
-        };
+        let mut options = empty_snapshot_options();
         if let Some(matcher) = matcher {
             options.force_tracking_matcher = matcher;
         }
