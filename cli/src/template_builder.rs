@@ -3329,6 +3329,11 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#""a1b2c3d4".split(regex:'\d+', 3)"#), @"a b c3d4");
         insta::assert_snapshot!(env.render_ok(r#"json("hello world".split(regex-i:"WORLD"))"#), @r#"["hello ",""]"#);
 
+        insta::assert_snapshot!(env.render_ok("''.upper()"), @"");
+        insta::assert_snapshot!(env.render_ok("'ABCabc 123!@#'.upper()"), @"ABCABC 123!@#");
+        insta::assert_snapshot!(env.render_ok("''.lower()"), @"");
+        insta::assert_snapshot!(env.render_ok("'ABCabc 123!@#'.lower()"), @"abcabc 123!@#");
+
         insta::assert_snapshot!(env.render_ok(r#""".starts_with("")"#), @"true");
         insta::assert_snapshot!(env.render_ok(r#""everything".starts_with("")"#), @"true");
         insta::assert_snapshot!(env.render_ok(r#""".starts_with("foo")"#), @"false");
