@@ -33,7 +33,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringExpression;
 use jj_lib::workspace::Workspace;
 
-use super::write_repository_level_trunk_alias;
+use super::write_repository_level_remote_head_alias;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::command_error::CommandError;
@@ -240,7 +240,7 @@ pub fn cmd_git_clone(
     if let Some(name) = &working_branch {
         let working_symbol = name.to_remote_symbol(remote_name);
         if working_is_default {
-            write_repository_level_trunk_alias(ui, &config_env, working_symbol)?;
+            write_repository_level_remote_head_alias(ui, &config_env, working_symbol)?;
         }
         let working_branch_remote_ref = workspace_command
             .repo()

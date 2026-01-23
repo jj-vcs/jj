@@ -125,8 +125,8 @@ fn get_single_remote(store: &Store) -> Result<Option<RemoteNameBuf>, UnexpectedG
     })
 }
 
-/// Sets repository level `trunk()` alias to the specified remote symbol.
-fn write_repository_level_trunk_alias(
+/// Sets repository level `remote_head()` alias to the specified remote symbol.
+fn write_repository_level_remote_head_alias(
     ui: &Ui,
     config_env: &ConfigEnv,
     symbol: RemoteRefSymbol<'_>,
@@ -138,12 +138,12 @@ fn write_repository_level_trunk_alias(
         return Ok(());
     };
     let mut file = ConfigFile::load_or_empty(ConfigSource::Repo, config_path)?;
-    file.set_value(["revset-aliases", "trunk()"], symbol.to_string())
+    file.set_value(["revset-aliases", "remote_head()"], symbol.to_string())
         .expect("initial repo config shouldn't have invalid values");
     file.save()?;
     writeln!(
         ui.status(),
-        "Setting the revset alias `trunk()` to `{symbol}`",
+        "Setting the revset alias `remote_head()` to `{symbol}`",
     )?;
     Ok(())
 }

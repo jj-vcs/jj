@@ -214,7 +214,6 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     (empty) (no description set)
     kkmpptxz test.user@example.com 2001-02-03 08:05:09 main e1cb4cf3
     (empty) a
-    zzzzzzzz root() 00000000
     [EOF]
     ");
 }
@@ -627,7 +626,7 @@ fn test_immutable_log() {
     │  (empty) (no description set)
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
-    ◆  zzzzzzzz root() 00000000
+    ~
     [EOF]
     ");
 }

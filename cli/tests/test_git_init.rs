@@ -243,7 +243,7 @@ fn test_git_init_external_import_trunk(bare: bool) {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Done importing changes from the underlying Git repo.
-    Setting the revset alias `trunk()` to `trunk@origin`
+    Setting the revset alias `remote_head()` to `trunk@origin`
     Working copy  (@) now at: sqpuoqvx ed6b5138 (empty) (no description set)
     Parent commit (@-)      : nntyzxmz e80a42cc my-bookmark trunk@origin | My commit message
     Added 1 files, modified 0 files, removed 0 files
@@ -257,7 +257,8 @@ fn test_git_init_external_import_trunk(bare: bool) {
     let output = work_dir.run_jj(["config", "list", "--repo", "revset-aliases.\"trunk()\""]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @r#"
-        revset-aliases."trunk()" = "trunk@origin"
+        ------- stderr -------
+        Warning: No matching config key for revset-aliases."trunk()"
         [EOF]
         "#);
     }
@@ -322,7 +323,7 @@ fn test_git_init_external_import_trunk_upstream_takes_precedence() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Done importing changes from the underlying Git repo.
-    Setting the revset alias `trunk()` to `develop@upstream`
+    Setting the revset alias `remote_head()` to `develop@upstream`
     Working copy  (@) now at: sqpuoqvx ed6b5138 (empty) (no description set)
     Parent commit (@-)      : nntyzxmz e80a42cc develop@upstream my-bookmark trunk@origin | My commit message
     Added 1 files, modified 0 files, removed 0 files
@@ -336,7 +337,8 @@ fn test_git_init_external_import_trunk_upstream_takes_precedence() {
     let output = work_dir.run_jj(["config", "list", "--repo", "revset-aliases.\"trunk()\""]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(output, @r#"
-        revset-aliases."trunk()" = "develop@upstream"
+        ------- stderr -------
+        Warning: No matching config key for revset-aliases."trunk()"
         [EOF]
         "#);
     }

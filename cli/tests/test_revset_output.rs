@@ -538,6 +538,291 @@ fn test_default_string_pattern() {
     ~
     [EOF]
     ------- stderr -------
+    Warning: In `revset-aliases.immutable_heads()`
+     --> 1:1
+      |
+    1 | builtin_immutable_heads()
+      | ^-----------------------^
+      |
+      = In alias `builtin_immutable_heads()`
+     --> 1:1
+      |
+    1 | trunk() | tags() | untracked_remote_bookmarks()
+      | ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:27
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                           ^--^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revset-aliases.immutable_heads()`
+     --> 1:1
+      |
+    1 | builtin_immutable_heads()
+      | ^-----------------------^
+      |
+      = In alias `builtin_immutable_heads()`
+     --> 1:1
+      |
+    1 | trunk() | tags() | untracked_remote_bookmarks()
+      | ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:34
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                                  ^----^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revset-aliases.immutable_heads()`
+     --> 1:1
+      |
+    1 | builtin_immutable_heads()
+      | ^-----------------------^
+      |
+      = In alias `builtin_immutable_heads()`
+     --> 1:1
+      |
+    1 | trunk() | tags() | untracked_remote_bookmarks()
+      | ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:43
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                                           ^---^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revset-aliases.immutable_heads()`
+     --> 1:1
+      |
+    1 | builtin_immutable_heads()
+      | ^-----------------------^
+      |
+      = In alias `builtin_immutable_heads()`
+     --> 1:1
+      |
+    1 | trunk() | tags() | untracked_remote_bookmarks()
+      | ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:50
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                                                  ^----^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revset-aliases.immutable_heads()`
+     --> 1:1
+      |
+    1 | builtin_immutable_heads()
+      | ^-----------------------^
+      |
+      = In alias `builtin_immutable_heads()`
+     --> 1:1
+      |
+    1 | trunk() | tags() | untracked_remote_bookmarks()
+      | ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:59
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                                                           ^------^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revsets.short-prefixes`
+     --> 1:24
+      |
+    1 | present(@) | ancestors(immutable_heads().., 2) | trunk()
+      |                        ^---------------^
+      |
+      = In alias `immutable_heads()`
+     --> 1:1
+      |
+    1 | builtin_immutable_heads()
+      | ^-----------------------^
+      |
+      = In alias `builtin_immutable_heads()`
+     --> 1:1
+      |
+    1 | trunk() | tags() | untracked_remote_bookmarks()
+      | ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:27
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                           ^--^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revsets.short-prefixes`
+     --> 1:24
+      |
+    1 | present(@) | ancestors(immutable_heads().., 2) | trunk()
+      |                        ^---------------^
+      |
+      = In alias `immutable_heads()`
+     --> 1:1
+      |
+    1 | builtin_immutable_heads()
+      | ^-----------------------^
+      |
+      = In alias `builtin_immutable_heads()`
+     --> 1:1
+      |
+    1 | trunk() | tags() | untracked_remote_bookmarks()
+      | ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:34
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                                  ^----^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revsets.short-prefixes`
+     --> 1:24
+      |
+    1 | present(@) | ancestors(immutable_heads().., 2) | trunk()
+      |                        ^---------------^
+      |
+      = In alias `immutable_heads()`
+     --> 1:1
+      |
+    1 | builtin_immutable_heads()
+      | ^-----------------------^
+      |
+      = In alias `builtin_immutable_heads()`
+     --> 1:1
+      |
+    1 | trunk() | tags() | untracked_remote_bookmarks()
+      | ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:43
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                                           ^---^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revsets.short-prefixes`
+     --> 1:24
+      |
+    1 | present(@) | ancestors(immutable_heads().., 2) | trunk()
+      |                        ^---------------^
+      |
+      = In alias `immutable_heads()`
+     --> 1:1
+      |
+    1 | builtin_immutable_heads()
+      | ^-----------------------^
+      |
+      = In alias `builtin_immutable_heads()`
+     --> 1:1
+      |
+    1 | trunk() | tags() | untracked_remote_bookmarks()
+      | ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:50
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                                                  ^----^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revsets.short-prefixes`
+     --> 1:24
+      |
+    1 | present(@) | ancestors(immutable_heads().., 2) | trunk()
+      |                        ^---------------^
+      |
+      = In alias `immutable_heads()`
+     --> 1:1
+      |
+    1 | builtin_immutable_heads()
+      | ^-----------------------^
+      |
+      = In alias `builtin_immutable_heads()`
+     --> 1:1
+      |
+    1 | trunk() | tags() | untracked_remote_bookmarks()
+      | ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:59
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                                                           ^------^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revsets.short-prefixes`
+     --> 1:50
+      |
+    1 | present(@) | ancestors(immutable_heads().., 2) | trunk()
+      |                                                  ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:27
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                           ^--^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revsets.short-prefixes`
+     --> 1:50
+      |
+    1 | present(@) | ancestors(immutable_heads().., 2) | trunk()
+      |                                                  ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:34
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                                  ^----^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revsets.short-prefixes`
+     --> 1:50
+      |
+    1 | present(@) | ancestors(immutable_heads().., 2) | trunk()
+      |                                                  ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:43
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                                           ^---^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revsets.short-prefixes`
+     --> 1:50
+      |
+    1 | present(@) | ancestors(immutable_heads().., 2) | trunk()
+      |                                                  ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:50
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                                                  ^----^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
+    Warning: In `revsets.short-prefixes`
+     --> 1:50
+      |
+    1 | present(@) | ancestors(immutable_heads().., 2) | trunk()
+      |                                                  ^-----^
+      |
+      = In alias `trunk()`
+     --> 3:59
+      |
+    3 |   latest(remote_bookmarks(main | master | trunk, origin | upstream)),
+      |                                                           ^------^
+      |
+      = ui.revsets-use-glob-by-default=false will be removed in a future release
     Warning: In revset expression
      --> 1:8
       |

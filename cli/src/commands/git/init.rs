@@ -29,7 +29,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
 
-use super::write_repository_level_trunk_alias;
+use super::write_repository_level_remote_head_alias;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::start_repo_transaction;
 use crate::command_error::CommandError;
@@ -213,7 +213,7 @@ fn do_init(
             let mut workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
             workspace_command.maybe_snapshot(ui)?;
-            maybe_set_repository_level_trunk_alias(
+            maybe_set_repository_level_remote_head_alias(
                 ui,
                 &git::get_git_repo(workspace_command.repo().store())?,
                 &config_env,
@@ -275,9 +275,9 @@ fn init_git_refs(
     Ok(repo)
 }
 
-// Set repository level `trunk()` alias to the default branch.
+// Set repository level `remote_head()` alias to the default branch.
 // Checks "upstream" first, then "origin" as fallback.
-pub fn maybe_set_repository_level_trunk_alias(
+pub fn maybe_set_repository_level_remote_head_alias(
     ui: &Ui,
     git_repo: &gix::Repository,
     config_env: &ConfigEnv,
@@ -301,7 +301,7 @@ pub fn maybe_set_repository_level_trunk_alias(
             {
                 // TODO: Can we assume the symbolic target points to the same remote?
                 let symbol = symbol.name.to_remote_symbol(remote.as_ref());
-                write_repository_level_trunk_alias(ui, config_env, symbol)?;
+                write_repository_level_remote_head_alias(ui, config_env, symbol)?;
             }
             return Ok(());
         }

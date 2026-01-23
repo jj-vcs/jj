@@ -14,16 +14,13 @@ log-graph-prioritize = "present(@)"
 sign = "reachable(@, mutable())"
 
 [revset-aliases]
-# trunk() can be overridden as '<bookmark>@<remote>'.
+# remote_head() is usually overridden as '<bookmark>@<remote>' by
+# `jj git init` or `jj git clone`.
+'remote_head()' = "none()"
 'trunk()' = '''
-latest(
-  remote_bookmarks(exact:"main", exact:"origin") |
-  remote_bookmarks(exact:"master", exact:"origin") |
-  remote_bookmarks(exact:"trunk", exact:"origin") |
-  remote_bookmarks(exact:"main", exact:"upstream") |
-  remote_bookmarks(exact:"master", exact:"upstream") |
-  remote_bookmarks(exact:"trunk", exact:"upstream") |
-  root()
+coalesce(
+  present(remote_head()),
+  latest(remote_bookmarks(main | master | trunk, origin | upstream)),
 )
 '''
 
