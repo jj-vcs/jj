@@ -15,7 +15,6 @@
 use futures::StreamExt as _;
 use globset::GlobBuilder;
 use itertools::Itertools as _;
-use jj_lib::backend::CommitId;
 use jj_lib::backend::CopyRecord;
 use jj_lib::backend::FileId;
 use jj_lib::backend::TreeValue;
@@ -710,8 +709,8 @@ fn create_copy_records(paths: &[(&RepoPath, &RepoPath)]) -> CopyRecords {
             Ok(CopyRecord {
                 source: source.to_owned(),
                 target: target.to_owned(),
-                target_commit: CommitId::new(vec![]),
-                source_commit: CommitId::new(vec![]),
+                target_commit: None,
+                source_commit: None,
                 source_file: FileId::new(vec![]),
             })
         }))

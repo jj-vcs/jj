@@ -1496,11 +1496,19 @@ fn builtin_commit_evolution_entry_methods<'repo>()
                 let predecessors: Vec<_> = entry.predecessors().try_collect()?;
                 let from_tree = rebase_to_dest_parent(repo, &predecessors, &entry.commit)?;
                 let to_tree = entry.commit.tree();
+                let mut copy_records = CopyRecords::default();
+                let records = diff_util::get_copy_records_for_trees(
+                    repo.store(),
+                    &from_tree,
+                    &to_tree,
+                    &*matcher,
+                )?;
+                copy_records.add_records(records)?;
                 Ok(TreeDiff {
                     from_tree,
                     to_tree,
                     matcher: matcher.clone(),
-                    copy_records: CopyRecords::default(), // TODO: copy tracking
+                    copy_records,
                 })
             });
             Ok(out_property.into_dyn_wrapped())

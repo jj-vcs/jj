@@ -498,6 +498,95 @@ impl GitBackend {
             .try_into_tree()
             .map_err(|err| to_read_object_err(err, &tree_id))
     }
+
+    fn read_tree_for_tree_id<'repo>(
+        &self,
+        repo: &'repo gix::Repository,
+        id: &TreeId,
+    ) -> BackendResult<gix::Tree<'repo>> {
+        let gix_id = validate_git_object_id(id)?;
+        repo.find_object(gix_id)
+            .map_err(|err| map_not_found_err(err, id))?
+            .try_into_tree()
+            .map_err(|err| to_read_object_err(err, id))
+    }
+
+    fn collect_copy_records_for_git_trees(
+        &self,
+        root_tree: gix::Tree<'_>,
+        head_tree: gix::Tree<'_>,
+        paths: Option<&[RepoPathBuf]>,
+    ) -> BackendResult<Vec<BackendResult<CopyRecord>>> {
+        let root_tree_id = TreeId::from_bytes(root_tree.id.as_bytes());
+        let head_tree_id = TreeId::from_bytes(head_tree.id.as_bytes());
+        let change_to_copy_record =
+            |change: gix::object::tree::diff::Change| -> BackendResult<Option<CopyRecord>> {
+                let gix::object::tree::diff::Change::Rewrite {
+                    source_location,
+                    source_entry_mode,
+                    source_id,
+                    entry_mode: dest_entry_mode,
+                    location: dest_location,
+                    ..
+                } = change
+                else {
+                    return Ok(None);
+                };
+                // TODO: Renamed symlinks cannot be returned because CopyRecord
+                // expects `source_file: FileId`.
+                if !source_entry_mode.is_blob() || !dest_entry_mode.is_blob() {
+                    return Ok(None);
+                }
+
+                let source = str::from_utf8(source_location)
+                    .map_err(|err| to_invalid_utf8_err(err, &root_tree_id))?;
+                let dest = str::from_utf8(dest_location)
+                    .map_err(|err| to_invalid_utf8_err(err, &head_tree_id))?;
+
+                let target = RepoPathBuf::from_internal_string(dest).unwrap();
+                if !paths.is_none_or(|paths| paths.contains(&target)) {
+                    return Ok(None);
+                }
+
+                Ok(Some(CopyRecord {
+                    target,
+                    target_commit: None,
+                    source: RepoPathBuf::from_internal_string(source).unwrap(),
+                    source_file: FileId::from_bytes(source_id.as_bytes()),
+                    source_commit: None,
+                }))
+            };
+
+        let mut records: Vec<BackendResult<CopyRecord>> = Vec::new();
+        root_tree
+            .changes()
+            .map_err(|err| BackendError::Other(err.into()))?
+            .options(|opts| {
+                opts.track_path().track_rewrites(Some(gix::diff::Rewrites {
+                    copies: Some(gix::diff::rewrites::Copies {
+                        source: gix::diff::rewrites::CopySource::FromSetOfModifiedFiles,
+                        percentage: Some(0.5),
+                    }),
+                    percentage: Some(0.5),
+                    limit: 1000,
+                    track_empty: false,
+                }));
+            })
+            .for_each_to_obtain_tree_with_cache(
+                &head_tree,
+                &mut self.new_diff_platform()?,
+                |change| -> BackendResult<_> {
+                    match change_to_copy_record(change) {
+                        Ok(None) => {}
+                        Ok(Some(change)) => records.push(Ok(change)),
+                        Err(err) => records.push(Err(err)),
+                    }
+                    Ok(gix::object::tree::diff::Action::Continue)
+                },
+            )
+            .map_err(|err| BackendError::Other(err.into()))?;
+        Ok(records)
+    }
 }
 
 /// Canonicalizes the given `path` except for the last `".git"` component.
@@ -1393,75 +1482,31 @@ impl Backend for GitBackend {
         head_id: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
         let repo = self.git_repo();
-        let root_tree = self.read_tree_for_commit(&repo, root_id)?;
-        let head_tree = self.read_tree_for_commit(&repo, head_id)?;
-
-        let change_to_copy_record =
-            |change: gix::object::tree::diff::Change| -> BackendResult<Option<CopyRecord>> {
-                let gix::object::tree::diff::Change::Rewrite {
-                    source_location,
-                    source_entry_mode,
-                    source_id,
-                    entry_mode: dest_entry_mode,
-                    location: dest_location,
-                    ..
-                } = change
-                else {
-                    return Ok(None);
-                };
-                // TODO: Renamed symlinks cannot be returned because CopyRecord
-                // expects `source_file: FileId`.
-                if !source_entry_mode.is_blob() || !dest_entry_mode.is_blob() {
-                    return Ok(None);
-                }
-
-                let source = str::from_utf8(source_location)
-                    .map_err(|err| to_invalid_utf8_err(err, root_id))?;
-                let dest = str::from_utf8(dest_location)
-                    .map_err(|err| to_invalid_utf8_err(err, head_id))?;
-
-                let target = RepoPathBuf::from_internal_string(dest).unwrap();
-                if !paths.is_none_or(|paths| paths.contains(&target)) {
-                    return Ok(None);
-                }
-
-                Ok(Some(CopyRecord {
-                    target,
-                    target_commit: head_id.clone(),
-                    source: RepoPathBuf::from_internal_string(source).unwrap(),
-                    source_file: FileId::from_bytes(source_id.as_bytes()),
-                    source_commit: root_id.clone(),
-                }))
-            };
-
-        let mut records: Vec<BackendResult<CopyRecord>> = Vec::new();
-        root_tree
-            .changes()
-            .map_err(|err| BackendError::Other(err.into()))?
-            .options(|opts| {
-                opts.track_path().track_rewrites(Some(gix::diff::Rewrites {
-                    copies: Some(gix::diff::rewrites::Copies {
-                        source: gix::diff::rewrites::CopySource::FromSetOfModifiedFiles,
-                        percentage: Some(0.5),
-                    }),
-                    percentage: Some(0.5),
-                    limit: 1000,
-                    track_empty: false,
-                }));
+        let root_id = root_id.clone();
+        let head_id = head_id.clone();
+        let root_tree = self.read_tree_for_commit(&repo, &root_id)?;
+        let head_tree = self.read_tree_for_commit(&repo, &head_id)?;
+        let records = self.collect_copy_records_for_git_trees(root_tree, head_tree, paths)?;
+        let records = records.into_iter().map(move |record| {
+            record.map(|mut record| {
+                record.target_commit = Some(head_id.clone());
+                record.source_commit = Some(root_id.clone());
+                record
             })
-            .for_each_to_obtain_tree_with_cache(
-                &head_tree,
-                &mut self.new_diff_platform()?,
-                |change| -> BackendResult<_> {
-                    match change_to_copy_record(change) {
-                        Ok(None) => {}
-                        Ok(Some(change)) => records.push(Ok(change)),
-                        Err(err) => records.push(Err(err)),
-                    }
-                    Ok(gix::object::tree::diff::Action::Continue)
-                },
-            )
-            .map_err(|err| BackendError::Other(err.into()))?;
+        });
+        Ok(Box::pin(futures::stream::iter(records)))
+    }
+
+    fn get_copy_records_for_tree_ids(
+        &self,
+        paths: Option<&[RepoPathBuf]>,
+        root_tree_id: &TreeId,
+        head_tree_id: &TreeId,
+    ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
+        let repo = self.git_repo();
+        let root_tree = self.read_tree_for_tree_id(&repo, root_tree_id)?;
+        let head_tree = self.read_tree_for_tree_id(&repo, head_tree_id)?;
+        let records = self.collect_copy_records_for_git_trees(root_tree, head_tree, paths)?;
         Ok(Box::pin(futures::stream::iter(records)))
     }
 
