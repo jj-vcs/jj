@@ -362,6 +362,7 @@ pub fn cmd_gerrit_upload(
                     expected_current_target: None,
                     new_target: Some(new_commit.id().clone()),
                 }],
+                &[],
                 cb,
             )
         })
