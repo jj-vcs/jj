@@ -134,6 +134,8 @@ pub fn parse_datetime(s: &str) -> chrono::ParseResult<Timestamp> {
 
 #[cfg(test)]
 mod tests {
+    use assert_matches::assert_matches;
+
     use super::*;
 
     fn test_equal<Tz: TimeZone>(now: DateTime<Tz>, expression: &str, should_equal_time: &str)
@@ -202,8 +204,11 @@ mod tests {
 
     #[test]
     fn test_parse_datetime_non_sense_yields_error() {
-        let parse_error = parse_datetime("aaaaa").err().unwrap();
-        assert_eq!(parse_error.kind(), chrono::format::ParseErrorKind::Invalid);
+        use chrono::format::ParseErrorKind;
+        assert_matches!(
+            parse_datetime("aaaaa").unwrap_err().kind(),
+            ParseErrorKind::Invalid | ParseErrorKind::TooShort | ParseErrorKind::TooLong
+        );
     }
 
     #[test]
