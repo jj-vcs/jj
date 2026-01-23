@@ -2088,34 +2088,60 @@ by the same name, use <code>commit_id(abc)</code>. This is particularly useful i
 <h2 id="operators">Operators<a class="headerlink" href="#operators" title="Permanent link">&para;</a></h2>
 <p>The following operators are supported. <code>x</code> and <code>y</code> below can be any revset, not
 only symbols.</p>
+<p>Operators are listed in order of binding power from strongest to weakest, e.g.
+<code>x | y &amp; z</code> is interpreted as <code>x | (y &amp; z)</code> since <code>&amp;</code> has stronger binding power
+than <code>|</code>. Infix operators of the same binding power are parsed from left to
+right, e.g. <code>x ~ y &amp; z</code> is interpreted as <code>(x ~ y) &amp; z</code> rather than <code>x ~ (y &amp;
+z)</code>.</p>
+<p>As seen above, parentheses can be used to control evaluation order, e.g. <code>(x &amp;
+y) | z</code> or <code>x &amp; (y | z)</code>.</p>
+<!-- The following list is based on `PRATT` in `revset_parser.rs`. -->
+
+<ol>
+<li>
 <ul>
 <li><code>x-</code>: Parents of <code>x</code>, can be empty.</li>
 <li><code>x+</code>: Children of <code>x</code>, can be empty.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>x::</code>: Descendants of <code>x</code>, including the commits in <code>x</code> itself. Equivalent to
-  <code>x::visible_heads()</code> if no hidden revisions are mentioned.</li>
+     <code>x::visible_heads()</code> if no hidden revisions are mentioned.</li>
 <li><code>x..</code>: Revisions that are not ancestors of <code>x</code>. Equivalent to <code>~::x</code>, and
-  <code>x..visible_heads()</code> if no hidden revisions are mentioned.</li>
+   <code>x..visible_heads()</code> if no hidden revisions are mentioned.</li>
 <li><code>::x</code>: Ancestors of <code>x</code>, including the commits in <code>x</code> itself. Shorthand for
-  <code>root()::x</code>.</li>
+   <code>root()::x</code>.</li>
 <li><code>..x</code>: Ancestors of <code>x</code>, including the commits in <code>x</code> itself, but excluding
-  the root commit. Shorthand for <code>root()..x</code>. Equivalent to <code>::x ~ root()</code>.</li>
+   the root commit. Shorthand for <code>root()..x</code>. Equivalent to <code>::x ~ root()</code>.</li>
 <li><code>x::y</code>: Descendants of <code>x</code> that are also ancestors of <code>y</code>. Equivalent
-   to <code>x:: &amp; ::y</code>. This is what <code>git log</code> calls <code>--ancestry-path x..y</code>.</li>
+    to <code>x:: &amp; ::y</code>. This is what <code>git log</code> calls <code>--ancestry-path x..y</code>.</li>
 <li><code>x..y</code>: Ancestors of <code>y</code> that are not also ancestors of <code>x</code>. Equivalent to
-  <code>::y ~ ::x</code>. This is what <code>git log</code> calls <code>x..y</code> (i.e. the same as we call it).</li>
+   <code>::y ~ ::x</code>. This is what <code>git log</code> calls <code>x..y</code> (i.e. the same as we call it).</li>
 <li><code>::</code>: All visible commits in the repo. Equivalent to <code>all()</code>, and
-  <code>root()::visible_heads()</code> if no hidden revisions are mentioned.</li>
+   <code>root()::visible_heads()</code> if no hidden revisions are mentioned.</li>
 <li><code>..</code>: All visible commits in the repo, but excluding the root commit.
-  Equivalent to <code>~root()</code>, and <code>root()..visible_heads()</code> if no hidden revisions
-  are mentioned.</li>
+   Equivalent to <code>~root()</code>, and <code>root()..visible_heads()</code> if no hidden revisions
+   are mentioned.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>~x</code>: Revisions that are not in <code>x</code>.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>x &amp; y</code>: Revisions that are in both <code>x</code> and <code>y</code>.</li>
 <li><code>x ~ y</code>: Revisions that are in <code>x</code> but not in <code>y</code>.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>x | y</code>: Revisions that are in either <code>x</code> or <code>y</code> (or both).</li>
 </ul>
-<p>(listed in order of binding strengths)</p>
-<p>You can use parentheses to control evaluation order, such as <code>(x &amp; y) | z</code> or
-<code>x &amp; (y | z)</code>.</p>
+</li>
+</ol>
 <!-- The following format will be understood by the web site generator, and will
  generate a folded section that can be unfolded at will. -->
 
