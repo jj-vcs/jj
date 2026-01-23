@@ -355,6 +355,11 @@ with different conflict labels.</p>
 <p>The empty tree is now always written when the working copy is empty.
 <a href="https://github.com/jj-vcs/jj/issues/8480">#8480</a></p>
 </li>
+<li>
+<p>When using the Watchman filesystem monitor, changes to .gitignore now trigger
+a scan of the affected subtree so newly unignored files are discovered.
+<a href="https://github.com/jj-vcs/jj/issues/8427">#8427</a></p>
+</li>
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="0370---2026-01-07"><a href="https://github.com/jj-vcs/jj/compare/v0.36.0...v0.37.0">0.37.0</a> - 2026-01-07</h2><a class="sl-anchor-link" href="#0370---2026-01-07"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “0.37.0 - 2026-01-07”</span></a></div>
 <div class="sl-heading-wrapper level-h3"><h3 id="release-highlights-1">Release highlights</h3><a class="sl-anchor-link" href="#release-highlights-1"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Release highlights”</span></a></div>
