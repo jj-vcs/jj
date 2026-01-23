@@ -1458,7 +1458,7 @@ impl Backend for GitBackend {
                         Ok(Some(change)) => records.push(Ok(change)),
                         Err(err) => records.push(Err(err)),
                     }
-                    Ok(gix::object::tree::diff::Action::Continue)
+                    Ok(gix::object::tree::diff::Action::Continue(()))
                 },
             )
             .map_err(|err| BackendError::Other(err.into()))?;

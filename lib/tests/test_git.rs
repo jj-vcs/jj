@@ -3728,11 +3728,9 @@ fn test_expand_default_fetch_refspecs_invalid_configuration() {
                 environment_override: None,
                 source: Some(
                     ReferenceName(
-                        Tag(
-                            InvalidByte {
-                                byte: "?",
-                            },
-                        ),
+                        InvalidByte {
+                            byte: "?",
+                        },
                     ),
                 ),
             },
@@ -3753,11 +3751,9 @@ fn test_expand_default_fetch_refspecs_invalid_configuration() {
                 environment_override: None,
                 source: Some(
                     ReferenceName(
-                        Tag(
-                            InvalidByte {
-                                byte: "[",
-                            },
-                        ),
+                        InvalidByte {
+                            byte: "[",
+                        },
                     ),
                 ),
             },
