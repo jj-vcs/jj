@@ -42,7 +42,7 @@ The following operators are supported.
 * `x || y`: Logical or, short-circuiting.
 * `x ++ y`: Concatenate `x` and `y` templates.
 
-(listed in order of binding strengths)
+(listed in ascending order of binding strengths)
 
 ## Global functions
 
