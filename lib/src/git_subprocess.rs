@@ -307,6 +307,17 @@ fn external_git_error(stderr: &[u8]) -> GitSubprocessError {
     ))
 }
 
+const ERROR_PREFIXES: &[&[u8]] = &[
+    // error_builtin() in usage.c
+    b"error: ",
+    // die_message_builtin() in usage.c
+    b"fatal: ",
+    // usage_builtin() in usage.c
+    b"usage: ",
+    // handle_option() in git.c
+    b"unknown option: ",
+];
+
 /// Parse no such remote errors output from git
 ///
 /// Returns the remote that wasn't found
@@ -670,6 +681,11 @@ pub trait GitSubprocessCallback {
     /// Progress of local and remote operations.
     fn progress(&mut self, progress: &GitProgress) -> io::Result<()>;
 
+    /// Message that doesn't look like remote sideband or error.
+    ///
+    /// This may include authentication request from credential helpers.
+    fn local_sideband(&mut self, message: &[u8]) -> io::Result<()>;
+
     /// Sideband message received from remote.
     fn remote_sideband(&mut self, message: &[u8]) -> io::Result<()>;
 }
@@ -771,8 +787,15 @@ fn read_to_end_with_progress<R: Read>(
             break;
         }
 
+        // capture error messages which will be interpreted by caller
+        if ERROR_PREFIXES.iter().any(|prefix| line.starts_with(prefix)) {
+            reader.read_to_end(&mut data)?;
+            break;
+        }
+
         // io::Error coming from callback shouldn't be propagated as an error of
         // "read" operation. The error is suppressed for now.
+        // TODO: maybe intercept "push" progress? (see builtin/pack-objects.c)
         if update_progress(line, &mut progress.objects, b"Receiving objects:")
             || update_progress(line, &mut progress.deltas, b"Resolving deltas:")
             || update_progress(
@@ -793,6 +816,13 @@ fn read_to_end_with_progress<R: Read>(
             callback.remote_sideband(body).ok();
             if let Some(term) = term {
                 callback.remote_sideband(&[term]).ok();
+            }
+            data.truncate(start);
+        } else {
+            let (body, term) = trim_sideband_line(line);
+            callback.local_sideband(body).ok();
+            if let Some(term) = term {
+                callback.local_sideband(&[term]).ok();
             }
             data.truncate(start);
         }
@@ -905,6 +935,7 @@ Done";
     #[derive(Debug, Default)]
     struct GitSubprocessCapture {
         progress: Vec<GitProgress>,
+        local_sideband: Vec<BString>,
         remote_sideband: Vec<BString>,
     }
 
@@ -915,6 +946,11 @@ Done";
 
         fn progress(&mut self, progress: &GitProgress) -> io::Result<()> {
             self.progress.push(progress.clone());
+            Ok(())
+        }
+
+        fn local_sideband(&mut self, message: &[u8]) -> io::Result<()> {
+            self.local_sideband.push(message.into());
             Ok(())
         }
 
@@ -1164,17 +1200,19 @@ Done";
             remote: line2.0{DUMB_SUFFIX}\rremote: line2.1{DUMB_SUFFIX}
             remote: line3{DUMB_SUFFIX}
             Resolving deltas: (12/24)
-            some error message
+            fatal: some error message
+            continues
         "};
 
         let (output, callback) = read(sample.as_bytes());
+        assert_eq!(callback.local_sideband, ["blah blah", "\n"]);
         assert_eq!(
             callback.remote_sideband,
             [
                 "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
             ]
         );
-        assert_eq!(output, b"blah blah\nsome error message\n");
+        assert_eq!(output, b"fatal: some error message\ncontinues\n");
         insta::assert_debug_snapshot!(callback.progress, @"
         [
             GitProgress {
@@ -1206,7 +1244,7 @@ Done";
                 "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
             ]
         );
-        assert_eq!(output, b"blah blah\nsome error message");
+        assert_eq!(output, b"fatal: some error message\ncontinues");
     }
 
     #[test]

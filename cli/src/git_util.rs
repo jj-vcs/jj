@@ -129,6 +129,7 @@ pub struct GitSubprocessUi<'a> {
     ui: &'a Ui,
     progress_output: Option<ProgressOutput<io::Stderr>>,
     progress: Progress,
+    local_sideband: GitSidebandProgressMessageWriter,
     remote_sideband: GitSidebandProgressMessageWriter,
 }
 
@@ -138,11 +139,13 @@ impl<'a> GitSubprocessUi<'a> {
             ui,
             progress_output: ui.progress_output(),
             progress: Progress::new(Instant::now()),
-            remote_sideband: GitSidebandProgressMessageWriter::new(ui),
+            local_sideband: GitSidebandProgressMessageWriter::new(ui, b"git: "),
+            remote_sideband: GitSidebandProgressMessageWriter::new(ui, b"remote: "),
         }
     }
 
     pub fn flush(&mut self) -> io::Result<()> {
+        self.local_sideband.flush(self.ui)?;
         self.remote_sideband.flush(self.ui)
     }
 }
@@ -166,6 +169,12 @@ impl GitSubprocessCallback for GitSubprocessUi<'_> {
         }
     }
 
+    fn local_sideband(&mut self, message: &[u8]) -> io::Result<()> {
+        // TODO: maybe progress should be temporarily cleared if there are
+        // sideband lines to write.
+        self.local_sideband.write(self.ui, message)
+    }
+
     fn remote_sideband(&mut self, message: &[u8]) -> io::Result<()> {
         // TODO: maybe progress should be temporarily cleared if there are
         // sideband lines to write.
@@ -181,11 +190,11 @@ pub struct GitSidebandProgressMessageWriter {
 }
 
 impl GitSidebandProgressMessageWriter {
-    pub fn new(ui: &Ui) -> Self {
+    pub fn new(ui: &Ui, display_prefix: &'static [u8]) -> Self {
         let is_terminal = ui.use_progress_indicator();
 
         Self {
-            display_prefix: "remote: ".as_bytes(),
+            display_prefix,
             suffix: if is_terminal { "\x1B[K" } else { "        " }.as_bytes(),
             scratch: Vec::new(),
         }

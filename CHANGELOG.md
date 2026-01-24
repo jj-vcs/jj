@@ -75,6 +75,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   there are no mappings in the Git fetch refspecs.
   [#5115](https://github.com/jj-vcs/jj/issues/5115)
 
+* `jj git fetch`/`push` now forwards most of `git` stderr outputs such as
+  authentication requests. [#5760](https://github.com/jj-vcs/jj/issues/5760)
+
 * Conflicted bookmarks and tags in `trunk()` will no longer generate verbose
   warnings. The configured `trunk()` alias will temporarily be disabled.
   [#8501](https://github.com/jj-vcs/jj/issues/8501)

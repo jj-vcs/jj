@@ -108,6 +108,10 @@ impl GitSubprocessCallback for NullCallback {
         Ok(())
     }
 
+    fn local_sideband(&mut self, _message: &[u8]) -> io::Result<()> {
+        Ok(())
+    }
+
     fn remote_sideband(&mut self, _message: &[u8]) -> io::Result<()> {
         Ok(())
     }
