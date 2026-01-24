@@ -868,6 +868,7 @@ mod test {
     use std::process::ExitStatus;
 
     use assert_matches::assert_matches;
+    use bstr::BString;
     use indoc::formatdoc;
     use indoc::indoc;
 
@@ -904,7 +905,7 @@ Done";
     #[derive(Debug, Default)]
     struct GitSubprocessCapture {
         progress: Vec<GitProgress>,
-        remote_sideband: Vec<Vec<u8>>,
+        remote_sideband: Vec<BString>,
     }
 
     impl GitSubprocessCallback for GitSubprocessCapture {
@@ -918,7 +919,7 @@ Done";
         }
 
         fn remote_sideband(&mut self, message: &[u8]) -> io::Result<()> {
-            self.remote_sideband.push(message.to_owned());
+            self.remote_sideband.push(message.into());
             Ok(())
         }
     }
@@ -1154,7 +1155,7 @@ Done";
         let read = |sample: &[u8]| {
             let mut callback = GitSubprocessCapture::default();
             let output = read_to_end_with_progress(&mut &sample[..], &mut callback).unwrap();
-            (output, callback.remote_sideband, callback.progress)
+            (output, callback)
         };
         const DUMB_SUFFIX: &str = "        ";
         let sample = formatdoc! {"
@@ -1166,16 +1167,15 @@ Done";
             some error message
         "};
 
-        let (output, sideband, progress) = read(sample.as_bytes());
+        let (output, callback) = read(sample.as_bytes());
         assert_eq!(
-            sideband,
+            callback.remote_sideband,
             [
                 "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
             ]
-            .map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message\n");
-        insta::assert_debug_snapshot!(progress, @"
+        insta::assert_debug_snapshot!(callback.progress, @"
         [
             GitProgress {
                 deltas: (
@@ -1199,13 +1199,12 @@ Done";
         ");
 
         // without last newline
-        let (output, sideband, _progress) = read(sample.as_bytes().trim_end());
+        let (output, callback) = read(sample.as_bytes().trim_end());
         assert_eq!(
-            sideband,
+            callback.remote_sideband,
             [
                 "line1", "\n", "line2.0", "\r", "line2.1", "\n", "line3", "\n"
             ]
-            .map(|s| s.as_bytes().to_owned())
         );
         assert_eq!(output, b"blah blah\nsome error message");
     }
