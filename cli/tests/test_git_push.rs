@@ -1240,6 +1240,47 @@ fn test_git_push_changes_with_name_untracked_or_forgotten() {
     ");
 }
 
+/// Test that bookmark names with double dashes (--) are allowed (issue #8673)
+#[test]
+fn test_git_push_named_with_double_dashes() {
+    let test_env = TestEnvironment::default();
+    set_up(&test_env);
+    let work_dir = test_env.work_dir("local");
+    work_dir.run_jj(["describe", "-m", "test"]).success();
+    work_dir.write_file("file", "contents");
+
+    // Bookmark names with double dashes should be allowed
+    let output = work_dir.run_jj(["git", "push", "--named", "foo--bar=@"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark foo--bar to 398723676afc
+    [EOF]
+    ");
+
+    // Also test triple dashes
+    work_dir.run_jj(["new", "-m", "test2"]).success();
+    work_dir.write_file("file", "modified");
+    let output = work_dir.run_jj(["git", "push", "--named", "feature---test=@"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark feature---test to 9dd74023fad1
+    [EOF]
+    ");
+
+    // Mixed separators should also work
+    work_dir.run_jj(["new", "-m", "test3"]).success();
+    work_dir.write_file("file", "modified2");
+    let output = work_dir.run_jj(["git", "push", "--named", "feature.+test--x=@"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Changes to push to origin:
+      Add bookmark feature.+test--x to bdcfc29b4b29
+    [EOF]
+    ");
+}
+
 #[test]
 fn test_git_push_revisions() {
     let test_env = TestEnvironment::default();

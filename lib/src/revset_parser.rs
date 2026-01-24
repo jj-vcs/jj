@@ -1213,18 +1213,27 @@ mod tests {
             parse_into_kind("foo."),
             Err(RevsetParseErrorKind::SyntaxError)
         );
-        // Multiple '.', '-', '+' are not allowed
+        // Multiple consecutive '.', '-', '+' separators are allowed
         assert_eq!(
             parse_into_kind("foo.+bar"),
-            Err(RevsetParseErrorKind::SyntaxError)
+            Ok(ExpressionKind::Identifier("foo.+bar"))
         );
         assert_eq!(
             parse_into_kind("foo--bar"),
-            Err(RevsetParseErrorKind::SyntaxError)
+            Ok(ExpressionKind::Identifier("foo--bar"))
         );
         assert_eq!(
             parse_into_kind("foo+-bar"),
-            Err(RevsetParseErrorKind::SyntaxError)
+            Ok(ExpressionKind::Identifier("foo+-bar"))
+        );
+        // Triple dashes, mixed separators also work
+        assert_eq!(
+            parse_into_kind("foo---bar"),
+            Ok(ExpressionKind::Identifier("foo---bar"))
+        );
+        assert_eq!(
+            parse_into_kind("feature--DT-row--click-action"),
+            Ok(ExpressionKind::Identifier("feature--DT-row--click-action"))
         );
 
         // Parse a parenthesized symbol

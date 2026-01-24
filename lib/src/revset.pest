@@ -18,16 +18,21 @@
 whitespace = _{ " " | "\t" | "\r" | "\n" | "\x0c" }
 
 // XID_CONTINUE: https://www.unicode.org/reports/tr31/#Default_Identifier_Syntax
-// +, -, .: often included in tag/bookmark name or version number
+// +, -, .: often included in tag/bookmark name or version number (consecutive allowed)
 // /: sometimes used as a tag/bookmark namespace separator
 identifier_part = @{ (XID_CONTINUE | "_" | "/")+ }
+// Separator between identifier parts: consecutive "-" and "+" allowed, but "." cannot
+// be followed by another ".". This ensures ".." is parsed as a range operator.
+// Allowed: foo--bar, foo++bar, foo+-bar, foo.bar, foo.-bar, foo.+bar
+// Not allowed as single identifier: foo..bar (parsed as range)
 identifier = @{
-  identifier_part ~ (("." | "-" | "+") ~ identifier_part)*
+  identifier_part ~ ((("-" | "+")+ | "." ~ ("-" | "+")*) ~ identifier_part)*
 }
 // TODO: remove "/", ".", "+" for consistency with fileset?
 strict_identifier_part = @{ (ASCII_ALPHANUMERIC | "_" | "/")+ }
+// Same rules as identifier for separator handling
 strict_identifier = @{
-  strict_identifier_part ~ (("." | "-" | "+") ~ strict_identifier_part)*
+  strict_identifier_part ~ ((("-" | "+")+ | "." ~ ("-" | "+")*) ~ strict_identifier_part)*
 }
 
 symbol = _{
