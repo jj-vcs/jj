@@ -324,6 +324,9 @@ pub(crate) struct RebaseArgs {
 pub struct RebaseDestinationArgs {
     /// The revision(s) to rebase onto (can be repeated to create a merge
     /// commit)
+    ///
+    /// Moves the revision to sit on top of the given parent. Existing children
+    /// of the destination remain where they are.
     #[arg(
         long,
         alias = "destination",
@@ -336,6 +339,9 @@ pub struct RebaseDestinationArgs {
 
     /// The revision(s) to insert after (can be repeated to create a merge
     /// commit)
+    ///
+    /// Moves the revision to sit on top of the given parent. Existing children
+    /// of the destination are rebased onto the moved revision.
     #[arg(
         long,
         short = 'A',
@@ -348,6 +354,9 @@ pub struct RebaseDestinationArgs {
 
     /// The revision(s) to insert before (can be repeated to create a merge
     /// commit)
+    ///
+    /// Moves the revision to sit on top of the destination's parent. The
+    /// destination revision is rebased onto the moved revision.
     #[arg(
         long,
         short = 'B',
