@@ -2441,6 +2441,14 @@ mod tests {
           |
           = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, `<`, `+`, `-`, `*`, `/`, or `%`
         ");
+        insta::assert_snapshot!(env.parse_err("1 +"), @"
+         --> 1:4
+          |
+        1 | 1 +
+          |    ^---
+          |
+          = expected `!`, `-`, or <primary>
+        ");
 
         insta::assert_snapshot!(env.parse_err(r#"foo"#), @r"
          --> 1:1
