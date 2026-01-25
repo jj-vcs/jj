@@ -3330,6 +3330,14 @@ mod tests {
         // lot as well.
         insta::assert_snapshot!(env.render_ok(r#""🥺".match(regex:'(?-u)^(?:.)')"#), @"<Error: incomplete utf-8 byte sequence from index 0>");
 
+        insta::assert_snapshot!(env.parse_err(r#""hello".match(false)"#), @r#"
+         --> 1:15
+          |
+        1 | "hello".match(false)
+          |               ^---^
+          |
+          = Expected string pattern
+        "#);
         insta::assert_snapshot!(env.parse_err(r#""🥺".match(not-a-pattern:"abc")"#), @r#"
          --> 1:11
           |
