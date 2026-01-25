@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use std::collections::HashMap;
+use std::io::Read as _;
 use std::io::Write as _;
 use std::path::Path;
 use std::process::Stdio;
@@ -21,6 +22,7 @@ use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::FileId;
 use jj_lib::commit::Commit;
+use jj_lib::file_util::IoResultExt as _;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
@@ -30,6 +32,7 @@ use jj_lib::fix::ParallelFileFixer;
 use jj_lib::fix::fix_files;
 use jj_lib::matchers::Matcher;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::settings::UserSettings;
@@ -42,6 +45,7 @@ use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
+use crate::command_error::CommandErrorKind;
 use crate::command_error::config_error;
 use crate::command_error::print_parse_diagnostics;
 use crate::complete;
@@ -162,6 +166,25 @@ pub(crate) struct FixArgs {
     /// specified, all files in the repo will be fixed.
     #[arg(long)]
     include_unchanged_files: bool,
+
+    /// Operate on files read directly from stdin or from disk, and write to
+    /// stdout. You must provide a filepath, either one path on disk like
+    /// `jj fix --no-index src/main.rs`, or use `jj fix --no-index
+    /// --stdin-filepath=...` and supply the file content on stdin.
+    ///
+    /// This makes `jj fix` behave as a code formatter itself, and with it, you
+    /// can configure a text editor's auto-format to do exactly what `jj fix`
+    /// would.
+    ///
+    /// You can also use it to simulate a `jj fix` configuration without writing
+    /// anything to disk.
+    #[arg(long)]
+    no_index: bool,
+
+    /// When using --no-index, read the file content from stdin but match the
+    /// `fix.tools` configurations using this path. Relative to CWD.
+    #[arg(long)]
+    stdin_filepath: Option<String>,
 }
 
 #[instrument(skip_all)]
@@ -170,10 +193,14 @@ pub(crate) fn cmd_fix(
     command: &CommandHelper,
     args: &FixArgs,
 ) -> Result<(), CommandError> {
+    if args.no_index {
+        // Entirely separate codepath. We do not want to snapshot in --no-index mode.
+        return fix_no_index(ui, command, args);
+    }
     let mut workspace_command = command.workspace_helper(ui)?;
     let workspace_root = workspace_command.workspace_root().to_owned();
     let path_converter = workspace_command.path_converter().to_owned();
-    let tools_config = get_tools_config(ui, workspace_command.settings())?;
+    let tools_config = get_tools_config(ui, workspace_command.settings(), true)?;
     let target_expr = if args.source.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.fix")?;
         workspace_command.parse_revset(ui, &RevisionArg::from(revs))?
@@ -254,27 +281,161 @@ async fn fix_one_file(
     store: &Store,
     file_to_fix: &FileToFix,
 ) -> Result<Option<FileId>, FixError> {
-    let mut matching_tools = tools_config
-        .tools
-        .iter()
-        .filter(|tool_config| tool_config.matcher.matches(&file_to_fix.repo_path))
-        .peekable();
-    if matching_tools.peek().is_some() {
-        // The first matching tool gets its input from the committed file, and any
-        // subsequent matching tool gets its input from the previous matching tool's
-        // output.
+    let read_file = || async {
         let mut old_content = vec![];
         let mut read = store
             .read_file(&file_to_fix.repo_path, &file_to_fix.file_id)
             .await?;
         read.read_to_end(&mut old_content).await?;
+        Ok(old_content)
+    };
+    let maybe_new_content = run_tools_one_file(
+        ui,
+        workspace_root,
+        path_converter,
+        tools_config,
+        &file_to_fix.repo_path,
+        read_file,
+    )
+    .await?;
+
+    if let ToolsRunOutput::Ran {
+        new_content,
+        different: true,
+    } = maybe_new_content
+    {
+        // TODO: send futures back over channel
+        let new_file_id = store
+            .write_file(&file_to_fix.repo_path, &mut new_content.as_slice())
+            .await?;
+        return Ok(Some(new_file_id));
+    }
+    Ok(None)
+}
+
+/// Entirely separate code path for --no-index
+fn fix_no_index(ui: &mut Ui, command: &CommandHelper, args: &FixArgs) -> Result<(), CommandError> {
+    let workspace_command = command.workspace_helper_no_snapshot(ui)?;
+    let workspace_root = workspace_command.workspace_root();
+    let path_converter = workspace_command.path_converter();
+    let tools_config = get_tools_config(ui, workspace_command.settings(), false)?;
+
+    let repo_path;
+    let mut read_file: Box<dyn FnMut() -> _>;
+
+    if let Some(stdin_filepath) = args.stdin_filepath.as_deref() {
+        repo_path = path_converter.parse_file_path(stdin_filepath)?;
+        read_file = Box::new(|| {
+            // This is blocking io in async. But it's fine.
+            let mut stdin = std::io::stdin();
+            let mut old_content = vec![];
+            stdin.read_to_end(&mut old_content)?;
+            Ok(old_content)
+        });
+    } else {
+        let path = args
+            .paths
+            .iter()
+            .exactly_one()
+            .cloned()
+            .map_err(|_not_one| {
+                CommandError::new(
+                    CommandErrorKind::User,
+                    "--no-index without --stdin-filepath requires exactly one path argument, and \
+                     it cannot be be a fileset"
+                        .to_string(),
+                )
+            })?;
+        repo_path = path_converter.parse_file_path(&path)?;
+        read_file = Box::new(move || {
+            let path = Path::new(&path);
+            let mut file = std::fs::File::open(path).context(path)?;
+            let mut old_content = vec![];
+            file.read_to_end(&mut old_content)?;
+            Ok(old_content)
+        });
+    }
+
+    let run_output = run_tools_one_file(
+        ui,
+        workspace_root,
+        path_converter,
+        &tools_config,
+        &repo_path,
+        || async { read_file() },
+    )
+    .block_on()?;
+
+    let stdout = std::io::stdout();
+    let mut stdout_locked = stdout.lock();
+
+    match run_output {
+        ToolsRunOutput::Ran {
+            new_content,
+            different: _,
+        } => {
+            // always print
+            stdout_locked.write_all(&new_content)?;
+        }
+        ToolsRunOutput::NoMatchingTools => {
+            // We already warned about empty/disabled tools when reading config
+            if !tools_config.tools.is_empty() {
+                writeln!(
+                    ui.warning_default(),
+                    "No `fix.tools` matched {}",
+                    path_converter.format_file_path(&repo_path)
+                )?;
+            }
+            if args.stdin_filepath.is_some() {
+                // just copy stdin to stdout, we haven't read stdin yet
+                let stdin = std::io::stdin();
+                std::io::copy(&mut stdin.lock(), &mut stdout_locked)?;
+            } else {
+                // reading from file
+                let old_content = read_file()?;
+                stdout_locked.write_all(&old_content)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+enum ToolsRunOutput {
+    NoMatchingTools,
+    Ran {
+        new_content: Vec<u8>,
+        different: bool,
+    },
+}
+
+async fn run_tools_one_file<F>(
+    ui: &Ui,
+    workspace_root: &Path,
+    path_converter: &RepoPathUiConverter,
+    tools_config: &ToolsConfig,
+    repo_path: &RepoPath,
+    read_file: impl FnOnce() -> F,
+) -> Result<ToolsRunOutput, FixError>
+where
+    F: Future<Output = Result<Vec<u8>, FixError>>,
+{
+    let mut matching_tools = tools_config
+        .tools
+        .iter()
+        .filter(|tool_config| tool_config.matcher.matches(repo_path))
+        .peekable();
+    if matching_tools.peek().is_some() {
+        // The first matching tool gets its input from the committed file, and any
+        // subsequent matching tool gets its input from the previous matching tool's
+        // output.
+        let old_content = read_file().await?;
         let new_content = matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
             match run_tool(
                 ui,
                 workspace_root,
                 path_converter,
                 &tool_config.command,
-                file_to_fix,
+                repo_path,
                 &prev_content,
             ) {
                 Ok(next_content) => next_content,
@@ -284,15 +445,13 @@ async fn fix_one_file(
                 Err(()) => prev_content,
             }
         });
-        if new_content != old_content {
-            // TODO: send futures back over channel
-            let new_file_id = store
-                .write_file(&file_to_fix.repo_path, &mut new_content.as_slice())
-                .await?;
-            return Ok(Some(new_file_id));
-        }
+        Ok(ToolsRunOutput::Ran {
+            different: new_content != old_content,
+            new_content,
+        })
+    } else {
+        Ok(ToolsRunOutput::NoMatchingTools)
     }
-    Ok(None)
 }
 
 /// Runs the `tool_command` to fix the given file content.
@@ -308,11 +467,11 @@ fn run_tool(
     workspace_root: &Path,
     path_converter: &RepoPathUiConverter,
     tool_command: &CommandNameAndArgs,
-    file_to_fix: &FileToFix,
+    repo_path: &RepoPath,
     old_content: &[u8],
 ) -> Result<Vec<u8>, ()> {
     let mut vars: HashMap<&str, &str> = HashMap::new();
-    vars.insert("path", file_to_fix.repo_path.as_internal_file_string());
+    vars.insert("path", repo_path.as_internal_file_string());
     // TODO: workspace_root.to_str() returns None if the workspace path is not
     // UTF-8, but we ignore that failure so `jj fix` still runs in that
     // situation. Maybe we should do something like substituting bytes instead
@@ -321,7 +480,7 @@ fn run_tool(
         vars.insert("root", root);
     }
     let mut command = tool_command.to_command_with_variables(&vars);
-    tracing::debug!(?command, ?file_to_fix.repo_path, "spawning fix tool");
+    tracing::debug!(?command, ?repo_path, "spawning fix tool");
     let mut child = match command
         .current_dir(workspace_root)
         .stdin(Stdio::piped())
@@ -352,12 +511,7 @@ fn run_tool(
     tracing::debug!(?command, ?output.status, "fix tool exited:");
     if !output.stderr.is_empty() {
         let mut stderr = ui.stderr();
-        writeln!(
-            stderr,
-            "{}:",
-            path_converter.format_file_path(&file_to_fix.repo_path)
-        )
-        .ok();
+        writeln!(stderr, "{}:", path_converter.format_file_path(repo_path)).ok();
         stderr.write_all(&output.stderr).ok();
         writeln!(stderr).ok();
     }
@@ -368,7 +522,7 @@ fn run_tool(
             ui.warning_default(),
             "Fix tool `{}` exited with non-zero exit code for `{}`",
             tool_command.split_name(),
-            path_converter.format_file_path(&file_to_fix.repo_path)
+            path_converter.format_file_path(repo_path)
         )
         .ok();
         Err(())
@@ -413,7 +567,11 @@ fn default_tool_enabled() -> bool {
 /// Fails if any of the commands or patterns are obviously unusable, but does
 /// not check for issues that might still occur later like missing executables.
 /// This is a place where we could fail earlier in some cases, though.
-fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig, CommandError> {
+fn get_tools_config(
+    ui: &mut Ui,
+    settings: &UserSettings,
+    require_nonempty: bool,
+) -> Result<ToolsConfig, CommandError> {
     let mut tools: Vec<ToolConfig> = settings
         .table_keys("fix.tools")
         // Sort keys early so errors are deterministic.
@@ -445,14 +603,22 @@ fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig,
         })
         .try_collect()?;
     if tools.is_empty() {
-        return Err(config_error("No `fix.tools` are configured"));
+        if require_nonempty {
+            return Err(config_error("No `fix.tools` are configured."));
+        } else {
+            writeln!(ui.warning_default(), "No `fix.tools` are configured.")?;
+            return Ok(ToolsConfig { tools });
+        }
     }
     tools.retain(|t| t.enabled);
     if tools.is_empty() {
-        Err(config_error(
-            "At least one entry of `fix.tools` must be enabled.".to_string(),
-        ))
-    } else {
-        Ok(ToolsConfig { tools })
+        if require_nonempty {
+            return Err(config_error(
+                "At least one entry of `fix.tools` must be enabled.".to_string(),
+            ));
+        } else {
+            writeln!(ui.warning_default(), "No `fix.tools` are enabled.")?;
+        }
     }
+    Ok(ToolsConfig { tools })
 }
