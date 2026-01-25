@@ -194,14 +194,11 @@ impl GitSidebandProgressMessageWriter {
     pub fn write(&mut self, ui: &Ui, progress_message: &[u8]) -> std::io::Result<()> {
         let mut index = 0;
         // Append a suffix to each nonempty line to clear the end of the screen line.
-        loop {
-            let Some(i) = progress_message[index..]
-                .iter()
-                .position(|&c| c == b'\r' || c == b'\n')
-                .map(|i| index + i)
-            else {
-                break;
-            };
+        while let Some(i) = progress_message[index..]
+            .iter()
+            .position(|&c| c == b'\r' || c == b'\n')
+            .map(|i| index + i)
+        {
             let line_length = i - index;
 
             // For messages sent across the packet boundary, there would be a nonempty
