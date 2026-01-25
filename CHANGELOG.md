@@ -221,11 +221,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
 
-* Fixed failure on exporting moved/deleted annotated tags to Git. Moved tags are
-  exported as lightweight tags.
-
-* `jj gerrit upload` now correctly handles mixed explicit and implicit
-  Change-Ids in chains of commits ([#8219](https://github.com/jj-vcs/jj/pull/8219))
+* Pre-existing Git submodule directories are no longer considered conflicts in
+  checkouts. [#8065](https://github.com/jj-vcs/jj/issues/8065).
 
 * `jj git push` now updates partially-pushed remote bookmarks accordingly.
   [#6787](https://github.com/jj-vcs/jj/issues/6787)

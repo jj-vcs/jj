@@ -744,6 +744,31 @@ fn remove_old_file(disk_path: &Path) -> Result<bool, CheckoutError> {
     }
 }
 
+/// Removes existing submodule directory named `disk_path` if any. Returns
+/// `Ok(true)` if the directory was there and got removed, meaning that new file
+/// can be safely created.
+///
+/// The directory will not be removed if it is not empty, as it could contain
+/// untracked or modified files. This is in line with Git's behavior.
+///
+/// If the existing directory points to ".git" or ".jj", this function returns
+/// an error.
+fn remove_old_submodule_dir(disk_path: &Path) -> Result<bool, CheckoutError> {
+    reject_reserved_existing_path(disk_path)?;
+    match fs::remove_dir(disk_path) {
+        Ok(()) => Ok(true),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(err) if err.kind() == io::ErrorKind::DirectoryNotEmpty => Ok(false),
+        Err(err) => Err(CheckoutError::Other {
+            message: format!(
+                "Failed to remove submodule directory {}",
+                disk_path.display()
+            ),
+            err: err.into(),
+        }),
+    }
+}
+
 /// Checks if new file or symlink named `disk_path` can be created.
 ///
 /// If the file already exists, this function return `Ok(false)` to signal
@@ -2255,14 +2280,31 @@ impl TreeState {
 
                 disk_path
             };
-
             // If the path was present, check reserved path first and delete it.
-            let present_file_deleted = before.is_present() && remove_old_file(&disk_path)?;
+            let present_file_deleted = before.is_present()
+                && if matches!(before.as_normal(), Some(TreeValue::GitSubmodule(_))) {
+                    remove_old_submodule_dir(&disk_path)?
+                } else {
+                    remove_old_file(&disk_path)?
+                };
+
             // If not, create temporary file to test the path validity.
             if !present_file_deleted && !can_create_new_file(&disk_path)? {
-                changed_file_states.push((path, FileState::placeholder()));
-                stats.skipped_files += 1;
-                return Ok(());
+                if disk_path.is_dir() && matches!(after, MaterializedTreeValue::GitSubmodule(_)) {
+                    // Failing to materalize submodule, over a directory which
+                    // is presumably the submodule before it was added in a
+                    // commit, is ok.
+                } else if matches!(before.as_normal(), Some(TreeValue::GitSubmodule(_)))
+                    && after.is_absent()
+                {
+                    // Failing to delete un-tracked submodule directory is ok,
+                    // as the, possibly untracked, contents would otherwise be
+                    // lost.
+                } else {
+                    changed_file_states.push((path, FileState::placeholder()));
+                    stats.skipped_files += 1;
+                    return Ok(());
+                }
             }
 
             // We get the previous executable bit from the file states and not
@@ -2306,6 +2348,11 @@ impl TreeState {
                 }
                 MaterializedTreeValue::GitSubmodule(_) => {
                     eprintln!("ignoring git submodule at {path:?}");
+                    // Git behavior: Create the submodule directory but don't
+                    // populate/overwrite the contents.
+                    if fs::create_dir_all(&disk_path).is_err() {
+                        eprintln!("warning: failed to create submodule directory {path:?}");
+                    }
                     FileState::for_gitsubmodule()
                 }
                 MaterializedTreeValue::Tree(_) => {
