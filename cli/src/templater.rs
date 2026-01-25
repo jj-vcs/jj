@@ -217,6 +217,51 @@ impl<T: Template> Template for RawEscapeSequenceTemplate<T> {
     }
 }
 
+/// Renders a hyperlink using OSC 8 escape sequences when supported, or a
+/// fallback otherwise.
+pub struct HyperlinkTemplate<U, T, F> {
+    url: U,
+    text: T,
+    fallback: Option<F>,
+}
+
+impl<U, T, F> HyperlinkTemplate<U, T, F> {
+    pub fn new(url: U, text: T, fallback: Option<F>) -> Self {
+        Self {
+            url,
+            text,
+            fallback,
+        }
+    }
+}
+
+impl<U, T, F> Template for HyperlinkTemplate<U, T, F>
+where
+    U: TemplateProperty<Output = String>,
+    T: Template,
+    F: Template,
+{
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        // Extract URL string
+        let url_str = match self.url.extract() {
+            Ok(url) => url,
+            Err(err) => return formatter.handle_error(err),
+        };
+
+        if !formatter.maybe_color() {
+            if let Some(fallback) = &self.fallback {
+                return fallback.format(formatter);
+            }
+            return self.text.format(formatter);
+        }
+
+        // Write OSC 8 hyperlink via raw()
+        write!(formatter.raw()?, "\x1b]8;;{url_str}\x1b\\")?;
+        self.text.format(formatter)?;
+        write!(formatter.raw()?, "\x1b]8;;\x1b\\")
+    }
+}
+
 /// Renders contents in order, and returns the first non-empty output.
 pub struct CoalesceTemplate<T>(pub Vec<T>);
 
@@ -268,7 +313,7 @@ where
 {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         let rewrap = formatter.rewrap_fn();
-        let mut recorder = FormatRecorder::new();
+        let mut recorder = FormatRecorder::new(formatter.maybe_color());
         self.content.format(&mut rewrap(&mut recorder))?;
         (self.reformat)(formatter, &recorder)
     }
@@ -827,6 +872,10 @@ impl<'a> TemplateFormatter<'a> {
         self.formatter.pop_label();
     }
 
+    pub fn maybe_color(&self) -> bool {
+        self.formatter.maybe_color()
+    }
+
     pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {
         self.formatter.write_fmt(args)
     }
@@ -939,8 +988,9 @@ fn record_non_empty_fn<T: Template + ?Sized>(
     // 1.85.0.
 ) -> impl Fn(&T) -> Option<io::Result<FormatRecorder>> + use<T> {
     let rewrap = formatter.rewrap_fn();
+    let maybe_color = formatter.maybe_color();
     move |template| {
-        let mut recorder = FormatRecorder::new();
+        let mut recorder = FormatRecorder::new(maybe_color);
         match template.format(&mut rewrap(&mut recorder)) {
             Ok(()) if recorder.data().is_empty() => None, // omit empty content
             Ok(()) => Some(Ok(recorder)),

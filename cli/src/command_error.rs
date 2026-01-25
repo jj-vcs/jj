@@ -142,7 +142,7 @@ impl CommandError {
         &mut self,
         write: impl FnOnce(&mut dyn Formatter) -> io::Result<()>,
     ) {
-        let mut formatter = FormatRecorder::new();
+        let mut formatter = FormatRecorder::new(true);
         write(&mut formatter).expect("write() to FormatRecorder should never fail");
         self.add_formatted_hint(formatter);
     }

@@ -3088,7 +3088,7 @@ impl LogContentFormat {
         content_fn: impl FnOnce(&mut dyn Formatter) -> Result<(), E>,
     ) -> Result<(), E> {
         if self.word_wrap {
-            let mut recorder = FormatRecorder::new();
+            let mut recorder = FormatRecorder::new(formatter.maybe_color());
             content_fn(&mut recorder)?;
             text_util::write_wrapped(formatter, &recorder, self.width)?;
         } else {

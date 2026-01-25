@@ -79,6 +79,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * New `remote_tags()` revset function to query remote tags.
 
+* New builtin `hyperlink()` template function that gracefully falls back to
+  text when outputting to a non-terminal, instead of emitting raw OSC 8 escape
+  codes. [#7592](https://github.com/jj-vcs/jj/issues/7592)
+
 ### Fixed bugs
 
 * `jj git init --colocate` now refuses to run inside a Git worktree, providing

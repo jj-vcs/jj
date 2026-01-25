@@ -1524,6 +1524,27 @@ fn test_log_word_wrap() {
 }
 
 #[test]
+fn test_log_word_wrap_with_hyperlinks() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let template = r#"hyperlink("http://example.com", "long line to force wrapping")"#;
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args(["log", "-r@", "-T", template, "--color=always"])
+            .arg("--config=ui.log-word-wrap=true")
+            .env("COLUMNS", "10")
+    });
+    insta::assert_snapshot!(output, @r"
+    [1m[38;5;2m@[0m  ]8;;http://example.com\long
+    │  line to
+    ~  force
+       wrapping]8;;\
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_log_diff_stat_width() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

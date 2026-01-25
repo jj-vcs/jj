@@ -45,6 +45,8 @@ pub trait Formatter: Write {
     fn push_label(&mut self, label: &str);
 
     fn pop_label(&mut self);
+
+    fn maybe_color(&self) -> bool;
 }
 
 impl<T: Formatter + ?Sized> Formatter for &mut T {
@@ -59,6 +61,10 @@ impl<T: Formatter + ?Sized> Formatter for &mut T {
     fn pop_label(&mut self) {
         <T as Formatter>::pop_label(self);
     }
+
+    fn maybe_color(&self) -> bool {
+        <T as Formatter>::maybe_color(self)
+    }
 }
 
 impl<T: Formatter + ?Sized> Formatter for Box<T> {
@@ -72,6 +78,10 @@ impl<T: Formatter + ?Sized> Formatter for Box<T> {
 
     fn pop_label(&mut self) {
         <T as Formatter>::pop_label(self);
+    }
+
+    fn maybe_color(&self) -> bool {
+        <T as Formatter>::maybe_color(self)
     }
 }
 
@@ -205,7 +215,7 @@ impl FormatterFactory {
         }
     }
 
-    pub fn is_color(&self) -> bool {
+    pub fn maybe_color(&self) -> bool {
         matches!(self.kind, FormatterFactoryKind::Color { .. })
     }
 }
@@ -238,6 +248,10 @@ impl<W: Write> Formatter for PlainTextFormatter<W> {
     fn push_label(&mut self, _label: &str) {}
 
     fn pop_label(&mut self) {}
+
+    fn maybe_color(&self) -> bool {
+        false
+    }
 }
 
 pub struct SanitizingFormatter<W> {
@@ -269,6 +283,10 @@ impl<W: Write> Formatter for SanitizingFormatter<W> {
     fn push_label(&mut self, _label: &str) {}
 
     fn pop_label(&mut self) {}
+
+    fn maybe_color(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize)]
@@ -616,6 +634,10 @@ impl<W: Write> Formatter for ColorFormatter<W> {
     fn pop_label(&mut self) {
         self.labels.pop();
     }
+
+    fn maybe_color(&self) -> bool {
+        true
+    }
 }
 
 impl<W: Write> Drop for ColorFormatter<W> {
@@ -634,10 +656,11 @@ impl<W: Write> Drop for ColorFormatter<W> {
 /// the destination formatter has already been labeled, the recorded labels
 /// will be stacked on top of the existing labels, and the subsequent data
 /// may be colorized differently.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct FormatRecorder {
     data: Vec<u8>,
     ops: Vec<(usize, FormatOp)>,
+    maybe_color: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -648,8 +671,12 @@ enum FormatOp {
 }
 
 impl FormatRecorder {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(maybe_color: bool) -> Self {
+        Self {
+            data: vec![],
+            ops: vec![],
+            maybe_color,
+        }
     }
 
     /// Creates new buffer containing the given `data`.
@@ -657,6 +684,7 @@ impl FormatRecorder {
         Self {
             data: data.into(),
             ops: vec![],
+            maybe_color: false,
         }
     }
 
@@ -736,6 +764,10 @@ impl Formatter for FormatRecorder {
 
     fn pop_label(&mut self) {
         self.push_op(FormatOp::PopLabel);
+    }
+
+    fn maybe_color(&self) -> bool {
+        self.maybe_color
     }
 }
 
@@ -1487,7 +1519,7 @@ mod tests {
 
     #[test]
     fn test_format_recorder() {
-        let mut recorder = FormatRecorder::new();
+        let mut recorder = FormatRecorder::new(false);
         write!(recorder, " outer1 ").unwrap();
         recorder.push_label("inner");
         write!(recorder, " inner1 ").unwrap();
@@ -1527,7 +1559,7 @@ mod tests {
     #[test]
     fn test_raw_format_recorder() {
         // Note: similar to test_format_recorder above
-        let mut recorder = FormatRecorder::new();
+        let mut recorder = FormatRecorder::new(false);
         write!(recorder.raw().unwrap(), " outer1 ").unwrap();
         recorder.push_label("inner");
         write!(recorder.raw().unwrap(), " inner1 ").unwrap();

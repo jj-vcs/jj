@@ -51,6 +51,7 @@ use crate::templater::CoalesceTemplate;
 use crate::templater::ConcatTemplate;
 use crate::templater::ConditionalTemplate;
 use crate::templater::Email;
+use crate::templater::HyperlinkTemplate;
 use crate::templater::JoinTemplate;
 use crate::templater::LabelTemplate;
 use crate::templater::ListPropertyTemplate;
@@ -1847,6 +1848,17 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             )))
         },
     );
+    map.insert("hyperlink", |language, diagnostics, build_ctx, function| {
+        let ([url_node, text_node], [fallback_node]) = function.expect_arguments()?;
+        let url = expect_stringify_expression(language, diagnostics, build_ctx, url_node)?;
+        let text = expect_template_expression(language, diagnostics, build_ctx, text_node)?;
+        let fallback = fallback_node
+            .map(|node| expect_template_expression(language, diagnostics, build_ctx, node))
+            .transpose()?;
+        Ok(L::Property::wrap_template(Box::new(
+            HyperlinkTemplate::new(url, text, fallback),
+        )))
+    });
     map.insert("stringify", |language, diagnostics, build_ctx, function| {
         let [content_node] = function.expect_exact_arguments()?;
         let content = expect_stringify_expression(language, diagnostics, build_ctx, content_node)?;
@@ -1973,7 +1985,7 @@ where
         let mut fill_char_recorder;
         let recorded_fill_char = if let Some(fill_char) = &fill_char {
             let rewrap = formatter.rewrap_fn();
-            fill_char_recorder = FormatRecorder::new();
+            fill_char_recorder = FormatRecorder::new(formatter.maybe_color());
             fill_char.format(&mut rewrap(&mut fill_char_recorder))?;
             &fill_char_recorder
         } else {
@@ -2002,7 +2014,7 @@ where
         let mut ellipsis_recorder;
         let recorded_ellipsis = if let Some(ellipsis) = &ellipsis {
             let rewrap = formatter.rewrap_fn();
-            ellipsis_recorder = FormatRecorder::new();
+            ellipsis_recorder = FormatRecorder::new(formatter.maybe_color());
             ellipsis.format(&mut rewrap(&mut ellipsis_recorder))?;
             &ellipsis_recorder
         } else {
@@ -2360,6 +2372,11 @@ mod tests {
             template.format(&Context, &mut formatter).unwrap();
             drop(formatter);
             String::from_utf8(output).unwrap()
+        }
+
+        fn render_plain(&self, template: &str) -> String {
+            let template = self.parse(template).unwrap();
+            String::from_utf8(template.format_plain_text(&Context)).unwrap()
         }
     }
 
@@ -4025,6 +4042,89 @@ mod tests {
                 ++ "Example"
                 ++ "\x1b]8;;\x1B\\")"#),
             @r"]8;;http://example.com\Example]8;;\");
+    }
+
+    #[test]
+    fn test_hyperlink_function_with_color() {
+        let env = TestTemplateEnv::new();
+        // With ColorFormatter, hyperlink emits OSC 8 escape sequences
+        insta::assert_snapshot!(
+            env.render_ok(r#"hyperlink("http://example.com", "Example")"#),
+            @r"]8;;http://example.com\Example]8;;\");
+    }
+
+    #[test]
+    fn test_hyperlink_function_without_color() {
+        let env = TestTemplateEnv::new();
+        // With PlainTextFormatter, hyperlink shows just the text
+        insta::assert_snapshot!(
+            env.render_plain(r#"hyperlink("http://example.com", "Example")"#),
+            @"Example");
+    }
+
+    #[test]
+    fn test_hyperlink_function_custom_fallback() {
+        let env = TestTemplateEnv::new();
+        // Custom fallback is used when not outputting to color terminal
+        insta::assert_snapshot!(
+            env.render_plain(r#"hyperlink("http://example.com", "Example", "URL: http://example.com")"#),
+            @"URL: http://example.com");
+    }
+
+    #[test]
+    fn test_hyperlink_function_stringify() {
+        let env = TestTemplateEnv::new();
+        // stringify() strips hyperlink to just text
+        insta::assert_snapshot!(
+            env.render_ok(r#"stringify(hyperlink("http://example.com", "Example"))"#),
+            @"Example");
+        // stringify then can be manipulated as plain text
+        insta::assert_snapshot!(
+            env.render_ok(r#"stringify(hyperlink("http://example.com", "Example")).upper()"#),
+            @"EXAMPLE");
+    }
+
+    #[test]
+    fn test_hyperlink_function_with_separate() {
+        let env = TestTemplateEnv::new();
+        // separate() uses FormatRecorder internally; hyperlinks are preserved
+        insta::assert_snapshot!(
+            env.render_ok(r#"separate(" | ", hyperlink("http://a.com", "A"), hyperlink("http://b.com", "B"))"#),
+            @"\u{1b}]8;;http://a.com\u{1b}\\A\u{1b}]8;;\u{1b}\\ | \u{1b}]8;;http://b.com\u{1b}\\B\u{1b}]8;;\u{1b}\\");
+    }
+
+    #[test]
+    fn test_hyperlink_function_with_coalesce() {
+        let env = TestTemplateEnv::new();
+        // coalesce() uses FormatRecorder; hyperlinks are preserved
+        insta::assert_snapshot!(
+            env.render_ok(r#"coalesce(hyperlink("http://example.com", "Link"), "fallback")"#),
+            @"\u{1b}]8;;http://example.com\u{1b}\\Link\u{1b}]8;;\u{1b}\\");
+        // Falls back to second when hyperlink text is empty
+        insta::assert_snapshot!(
+            env.render_ok(r#"coalesce(hyperlink("http://example.com", ""), "fallback")"#),
+            @"fallback");
+    }
+
+    #[test]
+    fn test_hyperlink_function_with_if() {
+        let env = TestTemplateEnv::new();
+        // if() does not use FormatRecorder; hyperlinks work directly
+        insta::assert_snapshot!(
+            env.render_ok(r#"if(true, hyperlink("http://example.com", "Yes"), "No")"#),
+            @r"]8;;http://example.com\Yes]8;;\");
+        insta::assert_snapshot!(
+            env.render_ok(r#"if(false, "Yes", hyperlink("http://example.com", "No"))"#),
+            @r"]8;;http://example.com\No]8;;\");
+    }
+
+    #[test]
+    fn test_hyperlink_function_plain_with_separate() {
+        let env = TestTemplateEnv::new();
+        // When rendering plain, hyperlinks should fall back to text
+        insta::assert_snapshot!(
+            env.render_plain(r#"separate(" | ", hyperlink("http://a.com", "A"), hyperlink("http://b.com", "B"))"#),
+            @"A | B");
     }
 
     #[test]
