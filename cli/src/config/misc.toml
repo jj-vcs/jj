@@ -29,6 +29,7 @@ track-default-bookmark-on-clone = true
 
 [ui]
 color = "auto"
+hyperlink = "auto"
 diff-formatter = ":color-words"
 diff-instructions = true
 graph.style = "curved"

@@ -3934,19 +3934,19 @@ mod tests {
     #[test]
     fn test_hyperlink_function_with_separate() {
         let env = TestTemplateEnv::new();
-        // separate() uses FormatRecorder internally; hyperlinks fall back to text
+        // separate() uses FormatRecorder internally; hyperlinks are preserved
         insta::assert_snapshot!(
             env.render_ok(r#"separate(" | ", hyperlink("http://a.com", "A"), hyperlink("http://b.com", "B"))"#),
-            @"A | B");
+            @r"]8;;http://a.com\A]8;;\ | ]8;;http://b.com\B]8;;\");
     }
 
     #[test]
     fn test_hyperlink_function_with_coalesce() {
         let env = TestTemplateEnv::new();
-        // coalesce() uses FormatRecorder; hyperlinks fall back to text
+        // coalesce() uses FormatRecorder; hyperlinks are preserved
         insta::assert_snapshot!(
             env.render_ok(r#"coalesce(hyperlink("http://example.com", "Link"), "fallback")"#),
-            @"Link");
+            @r"]8;;http://example.com\Link]8;;\");
         // Falls back to second when hyperlink text is empty
         insta::assert_snapshot!(
             env.render_ok(r#"coalesce(hyperlink("http://example.com", ""), "fallback")"#),

@@ -77,8 +77,10 @@ The following functions are defined.
   space-separated string.
 * `hyperlink(url: Stringify, text: Template, [fallback: Template]) -> Template`:
   Render `text` as a hyperlink to `url` using [OSC 8 escape sequences](https://github.com/Alhadis/OSC8-Adoption)
-  when outputting with color enabled. Otherwise, renders `fallback` instead,
-  which defaults to `text`. Use `--color=always` to force hyperlinks when piping
+  when outputting with color enabled and `ui.hyperlink` is not set to `"never"`.
+  Otherwise, renders `fallback` instead, which defaults to `text`. The
+  `ui.hyperlink` config can be set to `"auto"` (default; follows color setting),
+  `"always"`, or `"never"`. Use `--color=always` to force hyperlinks when piping
   output to a terminal emulator that supports OSC 8.
 * `raw_escape_sequence(content: Template) -> Template`: Preserves any escape
   sequences in `content` (i.e., bypasses sanitization) and strips labels.

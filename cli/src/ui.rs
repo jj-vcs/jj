@@ -241,6 +241,15 @@ impl fmt::Display for ColorChoice {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize, clap::ValueEnum)]
+#[serde(rename_all = "kebab-case")]
+pub enum HyperlinkChoice {
+    #[default]
+    Auto,
+    Always,
+    Never,
+}
+
 fn prepare_formatter_factory(
     config: &StackedConfig,
     stdout: &Stdout,
@@ -252,8 +261,13 @@ fn prepare_formatter_factory(
         ColorChoice::Debug => (true, true),
         ColorChoice::Auto => (terminal, false),
     };
+    let hyperlinks = color
+        && !matches!(
+            config.get::<HyperlinkChoice>("ui.hyperlink"),
+            Ok(HyperlinkChoice::Never)
+        );
     if color {
-        FormatterFactory::color(config, debug)
+        FormatterFactory::color(config, debug, hyperlinks)
     } else if terminal {
         // Sanitize ANSI escape codes if we're printing to a terminal. Doesn't
         // affect ANSI escape codes that originate from the formatter itself.

@@ -597,7 +597,7 @@ impl<T: Template> TemplateProperty for PlainTextFormattedProperty<T> {
     fn extract(&self) -> Result<Self::Output, TemplatePropertyError> {
         let mut output = vec![];
         let mut formatter = PlainTextFormatter::new(&mut output);
-        let mut wrapper = TemplateFormatter::new(&mut formatter, propagate_property_error);
+        let mut wrapper = TemplateFormatter::new(&mut formatter, propagate_property_error, false);
         self.template.format(&mut wrapper)?;
         Ok(String::from_utf8(output).map_err(|err| err.utf8_error())?)
     }
@@ -815,7 +815,9 @@ impl<'a, C: Clone> TemplateRenderer<'a, C> {
     }
 
     pub fn format(&self, context: &C, formatter: &mut dyn Formatter) -> io::Result<()> {
-        let mut wrapper = TemplateFormatter::new(formatter, format_property_error_inline);
+        let supports_hyperlinks = formatter.supports_hyperlinks();
+        let mut wrapper =
+            TemplateFormatter::new(formatter, format_property_error_inline, supports_hyperlinks);
         self.placeholder.with_value(context.clone(), || {
             format_labeled(&mut wrapper, &self.template, &self.labels)
         })
@@ -837,13 +839,19 @@ impl<'a, C: Clone> TemplateRenderer<'a, C> {
 pub struct TemplateFormatter<'a> {
     formatter: &'a mut dyn Formatter,
     error_handler: PropertyErrorHandler,
+    supports_hyperlinks: bool,
 }
 
 impl<'a> TemplateFormatter<'a> {
-    fn new(formatter: &'a mut dyn Formatter, error_handler: PropertyErrorHandler) -> Self {
+    fn new(
+        formatter: &'a mut dyn Formatter,
+        error_handler: PropertyErrorHandler,
+        supports_hyperlinks: bool,
+    ) -> Self {
         Self {
             formatter,
             error_handler,
+            supports_hyperlinks,
         }
     }
 
@@ -854,7 +862,8 @@ impl<'a> TemplateFormatter<'a> {
     /// borrowed.
     pub fn rewrap_fn(&self) -> impl Fn(&mut dyn Formatter) -> TemplateFormatter<'_> + use<> {
         let error_handler = self.error_handler;
-        move |formatter| TemplateFormatter::new(formatter, error_handler)
+        let supports_hyperlinks = self.supports_hyperlinks;
+        move |formatter| TemplateFormatter::new(formatter, error_handler, supports_hyperlinks)
     }
 
     pub fn raw(&mut self) -> io::Result<Box<dyn Write + '_>> {
@@ -874,7 +883,7 @@ impl<'a> TemplateFormatter<'a> {
     }
 
     pub fn supports_hyperlinks(&self) -> bool {
-        self.formatter.maybe_color()
+        self.supports_hyperlinks
     }
 
     pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {
