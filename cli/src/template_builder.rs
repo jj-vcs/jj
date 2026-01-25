@@ -2679,6 +2679,28 @@ mod tests {
           |
           = Lambda cannot be defined here
         ");
+
+        env.add_alias("fill2(a, b)", "fill(a, b)");
+        insta::assert_snapshot!(env.parse_err("fill2('', '')"), @"
+         --> 1:1
+          |
+        1 | fill2('', '')
+          | ^-----------^
+          |
+          = In alias `fill2(a, b)`
+         --> 1:6
+          |
+        1 | fill(a, b)
+          |      ^
+          |
+          = In function parameter `a`
+         --> 1:7
+          |
+        1 | fill2('', '')
+          |       ^^
+          |
+          = Expected expression of type `Integer`, but actual type is `String`
+        ");
     }
 
     #[test]
