@@ -34,7 +34,8 @@ with `jj rebase`, `jj describe`, etc). In that case, `jj log -r commit_id`
 should show the revision as "hidden". `jj new commit_id` should make the
 revision visible again.
 
-See [revsets] and [templates] for further guidance.
+See [revsets] and [templates] for further guidance. For a good introduction to
+[revsets], see [configuring `revsets.log`]
 
 ### What are elided revisions in the output of `jj log`? How can I display them?
 
@@ -626,6 +627,7 @@ revsets. This seemed unlikely to be accepted by the Git project.
 [change]: glossary.md#change
 [change ID]: glossary.md#change-id
 [colocated]: glossary.md#colocated-workspaces
+[configuring `revsets.log`]: guides/configuring-revsets-log.md
 [commit ID]: glossary.md#commit-id
 [commits]: glossary.md#commit
 [config]: config.md
