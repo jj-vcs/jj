@@ -45,6 +45,8 @@ pub trait Formatter: Write {
     fn push_label(&mut self, label: &str);
 
     fn pop_label(&mut self);
+
+    fn maybe_color(&self) -> bool;
 }
 
 impl<T: Formatter + ?Sized> Formatter for &mut T {
@@ -59,6 +61,10 @@ impl<T: Formatter + ?Sized> Formatter for &mut T {
     fn pop_label(&mut self) {
         <T as Formatter>::pop_label(self);
     }
+
+    fn maybe_color(&self) -> bool {
+        <T as Formatter>::maybe_color(self)
+    }
 }
 
 impl<T: Formatter + ?Sized> Formatter for Box<T> {
@@ -72,6 +78,10 @@ impl<T: Formatter + ?Sized> Formatter for Box<T> {
 
     fn pop_label(&mut self) {
         <T as Formatter>::pop_label(self);
+    }
+
+    fn maybe_color(&self) -> bool {
+        <T as Formatter>::maybe_color(self)
     }
 }
 
@@ -205,7 +215,7 @@ impl FormatterFactory {
         }
     }
 
-    pub fn is_color(&self) -> bool {
+    pub fn maybe_color(&self) -> bool {
         matches!(self.kind, FormatterFactoryKind::Color { .. })
     }
 }
@@ -238,6 +248,10 @@ impl<W: Write> Formatter for PlainTextFormatter<W> {
     fn push_label(&mut self, _label: &str) {}
 
     fn pop_label(&mut self) {}
+
+    fn maybe_color(&self) -> bool {
+        false
+    }
 }
 
 pub struct SanitizingFormatter<W> {
@@ -269,6 +283,10 @@ impl<W: Write> Formatter for SanitizingFormatter<W> {
     fn push_label(&mut self, _label: &str) {}
 
     fn pop_label(&mut self) {}
+
+    fn maybe_color(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize)]
@@ -616,6 +634,10 @@ impl<W: Write> Formatter for ColorFormatter<W> {
     fn pop_label(&mut self) {
         self.labels.pop();
     }
+
+    fn maybe_color(&self) -> bool {
+        true
+    }
 }
 
 impl<W: Write> Drop for ColorFormatter<W> {
@@ -736,6 +758,10 @@ impl Formatter for FormatRecorder {
 
     fn pop_label(&mut self) {
         self.push_op(FormatOp::PopLabel);
+    }
+
+    fn maybe_color(&self) -> bool {
+        false
     }
 }
 

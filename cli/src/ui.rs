@@ -415,7 +415,7 @@ impl Ui {
     }
 
     pub fn color(&self) -> bool {
-        self.formatter_factory.is_color()
+        self.formatter_factory.maybe_color()
     }
 
     pub fn new_formatter<'output, W: Write + 'output>(

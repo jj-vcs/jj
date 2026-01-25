@@ -217,6 +217,52 @@ impl<T: Template> Template for RawEscapeSequenceTemplate<T> {
     }
 }
 
+/// Renders a hyperlink using OSC 8 escape sequences when supported, or a
+/// fallback otherwise.
+pub struct HyperlinkTemplate<U, T, F> {
+    url: U,
+    text: T,
+    fallback: Option<F>,
+}
+
+impl<U, T, F> HyperlinkTemplate<U, T, F> {
+    pub fn new(url: U, text: T, fallback: Option<F>) -> Self {
+        Self {
+            url,
+            text,
+            fallback,
+        }
+    }
+}
+
+impl<U, T, F> Template for HyperlinkTemplate<U, T, F>
+where
+    U: TemplateProperty<Output = String>,
+    T: Template,
+    F: Template,
+{
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        // Extract URL string
+        let url_str = match self.url.extract() {
+            Ok(url) => url,
+            Err(err) => return formatter.handle_error(err),
+        };
+
+        // Use custom fallback if provided and hyperlinks not supported
+        if !formatter.supports_hyperlinks() {
+            if let Some(fallback) = &self.fallback {
+                return fallback.format(formatter);
+            }
+            return self.text.format(formatter);
+        }
+
+        // Write OSC 8 hyperlink via raw()
+        write!(formatter.raw()?, "\x1b]8;;{url_str}\x1b\\")?;
+        self.text.format(formatter)?;
+        write!(formatter.raw()?, "\x1b]8;;\x1b\\")
+    }
+}
+
 /// Renders contents in order, and returns the first non-empty output.
 pub struct CoalesceTemplate<T>(pub Vec<T>);
 
@@ -825,6 +871,10 @@ impl<'a> TemplateFormatter<'a> {
 
     pub fn pop_label(&mut self) {
         self.formatter.pop_label();
+    }
+
+    pub fn supports_hyperlinks(&self) -> bool {
+        self.formatter.maybe_color()
     }
 
     pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {

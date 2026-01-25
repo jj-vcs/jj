@@ -75,6 +75,11 @@ The following functions are defined.
 * `label(label: Stringify, content: Template) -> Template`: Apply a custom
   [color label](#color-labels) to the content. The `label` is evaluated as a
   space-separated string.
+* `hyperlink(url: Stringify, text: Template, [fallback: Template]) -> Template`:
+  Render `text` as a hyperlink to `url` using [OSC 8 escape sequences](https://github.com/Alhadis/OSC8-Adoption)
+  when outputting with color enabled. Otherwise, renders `fallback` instead,
+  which defaults to `text`. Use `--color=always` to force hyperlinks when piping
+  output to a terminal emulator that supports OSC 8.
 * `raw_escape_sequence(content: Template) -> Template`: Preserves any escape
   sequences in `content` (i.e., bypasses sanitization) and strips labels.
   Note: This function is intended for escape sequences and as such, its output
@@ -99,12 +104,6 @@ The following functions are defined.
 * `git_web_url([remote: String]) -> String`: Best-effort conversion of a git
   remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
   empty string on failure. SSH host alias resolution is currently unsupported.
-
-## Built-in Aliases
-
-* `hyperlink(url, text)`: Creates a clickable hyperlink using [OSC8 escape sequences](https://github.com/Alhadis/OSC8-Adoption).
-  The `text` will be displayed and clickable, linking to the given `url` in
-  terminals that support OSC8 hyperlinks.
 
 ## Types
 

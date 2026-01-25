@@ -67,6 +67,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* The `hyperlink()` template function now gracefully falls back to text when
+  outputting to a non-terminal, instead of emitting raw OSC 8 escape codes.
+  [#7592](https://github.com/jj-vcs/jj/issues/7592)
+
 * `jj git init --colocate` now refuses to run inside a Git worktree, providing
   a helpful error message with alternatives.
   [#8052](https://github.com/jj-vcs/jj/issues/8052)
