@@ -2391,7 +2391,6 @@ dependencies = [
  "proptest-state-machine",
  "rand 0.9.2",
  "rand_chacha",
- "rayon",
  "regex",
  "rpassword",
  "sapling-renderdag",
@@ -2401,7 +2400,6 @@ dependencies = [
  "serde_json",
  "shlex",
  "slab",
- "strsim",
  "tempfile",
  "test-case",
  "testutils",
@@ -2473,7 +2471,6 @@ dependencies = [
  "tokio",
  "toml_edit",
  "tracing",
- "version_check",
  "watchman_client",
  "winreg",
 ]
