@@ -1311,7 +1311,7 @@ mod tests {
         let actual_result = parse_conflict(&contents.replace(b"\n", b"\r\n"), 2, 7).unwrap()[0]
             .clone()
             .map(|content| content.to_str().unwrap().to_owned());
-        let expected_merge = expected_merge.map(|content| content.replace("\n", "\r\n"));
+        let expected_merge = expected_merge.map(|content| content.replace('\n', "\r\n"));
         assert_eq!(actual_result, expected_merge);
     }
 
@@ -1353,9 +1353,9 @@ mod tests {
         eol: &str,
     ) {
         // Add a leading EOL to suggest the correct EOL to use for materialization.
-        let base = format!("\n{base}{base_ending_eol}").replace("\n", eol);
-        let side1 = format!("\n{side1}{side1_ending_eol}").replace("\n", eol);
-        let side2 = format!("\n{side2}{side2_ending_eol}").replace("\n", eol);
+        let base = format!("\n{base}{base_ending_eol}").replace('\n', eol);
+        let side1 = format!("\n{side1}{side1_ending_eol}").replace('\n', eol);
+        let side2 = format!("\n{side2}{side2_ending_eol}").replace('\n', eol);
         let merge = Merge::from_vec(vec![side2.as_str(), base.as_str(), side1.as_str()]);
         let options = ConflictMaterializeOptions {
             marker_style: style,
@@ -1382,8 +1382,8 @@ mod tests {
                 "Expect all the lines with EOL to end with {eol:?}, but got {line:?} from\n{}",
                 actual_contents
                     // Replace \r to ␍ and \n to ␊ for clarity in the panic message.
-                    .replace("\r", "\u{240D}")
-                    .replace("\n", "\u{240A}\n")
+                    .replace('\r', "\u{240D}")
+                    .replace('\n', "\u{240A}\n")
             );
         }
         let hunks = parse_conflict(actual_contents.as_bytes(), 2, 7).unwrap();

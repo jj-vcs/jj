@@ -551,7 +551,7 @@ pub fn workspaces() -> Vec<CompletionCandidate> {
         Ok(stdout
             .lines()
             .filter_map(|line| {
-                let res = line.split_once("\t").map(|(name, desc)| {
+                let res = line.split_once('\t').map(|(name, desc)| {
                     CompletionCandidate::new(name).help(Some(desc.to_string().into()))
                 });
                 if res.is_none() {

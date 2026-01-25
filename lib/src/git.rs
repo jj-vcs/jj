@@ -147,7 +147,7 @@ pub enum GitRemoteNameError {
 fn validate_remote_name(name: &RemoteName) -> Result<(), GitRemoteNameError> {
     if name == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
         Err(GitRemoteNameError::ReservedForLocalGitRepo)
-    } else if name.as_str().contains("/") {
+    } else if name.as_str().contains('/') {
         Err(GitRemoteNameError::WithSlash(name.to_owned()))
     } else {
         Ok(())

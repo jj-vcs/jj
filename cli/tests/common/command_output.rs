@@ -154,7 +154,7 @@ impl CommandOutputString {
     /// Removes all but the first `n` lines from the normalized text.
     #[must_use]
     pub fn take_n_lines(self, n: usize) -> Self {
-        self.normalize_with(|s| s.split_inclusive("\n").take(n).collect())
+        self.normalize_with(|s| s.split_inclusive('\n').take(n).collect())
     }
 
     #[must_use]

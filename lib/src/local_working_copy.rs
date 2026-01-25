@@ -150,7 +150,7 @@ fn symlink_target_convert_to_disk(path: &str) -> PathBuf {
         // symlink with the incorrect separator "/".
         //
         // See https://github.com/jj-vcs/jj/issues/6934 for the relevant bug.
-        Cow::Owned(path.replace("/", std::path::MAIN_SEPARATOR_STR))
+        Cow::Owned(path.replace('/', std::path::MAIN_SEPARATOR_STR))
     };
     PathBuf::from(path.as_ref())
 }
@@ -2061,7 +2061,7 @@ impl TreeState {
             // release build, and we are sure that we shouldn't create invalid symlinks in
             // tests.
             debug_assert_ne!(
-                target.as_os_str().to_str().map(|path| path.contains("/")),
+                target.as_os_str().to_str().map(|path| path.contains('/')),
                 Some(true),
                 "Expect the symlink target doesn't contain \"/\", but got invalid symlink target: \
                  {}.",

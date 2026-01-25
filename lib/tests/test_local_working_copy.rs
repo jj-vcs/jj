@@ -2766,7 +2766,7 @@ fn test_snapshot_symlink_use_forward_slash() {
         .unwrap();
 
     assert!(
-        !actual_link_contents.contains("\\"),
+        !actual_link_contents.contains('\\'),
         "Expect the symlink in the Store to use \"/\" as the separator, but got \
          {actual_link_contents}."
     );
