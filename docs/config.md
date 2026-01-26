@@ -1898,28 +1898,32 @@ and `<PLATFORM_SPECIFIC>` represents the platform-specific configuration
 directory shown in the table below. The platform-specific location is
 recommended for better integration with platform services.
 
-The files in the `conf.d` directory are loaded in lexicographic order. This allows
-configs to be split across multiple files and combines well
-with [Conditional Variables](#conditional-variables).
+The files in the `conf.d` directory are loaded in lexicographic order. This
+allows configs to be split across multiple files and combines well with
+[Conditional Variables](#conditional-variables).
 
 | Platform        | Location of `<PLATFORM_SPECIFIC>` dir | Example config file location                              |
 | :-------------- | :------------------------------------ | :-------------------------------------------------------- |
 | Linux and macOS | `$XDG_CONFIG_HOME` or `$HOME/.config` | `/home/alice/.config/jj/config.toml`                      |
 | Windows         | `{FOLDERID_RoamingAppData}`           | `C:\Users\Alice\AppData\Roaming\jj\config.toml`           |
 
-The location of the `jj` user config files/directories can also be overridden with the
-`JJ_CONFIG` environment variable. If it is not empty, it will be used instead
-of any configuration files in the default locations. If it is a path to a TOML
-file, then that file will be loaded instead. If it is a path to a directory,
-then all the TOML files in that directory will be loaded in lexicographic order
-and merged. Multiple paths can be specified by separating them with a
-platform-specific path separator (`:` on Unix-like systems, `;` on Windows).
+The location of the `jj` user config files/directories can also be overridden
+with the `JJ_CONFIG` environment variable. If the environment variable is set
+(even to an empty string), it will be used instead of any configuration files in
+the default locations. It can be a path to a TOML file or a directory of TOML
+files, which will be loaded in lexicographic order and merged. Multiple paths
+can be specified by separating them with a platform-specific path separator (`:`
+on Unix-like systems, `;` on Windows).
 
-For example, the following could be used to run `jj` without loading any user configs:
+For example, the following could be used to run `jj` without loading any user
+configs:
 
 ```bash
-JJ_CONFIG= jj log       # Ignores any settings specified in the config file.
+JJ_CONFIG= jj log       # Ignores any settings specified in any config files.
 ```
+
+There are also the `--config-file <PATH>` and `--config <NAME=VALUE>`
+[global options](./cli-reference.md#options) which work with any `jj` command.
 
 ### JSON Schema Support
 
