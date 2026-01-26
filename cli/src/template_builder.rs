@@ -3589,6 +3589,11 @@ mod tests {
         env.add_keyword("now", || literal(Timestamp::now()));
         env.add_keyword("t0", || literal(new_timestamp(0, 0)));
         env.add_keyword("t0_plus1", || literal(new_timestamp(0, 60)));
+        env.add_keyword("tmax", || literal(new_timestamp(i64::MAX, 0)));
+
+        // Unformattable timestamp
+        insta::assert_snapshot!(env.render_ok("tmax"),
+            @"<Error: Out-of-range date>");
 
         insta::assert_snapshot!(
             env.render_ok(r#"t0.format("%Y%m%d %H:%M:%S")"#),
