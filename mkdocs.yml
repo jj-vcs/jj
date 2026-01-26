@@ -125,6 +125,7 @@ nav: # This lists all the files that become part of the documentation
   - FAQ: 'FAQ.md'
 
   - CLI reference: 'cli-reference.md'
+  - JJ Commands Table: 'jj-commands-table.md'
 
   - Testimonials: 'testimonials.md'
 
