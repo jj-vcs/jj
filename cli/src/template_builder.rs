@@ -4344,6 +4344,8 @@ mod tests {
         insta::assert_snapshot!(
             env.render_ok(r#"separate(" ", "a", if(true, "", "f"))"#), @"a");
         insta::assert_snapshot!(
+            env.render_ok(r#"separate(" ", "a", if(false, "t"))"#), @"a");
+        insta::assert_snapshot!(
             env.render_ok(r#"separate(" ", "a", if(false, "t", ""))"#), @"a");
         insta::assert_snapshot!(
             env.render_ok(r#"separate(" ", "a", if(true, "t", "f"))"#), @"a t");
