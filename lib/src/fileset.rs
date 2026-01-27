@@ -560,9 +560,9 @@ fn resolve_expression(
                 FilePattern::cwd_prefix_glob(path_converter, name).map_err(wrap_pattern_error)?;
             Ok(FilesetExpression::pattern(pattern))
         }
-        ExpressionKind::Pattern { kind, value } => {
-            let value = fileset_parser::expect_string_literal("string", value)?;
-            let pattern = FilePattern::from_str_kind(path_converter, value, kind)
+        ExpressionKind::Pattern(pattern) => {
+            let value = fileset_parser::expect_string_literal("string", &pattern.value)?;
+            let pattern = FilePattern::from_str_kind(path_converter, value, pattern.name)
                 .map_err(wrap_pattern_error)?;
             Ok(FilesetExpression::pattern(pattern))
         }

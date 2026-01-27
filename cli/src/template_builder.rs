@@ -2166,7 +2166,7 @@ pub fn build_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
             let property = Literal(value.clone()).into_dyn_wrapped();
             Ok(Expression::unlabeled(property))
         }
-        ExpressionKind::Pattern { .. } => Err(TemplateParseError::expression(
+        ExpressionKind::Pattern(_) => Err(TemplateParseError::expression(
             "String patterns may not be used as expression values",
             node.span,
         )),

@@ -101,6 +101,17 @@ impl<'i, T> ExpressionNode<'i, T> {
     }
 }
 
+/// `<name>:<value>` expression in AST.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PatternNode<'i, T> {
+    /// Pattern name or type (such as `glob`.)
+    pub name: &'i str,
+    /// Span of the pattern name.
+    pub name_span: pest::Span<'i>,
+    /// Value expression.
+    pub value: ExpressionNode<'i, T>,
+}
+
 /// Function call in AST.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FunctionCallNode<'i, T> {
