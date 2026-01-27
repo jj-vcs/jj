@@ -127,6 +127,11 @@ program = _{ SOI ~ template? ~ EOI }
 function_alias_declaration = {
   identifier ~ "(" ~ formal_parameters ~ ")"
 }
+pattern_alias_declaration = {
+  string_pattern_identifier ~ pattern_kind_op ~ identifier
+}
 alias_declaration = _{
-  SOI ~ (function_alias_declaration | identifier) ~ EOI
+  SOI ~ (function_alias_declaration
+        | pattern_alias_declaration
+        | identifier) ~ EOI
 }

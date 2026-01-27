@@ -131,6 +131,11 @@ symbol_name = _{ SOI ~ symbol ~ EOI }
 function_alias_declaration = {
   function_name ~ "(" ~ whitespace* ~ formal_parameters ~ whitespace* ~ ")"
 }
+pattern_alias_declaration = {
+  strict_identifier ~ pattern_kind_op ~ strict_identifier
+}
 alias_declaration = _{
-  SOI ~ (function_alias_declaration | strict_identifier) ~ EOI
+  SOI ~ (function_alias_declaration
+        | pattern_alias_declaration
+        | strict_identifier) ~ EOI
 }

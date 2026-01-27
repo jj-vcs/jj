@@ -105,6 +105,7 @@ impl Rule {
             Self::template => None,
             Self::program => None,
             Self::function_alias_declaration => None,
+            Self::pattern_alias_declaration => None,
             Self::alias_declaration => None,
         }
     }
@@ -246,7 +247,7 @@ impl AliasExpandError for TemplateParseError {
 
     fn within_alias_expansion(self, id: AliasId<'_>, span: pest::Span<'_>) -> Self {
         let kind = match id {
-            AliasId::Symbol(_) | AliasId::Function(..) => {
+            AliasId::Symbol(_) | AliasId::Pattern(..) | AliasId::Function(..) => {
                 TemplateParseErrorKind::InAliasExpansion(id.to_string())
             }
             AliasId::Parameter(_) => TemplateParseErrorKind::InParameterExpansion(id.to_string()),
@@ -657,6 +658,13 @@ impl AliasDeclarationParser for TemplateAliasParser {
             Rule::identifier => {
                 let name = parse_identifier_name(first)?.to_owned();
                 Ok(AliasDeclaration::Symbol(name))
+            }
+            Rule::pattern_alias_declaration => {
+                let [name_pair, op, param_pair] = first.into_inner().collect_array().unwrap();
+                assert_eq!(op.as_rule(), Rule::pattern_kind_op);
+                let name = parse_identifier_name(name_pair)?.to_owned();
+                let param = parse_identifier_name(param_pair)?.to_owned();
+                Ok(AliasDeclaration::Pattern(name, param))
             }
             Rule::function_alias_declaration => {
                 let mut inner = first.into_inner();
@@ -1322,6 +1330,8 @@ mod tests {
     fn test_parse_alias_decl() {
         let mut aliases_map = TemplateAliasesMap::new();
         aliases_map.insert("sym", r#""is symbol""#).unwrap();
+        aliases_map.insert("pat:a", r#""is pattern a""#).unwrap();
+        aliases_map.insert("pat:b", r#""is pattern b""#).unwrap();
         aliases_map.insert("func()", r#""is function 0""#).unwrap();
         aliases_map
             .insert("func(a, b)", r#""is function 2""#)
@@ -1332,6 +1342,11 @@ mod tests {
         let (id, defn) = aliases_map.get_symbol("sym").unwrap();
         assert_eq!(id, AliasId::Symbol("sym"));
         assert_eq!(defn, r#""is symbol""#);
+
+        let (id, param, defn) = aliases_map.get_pattern("pat").unwrap();
+        assert_eq!(id, AliasId::Pattern("pat", "b"));
+        assert_eq!(param, "b");
+        assert_eq!(defn, r#""is pattern b""#);
 
         let (id, params, defn) = aliases_map.get_function("func", 0).unwrap();
         assert_eq!(id, AliasId::Function("func", &[]));
@@ -1359,8 +1374,11 @@ mod tests {
             TemplateParseErrorKind::RedefinedFunctionParameter
         );
 
-        // Boolean literal cannot be used as a symbol, function, or parameter name
+        // Boolean literal cannot be used as a symbol, pattern, function, or
+        // parameter name
         assert!(aliases_map.insert("false", r#"""#).is_err());
+        assert!(aliases_map.insert("false:x", r#"""#).is_err());
+        assert!(aliases_map.insert("p:true", r#"""#).is_err());
         assert!(aliases_map.insert("true()", r#"""#).is_err());
         assert!(aliases_map.insert("f(false)", r#"""#).is_err());
 

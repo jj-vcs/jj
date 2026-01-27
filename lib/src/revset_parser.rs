@@ -133,6 +133,7 @@ impl Rule {
             Self::program => None,
             Self::symbol_name => None,
             Self::function_alias_declaration => None,
+            Self::pattern_alias_declaration => None,
             Self::alias_declaration => None,
         }
     }
@@ -259,7 +260,7 @@ impl AliasExpandError for RevsetParseError {
 
     fn within_alias_expansion(self, id: AliasId<'_>, span: pest::Span<'_>) -> Self {
         let kind = match id {
-            AliasId::Symbol(_) | AliasId::Function(..) => {
+            AliasId::Symbol(_) | AliasId::Pattern(..) | AliasId::Function(..) => {
                 RevsetParseErrorKind::InAliasExpansion(id.to_string())
             }
             AliasId::Parameter(_) => RevsetParseErrorKind::InParameterExpansion(id.to_string()),
@@ -692,6 +693,15 @@ impl AliasDeclarationParser for RevsetAliasParser {
         let first = pairs.next().unwrap();
         match first.as_rule() {
             Rule::strict_identifier => Ok(AliasDeclaration::Symbol(first.as_str().to_owned())),
+            Rule::pattern_alias_declaration => {
+                let [name_pair, op, param_pair] = first.into_inner().collect_array().unwrap();
+                assert_eq!(name_pair.as_rule(), Rule::strict_identifier);
+                assert_eq!(op.as_rule(), Rule::pattern_kind_op);
+                assert_eq!(param_pair.as_rule(), Rule::strict_identifier);
+                let name = name_pair.as_str().to_owned();
+                let param = param_pair.as_str().to_owned();
+                Ok(AliasDeclaration::Pattern(name, param))
+            }
             Rule::function_alias_declaration => {
                 let [name_pair, params_pair] = first.into_inner().collect_array().unwrap();
                 assert_eq!(name_pair.as_rule(), Rule::function_name);
@@ -1385,6 +1395,25 @@ mod tests {
         // Non-ASCII character isn't allowed in alias symbol. This rule can be
         // relaxed if needed.
         assert!(aliases_map.insert("柔術", "none()").is_err());
+    }
+
+    #[test]
+    fn test_parse_revset_alias_pattern_decl() {
+        let mut aliases_map = RevsetAliasesMap::new();
+        assert!(aliases_map.insert("foo:", "none()").is_err());
+        assert_eq!(aliases_map.pattern_names().count(), 0);
+
+        aliases_map.insert("bar:baz", "'bar pattern'").unwrap();
+        assert_eq!(aliases_map.pattern_names().count(), 1);
+        let (id, param, defn) = aliases_map.get_pattern("bar").unwrap();
+        assert_eq!(id, AliasId::Pattern("bar", "baz"));
+        assert_eq!(param, "baz");
+        assert_eq!(defn, "'bar pattern'");
+
+        // Non-ASCII character isn't allowed. This rule can be relaxed if
+        // needed.
+        assert!(aliases_map.insert("柔術:x", "none()").is_err());
+        assert!(aliases_map.insert("x:柔術", "none()").is_err());
     }
 
     #[test]

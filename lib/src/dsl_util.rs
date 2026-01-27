@@ -539,10 +539,12 @@ impl<R: RuleType> FunctionCallParser<R> {
     }
 }
 
-/// Map of symbol and function aliases.
+/// Map of symbol, pattern, and function aliases.
 #[derive(Clone, Debug, Default)]
 pub struct AliasesMap<P, V> {
     symbol_aliases: HashMap<String, V>,
+    // name: (param, defn)
+    pattern_aliases: HashMap<String, (String, V)>,
     // name: [(params, defn)] (sorted by arity)
     function_aliases: HashMap<String, Vec<(Vec<String>, V)>>,
     // Parser type P helps prevent misuse of AliasesMap of different language.
@@ -557,6 +559,7 @@ impl<P, V> AliasesMap<P, V> {
     {
         Self {
             symbol_aliases: Default::default(),
+            pattern_aliases: Default::default(),
             function_aliases: Default::default(),
             parser: Default::default(),
         }
@@ -574,6 +577,9 @@ impl<P, V> AliasesMap<P, V> {
             AliasDeclaration::Symbol(name) => {
                 self.symbol_aliases.insert(name, defn.into());
             }
+            AliasDeclaration::Pattern(name, param) => {
+                self.pattern_aliases.insert(name, (param, defn.into()));
+            }
             AliasDeclaration::Function(name, params) => {
                 let overloads = self.function_aliases.entry(name).or_default();
                 match overloads.binary_search_by_key(&params.len(), |(params, _)| params.len()) {
@@ -590,6 +596,11 @@ impl<P, V> AliasesMap<P, V> {
         self.symbol_aliases.keys().map(|n| n.as_ref())
     }
 
+    /// Iterates pattern names in arbitrary order.
+    pub fn pattern_names(&self) -> impl Iterator<Item = &str> {
+        self.pattern_aliases.keys().map(|n| n.as_ref())
+    }
+
     /// Iterates function names in arbitrary order.
     pub fn function_names(&self) -> impl Iterator<Item = &str> {
         self.function_aliases.keys().map(|n| n.as_ref())
@@ -600,6 +611,14 @@ impl<P, V> AliasesMap<P, V> {
         self.symbol_aliases
             .get_key_value(name)
             .map(|(name, defn)| (AliasId::Symbol(name), defn))
+    }
+
+    /// Looks up pattern alias by name. Returns identifier, parameter name, and
+    /// definition text.
+    pub fn get_pattern(&self, name: &str) -> Option<(AliasId<'_>, &str, &V)> {
+        self.pattern_aliases
+            .get_key_value(name)
+            .map(|(name, (param, defn))| (AliasId::Pattern(name, param), param.as_ref(), defn))
     }
 
     /// Looks up function alias by name and arity. Returns identifier, list of
@@ -653,6 +672,8 @@ impl<'a, V> AliasFunctionOverloads<'a, V> {
 pub enum AliasId<'a> {
     /// Symbol name.
     Symbol(&'a str),
+    /// Pattern name and parameter name.
+    Pattern(&'a str, &'a str),
     /// Function name and parameter names.
     Function(&'a str, &'a [String]),
     /// Function parameter name.
@@ -663,6 +684,7 @@ impl fmt::Display for AliasId<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Symbol(name) => write!(f, "{name}"),
+            Self::Pattern(name, param) => write!(f, "{name}:{param}"),
             Self::Function(name, params) => {
                 write!(f, "{name}({params})", params = params.join(", "))
             }
@@ -676,6 +698,8 @@ impl fmt::Display for AliasId<'_> {
 pub enum AliasDeclaration {
     /// Symbol name.
     Symbol(String),
+    /// Pattern name and parameter.
+    Pattern(String, String),
     /// Function name and parameters.
     Function(String, Vec<String>),
 }
