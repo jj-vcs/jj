@@ -14,6 +14,7 @@
 
 //! Post-processing functions for [`StackedConfig`].
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -52,6 +53,8 @@ pub struct ConfigResolutionContext<'a> {
     pub command: Option<&'a str>,
     /// Hostname
     pub hostname: &'a str,
+    /// Environment variables snapshot.
+    pub environment: &'a HashMap<String, String>,
 }
 
 /// Conditions to enable the parent table.
@@ -78,6 +81,10 @@ struct ScopeCondition {
     pub platforms: Option<Vec<String>>,
     /// Hostnames to match the hostname.
     pub hostnames: Option<Vec<String>>,
+    /// Environment variable conditions, any of which must match.
+    /// Each entry is either "NAME=VALUE" (matches if set to that value)
+    /// or "NAME" (matches if the variable is set, regardless of value).
+    pub environments: Option<Vec<String>>,
 }
 
 impl ScopeCondition {
@@ -113,6 +120,7 @@ impl ScopeCondition {
             && matches_platform(self.platforms.as_deref())
             && matches_hostname(self.hostnames.as_deref(), context.hostname)
             && matches_command(self.commands.as_deref(), context.command)
+            && matches_environments(self.environments.as_deref(), context.environment)
     }
 }
 
@@ -156,6 +164,25 @@ fn matches_command(candidates: Option<&[String]>, actual: Option<&str>) -> bool 
         (Some(_), None) => false,
         (None, _) => true,
     }
+}
+
+fn matches_environments(
+    candidates: Option<&[String]>,
+    environment: &HashMap<String, String>,
+) -> bool {
+    candidates.is_none_or(|candidates| {
+        candidates.iter().any(|entry| {
+            if let Some((name, expected)) = entry.split_once('=') {
+                // "NAME=VALUE" format: match exact value
+                environment
+                    .get(name)
+                    .is_some_and(|actual| actual == expected)
+            } else {
+                // "NAME" format: match if the variable is set (any value)
+                environment.contains_key(entry.as_str())
+            }
+        })
+    })
 }
 
 /// Evaluates condition for each layer and scope, flattens scoped tables.
@@ -460,6 +487,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -468,6 +496,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert!(condition.matches(&context));
     }
@@ -476,10 +505,7 @@ mod tests {
     fn test_condition_repo_path() {
         let condition = ScopeCondition {
             repositories: Some(["/foo", "/bar"].map(PathBuf::from).into()),
-            workspaces: None,
-            commands: None,
-            platforms: None,
-            hostnames: None,
+            ..Default::default()
         };
 
         let context = ConfigResolutionContext {
@@ -488,6 +514,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -496,6 +523,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -504,6 +532,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -512,6 +541,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -520,6 +550,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert!(condition.matches(&context));
     }
@@ -528,10 +559,7 @@ mod tests {
     fn test_condition_repo_path_windows() {
         let condition = ScopeCondition {
             repositories: Some(["c:/foo", r"d:\bar/baz"].map(PathBuf::from).into()),
-            workspaces: None,
-            commands: None,
-            platforms: None,
-            hostnames: None,
+            ..Default::default()
         };
 
         let context = ConfigResolutionContext {
@@ -540,6 +568,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
         let context = ConfigResolutionContext {
@@ -548,6 +577,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
         let context = ConfigResolutionContext {
@@ -556,6 +586,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -564,6 +595,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
     }
@@ -571,11 +603,8 @@ mod tests {
     #[test]
     fn test_condition_hostname() {
         let condition = ScopeCondition {
-            repositories: None,
             hostnames: Some(["host-a", "host-b"].map(String::from).into()),
-            workspaces: None,
-            commands: None,
-            platforms: None,
+            ..Default::default()
         };
 
         let context = ConfigResolutionContext {
@@ -584,6 +613,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -592,6 +622,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "host-a",
+            environment: &HashMap::new(),
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -600,6 +631,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "host-b",
+            environment: &HashMap::new(),
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -608,8 +640,155 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "host-c",
+            environment: &HashMap::new(),
         };
         assert!(!condition.matches(&context));
+    }
+
+    #[test]
+    fn test_condition_environments() {
+        let environment = HashMap::from([
+            ("MY_ENV".into(), "hello".into()),
+            ("OTHER_ENV".into(), "world".into()),
+        ]);
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "",
+            environment: &environment,
+        };
+
+        // Exact match
+        let condition = ScopeCondition {
+            environments: Some(vec!["MY_ENV=hello".into()]),
+            ..Default::default()
+        };
+        assert!(condition.matches(&context));
+
+        // Wrong value
+        let condition = ScopeCondition {
+            environments: Some(vec!["MY_ENV=wrong".into()]),
+            ..Default::default()
+        };
+        assert!(!condition.matches(&context));
+
+        // Absent var
+        let condition = ScopeCondition {
+            environments: Some(vec!["ABSENT_VAR=anything".into()]),
+            ..Default::default()
+        };
+        assert!(!condition.matches(&context));
+
+        // OR semantics: one right, one wrong
+        let condition = ScopeCondition {
+            environments: Some(vec!["MY_ENV=hello".into(), "OTHER_ENV=world".into()]),
+            ..Default::default()
+        };
+        assert!(condition.matches(&context));
+
+        // OR semantics: one wrong, one right
+        let condition = ScopeCondition {
+            environments: Some(vec!["MY_ENV=wrong".into(), "OTHER_ENV=world".into()]),
+            ..Default::default()
+        };
+        assert!(condition.matches(&context));
+
+        // OR semantics: neither matches
+        let condition = ScopeCondition {
+            environments: Some(vec!["MY_ENV=wrong".into(), "ABSENT_VAR=nope".into()]),
+            ..Default::default()
+        };
+        assert!(!condition.matches(&context));
+
+        // Empty value doesn't match non-empty var
+        let condition = ScopeCondition {
+            environments: Some(vec!["MY_ENV=".into()]),
+            ..Default::default()
+        };
+        assert!(!condition.matches(&context));
+
+        // Empty value doesn't match absent var
+        let condition = ScopeCondition {
+            environments: Some(vec!["ABSENT_VAR=".into()]),
+            ..Default::default()
+        };
+        assert!(!condition.matches(&context));
+
+        // Empty list never matches
+        let condition = ScopeCondition {
+            environments: Some(vec![]),
+            ..Default::default()
+        };
+        assert!(!condition.matches(&context));
+
+        // Value containing '=' is matched correctly (split on first '=')
+        let environment = HashMap::from([("CONN".into(), "host=localhost:5432".into())]);
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "",
+            environment: &environment,
+        };
+        let condition = ScopeCondition {
+            environments: Some(vec!["CONN=host=localhost:5432".into()]),
+            ..Default::default()
+        };
+        assert!(condition.matches(&context));
+
+        // Key-exists: variable is set
+        let condition = ScopeCondition {
+            environments: Some(vec!["CONN".into()]),
+            ..Default::default()
+        };
+        assert!(condition.matches(&context));
+
+        // Key-exists: variable is not set
+        let condition = ScopeCondition {
+            environments: Some(vec!["ABSENT_VAR".into()]),
+            ..Default::default()
+        };
+        assert!(!condition.matches(&context));
+
+        // Key-exists OR key=value: first matches
+        let condition = ScopeCondition {
+            environments: Some(vec!["CONN".into(), "OTHER=nope".into()]),
+            ..Default::default()
+        };
+        assert!(condition.matches(&context));
+
+        // Key-exists OR key=value: second matches
+        let condition = ScopeCondition {
+            environments: Some(vec!["ABSENT".into(), "CONN=host=localhost:5432".into()]),
+            ..Default::default()
+        };
+        assert!(condition.matches(&context));
+
+        // Key-exists with empty value variable
+        let environment = HashMap::from([("EMPTY_VAR".into(), "".into())]);
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "",
+            environment: &environment,
+        };
+        let condition = ScopeCondition {
+            environments: Some(vec!["EMPTY_VAR".into()]),
+            ..Default::default()
+        };
+        assert!(condition.matches(&context));
+
+        // None (no constraint) always matches
+        let condition = ScopeCondition {
+            environments: None,
+            ..Default::default()
+        };
+        assert!(condition.matches(&context));
     }
 
     fn new_user_layer(text: &str) -> ConfigLayer {
@@ -628,6 +807,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -667,6 +847,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 7);
@@ -708,6 +889,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -719,6 +901,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 3);
@@ -732,6 +915,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -744,6 +928,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -780,6 +965,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -791,6 +977,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "host-a",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 3);
@@ -804,6 +991,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "host-b",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -816,6 +1004,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "host-c",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -852,6 +1041,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -863,6 +1053,7 @@ mod tests {
             workspace_path: Some(Path::new("/foo")),
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 3);
@@ -876,6 +1067,7 @@ mod tests {
             workspace_path: Some(Path::new("/bar")),
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -888,6 +1080,7 @@ mod tests {
             workspace_path: Some(Path::new("/home/dir/baz")),
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -920,6 +1113,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -931,6 +1125,7 @@ mod tests {
             workspace_path: None,
             command: Some("foo"),
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 3);
@@ -944,6 +1139,7 @@ mod tests {
             workspace_path: None,
             command: Some("bar"),
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -956,6 +1152,7 @@ mod tests {
             workspace_path: None,
             command: Some("foo baz"),
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 4);
@@ -971,6 +1168,7 @@ mod tests {
             workspace_path: None,
             command: Some("fooqux"),
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -1003,6 +1201,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"
@@ -1045,6 +1244,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -1057,6 +1257,7 @@ mod tests {
             workspace_path: None,
             command: Some("other"),
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -1069,6 +1270,7 @@ mod tests {
             workspace_path: None,
             command: Some("ABC"),
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -1081,11 +1283,91 @@ mod tests {
             workspace_path: None,
             command: Some("DEF"),
             hostname: "",
+            environment: &HashMap::new(),
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1'");
+    }
+
+    #[test]
+    fn test_resolve_environments() {
+        let mut source_config = StackedConfig::empty();
+        source_config.add_layer(new_user_layer(indoc! {"
+            a = 'a #0'
+            [[--scope]]
+            --when.environments = ['MY_ENV=yes']
+            a = 'a #0.1 env-yes'
+            [[--scope]]
+            --when.environments = ['MY_ENV=yes', 'MY_ENV=no']
+            a = 'a #0.2 env-yes|env-no'
+            [[--scope]]
+            --when.environments = []
+            a = 'a #0.3 none'
+            [[--scope]]
+            --when.environments = ['MY_ENV']
+            a = 'a #0.4 env-exists'
+            [[--scope]]
+            --when.environments = ['ABSENT_VAR']
+            a = 'a #0.5 absent-exists'
+        "}));
+        source_config.add_layer(new_user_layer(indoc! {"
+            --when.environments = ['MY_ENV=yes']
+            a = 'a #1 env-yes'
+            [[--scope]]
+            --when.environments = ['MY_ENV=no']  # can never match: layer requires MY_ENV=yes
+            a = 'a #1.1 env-yes&env-no'
+        "}));
+
+        // no env vars set
+        let environment = HashMap::new();
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "",
+            environment: &environment,
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 1);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+
+        // MY_ENV=yes matches first scope, OR scope, key-exists scope, and second
+        // layer (but not nested scope or absent-exists scope)
+        let environment = HashMap::from([("MY_ENV".into(), "yes".into())]);
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "",
+            environment: &environment,
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 5);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1 env-yes'");
+        insta::assert_snapshot!(resolved_config.layers()[2].data, @"a = 'a #0.2 env-yes|env-no'");
+        insta::assert_snapshot!(resolved_config.layers()[3].data, @"a = 'a #0.4 env-exists'");
+        insta::assert_snapshot!(resolved_config.layers()[4].data, @"a = 'a #1 env-yes'");
+
+        // MY_ENV=no matches the OR scope and key-exists scope
+        let environment = HashMap::from([("MY_ENV".into(), "no".into())]);
+        let context = ConfigResolutionContext {
+            home_dir: Some(Path::new("/home/dir")),
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "",
+            environment: &environment,
+        };
+        let resolved_config = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved_config.layers().len(), 3);
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.2 env-yes|env-no'");
+        insta::assert_snapshot!(resolved_config.layers()[2].data, @"a = 'a #0.4 env-exists'");
     }
 
     #[test]
@@ -1101,6 +1383,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert_matches!(
             resolve(&new_config("--when.repositories = 0"), &context),
@@ -1121,6 +1404,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            environment: &HashMap::new(),
         };
         assert_matches!(
             resolve(&new_config("[--scope]"), &context),

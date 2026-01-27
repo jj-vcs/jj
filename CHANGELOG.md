@@ -113,6 +113,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bookmark even if the new name already exists, effectively replacing the
   existing bookmark.
 
+* Conditional configuration based on environment variables with `--when.environments`.
+  [#8779](https://github.com/jj-vcs/jj/pull/8779)
+
 ### Fixed bugs
 
 * Windows: use native file locks (`LockFileEx`) instead of polling with file
