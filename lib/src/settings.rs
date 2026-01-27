@@ -38,6 +38,7 @@ use crate::config::ToConfigNamePath;
 use crate::fmt_util::binary_prefix;
 use crate::ref_name::RemoteNameBuf;
 use crate::signing::SignBehavior;
+use crate::time_util::TimestampGranularity;
 
 #[derive(Debug, Clone)]
 pub struct UserSettings {
@@ -51,6 +52,7 @@ struct UserSettingsData {
     user_name: String,
     user_email: String,
     commit_timestamp: Option<Timestamp>,
+    commit_timestamp_granularity: Option<TimestampGranularity>,
     operation_timestamp: Option<Timestamp>,
     operation_hostname: String,
     operation_username: String,
@@ -137,6 +139,8 @@ impl UserSettings {
         let commit_timestamp = config
             .get_value_with("debug.commit-timestamp", to_timestamp)
             .optional()?;
+        let commit_timestamp_granularity =
+            config.get("user.commit-timestamp-granularity").optional()?;
         let operation_timestamp = config
             .get_value_with("debug.operation-timestamp", to_timestamp)
             .optional()?;
@@ -148,6 +152,7 @@ impl UserSettings {
             user_name,
             user_email,
             commit_timestamp,
+            commit_timestamp_granularity,
             operation_timestamp,
             operation_hostname,
             operation_username,
@@ -198,7 +203,14 @@ impl UserSettings {
     }
 
     pub fn signature(&self) -> Signature {
-        let timestamp = self.data.commit_timestamp.unwrap_or_else(Timestamp::now);
+        let mut timestamp = self.data.commit_timestamp.unwrap_or_else(Timestamp::now);
+        if let Some(granularity) = self.data.commit_timestamp_granularity {
+            // If the user configured a granularity, we should fail loudly to
+            // respect their intentions. In practice, this should never fail.
+            timestamp = granularity
+                .truncate(timestamp)
+                .expect("failure applying commit-timestamp-granularity setting");
+        }
         Signature {
             name: self.user_name().to_owned(),
             email: self.user_email().to_owned(),

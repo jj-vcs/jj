@@ -462,3 +462,36 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
         rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
     assert!(rebase_map.is_empty());
 }
+
+#[test_case(TestRepoBackend::Simple ; "simple backend")]
+#[test_case(TestRepoBackend::Git ; "git backend")]
+fn test_commit_timestamp_granularity(backend: TestRepoBackend) {
+    use chrono::Timelike as _;
+
+    let mut config = testutils::base_user_config();
+    let mut layer = ConfigLayer::empty(ConfigSource::User);
+    layer
+        .set_value("user.commit-timestamp-granularity", "day")
+        .unwrap();
+    config.add_layer(layer);
+    let settings = UserSettings::from_config(config).unwrap();
+
+    let test_repo = TestRepo::init_with_backend_and_settings(backend, &settings);
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let commit = tx
+        .repo_mut()
+        .new_commit(
+            vec![repo.store().root_commit_id().clone()],
+            repo.store().empty_merged_tree(),
+        )
+        .write()
+        .unwrap();
+
+    // The timestamp should be truncated to midnight.
+    let dt = commit.author().timestamp.to_datetime().unwrap();
+    assert_eq!(dt.hour(), 0);
+    assert_eq!(dt.minute(), 0);
+    assert_eq!(dt.second(), 0);
+}
