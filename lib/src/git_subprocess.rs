@@ -681,13 +681,38 @@ pub trait GitSubprocessCallback {
     /// Progress of local and remote operations.
     fn progress(&mut self, progress: &GitProgress) -> io::Result<()>;
 
-    /// Message that doesn't look like remote sideband or error.
+    /// Single-line message that doesn't look like remote sideband or error.
     ///
     /// This may include authentication request from credential helpers.
-    fn local_sideband(&mut self, message: &[u8]) -> io::Result<()>;
+    fn local_sideband(
+        &mut self,
+        message: &[u8],
+        term: Option<GitSidebandLineTerminator>,
+    ) -> io::Result<()>;
 
-    /// Sideband message received from remote.
-    fn remote_sideband(&mut self, message: &[u8]) -> io::Result<()>;
+    /// Single-line sideband message received from remote.
+    fn remote_sideband(
+        &mut self,
+        message: &[u8],
+        term: Option<GitSidebandLineTerminator>,
+    ) -> io::Result<()>;
+}
+
+/// Newline character that terminates sideband message line.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[repr(u8)]
+pub enum GitSidebandLineTerminator {
+    /// CR to remain on the same line.
+    Cr = b'\r',
+    /// LF to move to the next line.
+    Lf = b'\n',
+}
+
+impl GitSidebandLineTerminator {
+    /// Returns byte representation.
+    pub fn as_byte(self) -> u8 {
+        self as u8
+    }
 }
 
 fn wait_with_output(child: Child) -> Result<Output, GitSubprocessError> {
@@ -813,17 +838,11 @@ fn read_to_end_with_progress<R: Read>(
             data.truncate(start);
         } else if let Some(message) = line.strip_prefix(b"remote: ") {
             let (body, term) = trim_sideband_line(message);
-            callback.remote_sideband(body).ok();
-            if let Some(term) = term {
-                callback.remote_sideband(&[term]).ok();
-            }
+            callback.remote_sideband(body, term).ok();
             data.truncate(start);
         } else {
             let (body, term) = trim_sideband_line(line);
-            callback.local_sideband(body).ok();
-            if let Some(term) = term {
-                callback.local_sideband(&[term]).ok();
-            }
+            callback.local_sideband(body, term).ok();
             data.truncate(start);
         }
     }
@@ -884,9 +903,10 @@ fn read_progress_line(line: &[u8]) -> Option<(u64, u64)> {
 
 /// Removes trailing spaces from sideband line, which may be padded by the `git`
 /// CLI in order to clear the previous progress line.
-fn trim_sideband_line(line: &[u8]) -> (&[u8], Option<u8>) {
+fn trim_sideband_line(line: &[u8]) -> (&[u8], Option<GitSidebandLineTerminator>) {
     let (body, term) = match line {
-        [body @ .., term @ (b'\r' | b'\n')] => (body, Some(*term)),
+        [body @ .., b'\r'] => (body, Some(GitSidebandLineTerminator::Cr)),
+        [body @ .., b'\n'] => (body, Some(GitSidebandLineTerminator::Lf)),
         _ => (line, None),
     };
     let n = body.iter().rev().take_while(|&&b| b == b' ').count();
@@ -949,13 +969,27 @@ Done";
             Ok(())
         }
 
-        fn local_sideband(&mut self, message: &[u8]) -> io::Result<()> {
+        fn local_sideband(
+            &mut self,
+            message: &[u8],
+            term: Option<GitSidebandLineTerminator>,
+        ) -> io::Result<()> {
             self.local_sideband.push(message.into());
+            if let Some(term) = term {
+                self.local_sideband.push([term.as_byte()].into());
+            }
             Ok(())
         }
 
-        fn remote_sideband(&mut self, message: &[u8]) -> io::Result<()> {
+        fn remote_sideband(
+            &mut self,
+            message: &[u8],
+            term: Option<GitSidebandLineTerminator>,
+        ) -> io::Result<()> {
             self.remote_sideband.push(message.into());
+            if let Some(term) = term {
+                self.remote_sideband.push([term.as_byte()].into());
+            }
             Ok(())
         }
     }

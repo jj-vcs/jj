@@ -54,6 +54,7 @@ use jj_lib::git::GitRefKind;
 use jj_lib::git::GitRefUpdate;
 use jj_lib::git::GitResetHeadError;
 use jj_lib::git::GitSettings;
+use jj_lib::git::GitSidebandLineTerminator;
 use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git::GitSubprocessOptions;
 use jj_lib::git::IgnoredRefspec;
@@ -108,11 +109,19 @@ impl GitSubprocessCallback for NullCallback {
         Ok(())
     }
 
-    fn local_sideband(&mut self, _message: &[u8]) -> io::Result<()> {
+    fn local_sideband(
+        &mut self,
+        _message: &[u8],
+        _term: Option<GitSidebandLineTerminator>,
+    ) -> io::Result<()> {
         Ok(())
     }
 
-    fn remote_sideband(&mut self, _message: &[u8]) -> io::Result<()> {
+    fn remote_sideband(
+        &mut self,
+        _message: &[u8],
+        _term: Option<GitSidebandLineTerminator>,
+    ) -> io::Result<()> {
         Ok(())
     }
 }

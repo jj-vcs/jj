@@ -38,6 +38,7 @@ use jj_lib::git::GitProgress;
 use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitSettings;
+use jj_lib::git::GitSidebandLineTerminator;
 use jj_lib::git::GitSubprocessCallback;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
@@ -169,16 +170,32 @@ impl GitSubprocessCallback for GitSubprocessUi<'_> {
         }
     }
 
-    fn local_sideband(&mut self, message: &[u8]) -> io::Result<()> {
+    fn local_sideband(
+        &mut self,
+        message: &[u8],
+        term: Option<GitSidebandLineTerminator>,
+    ) -> io::Result<()> {
         // TODO: maybe progress should be temporarily cleared if there are
         // sideband lines to write.
-        self.local_sideband.write(self.ui, message)
+        self.local_sideband.write(self.ui, message)?;
+        if let Some(term) = term {
+            self.local_sideband.write(self.ui, &[term.as_byte()])?;
+        }
+        Ok(())
     }
 
-    fn remote_sideband(&mut self, message: &[u8]) -> io::Result<()> {
+    fn remote_sideband(
+        &mut self,
+        message: &[u8],
+        term: Option<GitSidebandLineTerminator>,
+    ) -> io::Result<()> {
         // TODO: maybe progress should be temporarily cleared if there are
         // sideband lines to write.
-        self.remote_sideband.write(self.ui, message)
+        self.remote_sideband.write(self.ui, message)?;
+        if let Some(term) = term {
+            self.remote_sideband.write(self.ui, &[term.as_byte()])?;
+        }
+        Ok(())
     }
 }
 
