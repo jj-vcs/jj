@@ -423,7 +423,10 @@ pub struct LambdaNode<'i> {
 }
 
 fn parse_identifier_or_literal(pair: Pair<Rule>) -> ExpressionKind {
-    assert_eq!(pair.as_rule(), Rule::identifier);
+    assert!(matches!(
+        pair.as_rule(),
+        Rule::identifier | Rule::string_pattern_identifier
+    ));
     match pair.as_str() {
         "false" => ExpressionKind::Boolean(false),
         "true" => ExpressionKind::Boolean(true),
@@ -504,9 +507,8 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
         }
         Rule::string_pattern => {
             let [lhs, op, rhs] = expr.into_inner().collect_array().unwrap();
-            assert_eq!(lhs.as_rule(), Rule::string_pattern_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
-            let kind = lhs.as_str();
+            let kind = parse_identifier_name(lhs)?;
             let value_span = rhs.as_span();
             let value_expr = match rhs.as_rule() {
                 Rule::identifier => ExpressionKind::Identifier(parse_identifier_name(rhs)?),
@@ -1161,6 +1163,15 @@ mod tests {
         assert_eq!(
             parse_into_kind("tRue"),
             Ok(ExpressionKind::Identifier("tRue")),
+        );
+        // Keyword cannot be used as pattern or function name
+        assert_matches!(
+            parse_into_kind("false:'x'"),
+            Err(TemplateParseErrorKind::Expression(_))
+        );
+        assert_matches!(
+            parse_into_kind("true()"),
+            Err(TemplateParseErrorKind::Expression(_))
         );
     }
 
