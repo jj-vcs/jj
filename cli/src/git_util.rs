@@ -127,33 +127,50 @@ pub fn get_remote_web_url(repo: &ReadonlyRepo, remote_name: &str) -> Option<Stri
 
 /// [`Ui`] adapter to forward Git command outputs.
 pub struct GitSubprocessUi<'a> {
+    // Don't hold locked ui.status() which could block tracing output in
+    // different threads.
     ui: &'a Ui,
     progress_output: Option<ProgressOutput<io::Stderr>>,
     progress: Progress,
-    local_sideband: GitSidebandProgressMessageWriter,
-    remote_sideband: GitSidebandProgressMessageWriter,
+    // Sequence to erase line towards end.
+    erase_end: &'static [u8],
 }
 
 impl<'a> GitSubprocessUi<'a> {
     pub fn new(ui: &'a Ui) -> Self {
+        let progress_output = ui.progress_output();
+        let is_terminal = progress_output.is_some();
         Self {
             ui,
-            progress_output: ui.progress_output(),
+            progress_output,
             progress: Progress::new(Instant::now()),
-            local_sideband: GitSidebandProgressMessageWriter::new(ui, b"git: "),
-            remote_sideband: GitSidebandProgressMessageWriter::new(ui, b"remote: "),
+            erase_end: if is_terminal { b"\x1B[K" } else { b"        " },
         }
     }
 
-    pub fn flush(&mut self) -> io::Result<()> {
-        self.local_sideband.flush(self.ui)?;
-        self.remote_sideband.flush(self.ui)
-    }
-}
-
-impl Drop for GitSubprocessUi<'_> {
-    fn drop(&mut self) {
-        self.flush().ok();
+    fn write_sideband(
+        &self,
+        prefix: &[u8],
+        message: &[u8],
+        term: Option<GitSidebandLineTerminator>,
+    ) -> io::Result<()> {
+        // TODO: maybe progress should be temporarily cleared if there are
+        // sideband lines to write.
+        let mut scratch =
+            Vec::with_capacity(prefix.len() + message.len() + self.erase_end.len() + 1);
+        scratch.extend_from_slice(prefix);
+        scratch.extend_from_slice(message);
+        // Do not erase the current line by new empty line: For progress
+        // reporting, we may receive a bunch of percentage updates followed by
+        // '\r' to remain on the same line, and at the end receive a single '\n'
+        // to move to the next line. We should preserve the final status report
+        // line by not appending erase_end sequence to this single line break.
+        if !message.is_empty() {
+            scratch.extend_from_slice(self.erase_end);
+        }
+        // It's unlikely, but don't leave message without newline.
+        scratch.push(term.map_or(b'\n', |t| t.as_byte()));
+        self.ui.status().write_all(&scratch)
     }
 }
 
@@ -175,13 +192,7 @@ impl GitSubprocessCallback for GitSubprocessUi<'_> {
         message: &[u8],
         term: Option<GitSidebandLineTerminator>,
     ) -> io::Result<()> {
-        // TODO: maybe progress should be temporarily cleared if there are
-        // sideband lines to write.
-        self.local_sideband.write(self.ui, message)?;
-        if let Some(term) = term {
-            self.local_sideband.write(self.ui, &[term.as_byte()])?;
-        }
-        Ok(())
+        self.write_sideband(b"git: ", message, term)
     }
 
     fn remote_sideband(
@@ -189,93 +200,7 @@ impl GitSubprocessCallback for GitSubprocessUi<'_> {
         message: &[u8],
         term: Option<GitSidebandLineTerminator>,
     ) -> io::Result<()> {
-        // TODO: maybe progress should be temporarily cleared if there are
-        // sideband lines to write.
-        self.remote_sideband.write(self.ui, message)?;
-        if let Some(term) = term {
-            self.remote_sideband.write(self.ui, &[term.as_byte()])?;
-        }
-        Ok(())
-    }
-}
-
-// Based on Git's implementation: https://github.com/git/git/blob/43072b4ca132437f21975ac6acc6b72dc22fd398/sideband.c#L178
-pub struct GitSidebandProgressMessageWriter {
-    display_prefix: &'static [u8],
-    suffix: &'static [u8],
-    scratch: Vec<u8>,
-}
-
-impl GitSidebandProgressMessageWriter {
-    pub fn new(ui: &Ui, display_prefix: &'static [u8]) -> Self {
-        let is_terminal = ui.use_progress_indicator();
-
-        Self {
-            display_prefix,
-            suffix: if is_terminal { "\x1B[K" } else { "        " }.as_bytes(),
-            scratch: Vec::new(),
-        }
-    }
-
-    pub fn write(&mut self, ui: &Ui, progress_message: &[u8]) -> std::io::Result<()> {
-        let mut index = 0;
-        // Append a suffix to each nonempty line to clear the end of the screen line.
-        while let Some(i) = progress_message[index..]
-            .iter()
-            .position(|&c| c == b'\r' || c == b'\n')
-            .map(|i| index + i)
-        {
-            let line_length = i - index;
-
-            // For messages sent across the packet boundary, there would be a nonempty
-            // "scratch" buffer from last call of this function, and there may be a leading
-            // CR/LF in this message. For this case we should add a clear-to-eol suffix to
-            // clean leftover letters we previously have written on the same line.
-            if !self.scratch.is_empty() && line_length == 0 {
-                self.scratch.extend_from_slice(self.suffix);
-            }
-
-            if self.scratch.is_empty() {
-                self.scratch.extend_from_slice(self.display_prefix);
-            }
-
-            // Do not add the clear-to-eol suffix to empty lines:
-            // For progress reporting we may receive a bunch of percentage updates
-            // followed by '\r' to remain on the same line, and at the end receive a single
-            // '\n' to move to the next line. We should preserve the final
-            // status report line by not appending clear-to-eol suffix to this single line
-            // break.
-            if line_length > 0 {
-                self.scratch.extend_from_slice(&progress_message[index..i]);
-                self.scratch.extend_from_slice(self.suffix);
-            }
-            self.scratch.extend_from_slice(&progress_message[i..i + 1]);
-
-            ui.status().write_all(&self.scratch)?;
-            self.scratch.clear();
-
-            index = i + 1;
-        }
-
-        // Add leftover message to "scratch" buffer to be printed in next call.
-        if index < progress_message.len() {
-            if self.scratch.is_empty() {
-                self.scratch.extend_from_slice(self.display_prefix);
-            }
-            self.scratch.extend_from_slice(&progress_message[index..]);
-        }
-
-        Ok(())
-    }
-
-    pub fn flush(&mut self, ui: &Ui) -> std::io::Result<()> {
-        if !self.scratch.is_empty() {
-            self.scratch.push(b'\n');
-            ui.status().write_all(&self.scratch)?;
-            self.scratch.clear();
-        }
-
-        Ok(())
+        self.write_sideband(b"remote: ", message, term)
     }
 }
 
