@@ -586,6 +586,7 @@ fn test_alias() {
     'recurse2()' = 'recurse'
     'identity(x)' = 'x'
     'my_author(x)' = 'author(x)'
+    'grep:x' = 'description(regex:x)'
     "###,
     );
 
@@ -705,6 +706,39 @@ fn test_alias() {
       |
       = In alias `my-root`
     2:  --> 1:1
+      |
+    1 | root()
+      | ^----^
+      |
+      = Expected string
+    [EOF]
+    [exit status: 1]
+    ");
+
+    let output = work_dir.run_jj(["log", "-r", "grep:my-root"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Failed to parse revset: In alias `grep:x`
+    Caused by:
+    1:  --> 1:1
+      |
+    1 | grep:my-root
+      | ^----------^
+      |
+      = In alias `grep:x`
+    2:  --> 1:19
+      |
+    1 | description(regex:x)
+      |                   ^
+      |
+      = In function parameter `x`
+    3:  --> 1:6
+      |
+    1 | grep:my-root
+      |      ^-----^
+      |
+      = In alias `my-root`
+    4:  --> 1:1
       |
     1 | root()
       | ^----^

@@ -722,8 +722,9 @@ tree.
 
 <!--- TODO: Find a way to embed the default config files in the docs -->
 
-New keywords and functions can be defined as aliases, by using any
-combination of the predefined keywords/functions and other aliases.
+New keywords, functions, and `<name>:<value>` patterns can be defined as
+aliases, by using any combination of the predefined keywords/functions and other
+aliases.
 
 Alias functions can be overloaded by the number of parameters. However, builtin
 functions will be shadowed by name, and can't co-exist with aliases.
@@ -739,6 +740,7 @@ concat(
 )
 '''
 'format_field(key, value)' = 'key ++ ": " ++ value ++ "\n"'
+'json:x' = 'json(x) ++ "\n"'
 ```
 
 ## Examples

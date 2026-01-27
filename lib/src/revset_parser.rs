@@ -349,10 +349,7 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
         match self {
             Self::Identifier(name) => folder.fold_identifier(name, span),
             Self::String(_) => Ok(self),
-            Self::Pattern(mut pattern) => {
-                pattern.value = folder.fold_expression(pattern.value)?;
-                Ok(Self::Pattern(pattern))
-            }
+            Self::Pattern(pattern) => folder.fold_pattern(pattern, span),
             Self::RemoteSymbol(_)
             | ExpressionKind::AtWorkspace(_)
             | Self::AtCurrentWorkspace
@@ -383,6 +380,10 @@ impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
 impl<'i> AliasExpandableExpression<'i> for ExpressionKind<'i> {
     fn identifier(name: &'i str) -> Self {
         Self::Identifier(name)
+    }
+
+    fn pattern(pattern: Box<PatternNode<'i>>) -> Self {
+        Self::Pattern(pattern)
     }
 
     fn function_call(function: Box<FunctionCallNode<'i>>) -> Self {
@@ -1697,6 +1698,58 @@ mod tests {
         assert_eq!(
             *with_aliases([("A", "a(")]).parse("A").unwrap_err().kind,
             RevsetParseErrorKind::InAliasExpansion("A".to_owned())
+        );
+    }
+
+    #[test]
+    fn test_expand_pattern_alias() {
+        assert_eq!(
+            with_aliases([("P:x", "x")]).parse_normalized("P:a"),
+            parse_normalized("a")
+        );
+
+        // Argument should be resolved in the current scope.
+        assert_eq!(
+            with_aliases([("P:x", "x|a")]).parse_normalized("P:x"),
+            parse_normalized("x|a")
+        );
+        // P:a -> (Q:a)&y -> (x|a)&y
+        assert_eq!(
+            with_aliases([("P:x", "(Q:x)&y"), ("Q:y", "x|y")]).parse_normalized("P:a"),
+            parse_normalized("(x|a)&y")
+        );
+
+        // Pattern parameter should precede the symbol alias.
+        assert_eq!(
+            with_aliases([("P:X", "X"), ("X", "x")]).parse_normalized("(P:a)|X"),
+            parse_normalized("a|x")
+        );
+
+        // Pattern parameter shouldn't be expanded in symbol alias.
+        assert_eq!(
+            with_aliases([("P:x", "x|A"), ("A", "x")]).parse_normalized("P:a"),
+            parse_normalized("a|x")
+        );
+
+        // String literal should not be substituted with pattern parameter.
+        assert_eq!(
+            with_aliases([("P:x", "x|'x'")]).parse_normalized("P:a"),
+            parse_normalized("a|'x'")
+        );
+
+        // Pattern and symbol aliases reside in separate namespaces.
+        assert_eq!(
+            with_aliases([("A:x", "A"), ("A", "a")]).parse_normalized("A:x"),
+            parse_normalized("a")
+        );
+
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        assert_eq!(
+            *with_aliases([("P:x", "Q:x"), ("Q:x", "R:x"), ("R:x", "P:x")])
+                .parse("P:a")
+                .unwrap_err()
+                .kind,
+            RevsetParseErrorKind::InAliasExpansion("P:x".to_owned())
         );
     }
 

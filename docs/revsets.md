@@ -535,8 +535,9 @@ Date strings can be specified in several forms, including:
 
 ## Aliases
 
-New symbols and functions can be defined in the config file, by using any
-combination of the predefined symbols/functions and other aliases.
+New symbols, functions, and `<name>:<value>` patterns can be defined in the
+config file, by using any combination of the predefined symbols/functions and
+other aliases.
 
 Alias functions can be overloaded by the number of parameters. However, builtin
 function will be shadowed by name, and can't co-exist with aliases.
@@ -548,6 +549,7 @@ For example:
 'HEAD' = '@-'
 'user()' = 'user("me@example.org")'
 'user(x)' = 'author(x) | committer(x)'
+'grep:x' = 'description(regex:x)'
 ```
 
 ### Built-in Aliases

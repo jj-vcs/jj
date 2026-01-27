@@ -356,6 +356,13 @@ pub trait ExpressionFolder<'i, T: FoldableExpression<'i>> {
     /// Transforms identifier.
     fn fold_identifier(&mut self, name: &'i str, span: pest::Span<'i>) -> Result<T, Self::Error>;
 
+    /// Transforms pattern.
+    fn fold_pattern(
+        &mut self,
+        pattern: Box<PatternNode<'i, T>>,
+        span: pest::Span<'i>,
+    ) -> Result<T, Self::Error>;
+
     /// Transforms function call.
     fn fold_function_call(
         &mut self,
@@ -377,6 +384,22 @@ where
         .into_iter()
         .map(|node| folder.fold_expression(node))
         .try_collect()
+}
+
+/// Transforms pattern value by using `folder`.
+pub fn fold_pattern_value<'i, F, T>(
+    folder: &mut F,
+    pattern: PatternNode<'i, T>,
+) -> Result<PatternNode<'i, T>, F::Error>
+where
+    F: ExpressionFolder<'i, T> + ?Sized,
+    T: FoldableExpression<'i>,
+{
+    Ok(PatternNode {
+        name: pattern.name,
+        name_span: pattern.name_span,
+        value: folder.fold_expression(pattern.value)?,
+    })
 }
 
 /// Transforms function call arguments by using `folder`.
@@ -734,6 +757,8 @@ pub trait AliasDefinitionParser {
 pub trait AliasExpandableExpression<'i>: FoldableExpression<'i> {
     /// Wraps identifier.
     fn identifier(name: &'i str) -> Self;
+    /// Wraps pattern.
+    fn pattern(pattern: Box<PatternNode<'i, Self>>) -> Self;
     /// Wraps function call.
     fn function_call(function: Box<FunctionCallNode<'i, Self>>) -> Self;
     /// Wraps substituted expression.
@@ -820,6 +845,23 @@ where
             self.expand_defn(id, defn, locals, span)
         } else {
             Ok(T::identifier(name))
+        }
+    }
+
+    fn fold_pattern(
+        &mut self,
+        pattern: Box<PatternNode<'i, T>>,
+        span: pest::Span<'i>,
+    ) -> Result<T, Self::Error> {
+        if let Some((id, param, defn)) = self.aliases_map.get_pattern(pattern.name) {
+            // Resolve argument in the current scope, and pass it in to the
+            // alias expansion scope.
+            let arg = self.fold_expression(pattern.value)?;
+            let locals = HashMap::from([(param, arg)]);
+            self.expand_defn(id, defn, locals, span)
+        } else {
+            let pattern = Box::new(fold_pattern_value(self, *pattern)?);
+            Ok(T::pattern(pattern))
         }
     }
 
