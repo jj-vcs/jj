@@ -3969,6 +3969,11 @@ mod tests {
             env.render_ok(r#"label("error".first_line(), "text")"#),
             @"[38;5;1mtext[39m");
 
+        // Property evaluation error
+        insta::assert_snapshot!(
+            env.render_ok("label(fill(-1, 'foo'), 'text')"),
+            @"[38;5;1m<Error: out of range integral type conversion attempted>[39m");
+
         // Template
         insta::assert_snapshot!(
             env.render_ok(r#"label(if(empty, "error", "warning"), "text")"#),
