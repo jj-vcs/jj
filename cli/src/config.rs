@@ -342,6 +342,7 @@ pub struct ConfigEnv {
     workspace_config: Option<SecureConfig>,
     command: Option<String>,
     hostname: Option<String>,
+    environment: HashMap<String, String>,
     rng: Arc<Mutex<ChaCha20Rng>>,
 }
 
@@ -363,6 +364,14 @@ impl ConfigEnv {
             home_dir: home_dir.clone(),
             jj_config: env::var("JJ_CONFIG").ok(),
         };
+        let environment = env::vars_os()
+            .filter_map(|(k, v)| {
+                // Silently ignore non-Unicode environment variables. Don't panic like vars()
+                let k = k.into_string().ok()?;
+                let v = v.into_string().ok()?;
+                Some((k, v))
+            })
+            .collect();
         Self {
             home_dir,
             root_config_dir: env.root_config_dir(),
@@ -373,6 +382,7 @@ impl ConfigEnv {
             workspace_config: None,
             command: None,
             hostname: whoami::hostname().ok(),
+            environment,
             // We would ideally use JjRng, but that requires the seed from the
             // config, which requires the config to be loaded.
             rng: Arc::new(Mutex::new(
@@ -610,6 +620,7 @@ impl ConfigEnv {
             workspace_path: self.workspace_path.as_deref(),
             command: self.command.as_deref(),
             hostname: self.hostname.as_deref().unwrap_or(""),
+            environment: &self.environment,
         };
         jj_lib::config::resolve(config.as_ref(), &context)
     }
@@ -1871,6 +1882,7 @@ mod tests {
             workspace_config: None,
             command: None,
             hostname: None,
+            environment: HashMap::new(),
             rng: Arc::new(Mutex::new(ChaCha20Rng::seed_from_u64(0))),
         }
     }
