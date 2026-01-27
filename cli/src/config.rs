@@ -340,6 +340,7 @@ pub struct ConfigEnv {
     workspace_config: Option<SecureConfig>,
     command: Option<String>,
     hostname: Option<String>,
+    environment: HashMap<String, String>,
     rng: Arc<Mutex<ChaCha20Rng>>,
 }
 
@@ -371,6 +372,7 @@ impl ConfigEnv {
             workspace_config: None,
             command: None,
             hostname: whoami::hostname().ok(),
+            environment: env::vars().collect(),
             // We would ideally use JjRng, but that requires the seed from the
             // config, which requires the config to be loaded.
             rng: Arc::new(Mutex::new(
@@ -608,6 +610,7 @@ impl ConfigEnv {
             workspace_path: self.workspace_path.as_deref(),
             command: self.command.as_deref(),
             hostname: self.hostname.as_deref().unwrap_or(""),
+            environment: &self.environment,
         };
         jj_lib::config::resolve(config.as_ref(), &context)
     }
@@ -1828,6 +1831,7 @@ mod tests {
             workspace_config: None,
             command: None,
             hostname: None,
+            environment: HashMap::new(),
             rng: Arc::new(Mutex::new(ChaCha20Rng::seed_from_u64(0))),
         }
     }
