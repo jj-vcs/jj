@@ -2725,6 +2725,12 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"if(none_i64, true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if(some_i64, true, false)"#), @"true");
 
+        // Property errors do not evaluate
+        insta::assert_snapshot!(
+            env.render_ok("if(-none_i64 == 1, true, false)"),
+            @"<Error: No Integer available>"
+        );
+
         insta::assert_snapshot!(env.parse_err(r#"if(label("", ""), true, false)"#), @r#"
          --> 1:4
           |
