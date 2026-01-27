@@ -5245,9 +5245,9 @@ the following precedence order (with later configs overriding earlier ones):</p>
 and <code>&lt;PLATFORM_SPECIFIC&gt;</code> represents the platform-specific configuration
 directory shown in the table below. The platform-specific location is
 recommended for better integration with platform services.</p>
-<p>The files in the <code>conf.d</code> directory are loaded in lexicographic order. This allows
-configs to be split across multiple files and combines well
-with <a href="#conditional-variables">Conditional Variables</a>.</p>
+<p>The files in the <code>conf.d</code> directory are loaded in lexicographic order. This
+allows configs to be split across multiple files and combines well with
+<a href="#conditional-variables">Conditional Variables</a>.</p>
 <table>
 <thead>
 <tr>
@@ -5269,16 +5269,19 @@ with <a href="#conditional-variables">Conditional Variables</a>.</p>
 </tr>
 </tbody>
 </table>
-<p>The location of the <code>jj</code> user config files/directories can also be overridden with the
-<code>JJ_CONFIG</code> environment variable. If it is not empty, it will be used instead
-of any configuration files in the default locations. If it is a path to a TOML
-file, then that file will be loaded instead. If it is a path to a directory,
-then all the TOML files in that directory will be loaded in lexicographic order
-and merged. Multiple paths can be specified by separating them with a
-platform-specific path separator (<code>:</code> on Unix-like systems, <code>;</code> on Windows).</p>
-<p>For example, the following could be used to run <code>jj</code> without loading any user configs:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">JJ_CONFIG</span><span class="o">=</span><span class="w"> </span>jj<span class="w"> </span>log<span class="w">       </span><span class="c1"># Ignores any settings specified in the config file.</span>
+<p>The location of the <code>jj</code> user config files/directories can also be overridden
+with the <code>JJ_CONFIG</code> environment variable. If the environment variable is set
+(even to an empty string), it will be used instead of any configuration files in
+the default locations. It can be a path to a TOML file or a directory of TOML
+files, which will be loaded in lexicographic order and merged. Multiple paths
+can be specified by separating them with a platform-specific path separator (<code>:</code>
+on Unix-like systems, <code>;</code> on Windows).</p>
+<p>For example, the following could be used to run <code>jj</code> without loading any user
+configs:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">JJ_CONFIG</span><span class="o">=</span><span class="w"> </span>jj<span class="w"> </span>log<span class="w">       </span><span class="c1"># Ignores any settings specified in any config files.</span>
 </code></pre></div>
+<p>There are also the <code>--config-file &lt;PATH&gt;</code> and <code>--config &lt;NAME=VALUE&gt;</code>
+<a href="../cli-reference/#options">global options</a> which work with any <code>jj</code> command.</p>
 <h3 id="json-schema-support">JSON Schema Support<a class="headerlink" href="#json-schema-support" title="Permanent link">&para;</a></h3>
 <p>Many popular editors support TOML file syntax highlighting and validation. To
 enable schema validation in your editor, add this line at the top of your TOML
