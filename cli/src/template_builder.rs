@@ -1537,6 +1537,73 @@ where
             Ok(out_property.into_dyn_wrapped())
         },
     );
+    map.insert(
+        "first",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|items| {
+                items
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| TemplatePropertyError("List is empty".into()))
+            });
+            Ok(L::Property::wrap_property(out_property.into_dyn()))
+        },
+    );
+    map.insert(
+        "last",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.and_then(|items| {
+                items
+                    .into_iter()
+                    .last()
+                    .ok_or_else(|| TemplatePropertyError("List is empty".into()))
+            });
+            Ok(L::Property::wrap_property(out_property.into_dyn()))
+        },
+    );
+    map.insert(
+        "get",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [index_node] = function.expect_exact_arguments()?;
+            let index = expect_usize_expression(language, diagnostics, build_ctx, index_node)?;
+            let out_property = (self_property, index).and_then(|(items, index)| {
+                items.into_iter().nth(index).ok_or_else(|| {
+                    TemplatePropertyError(format!("Index {index} out of bounds").into())
+                })
+            });
+            Ok(L::Property::wrap_property(out_property.into_dyn()))
+        },
+    );
+    map.insert(
+        "reverse",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property = self_property.map(|items| items.into_iter().rev().collect_vec());
+            Ok(L::Property::wrap_property(out_property.into_dyn()))
+        },
+    );
+    map.insert(
+        "skip",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [count_node] = function.expect_exact_arguments()?;
+            let count = expect_usize_expression(language, diagnostics, build_ctx, count_node)?;
+            let out_property = (self_property, count)
+                .map(|(items, count)| items.into_iter().skip(count).collect_vec());
+            Ok(L::Property::wrap_property(out_property.into_dyn()))
+        },
+    );
+    map.insert(
+        "take",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [count_node] = function.expect_exact_arguments()?;
+            let count = expect_usize_expression(language, diagnostics, build_ctx, count_node)?;
+            let out_property = (self_property, count)
+                .map(|(items, count)| items.into_iter().take(count).collect_vec());
+            Ok(L::Property::wrap_property(out_property.into_dyn()))
+        },
+    );
     map
 }
 

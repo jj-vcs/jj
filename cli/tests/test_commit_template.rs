@@ -99,6 +99,71 @@ fn test_log_parents() {
 }
 
 #[test]
+fn test_list_methods() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["new", "@", "@--"]).success();
+
+    // List.first()
+    let template = r#"parents.first().commit_id().short()"#;
+    let output = work_dir.run_jj(["log", "-T", template, "-r@", "--no-graph"]);
+    insta::assert_snapshot!(output, @"3cd3b246e098[EOF]");
+
+    // List.last()
+    let template = r#"parents.last().commit_id().short()"#;
+    let output = work_dir.run_jj(["log", "-T", template, "-r@", "--no-graph"]);
+    insta::assert_snapshot!(output, @"e8849ae12c70[EOF]");
+
+    // List.get(index)
+    let template = r#"parents.get(0).commit_id().short()"#;
+    let output = work_dir.run_jj(["log", "-T", template, "-r@", "--no-graph"]);
+    insta::assert_snapshot!(output, @"3cd3b246e098[EOF]");
+
+    let template = r#"parents.get(1).commit_id().short()"#;
+    let output = work_dir.run_jj(["log", "-T", template, "-r@", "--no-graph"]);
+    insta::assert_snapshot!(output, @"e8849ae12c70[EOF]");
+
+    // first() on empty list errors
+    let template = r#"parents.first().commit_id().short()"#;
+    let output = work_dir.run_jj(["log", "-T", template, "-rroot()", "--no-graph"]);
+    insta::assert_snapshot!(output, @"<Error: List is empty>[EOF]");
+
+    // get() out of bounds errors
+    let template = r#"parents.get(10).commit_id().short()"#;
+    let output = work_dir.run_jj(["log", "-T", template, "-r@", "--no-graph"]);
+    insta::assert_snapshot!(output, @"<Error: Index 10 out of bounds>[EOF]");
+
+    // List.reverse()
+    let template = r#"parents.reverse().map(|c| c.commit_id().short()).join(" ")"#;
+    let output = work_dir.run_jj(["log", "-T", template, "-r@", "--no-graph"]);
+    insta::assert_snapshot!(output, @"e8849ae12c70 3cd3b246e098[EOF]");
+
+    // List.skip() - skip first element
+    let template = r#"parents.skip(1).map(|c| c.commit_id().short()).join(" ")"#;
+    let output = work_dir.run_jj(["log", "-T", template, "-r@", "--no-graph"]);
+    insta::assert_snapshot!(output, @"e8849ae12c70[EOF]");
+
+    // List.take() - take first element only
+    let template = r#"parents.take(1).map(|c| c.commit_id().short()).join(" ")"#;
+    let output = work_dir.run_jj(["log", "-T", template, "-r@", "--no-graph"]);
+    insta::assert_snapshot!(output, @"3cd3b246e098[EOF]");
+
+    // skip and take combined
+    let template = r#"parents.skip(1).take(1).map(|c| c.commit_id().short()).join(" ")"#;
+    let output = work_dir.run_jj(["log", "-T", template, "-r@", "--no-graph"]);
+    insta::assert_snapshot!(output, @"e8849ae12c70[EOF]");
+
+    // skip more than list length returns empty
+    let template = r#"parents.skip(10).len()"#;
+    let output = work_dir.run_jj(["log", "-T", template, "-r@", "--no-graph"]);
+    insta::assert_snapshot!(output, @"0[EOF]");
+}
+
+#[test]
 fn test_log_author_timestamp() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
