@@ -1629,3 +1629,554 @@ fn test_all_files() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_fix_with_line_ranges() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+    let formatter = to_toml_value(formatter_path.to_str().unwrap());
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        command = [{formatter}, "--uppercase"]
+        patterns = ["foo", "baz"]
+        line-range-arg = "--line-ranges=$start-$end"
+
+        [fix.tools.tool-2]
+        command = [{formatter}, "--lowercase"]
+        patterns = ["bar", "baz"]
+        line-range-arg = "--line-ranges=$start-$end"
+        "###,
+    ));
+
+    // Initial commit.
+    work_dir.write_file("foo", "Foo1\nFoo2\nFoo3\n");
+    work_dir.write_file("bar", "Bar1\nBar2\nBar3\n");
+    work_dir.write_file("baz", "unmodified\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c1"])
+        .success();
+    work_dir.run_jj(["new"]).success();
+
+    // Create new commit modifying foo and bar.
+    work_dir.write_file("foo", "Foo1\nFoo2-Mod\nFoo3\n");
+    work_dir.write_file("bar", "Bar1-Mod\nBar2\nBar3\n");
+    work_dir.write_file("baz", "unmodified\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c2"])
+        .success();
+    work_dir.run_jj(["new"]).success();
+
+    // Commit c3 doing more modifications to foo and bar.
+    work_dir.write_file("foo", "Foo1\nFoo2\nFoo3-Mod\n");
+    work_dir.write_file("bar", "Bar1\nBar2\nBar3-Mod\n");
+    work_dir.write_file("baz", "unmodified\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c3"])
+        .success();
+
+    // Run `jj fix` on the second commit.
+    let output = work_dir.run_jj(["fix", "-s", "c2"]).success();
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fixed 2 commits of 2 checked.
+    Working copy  (@) now at: mzvwutvl 59d2dbad c3 | (no description set)
+    Parent commit (@-)      : kkmpptxz a8e4c2e8 c2 | (no description set)
+    Added 0 files, modified 2 files, removed 0 files
+    [EOF]
+    ");
+
+    // Check that the formatter was not applied to the first commit.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    Foo1
+    Foo2
+    Foo3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "bar", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    Bar1
+    Bar2
+    Bar3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "baz", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    unmodified
+    [EOF]
+    ");
+
+    // Check that the formatter was applied to the second commit.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    Foo1
+    FOO2-MOD
+    Foo3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "bar", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    bar1-mod
+    Bar2
+    Bar3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "baz", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    unmodified
+    [EOF]
+    ");
+
+    // Check that the formatter was applied to the third commit but in different line ranges.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c3"]);
+    insta::assert_snapshot!(output, @r"
+    Foo1
+    Foo2
+    FOO3-MOD
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "bar", "-r", "c3"]);
+    insta::assert_snapshot!(output, @r"
+    Bar1
+    Bar2
+    bar3-mod
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "baz", "-r", "c3"]);
+    insta::assert_snapshot!(output, @r"
+    unmodified
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_fix_with_line_ranges_sequential_case() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+    let formatter = to_toml_value(formatter_path.to_str().unwrap());
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        command = [{formatter}, "--uppercase"]
+        patterns = ["foo"]
+        line-range-arg = "--line-ranges=$start-$end"
+        "###,
+    ));
+
+    // Initial commit.
+    work_dir.write_file("foo", "Foo\nBar\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c1"])
+        .success();
+    work_dir.run_jj(["new"]).success();
+
+    // Create new commit modifying bar to become lowercase.
+    work_dir.write_file("foo", "Foo\nbar\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c2"])
+        .success();
+    work_dir.run_jj(["new"]).success();
+
+    // Commit c3 doing more modifications to foo and bar to become lowercase.
+    work_dir.write_file("foo", "foo\nbar\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c3"])
+        .success();
+
+    // Run `jj fix` on the second commit.
+    let output = work_dir.run_jj(["fix", "-s", "c1..c3"]).success();
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fixed 2 commits of 2 checked.
+    Working copy  (@) now at: mzvwutvl 096fa92b c3 | (no description set)
+    Parent commit (@-)      : kkmpptxz 86a9138a c2 | (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+
+    // Check that the formatter was not applied to the first commit.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    Foo
+    Bar
+    [EOF]
+    ");
+
+    // Check that the formatter was applied to the second and third commit.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    Foo
+    BAR
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c3"]);
+    insta::assert_snapshot!(output, @r"
+    FOO
+    BAR
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_fix_with_forking_commits() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+    let formatter = to_toml_value(formatter_path.to_str().unwrap());
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        command = [{formatter}, "--uppercase"]
+        patterns = ["foo"]
+        line-range-arg = "--line-ranges=$start-$end"
+        "###,
+    ));
+
+    // Two linear commits.
+    work_dir.write_file("foo", "Foo\nBar\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c1"])
+        .success();
+    work_dir.run_jj(["new"]).success();
+
+    work_dir.write_file("foo", "Foo\nBar\nBaz\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c2"])
+        .success();
+    work_dir.run_jj(["new"]).success();
+
+    // Forked commits.
+    work_dir.write_file("foo", "Foo\nBar\nbaz\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c3"])
+        .success();
+    work_dir.run_jj(["new", "c2"]).success();
+
+    work_dir.write_file("foo", "Foo\nbar\nBaz\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c4"])
+        .success();
+    work_dir.run_jj(["new", "c2"]).success();
+
+    // Run `jj fix` on the forked commits.
+    let output = work_dir.run_jj(["fix", "-s", "c3|c4"]).success();
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fixed 2 commits of 2 checked.
+    [EOF]
+    ");
+
+    // Check to make sure linear commits stay the same.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    Foo
+    Bar
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    Foo
+    Bar
+    Baz
+    [EOF]
+    ");
+
+    // Check the output of the forked commits.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c3"]);
+    insta::assert_snapshot!(output, @r"
+    Foo
+    Bar
+    BAZ
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c4"]);
+    insta::assert_snapshot!(output, @r"
+    Foo
+    BAR
+    Baz
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_fix_with_merging_commits() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+    let formatter = to_toml_value(formatter_path.to_str().unwrap());
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        command = [{formatter}, "--uppercase"]
+        patterns = ["foo"]
+        line-range-arg = "--line-ranges=$start-$end"
+        "###,
+    ));
+
+    // Initial baseline commit.
+    work_dir.write_file("foo", "Foo\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c1"])
+        .success();
+    work_dir.run_jj(["new"]).success();
+
+    // Two forking commits.
+    work_dir.write_file("foo", "Foo\nbar\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c2"])
+        .success();
+    work_dir.run_jj(["new", "c1"]).success();
+
+    work_dir.write_file("foo", "Foo\nbaz\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c3"])
+        .success();
+    work_dir.run_jj(["new", "c1"]).success();
+
+    // Merging commit.
+    work_dir.write_file("foo", "Foo\nBar\nBaz\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c4"])
+        .success();
+    work_dir.run_jj(["new", "c2|c3"]).success();
+
+    // Run the `jj fix` command on the merging commit.
+    let output = work_dir.run_jj(["fix", "-s", "c4"]).success();
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fixed 1 commits of 1 checked.
+    [EOF]
+    ");
+
+    // Check that the formatter was not applied to the first 3 commits.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    Foo
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    Foo
+    bar
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c3"]);
+    insta::assert_snapshot!(output, @r"
+    Foo
+    baz
+    [EOF]
+    ");
+
+    // Since when we run fix, we merge the "base" commits, there may be some non-deterministic
+    // ordering of the lines, so we sort them before asserting.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c4"]);
+    let mut lines: Vec<_> = output.stdout.raw().lines().collect();
+    lines.sort();
+    insta::assert_snapshot!(lines.join("\n"), @r"
+    BAR
+    BAZ
+    Foo
+    ");
+}
+
+#[test]
+fn test_fix_with_skip_clean() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+    let formatter = to_toml_value(formatter_path.to_str().unwrap());
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        command = [{formatter}, "--uppercase"]
+        patterns = ["foo", "baz"]
+        line-range-arg = "--line-ranges=$start-$end"
+        skip-clean = false
+
+        [fix.tools.tool-2]
+        command = [{formatter}, "--lowercase"]
+        patterns = ["bar"]
+        line-range-arg = "--line-ranges=$start-$end"
+        skip-clean = true
+        "###,
+    ));
+
+    // Initial commit.
+    work_dir.write_file("foo", "Foo1\nFoo2\nFoo3\n");
+    work_dir.write_file("bar", "Bar1\nBar2\nBar3\n");
+    work_dir.write_file("baz", "unmodified\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c1"])
+        .success();
+    work_dir.run_jj(["new"]).success();
+
+    // Create a new commit doing a deletion of a line in foo and bar (which should produce empty line ranges).
+    work_dir.write_file("foo", "Foo1\nFoo3\n");
+    work_dir.write_file("bar", "Bar1\nBar3\n");
+    work_dir.write_file("baz", "unmodified\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c2"])
+        .success();
+    work_dir.run_jj(["new"]).success();
+
+    // Run `jj fix` on the second commit.
+    let output = work_dir.run_jj(["fix", "-s", "c2"]).success();
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fixed 2 commits of 2 checked.
+    Working copy  (@) now at: mzvwutvl d24da70b (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 80995cc4 c2 | (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+
+    // Check that the formatter was not applied to the first commit.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    Foo1
+    Foo2
+    Foo3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "bar", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    Bar1
+    Bar2
+    Bar3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "baz", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    unmodified
+    [EOF]
+    ");
+
+    // Check that the formatter was applied to the second commit where skip-clean is false.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    FOO1
+    FOO3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "bar", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    Bar1
+    Bar3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "baz", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    unmodified
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_fix_with_all_lines_arg() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let formatter_path = assert_cmd::cargo::cargo_bin!("fake-formatter");
+    assert!(formatter_path.is_file());
+    let formatter = to_toml_value(formatter_path.to_str().unwrap());
+    test_env.add_config(format!(
+        r###"
+        [fix.tools.tool-1]
+        command = [{formatter}, "--uppercase"]
+        patterns = ["foo", "baz"]
+        line-range-arg = "--line-ranges=$start-$end"
+
+        [fix.tools.tool-2]
+        command = [{formatter}, "--lowercase"]
+        patterns = ["bar"]
+        "###,
+    ));
+
+    // Initial commit.
+    work_dir.write_file("foo", "Foo1\nFoo2\nFoo3\n");
+    work_dir.write_file("bar", "Bar1\nBar2\nBar3\n");
+    work_dir.write_file("baz", "unmodified\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c1"])
+        .success();
+    work_dir.run_jj(["new"]).success();
+
+    // Create new commit modifying foo and bar.
+    work_dir.write_file("foo", "Foo1\nFoo2-Mod\nFoo3\n");
+    work_dir.write_file("bar", "Bar1\nBar2-Mod\nBar3\n");
+    work_dir.write_file("baz", "unmodified\n");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "c2"])
+        .success();
+    work_dir.run_jj(["new"]).success();
+
+    // Run `jj fix` on the second commit with --all-lines arg.
+    let output = work_dir
+        .run_jj(["fix", "--all-lines", "-s", "c2"])
+        .success();
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Fixed 2 commits of 2 checked.
+    Working copy  (@) now at: mzvwutvl 82aeefb1 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz 683a90ad c2 | (no description set)
+    Added 0 files, modified 1 files, removed 0 files
+    [EOF]
+    ");
+
+    // Check that the formatter was not applied to the first commit.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    Foo1
+    Foo2
+    Foo3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "bar", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    Bar1
+    Bar2
+    Bar3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "baz", "-r", "c1"]);
+    insta::assert_snapshot!(output, @r"
+    unmodified
+    [EOF]
+    ");
+
+    // Check that the formatter was applied to the second commit. And that the whole-file
+    // was formatted for changed files. And whole file was formatted for formatters that
+    // don't support line ranges.
+    let output = work_dir.run_jj(["file", "show", "foo", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    FOO1
+    FOO2-MOD
+    FOO3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "bar", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    bar1
+    bar2-mod
+    bar3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["file", "show", "baz", "-r", "c2"]);
+    insta::assert_snapshot!(output, @r"
+    unmodified
+    [EOF]
+    ");
+}

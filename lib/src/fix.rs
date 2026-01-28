@@ -25,7 +25,9 @@ use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
 use jj_lib::backend::TreeValue;
+use jj_lib::commit::Commit;
 use jj_lib::matchers::Matcher;
+use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::TreeDiffEntry;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::repo::MutableRepo;
@@ -33,9 +35,11 @@ use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::store::Store;
 use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
+use tokio::io::AsyncReadExt as _;
 
 use crate::revset::RevsetEvaluationError;
 
@@ -48,11 +52,35 @@ pub struct FileToFix {
     /// Unique identifier for the file content.
     pub file_id: FileId,
 
+    /// The base file id for the file content. We will use this FileId to
+    /// create the diff between the file content before and after the fix.
+    pub base_file_id: Option<FileId>,
+
     /// The path is provided to allow the FileFixer to potentially:
     ///  - Choose different behaviors for different file names, extensions, etc.
     ///  - Update parts of the file's content that should be derived from the
     ///    file's path.
     pub repo_path: RepoPathBuf,
+}
+
+/// FileKey struct is used to map the file content to the new file id.
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct FileKey {
+    /// Unique identifier for the file content.
+    pub file_id: FileId,
+
+    /// The path is provided to allow files with different names but same
+    /// file content to be identified as unique files.
+    pub repo_path: RepoPathBuf,
+}
+
+impl From<&FileToFix> for FileKey {
+    fn from(file_to_fix: &FileToFix) -> Self {
+        Self {
+            file_id: file_to_fix.file_id.clone(),
+            repo_path: file_to_fix.repo_path.clone(),
+        }
+    }
 }
 
 /// Error fixing files.
@@ -90,7 +118,7 @@ pub trait FileFixer {
         &mut self,
         store: &Store,
         files_to_fix: &'a HashSet<FileToFix>,
-    ) -> Result<HashMap<&'a FileToFix, FileId>, FixError>;
+    ) -> Result<HashMap<FileKey, FileId>, FixError>;
 }
 
 /// Aggregate information about the outcome of the file fixer.
@@ -135,7 +163,7 @@ where
         &mut self,
         store: &Store,
         files_to_fix: &'a HashSet<FileToFix>,
-    ) -> Result<HashMap<&'a FileToFix, FileId>, FixError> {
+    ) -> Result<HashMap<FileKey, FileId>, FixError> {
         let (updates_tx, updates_rx) = channel();
         files_to_fix.into_par_iter().try_for_each_init(
             || updates_tx.clone(),
@@ -153,7 +181,8 @@ where
         drop(updates_tx);
         let mut result = HashMap::new();
         while let Ok((file_to_fix, new_file_id)) = updates_rx.recv() {
-            result.insert(file_to_fix, new_file_id);
+            let updated_file_to_fix = FileKey::from(file_to_fix);
+            result.insert(updated_file_to_fix, new_file_id);
         }
         Ok(result)
     }
@@ -206,6 +235,8 @@ pub async fn fix_files(
         "looking for files to fix in commits:"
     );
 
+    let base_commit_map = get_base_commit_map(&commits);
+
     let mut unique_files_to_fix: HashSet<FileToFix> = HashSet::new();
     let mut commit_paths: HashMap<CommitId, HashSet<RepoPathBuf>> = HashMap::new();
     for commit in commits.iter().rev() {
@@ -215,48 +246,63 @@ pub async fn fix_files(
         // Otherwise, we fix the matching changed files in this commit, plus any that
         // were fixed in ancestors, so we don't lose those changes. We do this
         // instead of rebasing onto those changes, to avoid merge conflicts.
-        let parent_tree = if include_unchanged_files {
+        let base_tree: MergedTree = if include_unchanged_files {
             repo_mut.store().empty_merged_tree()
         } else {
-            for parent_id in commit.parent_ids() {
-                if let Some(parent_paths) = commit_paths.get(parent_id) {
-                    paths.extend(parent_paths.iter().cloned());
+            let mut base_commits = Vec::new();
+
+            let base_commit_ids = base_commit_map.get(commit.id()).unwrap();
+            for base_commit_id in base_commit_ids {
+                if let Some(base_paths) = commit_paths.get(base_commit_id) {
+                    paths.extend(base_paths.iter().cloned());
                 }
+                let base_commit = repo_mut.store().get_commit_async(base_commit_id).await?;
+                base_commits.push(base_commit);
             }
-            commit.parent_tree_async(repo_mut).await?
+
+            let base_tree = merge_commit_trees(repo_mut, &base_commits).await?;
+            base_tree
         };
+
         // TODO: handle copy tracking
-        let mut diff_stream = parent_tree.diff_stream(&commit.tree(), &matcher);
+        let mut diff_stream = base_tree.diff_stream(&commit.tree(), &matcher);
         while let Some(TreeDiffEntry {
             path: repo_path,
             values,
         }) = diff_stream.next().await
         {
-            let after = values?.after;
+            let values = values?;
+            let before = values.before.into_iter();
+            let after = values.after.into_iter();
+
             // Deleted files have no file content to fix, and they have no terms in `after`,
             // so we don't add any files-to-fix for them. Conflicted files produce one
             // file-to-fix for each side of the conflict.
-            for term in after.into_iter().flatten() {
+            for (before_term, after_term) in before.zip(after) {
                 // We currently only support fixing the content of normal files, so we skip
                 // directories and symlinks, and we ignore the executable bit.
-                if let TreeValue::File {
-                    id,
-                    executable: _,
-                    copy_id: _,
-                } = term
-                {
+                if let Some(TreeValue::File { id, .. }) = after_term {
                     // TODO: Skip the file if its content is larger than some configured size,
                     // preferably without actually reading it yet.
-                    let file_to_fix = FileToFix {
-                        file_id: id.clone(),
-                        repo_path: repo_path.clone(),
-                    };
+                    let file_to_fix =
+                        if let Some(TreeValue::File { id: before_id, .. }) = before_term {
+                            FileToFix {
+                                file_id: id.clone(),
+                                base_file_id: Some(before_id.clone()),
+                                repo_path: repo_path.clone(),
+                            }
+                        } else {
+                            FileToFix {
+                                file_id: id.clone(),
+                                base_file_id: None,
+                                repo_path: repo_path.clone(),
+                            }
+                        };
                     unique_files_to_fix.insert(file_to_fix.clone());
                     paths.insert(repo_path.clone());
                 }
             }
         }
-
         commit_paths.insert(commit.id().clone(), paths);
     }
 
@@ -290,11 +336,11 @@ pub async fn fix_files(
                     copy_id,
                 }) = old_term
                 {
-                    let file_to_fix = FileToFix {
+                    let file_key = FileKey {
                         file_id: id.clone(),
                         repo_path: repo_path.clone(),
                     };
-                    if let Some(new_id) = fixed_file_ids.get(&file_to_fix) {
+                    if let Some(new_id) = fixed_file_ids.get(&file_key) {
                         return Some(TreeValue::File {
                             id: new_id.clone(),
                             executable: *executable,
@@ -329,4 +375,57 @@ pub async fn fix_files(
 
     tracing::debug!(?summary);
     Ok(summary)
+}
+
+/// Load the content of a file from the store by file_id.
+pub async fn load_content_by_file_id(
+    path: &RepoPathBuf,
+    file_id: &FileId,
+    store: &Store,
+) -> Result<Vec<u8>, FixError> {
+    let mut content = vec![];
+    let mut read = store.read_file(path, file_id).await?;
+    read.read_to_end(&mut content).await?;
+    Ok(content)
+}
+
+/// Given a vector of commits, determine the base commit(s) for each of the commits
+/// in the vector. The current commit will diff against the base commit(s) to determine
+/// the modified files that need to be `jj fix`ed.
+pub fn get_base_commit_map(commits: &[Commit]) -> HashMap<CommitId, HashSet<CommitId>> {
+    let base_commits: Vec<Commit> = commits
+        .iter()
+        .flat_map(|commit| commit.parents().collect::<Result<Vec<_>, _>>().unwrap())
+        .filter(|commit| !commits.contains(commit))
+        .collect();
+    let base_commit_ids: HashSet<CommitId> = base_commits
+        .iter()
+        .map(|commit| commit.id().clone())
+        .collect();
+
+    // Build a map of commit IDs to a set of their base commit IDs.
+    let mut base_commit_map: HashMap<CommitId, HashSet<CommitId>> = HashMap::new();
+    for commit in commits.iter().rev() {
+        let commit_id = commit.id().clone();
+        let mut parent_commit_ids: HashSet<CommitId> = HashSet::new();
+
+        for parent in commit.parents() {
+            match parent {
+                Ok(parent_commit) => {
+                    let parent_id = parent_commit.id();
+                    if base_commit_map.contains_key(parent_id) {
+                        parent_commit_ids
+                            .extend(base_commit_map.get(parent_id).unwrap().iter().cloned());
+                    }
+                    if base_commit_ids.contains(parent_id) {
+                        parent_commit_ids.insert(parent_id.clone());
+                    }
+                }
+                Err(_e) => {}
+            }
+        }
+        base_commit_map.insert(commit_id, parent_commit_ids);
+    }
+
+    base_commit_map
 }

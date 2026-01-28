@@ -74,6 +74,12 @@ struct Args {
     /// the next byte.
     #[arg(long, default_value_t = false)]
     byte_mode: bool,
+
+    /// Format lines from start to end [s, e) (1-indexed)
+    /// For example `--line_ranges 1-2,4-5` or `--line_ranges 1-2 --line_ranges 4-5`
+    /// formats lines 1 and 2, and lines 4 and 5.
+    #[arg(long, value_delimiter = ',')]
+    line_ranges: Vec<String>,
 }
 
 fn main() -> ExitCode {
@@ -116,17 +122,42 @@ fn main() -> ExitCode {
             .expect("Output is not a valid UTF-8 string")
             .to_owned()
     } else {
+        let line_ranges: Vec<(usize, usize)> = if !args.line_ranges.is_empty() {
+            args.line_ranges
+                .iter()
+                .map(|rng| {
+                    let (start, end) = rng.split_once('-').unwrap();
+                    (
+                        start.parse::<usize>().unwrap(),
+                        end.parse::<usize>().unwrap(),
+                    )
+                })
+                .collect_vec()
+        } else {
+            vec![(1_usize, usize::MAX)]
+        };
+
         let mut input = vec![];
         std::io::stdin()
             .read_to_end(&mut input)
             .expect("Failed to read from stdin");
         let mut stdout = input
             .lines_with_terminator()
-            .map(|line| {
+            .enumerate()
+            .map(|(i, line)| {
                 let line = line
                     .to_str()
                     .expect("The input is not valid UTF-8 string")
                     .to_owned();
+
+                let line_num = i + 1;
+                let in_range = line_ranges
+                    .iter()
+                    .any(|(start, end)| line_num >= *start && line_num < *end);
+                if !in_range {
+                    return line;
+                }
+
                 let line = if args.reverse {
                     line.chars().rev().collect()
                 } else {

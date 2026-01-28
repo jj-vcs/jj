@@ -17,11 +17,14 @@ use std::collections::HashSet;
 
 use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
+use jj_lib::commit::Commit;
 use jj_lib::fix::FileFixer;
+use jj_lib::fix::FileKey;
 use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
 use jj_lib::fix::ParallelFileFixer;
 use jj_lib::fix::fix_files;
+use jj_lib::fix::get_base_commit_map;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
@@ -52,11 +55,11 @@ impl FileFixer for TestFileFixer {
         &mut self,
         store: &Store,
         files_to_fix: &'a HashSet<FileToFix>,
-    ) -> Result<HashMap<&'a FileToFix, FileId>, FixError> {
-        let mut changed_files = HashMap::new();
+    ) -> Result<HashMap<FileKey, FileId>, FixError> {
+        let mut changed_files: HashMap<FileKey, FileId> = HashMap::new();
         for file_to_fix in files_to_fix {
             if let Some(new_file_id) = fix_file(store, file_to_fix)? {
-                changed_files.insert(file_to_fix, new_file_id);
+                changed_files.insert(FileKey::from(file_to_fix), new_file_id);
             }
         }
         Ok(changed_files)
@@ -537,4 +540,116 @@ fn test_fix_multiple_revisions() {
         .get_commit(summary.rewrites.get(&commit_a).unwrap())
         .unwrap();
     assert_tree_eq!(new_commit_a.tree(), expected_tree_a);
+}
+
+#[test]
+fn test_get_base_commit_map_chain() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // We have a chain of commits.
+    //
+    // A (root)
+    // |
+    // B
+    // |
+    // C
+    // |
+    // D
+    let mut tx = repo.start_transaction();
+    let path = repo_path("file1");
+    let tree1 = create_tree(repo, &[(path, "commit 1: content")]);
+    let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
+    let tree2 = create_tree(repo, &[(path, "commit 2: content")]);
+    let commit_b = create_commit(&mut tx, vec![commit_a.clone()], tree2);
+    let tree3 = create_tree(repo, &[(path, "commit 3: content")]);
+    let commit_c = create_commit(&mut tx, vec![commit_b.clone()], tree3);
+    let tree4 = create_tree(repo, &[(path, "commit 4: content")]);
+    let commit_d = create_commit(&mut tx, vec![commit_c.clone()], tree4);
+
+    let commit_b_obj = repo.store().get_commit(&commit_b).unwrap();
+    let commit_c_obj = repo.store().get_commit(&commit_c).unwrap();
+    let commit_d_obj = repo.store().get_commit(&commit_d).unwrap();
+
+    // Commits are expected to be sorted in child to parent order.
+    let commits: Vec<Commit> = vec![commit_d_obj, commit_c_obj, commit_b_obj];
+    let base_commit_map = get_base_commit_map(&commits);
+
+    let parents_set = HashSet::from([commit_a]);
+    let expected_base_commit_map: HashMap<CommitId, HashSet<CommitId>> = HashMap::from([
+        (commit_d, parents_set.clone()),
+        (commit_c, parents_set.clone()),
+        (commit_b, parents_set.clone()),
+    ]);
+
+    assert_eq!(base_commit_map, expected_base_commit_map);
+}
+
+#[test]
+fn test_get_base_commit_map_merge() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // We have a merge of commits
+    //
+    //   A   B (roots)
+    //   | / |
+    //   C   D
+    //    \ /
+    //     E
+    let mut tx = repo.start_transaction();
+    let path = repo_path("file1");
+    let tree1 = create_tree(repo, &[(path, "commit 1: content")]);
+    let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
+    let tree2 = create_tree(repo, &[(path, "commit 2: content")]);
+    let commit_b = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree2);
+    let tree3 = create_tree(repo, &[(path, "commit 3: content")]);
+    let commit_c = create_commit(&mut tx, vec![commit_a.clone(), commit_b.clone()], tree3);
+    let tree4 = create_tree(repo, &[(path, "commit 4: content")]);
+    let commit_d = create_commit(&mut tx, vec![commit_b.clone()], tree4);
+    let tree5 = create_tree(repo, &[(path, "commit 5: content")]);
+    let commit_e = create_commit(&mut tx, vec![commit_c.clone(), commit_d.clone()], tree5);
+
+    let commit_c_obj = repo.store().get_commit(&commit_c).unwrap();
+    let commit_e_obj = repo.store().get_commit(&commit_e).unwrap();
+
+    let commits: Vec<Commit> = vec![commit_e_obj, commit_c_obj];
+    let base_commit_map = get_base_commit_map(&commits);
+
+    // Should be {e: {a, b, d}, c: {a, b}}
+    let expected_base_commit_map: HashMap<CommitId, HashSet<CommitId>> = HashMap::from([
+        (
+            commit_e,
+            HashSet::from([commit_a.clone(), commit_b.clone(), commit_d.clone()]),
+        ),
+        (
+            commit_c,
+            HashSet::from([commit_a.clone(), commit_b.clone()]),
+        ),
+    ]);
+
+    assert_eq!(base_commit_map, expected_base_commit_map);
+}
+
+#[test]
+fn test_load_content_by_file_id() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let path = repo_path("file1").to_owned();
+    let tree1 = create_tree(repo, &[(&path, "commit 1: content")]);
+
+    let file_id = match tree1.path_value(&path) {
+        Ok(merge) => match merge.into_resolved() {
+            Ok(Some(jj_lib::backend::TreeValue::File { id, .. })) => Some(id),
+            _ => None,
+        },
+        _ => None,
+    };
+    assert!(file_id.is_some());
+
+    let content = jj_lib::fix::load_content_by_file_id(&path, &file_id.unwrap(), repo.store())
+        .block_on()
+        .unwrap();
+    assert_eq!(content, b"commit 1: content");
 }

@@ -21,6 +21,9 @@ use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::FileId;
 use jj_lib::commit::Commit;
+use jj_lib::diff::RegionsToFormat;
+use jj_lib::diff::compute_changed_ranges;
+use jj_lib::diff::compute_file_line_count;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
@@ -28,6 +31,7 @@ use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
 use jj_lib::fix::ParallelFileFixer;
 use jj_lib::fix::fix_files;
+use jj_lib::fix::load_content_by_file_id;
 use jj_lib::matchers::Matcher;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathUiConverter;
@@ -35,7 +39,6 @@ use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
 use pollster::FutureExt as _;
-use tokio::io::AsyncReadExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -162,6 +165,11 @@ pub(crate) struct FixArgs {
     /// specified, all files in the repo will be fixed.
     #[arg(long)]
     include_unchanged_files: bool,
+
+    /// All lines will be fixed for modified files, regardless of whether the
+    /// formatter has the line-range-arg configuration specified.
+    #[arg(long, short, default_value_t = false)]
+    all_lines: bool,
 }
 
 #[instrument(skip_all)]
@@ -211,6 +219,7 @@ pub(crate) fn cmd_fix(
             &tools_config,
             store,
             file_to_fix,
+            args.all_lines,
         )
         .block_on()
     });
@@ -253,22 +262,78 @@ async fn fix_one_file(
     tools_config: &ToolsConfig,
     store: &Store,
     file_to_fix: &FileToFix,
+    all_lines_arg: bool,
 ) -> Result<Option<FileId>, FixError> {
     let mut matching_tools = tools_config
         .tools
         .iter()
         .filter(|tool_config| tool_config.matcher.matches(&file_to_fix.repo_path))
         .peekable();
+
     if matching_tools.peek().is_some() {
         // The first matching tool gets its input from the committed file, and any
         // subsequent matching tool gets its input from the previous matching tool's
         // output.
-        let mut old_content = vec![];
-        let mut read = store
-            .read_file(&file_to_fix.repo_path, &file_to_fix.file_id)
-            .await?;
-        read.read_to_end(&mut old_content).await?;
+        let old_content =
+            load_content_by_file_id(&file_to_fix.repo_path, &file_to_fix.file_id, store).await?;
+
+        // Load the base content from the file_to_fix (if it exists) iff any tool needs it.
+        let base_content = if file_to_fix.base_file_id.is_some()
+            && matching_tools.clone().any(|t| t.line_range_arg.is_some())
+        {
+            let base_file_id = file_to_fix.base_file_id.as_ref().unwrap();
+            Some(load_content_by_file_id(&file_to_fix.repo_path, &base_file_id, store).await?)
+        } else {
+            None
+        };
+
         let new_content = matching_tools.fold(old_content.clone(), |prev_content, tool_config| {
+            let mut extra_args = Vec::new();
+
+            if let Some(line_range_arg) = &tool_config.line_range_arg {
+                let mut all_lines = all_lines_arg;
+
+                if !all_lines {
+                    if let Some(base) = &base_content {
+                        let ranges = match compute_changed_ranges(base, &prev_content) {
+                            RegionsToFormat::LineRanges(ranges) => ranges,
+                            RegionsToFormat::ByteRanges(_) => {
+                                unimplemented!("byte ranges not supported yet")
+                            }
+                        };
+
+                        // If the tool is configured to skip clean and there are no ranges to format,
+                        // we can skip the tool invocation. If skip-clean is false, we want to format
+                        // the entire file.
+                        if ranges.is_empty() && tool_config.skip_clean {
+                            return prev_content;
+                        } else if ranges.is_empty() {
+                            all_lines = true;
+                        }
+
+                        for range in ranges {
+                            extra_args.push(
+                                line_range_arg
+                                    .replace("$start", &range.start.to_string())
+                                    .replace("$end", &range.end.to_string()),
+                            );
+                        }
+                    } else {
+                        // This occurs if the file was not present in the base commit.
+                        all_lines = true;
+                    }
+                }
+
+                if all_lines {
+                    let line_count = compute_file_line_count(&prev_content) + 1;
+                    extra_args.push(
+                        line_range_arg
+                            .replace("$start", "1")
+                            .replace("$end", &line_count.to_string()),
+                    );
+                }
+            }
+
             match run_tool(
                 ui,
                 workspace_root,
@@ -276,6 +341,7 @@ async fn fix_one_file(
                 &tool_config.command,
                 file_to_fix,
                 &prev_content,
+                &extra_args,
             ) {
                 Ok(next_content) => next_content,
                 // TODO: Because the stderr is passed through, this isn't always failing
@@ -284,6 +350,7 @@ async fn fix_one_file(
                 Err(()) => prev_content,
             }
         });
+
         if new_content != old_content {
             // TODO: send futures back over channel
             let new_file_id = store
@@ -310,6 +377,7 @@ fn run_tool(
     tool_command: &CommandNameAndArgs,
     file_to_fix: &FileToFix,
     old_content: &[u8],
+    extra_args: &[String],
 ) -> Result<Vec<u8>, ()> {
     let mut vars: HashMap<&str, &str> = HashMap::new();
     vars.insert("path", file_to_fix.repo_path.as_internal_file_string());
@@ -321,6 +389,10 @@ fn run_tool(
         vars.insert("root", root);
     }
     let mut command = tool_command.to_command_with_variables(&vars);
+    if !extra_args.is_empty() {
+        command.args(extra_args);
+    }
+
     tracing::debug!(?command, ?file_to_fix.repo_path, "spawning fix tool");
     let mut child = match command
         .current_dir(workspace_root)
@@ -383,6 +455,13 @@ struct ToolConfig {
     matcher: Box<dyn Matcher>,
     /// Whether the tool is enabled
     enabled: bool,
+    /// Arguments to pass changed line ranges to the tool.
+    /// The string is a template where `$start` and `$end` are replaced by the
+    /// 1-based start and end line numbers of the changed range.
+    /// For example, `["--lines=$start-$end"]`.
+    line_range_arg: Option<String>,
+    /// Whether to skip the clean step for this tool on empty diff ranges (i.e. only deleted lines).
+    skip_clean: bool,
     // TODO: Store the `name` field here and print it with the command's stderr, to clearly
     // associate any errors/warnings with the tool and its configuration entry.
 }
@@ -402,9 +481,17 @@ struct RawToolConfig {
     patterns: Vec<String>,
     #[serde(default = "default_tool_enabled")]
     enabled: bool,
+    #[serde(default)]
+    line_range_arg: Option<String>,
+    #[serde(default = "default_tool_skip_clean")]
+    skip_clean: bool,
 }
 
 fn default_tool_enabled() -> bool {
+    true
+}
+
+fn default_tool_skip_clean() -> bool {
     true
 }
 
@@ -441,6 +528,8 @@ fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig,
                 command: tool.command,
                 matcher: expression.to_matcher(),
                 enabled: tool.enabled,
+                line_range_arg: tool.line_range_arg,
+                skip_clean: tool.skip_clean,
             })
         })
         .try_collect()?;
