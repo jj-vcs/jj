@@ -51,14 +51,15 @@ pub fn cmd_workspace_root(
             .wc_commit_ids()
             .contains_key(ws_name)
         {
-            workspace_store
+            let path = workspace_store
                 .get_workspace_path(ws_name)?
                 .ok_or_else(|| {
                     user_error(format!(
                         "Workspace has no recorded path: {}",
                         ws_name.as_symbol()
                     ))
-                })?
+                })?;
+            dunce::canonicalize(workspace_command.repo_path().join(path))?
         } else {
             return Err(user_error(format!(
                 "No such workspace: {}",

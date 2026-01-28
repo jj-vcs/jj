@@ -34,6 +34,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj workspace add` now links with relative paths. This enables workspaces to work
+  inside containers or when moved together. Existing workspaces with absolute paths
+  will continue to work as before.
+
 * `jj git fetch` now shows details of abandoned commits (change IDs and
   descriptions) by default, matching the `jj abandon` output format.
   [#3081](https://github.com/jj-vcs/jj/issues/3081)
