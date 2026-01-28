@@ -66,6 +66,12 @@ fn test_gitignores() {
     A file0
     A file3
     [EOF]
+    ------- stderr -------
+    Auto-tracking 3 new files:
+    A .gitignore
+    A file0
+    A file3
+    [EOF]
     ");
 }
 
@@ -94,6 +100,10 @@ fn test_gitignores_relative_excludes_file_path() {
     let sub_dir = work_dir.create_dir("sub");
     let output = sub_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output.normalize_backslash(), @r"
+    A ../not-ignored
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
     A ../not-ignored
     [EOF]
     ");

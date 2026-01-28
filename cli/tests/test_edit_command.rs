@@ -81,6 +81,8 @@ fn test_edit() {
     [EOF]
     ------- stderr -------
     Rebased 1 descendant commits onto updated working copy
+    Auto-tracking 1 new file:
+    A file2
     [EOF]
     ");
 

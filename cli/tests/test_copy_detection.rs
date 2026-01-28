@@ -31,5 +31,9 @@ fn test_simple_rename() {
         work_dir.run_jj(["debug", "copy-detection"]).normalize_backslash(), @r"
     original -> modified
     [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A modified
+    [EOF]
     ");
 }

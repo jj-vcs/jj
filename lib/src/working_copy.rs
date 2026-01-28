@@ -240,6 +240,11 @@ pub type SnapshotProgress<'a> = dyn Fn(&RepoPath) + 'a + Sync;
 pub struct SnapshotStats {
     /// List of new (previously untracked) files which are still untracked.
     pub untracked_paths: BTreeMap<RepoPathBuf, UntrackedReason>,
+    /// List of ignored paths, the boolean representing if the path is a
+    /// directory.
+    pub ignored_paths: Vec<(RepoPathBuf, bool)>,
+    /// List of new tracked files.
+    pub newly_tracked_paths: Vec<RepoPathBuf>,
 }
 
 /// Reason why the new path isn't tracked.

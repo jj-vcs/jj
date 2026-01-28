@@ -3079,11 +3079,15 @@ This includes:
 
 [Conflicted bookmarks]: https://docs.jj-vcs.dev/latest/bookmarks/#conflicts
 
-**Usage:** `jj status [FILESETS]...`
+**Usage:** `jj status [OPTIONS] [FILESETS]...`
 
 ###### **Arguments:**
 
 * `<FILESETS>` — Restrict the status display to these paths
+
+###### **Options:**
+
+* `-i`, `--ignored` — Show ignored files as well
 
 
 

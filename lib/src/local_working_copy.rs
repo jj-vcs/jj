@@ -1294,6 +1294,7 @@ impl TreeState {
         let (tree_entries_tx, tree_entries_rx) = channel();
         let (file_states_tx, file_states_rx) = channel();
         let (untracked_paths_tx, untracked_paths_rx) = channel();
+        let (ignored_paths_tx, ignored_paths_rx) = channel();
         let (deleted_files_tx, deleted_files_rx) = channel();
 
         trace_span!("traverse filesystem").in_scope(|| -> Result<(), SnapshotError> {
@@ -1307,6 +1308,7 @@ impl TreeState {
                 tree_entries_tx,
                 file_states_tx,
                 untracked_paths_tx,
+                ignored_paths_tx,
                 deleted_files_tx,
                 error: OnceLock::new(),
                 progress,
@@ -1327,9 +1329,6 @@ impl TreeState {
             snapshotter.into_result()
         })?;
 
-        let stats = SnapshotStats {
-            untracked_paths: untracked_paths_rx.into_iter().collect(),
-        };
         let mut tree_builder = MergedTreeBuilder::new(self.tree.clone());
         trace_span!("process tree entries").in_scope(|| {
             for (path, tree_values) in &tree_entries_rx {
@@ -1344,15 +1343,30 @@ impl TreeState {
             }
             deleted_files
         });
+        let mut newly_tracked_paths = Vec::new();
         trace_span!("process file states").in_scope(|| {
             let changed_file_states = file_states_rx
                 .iter()
-                .sorted_unstable_by(|(path1, _), (path2, _)| path1.cmp(path2))
+                .sorted_unstable_by(|(path1, _, _), (path2, _, _)| path1.cmp(path2))
                 .collect_vec();
             is_dirty |= !changed_file_states.is_empty();
-            self.file_states
-                .merge_in(changed_file_states, &deleted_files);
+            newly_tracked_paths = changed_file_states
+                .iter()
+                .filter_map(|(path, _, newly_tracked)| newly_tracked.then_some(path.clone()))
+                .collect_vec();
+            self.file_states.merge_in(
+                changed_file_states
+                    .into_iter()
+                    .map(|(path, state, _)| (path, state))
+                    .collect_vec(),
+                &deleted_files,
+            );
         });
+        let stats = SnapshotStats {
+            newly_tracked_paths,
+            ignored_paths: ignored_paths_rx.into_iter().collect(),
+            untracked_paths: untracked_paths_rx.into_iter().collect(),
+        };
         trace_span!("write tree").in_scope(|| -> Result<(), BackendError> {
             let new_tree = tree_builder.write_tree()?;
             is_dirty |= new_tree.tree_ids_and_labels() != self.tree.tree_ids_and_labels();
@@ -1474,8 +1488,9 @@ struct FileSnapshotter<'a> {
     start_tracking_matcher: &'a dyn Matcher,
     force_tracking_matcher: &'a dyn Matcher,
     tree_entries_tx: Sender<(RepoPathBuf, MergedTreeValue)>,
-    file_states_tx: Sender<(RepoPathBuf, FileState)>,
+    file_states_tx: Sender<(RepoPathBuf, FileState, bool)>,
     untracked_paths_tx: Sender<(RepoPathBuf, UntrackedReason)>,
+    ignored_paths_tx: Sender<(RepoPathBuf, bool)>,
     deleted_files_tx: Sender<RepoPathBuf>,
     error: OnceLock<SnapshotError>,
     progress: Option<&'a SnapshotProgress<'a>>,
@@ -1599,6 +1614,7 @@ impl FileSnapshotter<'_> {
                 // ignored directory must be ignored. It's also more efficient.
                 // start_tracking_matcher is NOT tested here because we need to
                 // scan directory entries to report untracked paths.
+                self.ignored_paths_tx.send((path, true)).ok();
                 self.spawn_ok(scope, move |_| self.visit_tracked_files(file_states));
             } else if !self.matcher.visit(&path).is_nothing() {
                 let directory_to_visit = DirectoryToVisit {
@@ -1622,8 +1638,8 @@ impl FileSnapshotter<'_> {
                 && (git_ignore.matches(path.as_internal_file_string())
                     && !self.force_tracking_matcher.matches(&path))
             {
-                // If it wasn't already tracked and it matches
-                // the ignored paths, then ignore it.
+                // If it wasn't already tracked and it matches the ignored paths.
+                self.ignored_paths_tx.send((path, false)).ok();
                 Ok(None)
             } else if maybe_current_file_state.is_none()
                 && !self.start_tracking_matcher.matches(&path)
@@ -1726,11 +1742,18 @@ impl FileSnapshotter<'_> {
             new_file_state.materialized_conflict_data =
                 maybe_current_file_state.and_then(|state| state.materialized_conflict_data);
         }
+
+        // If this path was previously untracked and we decided to emit a tree value,
+        // mark the entry as being newly tracked.
+        let newly_tracked = maybe_current_file_state.is_none() && update.is_some();
+
         if let Some(tree_value) = update {
             self.tree_entries_tx.send((path.clone(), tree_value)).ok();
         }
         if Some(&new_file_state) != maybe_current_file_state {
-            self.file_states_tx.send((path, new_file_state)).ok();
+            self.file_states_tx
+                .send((path, new_file_state, newly_tracked))
+                .ok();
         }
         Ok(())
     }

@@ -32,6 +32,10 @@ fn test_file_search() {
     dir/file3
     file1
     [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A dir/file3
+    [EOF]
     ");
 
     // Matches only the whole line
