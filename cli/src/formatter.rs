@@ -45,6 +45,10 @@ pub trait Formatter: Write {
     fn push_label(&mut self, label: &str);
 
     fn pop_label(&mut self);
+
+    fn maybe_color(&self) -> bool;
+
+    fn supports_hyperlinks(&self) -> bool;
 }
 
 impl<T: Formatter + ?Sized> Formatter for &mut T {
@@ -59,6 +63,14 @@ impl<T: Formatter + ?Sized> Formatter for &mut T {
     fn pop_label(&mut self) {
         <T as Formatter>::pop_label(self);
     }
+
+    fn maybe_color(&self) -> bool {
+        <T as Formatter>::maybe_color(self)
+    }
+
+    fn supports_hyperlinks(&self) -> bool {
+        <T as Formatter>::supports_hyperlinks(self)
+    }
 }
 
 impl<T: Formatter + ?Sized> Formatter for Box<T> {
@@ -72,6 +84,14 @@ impl<T: Formatter + ?Sized> Formatter for Box<T> {
 
     fn pop_label(&mut self) {
         <T as Formatter>::pop_label(self);
+    }
+
+    fn maybe_color(&self) -> bool {
+        <T as Formatter>::maybe_color(self)
+    }
+
+    fn supports_hyperlinks(&self) -> bool {
+        <T as Formatter>::supports_hyperlinks(self)
     }
 }
 
@@ -166,6 +186,7 @@ type Rules = Vec<(Vec<String>, Style)>;
 #[derive(Clone, Debug)]
 pub struct FormatterFactory {
     kind: FormatterFactoryKind,
+    hyperlinks: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -178,18 +199,28 @@ enum FormatterFactoryKind {
 impl FormatterFactory {
     pub fn plain_text() -> Self {
         let kind = FormatterFactoryKind::PlainText;
-        Self { kind }
+        Self {
+            kind,
+            hyperlinks: false,
+        }
     }
 
     pub fn sanitized() -> Self {
         let kind = FormatterFactoryKind::Sanitized;
-        Self { kind }
+        Self {
+            kind,
+            hyperlinks: false,
+        }
     }
 
-    pub fn color(config: &StackedConfig, debug: bool) -> Result<Self, ConfigGetError> {
+    pub fn color(
+        config: &StackedConfig,
+        debug: bool,
+        hyperlinks: bool,
+    ) -> Result<Self, ConfigGetError> {
         let rules = Arc::new(rules_from_config(config)?);
         let kind = FormatterFactoryKind::Color { rules, debug };
-        Ok(Self { kind })
+        Ok(Self { kind, hyperlinks })
     }
 
     pub fn new_formatter<'output, W: Write + 'output>(
@@ -199,13 +230,13 @@ impl FormatterFactory {
         match &self.kind {
             FormatterFactoryKind::PlainText => Box::new(PlainTextFormatter::new(output)),
             FormatterFactoryKind::Sanitized => Box::new(SanitizingFormatter::new(output)),
-            FormatterFactoryKind::Color { rules, debug } => {
-                Box::new(ColorFormatter::new(output, rules.clone(), *debug))
-            }
+            FormatterFactoryKind::Color { rules, debug } => Box::new(
+                ColorFormatter::with_hyperlinks(output, rules.clone(), *debug, self.hyperlinks),
+            ),
         }
     }
 
-    pub fn is_color(&self) -> bool {
+    pub fn maybe_color(&self) -> bool {
         matches!(self.kind, FormatterFactoryKind::Color { .. })
     }
 }
@@ -238,6 +269,14 @@ impl<W: Write> Formatter for PlainTextFormatter<W> {
     fn push_label(&mut self, _label: &str) {}
 
     fn pop_label(&mut self) {}
+
+    fn maybe_color(&self) -> bool {
+        false
+    }
+
+    fn supports_hyperlinks(&self) -> bool {
+        false
+    }
 }
 
 pub struct SanitizingFormatter<W> {
@@ -269,6 +308,14 @@ impl<W: Write> Formatter for SanitizingFormatter<W> {
     fn push_label(&mut self, _label: &str) {}
 
     fn pop_label(&mut self) {}
+
+    fn maybe_color(&self) -> bool {
+        false
+    }
+
+    fn supports_hyperlinks(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize)]
@@ -310,10 +357,15 @@ pub struct ColorFormatter<W: Write> {
     /// The debug string (space-separated labels) we last wrote to the output.
     /// Initialize to None to turn debug strings off.
     current_debug: Option<String>,
+    hyperlinks: bool,
 }
 
 impl<W: Write> ColorFormatter<W> {
     pub fn new(output: W, rules: Arc<Rules>, debug: bool) -> Self {
+        Self::with_hyperlinks(output, rules, debug, true)
+    }
+
+    pub fn with_hyperlinks(output: W, rules: Arc<Rules>, debug: bool, hyperlinks: bool) -> Self {
         Self {
             output,
             rules,
@@ -321,6 +373,7 @@ impl<W: Write> ColorFormatter<W> {
             cached_styles: HashMap::new(),
             current_style: Style::default(),
             current_debug: debug.then(String::new),
+            hyperlinks,
         }
     }
 
@@ -616,6 +669,14 @@ impl<W: Write> Formatter for ColorFormatter<W> {
     fn pop_label(&mut self) {
         self.labels.pop();
     }
+
+    fn maybe_color(&self) -> bool {
+        true
+    }
+
+    fn supports_hyperlinks(&self) -> bool {
+        self.hyperlinks
+    }
 }
 
 impl<W: Write> Drop for ColorFormatter<W> {
@@ -736,6 +797,14 @@ impl Formatter for FormatRecorder {
 
     fn pop_label(&mut self) {
         self.push_op(FormatOp::PopLabel);
+    }
+
+    fn maybe_color(&self) -> bool {
+        true
+    }
+
+    fn supports_hyperlinks(&self) -> bool {
+        false
     }
 }
 

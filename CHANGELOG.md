@@ -65,7 +65,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   contents of the file.
   [#7376](https://github.com/jj-vcs/jj/issues/7376)
 
+* New `ui.hyperlink` config option to control OSC 8 hyperlink output. Can be
+  set to `"auto"` (default, follows color), `"always"`, or `"never"`. Use
+  `"never"` to disable hyperlinks while keeping color output (e.g., when using
+  `watch jj log --config=ui.hyperlink=never --color=always`).
+
 ### Fixed bugs
+
+* The `hyperlink()` template function now gracefully falls back to text when
+  outputting to a non-terminal, instead of emitting raw OSC 8 escape codes.
+  [#7592](https://github.com/jj-vcs/jj/issues/7592)
 
 * `jj git init --colocate` now refuses to run inside a Git worktree, providing
   a helpful error message with alternatives.

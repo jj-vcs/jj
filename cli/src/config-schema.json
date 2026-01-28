@@ -101,6 +101,15 @@
                     ],
                     "default": "auto"
                 },
+                "hyperlink": {
+                    "description": "Whether to emit OSC 8 hyperlinks in output. Default is 'auto', which follows color. Set to 'never' to disable hyperlinks while keeping color.",
+                    "enum": [
+                        "always",
+                        "never",
+                        "auto"
+                    ],
+                    "default": "auto"
+                },
                 "paginate": {
                     "type": "string",
                     "description": "Whether or not to use a pager",
