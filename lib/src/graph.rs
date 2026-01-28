@@ -828,7 +828,7 @@ mod tests {
             sub_graph(['B', 'D', 'F', 'H', 'J'], vec![direct('A')]),
             vec![('A', vec![])],
         )
-        .sorted_by(|(id1, _), (id2, _)| id2.cmp(id1))
+        .sorted_by_key(|(id, _)| *id)
         .map(Ok)
         .collect_vec();
         insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
@@ -954,7 +954,7 @@ mod tests {
             sub_graph(['B', 'D', 'F', 'H', 'J'], vec![missing('Y')]),
             sub_graph(['A', 'C', 'E', 'G', 'I'], vec![missing('X')]),
         )
-        .sorted_by(|(id1, _), (id2, _)| id2.cmp(id1))
+        .sorted_by_key(|(id, _)| *id)
         .map(Ok)
         .collect_vec();
         insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"

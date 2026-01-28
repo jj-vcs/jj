@@ -126,7 +126,7 @@ fn find_trackable_remote_bookmarks<'a>(
         }
         matching_bookmarks.extend(matches);
     }
-    matching_bookmarks.sort_unstable_by(|(sym1, _), (sym2, _)| sym1.cmp(sym2));
+    matching_bookmarks.sort_unstable_by_key(|(sym, _)| *sym);
     matching_bookmarks.dedup_by(|(sym1, _), (sym2, _)| sym1 == sym2);
     if !unmatched_symbols.is_empty() {
         writeln!(
