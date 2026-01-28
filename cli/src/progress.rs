@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
+use jj_lib::commit::Commit;
 use jj_lib::repo_path::RepoPath;
 
 use crate::text_util;
@@ -34,6 +35,11 @@ struct Progress<'a> {
 //   silent for more than the specified initial delay.
 // - For the other elements, what we print is more factual regarding what we are
 //   doing. Without printing too much.
+//
+// Note that the first message printing by itself, would not be suitable for the
+// commit signing progress as, on some configuration the user is prompted to
+// enter its password to unlock the key used to sign, then the message would be
+// conflicting with that message from another process.
 
 impl<'a> Progress<'a> {
     fn new(ui: &Ui, prefix: &'a str) -> Option<Self> {
@@ -89,4 +95,17 @@ pub fn snapshot_progress(ui: &Ui) -> Option<impl Fn(&RepoPath) + use<>> {
             .unwrap()
             .display(path.to_fs_path_unchecked(Path::new("")).to_str().unwrap());
     })
+}
+
+pub fn git_signing_progress(ui: &Ui) -> impl Fn(&Commit) {
+    let progress = Progress::new(ui, "Signing").map(Mutex::new);
+
+    move |commit: &Commit| {
+        if let Some(progress) = &progress {
+            progress
+                .lock()
+                .unwrap()
+                .display(&commit.change_id().reverse_hex());
+        }
+    }
 }

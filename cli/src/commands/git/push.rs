@@ -66,6 +66,7 @@ use crate::complete;
 use crate::formatter::Formatter;
 use crate::git_util::GitSubprocessUi;
 use crate::git_util::print_push_stats;
+use crate::progress;
 use crate::revset_util::parse_bookmark_name;
 use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
@@ -429,8 +430,13 @@ pub fn cmd_git_push(
     {
         let num_updated_signatures = commits_to_sign.len();
         let num_rebased_descendants;
-        (num_rebased_descendants, bookmark_updates) =
-            sign_commits_before_push(&mut tx, commits_to_sign, sign_behavior, bookmark_updates)?;
+        (num_rebased_descendants, bookmark_updates) = sign_commits_before_push(
+            ui,
+            &mut tx,
+            commits_to_sign,
+            sign_behavior,
+            bookmark_updates,
+        )?;
         if let Some(mut formatter) = ui.status_formatter() {
             writeln!(
                 formatter,
@@ -582,6 +588,7 @@ fn validate_commits_ready_to_push(
 /// Returns the number of commits with rebased descendants and the updated list
 /// of bookmark names and corresponding [`BookmarkPushUpdate`]s.
 fn sign_commits_before_push(
+    ui: &Ui,
     tx: &mut WorkspaceCommandTransaction,
     commits_to_sign: Vec<Commit>,
     sign_behavior: SignBehavior,
@@ -590,10 +597,14 @@ fn sign_commits_before_push(
     let commit_ids: IndexSet<CommitId> = commits_to_sign.iter().ids().cloned().collect();
     let mut old_to_new_commits_map: HashMap<CommitId, CommitId> = HashMap::new();
     let mut num_rebased_descendants = 0;
+    let progress = progress::git_signing_progress(ui);
+
     tx.repo_mut().transform_descendants(
         commit_ids.iter().cloned().collect_vec(),
         async |rewriter| {
-            let old_commit_id = rewriter.old_commit().id().clone();
+            let old_commit = rewriter.old_commit();
+            let old_commit_id = old_commit.id().clone();
+            progress(old_commit);
             if commit_ids.contains(&old_commit_id) {
                 let commit = rewriter
                     .reparent()
