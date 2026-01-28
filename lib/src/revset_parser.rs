@@ -1298,9 +1298,9 @@ mod tests {
 
     #[test]
     fn test_parse_function_call() {
-        fn unwrap_function_call(node: ExpressionNode<'_>) -> Box<FunctionCallNode<'_>> {
+        fn unwrap_function_call(node: ExpressionNode<'_>) -> FunctionCallNode<'_> {
             match node.kind {
-                ExpressionKind::FunctionCall(function) => function,
+                ExpressionKind::FunctionCall(function) => *function,
                 _ => panic!("unexpected expression: {node:?}"),
             }
         }
