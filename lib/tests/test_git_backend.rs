@@ -98,6 +98,11 @@ fn make_commit(
 fn list_dir(dir: &Path) -> Vec<String> {
     std::fs::read_dir(dir)
         .unwrap()
+        .filter(|entry| {
+            entry
+                .as_ref()
+                .is_ok_and(|e| e.file_name() != std::ffi::OsStr::new("lock"))
+        })
         .map(|entry| entry.unwrap().file_name().to_str().unwrap().to_owned())
         .sorted()
         .collect()

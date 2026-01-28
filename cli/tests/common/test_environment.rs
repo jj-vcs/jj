@@ -377,6 +377,11 @@ impl TestWorkDir<'_> {
         let head_entry = heads_dir
             .read_dir()
             .expect("TestWorkDir must point to the workspace root")
+            .filter(|entry| {
+                entry
+                    .as_ref()
+                    .is_ok_and(|e| e.file_name() != std::ffi::OsStr::new("lock"))
+            })
             .exactly_one()
             .expect("divergence not supported")
             .unwrap();

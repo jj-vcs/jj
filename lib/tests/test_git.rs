@@ -4929,7 +4929,11 @@ fn test_bulk_update_extra_on_import_refs() {
         extra_dir
             .read_dir()
             .unwrap()
-            .filter(|entry| entry.as_ref().unwrap().metadata().unwrap().is_file())
+            .filter(|entry| {
+                let entry = entry.as_ref().unwrap();
+                entry.metadata().unwrap().is_file()
+                    && entry.file_name() != std::ffi::OsStr::new("lock")
+            })
             .count()
     };
     let import_refs = |repo: &Arc<ReadonlyRepo>| {
