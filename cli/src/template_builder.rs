@@ -2441,6 +2441,14 @@ mod tests {
           |
           = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, `<`, `+`, `-`, `*`, `/`, or `%`
         ");
+        insta::assert_snapshot!(env.parse_err("1 +"), @"
+         --> 1:4
+          |
+        1 | 1 +
+          |    ^---
+          |
+          = expected `!`, `-`, or <primary>
+        ");
 
         insta::assert_snapshot!(env.parse_err(r#"foo"#), @r"
          --> 1:1
@@ -2671,6 +2679,28 @@ mod tests {
           |
           = Lambda cannot be defined here
         ");
+
+        env.add_alias("fill2(a, b)", "fill(a, b)");
+        insta::assert_snapshot!(env.parse_err("fill2('', '')"), @"
+         --> 1:1
+          |
+        1 | fill2('', '')
+          | ^-----------^
+          |
+          = In alias `fill2(a, b)`
+         --> 1:6
+          |
+        1 | fill(a, b)
+          |      ^
+          |
+          = In function parameter `a`
+         --> 1:7
+          |
+        1 | fill2('', '')
+          |       ^^
+          |
+          = Expected expression of type `Integer`, but actual type is `String`
+        ");
     }
 
     #[test]
@@ -2716,6 +2746,12 @@ mod tests {
         env.add_keyword("some_i64", || literal(Some(0)));
         insta::assert_snapshot!(env.render_ok(r#"if(none_i64, true, false)"#), @"false");
         insta::assert_snapshot!(env.render_ok(r#"if(some_i64, true, false)"#), @"true");
+
+        // Property errors do not evaluate
+        insta::assert_snapshot!(
+            env.render_ok("if(-none_i64 == 1, true, false)"),
+            @"<Error: No Integer available>"
+        );
 
         insta::assert_snapshot!(env.parse_err(r#"if(label("", ""), true, false)"#), @r#"
          --> 1:4
@@ -3300,6 +3336,14 @@ mod tests {
         // lot as well.
         insta::assert_snapshot!(env.render_ok(r#""🥺".match(regex:'(?-u)^(?:.)')"#), @"<Error: incomplete utf-8 byte sequence from index 0>");
 
+        insta::assert_snapshot!(env.parse_err(r#""hello".match(false)"#), @r#"
+         --> 1:15
+          |
+        1 | "hello".match(false)
+          |               ^---^
+          |
+          = Expected string pattern
+        "#);
         insta::assert_snapshot!(env.parse_err(r#""🥺".match(not-a-pattern:"abc")"#), @r#"
          --> 1:11
           |
@@ -3573,6 +3617,11 @@ mod tests {
         env.add_keyword("now", || literal(Timestamp::now()));
         env.add_keyword("t0", || literal(new_timestamp(0, 0)));
         env.add_keyword("t0_plus1", || literal(new_timestamp(0, 60)));
+        env.add_keyword("tmax", || literal(new_timestamp(i64::MAX, 0)));
+
+        // Unformattable timestamp
+        insta::assert_snapshot!(env.render_ok("tmax"),
+            @"<Error: Out-of-range date>");
 
         insta::assert_snapshot!(
             env.render_ok(r#"t0.format("%Y%m%d %H:%M:%S")"#),
@@ -3948,6 +3997,11 @@ mod tests {
             env.render_ok(r#"label("error".first_line(), "text")"#),
             @"[38;5;1mtext[39m");
 
+        // Property evaluation error
+        insta::assert_snapshot!(
+            env.render_ok("label(fill(-1, 'foo'), 'text')"),
+            @"[38;5;1m<Error: out of range integral type conversion attempted>[39m");
+
         // Template
         insta::assert_snapshot!(
             env.render_ok(r#"label(if(empty, "error", "warning"), "text")"#),
@@ -4289,6 +4343,8 @@ mod tests {
             env.render_ok(r#"separate(" ", "a", if(true, ""))"#), @"a");
         insta::assert_snapshot!(
             env.render_ok(r#"separate(" ", "a", if(true, "", "f"))"#), @"a");
+        insta::assert_snapshot!(
+            env.render_ok(r#"separate(" ", "a", if(false, "t"))"#), @"a");
         insta::assert_snapshot!(
             env.render_ok(r#"separate(" ", "a", if(false, "t", ""))"#), @"a");
         insta::assert_snapshot!(
