@@ -15,6 +15,7 @@
 #![expect(missing_docs)]
 
 use std::borrow::Cow;
+use std::cell::LazyCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -1913,24 +1914,32 @@ impl FileSnapshotter<'_> {
                 }),
             )
             .await?;
+            // Use LazyCell here to save the performance in case the file isn't touched,
+            // which should be a frequent path.
+            let executable = LazyCell::new(|| {
+                exec_bit.for_tree_value(self.tree_state.exec_policy, || {
+                    current_tree_values
+                        .to_executable_merge()
+                        .as_ref()
+                        .and_then(conflicts::resolve_file_executable)
+                })
+            });
             match new_file_ids.into_resolved() {
                 Ok(file_id) => {
                     // On Windows, we preserve the executable bit from the merged trees.
-                    let executable = exec_bit.for_tree_value(self.tree_state.exec_policy, || {
-                        current_tree_values
-                            .to_executable_merge()
-                            .as_ref()
-                            .and_then(conflicts::resolve_file_executable)
-                    });
                     Ok(Merge::normal(TreeValue::File {
                         id: file_id.unwrap(),
-                        executable,
+                        executable: *executable,
                         copy_id,
                     }))
                 }
                 Err(new_file_ids) => {
                     if new_file_ids != old_file_ids {
-                        Ok(current_tree_values.with_new_file_ids(&new_file_ids))
+                        Ok(current_tree_values.with_new_file_ids(
+                            &new_file_ids,
+                            *executable,
+                            copy_id,
+                        ))
                     } else {
                         Ok(current_tree_values.clone())
                     }
