@@ -57,6 +57,7 @@ pub(crate) fn cmd_file_untrack(
 
     let working_copy_shared_with_git = workspace_command.working_copy_shared_with_git();
 
+    let path_converter = workspace_command.env().path_converter().clone();
     let mut tx = workspace_command.start_transaction().into_inner();
     let (mut locked_ws, wc_commit) = workspace_command.start_working_copy_mutation()?;
     // Create a new tree without the unwanted files
@@ -75,7 +76,11 @@ pub(crate) fn cmd_file_untrack(
     locked_ws.locked_wc().reset(&new_commit).block_on()?;
     // Commit the working copy again so we can inform the user if paths couldn't be
     // untracked because they're not ignored.
-    let (new_wc_tree, stats) = locked_ws.locked_wc().snapshot(&options).block_on()?;
+    let (new_wc_tree, stats) = locked_ws
+        .locked_wc()
+        .snapshot(&options)
+        .block_on()
+        .map_err(|err| CommandError::from_snapshot_error(err, &path_converter))?;
     if new_wc_tree.tree_ids() != new_commit.tree_ids() {
         let added_back = new_wc_tree.entries_matching(matcher.as_ref()).collect_vec();
         if !added_back.is_empty() {

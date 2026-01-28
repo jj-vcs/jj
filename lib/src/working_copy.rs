@@ -30,6 +30,7 @@ use tracing::instrument;
 use crate::backend::BackendError;
 use crate::commit::Commit;
 use crate::dag_walk;
+pub use crate::filter::IgnoreReason as FilterIgnoreReason;
 use crate::gitignore::GitIgnoreError;
 use crate::gitignore::GitIgnoreFile;
 use crate::matchers::Matcher;
@@ -240,6 +241,8 @@ pub type SnapshotProgress<'a> = dyn Fn(&RepoPath) + 'a + Sync;
 pub struct SnapshotStats {
     /// List of new (previously untracked) files which are still untracked.
     pub untracked_paths: BTreeMap<RepoPathBuf, UntrackedReason>,
+    /// List of files not converted by the filter.
+    pub unconverted_paths: BTreeMap<RepoPathBuf, FilterIgnoreReason>,
 }
 
 /// Reason why the new path isn't tracked.
@@ -271,6 +274,8 @@ pub struct CheckoutStats {
     /// working copy but were skipped because there was an untracked (probably
     /// ignored) file in its place.
     pub skipped_files: u32,
+    /// List of files not converted by the filter.
+    pub unconverted_paths: BTreeMap<RepoPathBuf, FilterIgnoreReason>,
 }
 
 /// The working-copy checkout failed.

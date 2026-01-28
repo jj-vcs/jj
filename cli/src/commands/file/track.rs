@@ -69,9 +69,14 @@ pub(crate) fn cmd_file_track(
         options.force_tracking_matcher = &matcher;
     }
 
+    let path_converter = workspace_command.env().path_converter().clone();
     let mut tx = workspace_command.start_transaction().into_inner();
     let (mut locked_ws, _wc_commit) = workspace_command.start_working_copy_mutation()?;
-    let (_tree, track_stats) = locked_ws.locked_wc().snapshot(&options).block_on()?;
+    let (_tree, track_stats) = locked_ws
+        .locked_wc()
+        .snapshot(&options)
+        .block_on()
+        .map_err(|err| CommandError::from_snapshot_error(err, &path_converter))?;
     let num_rebased = tx.repo_mut().rebase_descendants()?;
     if num_rebased > 0 {
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
