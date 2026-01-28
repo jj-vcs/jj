@@ -97,6 +97,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* Windows: use native file locks (`LockFileEx`) instead of polling with file
+  creation, fixing issues with "pending delete" semantics leaving lock files
+  stuck.
+
 ## [0.38.0] - 2026-02-04
 
 ### Release highlights
