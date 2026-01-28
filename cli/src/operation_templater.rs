@@ -327,7 +327,14 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind 
             Self::Operation(property) => property.try_into_serialize(),
         }
     }
-
+    fn try_into_timestamp(
+        self,
+    ) -> Option<BoxedTemplateProperty<'static, jj_lib::backend::Timestamp>> {
+        match self {
+            Self::Core(property) => property.try_into_timestamp(),
+            _ => None,
+        }
+    }
     fn try_into_template(self) -> Option<Box<dyn Template>> {
         match self {
             Self::Core(property) => property.try_into_template(),

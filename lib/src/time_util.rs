@@ -25,6 +25,7 @@ use thiserror::Error;
 
 use crate::backend::MillisSinceEpoch;
 use crate::backend::Timestamp;
+use crate::op_store::TimestampRange;
 
 /// Context needed to create a DatePattern during revset evaluation.
 #[derive(Copy, Clone, Debug)]
@@ -79,6 +80,37 @@ pub enum DatePattern {
     AtOrAfter(MillisSinceEpoch),
     /// Represents all dates before, but not including, the given instant.
     Before(MillisSinceEpoch),
+}
+
+/// Represents an exact point in time parsed from a date string.
+pub struct DateExact(Timestamp);
+
+impl DateExact {
+    /// Create a new DateExact
+    pub fn new(ts: Timestamp) -> Self {
+        Self(ts)
+    }
+    /// Parses a date string into a `DateExact`.
+    ///
+    /// The `now` parameter is used as a reference for relative date expressions
+    /// like "yesterday" or "2 hours ago".
+    pub fn from_str<Tz: TimeZone>(s: &str, now: DateTime<Tz>) -> Result<Self, DateError>
+    where
+        Tz::Offset: Copy,
+    {
+        let d = parse_date_string(s, now, Dialect::Us)?;
+        let d = d.fixed_offset();
+        let t = Timestamp::from_datetime(d);
+        Ok(Self(t))
+    }
+
+    /// Returns a `TimestampRange` from the given timestamp to this date.
+    pub fn since(&self, timestamp: &Timestamp) -> TimestampRange {
+        TimestampRange {
+            start: *timestamp,
+            end: self.0,
+        }
+    }
 }
 
 impl DatePattern {
