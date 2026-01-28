@@ -280,6 +280,7 @@ pub mod watchman {
         #[instrument(skip(self))]
         async fn register_trigger(&self) -> Result<(), Error> {
             info!("Registering Watchman trigger...");
+            let null = if cfg!(windows) { ">NUL" } else { ">/dev/null" };
             self.client
                 .register_trigger(
                     &self.resolved_root,
@@ -292,6 +293,8 @@ pub mod watchman {
                             "snapshot".to_string(),
                         ],
                         expression: Some(self.build_exclude_expr()),
+                        stderr: Some(null.into()),
+                        stdout: Some(null.into()),
                         ..Default::default()
                     },
                 )

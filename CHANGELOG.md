@@ -57,6 +57,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   previously-undocumented `jj debug snapshot` command. The Watchman integration
   has also been updated to use this command instead.
 
+* Changed background snapshotting to suppress stdout and stderr to avoid long
+  hangs.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04
