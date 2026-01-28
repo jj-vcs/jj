@@ -45,6 +45,7 @@ use jj_lib::git::FetchTagsOverride;
 use jj_lib::git::GitBranchPushTargets;
 use jj_lib::git::GitFetch;
 use jj_lib::git::GitFetchError;
+use jj_lib::git::GitFetchRefExpression;
 use jj_lib::git::GitImportError;
 use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitImportStats;
@@ -58,8 +59,8 @@ use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git::GitSubprocessOptions;
 use jj_lib::git::IgnoredRefspec;
 use jj_lib::git::IgnoredRefspecs;
-use jj_lib::git::expand_default_fetch_refspecs;
 use jj_lib::git::expand_fetch_refspecs;
+use jj_lib::git::load_default_fetch_bookmarks;
 use jj_lib::git_backend::GitBackend;
 use jj_lib::hex_util;
 use jj_lib::index::ResolvedChangeTargets;
@@ -175,17 +176,21 @@ fn fetch_import_all(mut_repo: &mut MutableRepo, remote: &RemoteName) -> GitImpor
 
 /// Fetches all refs without importing.
 fn fetch_all_with(fetcher: &mut GitFetch, remote: &RemoteName) -> Result<(), GitFetchError> {
-    fetch_with(fetcher, remote, StringExpression::all())
+    let ref_expr = GitFetchRefExpression {
+        bookmark: StringExpression::all(),
+        // TODO: disable implicit fetching and set this to "all" (#7528)
+        tag: StringExpression::none(),
+    };
+    fetch_with(fetcher, remote, ref_expr)
 }
 
 /// Fetches the specified refs without importing.
 fn fetch_with(
     fetcher: &mut GitFetch,
     remote: &RemoteName,
-    bookmark_expr: StringExpression,
+    ref_expr: GitFetchRefExpression,
 ) -> Result<(), GitFetchError> {
-    let refspecs =
-        expand_fetch_refspecs(remote, bookmark_expr).expect("ref patterns should be valid");
+    let refspecs = expand_fetch_refspecs(remote, ref_expr).expect("ref patterns should be valid");
     let depth = None;
     let fetch_tags = None;
     fetcher.fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
@@ -3489,7 +3494,11 @@ fn test_fetch_empty_refspecs() {
     // Base refspecs shouldn't be respected
     let mut tx = test_data.repo.start_transaction();
     let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
-    fetch_with(&mut fetcher, "origin".as_ref(), StringExpression::none()).unwrap();
+    let ref_expr = GitFetchRefExpression {
+        bookmark: StringExpression::none(),
+        tag: StringExpression::none(),
+    };
+    fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
     fetcher.import_refs().unwrap();
     assert_eq!(
         tx.repo_mut()
@@ -3526,7 +3535,7 @@ fn test_fetch_environment_options() {
 }
 
 #[test]
-fn test_expand_default_fetch_refspecs() {
+fn test_load_default_fetch_bookmarks() {
     let mut test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let git_repo = get_git_repo(&test_repo.repo);
     let config = git_repo.config_snapshot().clone();
@@ -3560,6 +3569,10 @@ fn test_expand_default_fetch_refspecs() {
             fetch = +refs/heads/wrong-remote:refs/remotes/origin2/wrong-remote
             fetch = +refs/tags/wrong-src:refs/remotes/origin/wrong-src
             fetch = ^refs/tags/unsupported
+
+            [remote "positive-only"]
+            url = /dev/null
+            fetch = +refs/heads/*:refs/remotes/positive-only/*
             "#,
         )
         .expect("failed to update config file");
@@ -3570,9 +3583,9 @@ fn test_expand_default_fetch_refspecs() {
         .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
     let git_repo = get_git_repo(&test_repo.repo);
 
-    let (IgnoredRefspecs(ignored_refspecs), expanded) =
-        expand_default_fetch_refspecs("origin".as_ref(), &git_repo)
-            .expect("failed to expand refspecs");
+    let (IgnoredRefspecs(ignored_refspecs), bookmark_expr) =
+        load_default_fetch_bookmarks("origin".as_ref(), &git_repo)
+            .expect("failed to load refspecs");
 
     let mut warnings = String::new();
     for IgnoredRefspec { refspec, reason } in ignored_refspecs {
@@ -3592,68 +3605,56 @@ fn test_expand_default_fetch_refspecs() {
     only refs/heads/ is supported for refspec sources: +refs/tags/wrong-src:refs/remotes/origin/wrong-src
     ");
 
-    insta::assert_debug_snapshot!(expanded, @r#"
-    ExpandedFetchRefSpecs {
-        bookmark_expr: Intersection(
+    insta::assert_debug_snapshot!(bookmark_expr, @r#"
+    Intersection(
+        Union(
+            Pattern(
+                Glob(
+                    GlobPattern(
+                        "foo*",
+                    ),
+                ),
+            ),
+            Pattern(
+                Exact(
+                    "main",
+                ),
+            ),
+        ),
+        NotIn(
             Union(
                 Pattern(
-                    Glob(
-                        GlobPattern(
-                            "foo*",
-                        ),
+                    Exact(
+                        "excluded",
                     ),
                 ),
                 Pattern(
                     Exact(
-                        "main",
-                    ),
-                ),
-            ),
-            NotIn(
-                Union(
-                    Pattern(
-                        Exact(
-                            "excluded",
-                        ),
-                    ),
-                    Pattern(
-                        Exact(
-                            "fooqux",
-                        ),
+                        "fooqux",
                     ),
                 ),
             ),
         ),
-        refspecs: [
-            RefSpec {
-                forced: true,
-                source: Some(
-                    "refs/heads/foo*",
-                ),
-                destination: "refs/remotes/origin/foo*",
-            },
-            RefSpec {
-                forced: true,
-                source: Some(
-                    "refs/heads/main",
-                ),
-                destination: "refs/remotes/origin/main",
-            },
-        ],
-        negative_refspecs: [
-            NegativeRefSpec {
-                source: "refs/heads/excluded",
-            },
-            NegativeRefSpec {
-                source: "refs/heads/fooqux",
-            },
-        ],
-    }
+    )
+    "#);
+
+    let (IgnoredRefspecs(ignored_refspecs), bookmark_expr) =
+        load_default_fetch_bookmarks("positive-only".as_ref(), &git_repo)
+            .expect("failed to load refspecs");
+    assert!(ignored_refspecs.is_empty());
+    insta::assert_debug_snapshot!(bookmark_expr, @r#"
+    Pattern(
+        Glob(
+            GlobPattern(
+                "*",
+            ),
+        ),
+    )
     "#);
 }
 
 #[test]
-fn test_expand_default_fetch_refspecs_invalid_configuration() {
+fn test_load_default_fetch_bookmarks_invalid_configuration() {
     let mut test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let git_repo = get_git_repo(&test_repo.repo);
     let config = git_repo.config_snapshot().clone();
@@ -3691,9 +3692,9 @@ fn test_expand_default_fetch_refspecs_invalid_configuration() {
         .load_repo_at_head(&testutils::user_settings(), test_repo.repo_path());
     let git_repo = get_git_repo(&test_repo.repo);
 
-    let first_err = expand_default_fetch_refspecs("first".as_ref(), &git_repo).unwrap_err();
-    let second_err = expand_default_fetch_refspecs("second".as_ref(), &git_repo).unwrap_err();
-    let third_err = expand_default_fetch_refspecs("third".as_ref(), &git_repo).unwrap_err();
+    let first_err = load_default_fetch_bookmarks("first".as_ref(), &git_repo).unwrap_err();
+    let second_err = load_default_fetch_bookmarks("second".as_ref(), &git_repo).unwrap_err();
+    let third_err = load_default_fetch_bookmarks("third".as_ref(), &git_repo).unwrap_err();
 
     insta::assert_snapshot!(format!("{first_err:#?}\n{second_err:#?}\n{third_err:#?}"), @r#"
     InvalidRemoteConfiguration(
@@ -3788,16 +3789,15 @@ fn test_fetch_multiple_branches() {
 
     let mut tx = test_data.repo.start_transaction();
     let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
-    fetch_with(
-        &mut fetcher,
-        "origin".as_ref(),
-        StringExpression::union_all(vec![
+    let ref_expr = GitFetchRefExpression {
+        bookmark: StringExpression::union_all(vec![
             StringExpression::exact("main"),
             StringExpression::exact("noexist1"),
             StringExpression::exact("noexist2"),
         ]),
-    )
-    .unwrap();
+        tag: StringExpression::none(),
+    };
+    fetch_with(&mut fetcher, "origin".as_ref(), ref_expr).unwrap();
     let stats = fetcher.import_refs().unwrap();
 
     assert_eq!(
@@ -3869,6 +3869,193 @@ fn test_fetch_with_tag_changes() {
 }
 
 #[test]
+fn test_fetch_with_explicit_tag_patterns() {
+    let test_data = GitRepoData::create();
+    let subprocess_options =
+        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let import_options = default_import_options();
+
+    let fetch_import = |mut_repo: &mut MutableRepo, tag: StringExpression| {
+        let mut fetcher =
+            GitFetch::new(mut_repo, subprocess_options.clone(), &import_options).unwrap();
+        let remote = RemoteName::new("origin");
+        let ref_expr = GitFetchRefExpression {
+            // Include all bookmarks to ensure that tags should never be fetched
+            // implicitly.
+            bookmark: StringExpression::all(),
+            tag,
+        };
+        let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
+        let depth = None;
+        let fetch_tags = Some(FetchTagsOverride::NoTags);
+        fetcher
+            .fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
+            .unwrap();
+        fetcher.import_refs().unwrap()
+    };
+
+    // Create tagged commit at remote: tag1 could be fetched implicitly by
+    // following the main branch. tag1 isn't.
+    let commit1 = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    git_ref(&test_data.origin_repo, "refs/tags/tag1", commit1);
+    let commit2 = empty_git_commit(&test_data.origin_repo, "refs/tags/tag2", &[]);
+    let target1 = RefTarget::normal(jj_id(commit1));
+    let target2 = RefTarget::normal(jj_id(commit2));
+    let remote_ref1 = RemoteRef {
+        target: target1.clone(),
+        state: RemoteRefState::Tracked,
+    };
+    let remote_ref2 = RemoteRef {
+        target: target2.clone(),
+        state: RemoteRefState::Tracked,
+    };
+
+    // Fetch "tag2". "tag1" shouldn't be fetched implicitly.
+    let mut tx = test_data.repo.start_transaction();
+    let stats = fetch_import(tx.repo_mut(), StringExpression::exact("tag2"));
+    let repo = tx.commit("test").unwrap();
+    assert_eq!(stats.changed_remote_tags.len(), 1);
+    assert_eq!(
+        stats.changed_remote_tags[0].0,
+        remote_symbol("tag2", "origin")
+    );
+
+    assert!(repo.view().get_local_tag("tag1".as_ref()).is_absent());
+    assert_eq!(repo.view().get_local_tag("tag2".as_ref()), &target2);
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag2", "origin")),
+        &remote_ref2
+    );
+    // commit1 is fetched by "main", commit2 is by "tag2"
+    assert_eq!(
+        *repo.view().heads(),
+        hashset! { jj_id(commit1), jj_id(commit2) }
+    );
+
+    // Fetch "tag1". "tag2" should be unchanged.
+    let mut tx = repo.start_transaction();
+    let stats = fetch_import(tx.repo_mut(), StringExpression::exact("tag1"));
+    let repo = tx.commit("test").unwrap();
+    assert_eq!(stats.changed_remote_tags.len(), 1);
+    assert_eq!(
+        stats.changed_remote_tags[0].0,
+        remote_symbol("tag1", "origin")
+    );
+
+    assert_eq!(repo.view().get_local_tag("tag1".as_ref()), &target1);
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag1", "origin")),
+        &remote_ref1
+    );
+    assert_eq!(repo.view().get_local_tag("tag2".as_ref()), &target2);
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag2", "origin")),
+        &remote_ref2
+    );
+    assert_eq!(
+        *repo.view().heads(),
+        hashset! { jj_id(commit1), jj_id(commit2) }
+    );
+}
+
+#[test]
+fn test_fetch_export_annotated_tags() {
+    let test_data = GitRepoData::create();
+    let subprocess_options =
+        GitSubprocessOptions::from_settings(test_data.repo.settings()).unwrap();
+    let import_options = default_import_options();
+
+    let fetch_import = |mut_repo: &mut MutableRepo| {
+        let mut fetcher =
+            GitFetch::new(mut_repo, subprocess_options.clone(), &import_options).unwrap();
+        let remote = RemoteName::new("origin");
+        let ref_expr = GitFetchRefExpression {
+            bookmark: StringExpression::none(),
+            tag: StringExpression::all(),
+        };
+        let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
+        let depth = None;
+        let fetch_tags = Some(FetchTagsOverride::NoTags);
+        fetcher
+            .fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
+            .unwrap();
+        fetcher.import_refs().unwrap()
+    };
+
+    // Create tags at remote
+    let commit1 = empty_git_commit(&test_data.origin_repo, "refs/tags/tag1", &[]);
+    let commit2 = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    let kind = gix::object::Kind::Commit;
+    let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
+    let tag2_oid = test_data
+        .origin_repo
+        .tag("tag2", commit2, kind, None, "", constraint)
+        .unwrap()
+        .id();
+    let target1 = RefTarget::normal(jj_id(commit1));
+    let target2 = RefTarget::normal(jj_id(commit2));
+    let remote_ref1 = RemoteRef {
+        target: target1.clone(),
+        state: RemoteRefState::Tracked,
+    };
+    let remote_ref2 = RemoteRef {
+        target: target2.clone(),
+        state: RemoteRefState::Tracked,
+    };
+
+    // Fetch tags, merge remote tags, and export merged local tags to Git
+    let mut tx = test_data.repo.start_transaction();
+    fetch_import(tx.repo_mut());
+    git::export_refs(tx.repo_mut()).unwrap();
+    let repo = tx.commit("test").unwrap();
+
+    assert_eq!(repo.view().get_local_tag("tag1".as_ref()), &target1);
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag1", "git")),
+        &remote_ref1
+    );
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag1", "origin")),
+        &remote_ref1
+    );
+    assert_eq!(repo.view().get_local_tag("tag2".as_ref()), &target2);
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag2", "git")),
+        &remote_ref2
+    );
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag2", "origin")),
+        &remote_ref2
+    );
+
+    assert_eq!(
+        test_data
+            .git_repo
+            .find_reference("refs/tags/tag1")
+            .unwrap()
+            .id(),
+        commit1
+    );
+    // TODO: somehow export the original annotated tag as local Git tag.
+    assert_eq!(
+        test_data
+            .git_repo
+            .find_reference("refs/tags/tag2")
+            .unwrap()
+            .id(),
+        commit2
+    );
+    assert_ne!(
+        test_data
+            .git_repo
+            .find_reference("refs/tags/tag2")
+            .unwrap()
+            .id(),
+        tag2_oid
+    );
+}
+
+#[test]
 fn test_fetch_with_fetch_tags_override() {
     let source_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let source_repo = &source_repo.repo;
@@ -3893,7 +4080,12 @@ fn test_fetch_with_fetch_tags_override() {
                 &import_options,
             )
             .unwrap();
-            let refspecs = expand_fetch_refspecs(remote, StringExpression::all()).unwrap();
+            let ref_expr = GitFetchRefExpression {
+                bookmark: StringExpression::all(),
+                // Disable explicit tag fetching to test FetchTagsOverride
+                tag: StringExpression::none(),
+            };
+            let refspecs = expand_fetch_refspecs(remote, ref_expr).unwrap();
             let depth = None;
             fetcher
                 .fetch(remote, refspecs, &mut NullCallback, depth, fetch_tags)
@@ -4005,10 +4197,15 @@ fn test_fetch_rejected_tag_updates() {
     // Tags shouldn't be "force" updated. (#7528)
     let mut tx = repo.start_transaction();
     let mut fetcher = GitFetch::new(tx.repo_mut(), subprocess_options, &import_options).unwrap();
+    let ref_expr = GitFetchRefExpression {
+        bookmark: StringExpression::all(),
+        // Disable explicit tag fetching to test FetchTagsOverride::AllTags
+        tag: StringExpression::none(),
+    };
     assert_matches!(
         fetcher.fetch(
             "origin".as_ref(),
-            expand_fetch_refspecs("origin".as_ref(), StringExpression::all()).unwrap(),
+            expand_fetch_refspecs("origin".as_ref(), ref_expr).unwrap(),
             &mut NullCallback,
             None,
             Some(FetchTagsOverride::AllTags),

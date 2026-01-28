@@ -81,6 +81,8 @@ use crate::view::View;
 pub const REMOTE_NAME_FOR_LOCAL_GIT_REPO: &RemoteName = RemoteName::new("git");
 /// Git ref prefix that would conflict with the reserved "git" remote.
 pub const RESERVED_REMOTE_REF_NAMESPACE: &str = "refs/remotes/git/";
+/// Git ref prefix where remote tags will be temporarily fetched.
+const REMOTE_TAG_REF_NAMESPACE: &str = "refs/jj/remote-tags/";
 /// Ref name used as a placeholder to unset HEAD without a commit.
 const UNBORN_ROOT_REF_NAME: &str = "refs/jj/root";
 /// Dummy file to be added to the index to indicate that the user is editing a
@@ -340,6 +342,17 @@ pub fn parse_git_ref(full_name: &GitRefName) -> Option<(GitRefKind, RemoteRefSym
     }
 }
 
+fn parse_remote_tag_ref(full_name: &GitRefName) -> Option<(GitRefKind, RemoteRefSymbol<'_>)> {
+    let remote_and_name = full_name.as_str().strip_prefix(REMOTE_TAG_REF_NAMESPACE)?;
+    let (remote, name) = remote_and_name.split_once('/')?;
+    if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
+        return None;
+    }
+    let name = RefName::new(name);
+    let remote = RemoteName::new(remote);
+    Some((GitRefKind::Tag, RemoteRefSymbol { name, remote }))
+}
+
 fn to_git_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> Option<GitRefNameBuf> {
     let RemoteRefSymbol { name, remote } = symbol;
     let name = name.as_str();
@@ -537,7 +550,10 @@ pub fn import_some_refs(
         mut_repo.ensure_remote(&remote_name);
     }
 
-    let refs_to_import = diff_refs_to_import(mut_repo.view(), &git_repo, git_ref_filter)?;
+    // Exclude real remote tags, which should never be updated by Git.
+    let all_remote_tags = false;
+    let refs_to_import =
+        diff_refs_to_import(mut_repo.view(), &git_repo, all_remote_tags, git_ref_filter)?;
     import_refs_inner(mut_repo, refs_to_import, options)
 }
 
@@ -699,6 +715,7 @@ fn abandon_unreachable_commits(
 fn diff_refs_to_import(
     view: &View,
     git_repo: &gix::Repository,
+    all_remote_tags: bool,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
 ) -> Result<RefsToImport, GitImportError> {
     let mut known_git_refs = view
@@ -716,8 +733,12 @@ fn diff_refs_to_import(
         .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Bookmark, symbol))
         .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
         .collect();
-    let mut known_remote_tags = {
-        // Exclude real remote tags, which should never be updated by Git.
+    let mut known_remote_tags = if all_remote_tags {
+        view.all_remote_tags()
+            .filter(|&(symbol, _)| git_ref_filter(GitRefKind::Tag, symbol))
+            .map(|(symbol, remote_ref)| (RemoteRefKey(symbol), remote_ref))
+            .collect()
+    } else {
         let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
         view.remote_tags(remote)
             .map(|(name, remote_ref)| (name.to_remote_symbol(remote), remote_ref))
@@ -726,6 +747,10 @@ fn diff_refs_to_import(
             .collect()
     };
 
+    // TODO: Refactor (all_remote_tags, git_ref_filter) in a way that
+    // uninteresting refs don't have to be scanned. For example, if the caller
+    // imports bookmark changes from a specific remote, we only need to walk
+    // refs/remotes/{remote}/.
     let mut changed_git_refs = Vec::new();
     let mut changed_remote_bookmarks = Vec::new();
     let mut changed_remote_tags = Vec::new();
@@ -758,6 +783,17 @@ fn diff_refs_to_import(
         &mut failed_ref_names,
         &git_ref_filter,
     )?;
+    if all_remote_tags {
+        collect_changed_remote_tags_to_import(
+            actual
+                .prefixed(REMOTE_TAG_REF_NAMESPACE)
+                .map_err(GitImportError::from_git)?,
+            &mut known_remote_tags,
+            &mut changed_remote_tags,
+            &mut failed_ref_names,
+            &git_ref_filter,
+        )?;
+    }
     for full_name in known_git_refs.into_keys() {
         changed_git_refs.push((full_name.to_owned(), RefTarget::absent()));
     }
@@ -832,6 +868,52 @@ fn collect_changed_refs_to_import(
         let old_remote_ref = known_remote_refs
             .remove(&symbol)
             .unwrap_or_else(|| RemoteRef::absent_ref());
+        if new_target != old_remote_ref.target {
+            changed_remote_refs.push((symbol.to_owned(), (old_remote_ref.clone(), new_target)));
+        }
+    }
+    Ok(())
+}
+
+/// Similar to [`collect_changed_refs_to_import()`], but doesn't track Git ref
+/// changes. Remote tags should be managed solely by jj.
+fn collect_changed_remote_tags_to_import(
+    actual_git_refs: gix::reference::iter::Iter,
+    known_remote_refs: &mut HashMap<RemoteRefKey<'_>, &RemoteRef>,
+    changed_remote_refs: &mut Vec<(RemoteRefSymbolBuf, (RemoteRef, RefTarget))>,
+    failed_ref_names: &mut Vec<BString>,
+    git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
+) -> Result<(), GitImportError> {
+    for git_ref in actual_git_refs {
+        let git_ref = git_ref.map_err(GitImportError::from_git)?;
+        let full_name_bytes = git_ref.name().as_bstr();
+        let Ok(full_name) = str::from_utf8(full_name_bytes) else {
+            // Non-utf8 refs cannot be imported.
+            failed_ref_names.push(full_name_bytes.to_owned());
+            continue;
+        };
+        let full_name = GitRefName::new(full_name);
+        let Some((kind, symbol)) = parse_remote_tag_ref(full_name) else {
+            // Skip invalid ref names.
+            continue;
+        };
+        if !git_ref_filter(kind, symbol) {
+            continue;
+        }
+        let old_remote_ref = known_remote_refs
+            .get(&symbol)
+            .copied()
+            .unwrap_or_else(|| RemoteRef::absent_ref());
+        let old_git_oid = old_remote_ref
+            .target
+            .as_normal()
+            .map(|id| gix::oid::from_bytes_unchecked(id.as_bytes()));
+        let Some(oid) = resolve_git_ref_to_commit_id(&git_ref, old_git_oid) else {
+            // Skip (or remove existing) invalid refs.
+            continue;
+        };
+        let new_target = RefTarget::normal(CommitId::from_bytes(oid.as_bytes()));
+        known_remote_refs.remove(&symbol);
         if new_target != old_remote_ref.target {
             changed_remote_refs.push((symbol.to_owned(), (old_remote_ref.clone(), new_target)));
         }
@@ -2048,11 +2130,17 @@ pub fn add_remote(
         ));
     }
 
+    let ref_expr = GitFetchRefExpression {
+        bookmark: bookmark_expr.clone(),
+        // Since tags will be fetched to jj's internal ref namespace, the
+        // refspecs shouldn't be saved in .git/config.
+        tag: StringExpression::none(),
+    };
     let ExpandedFetchRefSpecs {
-        bookmark_expr: _,
+        expr: _,
         refspecs,
         negative_refspecs,
-    } = expand_fetch_refspecs(remote_name, bookmark_expr.clone())?;
+    } = expand_fetch_refspecs(remote_name, ref_expr)?;
     let fetch_refspecs = itertools::chain(
         refspecs.iter().map(|spec| spec.to_git_format()),
         negative_refspecs.iter().map(|spec| spec.to_git_format()),
@@ -2118,6 +2206,7 @@ fn remove_remote_git_refs(
         .prefixed(prefix.as_str())?
         .map_ok(remove_ref)
         .try_collect()?;
+    // TODO: update REMOTE_TAG_REF_NAMESPACE as well
     git_repo.edit_references(edits)?;
     Ok(())
 }
@@ -2231,6 +2320,7 @@ fn rename_remote_git_refs(
         })
         .flatten_ok()
         .try_collect()?;
+    // TODO: update REMOTE_TAG_REF_NAMESPACE as well
     git_repo.edit_references(edits)?;
     Ok(())
 }
@@ -2326,16 +2416,30 @@ pub enum GitDefaultRefspecError {
     InvalidRemoteConfiguration(RemoteNameBuf, #[source] Box<gix::remote::find::Error>),
 }
 
-struct FetchedBranches {
+struct FetchedRefs {
     remote: RemoteNameBuf,
     bookmark_matcher: StringMatcher,
+    tag_matcher: StringMatcher,
+}
+
+/// Name patterns that will be transformed to Git refspecs.
+#[derive(Clone, Debug)]
+pub struct GitFetchRefExpression {
+    /// Matches bookmark or branch names.
+    pub bookmark: StringExpression,
+    /// Matches tag names.
+    ///
+    /// Tags matching this expression will be fetched as "remote tags" and
+    /// merged with tracking local tags. This is different from `git fetch`,
+    /// which would directly update local tags.
+    pub tag: StringExpression,
 }
 
 /// Represents the refspecs to fetch from a remote
 #[derive(Debug)]
 pub struct ExpandedFetchRefSpecs {
     /// Matches (positive) `refspecs`, but not `negative_refspecs`.
-    bookmark_expr: StringExpression,
+    expr: GitFetchRefExpression,
     refspecs: Vec<RefSpec>,
     negative_refspecs: Vec<NegativeRefSpec>,
 }
@@ -2354,47 +2458,63 @@ pub enum GitRefExpansionError {
 /// Expand a list of branch string patterns to refspecs to fetch
 pub fn expand_fetch_refspecs(
     remote: &RemoteName,
-    bookmark_expr: StringExpression,
+    expr: GitFetchRefExpression,
 ) -> Result<ExpandedFetchRefSpecs, GitRefExpansionError> {
     let (positive_bookmarks, negative_bookmarks) =
-        split_into_positive_negative_patterns(&bookmark_expr)?;
+        split_into_positive_negative_patterns(&expr.bookmark)?;
+    let (positive_tags, negative_tags) = split_into_positive_negative_patterns(&expr.tag)?;
 
-    let refspecs = positive_bookmarks
-        .iter()
-        .map(|&pattern| {
-            pattern
-                .to_glob()
-                .filter(
-                    /* This triggered by non-glob `*`s in addition to INVALID_REFSPEC_CHARS
-                     * because `to_glob()` escapes such `*`s as `[*]`. */
-                    |glob| !glob.contains(INVALID_REFSPEC_CHARS),
+    let refspecs = itertools::chain(
+        positive_bookmarks
+            .iter()
+            .map(|&pattern| pattern_to_refspec_glob(pattern))
+            .map_ok(|glob| {
+                RefSpec::forced(
+                    format!("refs/heads/{glob}"),
+                    format!("refs/remotes/{remote}/{glob}", remote = remote.as_str()),
                 )
-                .map(|glob| {
-                    RefSpec::forced(
-                        format!("refs/heads/{glob}"),
-                        format!("refs/remotes/{remote}/{glob}", remote = remote.as_str()),
-                    )
-                })
-                .ok_or_else(|| GitRefExpansionError::InvalidBranchPattern(pattern.clone()))
-        })
-        .try_collect()?;
+            }),
+        positive_tags
+            .iter()
+            .map(|&pattern| pattern_to_refspec_glob(pattern))
+            .map_ok(|glob| {
+                RefSpec::forced(
+                    format!("refs/tags/{glob}"),
+                    format!(
+                        "{REMOTE_TAG_REF_NAMESPACE}{remote}/{glob}",
+                        remote = remote.as_str()
+                    ),
+                )
+            }),
+    )
+    .try_collect()?;
 
-    let negative_refspecs = negative_bookmarks
-        .iter()
-        .map(|&pattern| {
-            pattern
-                .to_glob()
-                .filter(|glob| !glob.contains(INVALID_REFSPEC_CHARS))
-                .map(|glob| NegativeRefSpec::new(format!("refs/heads/{glob}")))
-                .ok_or_else(|| GitRefExpansionError::InvalidBranchPattern(pattern.clone()))
-        })
-        .try_collect()?;
+    let negative_refspecs = itertools::chain(
+        negative_bookmarks
+            .iter()
+            .map(|&pattern| pattern_to_refspec_glob(pattern))
+            .map_ok(|glob| NegativeRefSpec::new(format!("refs/heads/{glob}"))),
+        negative_tags
+            .iter()
+            .map(|&pattern| pattern_to_refspec_glob(pattern))
+            .map_ok(|glob| NegativeRefSpec::new(format!("refs/tags/{glob}"))),
+    )
+    .try_collect()?;
 
     Ok(ExpandedFetchRefSpecs {
-        bookmark_expr,
+        expr,
         refspecs,
         negative_refspecs,
     })
+}
+
+fn pattern_to_refspec_glob(pattern: &StringPattern) -> Result<Cow<'_, str>, GitRefExpansionError> {
+    pattern
+        .to_glob()
+        // This triggered by non-glob `*`s in addition to INVALID_REFSPEC_CHARS
+        // because `to_glob()` escapes such `*`s as `[*]`.
+        .filter(|glob| !glob.contains(INVALID_REFSPEC_CHARS))
+        .ok_or_else(|| GitRefExpansionError::InvalidBranchPattern(pattern.clone()))
 }
 
 #[derive(Debug, Error)]
@@ -2497,7 +2617,16 @@ fn split_into_positive_negative_patterns(
     let mut positives = Vec::new();
     let mut negatives = Vec::new();
     visit_positive(expr, &mut positives, &mut negatives)?;
-    Ok((positives, negatives))
+    // Don't generate uninteresting patterns for `~*` (= none). `x~*`, `~(x|*)`,
+    // etc. aren't special-cased because `x` may be Git-incompatible pattern.
+    if positives.iter().all(|pattern| pattern.is_all())
+        && !negatives.is_empty()
+        && negatives.iter().all(|pattern| pattern.is_all())
+    {
+        Ok((vec![], vec![]))
+    } else {
+        Ok((positives, negatives))
+    }
 }
 
 /// A list of fetch refspecs configured within a remote that were ignored during
@@ -2517,17 +2646,17 @@ pub struct IgnoredRefspec {
     pub reason: &'static str,
 }
 
-#[derive(Debug)]
-enum FetchRefSpec {
-    Positive(RefSpec),
-    Negative(NegativeRefSpec),
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum FetchRefSpecKind {
+    Positive,
+    Negative,
 }
 
-/// Expand the remote's configured fetch refspecs
-pub fn expand_default_fetch_refspecs(
+/// Loads the remote's fetch branch or bookmark patterns from Git config.
+pub fn load_default_fetch_bookmarks(
     remote_name: &RemoteName,
     git_repo: &gix::Repository,
-) -> Result<(IgnoredRefspecs, ExpandedFetchRefSpecs), GitDefaultRefspecError> {
+) -> Result<(IgnoredRefspecs, StringExpression), GitDefaultRefspecError> {
     let remote = git_repo
         .try_find_remote(remote_name.as_str())
         .ok_or_else(|| GitDefaultRefspecError::NoSuchRemote(remote_name.to_owned()))?
@@ -2536,20 +2665,16 @@ pub fn expand_default_fetch_refspecs(
         })?;
 
     let remote_refspecs = remote.refspecs(gix::remote::Direction::Fetch);
-    let mut refspecs = Vec::with_capacity(remote_refspecs.len());
     let mut ignored_refspecs = Vec::with_capacity(remote_refspecs.len());
     let mut positive_bookmarks = Vec::with_capacity(remote_refspecs.len());
-    let mut negative_refspecs = Vec::new();
     let mut negative_bookmarks = Vec::new();
     for refspec in remote_refspecs {
         let refspec = refspec.to_ref();
         match parse_fetch_refspec(remote_name, refspec) {
-            Ok((FetchRefSpec::Positive(refspec), bookmark)) => {
-                refspecs.push(refspec);
+            Ok((FetchRefSpecKind::Positive, bookmark)) => {
                 positive_bookmarks.push(StringExpression::pattern(bookmark));
             }
-            Ok((FetchRefSpec::Negative(refspec), bookmark)) => {
-                negative_refspecs.push(refspec);
+            Ok((FetchRefSpecKind::Negative, bookmark)) => {
                 negative_bookmarks.push(StringExpression::pattern(bookmark));
             }
             Err(reason) => {
@@ -2559,23 +2684,20 @@ pub fn expand_default_fetch_refspecs(
         }
     }
 
-    let bookmark_expr = StringExpression::union_all(positive_bookmarks)
-        .intersection(StringExpression::union_all(negative_bookmarks).negated());
+    let mut bookmark_expr = StringExpression::union_all(positive_bookmarks);
+    // Avoid double negation `~~*` when no negative patterns are provided.
+    if !negative_bookmarks.is_empty() {
+        bookmark_expr =
+            bookmark_expr.intersection(StringExpression::union_all(negative_bookmarks).negated());
+    }
 
-    Ok((
-        IgnoredRefspecs(ignored_refspecs),
-        ExpandedFetchRefSpecs {
-            bookmark_expr,
-            refspecs,
-            negative_refspecs,
-        },
-    ))
+    Ok((IgnoredRefspecs(ignored_refspecs), bookmark_expr))
 }
 
 fn parse_fetch_refspec(
     remote_name: &RemoteName,
     refspec: gix::refspec::RefSpecRef<'_>,
-) -> Result<(FetchRefSpec, StringPattern), &'static str> {
+) -> Result<(FetchRefSpecKind, StringPattern), &'static str> {
     let ensure_utf8 = |s| str::from_utf8(s).map_err(|_| "invalid UTF-8");
 
     let (src, positive_dst) = match refspec.instruction() {
@@ -2614,9 +2736,9 @@ fn parse_fetch_refspec(
         if src_branch != dst_branch {
             return Err("renaming is not supported");
         }
-        Ok((FetchRefSpec::Positive(RefSpec::forced(src, dst)), branch))
+        Ok((FetchRefSpecKind::Positive, branch))
     } else {
-        Ok((FetchRefSpec::Negative(NegativeRefSpec::new(src)), branch))
+        Ok((FetchRefSpecKind::Negative, branch))
     }
 }
 
@@ -2626,7 +2748,7 @@ pub struct GitFetch<'a> {
     git_repo: Box<gix::Repository>,
     git_ctx: GitSubprocessContext,
     import_options: &'a GitImportOptions,
-    fetched: Vec<FetchedBranches>,
+    fetched: Vec<FetchedRefs>,
 }
 
 impl<'a> GitFetch<'a> {
@@ -2657,7 +2779,7 @@ impl<'a> GitFetch<'a> {
         &mut self,
         remote_name: &RemoteName,
         ExpandedFetchRefSpecs {
-            bookmark_expr,
+            expr,
             refspecs: mut remaining_refspecs,
             negative_refspecs,
         }: ExpandedFetchRefSpecs,
@@ -2724,9 +2846,10 @@ impl<'a> GitFetch<'a> {
         // pruned on fetch
         self.git_ctx.spawn_branch_prune(&branches_to_prune)?;
 
-        self.fetched.push(FetchedBranches {
+        self.fetched.push(FetchedRefs {
             remote: remote_name.to_owned(),
-            bookmark_matcher: bookmark_expr.to_matcher(),
+            bookmark_matcher: expr.bookmark.to_matcher(),
+            tag_matcher: expr.tag.to_matcher(),
         });
         Ok(())
     }
@@ -2749,26 +2872,37 @@ impl<'a> GitFetch<'a> {
         Ok(default_branch)
     }
 
-    /// Import the previously fetched remote-tracking branches into the jj repo
-    /// and update jj's local branches. We also import local tags since remote
-    /// tags should have been merged by Git.
+    /// Import the previously fetched remote-tracking branches and tags into the
+    /// jj repo and update jj's local bookmarks and tags.
     ///
-    /// Clears all yet-to-be-imported {branch_names, remote_name} pairs after
-    /// the import. If `fetch()` has not been called since the last time
+    /// Clears all yet-to-be-imported {branch/tag_names, remote_name} pairs
+    /// after the import. If `fetch()` has not been called since the last time
     /// `import_refs()` was called then this will be a no-op.
     #[tracing::instrument(skip(self))]
     pub fn import_refs(&mut self) -> Result<GitImportStats, GitImportError> {
         tracing::debug!("import_refs");
+        let all_remote_tags = true;
         let refs_to_import = diff_refs_to_import(
             self.mut_repo.view(),
             &self.git_repo,
+            all_remote_tags,
             |kind, symbol| match kind {
                 GitRefKind::Bookmark => self
                     .fetched
                     .iter()
                     .filter(|fetched| fetched.remote == symbol.remote)
                     .any(|fetched| fetched.bookmark_matcher.is_match(symbol.name.as_str())),
-                GitRefKind::Tag => true,
+                GitRefKind::Tag => {
+                    // We also import local tags since remote tags should have
+                    // been merged by Git. TODO: Stabilize remote tags support
+                    // and remove this workaround.
+                    symbol.remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO
+                        || self
+                            .fetched
+                            .iter()
+                            .filter(|fetched| fetched.remote == symbol.remote)
+                            .any(|fetched| fetched.tag_matcher.is_match(symbol.name.as_str()))
+                }
             },
         )?;
         let import_stats = import_refs_inner(self.mut_repo, refs_to_import, self.import_options)?;
@@ -3044,5 +3178,20 @@ mod tests {
             try_split("a&~b|c&~d"),
             Err(GitRefExpressionError::NestedIntersection)
         );
+
+        // `~*` should generate empty patterns. `a~*` and `~(a|*)` don't because
+        // `a` may be incompatible with Git refspecs.
+        insta::assert_compact_debug_snapshot!(
+            split("*"),
+            @r#"([Glob(GlobPattern("*"))], [])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("~*"),
+            @"([], [])");
+        insta::assert_compact_debug_snapshot!(
+            split("a~*"),
+            @r#"([Exact("a")], [Glob(GlobPattern("*"))])"#);
+        insta::assert_compact_debug_snapshot!(
+            split("~(a|*)"),
+            @r#"([Substring("")], [Exact("a"), Glob(GlobPattern("*"))])"#);
     }
 }
