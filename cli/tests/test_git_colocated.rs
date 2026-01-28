@@ -396,7 +396,7 @@ fn test_git_colocated_export_bookmarks_on_snapshot() {
 }
 
 #[test]
-fn test_git_colocated_rebase_on_import() {
+fn test_git_colocated_remove_externally_deleted_bookmark_on_import() {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -436,16 +436,183 @@ fn test_git_colocated_rebase_on_import() {
         )
         .unwrap();
     insta::assert_snapshot!(get_log_output(&work_dir), @r"
-    @  d46583362b91d0e172aec469ea1689995540de81
+    @  add9f5766f8c90eaba50332d2a09d48618d8f690
+    ○  1a8029465a9be62a2eee275fe7a6b358a9a842ed modify a file
     ○  cbd6c887108743a4abb0919305646a6a914a665e master add a file
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_colocated_abandon_unreachable_commit_after_reset_on_import() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::init(work_dir.root());
+    let git_check_out_ref = |name| {
+        let target = git_repo
+            .find_reference(name)
+            .unwrap()
+            .into_fully_peeled_id()
+            .unwrap()
+            .detach();
+        git::set_head_to_id(&git_repo, target);
+    };
+    work_dir
+        .run_jj(["git", "init", "--git-repo", "."])
+        .success();
+
+    // Make some changes in jj and check that they're reflected in git
+    work_dir.write_file("file", "contents");
+    work_dir.run_jj(["commit", "-m", "add a file"]).success();
+    work_dir.write_file("file", "modified");
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "master"])
+        .success();
+    work_dir.run_jj(["commit", "-m", "modify a file"]).success();
+    // TODO: We shouldn't need this command here to trigger an import of the
+    // refs/heads/master we just exported
+    work_dir.run_jj(["st"]).success();
+
+    let parent_commit = git_repo
+        .find_reference("refs/heads/master")
+        .unwrap()
+        .peel_to_commit()
+        .unwrap()
+        .parent_ids()
+        .next()
+        .unwrap()
+        .detach();
+    // Simulate `git branch -f master master^`
+    git_repo
+        .reference(
+            "refs/heads/master",
+            parent_commit,
+            gix::refs::transaction::PreviousValue::Any,
+            "update ref",
+        )
+        .unwrap();
+    // Simulate `git switch --detach master`
+    git_check_out_ref("refs/heads/master");
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  b4afe67eea595a3bb820489ff531ee3d9619bc1a
+    ○  cbd6c887108743a4abb0919305646a6a914a665e master add a file
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ------- stderr -------
+    Reset the working copy parent to the new Git HEAD.
     Abandoned 1 commits that are no longer reachable.
-    Rebased 1 descendant commits off of commits rewritten from git
-    Working copy  (@) now at: zsuskuln d4658336 (empty) (no description set)
-    Parent commit (@-)      : qpvuntsm cbd6c887 master | add a file
-    Added 0 files, modified 1 files, removed 0 files
+    Done importing changes from the underlying Git repo.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_colocated_abandon_unreachable_commits_after_externally_deleted_bookmark_on_import() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::init(work_dir.root());
+    work_dir
+        .run_jj(["git", "init", "--git-repo", "."])
+        .success();
+
+    // Make some changes in jj and check that they're reflected in git
+    work_dir.run_jj(["commit", "-m", "a"]).success();
+    work_dir.run_jj(["commit", "-m", "c"]).success();
+    work_dir.run_jj(["desc", "-m", "d"]).success();
+    work_dir
+        .run_jj(["new", "description(glob:a*)", "-m", "b"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r", "description(glob:d*)", "br"])
+        .success();
+    work_dir.run_jj(["st"]).success();
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  c4cfbc169fc4386895a53a88f180a599aa4ce541 b
+    │ ○  cd2a684cf6f83612c50e5e7469175bfee0fcb814 br d
+    │ ○  6ee864a872ae9fe7d8f5592c6b0642b171fa8453 c
+    ├─╯
+    ○  b86e28cd6862624ad77e1aaf31e34b2c7545bebd a
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+
+    // Simulate `git branch -d br -f`
+    git_repo
+        .edit_reference(gix::refs::transaction::RefEdit {
+            change: (gix::refs::transaction::Change::Delete {
+                expected: gix::refs::transaction::PreviousValue::MustExist,
+                log: gix::refs::transaction::RefLog::AndReference,
+            }),
+            name: "refs/heads/br".try_into().unwrap(),
+            deref: true,
+        })
+        .unwrap();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @  c4cfbc169fc4386895a53a88f180a599aa4ce541 b
+    ○  b86e28cd6862624ad77e1aaf31e34b2c7545bebd a
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ------- stderr -------
+    Abandoned 2 commits that are no longer reachable.
+    Done importing changes from the underlying Git repo.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_git_colocated_do_not_abandon_commits_reachable_by_merge_on_import() {
+    // Regression test for #8076
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    let git_repo = git::init(work_dir.root());
+    work_dir
+        .run_jj(["git", "init", "--git-repo", "."])
+        .success();
+
+    // Make some changes in jj and check that they're reflected in git
+    work_dir.run_jj(["commit", "-m", "a"]).success();
+    work_dir.run_jj(["new", "root()", "-m", "b"]).success();
+    work_dir
+        .run_jj([
+            "new",
+            "description(glob:a*)",
+            "description(glob:b*)",
+            "-m",
+            "merge",
+        ])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r", "description(glob:b*)", "br"])
+        .success();
+    work_dir.run_jj(["st"]).success();
+
+    // Simulate `git branch -d br -f`
+    git_repo
+        .edit_reference(gix::refs::transaction::RefEdit {
+            change: (gix::refs::transaction::Change::Delete {
+                expected: gix::refs::transaction::PreviousValue::MustExist,
+                log: gix::refs::transaction::RefLog::AndReference,
+            }),
+            name: "refs/heads/br".try_into().unwrap(),
+            deref: true,
+        })
+        .unwrap();
+
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    @    1c5fdc7475f6714e5e11d6f99d76c55bc6b1ea4a merge
+    ├─╮
+    │ ○  a82129fb35837a935a665361a0ed67d8c011994c b
+    ○ │  b86e28cd6862624ad77e1aaf31e34b2c7545bebd a
+    ├─╯
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ------- stderr -------
     Done importing changes from the underlying Git repo.
     [EOF]
     ");
