@@ -19,7 +19,94 @@ use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
 
 use crate::config::ConfigGetError;
+use crate::gitattributes::GitAttributes;
+use crate::gitattributes::State;
+use crate::repo_path::RepoPath;
 use crate::settings::UserSettings;
+
+type BoxError = Box<dyn std::error::Error + Send + Sync>;
+
+/// The gitattributes related to eol conversion.
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub(crate) struct EolGitAttributes {
+    /// The state of the `eol` gitattribute.
+    ///
+    /// See https://git-scm.com/docs/gitattributes#_eol.
+    pub eol: State,
+    /// The state of the `text` gitattribute.
+    ///
+    /// See https://git-scm.com/docs/gitattributes#_text.
+    pub text: State,
+    /// The state of the `crlf` gitattribute.
+    ///
+    /// See https://git-scm.com/docs/gitattributes#_backwards_compatibility_with_crlf_attribute.
+    pub crlf: State,
+}
+
+impl EolGitAttributes {
+    /// Apply the automatic state conversion based on the states of other
+    /// attributes.
+    ///
+    /// Currently, we handle 2 types of conversion:
+    ///
+    /// * Specifying `eol` automatically sets `text` if `text` was left
+    ///   unspecified.
+    /// * The `crlf` backwards compatibility is converted to proper `text` and
+    ///   `eol` states.
+    fn normalize(mut self) -> Self {
+        // If the text and eol attributes are not one of the defined states, they behave
+        // as if they are unspecified.
+        let text_unspecified = match &self.text {
+            State::Unspecified => true,
+            State::Set | State::Unset => false,
+            State::Value(value) => value != b"auto",
+        };
+
+        let eol_unspecified = match &self.eol {
+            State::Unspecified | State::Set | State::Unset => true,
+            State::Value(value) => value != b"lf" && value != b"crlf",
+        };
+
+        if text_unspecified && !eol_unspecified {
+            // Specifying eol automatically sets text if text was left unspecified.
+            self.text = State::Set;
+        }
+
+        if text_unspecified && eol_unspecified {
+            // crlf exists for backwards compatibility, so it only has effect when both text
+            // and eol are unspecified.
+            match &self.crlf {
+                State::Set => self.text = State::Set,
+                State::Unset => self.text = State::Unset,
+                State::Value(value) if value == b"input" => {
+                    // While the gitattributes doc only mentions that crlf=input is equivalent to
+                    // eol=lf, the doc also mentions that specifying eol automatically sets text if
+                    // text was left unspecified.
+                    self.text = State::Set;
+                    self.eol = State::Value(b"lf".to_vec());
+                }
+                _ => {}
+            }
+        }
+
+        self
+    }
+}
+
+pub(crate) trait GitAttributesExt {
+    async fn search_eol(&self, path: &RepoPath) -> Result<EolGitAttributes, BoxError>;
+}
+
+impl GitAttributesExt for GitAttributes {
+    async fn search_eol(&self, path: &RepoPath) -> Result<EolGitAttributes, BoxError> {
+        let mut attributes = self.search(path, &["text", "eol", "crlf"]).await?;
+        Ok(EolGitAttributes {
+            text: attributes.remove("text").unwrap_or(State::Unspecified),
+            eol: attributes.remove("eol").unwrap_or(State::Unspecified),
+            crlf: attributes.remove("crlf").unwrap_or(State::Unspecified),
+        })
+    }
+}
 
 fn is_binary(bytes: &[u8]) -> bool {
     // TODO(06393993): align the algorithm with git so that the git config autocrlf
@@ -40,16 +127,131 @@ fn is_binary(bytes: &[u8]) -> bool {
     false
 }
 
+/// Indicate whether EOL conversion needs to be applied on update. Part of
+/// [`EffectiveEolMode`].
+enum ConvertMode {
+    /// Apply EOL conversion on both snapshot and update. Equivalent to
+    /// `eol=crlf`.
+    InputOutput,
+    /// Apply EOL conversion only on snapshot. Equivalent to `eol=lf`.
+    Input,
+}
+
+/// A type that is resolved from [`EolConversionSettings`], and
+/// [`EolGitAttributes`]` with fewer variants.
+enum EffectiveEolMode {
+    /// The file is a text file, and may apply EOL conversion. Equivalent to set
+    /// text.
+    Text(ConvertMode),
+    /// Use heuristics to detect if EOL conversion should be applied. Equivalent
+    /// to `text=auto`.
+    Auto(ConvertMode),
+    /// The file is a binary file, and we should not apply EOL conversion.
+    /// Equivalent to `-text`.
+    Binary,
+}
+
+impl EffectiveEolMode {
+    /// Resolve the attributes and the settings to [`EffectiveEolMode`] which
+    /// has much less variants.
+    fn new(attr: EolGitAttributes, settings: &EolConversionSettings) -> Self {
+        let attr = attr.normalize();
+
+        fn resolve_convert_mode(
+            attr: &EolGitAttributes,
+            settings: &EolConversionSettings,
+        ) -> ConvertMode {
+            debug_assert_eq!(
+                attr,
+                &attr.clone().normalize(),
+                "The passed in EolGitAttributes must be normalized, so that we don't have to \
+                 consider the crlf attribute separately."
+            );
+
+            // If the eol attribute is set explicitly, ConvertMode is decide by the
+            // attribute.
+            if let State::Value(value) = &attr.eol {
+                if value == b"crlf" {
+                    return ConvertMode::InputOutput;
+                }
+                if value == b"lf" {
+                    return ConvertMode::Input;
+                }
+            }
+
+            // If the eol attribute is unspecified or not in a state defined in the
+            // document, the ConvertMode is decided by the settings, following
+            // https://git-scm.com/docs/gitattributes#Documentation/gitattributes.txt-Unspecified-1-1.
+            //
+            // > If the eol attribute is unspecified for a file, its line endings in the
+            // > working directory are determined by the core.autocrlf or core.eol
+            // > configuration variable.
+            match settings.eol_conversion_mode {
+                EolConversionMode::InputOutput => return ConvertMode::InputOutput,
+                EolConversionMode::Input => return ConvertMode::Input,
+                EolConversionMode::None => {}
+            }
+            // The working-copy.gitattributes-default-eol setting only takes effect when the
+            // working-copy.eol-conversion setting is set to "none", following
+            // https://git-scm.com/docs/git-config#Documentation/git-config.txt-coreeol.
+            //
+            // > Note that this value is ignored if core.autocrlf is set to true or input.
+            match settings.default_eol_attributes {
+                EolConversionMode::InputOutput => return ConvertMode::InputOutput,
+                EolConversionMode::Input => return ConvertMode::Input,
+                EolConversionMode::None => {}
+            }
+            // If the eol attribute is unspecified and the settings are none, ConvertMode is
+            // decided based on the platform, following
+            // https://git-scm.com/docs/gitattributes#Documentation/gitattributes.txt-Unspecified-1-1.
+            //
+            // > If text is set but neither of those variables is, the default is eol=crlf
+            // > on Windows and eol=lf on all other platforms.
+            if cfg!(windows) {
+                ConvertMode::InputOutput
+            } else {
+                ConvertMode::Input
+            }
+        }
+
+        match &attr.text {
+            State::Set => Self::Text(resolve_convert_mode(&attr, settings)),
+            State::Unset => Self::Binary,
+            State::Value(value) if value == b"auto" => {
+                Self::Auto(resolve_convert_mode(&attr, settings))
+            }
+            // If the text attributes is unspecified or not in a state defined in the doc, we use
+            // the working-copy.eol-conversion setting, following
+            // https://git-scm.com/docs/gitattributes#Documentation/gitattributes.txt-Unspecified-1.
+            //
+            // > If the text attribute is unspecified, Git uses the core.autocrlf configuration
+            // > variable to determine if the file should be converted.
+            _ => match settings.eol_conversion_mode {
+                // If the setting is none, we don't apply EOL conversion.
+                EolConversionMode::None => Self::Binary,
+                // If the setting is not none, we probe the contents and decide whether to apply EOL
+                // conversion, following
+                // https://git-scm.com/docs/git-config#Documentation/git-config.txt-coreautocrlf.
+                //
+                // > Setting this variable to "true" is the same as setting the text attribute to
+                // > "auto" on all files and core.eol to "crlf".
+                //
+                // > This variable can be set to input, in which case no output conversion is
+                // > performed.
+                _ => Self::Auto(resolve_convert_mode(&attr, settings)),
+            },
+        }
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct TargetEolStrategy {
-    eol_conversion_mode: EolConversionMode,
+    settings: EolConversionSettings,
 }
 
 impl TargetEolStrategy {
-    pub(crate) fn new(eol_conversion_mode: EolConversionMode) -> Self {
-        Self {
-            eol_conversion_mode,
-        }
+    pub(crate) fn new(settings: EolConversionSettings) -> Self {
+        Self { settings }
     }
 
     /// The limit to probe for whether the file is binary is 8KB.
@@ -83,13 +285,43 @@ impl TargetEolStrategy {
         Ok(is_binary(slice_to_check))
     }
 
-    pub(crate) async fn convert_eol_for_snapshot<'a>(
+    async fn get_effective_eol_mode<'a, F>(
+        &self,
+        get_git_attributes: F,
+    ) -> Result<EffectiveEolMode, BoxError>
+    where
+        F: (AsyncFnOnce() -> Result<EolGitAttributes, BoxError>) + Send + Unpin + 'a,
+    {
+        let git_attributes = if self.settings.use_git_attributes {
+            // We only read the gitattributes file if necessary to save the cost for users
+            // who don't use gitattributes.
+            get_git_attributes().await?
+        } else {
+            EolGitAttributes {
+                eol: State::Unspecified,
+                text: State::Unspecified,
+                crlf: State::Unspecified,
+            }
+        };
+        Ok(EffectiveEolMode::new(git_attributes, &self.settings))
+    }
+
+    pub(crate) async fn convert_eol_for_snapshot<'a, F>(
         &self,
         mut contents: impl AsyncRead + Send + Unpin + 'a,
-    ) -> Result<Box<dyn AsyncRead + Send + Unpin + 'a>, std::io::Error> {
-        match self.eol_conversion_mode {
-            EolConversionMode::None => Ok(Box::new(contents)),
-            EolConversionMode::Input | EolConversionMode::InputOutput => {
+        get_git_attributes: F,
+    ) -> Result<Box<dyn AsyncRead + Send + Unpin + 'a>, BoxError>
+    where
+        F: (AsyncFnOnce() -> Result<EolGitAttributes, BoxError>) + Send + Unpin + 'a,
+    {
+        // For snapshot, we don't care about ConvertMode, if EOL conversion is applied,
+        // we always convert the EOL to LF.
+        match self.get_effective_eol_mode(get_git_attributes).await? {
+            EffectiveEolMode::Binary => Ok(Box::new(contents)),
+            EffectiveEolMode::Text(_) => convert_eol(contents, TargetEol::Lf)
+                .await
+                .map_err(|e| Box::new(e) as _),
+            EffectiveEolMode::Auto(_) => {
                 let mut peek = vec![];
                 let target_eol = if Self::probe_for_binary(&mut contents, &mut peek).await? {
                     TargetEol::PassThrough
@@ -98,18 +330,33 @@ impl TargetEolStrategy {
                 };
                 let peek = Cursor::new(peek);
                 let contents = peek.chain(contents);
-                convert_eol(contents, target_eol).await
+                convert_eol(contents, target_eol)
+                    .await
+                    .map_err(|e| Box::new(e) as _)
             }
         }
     }
 
-    pub(crate) async fn convert_eol_for_update<'a>(
+    pub(crate) async fn convert_eol_for_update<'a, F>(
         &self,
         mut contents: impl AsyncRead + Send + Unpin + 'a,
-    ) -> Result<Box<dyn AsyncRead + Send + Unpin + 'a>, std::io::Error> {
-        match self.eol_conversion_mode {
-            EolConversionMode::None | EolConversionMode::Input => Ok(Box::new(contents)),
-            EolConversionMode::InputOutput => {
+        get_git_attributes: F,
+    ) -> Result<Box<dyn AsyncRead + Send + Unpin + 'a>, BoxError>
+    where
+        F: (AsyncFnOnce() -> Result<EolGitAttributes, BoxError>) + Send + Unpin + 'a,
+    {
+        match self.get_effective_eol_mode(get_git_attributes).await? {
+            // For update, if EffectiveEolMode resolves to Binary or the ConvertMode is Input, we
+            // don't need to apply any conversion.
+            EffectiveEolMode::Binary
+            | EffectiveEolMode::Text(ConvertMode::Input)
+            | EffectiveEolMode::Auto(ConvertMode::Input) => Ok(Box::new(contents)),
+            EffectiveEolMode::Text(ConvertMode::InputOutput) => {
+                convert_eol(contents, TargetEol::Crlf)
+                    .await
+                    .map_err(|e| Box::new(e) as _)
+            }
+            EffectiveEolMode::Auto(ConvertMode::InputOutput) => {
                 let mut peek = vec![];
                 let target_eol = if Self::probe_for_binary(&mut contents, &mut peek).await? {
                     TargetEol::PassThrough
@@ -118,7 +365,9 @@ impl TargetEolStrategy {
                 };
                 let peek = Cursor::new(peek);
                 let contents = peek.chain(contents);
-                convert_eol(contents, target_eol).await
+                convert_eol(contents, target_eol)
+                    .await
+                    .map_err(|e| Box::new(e) as _)
             }
         }
     }
@@ -140,11 +389,48 @@ pub enum EolConversionMode {
     InputOutput,
 }
 
-impl EolConversionMode {
-    /// Try to create the [`EolConversionMode`] based on the
-    /// `working-copy.eol-conversion` setting in the [`UserSettings`].
+/// EOL conversion user settings.
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub struct EolConversionSettings {
+    /// A killer switch on whether EOL conversion should read gitattributes.
+    /// When the value is `false`, the implementation shouldn't read any
+    /// `gitattributes` files so that the user that doesn't need this feature
+    /// pay little cost if not zero.
+    pub use_git_attributes: bool,
+    /// The equivalent of the git [`core.eol`] config. It has the same 3 valid
+    /// values as [`Self::eol_conversion_mode`]:
+    /// [`EolConversionMode::InputOutput`], [`EolConversionMode::Input`],
+    /// [`EolConversionMode::None`]. When the [`Self::eol_conversion_mode`]
+    /// setting is not [`EolConversionMode::None`], this setting is ignored
+    /// following [the gitattributes doc]. Note that:
+    /// - The names are different from the actual `eol` `gitattributes`, so it
+    ///   can be confusing, but we do our best to document this divergence.
+    /// - We don't have an equivalent for `native` in `core.eol`, because we
+    ///   don't think it's necessary: the user should always specify `input` or
+    ///   `input-output` explicitly, and the `jj` EOL settings are not supposed
+    ///   to be shared across multiple machines.
+    ///
+    /// [`core.eol`]: https://git-scm.com/docs/git-config#Documentation/git-config.txt-coreeol
+    /// [the gitattributes doc]:
+    /// https://git-scm.com/docs/git-config#Documentation/git-config.txt-coreeol
+    pub default_eol_attributes: EolConversionMode,
+    /// The equivalent of the git [`core.autocrlf`] config.
+    ///
+    /// [`core.autocrlf`]:
+    /// https://git-scm.com/docs/git-config#Documentation/git-config.txt-coreautocrlf
+    pub eol_conversion_mode: EolConversionMode,
+}
+
+impl EolConversionSettings {
+    /// Try to create the [`EolConversionSettings`] based on the
+    /// [`UserSettings`].
     pub fn try_from_settings(user_settings: &UserSettings) -> Result<Self, ConfigGetError> {
-        user_settings.get("working-copy.eol-conversion")
+        Ok(Self {
+            use_git_attributes: user_settings
+                .get_bool("working-copy.eol-conversion-use-gitattributes")?,
+            default_eol_attributes: user_settings.get("working-copy.gitattributes-default-eol")?,
+            eol_conversion_mode: user_settings.get("working-copy.eol-conversion")?,
+        })
     }
 }
 
@@ -197,6 +483,7 @@ mod tests {
     use std::task::Poll;
 
     use test_case::test_case;
+    use test_case::test_matrix;
 
     use super::*;
 
@@ -293,38 +580,48 @@ mod tests {
     }
 
     #[tokio::main(flavor = "current_thread")]
-    #[test_case(TargetEolStrategy {
-          eol_conversion_mode: EolConversionMode::None,
-      }, b"\r\n", b"\r\n"; "none settings")]
-    #[test_case(TargetEolStrategy {
-          eol_conversion_mode: EolConversionMode::Input,
-      }, b"\r\n", b"\n"; "input settings text input")]
-    #[test_case(TargetEolStrategy {
-          eol_conversion_mode: EolConversionMode::InputOutput,
-      }, b"\r\n", b"\n"; "input output settings text input")]
-    #[test_case(TargetEolStrategy {
-          eol_conversion_mode: EolConversionMode::Input,
-      }, b"\0\r\n", b"\0\r\n"; "input settings binary input")]
-    #[test_case(TargetEolStrategy {
-          eol_conversion_mode: EolConversionMode::InputOutput,
-      }, b"\0\r\n", b"\0\r\n"; "input output settings binary input with NUL")]
-    #[test_case(TargetEolStrategy {
-          eol_conversion_mode: EolConversionMode::InputOutput,
-      }, b"\r\r\n", b"\r\r\n"; "input output settings binary input with lone CR")]
-    #[test_case(TargetEolStrategy {
-          eol_conversion_mode: EolConversionMode::Input,
-      }, &[0; 20 << 10], &[0; 20 << 10]; "input settings long binary input")]
-    #[test_case(TargetEolStrategy {
-          eol_conversion_mode: EolConversionMode::Input,
-      }, &test_probe_limit_input_crlf(), &test_probe_limit_input_lf(); "input settings with CRLF on probe boundary")]
+    #[test_case(EolConversionMode::None, b"\r\n", b"\r\n"; "none settings")]
+    #[test_case(EolConversionMode::Input, b"\r\n", b"\n"; "input settings text input")]
+    #[test_case(EolConversionMode::InputOutput, b"\r\n", b"\n"; "input output settings text input")]
+    #[test_case(EolConversionMode::Input, b"\0\r\n", b"\0\r\n"; "input settings binary input")]
+    #[test_case(
+        EolConversionMode::InputOutput,
+        b"\0\r\n",
+        b"\0\r\n";
+        "input output settings binary input with NUL"
+    )]
+    #[test_case(
+        EolConversionMode::InputOutput,
+        b"\r\r\n",
+        b"\r\r\n";
+        "input output settings binary input with lone CR"
+    )]
+    #[test_case(
+        EolConversionMode::Input,
+        &[0; 20 << 10],
+        &[0; 20 << 10];
+        "input settings long binary input"
+    )]
+    #[test_case(
+        EolConversionMode::Input,
+        &test_probe_limit_input_crlf(),
+        &test_probe_limit_input_lf();
+        "input settings with CRLF on probe boundary"
+    )]
     async fn test_eol_strategy_convert_eol_for_snapshot(
-        strategy: TargetEolStrategy,
+        eol_conversion_mode: EolConversionMode,
         contents: &[u8],
         expected_output: &[u8],
     ) {
+        let settings = EolConversionSettings {
+            use_git_attributes: false,
+            default_eol_attributes: EolConversionMode::None,
+            eol_conversion_mode,
+        };
+        let strategy = TargetEolStrategy::new(settings);
         let mut actual_output = vec![];
         strategy
-            .convert_eol_for_snapshot(contents)
+            .convert_eol_for_snapshot(contents, async || panic!("should not read gitattributes"))
             .await
             .unwrap()
             .read_to_end(&mut actual_output)
@@ -334,34 +631,1366 @@ mod tests {
     }
 
     #[tokio::main(flavor = "current_thread")]
-    #[test_case(TargetEolStrategy {
-          eol_conversion_mode: EolConversionMode::None,
-      }, b"\n", b"\n"; "none settings")]
-    #[test_case(TargetEolStrategy {
-          eol_conversion_mode: EolConversionMode::Input,
-      }, b"\n", b"\n"; "input settings")]
-    #[test_case(TargetEolStrategy {
-          eol_conversion_mode: EolConversionMode::InputOutput,
-      }, b"\n", b"\r\n"; "input output settings text input")]
-    #[test_case(TargetEolStrategy {
-          eol_conversion_mode: EolConversionMode::InputOutput,
-      }, b"\0\n", b"\0\n"; "input output settings binary input")]
-    #[test_case(TargetEolStrategy {
-          eol_conversion_mode: EolConversionMode::Input,
-      }, &[0; 20 << 10], &[0; 20 << 10]; "input output settings long binary input")]
+    #[test_case(EolConversionMode::None, b"\n", b"\n"; "none settings")]
+    #[test_case(EolConversionMode::Input, b"\n", b"\n"; "input settings")]
+    #[test_case(EolConversionMode::InputOutput, b"\n", b"\r\n"; "input output settings text input")]
+    #[test_case(
+        EolConversionMode::InputOutput,
+        b"\0\n",
+        b"\0\n";
+        "input output settings binary input"
+    )]
+    #[test_case(
+        EolConversionMode::Input,
+        &[0; 20 << 10],
+        &[0; 20 << 10];
+        "input output settings long binary input"
+    )]
     async fn test_eol_strategy_convert_eol_for_update(
-        strategy: TargetEolStrategy,
+        eol_conversion_mode: EolConversionMode,
         contents: &[u8],
         expected_output: &[u8],
     ) {
+        let settings = EolConversionSettings {
+            use_git_attributes: false,
+            default_eol_attributes: EolConversionMode::None,
+            eol_conversion_mode,
+        };
+        let strategy = TargetEolStrategy::new(settings);
         let mut actual_output = vec![];
         strategy
-            .convert_eol_for_update(contents)
+            .convert_eol_for_update(contents, async || panic!("should not read gitattributes"))
             .await
             .unwrap()
             .read_to_end(&mut actual_output)
             .await
             .unwrap();
         assert_eq!(actual_output, expected_output);
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    #[test_matrix(
+        [EolConversionMode::None, EolConversionMode::Input, EolConversionMode::InputOutput],
+        [EolConversionMode::None, EolConversionMode::Input, EolConversionMode::InputOutput],
+        [b"\0", b"a\r\n", b"a\n"]
+    )]
+    async fn test_eol_gitattr_not_used(
+        default_eol_attributes: EolConversionMode,
+        eol_conversion_mode: EolConversionMode,
+        contents: &[u8],
+    ) {
+        let settings = EolConversionSettings {
+            use_git_attributes: false,
+            default_eol_attributes,
+            eol_conversion_mode,
+        };
+        let strategy = TargetEolStrategy::new(settings);
+        let mut output = vec![];
+        strategy
+            .convert_eol_for_update(contents, async || panic!("should not read gitattributes"))
+            .await
+            .unwrap()
+            .read_to_end(&mut output)
+            .await
+            .unwrap();
+        let mut output = vec![];
+        strategy
+            .convert_eol_for_snapshot(contents, async || panic!("should not read gitattributes"))
+            .await
+            .unwrap()
+            .read_to_end(&mut output)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    #[test_matrix(
+        State::Set,
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"lf".to_vec()),
+            State::Value(b"crlf".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [(b"\0a\r\n", b"\0a\n"), (b"a\r\n", b"a\n")];
+        "text set"
+    )]
+    #[test_matrix(
+        State::Value(b"auto".to_vec()),
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"lf".to_vec()),
+            State::Value(b"crlf".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [(b"a\r\n", b"a\n")];
+        "text=auto text contents"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Value(b"lf".to_vec()),
+            State::Value(b"crlf".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [(b"\0a\r\n", b"\0a\n"), (b"a\r\n", b"a\n")];
+        "!text eol=lf or eol=crlf"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [(b"\0a\r\n", b"\0a\n"), (b"a\r\n", b"a\n")];
+        "eol=crlf or eol=input"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [(b"a\r\n", b"a\n")];
+        "eol-conversion is input or input-output"
+    )]
+    async fn test_eol_snapshot_should_convert_eol(
+        text: State,
+        eol: State,
+        crlf: State,
+        default_eol_attributes: EolConversionMode,
+        eol_conversion_mode: EolConversionMode,
+        (contents, expect): (&[u8], &[u8]),
+    ) {
+        let settings = EolConversionSettings {
+            use_git_attributes: true,
+            default_eol_attributes,
+            eol_conversion_mode,
+        };
+        let strategy = TargetEolStrategy::new(settings);
+        let mut output = vec![];
+        strategy
+            .convert_eol_for_snapshot(contents, async || Ok(EolGitAttributes { eol, text, crlf }))
+            .await
+            .unwrap()
+            .read_to_end(&mut output)
+            .await
+            .unwrap();
+        assert_eq!(output, expect);
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    #[test_matrix(
+        State::Value(b"auto".to_vec()),
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"lf".to_vec()),
+            State::Value(b"crlf".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        b"\0a\r\n";
+        "text=auto binary contents"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        b"\0a\r\n";
+        "eol-conversion is input or input-output binary contents"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        State::Unset,
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [b"\0a\r\n", b"a\r\n"];
+        "-crlf"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        EolConversionMode::None,
+        [b"\0a\r\n", b"a\r\n"];
+        "eol-conversion=none"
+    )]
+    async fn test_eol_snapshot_should_not_convert_eol(
+        text: State,
+        eol: State,
+        crlf: State,
+        default_eol_attributes: EolConversionMode,
+        eol_conversion_mode: EolConversionMode,
+        contents: &[u8],
+    ) {
+        let settings = EolConversionSettings {
+            use_git_attributes: true,
+            default_eol_attributes,
+            eol_conversion_mode,
+        };
+        let strategy = TargetEolStrategy::new(settings);
+        let mut output = vec![];
+        strategy
+            .convert_eol_for_snapshot(contents, async || Ok(EolGitAttributes { eol, text, crlf }))
+            .await
+            .unwrap()
+            .read_to_end(&mut output)
+            .await
+            .unwrap();
+        assert_eq!(output, contents);
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    #[test_matrix(
+        [
+            State::Set,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        State::Value(b"crlf".to_vec()),
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [(b"\0a\n", b"\0a\r\n"), (b"a\n", b"a\r\n")];
+        "eol=crlf"
+    )]
+    #[test_matrix(
+        State::Set,
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        EolConversionMode::InputOutput,
+        EolConversionMode::None,
+        [(b"\0a\n", b"\0a\r\n"), (b"a\n", b"a\r\n")];
+        "text set gitattributes-default-eol=input-output"
+    )]
+    #[test_matrix(
+        State::Set,
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        EolConversionMode::InputOutput,
+        [(b"\0a\n", b"\0a\r\n"), (b"a\n", b"a\r\n")];
+        "text set eol-conversion=input-output"
+    )]
+    #[test_matrix(
+        State::Value(b"auto".to_vec()),
+        State::Value(b"crlf".to_vec()),
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [(b"a\n", b"a\r\n")];
+        "text=auto eol=crlf text contents"
+    )]
+    #[test_matrix(
+        State::Value(b"auto".to_vec()),
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        EolConversionMode::InputOutput,
+        EolConversionMode::None,
+        [(b"a\n", b"a\r\n")];
+        "text=auto gitattributes-default-eol=input-output text contents"
+    )]
+    #[test_matrix(
+        State::Value(b"auto".to_vec()),
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        EolConversionMode::InputOutput,
+        [(b"a\n", b"a\r\n")];
+        "text=auto eol-conversion=input-output text contents"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        State::Set,
+        EolConversionMode::InputOutput,
+        EolConversionMode::None,
+        [(b"\0a\n", b"\0a\r\n"), (b"a\n", b"a\r\n")];
+        "crlf set gitattributes-default-eol=input-output"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        State::Set,
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        EolConversionMode::InputOutput,
+        [(b"\0a\n", b"\0a\r\n"), (b"a\n", b"a\r\n")];
+        "crlf set eol-conversion=input-output"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        EolConversionMode::InputOutput,
+        [(b"a\n", b"a\r\n")];
+        "eol-conversion=input-output text contents"
+    )]
+    async fn test_eol_update_should_convert_eol(
+        text: State,
+        eol: State,
+        crlf: State,
+        default_eol_attributes: EolConversionMode,
+        eol_conversion_mode: EolConversionMode,
+        (contents, expect): (&[u8], &[u8]),
+    ) {
+        let settings = EolConversionSettings {
+            use_git_attributes: true,
+            default_eol_attributes,
+            eol_conversion_mode,
+        };
+        let strategy = TargetEolStrategy::new(settings);
+        let mut output = vec![];
+        strategy
+            .convert_eol_for_update(contents, async || Ok(EolGitAttributes { eol, text, crlf }))
+            .await
+            .unwrap()
+            .read_to_end(&mut output)
+            .await
+            .unwrap();
+        assert_eq!(output, expect);
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    #[test_matrix(
+        [
+            State::Set,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"auto".to_vec()),
+        ],
+        State::Value(b"lf".to_vec()),
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [b"a\n", b"\0a\n"];
+        "eol=lf"
+    )]
+    #[test_matrix(
+        [
+            State::Set,
+            State::Value(b"auto".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        EolConversionMode::Input,
+        EolConversionMode::None,
+        [b"a\n", b"\0a\n"];
+        "gitattributes-default-eol=input"
+    )]
+    #[test_matrix(
+        [
+            State::Set,
+            State::Value(b"auto".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        EolConversionMode::Input,
+        [b"a\n", b"\0a\n"];
+        "eol-conversion=input"
+    )]
+    #[test_matrix(
+        State::Unset,
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"lf".to_vec()),
+            State::Value(b"crlf".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [b"a\n", b"\0a\n"];
+        "-text"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Unset,
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [b"a\n", b"\0a\n"];
+        "crlf=input or -crlf"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+        ],
+        [b"a\n", b"\0a\n"];
+        "eol-conversion is none or input"
+    )]
+    #[test_matrix(
+        State::Value(b"auto".to_vec()),
+        State::Value(b"crlf".to_vec()),
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        b"\0a\n";
+        "text=auto eol=crlf binary contents"
+    )]
+    #[test_matrix(
+        State::Value(b"auto".to_vec()),
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::InputOutput,
+        ],
+        EolConversionMode::None,
+        b"\0a\n";
+        "text=auto gitattributes-default-eol is none or input-output binary contents"
+    )]
+    #[test_matrix(
+        State::Value(b"auto".to_vec()),
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput,
+        ],
+        EolConversionMode::InputOutput,
+        b"\0a\n";
+        "text=auto eol-conversion=input-ouput binary contents"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput,
+        ],
+        EolConversionMode::InputOutput,
+        b"\0a\n";
+        "eol-conversion=input-ouput binary contents"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        State::Set,
+        EolConversionMode::Input,
+        EolConversionMode::None,
+        [b"a\n", b"\0a\n"];
+        "crlf set gitattributes-default-eol=input"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        State::Set,
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput,
+        ],
+        EolConversionMode::Input,
+        [b"a\n", b"\0a\n"];
+        "crlf set eol-conversion=input"
+    )]
+    async fn test_eol_update_should_not_convert_eol(
+        text: State,
+        eol: State,
+        crlf: State,
+        default_eol_attributes: EolConversionMode,
+        eol_conversion_mode: EolConversionMode,
+        contents: &[u8],
+    ) {
+        let settings = EolConversionSettings {
+            use_git_attributes: true,
+            default_eol_attributes,
+            eol_conversion_mode,
+        };
+        let strategy = TargetEolStrategy::new(settings);
+        let mut output = vec![];
+        strategy
+            .convert_eol_for_update(contents, async || Ok(EolGitAttributes { eol, text, crlf }))
+            .await
+            .unwrap()
+            .read_to_end(&mut output)
+            .await
+            .unwrap();
+        assert_eq!(output, contents);
+    }
+
+    #[cfg(windows)]
+    const NATIVE_EOL: &str = "\r\n";
+    #[cfg(not(windows))]
+    const NATIVE_EOL: &str = "\n";
+
+    #[tokio::main(flavor = "current_thread")]
+    #[test_matrix(
+        State::Value(b"auto".to_vec()),
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [(b"a\n", format!("a{NATIVE_EOL}"))];
+        "text=auto"
+    )]
+    #[test_matrix(
+        State::Set,
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [(b"a\n", format!("a{NATIVE_EOL}")), (b"\0a\n", format!("\0a{NATIVE_EOL}"))];
+        "text is set"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        State::Set,
+        [(b"a\n", format!("a{NATIVE_EOL}")), (b"\0a\n", format!("\0a{NATIVE_EOL}"))];
+        "crlf is set"
+    )]
+    async fn test_eol_update_eol_conversion_platform_specific(
+        text: State,
+        eol: State,
+        crlf: State,
+        (contents, expect): (&[u8], String),
+    ) {
+        let settings = EolConversionSettings {
+            use_git_attributes: true,
+            default_eol_attributes: EolConversionMode::None,
+            eol_conversion_mode: EolConversionMode::None,
+        };
+        let strategy = TargetEolStrategy::new(settings);
+        let mut output = vec![];
+        strategy
+            .convert_eol_for_update(contents, async || Ok(EolGitAttributes { eol, text, crlf }))
+            .await
+            .unwrap()
+            .read_to_end(&mut output)
+            .await
+            .unwrap();
+        assert_eq!(output, expect.as_bytes());
+    }
+
+    struct UnreachableReader;
+
+    impl AsyncRead for UnreachableReader {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+            _buf: &mut tokio::io::ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            unreachable!()
+        }
+    }
+
+    #[cfg(not(windows))]
+    #[tokio::main(flavor = "current_thread")]
+    #[test_matrix(
+        State::Set,
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ];
+        "text is set"
+    )]
+    #[test_matrix(
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        State::Set;
+        "crlf is set"
+    )]
+    async fn test_eol_update_wont_read_platform_specific(text: State, eol: State, crlf: State) {
+        let settings = EolConversionSettings {
+            use_git_attributes: true,
+            default_eol_attributes: EolConversionMode::None,
+            eol_conversion_mode: EolConversionMode::None,
+        };
+        let strategy = TargetEolStrategy::new(settings);
+        strategy
+            .convert_eol_for_update(UnreachableReader, async || {
+                Ok(EolGitAttributes { eol, text, crlf })
+            })
+            .await
+            .unwrap();
+    }
+
+    async fn convert_eol_for_snapshot<'a>(
+        target_eol_strategy: &'a TargetEolStrategy,
+        contents: &'a mut (dyn AsyncRead + Send + Unpin),
+        git_attributes: EolGitAttributes,
+    ) -> Result<Box<dyn AsyncRead + Send + Unpin + 'a>, BoxError> {
+        target_eol_strategy
+            .convert_eol_for_snapshot(contents, async || Ok(git_attributes))
+            .await
+    }
+
+    async fn convert_eol_for_update<'a>(
+        target_eol_strategy: &'a TargetEolStrategy,
+        contents: &'a mut (dyn AsyncRead + Send + Unpin),
+        git_attributes: EolGitAttributes,
+    ) -> Result<Box<dyn AsyncRead + Send + Unpin + 'a>, BoxError> {
+        target_eol_strategy
+            .convert_eol_for_update(contents, async || Ok(git_attributes))
+            .await
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    #[test_matrix(
+        [
+            convert_eol_for_snapshot,
+            convert_eol_for_update,
+        ],
+        State::Unset,
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"lf".to_vec()),
+            State::Value(b"crlf".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ];
+        "-text"
+    )]
+    #[test_matrix(
+        [
+            convert_eol_for_snapshot,
+            convert_eol_for_update,
+        ],
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        State::Unset,
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ];
+        "-crlf"
+    )]
+    #[test_matrix(
+        [
+            convert_eol_for_snapshot,
+            convert_eol_for_update,
+        ],
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        EolConversionMode::None;
+        "eol-conversion=none"
+    )]
+    #[test_matrix(
+        convert_eol_for_update,
+        [
+            State::Set,
+            State::Value(b"auto".to_vec()),
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        State::Value(b"lf".to_vec()),
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput
+        ];
+        "eol=lf on update"
+    )]
+    #[test_matrix(
+        convert_eol_for_update,
+        [
+            State::Set,
+            State::Value(b"auto".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        EolConversionMode::Input,
+        EolConversionMode::None;
+        "gitattributes-default-eol=input on update"
+    )]
+    #[test_matrix(
+        convert_eol_for_update,
+        [
+            State::Set,
+            State::Value(b"auto".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+            State::Value(b"input".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput,
+        ],
+        EolConversionMode::Input;
+        "text set or text=auto eol-conversion=input on update"
+    )]
+    #[test_matrix(
+        convert_eol_for_update,
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        State::Value(b"input".to_vec()),
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput,
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput,
+        ];
+        "crlf=input on update"
+    )]
+    #[test_matrix(
+        convert_eol_for_update,
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput,
+        ],
+        EolConversionMode::Input;
+        "not gitattr eol-conversion=input on update"
+    )]
+    #[test_matrix(
+        convert_eol_for_update,
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        State::Set,
+        EolConversionMode::Input,
+        EolConversionMode::None;
+        "crlf set gitattributes-default-eol=input on update"
+    )]
+    #[test_matrix(
+        convert_eol_for_update,
+        [
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        [
+            State::Set,
+            State::Unset,
+            State::Unspecified,
+            State::Value(b"wrong_value".to_vec()),
+        ],
+        State::Set,
+        [
+            EolConversionMode::None,
+            EolConversionMode::Input,
+            EolConversionMode::InputOutput,
+        ],
+        EolConversionMode::Input;
+        "crlf set eol-conversion=input on update"
+    )]
+    async fn test_eol_wont_read(
+        operation: impl for<'a> AsyncFn(
+            &'a TargetEolStrategy,
+            &'a mut (dyn AsyncRead + Send + Unpin),
+            EolGitAttributes,
+        )
+            -> Result<Box<dyn AsyncRead + Send + Unpin + 'a>, BoxError>,
+        text: State,
+        eol: State,
+        crlf: State,
+        default_eol_attributes: EolConversionMode,
+        eol_conversion_mode: EolConversionMode,
+    ) {
+        let settings = EolConversionSettings {
+            use_git_attributes: true,
+            default_eol_attributes,
+            eol_conversion_mode,
+        };
+        let strategy = TargetEolStrategy::new(settings);
+        operation(
+            &strategy,
+            &mut UnreachableReader,
+            EolGitAttributes { eol, text, crlf },
+        )
+        .await
+        .unwrap();
     }
 }
