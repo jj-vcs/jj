@@ -156,6 +156,7 @@ unused_trait_names = "warn"
 use_self = "warn"
 useless_conversion = "warn"
 while_let_loop = "warn"
+wildcard_imports = "warn"
 
 [workspace.lints.rust]
 let_underscore_drop = "warn"
