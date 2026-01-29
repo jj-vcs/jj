@@ -587,6 +587,42 @@ mod tests {
     }
 
     #[test]
+    fn test_complete_newline() {
+        assert_eq!(complete_newline(""), "");
+        assert_eq!(complete_newline(" "), " \n");
+        assert_eq!(complete_newline("\n "), "\n \n");
+        assert_eq!(complete_newline("\t"), "\t\n");
+        assert_eq!(complete_newline("\n"), "\n");
+        assert_eq!(complete_newline("\n\n"), "\n\n");
+        assert_eq!(complete_newline("a\nb\nc"), "a\nb\nc\n");
+        assert_eq!(complete_newline("a\nb\nc\n"), "a\nb\nc\n");
+    }
+
+    #[test]
+    fn test_split_email() {
+        assert_eq!(split_email(""), ("", None));
+        assert_eq!(split_email("abc"), ("abc", None));
+        assert_eq!(split_email("example.com"), ("example.com", None));
+        assert_eq!(split_email("@example.com"), ("", Some("example.com")));
+        assert_eq!(
+            split_email("user@example.com"),
+            ("user", Some("example.com"))
+        );
+        assert_eq!(
+            split_email("user+tag@example.com"),
+            ("user+tag", Some("example.com"))
+        );
+        assert_eq!(
+            split_email(" user @ example.com "),
+            (" user ", Some(" example.com "))
+        );
+        assert_eq!(
+            split_email("user@extra@example.com"),
+            ("user", Some("extra@example.com"))
+        );
+    }
+
+    #[test]
     fn test_elide_start() {
         // Empty string
         assert_eq!(elide_start("", "", 1), ("".into(), 0));
@@ -1328,6 +1364,74 @@ mod tests {
                     word_width: 3,
                 },
             ],
+        );
+    }
+
+    #[test]
+    fn test_write_indented() {
+        let write_prefix = |formatter: &mut dyn Formatter| {
+            formatter.write_all(b">>").unwrap();
+            Ok(())
+        };
+
+        // Basic tests
+        let recorder = FormatRecorder::new();
+        insta::assert_snapshot!(
+            format_colored(
+                |formatter| write_indented(formatter, &recorder, |fmt| write_prefix(fmt))
+            ),
+            @""
+        );
+        let recorder = FormatRecorder::with_data("abc");
+        insta::assert_snapshot!(
+            format_colored(
+                |formatter| write_indented(formatter, &recorder, |fmt| write_prefix(fmt))
+            ),
+            @">>abc"
+        );
+
+        // Indent each line
+        let recorder = FormatRecorder::with_data("a\nb\nc");
+        insta::assert_snapshot!(
+            format_colored(
+                |formatter| write_indented(formatter, &recorder, |fmt| write_prefix(fmt))
+            ),
+            @"
+        >>a
+        >>b
+        >>c
+        "
+        );
+
+        // Only indent non-empty lines
+        // Leading newline confuses insta
+        let recorder = FormatRecorder::with_data("\na\n\nb\n\nc\n");
+        assert_eq!(
+            format_colored(
+                |formatter| write_indented(formatter, &recorder, |fmt| write_prefix(fmt))
+            ),
+            "\n>>a\n\n>>b\n\n>>c\n"
+        );
+
+        // Preserve labels
+        let mut recorder = FormatRecorder::new();
+        for (label, word) in [("red", "foo"), ("cyan", "bar\nbaz\n\nquux")] {
+            recorder.push_label(label);
+            write!(recorder, "{word}").unwrap();
+            recorder.pop_label();
+            writeln!(recorder).unwrap();
+        }
+        insta::assert_snapshot!(
+            format_colored(
+                |formatter| write_indented(formatter, &recorder, |fmt| write_prefix(fmt))
+            ),
+            @"
+        [38;5;1m>>foo[39m
+        [38;5;6m>>bar[39m
+        [38;5;6m>>baz[39m
+        [38;5;6m[39m
+        [38;5;6m>>quux[39m
+        "
         );
     }
 
