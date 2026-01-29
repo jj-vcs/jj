@@ -811,28 +811,30 @@ fn test_aliases_are_completed(shell: Shell) {
     }
 
     // completion after alias is based on resolved alias
+    // Note: Single-letter aliases (c, d, etc.) are hidden from completion
+    // but still work when typed directly
     let output = work_dir
         .complete_at(shell, 2, ["user-alias", ""])
         .take_stdout_n_lines(2);
     match shell {
         Shell::Bash => {
             insta::assert_snapshot!(output, @"
-            c
-            d
+            create
+            delete
             [EOF]
             ");
         }
         Shell::Zsh => {
             insta::assert_snapshot!(output, @"
-            c:Create a new bookmark
-            d:Delete an existing bookmark and propagate the deletion to remotes on the next push
+            create:Create a new bookmark
+            delete:Delete an existing bookmark and propagate the deletion to remotes on the next push
             [EOF]
             ");
         }
         Shell::Fish => {
             insta::assert_snapshot!(output, @"
-            c	Create a new bookmark
-            d	Delete an existing bookmark and propagate the deletion to remotes on the next push
+            create	Create a new bookmark
+            delete	Delete an existing bookmark and propagate the deletion to remotes on the next push
             [EOF]
             ");
         }
@@ -1978,6 +1980,97 @@ fn test_command_alias_with_exec() {
     file1
     file2
     folder/
+    [EOF]
+    ");
+}
+
+/// Single-letter aliases (c, d, l, etc.) should be hidden from completion.
+#[test]
+fn test_single_letter_aliases_hidden_from_completion() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Verify that 'c', 'd', etc. don't appear in bookmark subcommand completion
+    let output = work_dir.complete_fish(["bookmark", ""]);
+    insta::assert_snapshot!(output.take_stdout_n_lines(2), @r"
+    create	Create a new bookmark
+    delete	Delete an existing bookmark and propagate the deletion to remotes on the next push
+    [EOF]
+    ");
+
+    // Verify that 'e', 'g', etc. don't appear in config subcommand completion
+    let output = test_env.complete_fish(["config", ""]);
+    insta::assert_snapshot!(output.take_stdout_n_lines(2), @r"
+    edit	Start an editor on a jj config file
+    get	Get the value of a given config option.
+    [EOF]
+    ");
+
+    // Verify that 'd', 'l', 's' don't appear in tag subcommand completion
+    let output = work_dir.complete_fish(["tag", ""]);
+    insta::assert_snapshot!(output.take_stdout_n_lines(2), @r"
+    delete	Delete existing tags
+    list	List tags and their targets
+    [EOF]
+    ");
+}
+
+/// Single-letter aliases should still work when typed directly.
+#[test]
+fn test_single_letter_aliases_still_work() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // bookmark 'c' for 'create'
+    work_dir
+        .run_jj(["bookmark", "c", "test-bookmark"])
+        .success();
+
+    // bookmark 'l' for 'list'
+    let output = work_dir.run_jj(["bookmark", "l"]);
+    assert!(output.stdout.raw().contains("test-bookmark"));
+
+    // config 'l' for 'list'
+    let output = test_env.run_jj_in(".", ["config", "l", "user.name"]);
+    insta::assert_snapshot!(output, @r#"
+    user.name = "Test User"
+    [EOF]
+    "#);
+
+    // tag 's' for 'set'
+    work_dir.run_jj(["tag", "s", "test-tag"]).success();
+
+    // tag 'l' for 'list'
+    let output = work_dir.run_jj(["tag", "l"]);
+    assert!(output.stdout.raw().contains("test-tag"));
+}
+
+/// Regression test for clap bug (clap-rs/clap#4265).
+///
+/// Previously, using hidden aliases caused argument completion to break.
+/// For example, `jj bookmark c --` would not suggest `--revision`.
+/// This was fixed in clap (clap-rs/clap#5476).
+#[test]
+fn test_hidden_alias_argument_completion() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Verify argument completion works when using hidden alias 'c' for 'create'
+    let output = work_dir.complete_fish(["bookmark", "c", "--"]);
+    insta::assert_snapshot!(output.take_stdout_n_lines(2), @r"
+    --revision	The bookmark's target revision
+    --help	Print help (see more with '--help')
+    [EOF]
+    ");
+
+    // Verify argument completion works when using hidden alias 'l' for 'list'
+    let output = test_env.complete_fish(["config", "l", "--"]);
+    insta::assert_snapshot!(output.take_stdout_n_lines(2), @r"
+    --scope	Scoped tables for conditional configuration
+    --when	Conditions restriction the application of the configuration
     [EOF]
     ");
 }
