@@ -6545,6 +6545,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   contents of the file.
   <a href="https://github.com/jj-vcs/jj/issues/7376">#7376</a></p>
 </li>
+<li>
+<p>New <em>experimental</em> <code>jj git fetch --tag</code> flag to fetch tags in the same way as
+  bookmarks. If specified, tags won't be fetched implicitly, and only tags
+  matching the pattern will be fetched as <code>&lt;name&gt;@&lt;remote&gt;</code> tags. The fetched
+  remote tags will be tracked by the local tags of the same name.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
