@@ -23,7 +23,7 @@ use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::ui::Ui;
 
-/// Print the paths to the config files
+/// Print the paths to the config files [alias: p]
 ///
 /// A config file at that path may or may not exist.
 ///

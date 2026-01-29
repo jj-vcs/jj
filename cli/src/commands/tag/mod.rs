@@ -36,11 +36,11 @@ use crate::ui::Ui;
 /// Manage tags.
 #[derive(clap::Subcommand, Clone, Debug)]
 pub enum TagCommand {
-    #[command(visible_alias("d"))]
+    #[command(alias("d"))]
     Delete(TagDeleteArgs),
-    #[command(visible_alias("l"))]
+    #[command(alias("l"))]
     List(TagListArgs),
-    #[command(visible_alias("s"))]
+    #[command(alias("s"))]
     Set(TagSetArgs),
 }
 

@@ -24,7 +24,7 @@ use crate::command_error::CommandError;
 use crate::complete;
 use crate::ui::Ui;
 
-/// Get the value of a given config option.
+/// Get the value of a given config option [alias: g]
 ///
 /// Unlike `jj config list`, the result of `jj config get` is printed without
 /// extra formatting and therefore is usable in scripting. For example:

@@ -35,7 +35,7 @@ use crate::revset_util::parse_union_name_patterns;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
-/// List tags and their targets
+/// List tags and their targets [alias: l]
 ///
 /// By default, a tracked remote tag will be included only if its target is
 /// different from the local tag. An untracked remote tag won't be listed. For a

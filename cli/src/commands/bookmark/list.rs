@@ -35,7 +35,7 @@ use crate::revset_util::parse_union_name_patterns;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
-/// List bookmarks and their targets
+/// List bookmarks and their targets [alias: l]
 ///
 /// By default, a tracked remote bookmark will be included only if its target is
 /// different from the local target. An untracked remote bookmark won't be

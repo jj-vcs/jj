@@ -112,6 +112,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a scan of the affected subtree so newly unignored files are discovered.
   [#8427](https://github.com/jj-vcs/jj/issues/8427)
 
+* Shell completion for `jj bookmark`, `jj config`, and `jj tag` subcommands
+  now shows full command names instead of single-letter aliases. The aliases
+  (e.g., `c`, `d`, `l`) still work when typed directly.
+  [#6082](https://github.com/jj-vcs/jj/issues/6082)
+
 ## [0.37.0] - 2026-01-07
 
 ### Release highlights

@@ -31,7 +31,7 @@ use crate::complete;
 use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
-/// Move existing bookmarks to target revision
+/// Move existing bookmarks to target revision [alias: m]
 ///
 /// Unlike `jj bookmark set`, this command cannot create new bookmarks.
 ///

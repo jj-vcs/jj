@@ -24,7 +24,7 @@ use crate::command_error::user_error_with_message;
 use crate::complete;
 use crate::ui::Ui;
 
-/// Update a config file to unset the given option.
+/// Update a config file to unset the given option [alias: u]
 #[derive(clap::Args, Clone, Debug)]
 pub struct ConfigUnsetArgs {
     #[arg(required = true)]
