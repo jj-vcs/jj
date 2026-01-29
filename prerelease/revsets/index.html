@@ -2085,7 +2085,7 @@ search space. They are included in <code>all()</code>, <code>x..</code>, <code>~
 <h2 id="symbols">Symbols<a class="headerlink" href="#symbols" title="Permanent link">&para;</a></h2>
 <p>The <code>@</code> expression refers to the working copy commit in the current workspace.
 Use <code>&lt;workspace name&gt;@</code> to refer to the working-copy commit in another
-workspace. Use <code>&lt;name&gt;@&lt;remote&gt;</code> to refer to a remote-tracking bookmark.</p>
+workspace. Use <code>&lt;name&gt;@&lt;remote&gt;</code> to refer to a remote-tracking tag/bookmark.</p>
 <p>A full commit ID refers to a single commit. A unique prefix of the full commit
 ID can also be used. It is an error to use a non-unique prefix.</p>
 <p>A full change ID refers to a visible commit with that change ID. A unique prefix
@@ -2268,7 +2268,7 @@ revsets (expressions) as arguments.</p>
 <p>In this documentation, optional arguments are indicated with square
 brackets like <code>[arg]</code>. Some arguments also have an optional label which can
 be used to specify that argument without specifying all previous arguments.</p>
-<p>For instance, <code>remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])</code>
+<p>For instance, <code>remote_bookmarks([name_pattern], [[remote=]remote_pattern])</code>
 indicates that all of the following usages are valid:</p>
 <ul>
 <li><code>remote_bookmarks()</code></li>
@@ -2343,12 +2343,12 @@ indicates that all of the following usages are valid:</p>
   is in a conflicted state, all its possible targets are included.</p>
 </li>
 <li>
-<p><code>remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])</code>: All remote
-  bookmarks targets across all remotes. If just the <code>bookmark_pattern</code> is
-  specified, the bookmarks whose names match the given <a href="#string-patterns">string
-  pattern</a> across all remotes are selected. If both
-  <code>bookmark_pattern</code> and <code>remote_pattern</code> are specified, the selection is
-  further restricted to just the remotes whose names match <code>remote_pattern</code>.</p>
+<p><code>remote_bookmarks([name_pattern], [[remote=]remote_pattern])</code>: All remote
+  bookmarks targets across all remotes. If just the <code>name_pattern</code> is specified,
+  the bookmarks whose names match the given <a href="#string-patterns">string pattern</a>
+  across all remotes are selected. If both <code>name_pattern</code> and <code>remote_pattern</code>
+  are specified, the selection is further restricted to just the remotes whose
+  names match <code>remote_pattern</code>.</p>
 <p>For example, <code>remote_bookmarks(*push*, *ri*)</code> would match the bookmarks
 <code>push-123@origin</code> and <code>repushed@private</code> but not <code>push-123@upstream</code> or
 <code>main@origin</code> or <code>main@upstream</code>. If a bookmark is in a conflicted state, all
@@ -2357,14 +2357,14 @@ its possible targets are included.</p>
 <code>remote="*"</code> to select bookmarks including <code>@git</code> ones.</p>
 </li>
 <li>
-<p><code>tracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])</code>: All
+<p><code>tracked_remote_bookmarks([name_pattern], [[remote=]remote_pattern])</code>: All
   targets of tracked remote bookmarks. Supports the same optional arguments as
   <code>remote_bookmarks()</code>.</p>
 </li>
 <li>
-<p><code>untracked_remote_bookmarks([bookmark_pattern], [[remote=]remote_pattern])</code>:
-  All targets of untracked remote bookmarks. Supports the same optional arguments
-  as <code>remote_bookmarks()</code>.</p>
+<p><code>untracked_remote_bookmarks([name_pattern], [[remote=]remote_pattern])</code>: All
+  targets of untracked remote bookmarks. Supports the same optional arguments as
+  <code>remote_bookmarks()</code>.</p>
 </li>
 <li>
 <p><code>tags([pattern])</code>: All tag targets. If <code>pattern</code> is specified, this selects
@@ -2372,6 +2372,10 @@ its possible targets are included.</p>
   example, <code>tags(*v1*)</code> would match the tags <code>v123</code> and <code>rev1</code> but not the tag
   <code>v2</code>. If a tag is in a conflicted state, all its possible targets are
   included.</p>
+</li>
+<li>
+<p><code>remote_tags([name_pattern], [[remote=]remote_pattern])</code>: All remote tags
+  targets across all remotes. See <code>remote_bookmarks()</code> for arguments.</p>
 </li>
 <li>
 <p><code>visible_heads()</code>: All visible heads (same as <code>heads(all())</code> if no hidden

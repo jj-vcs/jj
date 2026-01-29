@@ -6489,6 +6489,10 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   have been removed.</p>
 </li>
 <li>
+<p><code>&lt;name&gt;@&lt;remote&gt;</code> revset symbols can also be resolved to remote tags. Tags are
+  prioritized ahead of bookmarks.</p>
+</li>
+<li>
 <p>Legacy placeholder support used for unset <code>user.name</code> or <code>user.email</code> has been
   removed. Commits containing these values will now be pushed with <code>jj git push</code>
   without producing an error.</p>
@@ -6550,6 +6554,9 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   bookmarks. If specified, tags won't be fetched implicitly, and only tags
   matching the pattern will be fetched as <code>&lt;name&gt;@&lt;remote&gt;</code> tags. The fetched
   remote tags will be tracked by the local tags of the same name.</p>
+</li>
+<li>
+<p>New <code>remote_tags()</code> revset function to query remote tags.</p>
 </li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
