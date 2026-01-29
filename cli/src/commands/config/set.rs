@@ -30,7 +30,7 @@ use crate::complete;
 use crate::config::parse_value_or_bare_string;
 use crate::ui::Ui;
 
-/// Update a config file to set the given option to a given value.
+/// Update a config file to set the given option to a given value [alias: s]
 #[derive(clap::Args, Clone, Debug)]
 pub struct ConfigSetArgs {
     #[arg(required = true)]

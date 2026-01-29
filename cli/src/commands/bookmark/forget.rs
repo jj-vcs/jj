@@ -29,7 +29,7 @@ use crate::complete;
 use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
-/// Forget a bookmark without marking it as a deletion to be pushed
+/// Forget a bookmark without marking it as a deletion to be pushed [alias: f]
 ///
 /// If a local bookmark is forgotten, any corresponding remote bookmarks will
 /// become untracked to ensure that the forgotten bookmark will not impact

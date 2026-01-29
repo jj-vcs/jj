@@ -826,15 +826,15 @@ fn test_aliases_are_completed(shell: Shell) {
         }
         Shell::Zsh => {
             insta::assert_snapshot!(output, @"
-            create:Create a new bookmark
-            delete:Delete an existing bookmark and propagate the deletion to remotes on the next push
+            create:Create a new bookmark [alias: c]
+            delete:Delete an existing bookmark and propagate the deletion to remotes on the next push [alias: d]
             [EOF]
             ");
         }
         Shell::Fish => {
             insta::assert_snapshot!(output, @"
-            create	Create a new bookmark
-            delete	Delete an existing bookmark and propagate the deletion to remotes on the next push
+            create	Create a new bookmark [alias: c]
+            delete	Delete an existing bookmark and propagate the deletion to remotes on the next push [alias: d]
             [EOF]
             ");
         }
@@ -1994,24 +1994,24 @@ fn test_single_letter_aliases_hidden_from_completion() {
     // Verify that 'c', 'd', etc. don't appear in bookmark subcommand completion
     let output = work_dir.complete_fish(["bookmark", ""]);
     insta::assert_snapshot!(output.take_stdout_n_lines(2), @r"
-    create	Create a new bookmark
-    delete	Delete an existing bookmark and propagate the deletion to remotes on the next push
+    create	Create a new bookmark [alias: c]
+    delete	Delete an existing bookmark and propagate the deletion to remotes on the next push [alias: d]
     [EOF]
     ");
 
     // Verify that 'e', 'g', etc. don't appear in config subcommand completion
     let output = test_env.complete_fish(["config", ""]);
     insta::assert_snapshot!(output.take_stdout_n_lines(2), @r"
-    edit	Start an editor on a jj config file
-    get	Get the value of a given config option.
+    edit	Start an editor on a jj config file [alias: e]
+    get	Get the value of a given config option [alias: g]
     [EOF]
     ");
 
     // Verify that 'd', 'l', 's' don't appear in tag subcommand completion
     let output = work_dir.complete_fish(["tag", ""]);
     insta::assert_snapshot!(output.take_stdout_n_lines(2), @r"
-    delete	Delete existing tags
-    list	List tags and their targets
+    delete	Delete existing tags [alias: d]
+    list	List tags and their targets [alias: l]
     [EOF]
     ");
 }

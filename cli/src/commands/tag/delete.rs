@@ -23,7 +23,7 @@ use crate::complete;
 use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
-/// Delete existing tags
+/// Delete existing tags [alias: d]
 ///
 /// Revisions referred to by the deleted tags are not abandoned.
 #[derive(clap::Args, Clone, Debug)]

@@ -27,7 +27,7 @@ use crate::complete;
 use crate::revset_util;
 use crate::ui::Ui;
 
-/// Create a new bookmark
+/// Create a new bookmark [alias: c]
 #[derive(clap::Args, Clone, Debug)]
 pub struct BookmarkCreateArgs {
     /// The bookmark's target revision

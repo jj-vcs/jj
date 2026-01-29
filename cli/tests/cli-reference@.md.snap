@@ -346,21 +346,21 @@ See [`jj help -k bookmarks`] for more information.
 
 ###### **Subcommands:**
 
-* `create` — Create a new bookmark
-* `delete` — Delete an existing bookmark and propagate the deletion to remotes on the next push
-* `forget` — Forget a bookmark without marking it as a deletion to be pushed
-* `list` — List bookmarks and their targets
-* `move` — Move existing bookmarks to target revision
-* `rename` — Rename `old` bookmark name to `new` bookmark name
-* `set` — Create a new bookmark, or update an existing one by name
-* `track` — Start tracking given remote bookmarks
+* `create` — Create a new bookmark [alias: c]
+* `delete` — Delete an existing bookmark and propagate the deletion to remotes on the next push [alias: d]
+* `forget` — Forget a bookmark without marking it as a deletion to be pushed [alias: f]
+* `list` — List bookmarks and their targets [alias: l]
+* `move` — Move existing bookmarks to target revision [alias: m]
+* `rename` — Rename `old` bookmark name to `new` bookmark name [alias: r]
+* `set` — Create a new bookmark, or update an existing one by name [alias: s]
+* `track` — Start tracking given remote bookmarks [alias: t]
 * `untrack` — Stop tracking given remote bookmarks
 
 
 
 ## `jj bookmark create`
 
-Create a new bookmark
+Create a new bookmark [alias: c]
 
 **Usage:** `jj bookmark create [OPTIONS] <NAMES>...`
 
@@ -378,7 +378,7 @@ Create a new bookmark
 
 ## `jj bookmark delete`
 
-Delete an existing bookmark and propagate the deletion to remotes on the next push
+Delete an existing bookmark and propagate the deletion to remotes on the next push [alias: d]
 
 Revisions referred to by the deleted bookmarks are not abandoned. To delete revisions as well as bookmarks, use `jj abandon`. For example, `jj abandon main..<bookmark>` will abandon revisions belonging to the `<bookmark>` branch (relative to the `main` branch.)
 
@@ -398,7 +398,7 @@ If you don't want the deletion of the local bookmark to propagate to any tracked
 
 ## `jj bookmark forget`
 
-Forget a bookmark without marking it as a deletion to be pushed
+Forget a bookmark without marking it as a deletion to be pushed [alias: f]
 
 If a local bookmark is forgotten, any corresponding remote bookmarks will become untracked to ensure that the forgotten bookmark will not impact remotes on future pushes.
 
@@ -422,7 +422,7 @@ If a local bookmark is forgotten, any corresponding remote bookmarks will become
 
 ## `jj bookmark list`
 
-List bookmarks and their targets
+List bookmarks and their targets [alias: l]
 
 By default, a tracked remote bookmark will be included only if its target is different from the local target. An untracked remote bookmark won't be listed. For a conflicted bookmark (both local and remote), old target revisions are preceded by a "-" and new target revisions are preceded by a "+".
 
@@ -477,7 +477,7 @@ See [`jj help -k bookmarks`] for more information.
 
 ## `jj bookmark move`
 
-Move existing bookmarks to target revision
+Move existing bookmarks to target revision [alias: m]
 
 Unlike `jj bookmark set`, this command cannot create new bookmarks.
 
@@ -511,7 +511,7 @@ $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 
 ## `jj bookmark rename`
 
-Rename `old` bookmark name to `new` bookmark name
+Rename `old` bookmark name to `new` bookmark name [alias: r]
 
 The new bookmark name points at the same commit as the old bookmark name.
 
@@ -526,7 +526,7 @@ The new bookmark name points at the same commit as the old bookmark name.
 
 ## `jj bookmark set`
 
-Create a new bookmark, or update an existing one by name
+Create a new bookmark, or update an existing one by name [alias: s]
 
 If you want to move bookmarks based on their current location rather than by name, use `jj bookmark move --from <REVSETS>`.
 
@@ -547,7 +547,7 @@ If you want to move bookmarks based on their current location rather than by nam
 
 ## `jj bookmark track`
 
-Start tracking given remote bookmarks
+Start tracking given remote bookmarks [alias: t]
 
 A tracked remote bookmark will be imported as a local bookmark of the same name. Changes to it will propagate to the existing local bookmark on future pulls.
 
@@ -650,18 +650,18 @@ See [`jj help -k config`] to know more about file locations, supported config op
 
 ###### **Subcommands:**
 
-* `edit` — Start an editor on a jj config file
-* `get` — Get the value of a given config option.
-* `list` — List variables set in config files, along with their values
-* `path` — Print the paths to the config files
-* `set` — Update a config file to set the given option to a given value
-* `unset` — Update a config file to unset the given option
+* `edit` — Start an editor on a jj config file [alias: e]
+* `get` — Get the value of a given config option [alias: g]
+* `list` — List variables set in config files, along with their values [alias: l]
+* `path` — Print the paths to the config files [alias: p]
+* `set` — Update a config file to set the given option to a given value [alias: s]
+* `unset` — Update a config file to unset the given option [alias: u]
 
 
 
 ## `jj config edit`
 
-Start an editor on a jj config file.
+Start an editor on a jj config file [alias: e]
 
 Creates the file if it doesn't already exist regardless of what the editor does.
 
@@ -677,7 +677,7 @@ Creates the file if it doesn't already exist regardless of what the editor does.
 
 ## `jj config get`
 
-Get the value of a given config option.
+Get the value of a given config option [alias: g]
 
 Unlike `jj config list`, the result of `jj config get` is printed without
 extra formatting and therefore is usable in scripting. For example:
@@ -697,7 +697,7 @@ Martin von Zweigbergk
 
 ## `jj config list`
 
-List variables set in config files, along with their values
+List variables set in config files, along with their values [alias: l]
 
 **Usage:** `jj config list [OPTIONS] [NAME]`
 
@@ -737,7 +737,7 @@ List variables set in config files, along with their values
 
 ## `jj config path`
 
-Print the paths to the config files
+Print the paths to the config files [alias: p]
 
 A config file at that path may or may not exist.
 
@@ -757,7 +757,7 @@ See `jj config edit` if you'd like to immediately edit a file.
 
 ## `jj config set`
 
-Update a config file to set the given option to a given value
+Update a config file to set the given option to a given value [alias: s]
 
 **Usage:** `jj config set <--user|--repo|--workspace> <NAME> <VALUE>`
 
@@ -780,7 +780,7 @@ Update a config file to set the given option to a given value
 
 ## `jj config unset`
 
-Update a config file to unset the given option
+Update a config file to unset the given option [alias: u]
 
 **Usage:** `jj config unset <--user|--repo|--workspace> <NAME>`
 
@@ -3068,15 +3068,15 @@ Manage tags
 
 ###### **Subcommands:**
 
-* `delete` — Delete existing tags
-* `list` — List tags and their targets
-* `set` — Create or update tags
+* `delete` — Delete existing tags [alias: d]
+* `list` — List tags and their targets [alias: l]
+* `set` — Create or update tags [alias: s]
 
 
 
 ## `jj tag delete`
 
-Delete existing tags
+Delete existing tags [alias: d]
 
 Revisions referred to by the deleted tags are not abandoned.
 
@@ -3094,7 +3094,7 @@ Revisions referred to by the deleted tags are not abandoned.
 
 ## `jj tag list`
 
-List tags and their targets
+List tags and their targets [alias: l]
 
 By default, a tracked remote tag will be included only if its target is different from the local tag. An untracked remote tag won't be listed. For a conflicted tag (both local and remote), old target revisions are preceded by a "-" and new target revisions are preceded by a "+".
 
@@ -3135,7 +3135,7 @@ By default, a tracked remote tag will be included only if its target is differen
 
 ## `jj tag set`
 
-Create or update tags
+Create or update tags [alias: s]
 
 **Usage:** `jj tag set [OPTIONS] <NAMES>...`
 

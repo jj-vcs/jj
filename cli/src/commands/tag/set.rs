@@ -26,7 +26,7 @@ use crate::complete;
 use crate::revset_util;
 use crate::ui::Ui;
 
-/// Create or update tags
+/// Create or update tags [alias: s]
 #[derive(clap::Args, Clone, Debug)]
 pub struct TagSetArgs {
     /// Target revision to point to

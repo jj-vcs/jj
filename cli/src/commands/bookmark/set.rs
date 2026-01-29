@@ -31,7 +31,7 @@ use crate::complete;
 use crate::revset_util;
 use crate::ui::Ui;
 
-/// Create a new bookmark, or update an existing one by name
+/// Create a new bookmark, or update an existing one by name [alias: s]
 ///
 /// If you want to move bookmarks based on their current location rather than
 /// by name, use `jj bookmark move --from <REVSETS>`.

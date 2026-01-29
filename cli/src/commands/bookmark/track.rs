@@ -35,7 +35,7 @@ use crate::revset_util::parse_union_name_patterns;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
-/// Start tracking given remote bookmarks
+/// Start tracking given remote bookmarks [alias: t]
 ///
 /// A tracked remote bookmark will be imported as a local bookmark of the same
 /// name. Changes to it will propagate to the existing local bookmark on future

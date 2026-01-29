@@ -30,7 +30,7 @@ use crate::complete;
 use crate::revset_util;
 use crate::ui::Ui;
 
-/// Rename `old` bookmark name to `new` bookmark name
+/// Rename `old` bookmark name to `new` bookmark name [alias: r]
 ///
 /// The new bookmark name points at the same commit as the old bookmark name.
 #[derive(clap::Args, Clone, Debug)]

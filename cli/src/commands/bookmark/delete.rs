@@ -24,7 +24,7 @@ use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
 
 /// Delete an existing bookmark and propagate the deletion to remotes on the
-/// next push
+/// next push [alias: d]
 ///
 /// Revisions referred to by the deleted bookmarks are not abandoned. To delete
 /// revisions as well as bookmarks, use `jj abandon`. For example, `jj abandon
