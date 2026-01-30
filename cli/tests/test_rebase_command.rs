@@ -3006,6 +3006,79 @@ fn test_rebase_skip_duplicate_divergent() {
     ");
 }
 
+#[test]
+fn test_rebase_simplify_parents() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit(&work_dir, "a", &[]);
+    create_commit(&work_dir, "a1", &["a"]);
+    create_commit(&work_dir, "a2", &["a1"]);
+    create_commit(&work_dir, "a3", &["a2", "a1"]);
+    create_commit(&work_dir, "b", &[]);
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    @  b  znkkpsqq  3df16d78
+    │ ○    a3  vruxwmqv  cf72a356:  a2 a1
+    │ ├─╮
+    │ ○ │  a2  royxmykx  1f35d069:  a1
+    │ ├─╯
+    │ ○  a1  zsuskuln  dce85039:  a
+    │ ○  a  rlvkpnrz  7d980be7
+    ├─╯
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+    let setup_opid = work_dir.current_operation_id();
+
+    // without --simplify-parents, should transplant the whole tree structure
+    work_dir.run_jj(["rebase", "-s", "a", "-o", "b"]).success();
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    ○    a3  vruxwmqv  b15b79bb:  a2 a1
+    ├─╮
+    ○ │  a2  royxmykx  06a5cde7:  a1
+    ├─╯
+    ○  a1  zsuskuln  16af6bbe:  a
+    ○  a  rlvkpnrz  69d157bb:  b
+    @  b  znkkpsqq  3df16d78
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+
+    // with --simplify-parents, should drop the redundant a2 parent on a3
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    work_dir
+        .run_jj(["rebase", "-s", "a", "-o", "b", "--simplify-parents"])
+        .success();
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    ○  a3  vruxwmqv  867b901e:  a2
+    ○  a2  royxmykx  ecaa9fe7:  a1
+    ○  a1  zsuskuln  88fc1ed4:  a
+    ○  a  rlvkpnrz  c23ea181:  b
+    @  b  znkkpsqq  3df16d78
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+
+    // but, does not apply to autorebased commits
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    work_dir
+        .run_jj(["rebase", "-r", "a", "-o", "b", "--simplify-parents"])
+        .success();
+    insta::assert_snapshot!(get_long_log_output(&work_dir), @r"
+    ○  a  rlvkpnrz  0e4898d1:  b
+    @  b  znkkpsqq  3df16d78
+    │ ○    a3  vruxwmqv  92c40092:  a2 a1
+    │ ├─╮
+    │ ○ │  a2  royxmykx  4bed9069:  a1
+    │ ├─╯
+    │ ○  a1  zsuskuln  98a31b4f
+    ├─╯
+    ◆    zzzzzzzz  00000000
+    [EOF]
+    ");
+}
+
 #[must_use]
 fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     let template = "bookmarks ++ surround(': ', '', parents.map(|c| c.bookmarks()))";

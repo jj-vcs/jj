@@ -890,11 +890,12 @@ fn apply_move_commits(
     let mut num_skipped_rebases = 0;
     let mut num_abandoned_empty = 0;
 
-    // Always keep empty commits when rebasing descendants.
+    // Always keep empty commits and don't simplify merges when rebasing
+    // descendants.
     let rebase_descendant_options = &RebaseOptions {
         empty: EmptyBehavior::Keep,
         rewrite_refs: options.rewrite_refs.clone(),
-        simplify_ancestor_merge: options.simplify_ancestor_merge,
+        simplify_ancestor_merge: false,
     };
 
     let mut rebased_commits: HashMap<CommitId, RebasedCommit> = HashMap::new();

@@ -26,6 +26,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Bookmarks with two or more consecutive `-` characters no longer need to be quoted
   in revsets. For example, `jj diff -r '"foo--bar"'` can now be written as `jj diff -r foo--bar`.
 
+* New flag `--simplify-parents` on `jj rebase` to apply the same transformation
+  as `jj simplify-parents` on the rebased commits.
+  [#7711](https://github.com/jj-vcs/jj/issues/7711)
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04

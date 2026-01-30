@@ -317,6 +317,12 @@ pub(crate) struct RebaseArgs {
     /// destination with identical changes.
     #[arg(long)]
     keep_divergent: bool,
+
+    /// Simplify parents of rebased commits, like `jj simplify-parents`, while
+    /// rebasing them. Any parents that are ancestors of other parents will be
+    /// removed.
+    #[arg(long)]
+    simplify_parents: bool,
 }
 
 #[derive(clap::Args, Clone, Debug)]
@@ -373,7 +379,7 @@ pub(crate) fn cmd_rebase(
         rewrite_refs: RewriteRefsOptions {
             delete_abandoned_bookmarks: false,
         },
-        simplify_ancestor_merge: false,
+        simplify_ancestor_merge: args.simplify_parents,
     };
     let mut workspace_command = command.workspace_helper(ui)?;
     let loc = if !args.revisions.is_empty() {
