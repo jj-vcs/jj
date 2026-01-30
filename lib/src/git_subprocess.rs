@@ -40,13 +40,10 @@ use crate::ref_name::GitRefNameBuf;
 use crate::ref_name::RefNameBuf;
 use crate::ref_name::RemoteName;
 
-// This is not the minimum required version, that would be 2.29.0, which
-// introduced the `--no-write-fetch-head` option. However, that by itself
-// is quite old and unsupported, so we don't want to encourage users to
-// update to that.
-//
-// 2.40 still receives security patches (latest one was in Jan/2025)
-const MINIMUM_GIT_VERSION: &str = "2.40.4";
+// * 2.29.0 introduced `git fetch --no-write-fetch-head`
+// * 2.40 still receives security patches (latest one was in Jan/2025)
+// * 2.41.0 introduced `git fetch --porcelain`
+const MINIMUM_GIT_VERSION: &str = "2.41.0";
 
 /// Error originating by a Git subprocess
 #[derive(Error, Debug)]

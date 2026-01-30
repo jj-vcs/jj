@@ -17,6 +17,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* The minimum supported `git` command version is now 2.41.0. macOS users will
+  need to either upgrade "Developer Tools" to 26 or install Git from
+  e.g. Homebrew.
+
 * Deprecated `ui.always-allow-large-revsets` setting and `all:` revset modifier
   have been removed.
 
