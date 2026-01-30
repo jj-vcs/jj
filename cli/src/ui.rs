@@ -472,7 +472,9 @@ impl Ui {
     /// operations
     pub fn use_progress_indicator(&self) -> bool {
         match &self.output {
-            UiOutput::Terminal { stderr, .. } => self.progress_indicator && stderr.is_terminal(),
+            UiOutput::Terminal { stderr, .. } => {
+                !self.quiet && self.progress_indicator && stderr.is_terminal()
+            }
             UiOutput::Paged { .. } => false,
             UiOutput::BuiltinPaged { .. } => false,
             UiOutput::Null => false,

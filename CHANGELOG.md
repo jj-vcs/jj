@@ -122,6 +122,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a scan of the affected subtree so newly unignored files are discovered.
   [#8427](https://github.com/jj-vcs/jj/issues/8427)
 
+* `--quiet` now hides progress bars.
+
 ## [0.37.0] - 2026-01-07
 
 ### Release highlights
