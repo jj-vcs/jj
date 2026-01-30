@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
 use jj_lib::merge::Diff;
 use jj_lib::merged_tree::MergedTree;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
@@ -25,10 +27,12 @@ use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::RevisionArg;
 use crate::cli_util::print_conflicted_paths;
 use crate::cli_util::print_snapshot_stats;
 use crate::cli_util::print_unmatched_explicit_paths;
 use crate::command_error::CommandError;
+use crate::complete;
 use crate::diff_util::DiffFormat;
 use crate::diff_util::get_copy_records;
 use crate::formatter::FormatterExt as _;
@@ -38,15 +42,14 @@ use crate::ui::Ui;
 ///
 /// This includes:
 ///
-/// * The working copy commit and its parents, and a summary of the changes in
-///   the working copy (compared to the merged parents)
+/// * The revision and its parents, and a summary of the changes in the revision
+///   (compared to the merged parents)
 ///
-/// * Conflicts in the working copy
+/// * Conflicts in the revision
 ///
 /// * [Conflicted bookmarks]
 ///
-/// Note: You can use `jj diff --summary -r <rev>` to see the changed files for
-/// a specific revision.
+/// Defaults to the working copy if no revision is provided.
 ///
 /// [Conflicted bookmarks]:
 ///     https://docs.jj-vcs.dev/latest/bookmarks/#conflicts
@@ -55,6 +58,11 @@ pub(crate) struct StatusArgs {
     /// Restrict the status display to these paths
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     paths: Vec<String>,
+
+    /// Revision to show the status of (default: @)
+    #[arg(long, short, value_name = "REVSET")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
+    revision: Option<RevisionArg>,
 }
 
 #[instrument(skip_all)]
@@ -70,32 +78,46 @@ pub(crate) fn cmd_status(
         workspace_command.env().path_converter(),
     )?;
     let repo = workspace_command.repo();
-    let maybe_wc_commit = workspace_command
-        .get_wc_commit_id()
-        .map(|id| repo.store().get_commit(id))
-        .transpose()?;
+
+    let maybe_commit = if let Some(revision) = &args.revision {
+        Some(workspace_command.resolve_single_rev(ui, revision)?)
+    } else {
+        workspace_command
+            .get_wc_commit_id()
+            .map(|id| repo.store().get_commit(id))
+            .transpose()?
+    };
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
 
-    if let Some(wc_commit) = &maybe_wc_commit {
-        let parent_tree = wc_commit.parent_tree(repo.as_ref())?;
-        let tree = wc_commit.tree();
+    if let Some(commit) = &maybe_commit {
+        let parent_tree = commit.parent_tree(repo.as_ref())?;
+        let tree = commit.tree();
 
         print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
 
-        let wc_has_changes = tree.tree_ids() != parent_tree.tree_ids();
-        let wc_has_untracked = !snapshot_stats.untracked_paths.is_empty();
-        if !wc_has_changes && !wc_has_untracked {
-            writeln!(formatter, "The working copy has no changes.")?;
+        let has_changes = tree.tree_ids() != parent_tree.tree_ids();
+        let wc_has_untracked =
+            !snapshot_stats.untracked_paths.is_empty() && args.revision.is_none();
+        if !has_changes && !wc_has_untracked {
+            if args.revision.is_some() {
+                writeln!(formatter, "Revision has no changes.")?;
+            } else {
+                writeln!(formatter, "The working copy has no changes.")?;
+            }
         } else {
-            if wc_has_changes {
-                writeln!(formatter, "Working copy changes:")?;
+            if has_changes {
+                if args.revision.is_some() {
+                    writeln!(formatter, "Revision changes:")?;
+                } else {
+                    writeln!(formatter, "Working copy changes:")?;
+                }
                 let mut copy_records = CopyRecords::default();
-                for parent in wc_commit.parent_ids() {
-                    let records = get_copy_records(repo.store(), parent, wc_commit.id(), &matcher)?;
+                for parent in commit.parent_ids() {
+                    let records = get_copy_records(repo.store(), parent, commit.id(), &matcher)?;
                     copy_records.add_records(records)?;
                 }
                 let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
@@ -136,31 +158,38 @@ pub(crate) fn cmd_status(
         }
 
         let template = workspace_command.commit_summary_template();
-        write!(formatter, "Working copy  (@) : ")?;
-        template.format(wc_commit, formatter)?;
+        if args.revision.is_some() {
+            write!(formatter, "Revision       : ")?;
+        } else {
+            write!(formatter, "Working copy  (@) : ")?;
+        }
+        template.format(commit, formatter)?;
         writeln!(formatter)?;
-        for parent in wc_commit.parents() {
+        for parent in commit.parents() {
             let parent = parent?;
-            //                "Working copy  (@) : "
-            write!(formatter, "Parent commit (@-): ")?;
+            if args.revision.is_some() {
+                write!(formatter, "Parent commit: ")?;
+            } else {
+                write!(formatter, "Parent commit (@-): ")?;
+            }
             template.format(&parent, formatter)?;
             writeln!(formatter)?;
         }
 
-        if wc_commit.has_conflict() {
-            let conflicts = wc_commit.tree().conflicts_matching(&matcher).collect_vec();
+        if commit.has_conflict() {
+            let conflicts = commit.tree().conflicts_matching(&matcher).collect_vec();
             writeln!(
                 formatter.labeled("warning").with_heading("Warning: "),
                 "There are unresolved conflicts at these paths:"
             )?;
             print_conflicted_paths(conflicts, formatter, &workspace_command)?;
 
-            let wc_revset = RevsetExpression::commit(wc_commit.id().clone());
+            let revset = RevsetExpression::commit(commit.id().clone());
 
             // Ancestors with conflicts, excluding the current working copy commit.
             let ancestors_conflicts: Vec<_> = workspace_command
                 .attach_revset_evaluator(
-                    wc_revset
+                    revset
                         .parents()
                         .ancestors()
                         .filtered(RevsetFilterPredicate::HasConflict)
@@ -171,13 +200,21 @@ pub(crate) fn cmd_status(
 
             workspace_command.report_repo_conflicts(formatter, repo, ancestors_conflicts)?;
         } else {
-            for parent in wc_commit.parents() {
+            for parent in commit.parents() {
                 let parent = parent?;
                 if parent.has_conflict() {
-                    writeln!(
-                        formatter.labeled("hint").with_heading("Hint: "),
-                        "Conflict in parent commit has been resolved in working copy"
-                    )?;
+                    if args.revision.is_some() {
+                        writeln!(
+                            formatter.labeled("hint").with_heading("Hint: "),
+                            "Conflict in parent commit has been resolved in {}",
+                            parent.id().hex()
+                        )?;
+                    } else {
+                        writeln!(
+                            formatter.labeled("hint").with_heading("Hint: "),
+                            "Conflict in parent commit has been resolved in working copy"
+                        )?;
+                    }
                     break;
                 }
             }
