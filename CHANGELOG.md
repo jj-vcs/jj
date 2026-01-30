@@ -75,6 +75,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * New `remote_tags()` revset function to query remote tags.
 
+* New `ui.log-limit` config option to set a default limit for `jj log`.
+
 ### Fixed bugs
 
 * `jj git init --colocate` now refuses to run inside a Git worktree, providing

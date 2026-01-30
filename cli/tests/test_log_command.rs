@@ -1051,6 +1051,21 @@ fn test_log_limit() {
     [EOF]
     ");
 
+    // Config-based default limit (--limit overrides it)
+    let output = work_dir.run_jj([
+        "log",
+        "-T",
+        "description",
+        "--no-graph",
+        "--config=ui.log-limit=3",
+        "--limit=2",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    d
+    c
+    [EOF]
+    ");
+
     // Applied on reversed DAG: Because the node "a" is omitted, "b" and "c" are
     // rendered as roots.
     let output = work_dir.run_jj(["log", "-T", "description", "--limit=3", "--reversed"]);

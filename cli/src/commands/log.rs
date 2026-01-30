@@ -136,6 +136,14 @@ pub(crate) fn cmd_log(
     let workspace_command = command.workspace_helper(ui)?;
     let settings = workspace_command.settings();
 
+    // --limit takes precedence over config
+    let limit = args.limit.or_else(|| {
+        settings
+            .get_int("ui.log-limit")
+            .ok()
+            .and_then(|v| usize::try_from(v).ok())
+    });
+
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let mut explicit_paths = fileset_expression.explicit_paths().collect_vec();
     let revset_expression = {
@@ -162,15 +170,15 @@ pub(crate) fn cmd_log(
 
     if args.count {
         let (lower, upper) = revset.count_estimate()?;
-        let limit = args.limit.unwrap_or(usize::MAX);
-        let count = if limit <= lower {
-            limit
+        let count_limit = limit.unwrap_or(usize::MAX);
+        let count = if count_limit <= lower {
+            count_limit
         } else if upper == Some(lower) {
-            min(lower, limit)
+            min(lower, count_limit)
         } else {
             revset
                 .iter()
-                .take(limit)
+                .take(count_limit)
                 .process_results(|iter| iter.count())?
         };
         let mut formatter = ui.stdout_formatter();
@@ -229,7 +237,7 @@ pub(crate) fn cmd_log(
 
                 // The input to TopoGroupedGraphIterator shouldn't be truncated
                 // because the prioritized commit must exist in the input set.
-                let forward_iter = forward_iter.take(args.limit.unwrap_or(usize::MAX));
+                let forward_iter = forward_iter.take(limit.unwrap_or(usize::MAX));
                 if args.reversed {
                     Box::new(reverse_graph(forward_iter, |id| id)?.into_iter().map(Ok))
                 } else {
@@ -322,7 +330,7 @@ pub(crate) fn cmd_log(
             }
         } else {
             let iter: Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>>> = {
-                let forward_iter = revset.iter().take(args.limit.unwrap_or(usize::MAX));
+                let forward_iter = revset.iter().take(limit.unwrap_or(usize::MAX));
                 if args.reversed {
                     let entries: Vec<_> = forward_iter.try_collect()?;
                     Box::new(entries.into_iter().rev().map(Ok))

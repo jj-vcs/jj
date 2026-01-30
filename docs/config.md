@@ -598,6 +598,16 @@ coalesce(
 op_log_node = 'if(current_operation, "@", "○")'
 ```
 
+### Default log limit
+
+Sets the default number of revisions to show in `jj log` when no `--limit`
+is specified. If not set, all matching revisions are shown.
+
+```toml
+[ui]
+log-limit = 50
+```
+
 ### Wrap log content
 
 If enabled, `log`/`evolog`/`op log` content will be wrapped based on

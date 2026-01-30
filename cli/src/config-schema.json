@@ -182,6 +182,11 @@
                     "description": "Whether to render elided parts of the graph as synthetic nodes.",
                     "default": true
                 },
+                "log-limit": {
+                    "type": "integer",
+                    "description": "Default limit for number of revisions to show in jj log. If not set, all revisions are shown.",
+                    "minimum": 1
+                },
                 "editor": {
                     "description": "Editor to use for commands that involve editing text",
                     "oneOf": [
