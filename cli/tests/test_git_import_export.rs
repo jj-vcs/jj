@@ -376,9 +376,11 @@ fn get_git_repo_refs(git_repo: &gix::Repository) -> Vec<(bstr::BString, CommitId
         .filter_ok(|git_ref| {
             matches!(
                 git_ref.name().category(),
-                Some(gix::reference::Category::Tag)
-                    | Some(gix::reference::Category::LocalBranch)
-                    | Some(gix::reference::Category::RemoteBranch),
+                Some(
+                    gix::reference::Category::Tag
+                        | gix::reference::Category::LocalBranch
+                        | gix::reference::Category::RemoteBranch
+                ),
             )
         })
         .filter_map_ok(|mut git_ref| {
