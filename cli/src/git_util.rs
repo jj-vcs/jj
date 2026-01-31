@@ -20,6 +20,7 @@ use std::io::Write as _;
 use std::iter;
 use std::mem;
 use std::path::Path;
+use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -29,6 +30,7 @@ use crossterm::terminal::ClearType;
 use indoc::writedoc;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
+use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::FailedRefExportReason;
 use jj_lib::git::GitExportStats;
@@ -574,6 +576,26 @@ pub fn print_push_stats(ui: &Ui, stats: &GitPushStats) -> io::Result<()> {
         }
     }
     Ok(())
+}
+
+/// Locates the git repository path from a jj store path.
+///
+/// Returns `None` if the store doesn't contain a git backend or the path
+/// cannot be determined.
+pub fn locate_git_repo(store_path: &Path) -> Option<PathBuf> {
+    // store_path is typically <workspace>/.jj/repo/store
+    let git_target_path = store_path.join("git_target");
+
+    let git_path = if git_target_path.exists() {
+        // Read as raw bytes (path may be non-UTF-8)
+        let target_bytes = std::fs::read(&git_target_path).ok()?;
+        let target_path = file_util::path_from_bytes(target_bytes.trim_ascii()).ok()?;
+        store_path.join(target_path)
+    } else {
+        store_path.join("git")
+    };
+
+    git_path.exists().then_some(git_path)
 }
 
 #[cfg(test)]

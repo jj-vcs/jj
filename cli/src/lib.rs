@@ -32,6 +32,9 @@ pub mod git_util;
 /// A stub module that provides a no-op implementation of some of the functions
 /// in the `git` module.
 pub mod git_util {
+    use std::path::Path;
+    use std::path::PathBuf;
+
     use jj_lib::repo::ReadonlyRepo;
     use jj_lib::workspace::Workspace;
 
@@ -40,6 +43,10 @@ pub mod git_util {
     }
 
     pub fn get_remote_web_url(_repo: &ReadonlyRepo, _remote_name: &str) -> Option<String> {
+        None
+    }
+
+    pub fn locate_git_repo(_store_path: &Path) -> Option<PathBuf> {
         None
     }
 }
