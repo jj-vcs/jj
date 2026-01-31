@@ -412,14 +412,14 @@ fn apply_diff_builtin(
         files,
         |path| left_tree.path_value(path),
         |path| right_tree.path_value(path),
-        |path, contents, executable, copy_id| {
+        |path, contents, executable| {
             let old_value = left_tree.path_value(path)?;
             let new_value = if old_value.is_resolved() {
                 let id = store.write_file(path, &mut &contents[..]).block_on()?;
                 Merge::normal(TreeValue::File {
                     id,
                     executable,
-                    copy_id,
+                    copy_id: CopyId::placeholder(),
                 })
             } else if let Some(old_file_ids) = old_value.to_file_merge() {
                 // TODO: should error out if conflicts couldn't be parsed?
@@ -454,7 +454,7 @@ fn apply_changes(
     files: &[scm_record::File],
     select_left: impl Fn(&RepoPath) -> BackendResult<MergedTreeValue>,
     select_right: impl Fn(&RepoPath) -> BackendResult<MergedTreeValue>,
-    write_file: impl Fn(&RepoPath, &[u8], bool, CopyId) -> BackendResult<MergedTreeValue>,
+    write_file: impl Fn(&RepoPath, &[u8], bool) -> BackendResult<MergedTreeValue>,
 ) -> BackendResult<()> {
     assert_eq!(
         changed_files.len(),
@@ -516,13 +516,11 @@ fn apply_changes(
                 new_description: None,
             } => {
                 // File contents emptied out, but file mode is not absent => write empty file.
-                let copy_id = CopyId::placeholder();
-                let value = write_file(&path, &[], executable, copy_id)?;
+                let value = write_file(&path, &[], executable)?;
                 tree_builder.set_or_remove(path, value);
             }
             scm_record::SelectedContents::Text { contents } => {
-                let copy_id = CopyId::placeholder();
-                let value = write_file(&path, contents.as_bytes(), executable, copy_id)?;
+                let value = write_file(&path, contents.as_bytes(), executable)?;
                 tree_builder.set_or_remove(path, value);
             }
         }
@@ -702,27 +700,40 @@ pub fn edit_merge_builtin(
         &mut input,
     );
     let state = recorder.run()?;
-
-    let mut tree_builder = MergedTreeBuilder::new(tree.clone());
-    apply_changes(
-        &mut tree_builder,
+    apply_merge_builtin(
+        store,
+        tree,
         merge_tool_files
             .iter()
             .map(|file| file.repo_path.clone())
             .collect_vec(),
         &state.files,
+    )
+}
+
+fn apply_merge_builtin(
+    store: &Arc<Store>,
+    tree: &MergedTree,
+    changed_files: Vec<RepoPathBuf>,
+    files: &[scm_record::File],
+) -> Result<MergedTree, BuiltinToolError> {
+    let mut tree_builder = MergedTreeBuilder::new(tree.clone());
+    apply_changes(
+        &mut tree_builder,
+        changed_files,
+        files,
         |path| tree.path_value(path),
         // FIXME: It doesn't make sense to select a new value from the source tree.
         // Presently, `select_right` is never actually called, since it is used to select binary
         // sections, but `make_merge_file` does not produce `Binary` sections for conflicted files.
         // This needs to be revisited when the UI becomes capable of representing binary conflicts.
         |path| tree.path_value(path),
-        |path, contents, executable, copy_id| {
+        |path, contents, executable| {
             let id = store.write_file(path, &mut &contents[..]).block_on()?;
             Ok(Merge::normal(TreeValue::File {
                 id,
                 executable,
-                copy_id,
+                copy_id: CopyId::placeholder(),
             }))
         },
     )?;
