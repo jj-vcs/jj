@@ -143,9 +143,9 @@ pub fn relative_path(from: &Path, to: &Path) -> PathBuf {
             if i == 0 && suffix.as_os_str().is_empty() {
                 return ".".into();
             } else {
-                let mut result = PathBuf::from_iter(std::iter::repeat_n("..", i));
-                result.push(suffix);
-                return result;
+                return std::iter::repeat_n(Path::new(".."), i)
+                    .chain(std::iter::once(suffix))
+                    .collect();
             }
         }
     }
