@@ -41,6 +41,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* New `--when.remote` condition for scoped config that matches based on Git
+  remote names and URLs. This is similar to Git's `includeIf "hasconfig:remote.*.url"`.
+  [#6028](https://github.com/jj-vcs/jj/issues/6028)
+
 * `jj git fetch` now shows details of abandoned commits (change IDs and
   descriptions) by default, matching the `jj abandon` output format.
   [#3081](https://github.com/jj-vcs/jj/issues/3081)

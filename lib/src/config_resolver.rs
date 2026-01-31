@@ -14,6 +14,7 @@
 
 //! Post-processing functions for [`StackedConfig`].
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -32,11 +33,127 @@ use crate::config::ConfigUpdateError;
 use crate::config::ConfigValue;
 use crate::config::StackedConfig;
 use crate::config::ToConfigNamePath;
+use crate::str_util::StringMatcher;
+use crate::str_util::StringPattern;
 
 // Prefixed by "--" so these keys look unusual. It's also nice that "-" is
 // placed earlier than the other keys in lexicographical order.
 const SCOPE_CONDITION_KEY: &str = "--when";
 const SCOPE_TABLE_KEY: &str = "--scope";
+
+/// Information about a Git remote for config condition matching.
+#[derive(Clone, Debug)]
+pub struct RemoteInfo {
+    /// Remote name (e.g. "origin").
+    pub name: String,
+    /// Remote fetch URL, if available and valid UTF-8.
+    pub fetch_url: Option<String>,
+    /// Remote push URL, if available and valid UTF-8.
+    pub push_url: Option<String>,
+}
+
+/// Direction for URL matching in remote conditions.
+#[derive(Clone, Copy, Debug, Default, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum RemoteDirection {
+    /// Match either fetch or push URLs (default).
+    #[default]
+    Any,
+    /// Match only fetch URLs.
+    Fetch,
+    /// Match only push URLs.
+    Push,
+}
+
+/// Raw condition for matching a remote URL (before parsing).
+/// Can deserialize from string, array of strings, or object.
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(untagged)]
+enum RawRemoteUrlCondition {
+    /// Single URL pattern (any direction).
+    Single(String),
+    /// Multiple URL patterns (any direction).
+    Multiple(Vec<String>),
+    /// Structured with direction.
+    Structured {
+        url: StringOrVec,
+        #[serde(default)]
+        direction: RemoteDirection,
+    },
+}
+
+/// Helper type for deserializing string or array of strings.
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(untagged)]
+enum StringOrVec {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+/// Parsed condition with pre-compiled matchers.
+#[derive(Debug)]
+struct RemoteCondition {
+    /// Pre-compiled name pattern matcher.
+    name_matcher: StringMatcher,
+    /// Pre-compiled URL pattern matchers.
+    url_matchers: Vec<StringMatcher>,
+    /// Which URLs to check.
+    direction: RemoteDirection,
+}
+
+impl RemoteCondition {
+    fn from_raw(name_pattern: &str, raw: &RawRemoteUrlCondition) -> Result<Self, String> {
+        let parse_url = |src: &str| {
+            StringPattern::parse(src).map_err(|e| format!("invalid pattern '{src}': {e}"))
+        };
+        // Remote names use glob-only (no prefix support)
+        let name_matcher = StringPattern::glob(name_pattern)
+            .map_err(|e| format!("invalid remote name pattern '{name_pattern}': {e}"))?
+            .to_matcher();
+
+        let (url_patterns, direction) = match raw {
+            RawRemoteUrlCondition::Single(p) => (std::slice::from_ref(p), RemoteDirection::Any),
+            RawRemoteUrlCondition::Multiple(ps) => (ps.as_slice(), RemoteDirection::Any),
+            RawRemoteUrlCondition::Structured { url, direction } => {
+                let url_patterns = match url {
+                    StringOrVec::Single(p) => std::slice::from_ref(p),
+                    StringOrVec::Multiple(ps) => ps.as_slice(),
+                };
+                (url_patterns, *direction)
+            }
+        };
+
+        let url_matchers = url_patterns
+            .iter()
+            .map(|p| parse_url(p).map(|pat| pat.to_matcher()))
+            .try_collect()?;
+
+        Ok(Self {
+            name_matcher,
+            url_matchers,
+            direction,
+        })
+    }
+
+    fn matches(&self, remote: &RemoteInfo) -> bool {
+        if !self.name_matcher.is_match(&remote.name) {
+            return false;
+        }
+
+        let matches_url = |url: &str| self.url_matchers.iter().any(|m| m.is_match(url));
+
+        match self.direction {
+            RemoteDirection::Fetch => remote.fetch_url.as_deref().is_some_and(matches_url),
+            RemoteDirection::Push => remote.push_url.as_deref().is_some_and(matches_url),
+            RemoteDirection::Any => remote
+                .fetch_url
+                .as_deref()
+                .into_iter()
+                .chain(remote.push_url.as_deref())
+                .any(matches_url),
+        }
+    }
+}
 
 /// Parameters to enable scoped config tables conditionally.
 #[derive(Clone, Debug)]
@@ -52,6 +169,8 @@ pub struct ConfigResolutionContext<'a> {
     pub command: Option<&'a str>,
     /// Hostname
     pub hostname: &'a str,
+    /// Remotes from the git backend (for `--when.remote` matching).
+    pub remotes: Option<&'a [RemoteInfo]>,
 }
 
 /// Conditions to enable the parent table.
@@ -78,6 +197,8 @@ struct ScopeCondition {
     pub platforms: Option<Vec<String>>,
     /// Hostnames to match the hostname.
     pub hostnames: Option<Vec<String>>,
+    /// Map of remote name patterns to URL conditions.
+    pub remote: Option<BTreeMap<String, RawRemoteUrlCondition>>,
 }
 
 impl ScopeCondition {
@@ -86,22 +207,32 @@ impl ScopeCondition {
         context: &ConfigResolutionContext,
     ) -> Result<Self, toml_edit::de::Error> {
         Self::deserialize(value.into_deserializer())?
-            .expand_paths(context)
+            .expand_and_validate(context)
             .map_err(serde::de::Error::custom)
     }
 
-    fn expand_paths(mut self, context: &ConfigResolutionContext) -> Result<Self, &'static str> {
+    fn expand_and_validate(mut self, context: &ConfigResolutionContext) -> Result<Self, String> {
         // It might make some sense to compare paths in canonicalized form, but
         // be careful to not resolve relative path patterns against cwd, which
         // wouldn't be what the user would expect.
         for path in self.repositories.as_mut().into_iter().flatten() {
-            if let Some(new_path) = expand_home(path, context.home_dir)? {
+            if let Some(new_path) =
+                expand_home(path, context.home_dir).map_err(|e| e.to_string())?
+            {
                 *path = new_path;
             }
         }
         for path in self.workspaces.as_mut().into_iter().flatten() {
-            if let Some(new_path) = expand_home(path, context.home_dir)? {
+            if let Some(new_path) =
+                expand_home(path, context.home_dir).map_err(|e| e.to_string())?
+            {
                 *path = new_path;
+            }
+        }
+        // Validate remote patterns up front so errors are reported early.
+        if let Some(remote) = &self.remote {
+            for (name_pattern, raw) in remote {
+                RemoteCondition::from_raw(name_pattern, raw)?;
             }
         }
         Ok(self)
@@ -113,6 +244,7 @@ impl ScopeCondition {
             && matches_platform(self.platforms.as_deref())
             && matches_hostname(self.hostnames.as_deref(), context.hostname)
             && matches_command(self.commands.as_deref(), context.command)
+            && matches_remote(self.remote.as_ref(), context.remotes)
     }
 }
 
@@ -156,6 +288,25 @@ fn matches_command(candidates: Option<&[String]>, actual: Option<&str>) -> bool 
         (Some(_), None) => false,
         (None, _) => true,
     }
+}
+
+fn matches_remote(
+    candidates: Option<&BTreeMap<String, RawRemoteUrlCondition>>,
+    actual: Option<&[RemoteInfo]>,
+) -> bool {
+    candidates.is_none_or(|candidates| {
+        let Some(actual) = actual else {
+            return false;
+        };
+        // Any candidate matching any remote triggers the match.
+        // Invalid patterns are treated as non-matching.
+        candidates.iter().any(|(name_pattern, raw)| {
+            let Ok(cond) = RemoteCondition::from_raw(name_pattern, raw) else {
+                return false;
+            };
+            actual.iter().any(|remote| cond.matches(remote))
+        })
+    })
 }
 
 /// Evaluates condition for each layer and scope, flattens scoped tables.
@@ -460,6 +611,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -468,6 +620,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert!(condition.matches(&context));
     }
@@ -480,6 +633,7 @@ mod tests {
             commands: None,
             platforms: None,
             hostnames: None,
+            remote: None,
         };
 
         let context = ConfigResolutionContext {
@@ -488,6 +642,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -496,6 +651,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -504,6 +660,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -512,6 +669,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -520,6 +678,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert!(condition.matches(&context));
     }
@@ -532,6 +691,7 @@ mod tests {
             commands: None,
             platforms: None,
             hostnames: None,
+            remote: None,
         };
 
         let context = ConfigResolutionContext {
@@ -540,6 +700,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
         let context = ConfigResolutionContext {
@@ -548,6 +709,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
         let context = ConfigResolutionContext {
@@ -556,6 +718,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -564,6 +727,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert_eq!(condition.matches(&context), cfg!(windows));
     }
@@ -576,6 +740,7 @@ mod tests {
             workspaces: None,
             commands: None,
             platforms: None,
+            remote: None,
         };
 
         let context = ConfigResolutionContext {
@@ -584,6 +749,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert!(!condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -592,6 +758,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "host-a",
+            remotes: None,
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -600,6 +767,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "host-b",
+            remotes: None,
         };
         assert!(condition.matches(&context));
         let context = ConfigResolutionContext {
@@ -608,6 +776,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "host-c",
+            remotes: None,
         };
         assert!(!condition.matches(&context));
     }
@@ -628,6 +797,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -667,6 +837,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 7);
@@ -708,6 +879,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -719,6 +891,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 3);
@@ -732,6 +905,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -744,6 +918,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -780,6 +955,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -791,6 +967,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "host-a",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 3);
@@ -804,6 +981,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "host-b",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -816,6 +994,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "host-c",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -852,6 +1031,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -863,6 +1043,7 @@ mod tests {
             workspace_path: Some(Path::new("/foo")),
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 3);
@@ -876,6 +1057,7 @@ mod tests {
             workspace_path: Some(Path::new("/bar")),
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -888,6 +1070,7 @@ mod tests {
             workspace_path: Some(Path::new("/home/dir/baz")),
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -920,6 +1103,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -931,6 +1115,7 @@ mod tests {
             workspace_path: None,
             command: Some("foo"),
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 3);
@@ -944,6 +1129,7 @@ mod tests {
             workspace_path: None,
             command: Some("bar"),
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -956,6 +1142,7 @@ mod tests {
             workspace_path: None,
             command: Some("foo baz"),
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 4);
@@ -971,6 +1158,7 @@ mod tests {
             workspace_path: None,
             command: Some("fooqux"),
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -1003,6 +1191,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         insta::assert_snapshot!(resolved_config.layers()[0].data, @r"
@@ -1045,6 +1234,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -1057,6 +1247,7 @@ mod tests {
             workspace_path: None,
             command: Some("other"),
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -1069,6 +1260,7 @@ mod tests {
             workspace_path: None,
             command: Some("ABC"),
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 1);
@@ -1081,6 +1273,7 @@ mod tests {
             workspace_path: None,
             command: Some("DEF"),
             hostname: "",
+            remotes: None,
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
         assert_eq!(resolved_config.layers().len(), 2);
@@ -1101,6 +1294,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert_matches!(
             resolve(&new_config("--when.repositories = 0"), &context),
@@ -1121,6 +1315,7 @@ mod tests {
             workspace_path: None,
             command: None,
             hostname: "",
+            remotes: None,
         };
         assert_matches!(
             resolve(&new_config("[--scope]"), &context),
@@ -1294,5 +1489,441 @@ mod tests {
             source_path: None,
         }
         "#);
+    }
+
+    #[test]
+    fn test_remote_condition_matches_name_and_url() {
+        let remote = RemoteInfo {
+            name: "origin".to_owned(),
+            fetch_url: Some("git@github.com:user/repo.git".to_owned()),
+            push_url: Some("git@github.com:user/repo.git".to_owned()),
+        };
+
+        // Exact name match with wildcard URL
+        let cond = RemoteCondition::from_raw("origin", &RawRemoteUrlCondition::Single("*".into()))
+            .unwrap();
+        assert!(cond.matches(&remote));
+
+        // Name pattern with wildcard URL
+        let cond =
+            RemoteCondition::from_raw("orig*", &RawRemoteUrlCondition::Single("*".into())).unwrap();
+        assert!(cond.matches(&remote));
+
+        // Non-matching name
+        let cond =
+            RemoteCondition::from_raw("upstream", &RawRemoteUrlCondition::Single("*".into()))
+                .unwrap();
+        assert!(!cond.matches(&remote));
+
+        // URL pattern matching
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Single("*github.com*".into()),
+        )
+        .unwrap();
+        assert!(cond.matches(&remote));
+
+        // Non-matching URL pattern
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Single("*gitlab.com*".into()),
+        )
+        .unwrap();
+        assert!(!cond.matches(&remote));
+
+        // Wildcard name with URL pattern
+        let cond =
+            RemoteCondition::from_raw("*", &RawRemoteUrlCondition::Single("*github.com*".into()))
+                .unwrap();
+        assert!(cond.matches(&remote));
+
+        // URL with scheme should be treated as glob by default
+        let https_remote = RemoteInfo {
+            name: "origin".to_owned(),
+            fetch_url: Some("https://github.com/user/repo.git".to_owned()),
+            push_url: None,
+        };
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Single("https://github.com/*".into()),
+        )
+        .unwrap();
+        assert!(cond.matches(&https_remote));
+    }
+
+    #[test]
+    fn test_remote_condition_with_empty_urls() {
+        // Test remote with no URLs (e.g. empty [remote "name"] section in git config)
+        let empty_remote = RemoteInfo {
+            name: "empty".to_owned(),
+            fetch_url: None,
+            push_url: None,
+        };
+
+        // Wildcard URL pattern should not match remote with no URLs
+        let cond =
+            RemoteCondition::from_raw("empty", &RawRemoteUrlCondition::Single("*".into())).unwrap();
+        assert!(!cond.matches(&empty_remote));
+
+        // Test that a valid remote is still matched even when an empty remote exists
+        let valid_remote = RemoteInfo {
+            name: "origin".to_owned(),
+            fetch_url: Some("git@github.com:user/repo.git".to_owned()),
+            push_url: None,
+        };
+
+        let cond = RemoteCondition::from_raw("origin", &RawRemoteUrlCondition::Single("*".into()))
+            .unwrap();
+        assert!(cond.matches(&valid_remote));
+    }
+
+    #[test]
+    fn test_matches_remote_with_empty_remote() {
+        // Test that an empty remote doesn't prevent matching other remotes
+        let remotes = vec![
+            RemoteInfo {
+                name: "empty".to_owned(),
+                fetch_url: None,
+                push_url: None,
+            },
+            RemoteInfo {
+                name: "origin".to_owned(),
+                fetch_url: Some("git@github.com:user/repo.git".to_owned()),
+                push_url: None,
+            },
+        ];
+
+        // Should match origin even though empty remote exists
+        let mut conditions = BTreeMap::new();
+        conditions.insert(
+            "origin".to_owned(),
+            RawRemoteUrlCondition::Single("*github.com*".into()),
+        );
+        assert!(matches_remote(Some(&conditions), Some(&remotes)));
+
+        // Should not match empty remote
+        let mut conditions = BTreeMap::new();
+        conditions.insert(
+            "empty".to_owned(),
+            RawRemoteUrlCondition::Single("*".into()),
+        );
+        assert!(!matches_remote(Some(&conditions), Some(&remotes)));
+    }
+
+    #[test]
+    fn test_remote_condition_direction() {
+        let remote = RemoteInfo {
+            name: "origin".to_owned(),
+            fetch_url: Some("git@github.com:user/repo.git".to_owned()),
+            push_url: Some("git@gitlab.com:user/repo.git".to_owned()),
+        };
+
+        // Match fetch URL
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Structured {
+                url: StringOrVec::Single("*github.com*".into()),
+                direction: RemoteDirection::Fetch,
+            },
+        )
+        .unwrap();
+        assert!(cond.matches(&remote));
+
+        // Match push URL (but not fetch)
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Structured {
+                url: StringOrVec::Single("*gitlab.com*".into()),
+                direction: RemoteDirection::Push,
+            },
+        )
+        .unwrap();
+        assert!(cond.matches(&remote));
+
+        // Fetch direction doesn't match push URL
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Structured {
+                url: StringOrVec::Single("*gitlab.com*".into()),
+                direction: RemoteDirection::Fetch,
+            },
+        )
+        .unwrap();
+        assert!(!cond.matches(&remote));
+
+        // Any direction matches either
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Structured {
+                url: StringOrVec::Single("*gitlab.com*".into()),
+                direction: RemoteDirection::Any,
+            },
+        )
+        .unwrap();
+        assert!(cond.matches(&remote));
+    }
+
+    #[test]
+    fn test_remote_condition_multiple_patterns() {
+        let remote = RemoteInfo {
+            name: "origin".to_owned(),
+            fetch_url: Some("git@github.com:user/repo.git".to_owned()),
+            push_url: None,
+        };
+
+        // Multiple URL patterns (any matches)
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Multiple(vec![
+                "*gitlab.com*".into(),
+                "*github.com*".into(), // This one matches
+            ]),
+        )
+        .unwrap();
+        assert!(cond.matches(&remote));
+
+        // None of the patterns match
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Multiple(vec!["*gitlab.com*".into(), "*bitbucket.org*".into()]),
+        )
+        .unwrap();
+        assert!(!cond.matches(&remote));
+    }
+
+    #[test]
+    fn test_matches_remote_function() {
+        let remotes = vec![
+            RemoteInfo {
+                name: "origin".to_owned(),
+                fetch_url: Some("git@github.com:user/repo.git".to_owned()),
+                push_url: None,
+            },
+            RemoteInfo {
+                name: "upstream".to_owned(),
+                fetch_url: Some("git@github.com:org/repo.git".to_owned()),
+                push_url: None,
+            },
+        ];
+
+        let mut conditions = BTreeMap::new();
+        conditions.insert(
+            "origin".to_owned(),
+            RawRemoteUrlCondition::Single("*".into()),
+        );
+
+        // Conditions match one of the remotes
+        assert!(matches_remote(Some(&conditions), Some(&remotes)));
+
+        // No remotes available
+        assert!(!matches_remote(Some(&conditions), None));
+
+        // No conditions specified (always matches)
+        assert!(matches_remote(None, Some(&remotes)));
+        assert!(matches_remote(None, None));
+
+        // Conditions don't match any remote
+        let mut conditions = BTreeMap::new();
+        conditions.insert(
+            "other".to_owned(),
+            RawRemoteUrlCondition::Single("*".into()),
+        );
+        assert!(!matches_remote(Some(&conditions), Some(&remotes)));
+    }
+
+    #[test]
+    fn test_remote_condition_invalid_pattern() {
+        // Invalid glob pattern in name
+        let result =
+            RemoteCondition::from_raw("ori[gin", &RawRemoteUrlCondition::Single("*".into()));
+        assert!(result.is_err());
+
+        // Invalid glob pattern in URL
+        let result =
+            RemoteCondition::from_raw("origin", &RawRemoteUrlCondition::Single("[bad".into()));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_remote_condition_pattern_types() {
+        let remote = RemoteInfo {
+            name: "origin".to_owned(),
+            fetch_url: Some("git@github.com:user/repo.git".to_owned()),
+            push_url: None,
+        };
+
+        // Glob pattern (default, no prefix)
+        let cond =
+            RemoteCondition::from_raw("origin", &RawRemoteUrlCondition::Single("*github*".into()))
+                .unwrap();
+        assert!(cond.matches(&remote));
+
+        // Explicit glob: prefix
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Single("glob:*github*".into()),
+        )
+        .unwrap();
+        assert!(cond.matches(&remote));
+
+        // exact: URL pattern - matches
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Single("exact:git@github.com:user/repo.git".into()),
+        )
+        .unwrap();
+        assert!(cond.matches(&remote));
+
+        // exact: pattern - no match (partial)
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Single("exact:github.com".into()),
+        )
+        .unwrap();
+        assert!(!cond.matches(&remote));
+
+        // substring: pattern
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Single("substring:github.com".into()),
+        )
+        .unwrap();
+        assert!(cond.matches(&remote));
+
+        // substring: pattern - no match
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Single("substring:gitlab".into()),
+        )
+        .unwrap();
+        assert!(!cond.matches(&remote));
+
+        // regex: pattern
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Single("regex:github\\.com.*repo".into()),
+        )
+        .unwrap();
+        assert!(cond.matches(&remote));
+
+        // regex: pattern - no match
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Single("regex:gitlab\\.com".into()),
+        )
+        .unwrap();
+        assert!(!cond.matches(&remote));
+
+        // Case-insensitive URL patterns
+        let cond = RemoteCondition::from_raw(
+            "origin",
+            &RawRemoteUrlCondition::Single("substring-i:GITHUB.COM".into()),
+        )
+        .unwrap();
+        assert!(cond.matches(&remote));
+    }
+
+    #[test]
+    fn test_resolve_with_remote_condition() {
+        let mut source_config = StackedConfig::empty();
+        source_config.add_layer(new_user_layer(indoc! {"
+            a = 'a #0'
+            [[--scope]]
+            --when.remote.origin = '*github.com*'
+            a = 'a #0.1 github'
+            [[--scope]]
+            --when.remote.origin = '*gitlab.com*'
+            a = 'a #0.2 gitlab'
+            [[--scope]]
+            --when.remote.upstream = '*'
+            a = 'a #0.3 upstream'
+        "}));
+
+        let remotes = vec![RemoteInfo {
+            name: "origin".to_owned(),
+            fetch_url: Some("git@github.com:user/repo.git".to_owned()),
+            push_url: None,
+        }];
+
+        // Remote condition matches github origin
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "",
+            remotes: Some(&remotes),
+        };
+        let resolved = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved.layers().len(), 2);
+        insta::assert_snapshot!(resolved.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved.layers()[1].data, @"a = 'a #0.1 github'");
+
+        // With upstream remote
+        let remotes_with_upstream = vec![
+            RemoteInfo {
+                name: "origin".to_owned(),
+                fetch_url: Some("git@github.com:user/repo.git".to_owned()),
+                push_url: None,
+            },
+            RemoteInfo {
+                name: "upstream".to_owned(),
+                fetch_url: Some("git@github.com:org/repo.git".to_owned()),
+                push_url: None,
+            },
+        ];
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "",
+            remotes: Some(&remotes_with_upstream),
+        };
+        let resolved = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved.layers().len(), 3);
+        insta::assert_snapshot!(resolved.layers()[0].data, @"a = 'a #0'");
+        insta::assert_snapshot!(resolved.layers()[1].data, @"a = 'a #0.1 github'");
+        insta::assert_snapshot!(resolved.layers()[2].data, @"a = 'a #0.3 upstream'");
+
+        // No remotes available - no scoped tables match
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "",
+            remotes: None,
+        };
+        let resolved = resolve(&source_config, &context).unwrap();
+        assert_eq!(resolved.layers().len(), 1);
+        insta::assert_snapshot!(resolved.layers()[0].data, @"a = 'a #0'");
+    }
+
+    #[test]
+    fn test_resolve_invalid_remote_pattern() {
+        let new_config = |text: &str| {
+            let mut config = StackedConfig::empty();
+            config.add_layer(new_user_layer(text));
+            config
+        };
+        let context = ConfigResolutionContext {
+            home_dir: None,
+            repo_path: None,
+            workspace_path: None,
+            command: None,
+            hostname: "",
+            remotes: None,
+        };
+        // Invalid glob pattern in remote name
+        assert_matches!(
+            resolve(&new_config("--when.remote.\"ori[gin\" = '*'"), &context),
+            Err(ConfigGetError::Type { .. })
+        );
+        // Invalid glob pattern in URL
+        assert_matches!(
+            resolve(&new_config("--when.remote.origin = '[bad'"), &context),
+            Err(ConfigGetError::Type { .. })
+        );
     }
 }

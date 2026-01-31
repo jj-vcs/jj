@@ -36,6 +36,7 @@ use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigResolutionContext;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
+use jj_lib::config::RemoteInfo;
 use jj_lib::config::StackedConfig;
 use jj_lib::secure_config::LoadedSecureConfig;
 use jj_lib::secure_config::SecureConfig;
@@ -340,6 +341,7 @@ pub struct ConfigEnv {
     workspace_config: Option<SecureConfig>,
     command: Option<String>,
     hostname: Option<String>,
+    remotes: Option<Vec<RemoteInfo>>,
     rng: Arc<Mutex<ChaCha20Rng>>,
 }
 
@@ -371,6 +373,7 @@ impl ConfigEnv {
             workspace_config: None,
             command: None,
             hostname: whoami::hostname().ok(),
+            remotes: None,
             // We would ideally use JjRng, but that requires the seed from the
             // config, which requires the config to be loaded.
             rng: Arc::new(Mutex::new(
@@ -473,6 +476,7 @@ impl ConfigEnv {
     pub fn reset_repo_path(&mut self, path: &Path) {
         self.repo_config = Some(SecureConfig::new_repo(path.to_path_buf()));
         self.repo_path = Some(path.to_owned());
+        self.remotes = load_remotes(path);
     }
 
     /// Returns a path to the existing repo-specific config file.
@@ -608,9 +612,56 @@ impl ConfigEnv {
             workspace_path: self.workspace_path.as_deref(),
             command: self.command.as_deref(),
             hostname: self.hostname.as_deref().unwrap_or(""),
+            remotes: self.remotes.as_deref(),
         };
         jj_lib::config::resolve(config.as_ref(), &context)
     }
+}
+
+/// Loads git remote information from the repository.
+#[cfg(feature = "git")]
+fn load_remotes(repo_path: &Path) -> Option<Vec<RemoteInfo>> {
+    use bstr::ByteSlice as _;
+
+    use crate::git_util;
+
+    // repo_path is typically <workspace>/.jj/repo
+    let store_path = repo_path.join("store");
+    let git_path = git_util::locate_git_repo(&store_path)?;
+    let git_repo = gix::open(&git_path).ok()?;
+
+    let mut remotes = Vec::new();
+    for name in git_repo.remote_names() {
+        // Skip remotes with non-UTF-8 names
+        let Some(name_str) = std::str::from_utf8(name.as_ref()).ok() else {
+            continue;
+        };
+
+        // Skip invalid/empty remotes
+        let Some(Ok(remote)) = git_repo.try_find_remote(name.as_ref()) else {
+            continue;
+        };
+
+        let fetch_url = remote
+            .url(gix::remote::Direction::Fetch)
+            .and_then(|url| url.to_bstring().to_str().ok().map(str::to_owned));
+
+        let push_url = remote
+            .url(gix::remote::Direction::Push)
+            .and_then(|url| url.to_bstring().to_str().ok().map(str::to_owned));
+
+        remotes.push(RemoteInfo {
+            name: name_str.to_owned(),
+            fetch_url,
+            push_url,
+        });
+    }
+    Some(remotes)
+}
+
+#[cfg(not(feature = "git"))]
+fn load_remotes(_repo_path: &Path) -> Option<Vec<RemoteInfo>> {
+    None
 }
 
 fn config_files_for(
@@ -1828,6 +1879,7 @@ mod tests {
             workspace_config: None,
             command: None,
             hostname: None,
+            remotes: None,
             rng: Arc::new(Mutex::new(ChaCha20Rng::seed_from_u64(0))),
         }
     }

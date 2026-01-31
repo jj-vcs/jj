@@ -2106,3 +2106,34 @@ wip = ["log", "-r", "work"]
   --when.platforms = ["linux", "freebsd"]   # matches Linux or and FreeBSD, but not macOS
   --when.platforms = ["unix"]               # matches anything in the Unix family (Linux, FreeBSD, macOS, etc.)
   ```
+
+* `--when.remote`: Map of remote name patterns to URL conditions.
+
+  Keys are remote name glob patterns (e.g. `origin`, `*`, `upstream*`).
+  Values are URL patterns to match. URL patterns support jj's string pattern
+  syntax (`exact:`, `glob:`, `regex:`, `substring:`, and `*-i` variants);
+  if no prefix is provided, `glob:` is assumed.
+  The condition matches if any configured Git remote matches any entry.
+  This is similar to Git's [`includeIf "hasconfig:remote.<name>.url:<pattern>"`](https://git-scm.com/docs/git-config#Documentation/git-config.txt-hasconfigremoteurl).
+
+  Values can be:
+  - A string: URL pattern (matches fetch or push URL)
+  - An array: Multiple URL patterns
+  - An object: `{ url = "...", direction = "fetch" | "push" | "any" }`
+
+  ```toml
+  # Match remote named "origin" with any URL
+  --when.remote.origin = "*"
+
+  # Match any remote with GitHub URL
+  --when.remote."*" = "*github.com*"
+
+  # Match origin's fetch URL specifically
+  --when.remote.origin = { url = "git@github.com:work-org/**", direction = "fetch" }
+
+  # Multiple URL patterns
+  --when.remote.origin = ["git@github.com:*", "https://github.com/*"]
+  ```
+
+  If the repository doesn't have a Git backend or remotes cannot be read, the
+  condition evaluates to false.

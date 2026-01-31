@@ -1061,6 +1061,55 @@
                             "xous"
                         ]
                     }
+                },
+                "remote": {
+                    "type": "object",
+                    "description": "Map of remote name patterns to URL conditions. Patterns use jj string pattern syntax; default is glob. Matches if any configured Git remote matches any entry.",
+                    "additionalProperties": {
+                        "oneOf": [
+                            {
+                                "type": "string",
+                                "description": "URL pattern (string pattern, glob by default)"
+                            },
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "description": "Multiple URL patterns"
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "url": {
+                                        "oneOf": [
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    "direction": {
+                                        "type": "string",
+                                        "enum": [
+                                            "fetch",
+                                            "push",
+                                            "any"
+                                        ],
+                                        "default": "any"
+                                    }
+                                },
+                                "required": [
+                                    "url"
+                                ]
+                            }
+                        ]
+                    }
                 }
             }
         },
