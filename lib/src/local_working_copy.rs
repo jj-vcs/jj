@@ -1254,9 +1254,9 @@ impl TreeState {
     /// Look for changes to the working copy. If there are any changes, create
     /// a new tree from it.
     #[instrument(skip_all)]
-    pub async fn snapshot<'a>(
+    pub async fn snapshot(
         &mut self,
-        options: &SnapshotOptions<'a>,
+        options: &SnapshotOptions<'_>,
     ) -> Result<(bool, SnapshotStats), SnapshotError> {
         let &SnapshotOptions {
             ref base_ignores,

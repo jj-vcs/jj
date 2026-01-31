@@ -179,11 +179,11 @@ impl<'content> UnifiedDiffHunk<'content> {
     }
 }
 
-pub fn unified_diff_hunks<'content>(
-    contents: Diff<&'content BStr>,
+pub fn unified_diff_hunks(
+    contents: Diff<&BStr>,
     context: usize,
     options: LineCompareMode,
-) -> Vec<UnifiedDiffHunk<'content>> {
+) -> Vec<UnifiedDiffHunk<'_>> {
     let mut hunks = vec![];
     let mut current_hunk = UnifiedDiffHunk {
         left_line_range: 0..0,

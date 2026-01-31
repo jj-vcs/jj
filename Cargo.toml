@@ -137,6 +137,7 @@ testutils = { path = "lib/testutils" }
 borrow_as_ptr = "warn"
 cast_lossless = "warn"
 cloned_instead_of_copied = "warn"
+elidable_lifetime_names = "warn"
 explicit_into_iter_loop = "warn"
 explicit_iter_loop = "warn"
 flat_map_option = "warn"
