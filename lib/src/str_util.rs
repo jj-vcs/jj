@@ -183,6 +183,19 @@ impl StringPattern {
         }
     }
 
+    /// Parses a string as `kind:pattern`, falling back to glob if no valid
+    /// prefix.
+    pub fn parse(src: &str) -> Result<Self, StringPatternParseError> {
+        if let Some((kind, pattern)) = src.split_once(':') {
+            match Self::from_str_kind(pattern, kind) {
+                Ok(p) => return Ok(p),
+                Err(StringPatternParseError::InvalidKind(_)) => {}
+                Err(e) => return Err(e),
+            }
+        }
+        Self::glob(src)
+    }
+
     /// Returns true if this pattern trivially matches any input strings.
     pub fn is_all(&self) -> bool {
         match self {
@@ -661,6 +674,47 @@ mod tests {
         assert_matches!(
             StringPattern::from_str_kind("foo", "regex-i"),
             Ok(StringPattern::RegexI(p)) if p.as_str() == "foo"
+        );
+    }
+
+    #[test]
+    fn test_parse_with_optional_kind() {
+        // Explicit kind prefix
+        assert_matches!(
+            StringPattern::parse("exact:foo"),
+            Ok(StringPattern::Exact(s)) if s == "foo"
+        );
+        assert_matches!(
+            StringPattern::parse("glob:foo*"),
+            Ok(StringPattern::Glob(p)) if p.as_str() == "foo*"
+        );
+        assert_matches!(
+            StringPattern::parse("regex:^foo$"),
+            Ok(StringPattern::Regex(p)) if p.as_str() == "^foo$"
+        );
+
+        // No prefix defaults to glob
+        assert_matches!(
+            StringPattern::parse("foo*"),
+            Ok(StringPattern::Glob(p)) if p.as_str() == "foo*"
+        );
+        // No glob chars -> exact match
+        assert_matches!(StringPattern::parse("foo"), Ok(StringPattern::Exact(s)) if s == "foo");
+
+        // Unknown prefix treated as glob (e.g. URLs)
+        assert_matches!(
+            StringPattern::parse("https://example.com/*"),
+            Ok(StringPattern::Glob(p)) if p.as_str() == "https://example.com/*"
+        );
+        assert_matches!(
+            StringPattern::parse("git@github.com:user/repo"),
+            Ok(StringPattern::Exact(s)) if s == "git@github.com:user/repo"
+        );
+
+        // Invalid regex still errors
+        assert_matches!(
+            StringPattern::parse("regex:(unclosed"),
+            Err(StringPatternParseError::Regex(_))
         );
     }
 
