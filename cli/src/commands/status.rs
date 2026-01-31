@@ -45,6 +45,9 @@ use crate::ui::Ui;
 ///
 /// * [Conflicted bookmarks]
 ///
+/// Note: You can use `jj diff --summary -r <rev>` to see the changed files for
+/// a specific revision.
+///
 /// [Conflicted bookmarks]:
 ///     https://docs.jj-vcs.dev/latest/bookmarks/#conflicts
 #[derive(clap::Args, Clone, Debug)]
