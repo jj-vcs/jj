@@ -60,7 +60,7 @@ pub(crate) struct MetaeditArgs {
     ///
     /// Use `jj describe` if you want to use an editor.
     #[arg(long = "message", short, value_name = "MESSAGE")]
-    message_paragraphs: Vec<String>,
+    message_paragraphs: Option<Vec<String>>,
 
     /// Update the author timestamp
     ///
@@ -185,11 +185,10 @@ pub(crate) fn cmd_metaedit(
         }
     };
 
-    let new_description = if !args.message_paragraphs.is_empty() {
-        Some(join_message_paragraphs(&args.message_paragraphs))
-    } else {
-        None
-    };
+    let new_description = args
+        .message_paragraphs
+        .as_deref()
+        .map(join_message_paragraphs);
 
     let mut num_reparented = 0;
     let commit_ids_set: HashSet<_> = commit_ids.iter().cloned().collect();

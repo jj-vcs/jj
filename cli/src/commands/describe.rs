@@ -66,7 +66,7 @@ pub(crate) struct DescribeArgs {
         value_name = "MESSAGE",
         conflicts_with = "stdin"
     )]
-    message_paragraphs: Vec<String>,
+    message_paragraphs: Option<Vec<String>>,
 
     /// Read the change description from stdin
     ///
@@ -191,10 +191,10 @@ pub(crate) fn cmd_describe(
         let mut buffer = String::new();
         io::stdin().read_to_string(&mut buffer)?;
         Some(complete_newline(buffer))
-    } else if !args.message_paragraphs.is_empty() {
-        Some(join_message_paragraphs(&args.message_paragraphs))
     } else {
-        None
+        args.message_paragraphs
+            .as_deref()
+            .map(join_message_paragraphs)
     };
 
     let mut commit_builders = commits

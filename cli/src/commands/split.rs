@@ -179,7 +179,7 @@ pub(crate) struct SplitArgs {
     /// Sets the description for the first commit (the one containing the
     /// selected changes). The second commit keeps the original description.
     #[arg(long = "message", short, value_name = "MESSAGE")]
-    message_paragraphs: Vec<String>,
+    message_paragraphs: Option<Vec<String>>,
 
     /// Open an editor to edit the change description
     ///
@@ -304,10 +304,9 @@ pub(crate) fn cmd_split(
             // become divergent.
             commit_builder.generate_new_change_id();
         }
-        let description = if args.message_paragraphs.is_empty() {
-            commit_builder.description().to_owned()
-        } else {
-            join_message_paragraphs(&args.message_paragraphs)
+        let description = match &args.message_paragraphs {
+            Some(paragraphs) => join_message_paragraphs(paragraphs),
+            None => commit_builder.description().to_owned(),
         };
         let description = if !description.is_empty() || args.editor {
             commit_builder.set_description(description);
@@ -315,7 +314,7 @@ pub(crate) fn cmd_split(
         } else {
             description
         };
-        let description = if args.editor || args.message_paragraphs.is_empty() {
+        let description = if args.editor || args.message_paragraphs.is_none() {
             commit_builder.set_description(description);
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the selected changes.";
@@ -371,7 +370,7 @@ pub(crate) fn cmd_split(
             // second commit.
             "".to_string()
         } else {
-            show_editor = show_editor || args.message_paragraphs.is_empty();
+            show_editor = show_editor || args.message_paragraphs.is_none();
             // Just keep the original message unchanged
             commit_builder.description().to_owned()
         };

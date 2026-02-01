@@ -145,7 +145,7 @@ pub(crate) struct SquashArgs {
 
     /// The description to use for squashed revision (don't open editor)
     #[arg(long = "message", short, value_name = "MESSAGE")]
-    message_paragraphs: Vec<String>,
+    message_paragraphs: Option<Vec<String>>,
 
     /// Use the description of the destination revision and discard the
     /// description(s) of the source revision(s)
@@ -441,11 +441,10 @@ enum SquashedDescription {
 impl SquashedDescription {
     fn from_args(args: &SquashArgs) -> Self {
         // These options are incompatible and Clap is configured to prevent this.
-        assert!(args.message_paragraphs.is_empty() || !args.use_destination_message);
+        assert!(args.message_paragraphs.is_none() || !args.use_destination_message);
 
-        if !args.message_paragraphs.is_empty() {
-            let desc = join_message_paragraphs(&args.message_paragraphs);
-            Self::Exact(desc)
+        if let Some(paragraphs) = &args.message_paragraphs {
+            Self::Exact(join_message_paragraphs(paragraphs))
         } else if args.use_destination_message {
             Self::UseDestination
         } else {

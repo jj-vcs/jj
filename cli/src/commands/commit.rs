@@ -66,7 +66,7 @@ pub(crate) struct CommitArgs {
 
     /// The change description to use (don't open editor)
     #[arg(long = "message", short, value_name = "MESSAGE")]
-    message_paragraphs: Vec<String>,
+    message_paragraphs: Option<Vec<String>>,
 
     /// Open an editor to edit the change description
     ///
@@ -180,8 +180,8 @@ new working-copy commit.
         commit_builder.set_author(new_author);
     }
 
-    let description = if !args.message_paragraphs.is_empty() {
-        let mut description = join_message_paragraphs(&args.message_paragraphs);
+    let description = if let Some(paragraphs) = &args.message_paragraphs {
+        let mut description = join_message_paragraphs(paragraphs);
         if !description.is_empty() || args.editor {
             // The first trailer would become the first line of the description.
             // Also, a commit with no description is treated in a special way in jujutsu: it
@@ -194,7 +194,7 @@ new working-copy commit.
     } else {
         add_trailers(ui, &tx, &commit_builder)?
     };
-    let description = if args.message_paragraphs.is_empty() || args.editor {
+    let description = if args.message_paragraphs.is_none() || args.editor {
         commit_builder.set_description(description);
         let temp_commit = commit_builder.write_hidden()?;
         let intro = "";
