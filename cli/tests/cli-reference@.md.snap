@@ -1661,6 +1661,7 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 
    Automatically tracks the bookmark if it is new.
 * `--dry-run` — Only display what will change on the remote
+* `--atomic` — Push all changes atomically
 
 
 

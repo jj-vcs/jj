@@ -4404,6 +4404,7 @@ fn test_push_bookmarks_success() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
+        false,
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -4483,6 +4484,7 @@ fn test_push_bookmarks_deletion() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
+        false,
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -4561,6 +4563,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
+        false,
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -4642,6 +4645,7 @@ fn test_push_bookmarks_not_fast_forward() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
+        false,
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -4695,6 +4699,7 @@ fn test_push_bookmarks_partial_success() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
+        false,
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -4804,6 +4809,7 @@ fn test_push_bookmarks_unmapped_refs() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
+        false,
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -4901,6 +4907,7 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
             "origin".as_ref(),
             &targets,
             &mut NullCallback,
+            false,
         )
     };
 
@@ -4985,6 +4992,7 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
             "origin".as_ref(),
             &targets,
             &mut NullCallback,
+            false,
         )
     };
 
@@ -5049,6 +5057,7 @@ fn test_push_updates_unexpectedly_exists_on_remote() {
             "origin".as_ref(),
             &targets,
             &mut NullCallback,
+            false,
         )
     };
 
@@ -5085,6 +5094,7 @@ fn test_push_updates_success() {
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
         &mut NullCallback,
+        false,
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -5131,6 +5141,7 @@ fn test_push_updates_no_such_remote() {
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
         &mut NullCallback,
+        false,
     );
     assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));
 }
@@ -5151,6 +5162,7 @@ fn test_push_updates_invalid_remote() {
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
         &mut NullCallback,
+        false,
     );
     assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));
 }
@@ -5184,6 +5196,7 @@ fn test_push_environment_options() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
+        false,
     )
     .unwrap();
 
