@@ -89,25 +89,23 @@ pub(crate) fn cmd_file_track(
 
 pub fn print_track_snapshot_stats(
     ui: &Ui,
-    auto_stats: SnapshotStats,
+    mut auto_stats: SnapshotStats,
     track_stats: SnapshotStats,
     path_converter: &RepoPathUiConverter,
 ) -> io::Result<()> {
-    let mut merged_untracked_paths = auto_stats.untracked_paths;
-    for (path, reason) in track_stats
-        .untracked_paths
-        .into_iter()
-        // focus on files that are now tracked with `file track`
-        .filter(|(_, reason)| !matches!(reason, UntrackedReason::FileNotAutoTracked))
-    {
-        // if the path was previously rejected because it wasn't tracked, update its
-        // reason
-        merged_untracked_paths.insert(path, reason);
+    let mut untracked_paths = track_stats.untracked_paths;
+    for (path, reason) in &mut untracked_paths {
+        if !matches!(reason, UntrackedReason::FileNotAutoTracked) {
+            continue;
+        }
+        if let Some(old_reason) = auto_stats.untracked_paths.remove(path) {
+            *reason = old_reason;
+        }
     }
 
-    print_untracked_files(ui, &merged_untracked_paths, path_converter)?;
+    print_untracked_files(ui, &untracked_paths, path_converter)?;
 
-    let (large_files, sizes): (Vec<_>, Vec<_>) = merged_untracked_paths
+    let (large_files, sizes): (Vec<_>, Vec<_>) = untracked_paths
         .iter()
         .filter_map(|(path, reason)| match reason {
             UntrackedReason::FileTooLarge { size, .. } => Some((path, *size)),
