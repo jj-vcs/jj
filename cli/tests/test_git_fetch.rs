@@ -741,8 +741,16 @@ fn test_git_fetch_tags_by_name() {
             .unwrap();
     }
 
-    // Fetch branches but no tags
+    // --tag disables default refspecs
     let output = work_dir.run_jj(["git", "fetch", "--tag=~*"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Nothing changed.
+    [EOF]
+    ");
+
+    // Fetch branches but no tags
+    let output = work_dir.run_jj(["git", "fetch", "--branch=*", "--tag=~*"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: origin@origin [new] untracked
@@ -792,7 +800,6 @@ fn test_git_fetch_tags_by_name() {
     let output = work_dir.run_jj(["git", "fetch", "--tag=*"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    bookmark: origin@origin [updated] untracked
     tag: tag1@origin [updated] 
     tag: tag2@origin [deleted] 
     [EOF]

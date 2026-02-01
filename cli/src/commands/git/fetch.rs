@@ -47,6 +47,9 @@ use crate::ui::Ui;
 
 /// Fetch from a Git remote
 ///
+/// If no branches nor tags are specified, the default fetch refspecs are read
+/// from the Git configuration.
+///
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
 #[derive(clap::Args, Clone, Debug)]
@@ -156,16 +159,14 @@ pub fn cmd_git_fetch(
 
     let mut tx = workspace_command.start_transaction();
 
-    // TODO: maybe we should turn the default off (i.e. set
-    // `Some(StringExpression::none())`) if either --branch or --tag is
-    // specified. This is similar to the default revset of `jj git push`.
+    let is_specific = args.branches.is_some() || args.tags.is_some();
     let common_bookmark_expr = match &args.branches {
         Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
-        None => None,
+        None => is_specific.then(StringExpression::none),
     };
     let common_tag_expr = match &args.tags {
         Some(texts) => Some(parse_union_name_patterns(ui, texts)?),
-        None => None,
+        None => is_specific.then(StringExpression::none),
     };
     let mut expansions = Vec::with_capacity(matching_remotes.len());
     if args.tracked {
