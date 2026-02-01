@@ -15,8 +15,6 @@
 use std::io;
 use std::io::Write as _;
 
-use indoc::writedoc;
-use itertools::Itertools as _;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::working_copy::SnapshotStats;
 use jj_lib::working_copy::UntrackedReason;
@@ -24,6 +22,7 @@ use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::print_large_file_hint;
 use crate::cli_util::print_untracked_files;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
@@ -113,23 +112,11 @@ pub fn print_track_snapshot_stats(
         })
         .unzip();
     if let Some(size) = sizes.iter().max() {
-        let large_files_list = large_files
+        let large_files_list: Vec<_> = large_files
             .iter()
             .map(|path| path_converter.format_file_path(path))
-            .join(" ");
-        writedoc!(
-            ui.hint_default(),
-            r"
-            This is to prevent large files from being added by accident. You can fix this by:
-              - Adding the file to `.gitignore`
-              - Run `jj config set --repo snapshot.max-new-file-size {size}`
-                This will increase the maximum file size allowed for new files, in this repository only.
-              - Run `jj --config snapshot.max-new-file-size={size} file track {large_files_list}`
-                This will increase the maximum file size allowed for new files, for this command only.
-              - Run `jj file track --include-ignored {large_files_list}`
-                This will track the files even though they exceed the size limit.
-            "
-        )?;
+            .collect();
+        print_large_file_hint(ui, *size, Some(&large_files_list))?;
     }
     Ok(())
 }

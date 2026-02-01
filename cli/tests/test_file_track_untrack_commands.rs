@@ -310,40 +310,40 @@ fn test_track_large_file_with_flag() {
 
     // Test the setup - both large files warned
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     small.txt
     [EOF]
     ------- stderr -------
     Warning: Refused to snapshot some files:
       large1.txt: 20.0B (20 bytes); the maximum size allowed is 10.0B (10 bytes)
       large2.txt: 20.0B (20 bytes); the maximum size allowed is 10.0B (10 bytes)
-    Hint: This is to prevent large files from being added by accident. You can fix this by:
-      - Adding the file to `.gitignore`
-      - Run `jj config set --repo snapshot.max-new-file-size 20`
+    Hint: This is to prevent large files from being added by accident. To fix this:
+      * Add the file(s) to `.gitignore`
+      * Run `jj config set --repo snapshot.max-new-file-size 20`
         This will increase the maximum file size allowed for new files, in this repository only.
-      - Run `jj --config snapshot.max-new-file-size=20 st`
+      * Run `jj --config snapshot.max-new-file-size=20 status`
         This will increase the maximum file size allowed for new files, for this command only.
     [EOF]
     ");
 
     // Track only large1.txt - large2.txt should still be warned about
     let output = work_dir.run_jj(["file", "track", "--include-ignored", "large1.txt"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Refused to snapshot some files:
       large2.txt: 20.0B (20 bytes); the maximum size allowed is 10.0B (10 bytes)
-    Hint: This is to prevent large files from being added by accident. You can fix this by:
-      - Adding the file to `.gitignore`
-      - Run `jj config set --repo snapshot.max-new-file-size 20`
+    Hint: This is to prevent large files from being added by accident. To fix this:
+      * Add the file(s) to `.gitignore`
+      * Run `jj config set --repo snapshot.max-new-file-size 20`
         This will increase the maximum file size allowed for new files, in this repository only.
       * Run `jj --config snapshot.max-new-file-size=20 file track large2.txt`
         This will increase the maximum file size allowed for new files, for this command only.
-      - Run `jj file track --include-ignored large2.txt`
-        This will track the files even though they exceed the size limit.
+      * Run `jj file track --include-ignored large2.txt`
+        This will track the file(s) regardless of size.
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     large1.txt
     small.txt
     [EOF]

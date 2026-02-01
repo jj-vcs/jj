@@ -2894,18 +2894,51 @@ pub fn print_snapshot_stats(
             UntrackedReason::FileNotAutoTracked => None,
         });
     if let Some(size) = large_files_sizes.max() {
-        writedoc!(
-            ui.hint_default(),
-            r"
-            This is to prevent large files from being added by accident. You can fix this by:
-              - Adding the file to `.gitignore`
-              - Run `jj config set --repo snapshot.max-new-file-size {size}`
-                This will increase the maximum file size allowed for new files, in this repository only.
-              - Run `jj --config snapshot.max-new-file-size={size} st`
-                This will increase the maximum file size allowed for new files, for this command only.
-            "
-        )?;
+        print_large_file_hint(ui, *size, None)?;
     }
+    Ok(())
+}
+
+/// Prints a hint about how to handle large files that were refused during
+/// snapshot.
+///
+/// If `large_files` is provided, the hint will include file-track-specific
+/// options like `--include-ignored`. Otherwise, it shows a simpler hint
+/// suitable for general snapshot operations.
+pub fn print_large_file_hint(
+    ui: &Ui,
+    max_size: u64,
+    large_files: Option<&[String]>,
+) -> io::Result<()> {
+    let (command, extra) = large_files
+        .map(|files| {
+            // shlex::try_quote fails if the string contains a nul byte, which
+            // shouldn't happen for file paths. Fall back to unquoted on error.
+            let files_list = files
+                .iter()
+                .map(|s| shlex::try_quote(s).unwrap_or(s.into()))
+                .join(" ");
+            let command = format!("file track {files_list}");
+            let extra = format!(
+                r"
+  * Run `jj file track --include-ignored {files_list}`
+    This will track the file(s) regardless of size."
+            );
+            (command, extra)
+        })
+        .unwrap_or(("status".to_string(), String::new()));
+
+    writedoc!(
+        ui.hint_default(),
+        r"
+        This is to prevent large files from being added by accident. To fix this:
+          * Add the file(s) to `.gitignore`
+          * Run `jj config set --repo snapshot.max-new-file-size {max_size}`
+            This will increase the maximum file size allowed for new files, in this repository only.
+          * Run `jj --config snapshot.max-new-file-size={max_size} {command}`
+            This will increase the maximum file size allowed for new files, for this command only.{extra}
+        "
+    )?;
     Ok(())
 }
 
