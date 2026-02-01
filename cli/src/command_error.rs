@@ -745,7 +745,7 @@ impl From<FixError> for CommandError {
         match err {
             FixError::Backend(err) => err.into(),
             FixError::RevsetEvaluation(err) => err.into(),
-            FixError::IO(err) => err.into(),
+            FixError::Io(err) => err.into(),
             FixError::FixContent(err) => internal_error_with_message(
                 "An error occurred while attempting to fix file content",
                 err,

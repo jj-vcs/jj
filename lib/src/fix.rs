@@ -66,7 +66,7 @@ pub enum FixError {
     RevsetEvaluation(#[from] RevsetEvaluationError),
     /// Error occurred while reading/writing file content.
     #[error(transparent)]
-    IO(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
     /// Error occurred while processing the file content.
     #[error(transparent)]
     FixContent(Box<dyn std::error::Error + Send + Sync>),
