@@ -131,9 +131,7 @@ fn write_repository_level_trunk_alias(
     config_env: &ConfigEnv,
     symbol: RemoteRefSymbol<'_>,
 ) -> Result<(), CommandError> {
-    let config_path = if let Some(path) = config_env.repo_config_path(ui)? {
-        path
-    } else {
+    let Some(config_path) = config_env.repo_config_path(ui)? else {
         // We couldn't find the user's home directory, so we skip this step.
         return Ok(());
     };

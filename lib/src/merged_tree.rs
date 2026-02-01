@@ -670,12 +670,9 @@ impl Iterator for TreeDiffIterator<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(top) = self.stack.last_mut() {
-            let (path, diff) = match top.entries.pop() {
-                Some(entry) => entry,
-                None => {
-                    self.stack.pop().unwrap();
-                    continue;
-                }
+            let Some((path, diff)) = top.entries.pop() else {
+                self.stack.pop().unwrap();
+                continue;
             };
 
             if diff.before.is_tree() || diff.after.is_tree() {

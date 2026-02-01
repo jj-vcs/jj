@@ -322,23 +322,20 @@ fn run_tool(
     }
     let mut command = tool_command.to_command_with_variables(&vars);
     tracing::debug!(?command, ?file_to_fix.repo_path, "spawning fix tool");
-    let mut child = match command
+    let Ok(mut child) = command
         .current_dir(workspace_root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-    {
-        Ok(child) => child,
-        Err(_) => {
-            writeln!(
-                ui.warning_default(),
-                "Failed to start `{}`",
-                tool_command.split_name(),
-            )
-            .ok();
-            return Err(());
-        }
+    else {
+        writeln!(
+            ui.warning_default(),
+            "Failed to start `{}`",
+            tool_command.split_name(),
+        )
+        .ok();
+        return Err(());
     };
     let mut stdin = child.stdin.take().expect(
         "The child process is created with piped stdin, and it's our first access to stdin.",

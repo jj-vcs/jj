@@ -99,9 +99,9 @@ fn check_wc_author(
     new_value: &toml_edit::Value,
     author_change: AuthorChange,
 ) -> io::Result<()> {
-    let helper = match command.workspace_helper(ui) {
-        Ok(helper) => helper,
-        Err(_) => return Ok(()), // config set should work even if cwd isn't a jj repo
+    let Ok(helper) = command.workspace_helper(ui) else {
+        // config set should work even if cwd isn't a jj repo
+        return Ok(());
     };
     if let Some(wc_commit) = maybe_wc_commit(&helper) {
         let author = wc_commit.author();
