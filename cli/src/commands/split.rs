@@ -304,17 +304,23 @@ pub(crate) fn cmd_split(
             // become divergent.
             commit_builder.generate_new_change_id();
         }
+        let use_editor = args.message_paragraphs.is_none() || args.editor;
         let description = match &args.message_paragraphs {
             Some(paragraphs) => join_message_paragraphs(paragraphs),
             None => commit_builder.description().to_owned(),
         };
-        let description = if !description.is_empty() || args.editor {
+        // The first trailer would become the first line of the description.
+        // Also, a commit with no description is treated in a special way in
+        // jujutsu: it can be discarded as soon as it's no longer the working
+        // copy. Adding a trailer to an empty description would break that
+        // logic.
+        let description = if !description.is_empty() || use_editor {
             commit_builder.set_description(description);
             add_trailers(ui, &tx, &commit_builder)?
         } else {
             description
         };
-        let description = if args.editor || args.message_paragraphs.is_none() {
+        let description = if use_editor {
             commit_builder.set_description(description);
             let temp_commit = commit_builder.write_hidden()?;
             let intro = "Enter a description for the selected changes.";

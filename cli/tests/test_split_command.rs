@@ -67,10 +67,20 @@ fn test_split_by_paths() {
 
     std::fs::write(
         &edit_script,
-        ["dump editor0", "next invocation\n", "dump editor1"].join("\0"),
+        [
+            "dump editor0",
+            "write\n",
+            "next invocation\n",
+            "dump editor1",
+        ]
+        .join("\0"),
     )
     .unwrap();
-    let output = work_dir.run_jj(["split", "file2"]);
+    let output = work_dir.run_jj([
+        "split",
+        "file2",
+        r#"--config=templates.commit_trailers='"Trailer: value"'"#,
+    ]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Selected changes : qpvuntsm 6dbc7747 (no description set)
@@ -79,10 +89,13 @@ fn test_split_by_paths() {
     Parent commit (@-)      : qpvuntsm 6dbc7747 (no description set)
     [EOF]
     ");
+    // Trailers should be added to the editor template
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
     JJ: Enter a description for the selected changes.
 
+
+    Trailer: value
 
     JJ: Change ID: qpvuntsm
     JJ: This commit contains the following changes:
