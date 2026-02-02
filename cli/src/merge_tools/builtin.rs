@@ -1069,74 +1069,72 @@ mod tests {
         );
     }
 
-    fn create_resolved_left_tree_with_copy_id(
-        store: Arc<Store>,
+    fn create_tree_with_copy_id(
+        store: &Arc<Store>,
         file_path: &RepoPath,
-        copy_id: CopyId,
+        contents: &[&str],
+        copy_id: &CopyId,
     ) -> MergedTree {
-        let mut tree_builder = testutils::TestTreeBuilder::new(store.clone());
-        tree_builder.file(file_path, "left\n").copy_id(copy_id);
-        tree_builder.write_merged_tree()
+        let tree_ids = contents
+            .iter()
+            .map(|contents| {
+                let mut tree_builder = testutils::TestTreeBuilder::new(store.clone());
+                tree_builder
+                    .file(file_path, *contents)
+                    .copy_id(copy_id.clone());
+                tree_builder.write_single_tree().id().clone()
+            })
+            .collect_vec();
+        MergedTree::new(
+            store.clone(),
+            Merge::from_vec(tree_ids),
+            ConflictLabels::unlabeled(),
+        )
+    }
+
+    fn create_resolved_left_tree_with_copy_id(
+        store: &Arc<Store>,
+        file_path: &RepoPath,
+        copy_id: &CopyId,
+    ) -> MergedTree {
+        let contents = ["left\n"];
+        create_tree_with_copy_id(store, file_path, &contents, copy_id)
     }
 
     fn create_conflict_left_tree_with_copy_id(
-        store: Arc<Store>,
+        store: &Arc<Store>,
         file_path: &RepoPath,
-        copy_id: CopyId,
+        copy_id: &CopyId,
     ) -> MergedTree {
-        let mut tree_builder = testutils::TestThreeWayMergeTreeBuilder::new(Arc::clone(&store));
-        tree_builder
-            .base()
-            .file(file_path, "")
-            .copy_id(copy_id.clone());
-        tree_builder
-            .parent1()
-            .file(file_path, "left parent1\n")
-            .copy_id(copy_id.clone());
-        tree_builder
-            .parent2()
-            .file(file_path, "left parent2\n")
-            .copy_id(copy_id);
-        tree_builder.write_merged_tree()
+        let contents = ["left parent1\n", "", "left parent2\n"];
+        create_tree_with_copy_id(store, file_path, &contents, copy_id)
     }
 
     fn create_resolved_right_tree_with_copy_id(
-        store: Arc<Store>,
+        store: &Arc<Store>,
         file_path: &RepoPath,
-        copy_id: CopyId,
+        copy_id: &CopyId,
     ) -> MergedTree {
-        let mut tree_builder = testutils::TestTreeBuilder::new(store.clone());
-        tree_builder.file(file_path, "right\n").copy_id(copy_id);
-        tree_builder.write_merged_tree()
+        let contents = ["right\n"];
+        create_tree_with_copy_id(store, file_path, &contents, copy_id)
     }
 
     fn create_conflict_right_tree_with_copy_id(
-        store: Arc<Store>,
+        store: &Arc<Store>,
         file_path: &RepoPath,
-        copy_id: CopyId,
+        copy_id: &CopyId,
     ) -> MergedTree {
-        let mut tree_builder = testutils::TestThreeWayMergeTreeBuilder::new(Arc::clone(&store));
-        tree_builder
-            .base()
-            .file(file_path, "")
-            .copy_id(copy_id.clone());
-        tree_builder
-            .parent1()
-            .file(file_path, "right parent1\n")
-            .copy_id(copy_id.clone());
-        tree_builder
-            .parent2()
-            .file(file_path, "right parent2\n")
-            .copy_id(copy_id);
-        tree_builder.write_merged_tree()
+        let contents = ["right parent1\n", "", "right parent2\n"];
+        create_tree_with_copy_id(store, file_path, &contents, copy_id)
     }
+
     #[test_matrix(
         [create_resolved_left_tree_with_copy_id, create_conflict_left_tree_with_copy_id],
         [create_resolved_right_tree_with_copy_id, create_conflict_right_tree_with_copy_id]
     )]
     fn test_edit_diff_builtin_apply_diff_should_preserve_copy_id(
-        create_left_tree: impl FnOnce(Arc<Store>, &RepoPath, CopyId) -> MergedTree,
-        create_right_tree: impl FnOnce(Arc<Store>, &RepoPath, CopyId) -> MergedTree,
+        create_left_tree: impl FnOnce(&Arc<Store>, &RepoPath, &CopyId) -> MergedTree,
+        create_right_tree: impl FnOnce(&Arc<Store>, &RepoPath, &CopyId) -> MergedTree,
     ) {
         let test_repo = TestRepo::init();
         let store = test_repo.repo.store();
@@ -1144,12 +1142,12 @@ mod tests {
         // A random unique copy id that is unlikely to collide.
         let copy_id = CopyId::from_bytes(b"\xe6\x64\x40\x71\x52\x94\x4d\xd9\x2d\xb1");
         let file_path = repo_path("file");
-        let left_tree = create_left_tree(Arc::clone(store), file_path, copy_id.clone());
+        let left_tree = create_left_tree(store, file_path, &copy_id);
         let right_tree = create_right_tree(
-            Arc::clone(store),
+            store,
             file_path,
             // Another random unique copy id that is unlikely to collide.
-            CopyId::from_bytes(b"\x02\x91\xeb\xd4\xc0\xed\x71\x33\xeb\xaf"),
+            &CopyId::from_bytes(b"\x02\x91\xeb\xd4\xc0\xed\x71\x33\xeb\xaf"),
         );
 
         let (changed_files, mut files) = make_diff(store, &left_tree, &right_tree);
