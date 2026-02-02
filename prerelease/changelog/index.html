@@ -6563,6 +6563,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <li>
 <p>New <code>remote_tags()</code> revset function to query remote tags.</p>
 </li>
+<li>
+<p>New builtin <code>hyperlink()</code> template function that gracefully falls back to
+  text when outputting to a non-terminal, instead of emitting raw OSC 8 escape
+  codes. <a href="https://github.com/jj-vcs/jj/issues/7592">#7592</a></p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <ul>
