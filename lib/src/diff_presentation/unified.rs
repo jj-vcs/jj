@@ -246,7 +246,7 @@ pub struct CombinedDiffHunk<'content> {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CombinedDiffMode {
-    Cc,
+    DenseCombined,
     Combined,
 }
 
@@ -500,7 +500,7 @@ pub fn combined_diff_hunks<'content>(
             lines,
         });
     }
-    if mode == CombinedDiffMode::Cc {
+    if mode == CombinedDiffMode::DenseCombined {
         hunks
             .into_iter()
             .filter(|hunk| {

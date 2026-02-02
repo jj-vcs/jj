@@ -156,24 +156,18 @@ fn test_evolog_with_or_without_diff() {
 
     // Test `--git` format, and that it implies `-p`
     let output = work_dir.run_jj(["evolog", "--no-graph", "--git"]);
-    insta::assert_snapshot!(output, @r#"
+    insta::assert_snapshot!(output, @"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     my description
     -- operation 29abe568fb5a snapshot working copy
-    diff --git a/file1 b/file1
-    index 0000000000..2ab19ae607 100644
+    diff --cc file1
+    index 0000000000,3bd1f0e297..2ab19ae607
     --- a/file1
     +++ b/file1
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: qpvuntsm c664a51b (parents of rebased revision)
-    -\\\\\\\        to: zzzzzzzz 00000000 (rebase destination)
-    --foo
-    -+++++++ rlvkpnrz 51e08f95 "my description" (rebased revision)
-    -foo
-    -bar
-    ->>>>>>> conflict 1 of 1 ends
-    +resolved
+    @@@ -0,0 -1,2 +1,1 @@@
+     -foo
+     -bar
+    ++resolved
     rlvkpnrz/1 test.user@example.com 2001-02-03 08:05:09 984f03b9 (hidden) (conflict)
     my description
     -- operation 863adc9ab542 rebase commit 51e08f95160c897080d035d330aead3ee6ed5588
@@ -203,7 +197,7 @@ fn test_evolog_with_or_without_diff() {
     @@ -0,0 +1,1 @@
     +my description
     [EOF]
-    "#);
+    ");
 }
 
 #[test]

@@ -82,23 +82,17 @@ fn test_resolution() {
     ");
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @"");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
-    diff --git a/file b/file
-    index 0000000000..88425ec521 100644
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"
+    diff --cc file
+    index 7898192261,6178079822..88425ec521
     --- a/file
     +++ b/file
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz 1792382a "base"
-    -\\\\\\\        to: zsuskuln 45537d53 "a"
-    --base
-    -+a
-    -+++++++ royxmykx 89d1b299 "b"
-    -b
-    ->>>>>>> conflict 1 of 1 ends
-    +resolution
+    @@@ -1,1 -1,1 +1,1 @@@
+    - a
+     -b
+    ++resolution
     [EOF]
-    "#);
+    ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     ------- stderr -------
     Error: No conflicts found at this revision
@@ -123,23 +117,17 @@ fn test_resolution() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
-    diff --git a/file b/file
-    index 0000000000..88425ec521 100644
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"
+    diff --cc file
+    index 7898192261,6178079822..88425ec521
     --- a/file
     +++ b/file
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz 1792382a "base"
-    -\\\\\\\        to: zsuskuln 45537d53 "a"
-    --base
-    -+a
-    -+++++++ royxmykx 89d1b299 "b"
-    -b
-    ->>>>>>> conflict 1 of 1 ends
-    +resolution
+    @@@ -1,1 -1,1 +1,1 @@@
+    - a
+     -b
+    ++resolution
     [EOF]
-    "#);
+    ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     ------- stderr -------
     Error: No conflicts found at this revision
@@ -173,23 +161,17 @@ fn test_resolution() {
     b
     >>>>>>> conflict 1 of 1 ends
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
-    diff --git a/file b/file
-    index 0000000000..88425ec521 100644
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"
+    diff --cc file
+    index 7898192261,6178079822..88425ec521
     --- a/file
     +++ b/file
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz 1792382a "base"
-    -\\\\\\\        to: zsuskuln 45537d53 "a"
-    --base
-    -+a
-    -+++++++ royxmykx 89d1b299 "b"
-    -b
-    ->>>>>>> conflict 1 of 1 ends
-    +resolution
+    @@@ -1,1 -1,1 +1,1 @@@
+    - a
+     -b
+    ++resolution
     [EOF]
-    "#);
+    ");
 
     // Check that if merge tool leaves conflict markers in output file and
     // `merge-tool-edits-conflict-markers=true`, these markers are properly parsed.
@@ -307,29 +289,23 @@ fn test_resolution() {
     insta::assert_snapshot!(
         std::fs::read_to_string(test_env.env_root().join("editor3")).unwrap(), @"");
     // Note the "Resolved" below
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
-    diff --git a/file b/file
-    index 0000000000..0610716cc1 100644
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"
+    diff --cc file
+    index 7898192261,6178079822..0610716cc1
     --- a/file
     +++ b/file
-    @@ -1,8 +1,7 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz 1792382a "base"
-    -\\\\\\\        to: zsuskuln 45537d53 "a"
-    --base
-    -+a
-    -+++++++ royxmykx 89d1b299 "b"
-    -b
-    ->>>>>>> conflict 1 of 1 ends
-    +<<<<<<<
-    +%%%%%%%
-    +-some
-    ++fake
-    ++++++++
-    +conflict
-    +>>>>>>>
+    @@@ -1,1 -1,1 +1,7 @@@
+    - a
+     -b
+    ++<<<<<<<
+    ++%%%%%%%
+    ++-some
+    +++fake
+    +++++++++
+    ++conflict
+    ++>>>>>>>
     [EOF]
-    "#);
+    ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     ------- stderr -------
     Error: No conflicts found at this revision
@@ -1101,23 +1077,17 @@ fn test_resolve_conflicts_with_executable() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
-    diff --git a/file1 b/file1
-    index 0000000000..95cc18629d 100755
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"
+    diff --cc file1
+    index da0f8ed91a,c9c6af7f78..95cc18629d
     --- a/file1
     +++ b/file1
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
-    -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
-    --base1
-    -+a1
-    -+++++++ yqosqzyt 36361412 "b"
-    -b1
-    ->>>>>>> conflict 1 of 1 ends
-    +resolution1
+    @@@ -1,1 -1,1 +1,1 @@@
+    - a1
+     -b1
+    ++resolution1
     [EOF]
-    "#);
+    ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file2    2-sided conflict including an executable
     [EOF]
@@ -1146,23 +1116,17 @@ fn test_resolve_conflicts_with_executable() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
-    diff --git a/file2 b/file2
-    index 0000000000..775f078581 100755
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"
+    diff --cc file2
+    index c1827f07e1,e6bfff5c1d..775f078581
     --- a/file2
     +++ b/file2
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
-    -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
-    --base2
-    -+a2
-    -+++++++ yqosqzyt 36361412 "b"
-    -b2
-    ->>>>>>> conflict 1 of 1 ends
-    +resolution2
+    @@@ -1,1 -1,1 +1,1 @@@
+    - a2
+     -b2
+    ++resolution2
     [EOF]
-    "#);
+    ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file1    2-sided conflict including an executable
     [EOF]
@@ -1179,37 +1143,7 @@ fn test_resolve_conflicts_with_executable() {
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
-    diff --git a/file1 b/file1
-    index 0000000000..da0f8ed91a 100755
-    --- a/file1
-    +++ b/file1
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
-    -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
-    --base1
-    -+a1
-    -+++++++ yqosqzyt 36361412 "b"
-    -b1
-    ->>>>>>> conflict 1 of 1 ends
-    +a1
-    diff --git a/file2 b/file2
-    index 0000000000..c1827f07e1 100755
-    --- a/file2
-    +++ b/file2
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
-    -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
-    --base2
-    -+a2
-    -+++++++ yqosqzyt 36361412 "b"
-    -b2
-    ->>>>>>> conflict 1 of 1 ends
-    +a2
-    [EOF]
-    "#);
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
 
     // Pick "their" contents, but merges executable bits
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
@@ -1222,35 +1156,7 @@ fn test_resolve_conflicts_with_executable() {
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
-    diff --git a/file1 b/file1
-    index 0000000000..c9c6af7f78 100755
-    --- a/file1
-    +++ b/file1
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
-    -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
-    --base1
-    -+a1
-    -+++++++ yqosqzyt 36361412 "b"
-     b1
-    ->>>>>>> conflict 1 of 1 ends
-    diff --git a/file2 b/file2
-    index 0000000000..e6bfff5c1d 100755
-    --- a/file2
-    +++ b/file2
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz b90abfa7 "base"
-    -\\\\\\\        to: mzvwutvl 86f7f0e3 "a"
-    --base2
-    -+a2
-    -+++++++ yqosqzyt 36361412 "b"
-     b2
-    ->>>>>>> conflict 1 of 1 ends
-    [EOF]
-    "#);
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
 }
 
 #[test]
@@ -1535,23 +1441,17 @@ fn test_pass_path_argument() {
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
-    diff --git a/file b/file
-    index 0000000000..88425ec521 100644
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"
+    diff --cc file
+    index 7898192261,6178079822..88425ec521
     --- a/file
     +++ b/file
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -+++++++ zsuskuln 45537d53 "a"
-    -a
-    -------- rlvkpnrz 1792382a "base"
-    -base
-    -+++++++ royxmykx 89d1b299 "b"
-    -b
-    ->>>>>>> conflict 1 of 1 ends
-    +resolution
+    @@@ -1,1 -1,1 +1,1 @@@
+    - a
+     -b
+    ++resolution
     [EOF]
-    "#);
+    ");
 
     // The output filtered to a non-existent file should display a warning.
     let output = work_dir.run_jj([
@@ -1922,23 +1822,17 @@ fn test_multiple_conflicts() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
-    diff --git a/another_file b/another_file
-    index 0000000000..a9fcc7d486 100644
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"
+    diff --cc another_file
+    index f1f6661788,5a75fd0980..a9fcc7d486
     --- a/another_file
     +++ b/another_file
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz fa081b8c "base"
-    -\\\\\\\        to: zsuskuln 2c821f70 "a"
-    --second base
-    -+second a
-    -+++++++ royxmykx 4c2029de "b"
-    -second b
-    ->>>>>>> conflict 1 of 1 ends
-    +resolution another_file
+    @@@ -1,1 -1,1 +1,1 @@@
+    - second a
+     -second b
+    ++resolution another_file
     [EOF]
-    "#);
+    ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     this_file_has_a_very_long_name_to_test_padding 2-sided conflict
     [EOF]
@@ -1966,37 +1860,25 @@ fn test_multiple_conflicts() {
     )
     .unwrap();
     work_dir.run_jj(["resolve"]).success();
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
-    diff --git a/another_file b/another_file
-    index 0000000000..7903e1c1c7 100644
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"
+    diff --cc another_file
+    index f1f6661788,5a75fd0980..7903e1c1c7
     --- a/another_file
     +++ b/another_file
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz fa081b8c "base"
-    -\\\\\\\        to: zsuskuln 2c821f70 "a"
-    --second base
-    -+second a
-    -+++++++ royxmykx 4c2029de "b"
-    -second b
-    ->>>>>>> conflict 1 of 1 ends
-    +first resolution for auto-chosen file
-    diff --git a/this_file_has_a_very_long_name_to_test_padding b/this_file_has_a_very_long_name_to_test_padding
-    index 0000000000..f8c72adf17 100644
+    @@@ -1,1 -1,1 +1,1 @@@
+    - second a
+     -second b
+    ++first resolution for auto-chosen file
+    diff --cc this_file_has_a_very_long_name_to_test_padding
+    index d6fca939c9,822099e97d..f8c72adf17
     --- a/this_file_has_a_very_long_name_to_test_padding
     +++ b/this_file_has_a_very_long_name_to_test_padding
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz fa081b8c "base"
-    -\\\\\\\        to: zsuskuln 2c821f70 "a"
-    --first base
-    -+first a
-    -+++++++ royxmykx 4c2029de "b"
-    -first b
-    ->>>>>>> conflict 1 of 1 ends
-    +second resolution for auto-chosen file
+    @@@ -1,1 -1,1 +1,1 @@@
+    - first a
+     -first b
+    ++second resolution for auto-chosen file
     [EOF]
-    "#);
+    ");
 
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     ------- stderr -------
@@ -2102,23 +1984,17 @@ fn test_multiple_conflicts_with_error() {
     [EOF]
     [exit status: 1]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
-    diff --git a/file1 b/file1
-    index 0000000000..95cc18629d 100644
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"
+    diff --cc file1
+    index da0f8ed91a,c9c6af7f78..95cc18629d
     --- a/file1
     +++ b/file1
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz 6591ac1d "base"
-    -\\\\\\\        to: zsuskuln 6c31698c "a"
-    --base1
-    -+a1
-    -+++++++ royxmykx ba0a5538 "b"
-    -b1
-    ->>>>>>> conflict 1 of 1 ends
-    +resolution1
+    @@@ -1,1 -1,1 +1,1 @@@
+    - a1
+     -b1
+    ++resolution1
     [EOF]
-    "#);
+    ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file2    2-sided conflict
     [EOF]
@@ -2155,23 +2031,17 @@ fn test_multiple_conflicts_with_error() {
     [EOF]
     [exit status: 1]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
-    diff --git a/file1 b/file1
-    index 0000000000..95cc18629d 100644
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"
+    diff --cc file1
+    index da0f8ed91a,c9c6af7f78..95cc18629d
     --- a/file1
     +++ b/file1
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: rlvkpnrz 6591ac1d "base"
-    -\\\\\\\        to: zsuskuln 6c31698c "a"
-    --base1
-    -+a1
-    -+++++++ royxmykx ba0a5538 "b"
-    -b1
-    ->>>>>>> conflict 1 of 1 ends
-    +resolution1
+    @@@ -1,1 -1,1 +1,1 @@@
+    - a1
+     -b1
+    ++resolution1
     [EOF]
-    "#);
+    ");
     insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
     file2    2-sided conflict
     [EOF]
