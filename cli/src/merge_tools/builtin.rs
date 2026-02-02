@@ -724,6 +724,7 @@ pub fn edit_merge_builtin(
             .collect_vec(),
         &state.files,
     )
+    .map_err(BuiltinToolError::BackendError)
 }
 
 fn apply_merge_builtin(
@@ -731,7 +732,7 @@ fn apply_merge_builtin(
     tree: &MergedTree,
     changed_files: Vec<RepoPathBuf>,
     files: &[scm_record::File],
-) -> Result<MergedTree, BuiltinToolError> {
+) -> BackendResult<MergedTree> {
     let mut tree_builder = MergedTreeBuilder::new(tree.clone());
     apply_changes(
         &mut tree_builder,
@@ -754,7 +755,7 @@ fn apply_merge_builtin(
             }))
         },
     )?;
-    Ok(tree_builder.write_tree()?)
+    tree_builder.write_tree()
 }
 
 #[cfg(test)]
