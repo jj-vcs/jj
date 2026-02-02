@@ -940,7 +940,7 @@ mod tests {
     }
 
     fn create_tree_with_executable(
-        store: Arc<Store>,
+        store: &Arc<Store>,
         file_path: &RepoPath,
         contents: &[&str],
         executable: bool,
@@ -963,45 +963,39 @@ mod tests {
     }
 
     fn create_resolved_left_tree_with_executable(
-        store: Arc<Store>,
+        store: &Arc<Store>,
         file_path: &RepoPath,
         executable: bool,
     ) -> MergedTree {
-        create_tree_with_executable(store, file_path, &["left\n"], executable)
+        let contents = ["left\n"];
+        create_tree_with_executable(store, file_path, &contents, executable)
     }
 
     fn create_conflict_left_tree_with_executable(
-        store: Arc<Store>,
+        store: &Arc<Store>,
         file_path: &RepoPath,
         executable: bool,
     ) -> MergedTree {
-        create_tree_with_executable(
-            store,
-            file_path,
-            &["left parent1\n", "", "left parent2 \n"],
-            executable,
-        )
+        let contents = ["left parent1\n", "", "left parent2\n"];
+        create_tree_with_executable(store, file_path, &contents, executable)
     }
 
     fn create_resolved_right_tree_with_executable(
-        store: Arc<Store>,
+        store: &Arc<Store>,
         file_path: &RepoPath,
         executable: bool,
     ) -> MergedTree {
-        create_tree_with_executable(store, file_path, &["right\n"], executable)
+        let contents = ["right\n"];
+        create_tree_with_executable(store, file_path, &contents, executable)
     }
 
     fn create_conflict_right_tree_with_executable(
-        store: Arc<Store>,
+        store: &Arc<Store>,
         file_path: &RepoPath,
         executable: bool,
     ) -> MergedTree {
-        create_tree_with_executable(
-            store,
-            file_path,
-            &["right parent1\n", "", "right parent2\n"],
-            executable,
-        )
+        let contents = ["right parent1\n", "", "right parent2\n"];
+        create_tree_with_executable(store, file_path, &contents, executable)
     }
 
     #[test_matrix(
@@ -1011,8 +1005,8 @@ mod tests {
     )]
     fn test_edit_diff_builtin_no_file_mode_section_when_file_modes_are_the_same(
         executable: bool,
-        create_left_tree: impl FnOnce(Arc<Store>, &RepoPath, bool) -> MergedTree,
-        create_right_tree: impl FnOnce(Arc<Store>, &RepoPath, bool) -> MergedTree,
+        create_left_tree: impl FnOnce(&Arc<Store>, &RepoPath, bool) -> MergedTree,
+        create_right_tree: impl FnOnce(&Arc<Store>, &RepoPath, bool) -> MergedTree,
     ) {
         // In this test, we create 2 trees that consist of only one file under the same
         // path. The executable bits are the same. Either of the left tree and the right
@@ -1025,8 +1019,8 @@ mod tests {
 
         let file_path = repo_path("file");
 
-        let left_tree = create_left_tree(store.clone(), file_path, executable);
-        let right_tree = create_right_tree(store.clone(), file_path, executable);
+        let left_tree = create_left_tree(store, file_path, executable);
+        let right_tree = create_right_tree(store, file_path, executable);
 
         let (changed_files, mut files) = make_diff(store, &left_tree, &right_tree);
         assert_eq!(files.len(), 1);
