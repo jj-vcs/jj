@@ -222,13 +222,16 @@ original commit.
 [templates]
 duplicate_description = '''
 concat(
-  description,
-  "\n(cherry picked from commit ",
+  description.trim_end(),
+  "\n\n(cherry picked from commit ",
   commit_id,
-  ")"
+  ")\n"
 )
 '''
 ```
+
+Note that `description` usually ends with a `\n` if it is not blank. Use
+`.trim_end()` to remove the `\n`.
 
 ### Bookmark/tag listing order
 

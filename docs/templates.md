@@ -144,7 +144,7 @@ _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: no_
 
 This type cannot be printed. The following methods are defined.
 
-* `.description() -> String`
+* `.description() -> String`: Usually ends with a trailing `\n`, if non-blank.
 * `.trailers() -> List<Trailer>`: The trailers at the end of the commit
   description that are formatted as `<key>: <value>`. These are returned in the
   same order as they appear in the description, and there may be multiple
