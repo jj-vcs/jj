@@ -66,6 +66,13 @@ use crate::ui::Ui;
 /// with existing conflicts will be updated on all sides of the conflict, which
 /// can potentially increase or decrease the number of conflict markers.
 ///
+/// ### Deduplication
+///
+/// When fixing multiple commits, if the same file content appears at the same
+/// path in different commits, the tool is run only once and the result is
+/// reused. This means that tools used with `jj fix` must produce deterministic
+/// output.
+///
 /// ### Configuration
 ///
 /// See `jj help -k config` chapter `Code formatting and other file content
