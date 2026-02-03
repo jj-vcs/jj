@@ -23,7 +23,7 @@ $ jj commit -m 'feat(bar): add support for bar'
 # Let Jujutsu generate a bookmark name and push that to GitHub. Note that we
 # push the working-copy commit's *parent* because the working-copy commit
 # itself is empty.
-$ jj git push -c @-
+$ jj git push --change @- # or -c for short
 ```
 
 ### Using a named bookmark
@@ -91,7 +91,7 @@ $ # Do your work
 $ jj commit
 $ # Push change "mw", letting Jujutsu automatically create a bookmark called
 $ # "push-mwmpwkwknuz"
-$ jj git push --change mw
+$ jj git push -c mw
 ```
 
 ## Addressing review comments
