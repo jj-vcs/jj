@@ -403,7 +403,7 @@ revsets (expressions) as arguments.
   For example, `diff_lines("*TODO*", "src")` will search revisions where "TODO"
   is added to or removed from files under "src".
 
-* `conflicts()`: Commits with conflicts.
+* `conflicts()`: Commits that have files in a conflicted state.
 
 * `divergent()`: Commits that are [divergent](glossary.md#divergent-change).
 
