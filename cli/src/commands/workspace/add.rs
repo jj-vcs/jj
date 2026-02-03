@@ -15,9 +15,11 @@
 use std::fs;
 
 use itertools::Itertools as _;
+use jj_lib::backend::CommitId;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::file_util;
 use jj_lib::file_util::IoResultExt as _;
+use jj_lib::git;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
@@ -122,6 +124,52 @@ pub fn cmd_workspace_add(
         ));
     }
 
+    let parent_commit_ids: Vec<CommitId> = if args.revision.is_empty() {
+        if let Some(old_wc_commit_id) = repo
+            .view()
+            .get_wc_commit_id(old_workspace_command.workspace_name())
+        {
+            let old_wc_commit = repo.store().get_commit(old_wc_commit_id)?;
+            old_wc_commit.parent_ids().to_vec()
+        } else {
+            vec![repo.store().root_commit_id().clone()]
+        }
+    } else {
+        old_workspace_command
+            .resolve_some_revsets(ui, &args.revision)?
+            .into_iter()
+            .collect()
+    };
+
+    // Best-effort Git worktree registration for colocated repos.
+    //
+    // Goal: minimally expose the new workspace to Git tooling (IDEs, hooks, etc.)
+    // by writing Git worktree metadata.
+    //
+    // Limitation: JJ does not synchronize per-worktree Git HEAD/index with the
+    // JJ working copy here, so Git commands that depend on worktree state may
+    // be inaccurate. Failures must not block workspace creation.
+    if crate::git_util::is_colocated_git_workspace(old_workspace_command.workspace(), repo)
+        && let Some(parent_id) = parent_commit_ids
+            .first()
+            .filter(|id| *id != repo.store().root_commit_id())
+    {
+        let subprocess_options =
+            git::GitSubprocessOptions::from_settings(old_workspace_command.settings())?;
+        if let Err(err) = git::add_worktree(
+            repo.as_ref(),
+            &destination_path,
+            parent_id,
+            subprocess_options,
+        ) {
+            writeln!(
+                ui.warning_default(),
+                "Failed to create Git worktree for \"{}\": {err}",
+                file_util::relative_path(command.cwd(), &destination_path).display(),
+            )?;
+        }
+    }
+
     let working_copy_factory = command.get_working_copy_factory()?;
     let repo_path = old_workspace_command.repo_path();
     // If we add per-workspace configuration, we'll need to reload settings for
@@ -178,29 +226,10 @@ pub fn cmd_workspace_add(
 
     // If no parent revisions are specified, create a working-copy commit based
     // on the parent of the current working-copy commit.
-    let parents = if args.revision.is_empty() {
-        // Check out parents of the current workspace's working-copy commit, or the
-        // root if there is no working-copy commit in the current workspace.
-        if let Some(old_wc_commit_id) = tx
-            .base_repo()
-            .view()
-            .get_wc_commit_id(old_workspace_command.workspace_name())
-        {
-            tx.repo()
-                .store()
-                .get_commit(old_wc_commit_id)?
-                .parents()
-                .try_collect()?
-        } else {
-            vec![tx.repo().store().root_commit()]
-        }
-    } else {
-        old_workspace_command
-            .resolve_some_revsets(ui, &args.revision)?
-            .iter()
-            .map(|id| tx.repo().store().get_commit(id))
-            .try_collect()?
-    };
+    let parents = parent_commit_ids
+        .iter()
+        .map(|id| tx.repo().store().get_commit(id))
+        .collect::<Result<Vec<_>, _>>()?;
 
     let tree = merge_commit_trees(tx.repo(), &parents).block_on()?;
     let parent_ids = parents.iter().ids().cloned().collect_vec();
