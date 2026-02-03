@@ -33,6 +33,7 @@ use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::complete;
+use crate::text_util;
 use crate::ui::Ui;
 
 /// Create new changes with the same content as existing ones
@@ -179,7 +180,8 @@ pub(crate) fn cmd_duplicate(
             .map(|commit_id| -> BackendResult<_> {
                 let commit = tx.repo().store().get_commit(commit_id)?;
                 let output = parsed.format_plain_text(&commit);
-                Ok((commit_id.clone(), output.into_string_lossy()))
+                let output = text_util::complete_newline(output.into_string_lossy());
+                Ok((commit_id.clone(), output))
             })
             .try_collect()?
     };

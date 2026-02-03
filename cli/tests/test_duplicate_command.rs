@@ -2447,30 +2447,30 @@ fn test_duplicate_description_template() {
     // Test duplicate_commits()
     test_env.add_config(r#"templates.duplicate_description = "concat(description, '\n(cherry picked from commit ', commit_id, ')')""#);
     let output = work_dir.run_jj(["duplicate", "a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Duplicated 7d980be7a1d4 as yostqsxw d6f0812f a
+    Duplicated 7d980be7a1d4 as yostqsxw f73017d9 a
     [EOF]
     ");
 
     // Test duplicate_commits_onto_parents()
     let output = work_dir.run_jj(["duplicate", "a", "-B", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Duplicating commit 7d980be7a1d4 as a descendant of itself
-    Duplicated 7d980be7a1d4 as znkkpsqq fe35e4a3 (empty) a
+    Duplicated 7d980be7a1d4 as znkkpsqq fdd77a5e (empty) a
     Rebased 2 commits onto duplicated commits
-    Working copy  (@) now at: royxmykx c414af3f c | c
-    Parent commit (@-)      : zsuskuln 6960bbcf b | b
+    Working copy  (@) now at: royxmykx 5679a60a c | c
+    Parent commit (@-)      : zsuskuln cb58e31e b | b
     [EOF]
     ");
 
     // Test empty template
     test_env.add_config("templates.duplicate_description = ''");
     let output = work_dir.run_jj(["duplicate", "b", "-o", "root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Duplicated 6960bbcfd5b1 as kpqxywon 33044659 (no description set)
+    Duplicated cb58e31ed5d4 as kpqxywon 33044659 (no description set)
     [EOF]
     ");
 
@@ -2486,34 +2486,41 @@ fn test_duplicate_description_template() {
         "--config",
         "template-aliases.description='\"alias\"'",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Duplicated c414af3f8d2f as kmkuslsw 3eb4e721 alias
+    Duplicated 5679a60ab86b as kmkuslsw e36bebd2 alias
     [EOF]
     ");
 
-    let template = r#"commit_id.short() ++ "\n" ++ description"#;
+    let template = r#"commit_id.short() ++ "\n" ++ description ++ "[END]\n""#;
     let output = work_dir.run_jj(["log", "-T", template]);
-    insta::assert_snapshot!(output, @r"
-    @  c414af3f8d2f
+    insta::assert_snapshot!(output, @"
+    @  5679a60ab86b
     │  c
-    ○  6960bbcfd5b1
+    │  [END]
+    ○  cb58e31ed5d4
     │  b
-    ○  fe35e4a3bf3a
+    │  [END]
+    ○  fdd77a5e11d5
     │  a
     │
     │  (cherry picked from commit 7d980be7a1d499e4d316ab4c01242885032f7eaf)
+    │  [END]
     ○  7d980be7a1d4
     │  a
-    │ ○  3eb4e7210ce7
+    │  [END]
+    │ ○  e36bebd28ab6
     ├─╯  alias
+    │    [END]
     │ ○  33044659b895
-    ├─╯
-    │ ○  d6f0812febab
+    ├─╯  [END]
+    │ ○  f73017d958e7
     ├─╯  a
     │
     │    (cherry picked from commit 7d980be7a1d499e4d316ab4c01242885032f7eaf)
+    │    [END]
     ◆  000000000000
+       [END]
     [EOF]
     ");
 }
