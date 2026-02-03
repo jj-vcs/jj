@@ -2835,7 +2835,7 @@ type</a> are available as keywords. For example,
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: no</em></p>
 <p>This type cannot be printed. The following methods are defined.</p>
 <ul>
-<li><code>.description() -&gt; String</code></li>
+<li><code>.description() -&gt; String</code>: Usually ends with a trailing <code>\n</code>, if non-blank.</li>
 <li><code>.trailers() -&gt; List&lt;Trailer&gt;</code>: The trailers at the end of the commit
   description that are formatted as <code>&lt;key&gt;: &lt;value&gt;</code>. These are returned in the
   same order as they appear in the description, and there may be multiple

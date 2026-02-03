@@ -3939,13 +3939,15 @@ original commit.</p>
 <div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
 <span class="n">duplicate_description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
 <span class="s1">concat(</span>
-<span class="s1">  description,</span>
-<span class="s1">  &quot;\n(cherry picked from commit &quot;,</span>
+<span class="s1">  description.trim_end(),</span>
+<span class="s1">  &quot;\n\n(cherry picked from commit &quot;,</span>
 <span class="s1">  commit_id,</span>
-<span class="s1">  &quot;)&quot;</span>
+<span class="s1">  &quot;)\n&quot;</span>
 <span class="s1">)</span>
 <span class="s1">&#39;&#39;&#39;</span>
 </code></pre></div>
+<p>Note that <code>description</code> usually ends with a <code>\n</code> if it is not blank. Use
+<code>.trim_end()</code> to remove the <code>\n</code>.</p>
 <h3 id="bookmarktag-listing-order">Bookmark/tag listing order<a class="headerlink" href="#bookmarktag-listing-order" title="Permanent link">&para;</a></h3>
 <p>By default, <code>jj bookmark list</code> and <code>jj tag list</code> display bookmarks and tags
 sorted alphabetically by name. You can customize this sorting behavior by
