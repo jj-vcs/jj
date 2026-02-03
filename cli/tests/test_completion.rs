@@ -943,16 +943,28 @@ fn test_revisions() {
         ])
         .success();
     origin_dir
-        .run_jj(["b", "c", "-r@", "remote_bookmark"])
+        .run_jj(["bookmark", "create", "-r@", "remote_bookmark"])
         .success();
     origin_dir
         .run_jj(["commit", "-m", "remote_commit"])
+        .success();
+    origin_dir
+        .run_jj(["bookmark", "create", "-r@", "deleted_bookmark"])
+        .success();
+    origin_dir
+        .run_jj(["commit", "-m", "deleted_remote_commit"])
         .success();
     origin_dir.run_jj(["git", "export"]).success();
     work_dir.run_jj(["git", "fetch"]).success();
 
     work_dir
-        .run_jj(["b", "c", "-r@", "immutable_bookmark"])
+        .run_jj(["bookmark", "track", "deleted_bookmark"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "delete", "deleted_bookmark"])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "immutable_bookmark"])
         .success();
     work_dir.run_jj(["commit", "-m", "immutable"]).success();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "immutable_bookmark""#);
@@ -970,7 +982,12 @@ fn test_revisions() {
     work_dir.run_jj(["describe", "-m", "mutable 2"]).success();
     // Create divergent change
     work_dir
-        .run_jj(["b", "c", "-r=at_operation(@-, @)", "mutable_bookmark"])
+        .run_jj([
+            "bookmark",
+            "create",
+            "-r=at_operation(@-, @)",
+            "mutable_bookmark",
+        ])
         .success();
 
     work_dir.run_jj(["new", "immutable_bookmark"]).success();
@@ -978,7 +995,7 @@ fn test_revisions() {
     work_dir.run_jj(["describe", "-m", "mutable 3"]).success();
     work_dir.run_jj(["new", "@", "mutable_bookmark"]).success();
     work_dir
-        .run_jj(["b", "c", "-r@", "conflicted_bookmark"])
+        .run_jj(["bookmark", "create", "-r@", "conflicted_bookmark"])
         .success();
     work_dir.run_jj(["describe", "-m", "conflicted"]).success();
 
@@ -995,18 +1012,21 @@ fn test_revisions() {
 
     // complete all revisions
     let output = work_dir.complete_fish(["diff", "--from", ""]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     conflicted_bookmark	conflicted
+    deleted_bookmark	(conflicted bookmark)
     immutable_bookmark	immutable
     mutable_bookmark	mutable 1
-    x	working_copy
-    k	conflicted
-    w	mutable 3
-    y/0	mutable 2
-    y/1	mutable 1
+    wv	working_copy
+    x	conflicted
+    u	mutable 3
+    wq/0	mutable 2
+    wq/1	mutable 1
     q	immutable
+    m	deleted_remote_commit
     r	remote_commit
     z	(no description set)
+    deleted_bookmark@origin	deleted_remote_commit
     remote_bookmark@origin	remote_commit
     alias_with_newline	    roots(
     siblings	@-+ ~@
@@ -1015,18 +1035,21 @@ fn test_revisions() {
 
     // complete all revisions in a revset expression
     let output = work_dir.complete_fish(["log", "-r", ".."]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ..conflicted_bookmark	conflicted
+    ..deleted_bookmark	(conflicted bookmark)
     ..immutable_bookmark	immutable
     ..mutable_bookmark	mutable 1
-    ..x	working_copy
-    ..k	conflicted
-    ..w	mutable 3
-    ..y/0	mutable 2
-    ..y/1	mutable 1
+    ..wv	working_copy
+    ..x	conflicted
+    ..u	mutable 3
+    ..wq/0	mutable 2
+    ..wq/1	mutable 1
     ..q	immutable
+    ..m	deleted_remote_commit
     ..r	remote_commit
     ..z	(no description set)
+    ..deleted_bookmark@origin	deleted_remote_commit
     ..remote_bookmark@origin	remote_commit
     ..alias_with_newline	    roots(
     ..siblings	@-+ ~@
@@ -1035,14 +1058,15 @@ fn test_revisions() {
 
     // complete only mutable revisions
     let output = work_dir.complete_fish(["squash", "--into", ""]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     conflicted_bookmark	conflicted
     mutable_bookmark	mutable 1
-    x	working_copy
-    k	conflicted
-    w	mutable 3
-    y/0	mutable 2
-    y/1	mutable 1
+    wv	working_copy
+    x	conflicted
+    u	mutable 3
+    wq/0	mutable 2
+    wq/1	mutable 1
+    m	deleted_remote_commit
     r	remote_commit
     alias_with_newline	    roots(
     siblings	@-+ ~@
@@ -1051,14 +1075,15 @@ fn test_revisions() {
 
     // complete only mutable revisions in a revset expression
     let output = work_dir.complete_fish(["abandon", "y::"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     y::conflicted_bookmark	conflicted
     y::mutable_bookmark	mutable 1
-    y::x	working_copy
-    y::k	conflicted
-    y::w	mutable 3
-    y::y/0	mutable 2
-    y::y/1	mutable 1
+    y::wv	working_copy
+    y::x	conflicted
+    y::u	mutable 3
+    y::wq/0	mutable 2
+    y::wq/1	mutable 1
+    y::m	deleted_remote_commit
     y::r	remote_commit
     y::alias_with_newline	    roots(
     y::siblings	@-+ ~@
@@ -1074,9 +1099,9 @@ fn test_revisions() {
 
     // complete conflicted revisions in a revset expression
     let output = work_dir.complete_fish(["resolve", "-r", ""]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     conflicted_bookmark	conflicted
-    k	conflicted
+    x	conflicted
     alias_with_newline	    roots(
     siblings	@-+ ~@
     [EOF]
@@ -1085,18 +1110,21 @@ fn test_revisions() {
     // complete args of the default command
     test_env.add_config("ui.default-command = 'log'");
     let output = work_dir.complete_fish(["-r", ""]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     conflicted_bookmark	conflicted
+    deleted_bookmark	(conflicted bookmark)
     immutable_bookmark	immutable
     mutable_bookmark	mutable 1
-    x	working_copy
-    k	conflicted
-    w	mutable 3
-    y/0	mutable 2
-    y/1	mutable 1
+    wv	working_copy
+    x	conflicted
+    u	mutable 3
+    wq/0	mutable 2
+    wq/1	mutable 1
     q	immutable
+    m	deleted_remote_commit
     r	remote_commit
     z	(no description set)
+    deleted_bookmark@origin	deleted_remote_commit
     remote_bookmark@origin	remote_commit
     alias_with_newline	    roots(
     siblings	@-+ ~@
@@ -1113,18 +1141,21 @@ fn test_revisions() {
     insta::assert_snapshot!(output, @"");
 
     let output = work_dir.complete_fish(["git", "push", "--named", "a="]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a=conflicted_bookmark	conflicted
+    a=deleted_bookmark	(conflicted bookmark)
     a=immutable_bookmark	immutable
     a=mutable_bookmark	mutable 1
-    a=x	working_copy
-    a=k	conflicted
-    a=w	mutable 3
-    a=y/0	mutable 2
-    a=y/1	mutable 1
+    a=wv	working_copy
+    a=x	conflicted
+    a=u	mutable 3
+    a=wq/0	mutable 2
+    a=wq/1	mutable 1
     a=q	immutable
+    a=m	deleted_remote_commit
     a=r	remote_commit
     a=z	(no description set)
+    a=deleted_bookmark@origin	deleted_remote_commit
     a=remote_bookmark@origin	remote_commit
     a=alias_with_newline	    roots(
     a=siblings	@-+ ~@
