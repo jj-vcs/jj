@@ -63,6 +63,7 @@ name = "datatest_runner"
 harness = false
 
 [dependencies]
+ansi-to-tui = { workspace = true }
 bstr = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
