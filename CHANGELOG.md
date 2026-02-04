@@ -10,6 +10,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Release highlights
 
+### Breaking changes
+
+### Deprecations
+
+### New features
+
+### Fixed bugs
+
+## [0.38.0] - 2026-02-04
+
+### Release highlights
+
 * Per-repo and per-workspace config is now stored outside the repo, for security
   reasons. This is not a breaking change because we automatically migrate
   legacy repos to this new format. `.jj/repo/config.toml` and
@@ -131,6 +143,44 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [#8427](https://github.com/jj-vcs/jj/issues/8427)
 
 * `--quiet` now hides progress bars.
+
+### Contributors
+
+Thanks to the people who made this release happen!
+
+* Benjamin Davies (@Benjamin-Davies)
+* Bryce Berger (@bryceberger)
+* Chris Rose (@offbyone)
+* Daniel Morsing (@DanielMorsing)
+* David Fröhlingsdorf (@2079884FDavid)
+* David Higgs (@higgsd)
+* David Rieber (@drieber)
+* Federico G. Schwindt (@fgsch)
+* Gaëtan Lehmann (@glehmann)
+* George Christou (@gechr)
+* itstrivial
+* Jeff Turner (@jefft)
+* Jonas Greitemann (@jgreitemann)
+* Jonas Helgemo (@jonashelgemo)
+* Joseph Lou (@josephlou5)
+* Kaiyi Li (@06393993)
+* Lukas Wirth (@Veykril)
+* Martin von Zweigbergk (@martinvonz)
+* Matt Stark (@matts1)
+* Paul Smith (@paulsmith)
+* Pavan Kumar Sunkara (@pksunkara)
+* Philip Metzger (@PhilipMetzger)
+* Remo Senekowitsch (@senekor)
+* Sami Jawhar (@sjawhar)
+* Scott Taylor (@scott2000)
+* Simone Cattaneo (@simonecattaneo91)
+* Steve Klabnik (@steveklabnik)
+* tom (@lecafard)
+* Vincent Ging Ho Yim (@cenviity)
+* \_WD\_ (@0WD0)
+* xtqqczze (@xtqqczze)
+* Yuya Nishihara (@yuja)
+* yz (@yzheng453)
 
 ## [0.37.0] - 2026-01-07
 
@@ -4667,7 +4717,8 @@ No changes, only trying to get the automated build to work.
 
 Last release before this changelog started.
 
-[unreleased]: https://github.com/jj-vcs/jj/compare/v0.37.0...HEAD
+[unreleased]: https://github.com/jj-vcs/jj/compare/v0.38.0...HEAD
+[0.38.0]: https://github.com/jj-vcs/jj/compare/v0.37.0...v0.38.0
 [0.37.0]: https://github.com/jj-vcs/jj/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/jj-vcs/jj/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/jj-vcs/jj/compare/v0.34.0...v0.35.0
