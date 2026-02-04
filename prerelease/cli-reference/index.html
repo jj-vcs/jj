@@ -1656,6 +1656,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#deduplication" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deduplication
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       Configuration
@@ -5904,6 +5913,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#deduplication" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deduplication
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       Configuration
@@ -8739,6 +8757,11 @@ their versions of the same files through the same tools, which will ensure
 that the fixes are not lost. This will never result in new conflicts. Files
 with existing conflicts will be updated on all sides of the conflict, which
 can potentially increase or decrease the number of conflict markers.</p>
+<h3 id="deduplication">Deduplication<a class="headerlink" href="#deduplication" title="Permanent link">&para;</a></h3>
+<p>When fixing multiple commits, if the same file content appears at the same
+path in different commits, the tool is run only once and the result is
+reused. This means that tools used with <code>jj fix</code> must produce deterministic
+output.</p>
 <h3 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h3>
 <p>See <code>jj help -k config</code> chapter <code>Code formatting and other file content
 transformations</code> to understand how to configure your tools.</p>
