@@ -28,10 +28,13 @@ to run something like this:
 ```shell
 root=$(jj log --no-graph -r 'heads(tags(glob:"v*.*.*") & ::trunk())' -T commit_id)
 filter='
-   map(.commits[] | select(.author.login | endswith("[bot]") | not))
-   | unique_by(.author.login)
-   | map("* \(.commit.author.name) (@\(.author.login))")
-   | .[]
+map(.commits[] | select(.author.login | (. != null and endswith("[bot]") | not)))
+  | unique_by(if .author.login != null then .author.login else .author.email end)
+  | map(if .author.login != null
+        then "* \(.commit.author.name) (@\(.author.login))"
+        else "* \(.commit.author.name)"
+        end)
+  | .[]
 '
 gh api "/repos/jj-vcs/jj/compare/$root...main" --paginate | jq -sr "$filter" | sort -f
 ```
