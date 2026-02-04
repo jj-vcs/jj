@@ -83,6 +83,7 @@ prost-build = "0.14.3"
 quote = "1.0.42"
 rand = "0.10.0"
 rand_chacha = "0.10.0"
+ratatui = { version = "0.30.0", features = ["crossterm"] }
 rayon = "1.10.0"
 ref-cast = "1.0.25"
 regex = "1.12.3"

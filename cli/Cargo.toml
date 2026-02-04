@@ -90,6 +90,7 @@ pollster = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 regex = { workspace = true }
+ratatui = { workspace = true }
 rpassword = { workspace = true }
 sapling-renderdag = { workspace = true }
 sapling-streampager = { workspace = true }

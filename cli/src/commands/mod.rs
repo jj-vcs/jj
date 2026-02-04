@@ -14,6 +14,7 @@
 
 mod abandon;
 mod absorb;
+mod arrange;
 #[cfg(feature = "bench")]
 mod bench;
 mod bisect;
@@ -93,6 +94,8 @@ const STYLES: Styles = Styles::styled()
 enum Command {
     Abandon(abandon::AbandonArgs),
     Absorb(absorb::AbsorbArgs),
+    #[command(hide = true)]
+    Arrange(arrange::ArrangeArgs),
     #[cfg(feature = "bench")]
     #[command(subcommand)]
     Bench(bench::BenchCommand),
@@ -190,6 +193,7 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         #[cfg(feature = "git")]
         Command::Git(args) => git::cmd_git(ui, command_helper, args),
         Command::Help(args) => help::cmd_help(ui, command_helper, args),
+        Command::Arrange(args) => arrange::cmd_arrange(ui, command_helper, args),
         Command::Interdiff(args) => interdiff::cmd_interdiff(ui, command_helper, args),
         Command::Log(args) => log::cmd_log(ui, command_helper, args),
         Command::Metaedit(args) => metaedit::cmd_metaedit(ui, command_helper, args),

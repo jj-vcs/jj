@@ -2430,6 +2430,7 @@ dependencies = [
  "proptest-state-machine",
  "rand 0.10.0",
  "rand_chacha 0.10.0",
+ "ratatui",
  "regex",
  "rpassword",
  "sapling-renderdag",
