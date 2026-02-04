@@ -2154,7 +2154,7 @@ $<span class="w"> </span>jj<span class="w"> </span>commit<span class="w"> </span
 <span class="c1"># Let Jujutsu generate a bookmark name and push that to GitHub. Note that we</span>
 <span class="c1"># push the working-copy commit&#39;s *parent* because the working-copy commit</span>
 <span class="c1"># itself is empty.</span>
-$<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span>-c<span class="w"> </span>@-
+$<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span>--change<span class="w"> </span>@-<span class="w"> </span><span class="c1"># or -c for short</span>
 </code></pre></div>
 <h3 id="using-a-named-bookmark">Using a named bookmark<a class="headerlink" href="#using-a-named-bookmark" title="Permanent link">&para;</a></h3>
 <p>In this example, we create a bookmark named <code>bar</code> and then push it to the remote.</p>
@@ -2204,7 +2204,7 @@ able to create a bookmark for a revision.</p>
 $<span class="w"> </span>jj<span class="w"> </span>commit
 $<span class="w"> </span><span class="c1"># Push change &quot;mw&quot;, letting Jujutsu automatically create a bookmark called</span>
 $<span class="w"> </span><span class="c1"># &quot;push-mwmpwkwknuz&quot;</span>
-$<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span>--change<span class="w"> </span>mw
+$<span class="w"> </span>jj<span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span>-c<span class="w"> </span>mw
 </code></pre></div>
 <h2 id="addressing-review-comments">Addressing review comments<a class="headerlink" href="#addressing-review-comments" title="Permanent link">&para;</a></h2>
 <p>There are two workflows for addressing review comments, depending on your
