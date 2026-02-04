@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::io;
 
 use crossterm::ExecutableCommand as _;
@@ -23,39 +25,109 @@ use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
+use itertools::Itertools as _;
+use jj_lib::backend::CommitId;
+use jj_lib::commit::Commit;
+use jj_lib::dag_walk;
+use jj_lib::repo::Repo as _;
+use jj_lib::revset::RevsetIteratorExt as _;
 use ratatui::Terminal;
 use ratatui::layout::Constraint;
 use ratatui::layout::Direction;
 use ratatui::layout::Layout;
+use ratatui::layout::Offset;
+use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::style::Color;
 use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::text::Span;
+use ratatui::text::Text;
+use renderdag::Ancestor;
+use renderdag::GraphRowRenderer;
+use renderdag::Renderer as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
+use crate::cli_util::RevisionArg;
+use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error;
+use crate::command_error::user_error;
+use crate::complete;
+use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
 /// Interactively rearrange the commit graph.
 #[derive(clap::Args, Clone, Debug)]
-pub(crate) struct ArrangeArgs {}
+pub(crate) struct ArrangeArgs {
+    /// The revisions to edit.
+    ///
+    /// If no revisions are specified, this defaults to the `revsets.arrange`
+    /// setting, or `reachable(@, mutable())` if it is not set.
+    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(add = clap_complete::ArgValueCompleter::new(complete::revset_expression_mutable))]
+    revisions: Vec<RevisionArg>,
+}
 
 #[instrument(skip_all)]
 pub(crate) fn cmd_arrange(
     ui: &mut Ui,
-    _command: &CommandHelper,
-    _args: &ArrangeArgs,
+    command: &CommandHelper,
+    args: &ArrangeArgs,
 ) -> Result<(), CommandError> {
+    let workspace_command = command.workspace_helper(ui)?;
+    let repo = workspace_command.repo();
+    let target_expression = if args.revisions.is_empty() {
+        let revs = workspace_command.settings().get_string("revsets.arrange")?;
+        workspace_command.parse_revset(ui, &RevisionArg::from(revs))?
+    } else {
+        workspace_command.parse_union_revsets(ui, &args.revisions)?
+    }
+    .resolve()?;
+    workspace_command.check_rewritable_expr(&target_expression)?;
+
+    let gaps_revset = target_expression
+        .connected()
+        .minus(&target_expression)
+        .evaluate(repo.as_ref())?;
+    if let Some(commit_id) = gaps_revset.iter().next() {
+        return Err(
+            user_error("Cannot arrange revset with gaps in.").hinted(format!(
+                "Revision {} would need to be in the set.",
+                short_commit_hash(&commit_id?)
+            )),
+        );
+    }
+
+    let children_revset = target_expression
+        .children()
+        .minus(&target_expression)
+        .evaluate(repo.as_ref())?;
+    let external_children: Vec<_> = children_revset.iter().commits(repo.store()).try_collect()?;
+
+    let revset = target_expression.evaluate(repo.as_ref())?;
+    let commits: Vec<Commit> = revset.iter().commits(repo.store()).try_collect()?;
+    if commits.is_empty() {
+        writeln!(ui.status(), "No revisions to arrange.")?;
+        return Ok(());
+    }
+
     // Set up the terminal
     io::stdout().execute(EnterAlternateScreen)?;
     enable_raw_mode()?;
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     terminal.clear()?;
 
-    let result = run_tui(ui, &mut terminal);
+    let mut state = State::new(commits, external_children);
+    state.update_commit_order();
+
+    let result = run_tui(
+        ui,
+        &mut terminal,
+        &workspace_command.commit_summary_template(),
+        state,
+    );
 
     // Restore the terminal
     disable_raw_mode()?;
@@ -64,9 +136,82 @@ pub(crate) fn cmd_arrange(
     result
 }
 
+struct State {
+    commits: HashMap<CommitId, Commit>,
+    /// Commits in the original revset order
+    original_order: Vec<CommitId>,
+    /// The current order of commits in the UI
+    current_order: Vec<CommitId>,
+    parents: HashMap<CommitId, Vec<CommitId>>,
+}
+
+impl State {
+    fn new(commits: Vec<Commit>, external_children: Vec<Commit>) -> Self {
+        let original_order = commits
+            .iter()
+            .map(|commit| commit.id().clone())
+            .collect_vec();
+        let commits: HashMap<CommitId, Commit> = commits
+            .into_iter()
+            .map(|commit| {
+                let id = commit.id().clone();
+                (id, commit)
+            })
+            .collect();
+        let mut parents: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
+        for (id, commit) in &commits {
+            parents.insert(id.clone(), commit.parent_ids().to_vec());
+        }
+        let current_order = original_order.clone();
+        Self {
+            commits,
+            original_order,
+            current_order,
+            parents,
+        }
+    }
+
+    /// Update the current UI commit order after parents have changed.
+    fn update_commit_order(&mut self) {
+        let heads: HashSet<&CommitId> = dag_walk::heads(
+            self.original_order.iter(),
+            |id| *id,
+            |id| {
+                self.parents
+                    .get(id)
+                    .unwrap()
+                    .iter()
+                    .filter(|id| self.commits.contains_key(id))
+            },
+        );
+        // Use the original order to get a determinisic order.
+        let heads = self
+            .original_order
+            .iter()
+            .filter(|id| heads.contains(id))
+            .collect_vec();
+        let commit_ids: Vec<&CommitId> = dag_walk::topo_order_reverse(
+            heads,
+            |id| *id,
+            |id| {
+                self.parents
+                    .get(id)
+                    .unwrap()
+                    .iter()
+                    .filter(|id| self.commits.contains_key(id))
+            },
+            |_| panic!("cycle detected"),
+        )
+        .unwrap();
+        self.current_order = commit_ids.into_iter().cloned().collect();
+    }
+}
+
 fn run_tui<B: ratatui::backend::Backend>(
-    _ui: &mut Ui,
+    ui: &mut Ui,
     terminal: &mut Terminal<B>,
+    template: &TemplateRenderer<Commit>,
+    state: State,
 ) -> Result<(), CommandError> {
     let help_items = [("q", "quit")];
     let mut help_spans = Vec::new();
@@ -86,9 +231,9 @@ fn run_tui<B: ratatui::backend::Backend>(
                     .direction(Direction::Vertical)
                     .constraints([Constraint::Fill(1), Constraint::Length(1)])
                     .split(frame.area());
-                let _main_area = layout[0];
+                let main_area = layout[0];
                 let help_area = layout[1];
-
+                render(&state, ui, template, frame, main_area);
                 frame.render_widget(&help_line, help_area);
             })
             .map_err(|e| internal_error(format!("Failed to draw TUI: {e}")))?;
@@ -109,5 +254,131 @@ fn run_tui<B: ratatui::backend::Backend>(
                 _ => {}
             }
         }
+    }
+}
+
+fn render(
+    state: &State,
+    ui: &mut Ui,
+    template: &crate::templater::TemplateRenderer<Commit>,
+    frame: &mut ratatui::Frame,
+    main_area: Rect,
+) {
+    let mut row_renderer = GraphRowRenderer::new()
+        .output()
+        .with_min_row_height(2)
+        .build_box_drawing();
+    let mut row_area = main_area;
+    // TODO: It might be nice to render external parents and children grayed out
+    for id in &state.current_order {
+        // TODO: Make the graph column width depend on what's needed to render the
+        // graph.
+        let row_layout =
+            Layout::horizontal([Constraint::Min(10), Constraint::Fill(100)]).split(row_area);
+        let graph_area = row_layout[0];
+        let text_area = row_layout[1];
+
+        let commit = state.commits.get(id).unwrap();
+
+        // TODO: The graph can be misaligned with the text because sometimes `renderdag`
+        // inserts a line of edges before the line with the node and we assume the node
+        // is the first line emitted.
+        let parents = state.parents.get(id).unwrap();
+        let edges = parents
+            .iter()
+            .map(|parent| {
+                if state.commits.contains_key(parent) {
+                    Ancestor::Parent(parent)
+                } else {
+                    Ancestor::Anonymous
+                }
+            })
+            .collect_vec();
+        let graph_lines = row_renderer.next_row(id, edges, "○".to_string(), "".to_string());
+        let graph_text = Text::from(graph_lines);
+        row_area = row_area
+            .offset(Offset {
+                x: 0,
+                y: graph_text.height() as i32,
+            })
+            .intersection(main_area);
+        frame.render_widget(graph_text, graph_area);
+
+        let mut text_lines = vec![];
+        let mut formatter = ui.new_formatter(&mut text_lines);
+        template.format(commit, formatter.as_mut()).unwrap();
+        drop(formatter);
+        let text = ansi_to_tui::IntoText::into_text(&text_lines).unwrap();
+        frame.render_widget(text, text_area);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use testutils::TestRepo;
+
+    use super::*;
+
+    #[test]
+    fn test_update_commit_order_empty() {
+        let mut state = State::new(vec![], vec![]);
+        state.update_commit_order();
+        assert_eq!(state.current_order, vec![]);
+    }
+
+    #[test]
+    fn test_update_commit_order_reorder() {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+        let empty_tree = store.empty_merged_tree();
+
+        // Move A on top of C:
+        // D C          A
+        // |/           |
+        // B     =>     C D
+        // |            |/
+        // A            B
+        let mut tx = test_repo.repo.start_transaction();
+        let mut create_commit = |parents| {
+            tx.repo_mut()
+                .new_commit(parents, empty_tree.clone())
+                .write_unwrap()
+        };
+        let commit_a = create_commit(vec![store.root_commit_id().clone()]);
+        let commit_b = create_commit(vec![commit_a.id().clone()]);
+        let commit_c = create_commit(vec![commit_b.id().clone()]);
+        let commit_d = create_commit(vec![commit_b.id().clone()]);
+
+        let mut state = State::new(
+            vec![
+                commit_d.clone(),
+                commit_c.clone(),
+                commit_b.clone(),
+                commit_a.clone(),
+            ],
+            vec![],
+        );
+
+        // We get the original order before we make any changes
+        state.update_commit_order();
+        assert_eq!(state.current_order, state.original_order);
+
+        // Update parents and check that the commit order changes.
+        state
+            .parents
+            .insert(commit_a.id().clone(), vec![commit_c.id().clone()]);
+        state
+            .parents
+            .insert(commit_b.id().clone(), vec![store.root_commit_id().clone()]);
+        state.update_commit_order();
+        assert_eq!(
+            state.current_order,
+            vec![
+                commit_d.id().clone(),
+                commit_a.id().clone(),
+                commit_c.id().clone(),
+                commit_b.id().clone()
+            ]
+        );
     }
 }

@@ -13,6 +13,7 @@ mod test_absorb_command;
 mod test_acls;
 mod test_advance_bookmarks;
 mod test_alias;
+mod test_arrange_command;
 mod test_bisect_command;
 mod test_bookmark_command;
 mod test_builtin_aliases;

@@ -2,6 +2,7 @@
 # adding/updating any of these aliases
 
 [revsets]
+arrange = "reachable(@, mutable())"
 fix = "reachable(@, mutable())"
 simplify-parents = "reachable(@, mutable())"
 # log revset is also used as the default short-prefixes. If it failed to
