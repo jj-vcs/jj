@@ -154,9 +154,9 @@ section = "vcs"
 priority = "optional"
 extended-description = "Distributed Version Control System inspired by Git, Mercurial and Darcs."
 assets = [
-    { source = "docs/*", dest = "usr/share/doc/jj/", mode = "644"},
-# TODO: It'd be nice to package the output of `MKDOCS_OFFLINE=true uv run mkdocs build` in the docs dir as well, but this is not trivial.
-    { source = "docs/*/*", dest = "usr/share/doc/jj/", mode = "644"},
-    { source = "target/release/jj", dest = "usr/bin/", mode = "755"},
+    { source = "docs/*", dest = "usr/share/doc/jj/", mode = "644" },
+    # TODO: It'd be nice to package the output of `MKDOCS_OFFLINE=true uv run mkdocs build` in the docs dir as well, but this is not trivial.
+    { source = "docs/*/*", dest = "usr/share/doc/jj/", mode = "644" },
+    { source = "target/release/jj", dest = "usr/bin/", mode = "755" },
 ]
 default-features = true
