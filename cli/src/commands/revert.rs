@@ -46,11 +46,17 @@ use crate::ui::Ui;
 /// `templates.revert_description` config variable.
 #[derive(clap::Args, Clone, Debug)]
 #[command(group(ArgGroup::new("location").args(&["onto", "insert_after", "insert_before"]).required(true).multiple(true)))]
+#[command(group(clap::ArgGroup::new("revisions").multiple(true)))]
 pub(crate) struct RevertArgs {
     /// The revision(s) to apply the reverse of
-    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(group = "revisions", value_name = "REVSETS")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
-    revisions: Vec<RevisionArg>,
+    revisions_pos: Vec<RevisionArg>,
+
+    /// The revision(s) to apply the reverse of
+    #[arg(long = "revisions", short, group = "revisions", value_name = "REVSETS")]
+    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
+    revisions_opt: Vec<RevisionArg>,
 
     /// The revision(s) to apply the reverse changes on top of
     #[arg(
@@ -96,7 +102,7 @@ pub(crate) fn cmd_revert(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let to_revert: Vec<_> = workspace_command
-        .parse_union_revsets(ui, &args.revisions)?
+        .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
         .evaluate_to_commits()?
         .try_collect()?; // in reverse topological order
     if to_revert.is_empty() {
