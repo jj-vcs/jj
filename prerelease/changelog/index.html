@@ -6701,6 +6701,11 @@ allowing you to disambiguate them in a similar manner.</p>
 <h3 id="new-features_1">New features<a class="headerlink" href="#new-features_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
+<p>The <code>config()</code> template function now returns <code>Option&lt;ConfigValue&gt;</code> instead of
+  failing if the config value is not found. This allows checking if a config
+  exists (e.g. <code>if(config("user.email"), ...)</code>).</p>
+</li>
+<li>
 <p>Updated the executable bit representation in the local working copy to allow
   ignoring executable bit changes on Unix. By default we try to detect the
   filesystem's behavior, but this can be overridden manually by setting
