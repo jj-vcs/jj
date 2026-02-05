@@ -213,6 +213,7 @@ fn test_restore_conflicted_merge() {
        7     : b
        8     : >>>>>>> conflict 1 of 1 ends
             1: resolution
+    (removed terminating newline)
     [EOF]
     "#);
 
@@ -254,6 +255,7 @@ fn test_restore_conflicted_merge() {
        7     : b
        8     : >>>>>>> conflict 1 of 1 ends
             1: resolution
+    (removed terminating newline)
     [EOF]
     "#);
 
