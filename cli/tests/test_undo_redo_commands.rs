@@ -21,8 +21,9 @@ fn test_undo_root_operation() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["undo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Undid operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     Restored to operation: 000000000000 root()
     [EOF]
     ");
@@ -71,10 +72,11 @@ fn test_undo_push_operation() {
     work_dir.run_jj(["commit", "-mfoo"]).success();
     work_dir.run_jj(["git", "push", "-c@-"]).success();
     let output = work_dir.run_jj(["undo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Undoing a push operation often leads to conflicted bookmarks.
     Hint: To avoid this, run `jj redo` now.
+    Undid operation: ca2f478e5a86 (2001-02-03 08:05:10) push bookmark push-rlvkpnrzqnoo to git remote origin
     Restored to operation: f9fd582ef03c (2001-02-03 08:05:09) commit 3850397cf31988d0657948307ad5bbe873d76a38
     [EOF]
     ");

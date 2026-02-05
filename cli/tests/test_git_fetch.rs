@@ -1432,8 +1432,9 @@ fn test_git_fetch_undo() {
     [EOF]
     "#);
     let output = target_dir.run_jj(["undo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Undid operation: c726c5873ddf (2001-02-03 08:05:20) fetch from git remote(s) origin
     Restored to operation: 8aeac520a856 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");

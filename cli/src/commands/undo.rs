@@ -199,8 +199,13 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
     );
     tx.repo_mut().set_view(new_view);
     if let Some(mut formatter) = ui.status_formatter() {
-        write!(formatter, "Restored to operation: ")?;
         let template = tx.base_workspace_helper().operation_summary_template();
+
+        write!(formatter, "Undid operation: ")?;
+        template.format(&op_to_undo, formatter.as_mut())?;
+        writeln!(formatter)?;
+
+        write!(formatter, "Restored to operation: ")?;
         template.format(&op_to_restore, formatter.as_mut())?;
         writeln!(formatter)?;
     }
