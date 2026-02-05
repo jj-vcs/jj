@@ -22,6 +22,11 @@ assert_matches = "1.5.0"
 async-trait = "0.1.89"
 blake2 = "0.10.6"
 bstr = "1.12.1"
+chrono = { version = "0.4.43", default-features = false, features = [
+    "std",
+    "clock",
+    "serde",
+] }
 clap = { version = "4.5.54", features = [
     "derive",
     "deprecated",
@@ -34,11 +39,6 @@ clap_complete_nushell = "4.5.10"
 # will need regenerating.
 clap-markdown = "=0.1.5"
 clap_mangen = "0.2.25"
-chrono = { version = "0.4.43", default-features = false, features = [
-    "std",
-    "clock",
-    "serde",
-] }
 clru = "0.6.2"
 criterion = "0.8.1"
 crossterm = { version = "0.29", default-features = false, features = ["windows"] }
