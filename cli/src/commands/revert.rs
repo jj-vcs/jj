@@ -45,8 +45,8 @@ use crate::ui::Ui;
 /// The description of the new revisions can be customized with the
 /// `templates.revert_description` config variable.
 #[derive(clap::Args, Clone, Debug)]
-#[command(group(ArgGroup::new("location").args(&["onto", "insert_after", "insert_before"]).required(true).multiple(true)))]
-#[command(group(clap::ArgGroup::new("revisions").multiple(true)))]
+#[command(group(ArgGroup::new("location").args(&["onto", "insert_after", "insert_before"]).multiple(true).required(true)))]
+#[command(group(clap::ArgGroup::new("revisions").multiple(true).required(true)))]
 pub(crate) struct RevertArgs {
     /// The revision(s) to apply the reverse of
     #[arg(group = "revisions", value_name = "REVSETS")]

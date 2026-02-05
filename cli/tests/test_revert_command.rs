@@ -50,7 +50,7 @@ fn test_revert() {
     error: the following required arguments were not provided:
       <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
-    Usage: jj revert --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>> [REVSETS]...
+    Usage: jj revert <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>> <REVSETS|--revisions <REVSETS>>
 
     For more information, try '--help'.
     [EOF]
