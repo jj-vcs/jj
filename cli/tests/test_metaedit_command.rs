@@ -276,7 +276,7 @@ fn test_metaedit() {
     let output = work_dir.run_jj(["metaedit", "--author-timestamp", "aaaaaa"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    error: invalid value 'aaaaaa' for '--author-timestamp <AUTHOR_TIMESTAMP>': premature end of input
+    error: invalid value 'aaaaaa' for '--author-timestamp <AUTHOR_TIMESTAMP>': failed to parse year in date: failed to parse four digit integer as year: invalid digit, expected 0-9 but got a
 
     For more information, try '--help'.
     [EOF]

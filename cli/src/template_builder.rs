@@ -1366,8 +1366,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
                     time_util::FormattingItems::parse(format).ok_or_else(|| {
                         TemplateParseError::expression("Invalid time format", node.span)
                     })
-                })?
-                .into_owned();
+                })?;
             let out_property = self_property.and_then(move |timestamp| {
                 Ok(time_util::format_absolute_timestamp_with(
                     &timestamp, &format,
@@ -1394,7 +1393,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
             let tz_offset = std::env::var("JJ_TZ_OFFSET_MINS")
                 .ok()
                 .and_then(|tz_string| tz_string.parse::<i32>().ok())
-                .unwrap_or_else(|| chrono::Local::now().offset().local_minus_utc() / 60);
+                .unwrap_or_else(|| jiff::Zoned::now().offset().seconds() / 60);
             let out_property = self_property.map(move |mut timestamp| {
                 timestamp.tz_offset = tz_offset;
                 timestamp
@@ -1406,7 +1405,7 @@ fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
         "after",
         |_language, diagnostics, _build_ctx, self_property, function| {
             let [date_pattern_node] = function.expect_exact_arguments()?;
-            let now = chrono::Local::now();
+            let now = jiff::Zoned::now();
             let date_pattern = template_parser::catch_aliases(
                 diagnostics,
                 date_pattern_node,
