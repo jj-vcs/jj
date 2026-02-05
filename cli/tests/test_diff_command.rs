@@ -327,7 +327,7 @@ fn test_diff_basic() {
     [exit status: 2]
     ");
     let output = work_dir.run_jj(["diff", "-T''", "--summary"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the argument '--template <TEMPLATE>' cannot be used with:
       --summary
@@ -335,20 +335,20 @@ fn test_diff_basic() {
       --types
       --name-only
 
-    Usage: jj diff --template <TEMPLATE> --summary [FILESETS]...
+    Usage: jj diff --template <TEMPLATE> [FILESETS]...
 
     For more information, try '--help'.
     [EOF]
     [exit status: 2]
     ");
     let output = work_dir.run_jj(["diff", "-T''", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the argument '--template <TEMPLATE>' cannot be used with:
       --git
       --color-words
 
-    Usage: jj diff --template <TEMPLATE> --git [FILESETS]...
+    Usage: jj diff --template <TEMPLATE> [FILESETS]...
 
     For more information, try '--help'.
     [EOF]

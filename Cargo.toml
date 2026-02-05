@@ -27,7 +27,7 @@ chrono = { version = "0.4.43", default-features = false, features = [
     "clock",
     "serde",
 ] }
-clap = { version = "4.5.54", features = [
+clap = { version = "4.5.57", features = [
     "derive",
     "deprecated",
     "wrap_help",
@@ -40,7 +40,7 @@ clap_complete_nushell = "4.5.10"
 clap-markdown = "=0.1.5"
 clap_mangen = "0.2.25"
 clru = "0.6.2"
-criterion = "0.8.1"
+criterion = "0.8.2"
 crossterm = { version = "0.29", default-features = false, features = ["windows"] }
 datatest-stable = "0.3.3"
 digest = "0.10.7"
@@ -61,10 +61,10 @@ hashbrown = { version = "0.16.1", default-features = false, features = ["inline-
 ignore = "0.4.25"
 indexmap = { version = "2.13.0", features = ["serde"] }
 indoc = "2.0.7"
-insta = { version = "1.46.1", features = ["filters"] }
+insta = { version = "1.46.3", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
-jsonschema = { version = "0.40.0", default-features = false }
+jsonschema = { version = "0.41.0", default-features = false }
 libc = { version = "0.2.180" }
 maplit = "1.0.2"
 nix = "0.31.1"
@@ -75,9 +75,9 @@ pest_derive = "2.8.5"
 pollster = "0.4.0"
 pretty_assertions = "1.4.1"
 proc-macro2 = "1.0.104"
-proptest = "1.9.0"
-proptest-derive = "0.7.0"
-proptest-state-machine = "0.6.0"
+proptest = "1.10.0"
+proptest-derive = "0.8.0"
+proptest-state-machine = "0.7.0"
 prost = "0.14.3"
 prost-build = "0.14.3"
 quote = "1.0.42"
@@ -85,7 +85,7 @@ rand = "0.9.2"
 rand_chacha = "0.9.0"
 rayon = "1.10.0"
 ref-cast = "1.0.25"
-regex = "1.12.2"
+regex = "1.12.3"
 rpassword = "7.4.0"
 rustix = { version = "1.1.3", features = ["fs"] }
 same-file = "1.0.6"
@@ -95,7 +95,7 @@ scm-record = "0.10.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0.149"
 shlex = "1.3.0"
-slab = "0.4.11"
+slab = "0.4.12"
 smallvec = { version = "1.15.1", features = [
     "const_generics",
     "const_new",
@@ -123,7 +123,7 @@ tracing-subscriber = { version = "0.3.22", default-features = false, features = 
 ] }
 unicode-width = "0.2.2"
 watchman_client = { version = "0.9.0" }
-whoami = "2.0.2"
+whoami = "2.1.0"
 winreg = "0.55"
 
 # put all inter-workspace libraries, i.e. those that use 'path = ...' here in

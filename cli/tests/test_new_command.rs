@@ -386,13 +386,13 @@ fn test_new_insert_after() {
 
     // --after cannot be used with revisions
     let output = work_dir.run_jj(["new", "--after", "B", "D"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the argument '--insert-after <REVSETS>' cannot be used with:
       [REVSETS]...
       -o <REVSETS>
 
-    Usage: jj new --insert-after <REVSETS> <REVSETS>...
+    Usage: jj new --insert-after <REVSETS> [REVSETS]...
 
     For more information, try '--help'.
     [EOF]
@@ -495,13 +495,13 @@ fn test_new_insert_before() {
 
     // --before cannot be used with revisions
     let output = work_dir.run_jj(["new", "--before", "B", "D"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the argument '--insert-before <REVSETS>' cannot be used with:
       [REVSETS]...
       -o <REVSETS>
 
-    Usage: jj new --insert-before <REVSETS> <REVSETS>...
+    Usage: jj new --insert-before <REVSETS> [REVSETS]...
 
     For more information, try '--help'.
     [EOF]
