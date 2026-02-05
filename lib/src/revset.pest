@@ -22,8 +22,10 @@ whitespace = _{ " " | "\t" | "\r" | "\n" | "\x0c" }
 // *: glob characters that won't be used as operators
 // /: sometimes used as a tag/bookmark namespace separator
 identifier_part = @{ (XID_CONTINUE | "_" | "*" | "/")+ }
+// '..' conflicts with the range operator, '++' conflicts with template concatenation,
+// but '--' has no known conflicts.
 identifier = @{
-  identifier_part ~ (("." | "-" | "+") ~ identifier_part)*
+  identifier_part ~ (("." | "-"+ | "+") ~ identifier_part)*
 }
 // TODO: remove "/", ".", "+" for consistency with fileset?
 strict_identifier_part = @{ (ASCII_ALPHANUMERIC | "_" | "/")+ }

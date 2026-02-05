@@ -1083,6 +1083,15 @@ mod tests {
             parse_normalized("foo.bar-v1+7-"),
             parse_normalized("(foo.bar-v1+7)-")
         );
+        // Multiple '-' are allowed
+        assert_eq!(
+            parse_into_kind("foo--bar"),
+            Ok(ExpressionKind::Identifier("foo--bar"))
+        );
+        assert_eq!(
+            parse_into_kind("foo----bar"),
+            Ok(ExpressionKind::Identifier("foo----bar"))
+        );
         // '.' is not allowed at the beginning or end
         assert_eq!(
             parse_into_kind(".foo"),
@@ -1092,13 +1101,13 @@ mod tests {
             parse_into_kind("foo."),
             Err(RevsetParseErrorKind::SyntaxError)
         );
-        // Multiple '.', '-', '+' are not allowed
+        // Multiple '.' and '+', or together with '-', are not allowed
         assert_eq!(
             parse_into_kind("foo.+bar"),
             Err(RevsetParseErrorKind::SyntaxError)
         );
         assert_eq!(
-            parse_into_kind("foo--bar"),
+            parse_into_kind("foo++bar"),
             Err(RevsetParseErrorKind::SyntaxError)
         );
         assert_eq!(

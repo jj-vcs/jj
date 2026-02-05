@@ -23,6 +23,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj undo` now also outputs what operation was undone, in addition to the
   operation restored to.
 
+* Bookmarks with two or more consecutive `-` characters no longer need to be quoted
+  in revsets. For example, `jj diff -r '"foo--bar"'` can now be written as `jj diff -r foo--bar`.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04
