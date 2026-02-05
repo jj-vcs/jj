@@ -100,9 +100,8 @@ The following functions are defined.
   `separator` between **non-empty** `content`s.
 * `surround(prefix: Template, suffix: Template, content: Template) -> Template`:
   Surround **non-empty** content with texts such as parentheses.
-* `config(name: StringLiteral) -> ConfigValue`: Look up configuration value by `name`.
-   value by `name`.
 * `config(name: StringLiteral) -> Option<ConfigValue>`: Look up configuration
+   value by `name`.
 * `git_web_url([remote: String]) -> String`: Best-effort conversion of a git
   remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
   empty string on failure. SSH host alias resolution is currently unsupported.
