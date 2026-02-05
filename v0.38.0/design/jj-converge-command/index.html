@@ -1,0 +1,2806 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://docs.jj-vcs.dev/latest/design/jj-converge-command/">
+      
+      
+        <link rel="prev" href="../secure-config/">
+      
+      
+        <link rel="next" href="../../roadmap/">
+      
+      
+      <link rel="icon" href="../../images/favicon-96x96.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>JJ converge (aka resolve-divergence) - Jujutsu docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CGoogle+Sans+Code:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Google Sans Code"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#jj-converge-aka-resolve-divergence-command-design" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Jujutsu docs" class="md-header__button md-logo" aria-label="Jujutsu docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Jujutsu docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              JJ converge (aka resolve-divergence)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/jj-vcs/jj" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    jj-vcs/jj
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Jujutsu docs" class="md-nav__button md-logo" aria-label="Jujutsu docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Jujutsu docs
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/jj-vcs/jj" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    jj-vcs/jj
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Getting started
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Getting started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install-and-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Installation and setup
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Tutorial and bird's eye view
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gerrit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Working with Gerrit
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../github/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Working with GitHub
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../windows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Working on Windows
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../FAQ/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    FAQ
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CLI reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testimonials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Testimonials
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../community_tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Community-built tools
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Concepts
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Concepts
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../working-copy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Working copy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../bookmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Bookmarks
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../conflicts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Conflicts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operation-log/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Operation log
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Glossary
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Guides
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/cli-revision-options/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CLI options for specifying revisions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/divergence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Divergent changes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/multiple-remotes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Multiple remotes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Settings
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../filesets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Fileset language
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../revsets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Revset language
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../templates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Templating language
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Comparisons
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            Comparisons
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../git-comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Git comparison
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../git-command-table/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Git command table
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../git-compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Git compatibility
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../git-experts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Jujutsu for Git experts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sapling-comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Sapling comparison
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../related-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Other related work
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Technical details
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            Technical details
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../core_tenets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Core tenets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../technical/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../technical/concurrency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Concurrency
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../technical/conflicts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Conflicts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Guidelines and "How to...?"
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../code-of-conduct/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Code of conduct
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../style_guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Style guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design_docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Design docs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design_doc_blueprint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Design doc blueprint
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releasing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Releasing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../governance/temporary-voting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Temporary voting for governance
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../governance/GOVERNANCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Governance
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Design docs
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            Design docs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../git-submodules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    git-submodules
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../git-submodule-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    git-submodule-storage
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    JJ run
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sparse-v2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Sparse patterns v2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tracking-branches/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Tracking branches
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../copy-tracking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Copy tracking and tracing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../secure-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Secure config
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    JJ converge (aka resolve-divergence)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    JJ converge (aka resolve-divergence)
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      Objective
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#divergent-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Divergent changes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Divergent changes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#some-divergence-scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      Some divergence scenarios
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strawman-proposal" class="md-nav__link">
+    <span class="md-ellipsis">
+      Strawman proposal
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Strawman proposal">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#examples-and-expected-behavior-with-basic-evolution-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      Examples and expected behavior (with basic evolution graph)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples and expected behavior (with basic evolution graph)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-1-two-commits-for-change-b-same-parent" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example 1: two commits for change B, same parent
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-2-two-commits-for-change-b-with-same-parent-predecessor-has-a-different-parent" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example 2: two commits for change B with same parent (predecessor has a different parent)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-3-divergent-commits-with-different-parents" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example 3: divergent commits with different parents
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-4-divergent-commits-with-different-parents-must-prompt-user-to-choose-parents" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example 4: divergent commits with different parents, must prompt user to choose parents
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-5-more-than-2-divergent-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example 5: more than 2 divergent commits
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples-and-expected-behavior-with-arbitrary-evolution-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      Examples and expected behavior (with arbitrary evolution graph)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples and expected behavior (with arbitrary evolution graph)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-6-a-two-level-evolution-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example 6: a two-level evolution graph
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edge-cases-when-choosing-the-parents-of-the-solution" class="md-nav__link">
+    <span class="md-ellipsis">
+      Edge cases when choosing the parents of the solution
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multiple-divergent-change-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multiple divergent change-ids
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Multiple divergent change-ids">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rebasing-descendants-and-persisting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rebasing descendants and persisting
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#other-edge-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Other edge cases
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Open questions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alternatives considered
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Alternatives considered">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#automatically-resolving-divergence" class="md-nav__link">
+    <span class="md-ellipsis">
+      Automatically resolving divergence
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resolve-divergence-two-commits-at-a-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resolve divergence two commits at a time
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#only-considering-the-evolution-fork-point-and-visible-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Only considering the evolution fork point and visible commits
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Development roadmap
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Changelog
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      Objective
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#divergent-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Divergent changes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Divergent changes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#some-divergence-scenarios" class="md-nav__link">
+    <span class="md-ellipsis">
+      Some divergence scenarios
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strawman-proposal" class="md-nav__link">
+    <span class="md-ellipsis">
+      Strawman proposal
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Strawman proposal">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#examples-and-expected-behavior-with-basic-evolution-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      Examples and expected behavior (with basic evolution graph)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples and expected behavior (with basic evolution graph)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-1-two-commits-for-change-b-same-parent" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example 1: two commits for change B, same parent
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-2-two-commits-for-change-b-with-same-parent-predecessor-has-a-different-parent" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example 2: two commits for change B with same parent (predecessor has a different parent)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-3-divergent-commits-with-different-parents" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example 3: divergent commits with different parents
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-4-divergent-commits-with-different-parents-must-prompt-user-to-choose-parents" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example 4: divergent commits with different parents, must prompt user to choose parents
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-5-more-than-2-divergent-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example 5: more than 2 divergent commits
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples-and-expected-behavior-with-arbitrary-evolution-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      Examples and expected behavior (with arbitrary evolution graph)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples and expected behavior (with arbitrary evolution graph)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-6-a-two-level-evolution-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example 6: a two-level evolution graph
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edge-cases-when-choosing-the-parents-of-the-solution" class="md-nav__link">
+    <span class="md-ellipsis">
+      Edge cases when choosing the parents of the solution
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multiple-divergent-change-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multiple divergent change-ids
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Multiple divergent change-ids">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rebasing-descendants-and-persisting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rebasing descendants and persisting
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#other-edge-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Other edge cases
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Open questions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alternatives considered
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Alternatives considered">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#automatically-resolving-divergence" class="md-nav__link">
+    <span class="md-ellipsis">
+      Automatically resolving divergence
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resolve-divergence-two-commits-at-a-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resolve divergence two commits at a time
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#only-considering-the-evolution-fork-point-and-visible-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Only considering the evolution fork point and visible commits
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/jj-vcs/jj/edit/main/docs/design/jj-converge-command.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="jj-converge-aka-resolve-divergence-command-design">jj converge (aka resolve-divergence) Command Design<a class="headerlink" href="#jj-converge-aka-resolve-divergence-command-design" title="Permanent link">&para;</a></h1>
+<p>Authors: <a href="mailto:drieber@google.com">David Rieber</a>,
+<a href="mailto:martinvonz@google.com">Martin von Zweigbergk</a></p>
+<p><strong>Summary:</strong> This document is a proposal for a new <code>jj converge</code> command to help
+users resolve (or reduce) divergence. The command will use heuristics --and
+sometimes will prompt the user for input-- to rewrite the N visible commits for
+a given change with a single new commit, without introducing new divergence in
+the process. <code>jj resolve-divergence</code> will be an alias for <code>jj converge</code>.</p>
+<h2 id="objective">Objective<a class="headerlink" href="#objective" title="Permanent link">&para;</a></h2>
+<p>A <a href="../../glossary/#divergent-change">divergent change</a> occurs when multiple <a href="../../glossary/#visible-commits">visible commits</a> have the same change
+ID. Divergence is not a desirable state, but is not a bad state either. In this
+regard divergence is similar to conflicts: the user can choose when and how to
+deal with divergence. The <a href="../../guides/divergence/">Handling divergent commits</a> guide has some useful
+tips, but nevertheless divergence is confusing to our users. We can do better
+than that. It should be possible to solve divergence (after the fact) in many
+scenarios with the help of this command. Solving divergence means rewriting the
+commit graph to end up with a single visible commit for the given change id. For
+the purposes of this design doc we call this commit the <em>"solution"</em>.</p>
+<p>The command should produce informative messages to summarize any changes made,
+and will prompt for user input in some situations. The user may of course not
+like the solution. <code>jj undo</code> can be used in that case.</p>
+<h2 id="divergent-changes">Divergent changes<a class="headerlink" href="#divergent-changes" title="Permanent link">&para;</a></h2>
+<p>Divergent commits (for the same change-id) can differ:</p>
+<ul>
+<li>In their commit description (including tags)</li>
+<li>In their commit trees</li>
+<li>In the parent(s) of the commits (commits <em>B/0</em> and <em>B/1</em> for change <em>B</em> have
+    different parents)</li>
+<li>In the commit author</li>
+<li>It is also possible divergence involves two commits with different
+    timestamps that are otherwise identical</li>
+</ul>
+<p>As you read this design doc it is important to not confuse the
+<em>predecessor/successor</em> relationship versus the <em>ancestor/descendant</em>
+relationship.</p>
+<h3 id="some-divergence-scenarios">Some divergence scenarios<a class="headerlink" href="#some-divergence-scenarios" title="Permanent link">&para;</a></h3>
+<p>Divergence can be introduced in many ways. This document does not aim to explain
+any/all of those scenarios accurately, this section is only meant to be rough
+background material. Here are some examples:</p>
+<ul>
+<li>
+<p>In one terminal you type <code>jj describe</code> to edit a commit description and
+    while the editor is open you take a coffee break, when you come back you
+    open another terminal and do something that rewrites the commit (for example
+    you modify a file and run <code>jj log</code>, causing a snapshot). When you save the
+    new description <code>jj describe</code> completes and you end up with 2 visible
+    commits with the same change id.</p>
+</li>
+<li>
+<p>In general any interactive jj command (<code>jj split -i</code>, <code>jj squash -i</code>, etc)
+    can lead to divergence in a similar way.</p>
+</li>
+<li>
+<p>You can introduce divergence by making some hidden predecessor of your
+    change visible again. There are many ways this could happen.</p>
+</li>
+<li>
+<p>Divergence can happen when mutating two workspaces. For example, assume you
+    have workspaces w1 and w2 with working copy commits <em>A</em> and <em>B</em>
+    respectively, where <em>B</em> is a child of <em>A</em>. In w2 you run <code>jj git fetch</code> and
+    then rebase the whole branch onto main. Go back to w1 (which is now stale),
+    modify some file on disk and take a snapshot (e.g. run <code>jj log</code>). This
+    introduces divergence.</p>
+</li>
+<li>
+<p>When using the Git backend jj propagates change-id. The change-id is stored
+    in the commit header, so after jj git fetch you can end up with a second
+    commit with the same change-id.</p>
+</li>
+<li>
+<p>There is a Google-specific jj upload command to upload a commit to Google's
+    review/test/submit system, and there is an associated Google-specific
+    command to "download" a change from that system back to your jj repo. This
+    can introduce divergence very much like in the Git scenario.</p>
+</li>
+<li>
+<p>At Google, snapshotting operations happen concurrently on different machines
+    (e.g. two terminals, or more commonly, a terminal and an IDE). Often times
+    they end up snapshotting the same content. Google's backend does not hold
+    locks while snapshotting because it's a distributed filesystem, so locking
+    would be slow.</p>
+</li>
+</ul>
+<h2 id="strawman-proposal">Strawman proposal<a class="headerlink" href="#strawman-proposal" title="Permanent link">&para;</a></h2>
+<p>We look at some examples to illustrate what the command should do, starting with
+simple cases and moving on to more complex ones.</p>
+<h3 id="examples-and-expected-behavior-with-basic-evolution-graph">Examples and expected behavior (with basic evolution graph)<a class="headerlink" href="#examples-and-expected-behavior-with-basic-evolution-graph" title="Permanent link">&para;</a></h3>
+<p>The first few examples assume commits <em>B/0</em> and <em>B/1</em> are visible commits for
+change <em>B</em>. First we assume <em>B/0</em> and <em>B/1</em> evolve directly from a common
+predecessor commit <em>P</em>, which is now hidden (no longer visible). Later we look
+at more complex evolution graphs. Note that <em>P</em>'s change id is also <em>B</em>.</p>
+<div class="highlight"><pre><span></span><code>Evolution graph for examples 1, 2, 3 and 4.
+B/0 and B/1 may have other predecessors for unrelated change-ids, P may have
+predecessors (even for change-id B):
+
+B/0
+|  B/1
+| /
+P
+</code></pre></div>
+<p>We will write <code>A⁻</code> to denote the parent trees of commit <code>A</code>.</p>
+<h4 id="example-1-two-commits-for-change-b-same-parent">Example 1: two commits for change <em>B</em>, same parent<a class="headerlink" href="#example-1-two-commits-for-change-b-same-parent" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
+<span class="go">B/0</span>
+<span class="go">|</span>
+<span class="go">| B/1</span>
+<span class="go">|/</span>
+<span class="go">A</span>
+</code></pre></div>
+<p>In this simple case it is clear the solution should be a child of <em>A</em>:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
+<span class="go"> B (solution)</span>
+<span class="go"> |</span>
+<span class="go"> | B/0 (not visible)</span>
+<span class="go"> |/</span>
+<span class="go"> | B/1 (not visible)</span>
+<span class="go"> | /</span>
+<span class="go"> A</span>
+</code></pre></div>
+<p>Let's now consider two cases: when <em>P</em>'s parent is <em>A</em>, and when <em>P</em> has some
+other parent. First, if <em>P</em>'s parent is <em>A</em> we have:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
+<span class="go">B/0</span>
+<span class="go">| B/1</span>
+<span class="go">|/</span>
+<span class="go">| P (not visible)</span>
+<span class="go">|/</span>
+<span class="go">A</span>
+</code></pre></div>
+<p>Here <em>P</em>, <em>B/0</em> and <em>B/1</em> are siblings. The command needs to determine the
+description, parents, tree and author of the solution. It uses a simple data
+structure for this purpose:</p>
+<div class="highlight"><pre><span></span><code><span class="k">struct</span><span class="w"> </span><span class="nc">MergedState</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">author</span><span class="p">:</span><span class="w"> </span><span class="nc">Merge</span><span class="o">&lt;</span><span class="n">Signature</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">  </span><span class="n">description</span><span class="p">:</span><span class="w"> </span><span class="nc">Merge</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">  </span><span class="n">parents</span><span class="p">:</span><span class="w"> </span><span class="nc">Merge</span><span class="o">&lt;</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">CommitId</span><span class="o">&gt;&gt;</span><span class="p">,</span>
+<span class="w">  </span><span class="n">tree</span><span class="p">:</span><span class="w"> </span><span class="nc">Merge</span><span class="o">&lt;</span><span class="n">MergedTree</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Each of the fields of <code>MergedState</code> are populated by doing a merge of the
+corresponding fields of <em>P</em>, <em>B/0</em> and <em>B/1</em>. Loosely speaking each merge can be
+expressed as <code>P + (B/0 - P) + (B/1 - P)</code> for each of the fields. The command
+attempts to resolve the various Merge objects trivially, using <code>same_change:
+SameChange::Accept</code> (later on in this design doc we will tweak the merge
+algorithm a bit).</p>
+<p>The description is merged as a String value. If the description does not
+trivially resolve, the user's merge tool will be invoked, with conflict markers.
+If author does not trivially resolve, the user will be presented with the
+options to choose from. Once that's all done we have our solution commit <em>B</em>.
+All descendants of <em>B/0</em> and <em>B/1</em> are rebased onto <em>B</em>. The command records the
+operation in the operation log with a new View where <em>B</em> is a visible commit
+with <em>{B/0, B/1}</em> as predecessors. <em>B/0</em> and <em>B/1</em> become hidden commits.</p>
+<p>Note that in some cases the solution may be identical to either <em>B/0</em> or <em>B/1</em>
+(in all regards except the commit timestamp): we choose to create a new commit
+<em>B</em> to make the evolution graph and op log more clearly show that jj converge
+was invoked. Alternatively we could keep the matching commit instead of creating
+a new commit (this could result in cycles in the evolog).</p>
+<h4 id="example-2-two-commits-for-change-b-with-same-parent-predecessor-has-a-different-parent">Example 2: two commits for change <em>B</em> with same parent (predecessor has a different parent)<a class="headerlink" href="#example-2-two-commits-for-change-b-with-same-parent-predecessor-has-a-different-parent" title="Permanent link">&para;</a></h4>
+<p>Now lets consider the case where <em>P</em> has a different parent:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
+<span class="go">B/0</span>
+<span class="go">|</span>
+<span class="go">| B/1</span>
+<span class="go">|/</span>
+<span class="go">A</span>
+<span class="go">|  P (not visible)</span>
+<span class="go">| /</span>
+<span class="go">X</span>
+</code></pre></div>
+<p>In this case we first rebase <em>P</em> onto <em>A</em> (in-memory) to produce <code>P' = A + (P -
+P⁻)</code>. This essentially reduces the problem to the previous case. We now produce
+the solution as before: <code>B = P' + (B/0 - P') + (B/1 - P')</code>. Note that again the
+parent of the solution is <em>A</em>.</p>
+<h4 id="example-3-divergent-commits-with-different-parents">Example 3: divergent commits with different parents<a class="headerlink" href="#example-3-divergent-commits-with-different-parents" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
+<span class="go">B/0</span>
+<span class="go">|</span>
+<span class="go">|  B/1</span>
+<span class="go">|  /</span>
+<span class="go">| C</span>
+<span class="go">|/</span>
+<span class="go">A</span>
+</code></pre></div>
+<p>In this case it is not immediately obvious which commit should be the parent of
+the solution. Let's first consider the case where <em>P</em> is a child of <em>A</em>.</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
+<span class="go">B/0</span>
+<span class="go">|</span>
+<span class="go">|  B/1</span>
+<span class="go">|  /</span>
+<span class="go">| C</span>
+<span class="go">|/</span>
+<span class="go">|  P (not visible)</span>
+<span class="go">| /</span>
+<span class="go">A</span>
+</code></pre></div>
+<p>We determine the parent(s) of the solution as follows:</p>
+<div class="highlight"><pre><span></span><code>parents = P⁻ + (B/0⁻ - P⁻) + (B/1⁻ - P⁻)
+</code></pre></div>
+<p>In this example the expression evaluates to <code>{A} + ({A} - {A}) + ({C} - {A}) =
+{C}</code>. Since this expression resolves trivially to <em>{C}</em>, we use that as the
+parents of the solution.</p>
+<p>Note that this simple algorithm produces the desired output in example 1 and
+example 2. In example 2, the expression looks like this:</p>
+<div class="highlight"><pre><span></span><code>parents = P⁻ + (B/0⁻ - P⁻) + (B/1⁻ - P⁻)
+        = {X} + ({A} - {X}) + ({A} - {X})
+        = {A} + ({A} - {X})
+</code></pre></div>
+<p>That expression resolves trivially to <em>{A}</em> when using SameChange::Accept.</p>
+<h4 id="example-4-divergent-commits-with-different-parents-must-prompt-user-to-choose-parents">Example 4: divergent commits with different parents, must prompt user to choose parents<a class="headerlink" href="#example-4-divergent-commits-with-different-parents-must-prompt-user-to-choose-parents" title="Permanent link">&para;</a></h4>
+<p>If instead <em>P</em> is a child of some other commit <em>X</em>, the story is a bit
+different:</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
+<span class="go">B/0</span>
+<span class="go">|</span>
+<span class="go">| B/1</span>
+<span class="go">| |</span>
+<span class="go">| C</span>
+<span class="go">|/</span>
+<span class="go">A</span>
+<span class="go">|  P (not visible)</span>
+<span class="go">| /</span>
+<span class="go">X</span>
+</code></pre></div>
+<p>In this case parents will be</p>
+<div class="highlight"><pre><span></span><code>{X} + ({A} - {X}) + ({C} - {X}) = {A} + ({C} - {X})
+</code></pre></div>
+<p>Since this does not trivially resolve, the command prompts the user to select
+the desired parents for the solution: either <em>{A}</em> or <em>{C}</em>.</p>
+<p>Assume the user chooses <em>{C}</em>. The command then rebases (in memory) <em>B/0</em>, <em>B/1</em>
+and <em>P</em> onto the chosen parents:</p>
+<div class="highlight"><pre><span></span><code>In-memory commits after rebasing B/0, B/1 and P on top of C (edges represent
+parent/child relationship):
+
+# B/0&#39; = C + (B/0 - A)
+# B/1&#39; = C + (B/1 - C) = B/1
+# P&#39; = C + (P - X)
+
+B/0&#39;
+|
+|  B/1&#39;
+|/
+|  P&#39;
+| /
+C
+</code></pre></div>
+<p>As a result we obtain <em>B/0'</em>, <em>B/1'</em> and <em>P'</em>, and these are sibling commits. At
+this point the command does a 3-way merge of <code>MergedTree</code> objects to produce
+<code>MergedState::tree</code> (in reality it is enough to rebase the commit <em>trees</em>).</p>
+<h4 id="example-5-more-than-2-divergent-commits">Example 5: more than 2 divergent commits<a class="headerlink" href="#example-5-more-than-2-divergent-commits" title="Permanent link">&para;</a></h4>
+<p>There can be more than 2 visible commits for a given change-id. We are assuming
+here <em>B/0</em>, <em>B/1</em> and <em>B/2</em> are all direct successors of commit <em>P</em> (which is
+invisible).</p>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>jj<span class="w"> </span>log
+<span class="go">B/0</span>
+<span class="go">|</span>
+<span class="go">| B/1</span>
+<span class="go">| |</span>
+<span class="go">| | B/2</span>
+<span class="go">| |/</span>
+<span class="go">|/</span>
+<span class="go">A</span>
+</code></pre></div>
+<p>This is completely analogous to the first example, we simply have more terms on
+all merges. The same thing applies to all previous examples, in all cases we can
+deal with any number of divergent commits for change <em>B</em>.</p>
+<h3 id="examples-and-expected-behavior-with-arbitrary-evolution-graph">Examples and expected behavior (with arbitrary evolution graph)<a class="headerlink" href="#examples-and-expected-behavior-with-arbitrary-evolution-graph" title="Permanent link">&para;</a></h3>
+<p>So far we only considered simple cases where all divergent commits are direct
+successors of a common predecessor <em>P</em>. Now we extend the ideas to arbitrary
+evolution history. To that end we introduce the <em>"truncated evolution graph for
+B/0, B/1, ... , B/n"</em>, where <em>B/0, B/1, ... , B/n</em> are two or more commits with
+the same change-id <em>B</em>. This is a directed graph. Its nodes are commits for
+change-id <em>B</em> and the edges are from a commit to its (immediate) predecessor(s),
+ignoring predecessors with unrelated change-ids. The graph is built by
+traversing the operation log and associated View objects, adding nodes and
+predecessor edges as needed. Nodes are added this way until a single most-recent
+common predecessor commit is found. We call the most-recent common predecessor
+the <em>"evolution fork point of B/0, ... , B/n"</em>. The traversal keeps track of
+visited commits to avoid infinite loops <sup id="fnref:footnote-about-evolog-cycles"><a class="footnote-ref" href="#fn:footnote-about-evolog-cycles">1</a></sup>
+<sup id="fnref:virtual-evolution-fork-point"><a class="footnote-ref" href="#fn:virtual-evolution-fork-point">2</a></sup>.</p>
+<h4 id="example-6-a-two-level-evolution-graph">Example 6: a two-level evolution graph<a class="headerlink" href="#example-6-a-two-level-evolution-graph" title="Permanent link">&para;</a></h4>
+<p>We continue by looking at a truncated evolution graph that is slightly more
+complex than the basic 3-commit case. This will serve as motivation for the
+general case. Here is our truncated evolution graph (remember the edges here
+represent change evolution, not parent-child relations):</p>
+<div class="highlight"><pre><span></span><code>Truncated evolution graph. B/0, B/1 and Q may have other predecessors for
+unrelated change-ids. P is the evolution fork point (it may have predecessors,
+even for change-id B):
+
+B/0     (description: &quot;v3&quot;)
+|
+|  B/1  (description: &quot;v2&quot;)
+Q  /    (description: &quot;v2&quot;)
+| /
+P       (description: &quot;v1&quot;)
+</code></pre></div>
+<p>Commit <em>P</em> evolved into <em>Q</em> and <em>B/1</em>, and <em>Q</em> evolved into <em>B/0</em>. As before
+<em>B/0</em> and <em>B/1</em> are visible, <em>P</em> and <em>Q</em> are not. Since both sides of the
+evolution transitioned from "v1" to "v2", and then one side further transitioned
+to "v3", it seems a good heuristic to take "v3" as the description of the
+solution. Note that this observation would not be possible if the algorithm only
+considered the leafs (<em>B/0</em>, <em>B/1</em>) and their evolution fork point (<em>P</em>).</p>
+<p>Note: Why do we care about divergence producing two commits with the exact same
+change? It may seem this would be a very uncommon scenario, however, as
+mentioned in the last bullet point in the "Some divergence scenarios" section,
+this is in fact fairly common at Google due to the distributed nature of
+Google's backend filesystem.</p>
+<p>To implement the heuristic we outlined above in example 6 (i.e. to produce
+"v3"), we propose introducing a new <em>try_resolve_deduplicating_same_diffs</em>
+method to <code>Merge&lt;T&gt;</code>, and using that in calls to attempt to resolve the
+MergedState::description, MergedState::parent, MergedState::author and
+MergedState::trees. try_resolve_deduplicate_same_diffs is similar to
+resolve_trivial, but it counts multiple identical <em>(X - Y)</em> terms exactly once,
+otherwise it follows the same flow as resolve_trivial with SameChange::Accept.</p>
+<p>We illustrate what <em>try_resolve_deduplicating_same_diffs</em> does when resolving
+the description merge for the case in example 6. We build a <code>Merge&lt;String&gt;</code>,
+starting with the description of the evolution fork point <em>P</em>, then adding
+<em>desc(Y) - desc(X)</em> terms for each <em>X-&gt;Y</em> edge in the truncated evolution graph.
+Then we call <em>try_resolve_deduplicating_same_diffs</em> to get:</p>
+<div class="highlight"><pre><span></span><code>P + (Q - P) + (B/1 - P) + (B/0 - Q) =
+       = v1 + (v2 - v1) + (v2 - v1) + (v3 - v2)    &lt;== collapse duplicate
+                                                       (v2 - v1) edge/term
+       = v1 + (v2 - v1) + (v3 - v2)
+       = v3
+</code></pre></div>
+<p><em>try_resolve_deduplicating_same_diffs</em> returns our desired value "v3". Note that
+resolve_trivial (with either SameChange value) would return none. Here is
+another example:</p>
+<div class="highlight"><pre><span></span><code>Truncated evolution graph:
+
+B/0     ( foo.txt contents: &quot;v3&quot; )
+|
+|  B/1  ( foo.txt contents: &quot;v2&quot; )
+Q  /    ( foo.txt contents: &quot;v1&quot; )
+| /
+P       ( foo.txt contents: &quot;v1&quot; )
+</code></pre></div>
+<p>In this case <em>try_resolve_deduplicating_same_diffs</em> produces none. jj converge
+cannot automatically resolve this merge so the user has to merge the
+description: the command invokes the user's merge-tool with base "v1" and sides
+"v2"/"v3".</p>
+<h3 id="edge-cases-when-choosing-the-parents-of-the-solution">Edge cases when choosing the parents of the solution<a class="headerlink" href="#edge-cases-when-choosing-the-parents-of-the-solution" title="Permanent link">&para;</a></h3>
+<p>When attempting to produce the solution parents, the command applies
+<em>try_resolve_deduplicating_same_diffs</em> to MergedState::parents (of type
+<code>Merge&lt;Vec&lt;CommitId&gt;&gt;</code>). If the result is <code>Some&lt;Vec&lt;CommitId&gt;&gt;</code> we have a set of
+possible parents for the solution. If these candidate parents are all visible
+commits with change-ids other than <em>B</em>, and none of those are descendants of
+<em>B/0, B/1, ... B/n</em>, then we have the desired parents for the solution commit.</p>
+<p>On the other hand,</p>
+<ul>
+<li>if any candidate parent is a descendant of one of the divergent commits we
+    are trying to solve, or</li>
+<li>if any of the candidate parents are hidden and the chain starting at visible
+    roots and leading up to and including the parent has any commit for the
+    divergent change we are trying to solve (<em>B</em>), or for any other visible
+    commit (divergent or not), or the chain itself has two or more commits with
+    the same change-id,</li>
+</ul>
+<p>then we would introduce new divergence or cycles in the commit graph if we based
+on the solution on such candidate parents. In these edge cases the command will
+simply discard the candidate parents and will instead ask the user to choose
+which parents to use (or quit quit without making any changes). Care must be
+taken when picking the options to present to the user for choosing parents:
+essentially the user will choose between the parents of <em>B/0</em>, the parents of
+<em>B/1</em>, and so on, but we will skip any <em>B/i</em> if any of the parents of <em>B/i</em>
+descends from any <em>B/j</em>. Since the commit graph is a DAG, at least one option is
+viable.</p>
+<h2 id="multiple-divergent-change-ids">Multiple divergent change-ids<a class="headerlink" href="#multiple-divergent-change-ids" title="Permanent link">&para;</a></h2>
+<p>If there are multiple divergent change-ids, the command could prompt the user to
+choose one, or apply heuristics to choose one programmatically. In the first
+version it is OK to prompt the user.</p>
+<p>If the command successfully resolves divergence in the first divergent
+change-id, it could continue to process the next divergent change-id, and so on.
+To avoid complexity the first implementation will only deal with one divergent
+change per invocation.</p>
+<h3 id="rebasing-descendants-and-persisting">Rebasing descendants and persisting<a class="headerlink" href="#rebasing-descendants-and-persisting" title="Permanent link">&para;</a></h3>
+<p>The last step is to rebase all descendants of the divergent commits on top of
+the new solution commit, persist the changes and record the operation in the op
+log. The command will move local bookmarks pointing to any of the rewritten
+divergent commits to point to the solution commit.</p>
+<h2 id="other-edge-cases">Other edge cases<a class="headerlink" href="#other-edge-cases" title="Permanent link">&para;</a></h2>
+<p>When the command starts it needs to find the divergent change-ids and their
+corresponding visible commits. If the portion of the visible commit graph
+leading up to immutable heads is too big, the command should error out.</p>
+<p>There could be pathological cases where the evolution history is too long. When
+building the truncated evolution graph, if we have traversed too many nodes (say
+50) and we have not yet completed the traversal, the algorithm will not traverse
+any more commits. We could simply error out, or we could use an incomplete
+truncated evolution graph by adding a virtual evolution fork point. It is
+probably best to error out.</p>
+<h2 id="open-questions">Open questions<a class="headerlink" href="#open-questions" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Do we ever have divergence of committer? Is it safe to mess with committer?</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
+<h3 id="automatically-resolving-divergence">Automatically resolving divergence<a class="headerlink" href="#automatically-resolving-divergence" title="Permanent link">&para;</a></h3>
+<p>It would be nice if divergence was avoided in the first place, at least in some
+cases, at the point where jj is about to introduce the second (or third or
+fourth etc) visible commit for a given change id. This should be investigated
+separately.</p>
+<h3 id="resolve-divergence-two-commits-at-a-time">Resolve divergence two commits at a time<a class="headerlink" href="#resolve-divergence-two-commits-at-a-time" title="Permanent link">&para;</a></h3>
+<p>The algorithm in this proposal should work when there are any number of
+divergent commits (for a given change id). In practice we expect most often
+there will be just 2 or perhaps a few divergent commits. We could design an
+algorithm for just 2 commits, but we chose to think about the more general case.</p>
+<h3 id="only-considering-the-evolution-fork-point-and-visible-commits">Only considering the evolution fork point and visible commits<a class="headerlink" href="#only-considering-the-evolution-fork-point-and-visible-commits" title="Permanent link">&para;</a></h3>
+<p>As explained in example 6 this proposal uses the truncated evolution graph and
+<em>try_resolve_deduplicating_same_diffs</em> to produce the solution. That example
+shows why we think this leads to a better heuristic. We could instead only
+consider <em>P</em> and <em>B/0, B/1, ... , B/n</em>. That would be slightly simpler.</p>
+<div class="footnote">
+<hr />
+<ol>
+<li id="fn:footnote-about-evolog-cycles">
+<p>It is unclear if the evolution history can
+contain cycles today, but there has been some
+discussion about <code>jj undo</code> possibly producing
+cycles. In any case, it is very easy to deal
+with that possibility, so we may as well handle
+it?&#160;<a class="footnote-backref" href="#fnref:footnote-about-evolog-cycles" title="Jump back to footnote 1 in the text">&#8617;</a></p>
+</li>
+<li id="fn:virtual-evolution-fork-point">
+<p>Today there should always be a single evolution
+fork point. However, we could handle cases
+where a change-id "emanates from multiple
+initial commits" by adding a single <em>virtual
+evolution fork point</em> commit with empty state:
+empty description, empty tree and empty author,
+and having the root commit as its parent, and
+treating it as a predecessor of all initial
+commits. Again, we probably don't need to worry
+about this, but it is good to know we could
+handle it.&#160;<a class="footnote-backref" href="#fnref:virtual-evolution-fork-point" title="Jump back to footnote 2 in the text">&#8617;</a></p>
+</li>
+</ol>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["content.action.edit", "content.code.copy", "content.tabs.link", "navigation.instant"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+    
+  </body>
+</html>
