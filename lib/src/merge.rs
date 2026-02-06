@@ -828,7 +828,7 @@ where
     }
 
     /// Creates a new merge with the file ids from the given merge. In other
-    /// words, only the executable bits from `self` will be preserved.
+    /// words, the executable bits and copy IDs from `self` will be preserved.
     ///
     /// The given `file_ids` should have the same shape as `self`. Only the
     /// `FileId` values may differ.
