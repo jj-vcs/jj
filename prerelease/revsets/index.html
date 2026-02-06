@@ -2315,6 +2315,9 @@ indicates that all of the following usages are valid:</p>
 <p><code>reachable(srcs, domain)</code>: All commits reachable from <code>srcs</code> within
   <code>domain</code>, traversing all parent and child edges. <code>srcs</code> outside <code>domain</code> are
   not considered even if a parent or child edge would reach into <code>domain</code>.</p>
+<p>This is useful for finding all related commits in a branch or feature without
+traversing outside a defined scope. For example, <code>reachable(@, mutable())</code>
+returns the stack of commits you are working on.</p>
 </li>
 <li>
 <p><code>connected(x)</code>: Same as <code>x::x</code>. Useful when <code>x</code> includes several commits.</p>
@@ -2540,12 +2543,14 @@ o A
 o root()
 </code></pre></div></p>
 <p><strong>function</strong> <code>reachable()</code></p>
+<p><code>reachable(srcs, domain)</code> finds all commits reachable from <code>srcs</code> by
+following parent or child edges, but limited to commits within <code>domain</code>.</p>
 <ul>
-<li><code>reachable(E, A..)</code> ⇒ <code>{E,D,C,B}</code></li>
-<li><code>reachable(D, A..)</code> ⇒ <code>{E,D,C,B}</code></li>
-<li><code>reachable(C, A..)</code> ⇒ <code>{E,D,C,B}</code></li>
-<li><code>reachable(B, A..)</code> ⇒ <code>{E,D,C,B}</code></li>
-<li><code>reachable(A, A..)</code> ⇒ <code>{}</code> (empty set)</li>
+<li><code>reachable(E, A..)</code> ⇒ <code>{E,D,C,B}</code> — All commits after A are reachable</li>
+<li><code>reachable(E, B..)</code> ⇒ <code>{E}</code> — E is isolated: its only edge (to B) leaves the domain</li>
+<li><code>reachable(C, B..)</code> ⇒ <code>{D,C}</code> — C and D are connected; the C→A edge leaves the domain</li>
+<li><code>reachable(D, B..)</code> ⇒ <code>{D,C}</code> — Same result: D reaches C, but D→B leaves the domain</li>
+<li><code>reachable(A, A..)</code> ⇒ <code>{}</code> (empty set) — A is not in domain <code>A..</code>, so it's ignored</li>
 </ul>
 <p><strong>function</strong> <code>connected()</code></p>
 <ul>
