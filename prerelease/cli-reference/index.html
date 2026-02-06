@@ -9966,6 +9966,9 @@ J           J
 <p><code>--keep-divergent</code> — Keep divergent commits while rebasing</p>
 <p>Without this flag, divergent commits are abandoned while rebasing if another commit with the same change ID is already present in the destination with identical changes.</p>
 </li>
+<li>
+<p><code>--simplify-parents</code> — Simplify parents of rebased commits, like <code>jj simplify-parents</code>, while rebasing them. Any parents that are ancestors of other parents will be removed</p>
+</li>
 </ul>
 <h2 id="jj-redo"><code>jj redo</code><a class="headerlink" href="#jj-redo" title="Permanent link">&para;</a></h2>
 <p>Redo the most recently undone operation</p>

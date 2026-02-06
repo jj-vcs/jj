@@ -6631,6 +6631,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p>Bookmarks with two or more consecutive <code>-</code> characters no longer need to be quoted
   in revsets. For example, <code>jj diff -r '"foo--bar"'</code> can now be written as <code>jj diff -r foo--bar</code>.</p>
 </li>
+<li>
+<p>New flag <code>--simplify-parents</code> on <code>jj rebase</code> to apply the same transformation
+  as <code>jj simplify-parents</code> on the rebased commits.
+  <a href="https://github.com/jj-vcs/jj/issues/7711">#7711</a></p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <h2 id="0380-2026-02-04"><a href="https://github.com/jj-vcs/jj/compare/v0.37.0...v0.38.0">0.38.0</a> - 2026-02-04<a class="headerlink" href="#0380-2026-02-04" title="Permanent link">&para;</a></h2>
