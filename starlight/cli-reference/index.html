@@ -2357,6 +2357,9 @@ case):</p>
 <p><code dir="auto">--keep-divergent</code> — Keep divergent commits while rebasing</p>
 <p>Without this flag, divergent commits are abandoned while rebasing if another commit with the same change ID is already present in the destination with identical changes.</p>
 </li>
+<li>
+<p><code dir="auto">--simplify-parents</code> — Simplify parents of rebased commits, like <code dir="auto">jj simplify-parents</code>, while rebasing them. Any parents that are ancestors of other parents will be removed</p>
+</li>
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="jj-redo"><code dir="auto">jj redo</code></h2><a class="sl-anchor-link" href="#jj-redo"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “jj redo”</span></a></div>
 <p>Redo the most recently undone operation</p>
