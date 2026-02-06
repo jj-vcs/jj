@@ -25,6 +25,7 @@ use std::io::StdoutLock;
 use std::io::Write;
 use std::iter;
 use std::mem;
+use std::num::NonZero;
 use std::process::Child;
 use std::process::ChildStdin;
 use std::process::Stdio;
@@ -690,14 +691,14 @@ impl Ui {
     }
 
     pub fn term_width(&self) -> usize {
-        term_width().unwrap_or(80).into()
+        get_term_width().map_or(80, NonZero::get).into()
     }
 }
 
 #[derive(Debug)]
 pub struct ProgressOutput<W> {
     output: W,
-    term_width: Option<u16>,
+    term_width: Option<NonZero<u16>>,
 }
 
 impl ProgressOutput<io::Stderr> {
@@ -713,13 +714,13 @@ impl<W> ProgressOutput<W> {
     pub fn for_test(output: W, term_width: u16) -> Self {
         Self {
             output,
-            term_width: Some(term_width),
+            term_width: NonZero::new(term_width),
         }
     }
 
-    pub fn term_width(&self) -> Option<u16> {
+    pub fn term_width(&self) -> Option<NonZero<u16>> {
         // Terminal can be resized while progress is displayed, so don't cache it.
-        self.term_width.or_else(term_width)
+        self.term_width.or_else(get_term_width)
     }
 
     /// Construct a guard object which writes `text` when dropped. Useful for
@@ -771,10 +772,13 @@ fn format_error_with_sources(err: &dyn error::Error) -> impl fmt::Display {
     iter::successors(Some(err), |&err| err.source()).format(": ")
 }
 
-fn term_width() -> Option<u16> {
-    if let Some(cols) = env::var("COLUMNS").ok().and_then(|s| s.parse().ok()) {
-        Some(cols)
-    } else {
-        crossterm::terminal::size().ok().map(|(cols, _)| cols)
-    }
+fn get_term_width() -> Option<NonZero<u16>> {
+    std::env::var("COLUMNS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .or_else(|| {
+            crossterm::terminal::size()
+                .ok()
+                .and_then(|(cols, _)| NonZero::new(cols))
+        })
 }

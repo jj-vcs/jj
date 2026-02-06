@@ -1,3 +1,4 @@
+use std::num::NonZero;
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -50,7 +51,7 @@ pub fn snapshot_progress(ui: &Ui) -> Option<impl Fn(&RepoPath) + use<>> {
             );
         }
 
-        let line_width = state.output.term_width().map(usize::from).unwrap_or(80);
+        let line_width: usize = state.output.term_width().map_or(80, NonZero::get).into();
         let max_path_width = line_width.saturating_sub(13); // Account for "Snapshotting "
         let fs_path = path.to_fs_path_unchecked(Path::new(""));
         let (display_path, _) =

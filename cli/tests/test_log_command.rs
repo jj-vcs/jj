@@ -1502,13 +1502,9 @@ fn test_log_word_wrap() {
 
     // Shouldn't panic with $COLUMNS < graph_width
     insta::assert_snapshot!(render(&["log", "-r@"], 0, true), @r"
-    @  mzvwutvl
-    │  test.user@example.com
-    ~  2001-02-03
-       08:05:11
-       bafb1ee5
-       (empty)
-       merge
+    @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 bafb1ee5
+    │  (empty) merge
+    ~
     [EOF]
     ");
     insta::assert_snapshot!(render(&["log", "-r@"], 1, true), @r"

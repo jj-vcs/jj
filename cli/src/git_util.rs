@@ -19,6 +19,7 @@ use std::io;
 use std::io::Write as _;
 use std::iter;
 use std::mem;
+use std::num::NonZero;
 use std::path::Path;
 use std::time::Duration;
 use std::time::Instant;
@@ -360,11 +361,8 @@ impl Progress {
         let control_chars = self.buffer.len();
         write!(self.buffer, "{: >3.0}% ", 100.0 * progress.overall()).unwrap();
 
-        let bar_width = output
-            .term_width()
-            .map(usize::from)
-            .unwrap_or(0)
-            .saturating_sub(self.buffer.len() - control_chars + 2);
+        let line_width: usize = output.term_width().map_or(0, NonZero::get).into();
+        let bar_width = line_width.saturating_sub(self.buffer.len() - control_chars + 2);
         self.buffer.push('[');
         draw_progress(progress.overall(), &mut self.buffer, bar_width);
         self.buffer.push(']');
