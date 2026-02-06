@@ -186,19 +186,17 @@ pub(crate) fn cmd_diff(
     // -T disables both short/long rendering formats, but it might be okay to
     // enable long format if explicitly specified (assuming -T is for short or
     // summary output.)
-    let maybe_template;
-    let diff_renderer;
-    if let Some(text) = &args.template {
-        let language = workspace_command.commit_template_language();
-        let template = workspace_command
-            .parse_template(ui, &language, text)?
-            .labeled(["diff"]);
-        maybe_template = Some(template);
-        diff_renderer = workspace_command.diff_renderer(vec![]);
-    } else {
-        maybe_template = None;
-        diff_renderer = workspace_command.diff_renderer_for(&args.format)?;
-    }
+    let (maybe_template, diff_renderer) = match args.template.as_deref() {
+        Some(text) => {
+            let language = workspace_command.commit_template_language();
+            let template = workspace_command
+                .parse_template(ui, &language, text)?
+                .labeled(["diff"]);
+
+            (Some(template), workspace_command.diff_renderer(vec![]))
+        }
+        None => (None, workspace_command.diff_renderer_for(&args.format)?),
+    };
 
     ui.request_pager();
     if let Some(template) = &maybe_template {
