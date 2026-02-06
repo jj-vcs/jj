@@ -62,6 +62,7 @@ use crate::templater::PlainTextFormattedProperty;
 use crate::templater::PropertyPlaceholder;
 use crate::templater::RawEscapeSequenceTemplate;
 use crate::templater::ReformatTemplate;
+use crate::templater::RegexReplacementTemplate;
 use crate::templater::SeparateTemplate;
 use crate::templater::SizeHint;
 use crate::templater::Template;
@@ -561,7 +562,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
 
 impl<'a, L> CoreTemplateBuildFnTable<'a, L, L::Property>
 where
-    L: TemplateLanguage<'a> + ?Sized,
+    L: TemplateLanguage<'a> + ?Sized + 'a,
 {
     /// Creates new symbol table containing the builtin functions and methods.
     pub fn builtin() -> Self {
@@ -907,7 +908,7 @@ fn build_binary_operation<'a, L: TemplateLanguage<'a> + ?Sized>(
     }
 }
 
-fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized + 'a>()
 -> TemplateBuildMethodFnMap<'a, L, String> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
@@ -1159,6 +1160,62 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
                 );
                 Ok(out_property.into_dyn_wrapped())
             }
+        },
+    );
+    map.insert(
+        "replace_fn",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let ([pattern_node, replacement_lambda_node], []) = function.expect_arguments()?;
+            let pattern = template_parser::expect_string_pattern(pattern_node)?;
+
+            let regex = pattern.to_regex();
+
+            // captures_len() includes the full match and all capture groups.
+            let arguments_count = regex.captures_len();
+            let mut capture_placeholders: Vec<PropertyPlaceholder<String>> =
+                Vec::with_capacity(arguments_count);
+            for _ in 0..arguments_count {
+                capture_placeholders.push(PropertyPlaceholder::new());
+            }
+
+            let arg_fns: Vec<Box<dyn Fn() -> L::Property + 'a>> = capture_placeholders
+                .iter()
+                .map(|placeholder| {
+                    let placeholder = placeholder.clone();
+                    Box::new(move || placeholder.clone().into_dyn_wrapped())
+                        as Box<dyn Fn() -> L::Property + 'a>
+                })
+                .collect();
+            let arg_fns_refs: Vec<&(dyn Fn() -> L::Property + 'a)> =
+                arg_fns.iter().map(|f| f.as_ref()).collect();
+
+            let replacement_template = template_parser::catch_aliases(
+                diagnostics,
+                replacement_lambda_node,
+                |diagnostics, node| {
+                    let lambda = template_parser::expect_lambda(node)?;
+                    build_lambda_expression(build_ctx, lambda, &arg_fns_refs, |build_ctx, body| {
+                        expect_template_expression(language, diagnostics, build_ctx, body)
+                    })
+                },
+            )?;
+
+            let regex_replacement_template =
+                RegexReplacementTemplate::new(self_property, regex, move |formatter, captures| {
+                    for (capture, capture_placeholder) in
+                        captures.into_iter().zip(capture_placeholders.iter())
+                    {
+                        capture_placeholder.set(capture);
+                    }
+                    replacement_template.format(formatter)?;
+                    for capture_placeholder in &capture_placeholders {
+                        capture_placeholder.take();
+                    }
+                    Ok(())
+                });
+            Ok(L::Property::wrap_template(Box::new(
+                regex_replacement_template,
+            )))
         },
     );
     map
@@ -3612,6 +3669,12 @@ mod tests {
 
         // replace with error
         insta::assert_snapshot!(env.render_ok(r#""hello world".replace("world", bad_string)"#), @"<Error: Bad>");
+
+        // replace_fn with lambda (match, capture1, ...) -> replacement template
+        insta::assert_snapshot!(env.render_ok(r#""xax".replace_fn("a", |match| "B")"#), @"xBx");
+        insta::assert_snapshot!(env.render_ok(r#""xaxbxcx".replace_fn(regex:"(a)|(b)", |match, a, b| "[" ++ match ++ "]")"#), @"x[a]x[b]xcx");
+        insta::assert_snapshot!(env.render_ok(r#""HELLO world".replace_fn(regex-i:"(hello) (world)", |match, h, w| w ++ " " ++ h)"#), @"world HELLO");
+        insta::assert_snapshot!(env.render_ok(r#""abc123def456".replace_fn(regex:"([a-z]+)([0-9]+)", |match, letters, digits| digits ++ "-" ++ letters)"#), @"123-abc456-def");
     }
 
     #[test]

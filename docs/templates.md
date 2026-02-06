@@ -498,6 +498,10 @@ defined.
   that many occurrences are replaced.
 
   Supports capture groups in patterns using `$0` (entire match), `$1`, `$2` etc.
+* `.replace_fn(pattern: StringPattern, |match, [captures...]| expression) -> ListTemplate`:
+  Replace occurrences of the given `pattern` with the replacement `expression`.
+
+  Capturing groups in regex expressions are passed as arguments to the lambda.
 * `.first_line() -> String`
 * `.lines() -> List<String>`: Split into lines excluding newline characters.
 * `.split(separator: StringPattern, [limit: Integer]) -> List<String>`: Split into

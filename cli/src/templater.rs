@@ -262,6 +262,65 @@ where
     }
 }
 
+/// Renders the result of performing a regex replacement, with replacement text
+/// generated using a template.
+pub struct RegexReplacementTemplate<P, F> {
+    property: P,
+    regex: regex::bytes::Regex,
+    format_match: F,
+}
+
+impl<P, F> RegexReplacementTemplate<P, F> {
+    pub fn new(property: P, regex: regex::bytes::Regex, format_match: F) -> Self
+    where
+        P: TemplateProperty<Output = String>,
+        F: Fn(&mut TemplateFormatter, Vec<String>) -> io::Result<()>,
+    {
+        Self {
+            property,
+            regex,
+            format_match,
+        }
+    }
+}
+
+impl<P, F> Template for RegexReplacementTemplate<P, F>
+where
+    P: TemplateProperty<Output = String>,
+    F: Fn(&mut TemplateFormatter, Vec<String>) -> io::Result<()>,
+{
+    fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
+        let haystack = match self.property.extract() {
+            Ok(s) => s,
+            Err(err) => return formatter.handle_error(err),
+        };
+        let haystack_bytes = haystack.as_bytes();
+        let mut last_end: usize = 0;
+        for captures in self.regex.captures_iter(haystack_bytes) {
+            let full_match = captures.get(0).expect("capture group 0 is always present");
+            // Write the non-matching prefix.
+            formatter
+                .as_mut()
+                .write_all(&haystack_bytes[last_end..full_match.start()])?;
+
+            let capture_strings = captures
+                .iter()
+                .map(|capture| {
+                    capture
+                        .map(|m| String::from_utf8_lossy(m.as_bytes()).into_owned())
+                        .unwrap_or_default()
+                })
+                .collect();
+
+            (self.format_match)(formatter, capture_strings)?;
+            last_end = full_match.end();
+        }
+        // Write the remaining suffix.
+        formatter.as_mut().write_all(&haystack_bytes[last_end..])?;
+        Ok(())
+    }
+}
+
 /// Renders contents in order, and returns the first non-empty output.
 pub struct CoalesceTemplate<T>(pub Vec<T>);
 
