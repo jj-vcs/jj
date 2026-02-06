@@ -5,96 +5,53 @@ already simplify many workflows and can improve your experience.
 
 !!! warning
     The listed tools are community‑maintained; the Jujutsu project does not
-    review, endorse, or guarantee their quality or security.
+    review, endorse, or guarantee their quality or security. Tools are listed
+    within each category in alphabetical order.
 
-## Diffedit3
+## Graphical User Interfaces
 
-Diffedit3 is a web-based alternate to Meld, as it no longer is packaged and
-available for all Distros. Its creator is also a frequent contributor.
+- [GG][gg]: a cross platform GUI for Jujutsu which makes graph manipulating
+  workflows quite easy
 
-Find it [here][diffedit3]
+## Terminal User Interfaces
 
-## GG - GUI for JJ
+- [jj-fzf][jj-fzf]: text UI for Jujutsu based on fzf, centering around the jj
+  log with key bindings for common operations
+- [jj_tui]: unopiniated TUI for Jujutsu built in OCaml
+- [jjui][jjui]: TUI designed for interacting with the Jujutsu version control
+  system
+- [lazyjj][lazyjj]: lazygit-inspired TUI for Jujutsu
+- [Visual Jujutsu][vjj]: fzf (fuzzy finder) wrapper for Jujutsu
 
-GG is a cross platform GUI for Jujutsu which makes all graph manipulating
-workflows quite easy. Take a look at its README.md as it quite descriptive.
+## Editor-specific tools
 
-Find it [here][gg].
+### Visual Studio Code
 
-## Hunk.nvim
+- [Jujutsu Kaizen][jjk]: plugin for Visual Studio Code which aims to to bring
+  the great UX of Jujutsu into the VS Code UI
+- [VisualJJ][visualjj] (proprietary): plugin for Visual Studio Code which
+  provides native integration for Jujutsu, not relying on Git colocation
 
-Hunk.nvim is a Neovim based diff-editor for Jujutsu which can be used as an
-alternative to the default `:builtin` diff-editor.
+### JetBrains IDEs
 
-Find it [here][hunk.nvim].
+- [Selvejj][selvejj]: JetBrains plugin for integrating Jujutsu as a first-class
+  VCS within the IDE
 
-## JJ-FZF
+### Neovim
 
-Centered around the `jj log` graph view, jj-fzf provides previews of diffs, the
-evolution-log, browses the op log and offers a large number of key bindings for
-commonly used `jj` operations from rebase to undo, and helps with divergent commits.
+- [Hunk.nvim][hunk.nvim]: Neovim based diff-editor for Jujutsu which can be
+  used as an alternative to the default `:builtin` diff-editor
 
-Find it [here][jj-fzf].
+## Miscellaneous tools
 
-## JJ TUI
+- [Diffedit3][diffedit3]: diff-editor with a 3-pane view; serves as a web-based
+  alternative to Meld
+- [PSCompletions]: PowerShell completion manager which provides a better
+  tab-completion experience in PowerShell using `psc add jj`
 
-This is TUI for Jujutsu built in Ocaml, it is unopiniated and its creator is
-open to feedback.
+## Others
 
-Find it [here][jj_tui].
-
-## Jujutsu Kaizen
-
-Jujutsu Kaizen is a plugin for Visual Studio Code. The goal of this extension is to bring the great UX of Jujutsu into the VS Code UI.
-Its developers are currently focused on achieving parity for commonly used features of VS Code's built-in Git extension, such as the various operations possible via the Source Control view.
-
-Find it [here][jjk].
-
-## LazyJJ
-
-lazyjj is a lazygit inspired TUI for Jujutsu.
-
-Find it [here][lazyjj].
-
-## Visual Jujutsu
-
-VJJ is a fzf (fuzzy finder) wrapper for Jujutsu, which is meant to be used
-interactively in the terminal.
-
-Find it [here][vjj].
-
-## VisualJJ
-
-VisualJJ is a plugin for Visual Studio Code which provides native integration
-for Jujutsu, not relying on Git colocation. Unlike other tools on this page,
-VisualJJ is not open-source.
-
-Find it [here][visualjj].
-
-## Jujutsu UI
-
-jjui is a terminal user interface for working with Jujutsu version control system.
-
-Find it [here][jjui].
-
-## Selvejj
-
-Selvejj is a JetBrains plugin for integrating Jujutsu as a first-class VCS within the IDE.
-
-Find it [here][selvejj].
-
-## PSCompletions
-
-PSCompletions is a completion manager for a better and simpler tab-completion experience in PowerShell.
-
-It can provide completions via `psc add jj`, or offer a better completion menu for the official completions.
-
-Find it [here][PSCompletions].
-
-## Finding other integrations
-
-You can find other community contributed tools and integrations in our
-[Wiki].
+You can find other community-contributed tools and integrations in our [Wiki].
 
 [diffedit3]: https://github.com/ilyagr/diffedit3
 [gg]: https://github.com/gulbanana/gg
