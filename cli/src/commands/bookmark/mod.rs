@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod tug;
 mod create;
 mod delete;
 mod forget;
@@ -37,6 +38,8 @@ use jj_lib::str_util::StringExpression;
 use jj_lib::str_util::StringMatcher;
 use jj_lib::view::View;
 
+use self::tug::BookmarkTugArgs;
+use self::tug::cmd_bookmark_tug;
 use self::create::BookmarkCreateArgs;
 use self::create::cmd_bookmark_create;
 use self::delete::BookmarkDeleteArgs;
@@ -88,6 +91,7 @@ pub enum BookmarkCommand {
     #[command(visible_alias("t"))]
     Track(BookmarkTrackArgs),
     Untrack(BookmarkUntrackArgs),
+    Tug(BookmarkTugArgs),
 }
 
 pub fn cmd_bookmark(
@@ -96,6 +100,7 @@ pub fn cmd_bookmark(
     subcommand: &BookmarkCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
+        BookmarkCommand::Tug(args) => cmd_bookmark_tug(ui, command, args),
         BookmarkCommand::Create(args) => cmd_bookmark_create(ui, command, args),
         BookmarkCommand::Delete(args) => cmd_bookmark_delete(ui, command, args),
         BookmarkCommand::Forget(args) => cmd_bookmark_forget(ui, command, args),
