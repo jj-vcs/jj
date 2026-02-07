@@ -181,6 +181,18 @@ new working-copy commit.
     }
 
     let description = if !args.message_paragraphs.is_empty() {
+        if !commit_builder.description().is_empty() {
+            // Warn that the new command line-given message replaces messages
+            // that may have come from other sources.
+            writeln!(
+                ui.warning_default(),
+                "
+                The commit message was specified while there is an existing commit message.
+                The new message overrides and replaces the existing commit message.
+                If this was not intentional, run `jj undo` to restore the previous state.
+                "
+            )?;
+        }
         let mut description = join_message_paragraphs(&args.message_paragraphs);
         if !description.is_empty() || args.editor {
             // The first trailer would become the first line of the description.
