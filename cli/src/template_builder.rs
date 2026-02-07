@@ -2567,6 +2567,14 @@ mod tests {
           |
           = expected `!`, `-`, or <primary>
         ");
+        insta::assert_snapshot!(env.parse_err("self.timestamp"), @"
+         --> 1:6
+          |
+        1 | self.timestamp
+          |      ^---
+          |
+          = expected <function>
+        ");
 
         insta::assert_snapshot!(env.parse_err(r#"foo"#), @r"
          --> 1:1
@@ -3007,6 +3015,7 @@ mod tests {
         env.add_keyword("cfg_val", || {
             literal(ConfigValue::from_iter([("foo", "bar")]))
         });
+        env.add_keyword("some_cfg", || literal(Some(ConfigValue::from(1))));
         env.add_keyword("signature", || {
             literal(new_signature("User", "user@example.com"))
         });
@@ -3033,6 +3042,10 @@ mod tests {
         );
         assert_matches!(
             env.parse_err_kind("cfg_val >= cfg_val"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("some_cfg >= some_cfg"),
             TemplateParseErrorKind::Expression(_)
         );
         assert_matches!(
@@ -3130,6 +3143,7 @@ mod tests {
         env.add_keyword("cfg_val", || {
             literal(ConfigValue::from_iter([("foo", "bar")]))
         });
+        env.add_keyword("some_cfg", || literal(Some(ConfigValue::from(true))));
         env.add_keyword("signature", || {
             literal(new_signature("User", "user@example.com"))
         });
@@ -3147,6 +3161,10 @@ mod tests {
         );
         assert_matches!(
             env.parse_err_kind("cfg_val == cfg_val"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("some_cfg == some_cfg"),
             TemplateParseErrorKind::Expression(_)
         );
         assert_matches!(
@@ -4183,11 +4201,15 @@ mod tests {
 
     #[test]
     fn test_hyperlink_function_with_color() {
-        let env = TestTemplateEnv::new();
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("bad_string", || new_error_property::<String>("Bad"));
         // With ColorFormatter, hyperlink emits OSC 8 escape sequences
         insta::assert_snapshot!(
             env.render_ok(r#"hyperlink("http://example.com", "Example")"#),
             @r"]8;;http://example.com\Example]8;;\");
+        insta::assert_snapshot!(
+            env.render_ok(r#"hyperlink(bad_string, "Example")"#),
+            @"<Error: Bad>");
     }
 
     #[test]
@@ -4286,6 +4308,8 @@ mod tests {
         env.add_keyword("config_value_table", || {
             literal(ConfigValue::from_iter([("foo", "bar")]))
         });
+        env.add_keyword("some_cfgval", || literal(Some(ConfigValue::from(1))));
+        env.add_keyword("none_cfgval", || literal(None::<ConfigValue>));
         env.add_keyword("signature", || {
             literal(Signature {
                 name: "Test User".to_owned(),
@@ -4323,6 +4347,8 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("json(42)"), @"42");
         insta::assert_snapshot!(env.render_ok("json(none_i64)"), @"null");
         insta::assert_snapshot!(env.render_ok(r#"json(config_value_table)"#), @r#"{"foo":"bar"}"#);
+        insta::assert_snapshot!(env.render_ok(r"json(some_cfgval)"), @"1");
+        insta::assert_snapshot!(env.render_ok(r"json(none_cfgval)"), @"null");
         insta::assert_snapshot!(env.render_ok("json(email)"), @r#""foo@bar""#);
         insta::assert_snapshot!(
             env.render_ok("json(signature)"),
