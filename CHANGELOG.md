@@ -34,6 +34,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   as `jj simplify-parents` on the rebased commits.
   [#7711](https://github.com/jj-vcs/jj/issues/7711)
 
+* `jj rebase --branch` and `jj rebase --source` will no longer return an error
+  if the given argument resolves to an empty revision set.
+  `jj rebase --revisions` already behaved this way.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04

@@ -139,29 +139,26 @@ fn test_rebase_empty_sets() {
     create_commit(&work_dir, "a", &[]);
     create_commit(&work_dir, "b", &["a"]);
 
-    // TODO: Make all of these say "Nothing changed"?
-    let output = work_dir.run_jj(["rebase", "-r=none()", "-d=b"]);
+    let output = work_dir.run_jj(["rebase", "-r=none()", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    let output = work_dir.run_jj(["rebase", "-s=none()", "-d=b"]);
+    let output = work_dir.run_jj(["rebase", "-s=none()", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Empty revision set
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
-    let output = work_dir.run_jj(["rebase", "-b=none()", "-d=b"]);
+    let output = work_dir.run_jj(["rebase", "-b=none()", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Error: Empty revision set
+    Nothing changed.
     [EOF]
-    [exit status: 1]
     ");
     // Empty because "b..a" is empty
-    let output = work_dir.run_jj(["rebase", "-b=a", "-d=b"]);
+    let output = work_dir.run_jj(["rebase", "-b=a", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
