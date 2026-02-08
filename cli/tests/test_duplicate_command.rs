@@ -73,8 +73,8 @@ fn test_duplicate() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: 76386e059136 (2001-02-03 08:05:17) duplicate 1 commit(s)
-    Restored to operation: 9fdb56d75a27 (2001-02-03 08:05:13) create bookmark c pointing to commit 387b928721d9f2efff819ccce81868f32537d71f
+    Undid operation: 35843957f59a (2001-02-03 08:05:17) duplicate 1 commit(s)
+    Restored to operation: b1024e3a796c (2001-02-03 08:05:13) create bookmark c pointing to commit 387b928721d9f2efff819ccce81868f32537d71f
     [EOF]
     ");
     let output = work_dir.run_jj(["duplicate" /* duplicates `c` */]);
@@ -2348,8 +2348,8 @@ fn test_undo_after_duplicate() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: 87bf87a7f06f (2001-02-03 08:05:11) duplicate 1 commit(s)
-    Restored to operation: 73a36404358e (2001-02-03 08:05:09) create bookmark a pointing to commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
+    Undid operation: 09e06e57c403 (2001-02-03 08:05:11) duplicate 1 commit(s)
+    Restored to operation: c3ab8b2b97f7 (2001-02-03 08:05:09) create bookmark a pointing to commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     [EOF]
     ");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
