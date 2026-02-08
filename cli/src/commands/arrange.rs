@@ -146,6 +146,11 @@ pub(crate) fn cmd_arrange(
     }
 }
 
+enum Action {
+    Abandon,
+    Keep,
+}
+
 struct State {
     commits: HashMap<CommitId, Commit>,
     /// Heads of the set in the order they should be added to the UI. This is
@@ -157,6 +162,7 @@ struct State {
     current_order: Vec<CommitId>,
     // The current selection as an index into `current_order`
     current_selection: usize,
+    actions: HashMap<CommitId, Action>,
     parents: HashMap<CommitId, Vec<CommitId>>,
     external_children: HashMap<CommitId, Commit>,
 }
@@ -167,6 +173,11 @@ impl State {
             .iter()
             .map(|commit| commit.id().clone())
             .collect_vec();
+        let actions = commits
+            .iter()
+            .chain(external_children.iter())
+            .map(|commit| (commit.id().clone(), Action::Keep))
+            .collect();
         let commits: HashMap<CommitId, Commit> = commits
             .into_iter()
             .map(|commit| {
@@ -207,6 +218,7 @@ impl State {
             head_order,
             current_order,
             current_selection: 0,
+            actions,
             parents,
             external_children,
         }
@@ -261,9 +273,15 @@ impl State {
                 .unwrap();
             let new_parents = mut_repo.new_parents(self.parents.get(&id).unwrap());
             let rewriter = CommitRewriter::new(mut_repo, old_commit, new_parents);
-            if rewriter.parents_changed() {
-                let new_commit = rewriter.rebase().await?.write().await?;
-                rewritten_commits.insert(id, new_commit);
+            let action = self.actions.remove(rewriter.old_commit().id()).unwrap();
+            match action {
+                Action::Abandon => rewriter.abandon(),
+                Action::Keep => {
+                    if rewriter.parents_changed() {
+                        let new_commit = rewriter.rebase().await?.write().await?;
+                        rewritten_commits.insert(id, new_commit);
+                    }
+                }
             }
         }
         Ok(rewritten_commits)
@@ -279,6 +297,8 @@ fn run_tui<B: ratatui::backend::Backend>(
     let help_items = [
         ("↓/j", "down"),
         ("↑/k", "up"),
+        ("a", "abandon"),
+        ("p", "keep"),
         ("c", "confirm"),
         ("q", "quit"),
     ];
@@ -331,6 +351,14 @@ fn run_tui<B: ratatui::backend::Backend>(
                         state.current_selection -= 1;
                     }
                 }
+                (KeyCode::Char('a'), KeyModifiers::NONE) => {
+                    let id = state.current_order[state.current_selection].clone();
+                    state.actions.insert(id, Action::Abandon);
+                }
+                (KeyCode::Char('p'), KeyModifiers::NONE) => {
+                    let id = state.current_order[state.current_selection].clone();
+                    state.actions.insert(id, Action::Keep);
+                }
                 _ => {
                     continue;
                 }
@@ -359,18 +387,21 @@ fn render(
         let row_layout = Layout::horizontal([
             Constraint::Min(2),
             Constraint::Min(10),
+            Constraint::Min(10),
             Constraint::Fill(100),
         ])
         .split(row_area);
         let selection_area = row_layout[0];
         let graph_area = row_layout[1];
-        let text_area = row_layout[2];
+        let action_area = row_layout[2];
+        let text_area = row_layout[3];
 
         if index == state.current_selection {
             frame.render_widget(Text::from("▶"), selection_area);
         }
 
         let commit = state.commits.get(id).unwrap();
+        let action = state.actions.get(id).unwrap();
 
         // TODO: The graph can be misaligned with the text because sometimes `renderdag`
         // inserts a line of edges before the line with the node and we assume the node
@@ -386,7 +417,11 @@ fn render(
                 }
             })
             .collect_vec();
-        let graph_lines = row_renderer.next_row(id, edges, "○".to_string(), "".to_string());
+        let glyph = match action {
+            Action::Abandon => "×",
+            Action::Keep => "○",
+        };
+        let graph_lines = row_renderer.next_row(id, edges, glyph.to_string(), "".to_string());
         let graph_text = Text::from(graph_lines);
         row_area = row_area
             .offset(Offset {
@@ -395,6 +430,12 @@ fn render(
             })
             .intersection(main_area);
         frame.render_widget(graph_text, graph_area);
+
+        let action_text = match action {
+            Action::Abandon => "abandon",
+            Action::Keep => "keep",
+        };
+        frame.render_widget(Text::from(action_text), action_area);
 
         let mut text_lines = vec![];
         let mut formatter = ui.new_formatter(&mut text_lines);
@@ -568,5 +609,55 @@ mod tests {
         assert_eq!(new_commit_d.parent_ids(), &[new_commit_b.id().clone()]);
         assert_eq!(new_commit_e.parent_ids(), &[new_commit_a.id().clone()]);
         assert_eq!(new_commit_f.parent_ids(), &[new_commit_a.id().clone()]);
+    }
+
+    #[test]
+    fn test_apply_changes_abandon() {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+        let empty_tree = store.empty_merged_tree();
+
+        // Move C onto A and abandon it:
+        // d           d
+        // |           |
+        // C           C (abandoned)
+        // |           |
+        // B    =>   B |
+        // |         |/
+        // A         A
+        // |         |
+        // root      root
+        //
+        // Lowercase nodes are external to the set
+        let mut tx = test_repo.repo.start_transaction();
+        let mut create_commit = |parents| {
+            tx.repo_mut()
+                .new_commit(parents, empty_tree.clone())
+                .write_unwrap()
+        };
+        let commit_a = create_commit(vec![store.root_commit_id().clone()]);
+        let commit_b = create_commit(vec![commit_a.id().clone()]);
+        let commit_c = create_commit(vec![commit_b.id().clone()]);
+        let commit_d = create_commit(vec![commit_c.id().clone()]);
+
+        let mut state = State::new(
+            vec![commit_c.clone(), commit_b.clone(), commit_a.clone()],
+            vec![commit_d.clone()],
+        );
+
+        // Update parents and action, then apply the changes.
+        state
+            .parents
+            .insert(commit_c.id().clone(), vec![commit_a.id().clone()]);
+        state.actions.insert(commit_c.id().clone(), Action::Abandon);
+        let rewritten = state.apply_changes(tx.repo_mut()).block_on().unwrap();
+        tx.repo_mut().rebase_descendants().block_on().unwrap();
+        assert_eq!(rewritten.keys().sorted().collect_vec(), vec![commit_d.id()]);
+        let new_commit_d = rewritten.get(commit_d.id()).unwrap();
+        assert_eq!(new_commit_d.parent_ids(), &[commit_a.id().clone()]);
+        assert_eq!(
+            *tx.repo_mut().view().heads(),
+            hashset![commit_b.id().clone(), new_commit_d.id().clone()]
+        );
     }
 }
