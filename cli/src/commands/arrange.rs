@@ -29,8 +29,11 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::dag_walk;
+use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::rewrite::CommitRewriter;
+use pollster::FutureExt as _;
 use ratatui::Terminal;
 use ratatui::layout::Constraint;
 use ratatui::layout::Direction;
@@ -76,8 +79,8 @@ pub(crate) fn cmd_arrange(
     command: &CommandHelper,
     args: &ArrangeArgs,
 ) -> Result<(), CommandError> {
-    let workspace_command = command.workspace_helper(ui)?;
-    let repo = workspace_command.repo();
+    let mut workspace_command = command.workspace_helper(ui)?;
+    let repo = workspace_command.repo().clone();
     let target_expression = if args.revisions.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.arrange")?;
         workspace_command.parse_revset(ui, &RevisionArg::from(revs))?
@@ -133,21 +136,32 @@ pub(crate) fn cmd_arrange(
     disable_raw_mode()?;
     io::stdout().execute(LeaveAlternateScreen)?;
 
-    result
+    if let Some(new_state) = result? {
+        let mut tx = workspace_command.start_transaction();
+        new_state.apply_changes(tx.repo_mut()).block_on()?;
+        tx.finish(ui, "arrange revisions")?;
+        Ok(())
+    } else {
+        Err(user_error("Canceled by user"))
+    }
 }
 
 struct State {
     commits: HashMap<CommitId, Commit>,
-    /// Commits in the original revset order
-    original_order: Vec<CommitId>,
-    /// The current order of commits in the UI
+    /// Heads of the set in the order they should be added to the UI. This is
+    /// used to make the graph rendering more stable. It must be kept up to date
+    /// parents are changed.
+    head_order: Vec<CommitId>,
+    /// The current order of commits in the UI. This is recalculated when
+    /// necessary from `head_order`.
     current_order: Vec<CommitId>,
     parents: HashMap<CommitId, Vec<CommitId>>,
+    external_children: HashMap<CommitId, Commit>,
 }
 
 impl State {
     fn new(commits: Vec<Commit>, external_children: Vec<Commit>) -> Self {
-        let original_order = commits
+        let current_order = commits
             .iter()
             .map(|commit| commit.id().clone())
             .collect_vec();
@@ -162,36 +176,44 @@ impl State {
         for (id, commit) in &commits {
             parents.insert(id.clone(), commit.parent_ids().to_vec());
         }
-        let current_order = original_order.clone();
+        for child in &external_children {
+            parents.insert(child.id().clone(), child.parent_ids().to_vec());
+        }
+        let external_children = external_children
+            .into_iter()
+            .map(|commit| (commit.id().clone(), commit))
+            .collect();
+        // Initialize head_order to match the heads in the input's order.
+        let heads: HashSet<&CommitId> = dag_walk::heads(
+            current_order.iter(),
+            |id| *id,
+            |id| {
+                parents
+                    .get(id)
+                    .unwrap()
+                    .iter()
+                    .filter(|id| commits.contains_key(id))
+            },
+        );
+        let head_order = current_order
+            .iter()
+            .filter(|id| heads.contains(id))
+            .cloned()
+            .collect_vec();
         Self {
             commits,
-            original_order,
+            head_order,
             current_order,
             parents,
+            external_children,
         }
     }
 
     /// Update the current UI commit order after parents have changed.
     fn update_commit_order(&mut self) {
-        let heads: HashSet<&CommitId> = dag_walk::heads(
-            self.original_order.iter(),
-            |id| *id,
-            |id| {
-                self.parents
-                    .get(id)
-                    .unwrap()
-                    .iter()
-                    .filter(|id| self.commits.contains_key(id))
-            },
-        );
         // Use the original order to get a determinisic order.
-        let heads = self
-            .original_order
-            .iter()
-            .filter(|id| heads.contains(id))
-            .collect_vec();
         let commit_ids: Vec<&CommitId> = dag_walk::topo_order_reverse(
-            heads,
+            self.head_order.iter(),
             |id| *id,
             |id| {
                 self.parents
@@ -205,6 +227,44 @@ impl State {
         .unwrap();
         self.current_order = commit_ids.into_iter().cloned().collect();
     }
+
+    async fn apply_changes(
+        mut self,
+        mut_repo: &mut MutableRepo,
+    ) -> Result<HashMap<CommitId, Commit>, CommandError> {
+        // Find order to rebase the commits. The order is determined by the new
+        // parents.
+        let ordered_commit_ids = dag_walk::topo_order_forward(
+            self.parents.keys().cloned(),
+            |id| id.clone(),
+            |id| {
+                self.parents
+                    .get(id)
+                    .unwrap()
+                    .iter()
+                    .filter(|id| self.commits.contains_key(id))
+                    .cloned()
+            },
+            |_| panic!("cycle detected"),
+        )
+        .unwrap();
+        // Rewrite the commits in the order determined above
+        let mut rewritten_commits: HashMap<CommitId, Commit> = HashMap::new();
+        for id in ordered_commit_ids {
+            let old_commit = self
+                .commits
+                .remove(&id)
+                .or_else(|| self.external_children.remove(&id))
+                .unwrap();
+            let new_parents = mut_repo.new_parents(self.parents.get(&id).unwrap());
+            let rewriter = CommitRewriter::new(mut_repo, old_commit, new_parents);
+            if rewriter.parents_changed() {
+                let new_commit = rewriter.rebase().await?.write().await?;
+                rewritten_commits.insert(id, new_commit);
+            }
+        }
+        Ok(rewritten_commits)
+    }
 }
 
 fn run_tui<B: ratatui::backend::Backend>(
@@ -212,8 +272,8 @@ fn run_tui<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
     template: &TemplateRenderer<Commit>,
     state: State,
-) -> Result<(), CommandError> {
-    let help_items = [("q", "quit")];
+) -> Result<Option<State>, CommandError> {
+    let help_items = [("c", "confirm"), ("q", "quit")];
     let mut help_spans = Vec::new();
     for (i, (key, desc)) in help_items.iter().enumerate() {
         if i > 0 {
@@ -246,10 +306,12 @@ fn run_tui<B: ratatui::backend::Backend>(
             if event.is_release() {
                 continue;
             }
-            #[expect(clippy::single_match)] // There will soon be more matches
             match (event.code, event.modifiers) {
                 (KeyCode::Char('q'), KeyModifiers::NONE) => {
-                    return Ok(());
+                    return Ok(None);
+                }
+                (KeyCode::Char('c'), KeyModifiers::NONE) => {
+                    return Ok(Some(state));
                 }
                 _ => {}
             }
@@ -315,6 +377,8 @@ fn render(
 
 #[cfg(test)]
 mod tests {
+    use maplit::hashset;
+    use testutils::CommitBuilderExt as _;
     use testutils::TestRepo;
 
     use super::*;
@@ -322,6 +386,7 @@ mod tests {
     #[test]
     fn test_update_commit_order_empty() {
         let mut state = State::new(vec![], vec![]);
+        assert_eq!(state.head_order, vec![]);
         state.update_commit_order();
         assert_eq!(state.current_order, vec![]);
     }
@@ -359,17 +424,32 @@ mod tests {
             vec![],
         );
 
+        // The initial head order is determined by the input order
+        assert_eq!(
+            state.head_order,
+            vec![commit_d.id().clone(), commit_c.id().clone()]
+        );
+
         // We get the original order before we make any changes
         state.update_commit_order();
-        assert_eq!(state.current_order, state.original_order);
+        assert_eq!(
+            state.current_order,
+            vec![
+                commit_d.id().clone(),
+                commit_c.id().clone(),
+                commit_b.id().clone(),
+                commit_a.id().clone(),
+            ]
+        );
 
-        // Update parents and check that the commit order changes.
+        // Update parents and head order and check that the commit order changes.
         state
             .parents
             .insert(commit_a.id().clone(), vec![commit_c.id().clone()]);
         state
             .parents
             .insert(commit_b.id().clone(), vec![store.root_commit_id().clone()]);
+        state.head_order = vec![commit_d.id().clone(), commit_a.id().clone()];
         state.update_commit_order();
         assert_eq!(
             state.current_order,
@@ -377,8 +457,86 @@ mod tests {
                 commit_d.id().clone(),
                 commit_a.id().clone(),
                 commit_c.id().clone(),
-                commit_b.id().clone()
+                commit_b.id().clone(),
             ]
         );
+    }
+
+    #[test]
+    fn test_apply_changes_reorder() {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+        let empty_tree = store.empty_merged_tree();
+
+        // Move A between C and D, let e follow:
+        //   f           f e
+        //   |           |/
+        // D C           A
+        // |/            |
+        // B e    =>   D C
+        // |/          |/
+        // A           B
+        // |           |
+        // root        root
+        //
+        // Lowercase nodes are external to the set
+        let mut tx = test_repo.repo.start_transaction();
+        let mut create_commit = |parents| {
+            tx.repo_mut()
+                .new_commit(parents, empty_tree.clone())
+                .write_unwrap()
+        };
+        let commit_a = create_commit(vec![store.root_commit_id().clone()]);
+        let commit_b = create_commit(vec![commit_a.id().clone()]);
+        let commit_c = create_commit(vec![commit_b.id().clone()]);
+        let commit_d = create_commit(vec![commit_b.id().clone()]);
+        let commit_e = create_commit(vec![commit_a.id().clone()]);
+        let commit_f = create_commit(vec![commit_c.id().clone()]);
+
+        let mut state = State::new(
+            vec![
+                commit_d.clone(),
+                commit_c.clone(),
+                commit_b.clone(),
+                commit_a.clone(),
+            ],
+            vec![commit_f.clone(), commit_e.clone()],
+        );
+
+        // Update parents and apply the changes.
+        state
+            .parents
+            .insert(commit_a.id().clone(), vec![commit_c.id().clone()]);
+        state
+            .parents
+            .insert(commit_b.id().clone(), vec![store.root_commit_id().clone()]);
+        state
+            .parents
+            .insert(commit_f.id().clone(), vec![commit_a.id().clone()]);
+        let rewritten = state.apply_changes(tx.repo_mut()).block_on().unwrap();
+        tx.repo_mut().rebase_descendants().block_on().unwrap();
+        assert_eq!(
+            rewritten.keys().collect::<HashSet<_>>(),
+            hashset![
+                commit_a.id(),
+                commit_b.id(),
+                commit_c.id(),
+                commit_d.id(),
+                commit_e.id(),
+                commit_f.id(),
+            ]
+        );
+        let new_commit_a = rewritten.get(commit_a.id()).unwrap();
+        let new_commit_b = rewritten.get(commit_b.id()).unwrap();
+        let new_commit_c = rewritten.get(commit_c.id()).unwrap();
+        let new_commit_d = rewritten.get(commit_d.id()).unwrap();
+        let new_commit_e = rewritten.get(commit_e.id()).unwrap();
+        let new_commit_f = rewritten.get(commit_f.id()).unwrap();
+        assert_eq!(new_commit_b.parent_ids(), &[store.root_commit_id().clone()]);
+        assert_eq!(new_commit_c.parent_ids(), &[new_commit_b.id().clone()]);
+        assert_eq!(new_commit_a.parent_ids(), &[new_commit_c.id().clone()]);
+        assert_eq!(new_commit_d.parent_ids(), &[new_commit_b.id().clone()]);
+        assert_eq!(new_commit_e.parent_ids(), &[new_commit_a.id().clone()]);
+        assert_eq!(new_commit_f.parent_ids(), &[new_commit_a.id().clone()]);
     }
 }
