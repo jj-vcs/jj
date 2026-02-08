@@ -1236,13 +1236,13 @@ fn test_git_init_external_in_worktree_pointing_worktree() {
 
     let output = work_dir.run_jj(OP_LOG_COMPACT);
     insta::assert_snapshot!(output, @"
-    @  bef16a4a7453 new empty commit
+    @  75181e965a07 new empty commit
     │  args: jj new
-    ○  89b191596eea import git head
+    ○  907bd6cf78f7 import git head
     │  args: jj git init --git-repo .
-    ○  ac6dadf8291e import git refs
+    ○  63f254c1f239 import git refs
     │  args: jj git init --git-repo .
-    ○  8f47435a3990 add workspace 'default'
+    ○  92406f686752 add workspace 'default'
     ○  000000000000
     [EOF]
     ");
@@ -1337,9 +1337,9 @@ fn test_git_init_external_in_worktree_pointing_commondir() {
 
     let output = work_dir.run_jj(OP_LOG_COMPACT);
     insta::assert_snapshot!(output, @r#"
-    @  239bcbd34725 new empty commit
+    @  94637112231f new empty commit
     │  args: jj new
-    ○  3fe772fc961a import git head
+    ○  09ed5f65adf3 import git head
     │  args: jj log -T '
     │      separate(" ",
     │        commit_id.short(),
@@ -1347,9 +1347,9 @@ fn test_git_init_external_in_worktree_pointing_commondir() {
     │        if(git_head, "git_head()"),
     │        description,
     │      )' '-r=all()'
-    ○  67e104bc9e52 import git refs
+    ○  56a82e607985 import git refs
     │  args: jj git init --git-repo ../git-repo
-    ○  8f47435a3990 add workspace 'default'
+    ○  92406f686752 add workspace 'default'
     ○  000000000000
     [EOF]
     "#);

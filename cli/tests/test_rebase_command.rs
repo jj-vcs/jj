@@ -704,7 +704,7 @@ fn test_rebase_revision_onto_descendant() {
     let output = work_dir.run_jj(["op", "restore", &setup_opid]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: cb005d7a588c (2001-02-03 08:05:15) create bookmark merge pointing to commit 08c0951bf69d0362708a5223a78446d664823b50
+    Restored to operation: 5ef9d0c5d0b2 (2001-02-03 08:05:15) create bookmark merge pointing to commit 08c0951bf69d0362708a5223a78446d664823b50
     Working copy  (@) now at: vruxwmqv 08c0951b merge | merge
     Parent commit (@-)      : royxmykx 6a7081ef b | b
     Parent commit (@-)      : zsuskuln 68fbc443 a | a

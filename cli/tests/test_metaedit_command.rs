@@ -640,25 +640,25 @@ fn test_new_change_id() {
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "yqosqzytrlswkspswpqrmlplxylrzsnz"]), @"
     ○  yqosqzyt test.user@example.com 2001-02-03 08:05:13 b 01d6741e
     │  (no description set)
-    │  -- operation adf0af78a0fd edit commit metadata for commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  -- operation ff7c38a5bebe edit commit metadata for commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  kkmpptxz/0 test.user@example.com 2001-02-03 08:05:11 75591b18 (hidden)
     │  (no description set)
-    │  -- operation 4b33c26502f8 snapshot working copy
+    │  -- operation 2a3e156266a2 snapshot working copy
     ○  kkmpptxz/1 test.user@example.com 2001-02-03 08:05:09 acebf2bd (hidden)
        (empty) (no description set)
-       -- operation 686c6e44c08d new empty commit
+       -- operation 62cfa7e06c88 new empty commit
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "mzvwut"]), @"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:13 c 0c3fe2d8
     │  (no description set)
-    │  -- operation adf0af78a0fd edit commit metadata for commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
+    │  -- operation ff7c38a5bebe edit commit metadata for commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
     ○  mzvwutvl/1 test.user@example.com 2001-02-03 08:05:13 22be6c4e (hidden)
     │  (no description set)
-    │  -- operation 92fee3ece32c snapshot working copy
+    │  -- operation 154bc5939ef0 snapshot working copy
     ○  mzvwutvl/2 test.user@example.com 2001-02-03 08:05:11 b9f5490a (hidden)
        (empty) (no description set)
-       -- operation e3fbc5040416 new empty commit
+       -- operation 93c1cb2c8b0e new empty commit
     [EOF]
     ");
 }

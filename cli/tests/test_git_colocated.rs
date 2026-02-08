@@ -1044,8 +1044,8 @@ fn test_git_colocated_undo_head_move() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: 65d1097d37a5 (2001-02-03 08:05:15) new empty commit
-    Restored to operation: b528a8c9176f (2001-02-03 08:05:14) new empty commit
+    Undid operation: c806e0941dcb (2001-02-03 08:05:15) new empty commit
+    Restored to operation: 64c74033fba2 (2001-02-03 08:05:14) new empty commit
     Working copy  (@) now at: vruxwmqv 23e6e06a (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
@@ -2038,11 +2038,14 @@ fn test_colocated_workspace_moved_original_on_disk() {
         .assert()
         .success();
     insta::assert_snapshot!(get_log_output(&second_work_dir), @"
-    @  514e1b3adab7336794cf569e7b9c60c1dbcad1b4
+    @  838e3858a777439b925b99e3831eebf9b6addbe2
     │ ○  64393b1a826a63bba44c4c5cec90d7a9040063b9
     ├─╯
     ○  dda9521046c4649797052c184beab33a9cf9754b initial commit
     ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ------- stderr -------
+    Reset the working copy parent to the new Git HEAD.
     [EOF]
     ");
 }

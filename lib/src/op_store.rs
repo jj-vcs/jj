@@ -254,23 +254,18 @@ pub struct View {
     pub local_tags: BTreeMap<RefNameBuf, RefTarget>,
     pub remote_views: BTreeMap<RemoteNameBuf, RemoteView>,
     pub git_refs: BTreeMap<GitRefNameBuf, RefTarget>,
-    /// The commit the Git HEAD points to.
+    /// The commit the Git HEAD points to (for the main repository).
     ///
-    /// ## Known Limitation: Single git_head for Multiple Workspaces
-    ///
-    /// This field stores a single `git_head`, but when multiple colocated
-    /// workspaces exist (each with its own Git worktree), each worktree has
-    /// an independent HEAD. The value here reflects whichever workspace last
-    /// performed a Git export.
-    ///
-    /// **Impact:** The `git_head()` template may show incorrect values in
-    /// non-default workspaces.
-    ///
-    /// **Workaround:** Export now writes to each worktree's HEAD file
-    /// independently, but this field doesn't track per-workspace state.
-    // TODO: Support multiple Git worktrees by storing per-workspace git_head
+    /// For backwards compatibility and for workspaces that haven't migrated to
+    /// per-workspace tracking, this still reflects the main repo's HEAD.
     // TODO: Do we want to store the current bookmark name too?
     pub git_head: RefTarget,
+    /// Per-workspace Git HEAD for colocated worktrees.
+    ///
+    /// Each colocated workspace has its own Git worktree with an independent
+    /// HEAD. This map stores the last-known HEAD for each workspace to
+    /// avoid spurious commits when switching between workspaces.
+    pub workspace_git_heads: BTreeMap<WorkspaceNameBuf, RefTarget>,
     // The commit that *should be* checked out in the workspace. Note that the working copy
     // (.jj/working_copy/) has the source of truth about which commit *is* checked out (to be
     // precise: the commit to which we most recently completed an update to).
@@ -287,6 +282,7 @@ impl View {
             remote_views: BTreeMap::new(),
             git_refs: BTreeMap::new(),
             git_head: RefTarget::absent(),
+            workspace_git_heads: BTreeMap::new(),
             wc_commit_ids: BTreeMap::new(),
         }
     }

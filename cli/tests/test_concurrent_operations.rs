@@ -34,22 +34,19 @@ fn test_concurrent_operation_divergence() {
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Error: The "@" expression resolved to more than one operation
-    Hint: Try specifying one of the operations by ID: b2cffe4f3026, d8ced2ea64a8
+    Hint: Try specifying one of the operations by ID: 040254ed8330, 2ce709c79adf
     [EOF]
     [exit status: 1]
     "#);
 
     // "op log --at-op" should work without merging the head operations
     let output = work_dir.run_jj(["op", "log", "--at-op=d8ced2ea64a8"]);
-    insta::assert_snapshot!(output, @"
-    @  d8ced2ea64a8 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
-    │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
-    │  args: jj describe -m 'message 2' --at-op @-
-    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
-    │  add workspace 'default'
-    ○  000000000000 root()
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: No operation ID matching "d8ced2ea64a8"
     [EOF]
-    ");
+    [exit status: 1]
+    "#);
 
     // We should be informed about the concurrent modification
     let output = get_log_output(&work_dir);
@@ -170,19 +167,19 @@ fn test_concurrent_snapshot_wc_reloadable() {
     let template = r#"id.short() ++ "\n" ++ description ++ "\n" ++ tags"#;
     let output = work_dir.run_jj(["op", "log", "-T", template]);
     insta::assert_snapshot!(output, @"
-    @  a631dcf37fea
+    @  97c824e3ad42
     │  commit c91a0909a9d3f3d8392ba9fab88f4b40fc0810ee
     │  args: jj commit -m 'new child1'
-    ○  2b8e6f8683dc
+    ○  74564af641fa
     │  snapshot working copy
     │  args: jj commit -m 'new child1'
-    ○  2e1c4ffb74ca
+    ○  bcf579b2cd18
     │  commit 9af4c151edead0304de97ce3a0b414552921a425
     │  args: jj commit -m initial
-    ○  cfe73d1664ae
+    ○  3081ee20fc10
     │  snapshot working copy
     │  args: jj commit -m initial
-    ○  8f47435a3990
+    ○  92406f686752
     │  add workspace 'default'
     ○  000000000000
 
@@ -192,8 +189,8 @@ fn test_concurrent_snapshot_wc_reloadable() {
     let output = work_dir.run_jj(["op", "log", "--no-graph", "-T", template]);
     let [op_id_after_snapshot, _, op_id_before_snapshot] =
         output.stdout.raw().lines().next_array().unwrap();
-    insta::assert_snapshot!(op_id_after_snapshot[..12], @"a631dcf37fea");
-    insta::assert_snapshot!(op_id_before_snapshot[..12], @"2e1c4ffb74ca");
+    insta::assert_snapshot!(op_id_after_snapshot[..12], @"97c824e3ad42");
+    insta::assert_snapshot!(op_id_before_snapshot[..12], @"bcf579b2cd18");
 
     // Simulate a concurrent operation that began from the "initial" operation
     // (before the "child1" snapshot) but finished after the "child1"
