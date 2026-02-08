@@ -1936,10 +1936,13 @@ the previous version tag with the new version tag
 to run something like this:</p>
 <div class="highlight"><pre><span></span><code><span class="nv">root</span><span class="o">=</span><span class="k">$(</span>jj<span class="w"> </span>log<span class="w"> </span>--no-graph<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;heads(tags(glob:&quot;v*.*.*&quot;) &amp; ::trunk())&#39;</span><span class="w"> </span>-T<span class="w"> </span>commit_id<span class="k">)</span>
 <span class="nv">filter</span><span class="o">=</span><span class="s1">&#39;</span>
-<span class="s1">   map(.commits[] | select(.author.login | endswith(&quot;[bot]&quot;) | not))</span>
-<span class="s1">   | unique_by(.author.login)</span>
-<span class="s1">   | map(&quot;* \(.commit.author.name) (@\(.author.login))&quot;)</span>
-<span class="s1">   | .[]</span>
+<span class="s1">map(.commits[] | select(.author.login | (. != null and endswith(&quot;[bot]&quot;) | not)))</span>
+<span class="s1">  | unique_by(if .author.login != null then .author.login else .author.email end)</span>
+<span class="s1">  | map(if .author.login != null</span>
+<span class="s1">        then &quot;* \(.commit.author.name) (@\(.author.login))&quot;</span>
+<span class="s1">        else &quot;* \(.commit.author.name)&quot;</span>
+<span class="s1">        end)</span>
+<span class="s1">  | .[]</span>
 <span class="s1">&#39;</span>
 gh<span class="w"> </span>api<span class="w"> </span><span class="s2">&quot;/repos/jj-vcs/jj/compare/</span><span class="nv">$root</span><span class="s2">...main&quot;</span><span class="w"> </span>--paginate<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-sr<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$filter</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span>-f
 </code></pre></div>
