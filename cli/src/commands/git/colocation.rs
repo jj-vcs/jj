@@ -51,7 +51,7 @@ pub struct GitColocationEnableArgs {}
 /// be able to use Git commands directly in the Jujutsu workspace.
 ///
 /// If there are secondary colocated workspaces (created with
-/// `jj workspace add --colocate`), this command will fail unless --force
+/// `jj workspace add`), this command will fail unless --force
 /// is specified. Without --force, you should first forget those workspaces
 /// with `jj workspace forget`.
 #[derive(clap::Args, Clone, Debug)]

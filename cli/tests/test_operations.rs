@@ -2805,10 +2805,10 @@ fn test_op_show() {
     ");
 
     // Showing a given operation, without graph
-    let output = work_dir.run_jj(["op", "show", "--no-graph", "2a0080936cbf"]);
+    let output = work_dir.run_jj(["op", "show", "--no-graph", "3117c5ac4af3"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: No operation ID matching "2a0080936cbf"
+    Error: No operation ID matching "3117c5ac4af3"
     [EOF]
     [exit status: 1]
     "#);

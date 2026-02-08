@@ -160,11 +160,11 @@ fn test_undo_with_rev_arg_falls_back_to_revert() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["op", "show", "--no-op-diff"]);
+    let output = work_dir.run_jj(["op", "log", "-n1"]);
     insta::assert_snapshot!(output, @"
-    f46a6c31f65b test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
-    revert operation bd38e657b210a352a798e73366bfee01b120e6ecd023431be8ebc427c054b20a6fe56d6c33ee60152a35ef9fa45279a3301bb5fd16e9e4dfba95fa5b6ab27047
-    args: jj undo @-
+    @  f46a6c31f65b test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │  revert operation bd38e657b210a352a798e73366bfee01b120e6ecd023431be8ebc427c054b20a6fe56d6c33ee60152a35ef9fa45279a3301bb5fd16e9e4dfba95fa5b6ab27047
+    │  args: jj undo @-
     [EOF]
     ");
 }

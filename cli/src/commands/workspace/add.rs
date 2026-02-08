@@ -93,23 +93,13 @@ pub struct WorkspaceAddArgs {
     #[arg(long, value_enum, default_value_t = SparseInheritance::Copy)]
     sparse_patterns: SparseInheritance,
 
-    /// Create a Git worktree for the new workspace
-    ///
-    /// When used with a colocated Git repository, this creates a Git worktree
-    /// at the new workspace location, allowing the workspace to also be
-    /// colocated with Git.
-    ///
-    /// This is the default when the parent workspace is colocated.
-    #[cfg(feature = "git")]
-    #[arg(long, conflicts_with = "no_colocate")]
-    colocate: bool,
-
     /// Do not create a Git worktree for the new workspace
     ///
-    /// The new workspace will not be colocated with Git, even if the parent
-    /// workspace is colocated.
+    /// By default, the new workspace will be colocated if and only if the
+    /// parent workspace is colocated. Use this flag to create a non-colocated
+    /// workspace regardless of the parent's status.
     #[cfg(feature = "git")]
-    #[arg(long, conflicts_with = "colocate")]
+    #[arg(long)]
     no_colocate: bool,
 }
 
@@ -142,8 +132,9 @@ pub fn cmd_workspace_add(
         )));
     }
 
-    // Validate and set up --colocate if requested (via flag or auto-detected)
-    // The guard will clean up the worktree if we return early due to an error
+    // Set up colocation based on parent workspace (auto-detect, unless
+    // --no-colocate) The guard will clean up the worktree if we return early
+    // due to an error
     #[cfg(feature = "git")]
     let worktree_guard = {
         // Check if parent workspace is colocated
@@ -151,17 +142,9 @@ pub fn cmd_workspace_add(
             is_colocated_git_workspace(None, old_workspace_command.workspace(), repo.as_ref());
 
         // Determine if colocation is requested:
-        // - --colocate: always colocate (error if parent isn't colocated)
-        // - --no-colocate: never colocate
-        // - neither: colocate if parent is colocated (auto-detect)
-        let colocate_requested = if args.colocate {
-            if !parent_is_colocated {
-                return Err(user_error(
-                    "Cannot use --colocate: repository is not colocated with Git",
-                ));
-            }
-            true
-        } else if args.no_colocate {
+        // - --no-colocate: never colocate (override auto-detect)
+        // - (no flag): colocate if parent is colocated (auto-detect)
+        let colocate_requested = if args.no_colocate {
             false
         } else {
             // Auto-detect from parent

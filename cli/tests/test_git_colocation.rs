@@ -455,7 +455,7 @@ fn test_git_colocation_disable_with_secondary_workspaces_fails() {
 
     // 2. Add colocated secondary workspace
     primary_dir
-        .run_jj(["workspace", "add", "--colocate", "../secondary"])
+        .run_jj(["workspace", "add", "../secondary"])
         .success();
 
     // 3. Try to disable colocation - should fail
@@ -487,7 +487,7 @@ fn test_git_colocation_disable_force_with_secondary_workspaces() {
 
     // 2. Add colocated secondary workspace
     primary_dir
-        .run_jj(["workspace", "add", "--colocate", "../secondary"])
+        .run_jj(["workspace", "add", "../secondary"])
         .success();
 
     // Verify secondary workspace has the file

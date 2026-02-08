@@ -1282,11 +1282,7 @@ fn test_git_init_external_in_worktree_pointing_commondir() {
     let output = work_dir.run_jj(["git", "init", "--git-repo", "../git-repo"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Warning: Workspace is also a Git worktree that is not managed by jj
-    Hint: To remove this worktree, run `git worktree remove .` from the parent Git repo
     Done importing changes from the underlying Git repo.
-    Warning: Workspace is also a Git worktree that is not managed by jj
-    Hint: To remove this worktree, run `git worktree remove .` from the parent Git repo
     Initialized repo in "."
     [EOF]
     "#);
