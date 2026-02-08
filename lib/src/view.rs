@@ -101,6 +101,17 @@ impl View {
         &self.data.git_head
     }
 
+    /// Returns the Git HEAD target for the given workspace, or absent if not
+    /// tracked.
+    pub fn get_workspace_git_head(&self, name: &WorkspaceName) -> &RefTarget {
+        self.data.workspace_git_heads.get(name).flatten()
+    }
+
+    /// Returns all per-workspace Git HEAD targets.
+    pub fn workspace_git_heads(&self) -> &BTreeMap<WorkspaceNameBuf, RefTarget> {
+        &self.data.workspace_git_heads
+    }
+
     pub fn set_wc_commit(&mut self, name: WorkspaceNameBuf, commit_id: CommitId) {
         self.data.wc_commit_ids.insert(name, commit_id);
     }
@@ -545,6 +556,18 @@ impl View {
         self.data.git_head = target;
     }
 
+    /// Sets the Git HEAD target for a specific workspace. If the target is
+    /// absent, the workspace entry will be removed.
+    pub fn set_workspace_git_head(&mut self, name: &WorkspaceName, target: RefTarget) {
+        if target.is_present() {
+            self.data
+                .workspace_git_heads
+                .insert(name.to_owned(), target);
+        } else {
+            self.data.workspace_git_heads.remove(name);
+        }
+    }
+
     /// Iterates all commit ids referenced by this view.
     ///
     /// This can include hidden commits referenced by remote bookmarks, previous
@@ -569,6 +592,7 @@ impl View {
             remote_views,
             git_refs,
             git_head,
+            workspace_git_heads,
             wc_commit_ids,
         } = &self.data;
         itertools::chain!(
@@ -582,6 +606,7 @@ impl View {
             }),
             git_refs.values().flat_map(ref_target_ids),
             ref_target_ids(git_head),
+            workspace_git_heads.values().flat_map(ref_target_ids),
             wc_commit_ids.values()
         )
     }
