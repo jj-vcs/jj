@@ -243,6 +243,49 @@ impl State {
         self.current_order = commit_ids.into_iter().cloned().collect();
     }
 
+    fn swap_commits(&mut self, a_idx: usize, b_idx: usize) {
+        if a_idx == b_idx {
+            return;
+        }
+
+        if self.current_selection == a_idx {
+            self.current_selection = b_idx;
+        } else if self.current_selection == b_idx {
+            self.current_selection = a_idx;
+        }
+
+        self.current_order.swap(a_idx, b_idx);
+        // Backwards because we just swapped them. It doesn't matter which is which
+        // anyway.
+        let a_id = &self.current_order[b_idx];
+        let b_id = &self.current_order[a_idx];
+
+        for id in &mut self.head_order {
+            if id == a_id {
+                *id = b_id.clone();
+            } else if id == b_id {
+                *id = a_id.clone();
+            }
+        }
+
+        // Update references to the swapped commits from their children
+        for parents in self.parents.values_mut() {
+            for id in parents {
+                if id == a_id {
+                    *id = b_id.clone();
+                } else if id == b_id {
+                    *id = a_id.clone();
+                }
+            }
+        }
+
+        // Temporarily remove the parents of the swapped commits
+        let a_parents = self.parents.remove(a_id).unwrap();
+        let b_parents = self.parents.remove(b_id).unwrap();
+        self.parents.insert(a_id.clone(), b_parents);
+        self.parents.insert(b_id.clone(), a_parents);
+    }
+
     async fn apply_changes(
         mut self,
         mut_repo: &mut MutableRepo,
@@ -297,6 +340,8 @@ fn run_tui<B: ratatui::backend::Backend>(
     let help_items = [
         ("↓/j", "down"),
         ("↑/k", "up"),
+        ("⇧+↓/J", "swap down"),
+        ("⇧+↑/K", "swap up"),
         ("a", "abandon"),
         ("p", "keep"),
         ("c", "confirm"),
@@ -358,6 +403,17 @@ fn run_tui<B: ratatui::backend::Backend>(
                 (KeyCode::Char('p'), KeyModifiers::NONE) => {
                     let id = state.current_order[state.current_selection].clone();
                     state.actions.insert(id, Action::Keep);
+                }
+                // TODO: Allow swapping up/down only within linear parts of the graph.
+                (KeyCode::Down | KeyCode::Char('J'), KeyModifiers::SHIFT) => {
+                    if state.current_selection + 1 < state.commits.len() {
+                        state.swap_commits(state.current_selection, state.current_selection + 1);
+                    }
+                }
+                (KeyCode::Up | KeyCode::Char('K'), KeyModifiers::SHIFT) => {
+                    if state.current_selection > 0 {
+                        state.swap_commits(state.current_selection, state.current_selection - 1);
+                    }
                 }
                 _ => {
                     continue;
@@ -530,6 +586,70 @@ mod tests {
                 commit_c.id().clone(),
                 commit_b.id().clone(),
             ]
+        );
+    }
+
+    #[test]
+    fn test_swap_commits() {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+        let empty_tree = store.empty_merged_tree();
+
+        // Swap C and D:
+        // f           f
+        // |           |
+        // D e         C e
+        // |\|         |\|
+        // B C    =>   B D
+        // |/          |/
+        // A           A
+        // |           |
+        // root        root
+        //
+        // Lowercase nodes are external to the set
+        let mut tx = test_repo.repo.start_transaction();
+        let mut create_commit = |parents| {
+            tx.repo_mut()
+                .new_commit(parents, empty_tree.clone())
+                .write_unwrap()
+        };
+        let commit_a = create_commit(vec![store.root_commit_id().clone()]);
+        let commit_b = create_commit(vec![commit_a.id().clone()]);
+        let commit_c = create_commit(vec![commit_a.id().clone()]);
+        let commit_d = create_commit(vec![commit_b.id().clone(), commit_c.id().clone()]);
+        let commit_e = create_commit(vec![commit_c.id().clone()]);
+        let commit_f = create_commit(vec![commit_d.id().clone()]);
+
+        let mut state = State::new(
+            vec![
+                commit_d.clone(),
+                commit_c.clone(),
+                commit_b.clone(),
+                commit_a.clone(),
+            ],
+            vec![commit_e.clone(), commit_f.clone()],
+        );
+        assert_eq!(state.head_order, vec![commit_d.id().clone()]);
+
+        // Swap C and D and check result
+        state.swap_commits(0, 1);
+        assert_eq!(state.head_order, vec![commit_c.id().clone()]);
+        assert_eq!(state.current_selection, 1);
+        assert_eq!(
+            *state.parents.get(commit_c.id()).unwrap(),
+            vec![commit_b.id().clone(), commit_d.id().clone()],
+        );
+        assert_eq!(
+            *state.parents.get(commit_d.id()).unwrap(),
+            vec![commit_a.id().clone()],
+        );
+        assert_eq!(
+            *state.parents.get(commit_e.id()).unwrap(),
+            vec![commit_d.id().clone()],
+        );
+        assert_eq!(
+            *state.parents.get(commit_f.id()).unwrap(),
+            vec![commit_c.id().clone()],
         );
     }
 
