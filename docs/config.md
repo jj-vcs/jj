@@ -1105,7 +1105,7 @@ by `jj resolve`. For example:
 ```toml
 [ui]
 # Use merge-tools.meld.merge-args
-merge-editor = "meld"  # Or "vscode" or "vscodium" or "kdiff3" or "vimdiff"
+merge-editor = "meld"  # Or "vscode" or "vscodium" or "kdiff3" or "vimdiff" or "weave"
 # Specify merge-args inline
 merge-editor = ["meld", "$left", "$base", "$right", "-o", "$output"]
 ```
@@ -1118,6 +1118,7 @@ The following tools can be used out of the box, as long as they are installed:
 - "vimdiff"
 - "vscode"
 - "vscodium"
+- "weave"
 
 Using VS Code as a merge tool works well with VS Code's [Remote
 Development](https://code.visualstudio.com/docs/remote/remote-overview)
