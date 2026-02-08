@@ -3572,6 +3572,9 @@ By default, the new workspace inherits the sparse patterns of the current worksp
   - `empty`:
     Clear all files from the workspace (it will be empty)
 
+* `--no-colocate` — Do not create a Git worktree for the new workspace
+
+   By default, the new workspace will be colocated if and only if the parent workspace is colocated. Use this flag to create a non-colocated workspace regardless of the parent's status.
 
 
 
