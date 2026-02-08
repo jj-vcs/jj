@@ -251,8 +251,8 @@ fn test_no_integrate_operation() {
     let output = test_env.run_jj_in(&repo_path, &["squash", "--no-integrate-operation"]);
     insta::assert_snapshot!(output.stdout, @"");
     insta::assert_snapshot!(output.stderr, @"
-    Snapshot operation left uncommitted because --no-integrate-operation was requested: 13357990b38a
-    Operation left uncommitted because --no-integrate-operation was requested: a028de7aa4f4
+    Snapshot operation left uncommitted because --no-integrate-operation was requested: c4fc324ced2a
+    Operation left uncommitted because --no-integrate-operation was requested: 05bbdbddb864
     [EOF]
     ");
     let stderr = output.stderr.into_raw();
@@ -277,19 +277,19 @@ fn test_no_integrate_operation() {
     ");
     let stdout = test_env.run_jj_in(&repo_path, &["op", "log", "--at-op", op_id_hex.as_str()]);
     insta::assert_snapshot!(stdout, @"
-    @  a028de7aa4f4 test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    @  05bbdbddb864 test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │  squash commits into e6fc2362ee5fdd5eb879befc0ae556a2f57b94a0
     │  args: jj squash --no-integrate-operation
-    ○  13357990b38a test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    ○  c4fc324ced2a test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │  snapshot working copy
     │  args: jj squash --no-integrate-operation
-    ○  e167310e1125 test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ○  71df53f97bdb test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  commit 289d54a4554ed0d7df9c47d566480a6b773ee431
     │  args: jj commit '-m=initial'
-    ○  55b88fdb1890 test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ○  a7edc539231e test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  snapshot working copy
     │  args: jj commit '-m=initial'
-    ○  90267f31f904 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    ○  e39dc288903d test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]
@@ -320,8 +320,8 @@ fn test_no_integrate_operation_colocated() {
     let output = test_env.run_jj_in(&repo_path, &["squash", "--no-integrate-operation"]);
     insta::assert_snapshot!(output.stdout, @"");
     insta::assert_snapshot!(output.stderr, @"
-    Snapshot operation left uncommitted because --no-integrate-operation was requested: f9d2255ff5a3
-    Operation left uncommitted because --no-integrate-operation was requested: 0eccbf94f56f
+    Snapshot operation left uncommitted because --no-integrate-operation was requested: 34b82659aeea
+    Operation left uncommitted because --no-integrate-operation was requested: c378d05f3945
     [EOF]
     ");
     let stderr = output.stderr.into_raw();
@@ -346,19 +346,19 @@ fn test_no_integrate_operation_colocated() {
     ");
     let stdout = test_env.run_jj_in(&repo_path, &["op", "log", "--at-op", op_id_hex.as_str()]);
     insta::assert_snapshot!(stdout, @"
-    @  0eccbf94f56f test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    @  c378d05f3945 test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │  squash commits into e6fc2362ee5fdd5eb879befc0ae556a2f57b94a0
     │  args: jj squash --no-integrate-operation
-    ○  f9d2255ff5a3 test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    ○  34b82659aeea test-username@host.example.com default@ 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     │  snapshot working copy
     │  args: jj squash --no-integrate-operation
-    ○  30e6a62058cc test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ○  10a0b9627df3 test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  commit 289d54a4554ed0d7df9c47d566480a6b773ee431
     │  args: jj commit '-m=initial'
-    ○  55b88fdb1890 test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ○  a7edc539231e test-username@host.example.com default@ 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  snapshot working copy
     │  args: jj commit '-m=initial'
-    ○  90267f31f904 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    ○  e39dc288903d test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]

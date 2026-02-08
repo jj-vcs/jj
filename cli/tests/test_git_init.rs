@@ -1081,13 +1081,13 @@ fn test_git_init_external_in_worktree_pointing_worktree() {
 
     let output = work_dir.run_jj(OP_LOG_COMPACT);
     insta::assert_snapshot!(output, @r#"
-    @  b68a83cffa8a new empty commit
+    @  99853b186348 new empty commit
     │  args: jj new
-    ○  3cef32e873d0 import git head
+    ○  68f81182da84 import git head
     │  args: jj git init --git-repo .
-    ○  c3d55d714b6e import git refs
+    ○  02e613cdb16a import git refs
     │  args: jj git init --git-repo .
-    ○  90267f31f904 add workspace 'default'
+    ○  e39dc288903d add workspace 'default'
     ○  000000000000
     [EOF]
     ------- stderr -------
@@ -1169,9 +1169,9 @@ fn test_git_init_external_in_worktree_pointing_commondir() {
 
     let output = work_dir.run_jj(OP_LOG_COMPACT);
     insta::assert_snapshot!(output, @r#"
-    @  27ff1f15aa92 new empty commit
+    @  e5ae957be1cd new empty commit
     │  args: jj new
-    ○  a8ca2fb8be1c import git head
+    ○  9ae4dcc1c0de import git head
     │  args: jj log -T '
     │      separate(" ",
     │        commit_id.short(),
@@ -1179,9 +1179,9 @@ fn test_git_init_external_in_worktree_pointing_commondir() {
     │        if(self.contained_in("first_parent(@)"), "git_head()"),
     │        description,
     │      )' '-r=all()'
-    ○  fcd5346a5bf1 import git refs
+    ○  503fc92c41fd import git refs
     │  args: jj git init --git-repo ../git-repo
-    ○  90267f31f904 add workspace 'default'
+    ○  e39dc288903d add workspace 'default'
     ○  000000000000
     [EOF]
     ------- stderr -------
