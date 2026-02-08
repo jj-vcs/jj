@@ -2070,31 +2070,31 @@ fn test_squash_to_new_commit() -> TestResult {
     insta::assert_snapshot!(output, @"
     ○    pkstwlsy test.user@example.com 2001-02-03 08:05:35 41510a56
     ├─╮  file 3&4
-    │ │  -- operation 3d6e647dccb7 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ │  -- operation 026f4f6709a5 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     │ ○  zsuskuln/0 test.user@example.com 2001-02-03 08:05:35 a5bc761f (hidden)
     │ │  file4
-    │ │  -- operation 3d6e647dccb7 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ │  -- operation 026f4f6709a5 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     │ ○  zsuskuln/4 test.user@example.com 2001-02-03 08:05:11 38778966 (hidden)
     │ │  file4
-    │ │  -- operation 9ca0f4771551 commit 89a30a7539466ed176c1ef122a020fd9cb15848e
+    │ │  -- operation 3c3c237dae08 commit 89a30a7539466ed176c1ef122a020fd9cb15848e
     │ ○  zsuskuln/5 test.user@example.com 2001-02-03 08:05:11 89a30a75 (hidden)
     │ │  (no description set)
-    │ │  -- operation 26b29f385618 snapshot working copy
+    │ │  -- operation 8d98ff7c076c snapshot working copy
     │ ○  zsuskuln/6 test.user@example.com 2001-02-03 08:05:10 bbf04d26 (hidden)
     │    (empty) (no description set)
-    │    -- operation fc5403fc3984 commit c23c424826221bc4fdee9487926595324e50ee95
+    │    -- operation 500bbee268a2 commit c23c424826221bc4fdee9487926595324e50ee95
     ○  kkmpptxz/0 test.user@example.com 2001-02-03 08:05:35 ce3b0a58 (hidden)
     │  file3
-    │  -- operation 3d6e647dccb7 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │  -- operation 026f4f6709a5 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     ○  kkmpptxz/3 test.user@example.com 2001-02-03 08:05:10 0d254956 (hidden)
     │  file3
-    │  -- operation fc5403fc3984 commit c23c424826221bc4fdee9487926595324e50ee95
+    │  -- operation 500bbee268a2 commit c23c424826221bc4fdee9487926595324e50ee95
     ○  kkmpptxz/4 test.user@example.com 2001-02-03 08:05:10 c23c4248 (hidden)
     │  (no description set)
-    │  -- operation c5043d80534d snapshot working copy
+    │  -- operation 385c607f1340 snapshot working copy
     ○  kkmpptxz/5 test.user@example.com 2001-02-03 08:05:09 c1272e87 (hidden)
        (empty) (no description set)
-       -- operation 4eb3252f7fd7 commit cb58ff1c6f1af92f827661e7275941ceb4d910c5
+       -- operation 1fe18b105580 commit cb58ff1c6f1af92f827661e7275941ceb4d910c5
     [EOF]
     ");
 
@@ -2168,7 +2168,7 @@ fn test_squash_to_new_commit() -> TestResult {
     insta::assert_snapshot!(output, @"
     ○  nsrwusvy test.user@example.com 2001-02-03 08:05:42 c2183685
        (empty) (no description set)
-       -- operation 29b5af212226 squash 0 commits
+       -- operation 3094a76484ad squash 0 commits
     [EOF]
     ");
 
@@ -2212,7 +2212,7 @@ fn test_squash_to_new_commit() -> TestResult {
     insta::assert_snapshot!(output, @"
     ○  wtlqussy test.user@example.com 2001-02-03 08:05:46 7eff41c8
        (empty) (no description set)
-       -- operation f5c12bfd0cbc squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+       -- operation 2dfbda8259b2 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     [EOF]
     ");
 
@@ -2259,10 +2259,10 @@ fn test_squash_to_new_commit() -> TestResult {
     insta::assert_snapshot!(output, @"
     ○  pyoswmwk test.user@example.com 2001-02-03 08:05:50 991d0644
     │  (empty) (no description set)
-    │  -- operation 587bcc3abdef squash commit f5e47d019271a392eb7f92a6b2e9f8cf41d97049
+    │  -- operation c4d2417e58a7 squash commit f5e47d019271a392eb7f92a6b2e9f8cf41d97049
     ○  szrrkvty/0 test.user@example.com 2001-02-03 08:05:50 f5e47d01 (hidden)
        (empty) (no description set)
-       -- operation 4096cc584a23 new empty commit
+       -- operation dcf228dfaf3f new empty commit
     [EOF]
     ");
 

@@ -323,7 +323,7 @@ fn test_chmod_exec_bit_settings() -> TestResult {
 
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
-    Current operation: OperationId("c213f276df4f2ac12ede4d6e1b7f386311c02049195b5db39a476b1785fe052e21b816b82ad41a2833296c04e27eab5a981f1744fa511581e32d405e0f8370b2")
+    Current operation: OperationId("9e9aa1f97d6c6e071f7ef8f6829600dfbeb8a69a72bf5c834e6c6f6cb59811c5e598ec0d2a599a1912007469243c4086581da64d12749b2e0f781cee8026aadc")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }             5 <timestamp> None "file"
     [EOF]
@@ -336,7 +336,7 @@ fn test_chmod_exec_bit_settings() -> TestResult {
     set_file_executable(path, true);
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
-    Current operation: OperationId("60ebc37d4d08925da7d4d50b21ebd4395dfd71180cd3694cc288bce2145e8d601ca38ecdf2ce1abbba7368d678f154688b0f0c855e874757bfb8ec2d54c46c18")
+    Current operation: OperationId("b31e92365207cb5199d2c5b69fe12a7ed3ceae0a5d114bdef96f0dd6d378b4eb2581e4e7a537f10b756fd4f2aeb4b41a1ecfb13f418ac1dfd0286d64e1d1a15f")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
     [EOF]
@@ -358,7 +358,7 @@ fn test_chmod_exec_bit_settings() -> TestResult {
     assert_file_executable(path, true);
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
-    Current operation: OperationId("2b128dc13ea9967d7a233535a8ea1f70b2f9a5e713d17097507fe9f0d986c9852377aa578fdd49959bcd60692ebd4cfd6c6f02d8e86a67ce631bf39ecf48cc2c")
+    Current operation: OperationId("c0c9e0df008c9d2640181b99dae86f90242e127822fee79492b8d8cc5c84187c449f0dc7b8f6057b16bfaea877e65313b880020fb2014a5abd8a5ca1bd931f36")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("6d5f482d15035cdd7733b1b551d1fead28d22592")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
     [EOF]
@@ -369,7 +369,7 @@ fn test_chmod_exec_bit_settings() -> TestResult {
     assert_file_executable(path, false);
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
-    Current operation: OperationId("73ee76ab06de88c3a43feefd313883127562f28cacd52e41408b6a1769294731d7a7fd90313e6324db6e501ea6602c5c83cd647a4d750728889688b5dc7178a2")
+    Current operation: OperationId("6b8c0ed84bd8cc9a554ad40ffc3ed8304f38c1531b9c33fe98572eb0fb65b67b7562f83dd5e826b7525a15c57b5885359008961d43efc359cda09441a53799ed")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }             5 <timestamp> None "file"
     [EOF]
@@ -402,7 +402,7 @@ fn test_chmod_exec_bit_settings() -> TestResult {
     set_file_executable(path, true);
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_timestamp), @r#"
-    Current operation: OperationId("8ab66b017c52976aaa389ea0a5f4f6fd6a0267525b44303a8882d6ed2d5ac507fd661fcde9f466efa51f09d82c826bbff2af236b68502cbb991877e609d4858b")
+    Current operation: OperationId("0e1ad97e8a43b3d8ef4c86ac436bed7def0284f7544374ea6709007bf8bf6709fb13e812d2cb2f26b67925949a30dcaa9c535254c56decc0c7b4338429833538")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("5201dbafb66dc1b28b029a262e1b206f6f93df1e")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(true) }             5 <timestamp> None "file"
     [EOF]

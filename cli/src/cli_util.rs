@@ -1283,8 +1283,15 @@ impl WorkspaceCommandHelper {
         git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
+        let workspace_name = self.workspace_name().to_owned();
+        // Check if workspace had a git_head before we start the transaction
+        let _old_workspace_git_head_present = self
+            .repo()
+            .view()
+            .get_workspace_git_head(&workspace_name)
+            .is_present();
         let mut tx = self.start_transaction();
-        jj_lib::git::import_head(tx.repo_mut()).await?;
+        jj_lib::git::import_head(tx.repo_mut(), &workspace_name).block_on()?;
         if !tx.repo().has_changes() {
             return Ok(());
         }
@@ -2236,7 +2243,14 @@ to the current parents may contain changes from multiple commits.
                 // This can still fail if HEAD was updated concurrently by another JJ process
                 // (overlapping transaction) or a non-JJ process (e.g., git checkout). In that
                 // case, the actual state will be imported on the next snapshot.
-                match jj_lib::git::reset_head(tx.repo_mut(), wc_commit).await {
+                match jj_lib::git::reset_head_at_workspace(
+                    tx.repo_mut(),
+                    wc_commit,
+                    self.workspace_name(),
+                    Some(self.workspace_root()),
+                )
+                .block_on()
+                {
                     Ok(()) => {}
                     Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
                         writeln!(ui.warning_default(), "{err}")?;

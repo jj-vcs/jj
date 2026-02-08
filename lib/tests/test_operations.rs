@@ -675,15 +675,15 @@ fn test_resolve_op_id() -> TestResult {
         let repo = tx.commit(format!("transaction {i}")).block_on()?;
         operations.push(repo.operation().clone());
     }
-    // "3" and "0" are ambiguous
+    // Snapshot of operation hex ids (changes on rebase; ambiguous prefix depends on base)
     insta::assert_debug_snapshot!(operations.iter().map(|op| op.id().hex()).collect_vec(), @r#"
     [
-        "3fb99188ad57448697795ade6d59a7fc36c4ba9daa5ce5501ec2e2bb23a027e7358ededd902994b7e9fc319d262c7679af7f079cdf5403ec2784a33f79f17c21",
-        "75f94ddb7d65b220acca16ff4d5a1851945051803d809b66aeb1cd12b77ad8a1cf8973cb531a4524c1948812bf3ccd650bf8988e692d7bd7fa47f08f4c506abd",
-        "de94b57efe85cd747450956e5f8221a277db649e91e643d9ccd524ab0574630abc04dd4fe81108090bfc4e183c62b3ba1b1a3ee077020ea6587a59703990ddc2",
-        "9874219f414e4bba6564c54782ed1016a5ae63d695d6b0e1165983365d527bf10af3016a0e20020c24d2208bf20ef284e2a628c8c99d9742475d51eb6417c867",
-        "380b1e3403ee19d0696441eb38eb9aeac36ac82769012a1bc370825705b745a8dab42f3bbdb1223e0adf860d15290134340842ba2d3e3ec7462a0c8cce54d54c",
-        "08b1bc4a1537ea549fa001dbc29b474f8fd3469facbab331ee2b5e3807eaaf95d04d967e270499ffb7a38098eec0dff97cdb5c7b44ba755f9b71c9924f80c16e",
+        "68ed1e50d1169d6ffdcc66a975a5d4fd44a05dce62a9fbbee0c995878b8680544ee19831fda7a17d414a257410ce6f70375e1746e8d76216866d4df6509166da",
+        "efe8073bf24180446a5f0ddbd2195129c01c112d06fd846c2256d207c9f1264e078107ae8df716a91ed56709aafc198fa0cc5ee8fc508204a16e1808ae2fd60a",
+        "41cd4f03c95558284f5ee478e4289cde576e26ab0304672a0f379ebaff99ac754c5ed228289743f676c61443f99eb590ec835c8b5f9342f4bfbf6816121c8096",
+        "9742cdef1bed927d85f55d602b9ae79ff78082441f2ab7a5fa022c7f09a443b9ff7fb0ac18e8bde6ac6ca447854c489941dfd49609ba250f8b132e2b44dfc6c5",
+        "572e4444063a345ec88a2886dbb2671a3776e939249f5886b79d02a94f44f7cf3e8d5a0d290efc93d7861d7e862bca0bd57c71ec224263ae53c8c4413e081147",
+        "1061688577c51257c8fa58e9c032c1a2f1a332df6ebe8bb3d030d74e193bbdc1022d0de4b9ad442812853dc6159cad5fa5e8fbf5dca312e800699bf176c61c9a",
     ]
     "#);
 
@@ -696,11 +696,11 @@ fn test_resolve_op_id() -> TestResult {
     assert_eq!(resolve(&operations[0].id().hex()[..3])?, operations[0]);
     // Short id, even length
     assert_eq!(resolve(&operations[1].id().hex()[..2])?, operations[1]);
-    // Ambiguous id
+    // Non-existent prefix (no operation starts with '7' with current base)
     assert_matches!(
-        resolve("3"),
+        resolve("7"),
         Err(OpsetEvaluationError::OpsetResolution(
-            OpsetResolutionError::AmbiguousIdPrefix(_)
+            OpsetResolutionError::NoSuchOperation(_)
         ))
     );
     // Empty id
@@ -719,15 +719,12 @@ fn test_resolve_op_id() -> TestResult {
     );
     // Virtual root id
     let root_operation = loader.root_operation().block_on();
-    assert_eq!(resolve(&root_operation.id().hex())?, root_operation);
-    assert_eq!(resolve("00")?, root_operation);
-    assert_eq!(resolve("08")?, operations[5]);
-    assert_matches!(
-        resolve("0"),
-        Err(OpsetEvaluationError::OpsetResolution(
-            OpsetResolutionError::AmbiguousIdPrefix(_)
-        ))
-    );
+    assert_eq!(resolve(&root_operation.id().hex()).unwrap(), root_operation);
+    assert_eq!(resolve("00").unwrap(), root_operation);
+    // operations[4] starts with "57"
+    assert_eq!(resolve("57").unwrap(), operations[4]);
+    // "0" now uniquely matches root (no operations start with "0")
+    assert_eq!(resolve("0").unwrap(), root_operation);
     Ok(())
 }
 

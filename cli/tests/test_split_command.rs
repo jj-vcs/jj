@@ -419,16 +419,16 @@ fn test_split_with_descendants() -> TestResult {
     insta::assert_snapshot!(evolog_1, @"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:12 74306e35
     │  Add file1
-    │  -- operation ec53c39a72a8 split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
+    │  -- operation b867816ba998 split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 1d2499e7 (hidden)
     │  Add file1 & file2
-    │  -- operation 8185a834cefe commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation a5cd7a6de1d8 commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
-    │  -- operation d36e968aa414 snapshot working copy
+    │  -- operation 6d5cd26b7f5d snapshot working copy
     ○  qpvuntsm/3 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
-       -- operation 90267f31f904 add workspace 'default'
+       -- operation e39dc288903d add workspace 'default'
     [EOF]
     ");
 
@@ -438,16 +438,16 @@ fn test_split_with_descendants() -> TestResult {
     insta::assert_snapshot!(evolog_2, @"
     ○  royxmykx test.user@example.com 2001-02-03 08:05:12 0a37745e
     │  Add file2
-    │  -- operation ec53c39a72a8 split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
+    │  -- operation b867816ba998 split commit 1d2499e72cefc8a2b87ebb47569140857b96189f
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 1d2499e7 (hidden)
     │  Add file1 & file2
-    │  -- operation 8185a834cefe commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation a5cd7a6de1d8 commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
-    │  -- operation d36e968aa414 snapshot working copy
+    │  -- operation 6d5cd26b7f5d snapshot working copy
     ○  qpvuntsm/3 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
-       -- operation 90267f31f904 add workspace 'default'
+       -- operation e39dc288903d add workspace 'default'
     [EOF]
     ");
     Ok(())
@@ -575,13 +575,13 @@ fn test_split_parallel_no_descendants() -> TestResult {
     insta::assert_snapshot!(evolog_1, @"
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:09 7bcd474c
     │  TESTED=TODO
-    │  -- operation 90307a87dc57 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation 7b9cdc9d8406 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
-    │  -- operation f07456070284 snapshot working copy
+    │  -- operation 03684cf61546 snapshot working copy
     ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
-       -- operation 90267f31f904 add workspace 'default'
+       -- operation e39dc288903d add workspace 'default'
     [EOF]
     ");
 
@@ -591,13 +591,13 @@ fn test_split_parallel_no_descendants() -> TestResult {
     insta::assert_snapshot!(evolog_2, @"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 431886f6
     │  (no description set)
-    │  -- operation 90307a87dc57 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
+    │  -- operation 7b9cdc9d8406 split commit f5700f8ef89e290e4e90ae6adc0908707e0d8c85
     ○  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 f5700f8e (hidden)
     │  (no description set)
-    │  -- operation f07456070284 snapshot working copy
+    │  -- operation 03684cf61546 snapshot working copy
     ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
-       -- operation 90267f31f904 add workspace 'default'
+       -- operation e39dc288903d add workspace 'default'
     [EOF]
     ");
     Ok(())
