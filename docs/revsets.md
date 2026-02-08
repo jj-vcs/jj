@@ -580,6 +580,11 @@ for a comprehensive list.
   'trunk()' = 'your-bookmark@your-remote'
   ```
 
+* `base([x])`: Resolves to the most recent revision on `trunk()` that is also an
+  ancestor of `x`, which defaults to the working copy `@`. It is the fork point
+  of `trunk()` and `x`, which can be thought of as the "base" of the work in `x`
+  with respect to the history of `trunk()`.
+
 * `builtin_immutable_heads()`: Resolves to `trunk() | tags() |
   untracked_remote_bookmarks()`. It is used as the default definition for
   `immutable_heads()` below. It is not recommended to redefine this

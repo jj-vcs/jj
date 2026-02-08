@@ -34,6 +34,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   as `jj simplify-parents` on the rebased commits.
   [#7711](https://github.com/jj-vcs/jj/issues/7711)
 
+* Added new `base([x=@])` revset alias function that refers to the most recent
+  revision on `trunk()` that is also an ancestor of `x` (the "base" of that
+  chain with respect to `trunk()`).
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04

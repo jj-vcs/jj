@@ -1,5 +1,7 @@
 # NOTE: ensure you update docs/revsets.md with documentation when
 # adding/updating any of these aliases
+# Also try to avoid adding non-function revset aliases since they might conflict
+# with bookmarks or other revsets.
 
 [revsets]
 fix = "reachable(@, mutable())"
@@ -26,6 +28,9 @@ latest(
   root()
 )
 '''
+
+'base()' = 'base(@)'
+'base(x)' = 'fork_point(trunk() | x)'
 
 # If immutable_heads() failed to evaluate, many jj commands wouldn't work. Use
 # present(expr) if symbols in expr might not always exist.
