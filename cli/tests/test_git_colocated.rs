@@ -1948,7 +1948,7 @@ fn test_colocated_workspace_in_bare_repo() {
     );
 
     insta::assert_snapshot!(get_log_output(&second_work_dir), @"
-    @  fc6bba74c2ce22ba0a8c328f3ac49beffa6f5d75
+    @  514e1b3adab7336794cf569e7b9c60c1dbcad1b4
     │ ○  64393b1a826a63bba44c4c5cec90d7a9040063b9
     ├─╯
     ○  dda9521046c4649797052c184beab33a9cf9754b initial commit
@@ -1960,8 +1960,8 @@ fn test_colocated_workspace_in_bare_repo() {
         .run_jj(["commit", "-m", "commit in second workspace"])
         .success();
     insta::assert_snapshot!(get_log_output(&second_work_dir), @"
-    @  a176e11b40bb9d52ab3a3f0e2cb7e32701aa1cc3
-    ○  c2cc3d0b65ae4ed1964de129433819554042e813 commit in second workspace
+    @  104cab0c0a2b384e247b0efe73b0dc5cc2d2df45
+    ○  a45eccddae45d27fdc5008294fa2ff5461d2c25b commit in second workspace
     │ ○  64393b1a826a63bba44c4c5cec90d7a9040063b9
     ├─╯
     ○  dda9521046c4649797052c184beab33a9cf9754b initial commit
@@ -1981,7 +1981,7 @@ fn test_colocated_workspace_in_bare_repo() {
         .run_jj(["op", "log", "-Tself.description().first_line()"])
         .success();
     insta::assert_snapshot!(output, @"
-    @  commit fc6bba74c2ce22ba0a8c328f3ac49beffa6f5d75
+    @  commit 514e1b3adab7336794cf569e7b9c60c1dbcad1b4
     ○  import git head
     ○  create initial working-copy commit in workspace second
     ○  add workspace 'second'
@@ -2060,14 +2060,11 @@ fn test_colocated_workspace_moved_original_on_disk() {
         .assert()
         .success();
     insta::assert_snapshot!(get_log_output(&second_work_dir), @"
-    @  838e3858a777439b925b99e3831eebf9b6addbe2
+    @  514e1b3adab7336794cf569e7b9c60c1dbcad1b4
     │ ○  64393b1a826a63bba44c4c5cec90d7a9040063b9
     ├─╯
     ○  dda9521046c4649797052c184beab33a9cf9754b initial commit
     ◆  0000000000000000000000000000000000000000
-    [EOF]
-    ------- stderr -------
-    Reset the working copy parent to the new Git HEAD.
     [EOF]
     ");
 }
@@ -2400,7 +2397,6 @@ fn test_workspace_add_colocate_basic() {
 }
 
 #[test]
-#[ignore]
 fn test_workspace_add_colocate_creates_git_worktree() {
     // This test requires git command
     if skip_if_git_unavailable() {
@@ -2558,7 +2554,6 @@ fn test_workspace_add_colocate_empty_repo() {
 // =============================================================================
 
 #[test]
-#[ignore]
 fn test_import_detects_secondary_worktree_head_change() {
     let test_env = TestEnvironment::default();
     let primary_work_dir = test_env.work_dir("primary");
@@ -2640,7 +2635,6 @@ fn test_import_detects_secondary_worktree_head_change() {
 }
 
 #[test]
-#[ignore]
 fn test_import_all_worktrees_heads() {
     let test_env = TestEnvironment::default();
     let primary_work_dir = test_env.work_dir("primary");
@@ -2731,7 +2725,6 @@ fn test_import_all_worktrees_heads() {
 // =============================================================================
 
 #[test]
-#[ignore]
 fn test_workspace_forget_removes_git_worktree() {
     // This test requires git command
     if skip_if_git_unavailable() {
@@ -2791,7 +2784,6 @@ fn test_workspace_forget_removes_git_worktree() {
 }
 
 #[test]
-#[ignore]
 fn test_workspace_forget_with_custom_name_removes_git_worktree() {
     // This test requires git command
     if skip_if_git_unavailable() {
@@ -2930,7 +2922,6 @@ fn test_workspace_forget_non_colocated_no_git_cleanup() {
 }
 
 #[test]
-#[ignore]
 fn test_workspace_forget_dirty_worktree_warns() {
     // This test verifies that forgetting a colocated workspace with uncommitted
     // changes shows a warning and preserves the data (unless --force is used).
@@ -2982,7 +2973,6 @@ fn test_workspace_forget_dirty_worktree_warns() {
 }
 
 #[test]
-#[ignore]
 fn test_workspace_forget_force_removes_dirty_worktree() {
     // This test verifies that --force removes the git worktree even with
     // uncommitted changes.

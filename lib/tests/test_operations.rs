@@ -675,7 +675,8 @@ fn test_resolve_op_id() -> TestResult {
         let repo = tx.commit(format!("transaction {i}")).block_on()?;
         operations.push(repo.operation().clone());
     }
-    // Snapshot of operation hex ids (changes on rebase; ambiguous prefix depends on base)
+    // Snapshot of operation hex ids (changes on rebase; ambiguous prefix depends on
+    // base)
     insta::assert_debug_snapshot!(operations.iter().map(|op| op.id().hex()).collect_vec(), @r#"
     [
         "68ed1e50d1169d6ffdcc66a975a5d4fd44a05dce62a9fbbee0c995878b8680544ee19831fda7a17d414a257410ce6f70375e1746e8d76216866d4df6509166da",

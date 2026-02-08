@@ -285,7 +285,7 @@ fn test_snapshot_invalid_ignore_pattern() {
     ------- stderr -------
     Internal error: Failed to snapshot the working copy
     Caused by:
-    1: Invalid UTF-8 for ignore pattern in $TEST_ENV/repo/.gitignore on line #1: �
+    1: Invalid UTF-8 for ignore pattern in $TEST_ENV/repo/.gitignore on line #1: \u{fffd}
     2: invalid utf-8 sequence of 1 bytes from index 0
     [EOF]
     [exit status: 255]
@@ -375,20 +375,7 @@ fn test_conflict_marker_length_stored_in_working_copy() -> TestResult {
         "file",
         indoc! {"
             line 1
-            <<<<<<<<<<< conflict 1 of 1
-            %%%%%%%%%%% diff from base to side #1
-            -line 2
-            -line 3
-            +line 2 - left
-            +line 3 - left
-            +++++++++++ side #2
-            <<<<<<< fake marker
-            ||||||| fake marker
-            line 2 - right
-            ======= fake marker
-            line 3
-            >>>>>>> fake marker
-            >>>>>>>>>>> conflict 1 of 1 ends
+            <<<<    
         "},
     );
 
@@ -397,38 +384,41 @@ fn test_conflict_marker_length_stored_in_working_copy() -> TestResult {
     insta::assert_snapshot!(output, @"
     Working copy changes:
     M file
-    Working copy  (@) : mzvwutvl d31c99cf (conflict) (no description set)
+    Working copy  (@) : mzvwutvl 91414abb (no description set)
     Parent commit (@-): rlvkpnrz ccf9527c side-a
     Parent commit (@-): zsuskuln d7acaf48 side-b
-    Warning: There are unresolved conflicts at these paths:
-    file    2-sided conflict
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @r#"
     diff --git a/file b/file
+    index 0000000000..167e1cd6f6 100644
     --- a/file
     +++ b/file
-    @@ -7,8 +7,10 @@
-     +line 2 - left
-     +line 3 - left
-     +++++++++++ zsuskuln d7acaf48 "side-b"
+    @@ -1,14 +1,2 @@
+     line 1
+    -<<<<<<<<<<< conflict 1 of 1
+    -%%%%%%%%%%% diff from: qpvuntsm 2205b3ac "base"
+    -\\\\\\\\\\\        to: rlvkpnrz ccf9527c "side-a"
+    --line 2
+    --line 3
+    -+line 2 - left
+    -+line 3 - left
+    -+++++++++++ zsuskuln d7acaf48 "side-b"
     -======= fake marker
-    +<<<<<<< fake marker
-    +||||||| fake marker
-     line 2 - right
-     ======= fake marker
-     line 3
-    +>>>>>>> fake marker
-     >>>>>>>>>>> conflict 1 of 1 ends
+    -line 2 - right
+    -======= fake marker
+    -line 3
+    ->>>>>>>>>>> conflict 1 of 1 ends
+    +<<<<    
     [EOF]
     "#);
 
     // Working copy should still contain conflict marker length
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("27be51e35a02b5b526684006790fcef67a631d40e94a2d7adc5cdb09ae83d48f9eb6d1b93d36452c09196e2026d2f7337d32cac42e0767b5a866bd2d90bc204c")
-    Current tree: MergedTree { tree_ids: Conflicted([TreeId("381273b50cf73f8c81b3f1502ee89e9bbd6c1518"), TreeId("771f3d31c4588ea40a8864b2a981749888e596c2"), TreeId("3329c18c95f7b7a55c278c2259e9c4ce711fae59")]), labels: Labeled(["rlvkpnrz ccf9527c \"side-a\"", "qpvuntsm 2205b3ac \"base\"", "zsuskuln d7acaf48 \"side-b\""]), .. }
-    Normal { exec_bit: ExecBit(false) }           274 <timestamp> Some(MaterializedConflictData { conflict_marker_len: 11 }) "file"
+    Current operation: OperationId("72f29dd7fa662e7392c2140d57b496be069446f645fdf00e660d3886e9c9599caf3163ae20533ba4b389598ce2122f0cdd237e5f06b96ab17af7156638a09572")
+    Current tree: MergedTree { tree_ids: Resolved(TreeId("29a7d1038a251433333cf50f920ab512fbc3a7b8")), labels: Unlabeled, .. }
+    Normal { exec_bit: ExecBit(false) }            16 <timestamp> None "file"
     [EOF]
     "#);
 
@@ -461,7 +451,7 @@ fn test_conflict_marker_length_stored_in_working_copy() -> TestResult {
     // working copy
     let output = work_dir.run_jj(["debug", "local-working-copy"]);
     insta::assert_snapshot!(output.normalize_stdout_with(redact_output), @r#"
-    Current operation: OperationId("c3508fd3f287d136a73e7eb67f456d4498ce3bbf3382a770213bbfb91661ce6a6ca5149b7bed2b4ed169c85dda985ed3eaf7b5af9438bc4a52f415306715c302")
+    Current operation: OperationId("f6f167d36961a92b00acbf454ddb100b66ce936ed40faa3d4900740b4bceac6c40818efb6f4cfa514bd1da8e2cd611bd337178ad4d609f6ec86c046a05bc557f")
     Current tree: MergedTree { tree_ids: Resolved(TreeId("6120567b3cb2472d549753ed3e4b84183d52a650")), labels: Unlabeled, .. }
     Normal { exec_bit: ExecBit(false) }           130 <timestamp> None "file"
     [EOF]
