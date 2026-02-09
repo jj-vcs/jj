@@ -54,8 +54,11 @@ use jj_lib::diff_presentation::FileContent;
 use jj_lib::diff_presentation::LineCompareMode;
 use jj_lib::diff_presentation::diff_by_line;
 use jj_lib::diff_presentation::file_content_for_diff;
+use jj_lib::diff_presentation::unified::CombinedDiffHunk;
+use jj_lib::diff_presentation::unified::CombinedDiffMode;
 use jj_lib::diff_presentation::unified::DiffLineType;
 use jj_lib::diff_presentation::unified::UnifiedDiffError;
+use jj_lib::diff_presentation::unified::combined_diff_hunks;
 use jj_lib::diff_presentation::unified::git_diff_part;
 use jj_lib::diff_presentation::unified::unified_diff_hunks;
 use jj_lib::diff_presentation::unzip_diff_hunks_to_lines;
@@ -70,6 +73,7 @@ use jj_lib::merge::Merge;
 use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::MergedTreeValue;
 use jj_lib::merged_tree::MergedTree;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo;
 use jj_lib::repo_path::InvalidRepoPathError;
 use jj_lib::repo_path::RepoPath;
@@ -132,6 +136,14 @@ pub struct DiffFormatArgs {
     /// Show a Git-format diff
     #[arg(long)]
     pub git: bool,
+
+    /// Use dense combined diff output (implies diff-format `:git`)
+    #[arg(long, conflicts_with = "combined")]
+    pub cc: bool,
+
+    /// Use full combined diff output (implies diff-format `:git`)
+    #[arg(short = 'c', conflicts_with = "cc")]
+    pub combined: bool,
 
     /// Show a word-level diff with changes indicated only by color
     #[arg(long)]
@@ -306,9 +318,14 @@ pub fn diff_formats_for(
 ) -> Result<Vec<DiffFormat>, CommandError> {
     let formats = diff_formats_from_args(settings, args)?;
     if formats.iter().all(|f| f.is_none()) {
-        Ok(vec![default_diff_format(settings, args)?])
+        let default_format = default_diff_format(settings, args)?;
+        let formats = vec![default_format];
+        ensure_combined_diff_args(args, &formats)?;
+        Ok(formats)
     } else {
-        Ok(formats.into_iter().flatten().collect())
+        let formats: Vec<DiffFormat> = formats.into_iter().flatten().collect();
+        ensure_combined_diff_args(args, &formats)?;
+        Ok(formats)
     }
 }
 
@@ -329,7 +346,23 @@ pub fn diff_formats_for_log(
             long_format = Some(default_format);
         }
     }
-    Ok([short_format, long_format].into_iter().flatten().collect())
+    let formats: Vec<DiffFormat> = [short_format, long_format].into_iter().flatten().collect();
+    ensure_combined_diff_args(args, &formats)?;
+    Ok(formats)
+}
+
+fn ensure_combined_diff_args(
+    args: &DiffFormatArgs,
+    formats: &[DiffFormat],
+) -> Result<(), CommandError> {
+    if (args.cc || args.combined)
+        && !formats
+            .iter()
+            .any(|format| matches!(format, DiffFormat::Git(_)))
+    {
+        return Err(cli_error("--cc/-c requires --git or --tool=:git"));
+    }
+    Ok(())
 }
 
 fn diff_formats_from_args(
@@ -368,6 +401,11 @@ fn diff_formats_from_args(
                 .unwrap_or_else(|| ExternalMergeTool::with_program(name));
             long_format = Some(DiffFormat::Tool(Box::new(tool)));
         }
+    }
+    if (args.cc || args.combined) && long_format.is_none() && args.tool.is_none() {
+        let mut options = UnifiedDiffOptions::from_settings(settings)?;
+        options.merge_args(args);
+        long_format = Some(DiffFormat::Git(Box::new(options)));
     }
     Ok([short_format, long_format])
 }
@@ -1621,6 +1659,8 @@ pub struct UnifiedDiffOptions {
     pub context: usize,
     /// How lines are tokenized and compared.
     pub line_diff: LineDiffOptions,
+    /// Which combined diff mode to use.
+    pub combined_mode: CombinedDiffMode,
 }
 
 impl UnifiedDiffOptions {
@@ -1628,6 +1668,7 @@ impl UnifiedDiffOptions {
         Ok(Self {
             context: settings.get("diff.git.context")?,
             line_diff: LineDiffOptions::default(),
+            combined_mode: CombinedDiffMode::DenseCombined,
         })
     }
 
@@ -1636,6 +1677,12 @@ impl UnifiedDiffOptions {
             self.context = context;
         }
         self.line_diff.merge_args(args);
+        if args.cc {
+            self.combined_mode = CombinedDiffMode::DenseCombined;
+        }
+        if args.combined {
+            self.combined_mode = CombinedDiffMode::Combined;
+        }
     }
 }
 
@@ -1698,6 +1745,155 @@ fn show_diff_line_tokens(
     Ok(())
 }
 
+fn show_combined_diff(
+    formatter: &mut dyn Formatter,
+    path: &RepoPath,
+    parents: &[FileContent<BString>],
+    parent_hashes: &[Option<String>],
+    result: &FileContent<BString>,
+    result_hash: &str,
+    options: &UnifiedDiffOptions,
+) -> io::Result<()> {
+    const DUMMY_HASH: &str = "0000000000";
+    if parents.is_empty() {
+        return Ok(());
+    }
+
+    let path_string = path.as_internal_file_string();
+    let has_binary = parents.iter().any(|parent| parent.is_binary) || result.is_binary;
+    let parent_changed: Vec<bool> = parents
+        .iter()
+        .map(|parent| {
+            if has_binary {
+                return parent.contents != result.contents;
+            }
+            if parent.contents == result.contents {
+                return false;
+            }
+            if options.line_diff.compare_mode == LineCompareMode::Exact {
+                return true;
+            }
+            let parent_bytes: &[u8] = parent.contents.as_ref();
+            let result_bytes: &[u8] = result.contents.as_ref();
+            let diff = diff_by_line(
+                [parent_bytes, result_bytes],
+                &options.line_diff.compare_mode,
+            );
+            diff.hunks()
+                .any(|hunk| hunk.kind == DiffHunkKind::Different)
+        })
+        .collect();
+    let parents_all_modified = parent_changed.iter().all(|changed| *changed);
+    let parents_any_modified = parent_changed.iter().any(|changed| *changed);
+    match options.combined_mode {
+        CombinedDiffMode::DenseCombined if !parents_all_modified => return Ok(()),
+        CombinedDiffMode::Combined if !parents_any_modified => return Ok(()),
+        _ => {}
+    }
+    if has_binary {
+        let mut formatter = formatter.labeled("file_header");
+        let header = match options.combined_mode {
+            CombinedDiffMode::DenseCombined => "diff --cc",
+            CombinedDiffMode::Combined => "diff --combined",
+        };
+        writeln!(formatter, "{header} {path_string}")?;
+        let parent_hashes = parent_hashes
+            .iter()
+            .map(|hash| hash.as_deref().unwrap_or(DUMMY_HASH))
+            .join(",");
+        writeln!(formatter, "index {parent_hashes}..{result_hash}")?;
+        writeln!(formatter, "Binary files differ")?;
+        return Ok(());
+    }
+
+    fn to_line_number(range: Range<usize>) -> usize {
+        if range.is_empty() {
+            range.start
+        } else {
+            range.start + 1
+        }
+    }
+
+    let hunks: Vec<CombinedDiffHunk<'_>> = combined_diff_hunks(
+        parents,
+        result,
+        options.context,
+        options.line_diff.compare_mode,
+        options.combined_mode,
+    );
+    if hunks.is_empty() {
+        return Ok(());
+    }
+
+    {
+        let mut formatter = formatter.labeled("file_header");
+        let header = match options.combined_mode {
+            CombinedDiffMode::DenseCombined => "diff --cc",
+            CombinedDiffMode::Combined => "diff --combined",
+        };
+        writeln!(formatter, "{header} {path_string}")?;
+        let parent_hashes = parent_hashes
+            .iter()
+            .map(|hash| hash.as_deref().unwrap_or(DUMMY_HASH))
+            .join(",");
+        writeln!(formatter, "index {parent_hashes}..{result_hash}")?;
+        writeln!(formatter, "--- a/{path_string}")?;
+        writeln!(formatter, "+++ b/{path_string}")?;
+    }
+    for hunk in hunks {
+        let marker = "@".repeat(hunk.parent_line_ranges.len() + 1);
+        {
+            let mut header = formatter.labeled("hunk_header");
+            write!(header, "{marker}")?;
+            for range in &hunk.parent_line_ranges {
+                write!(
+                    header,
+                    " -{},{}",
+                    to_line_number(range.clone()),
+                    range.len()
+                )?;
+            }
+            writeln!(
+                header,
+                " +{},{} {marker}",
+                to_line_number(hunk.result_line_range.clone()),
+                hunk.result_line_range.len()
+            )?;
+        }
+        for (parent_line_types, tokens) in &hunk.lines {
+            let has_removed = parent_line_types
+                .iter()
+                .any(|line_type| matches!(line_type, DiffLineType::Removed));
+            let has_added = parent_line_types
+                .iter()
+                .any(|line_type| matches!(line_type, DiffLineType::Added));
+            let label = if has_added {
+                "added"
+            } else if has_removed {
+                "removed"
+            } else {
+                "context"
+            };
+            let mut sigils = String::with_capacity(parent_line_types.len());
+            for line_type in parent_line_types {
+                let sigil = match line_type {
+                    DiffLineType::Context => ' ',
+                    DiffLineType::Removed => '-',
+                    DiffLineType::Added => '+',
+                };
+                sigils.push(sigil);
+            }
+            write!(formatter.labeled(label), "{sigils}")?;
+            show_diff_line_tokens(*formatter.labeled(label), tokens)?;
+            let (_, content) = tokens.last().expect("hunk line must not be empty");
+            if !content.ends_with(b"\n") {
+                write!(formatter, "\n\\ No newline at end of file\n")?;
+            }
+        }
+    }
+    Ok(())
+}
+
 pub async fn show_git_diff(
     formatter: &mut dyn Formatter,
     store: &Store,
@@ -1711,16 +1907,73 @@ pub async fn show_git_diff(
         marker_len: None,
         merge: store.merge_options().clone(),
     };
+    fn is_binary_contents(contents: &[u8]) -> bool {
+        const PEEK_SIZE: usize = 8000;
+        let start = &contents[..PEEK_SIZE.min(contents.len())];
+        start.contains(&b'\0')
+    }
     let mut diff_stream = materialized_diff_stream(store, tree_diff, conflict_labels);
     while let Some(MaterializedTreeDiffEntry { path, values }) = diff_stream.next().await {
         let left_path = path.source();
         let right_path = path.target();
         let left_path_string = left_path.as_internal_file_string();
         let right_path_string = right_path.as_internal_file_string();
-        let values = values?;
+        let Diff {
+            before: left_value,
+            after: right_value,
+        } = values?;
 
-        let left_part = git_diff_part(left_path, values.before, &materialize_options)?;
-        let right_part = git_diff_part(right_path, values.after, &materialize_options)?;
+        let (left_part, right_part) = match (left_value, right_value) {
+            (
+                MaterializedTreeValue::FileConflict(file_conflict),
+                MaterializedTreeValue::File(file),
+            ) => {
+                let parents = file_conflict
+                    .contents
+                    .adds()
+                    .map(|content| {
+                        let is_binary = is_binary_contents(content.as_ref());
+                        FileContent {
+                            is_binary,
+                            contents: content.clone(),
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                let parent_hashes = file_conflict
+                    .ids
+                    .adds()
+                    .map(|id| id.as_ref().map(|id| id.hex()))
+                    .collect::<Vec<_>>();
+                let parent_hashes = parent_hashes
+                    .into_iter()
+                    .map(|hash| {
+                        hash.map(|mut hash| {
+                            hash.truncate(10);
+                            hash
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                let right_part = git_diff_part(
+                    right_path,
+                    MaterializedTreeValue::File(file),
+                    &materialize_options,
+                )?;
+                show_combined_diff(
+                    formatter,
+                    right_path,
+                    &parents,
+                    &parent_hashes,
+                    &right_part.content,
+                    &right_part.hash,
+                    options,
+                )?;
+                continue;
+            }
+            (left_value, right_value) => (
+                git_diff_part(left_path, left_value, &materialize_options)?,
+                git_diff_part(right_path, right_value, &materialize_options)?,
+            ),
+        };
 
         {
             let mut formatter = formatter.labeled("file_header");

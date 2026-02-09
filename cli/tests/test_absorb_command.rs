@@ -194,22 +194,6 @@ fn test_absorb_replace_single_line_hunk() {
     insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r#"
     @  mzvwutvl 9655ef4d (empty) (no description set)
     ○  kkmpptxz a6531d0a 2
-    │  diff --git a/file1 b/file1
-    │  index 0000000000..2f87e8e465 100644
-    │  --- a/file1
-    │  +++ b/file1
-    │  @@ -1,11 +1,3 @@
-    │  -<<<<<<< conflict 1 of 1
-    │  -%%%%%%% diff from: kkmpptxz 9d700628 "2" (parents of absorbed revision)
-    │  -\\\\\\\        to: qpvuntsm aa6cb9bc "1" (absorb destination)
-    │  --2a
-    │  - 1a
-    │  --2b
-    │  -+++++++ absorbed changes (from zsuskuln 5d926f12)
-    │   2a
-    │   1A
-    │   2b
-    │  ->>>>>>> conflict 1 of 1 ends
     ×  qpvuntsm b00f5b08 (conflict) 1
     │  diff --git a/file1 b/file1
     ~  new file mode 100644

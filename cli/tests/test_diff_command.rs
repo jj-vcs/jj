@@ -2591,27 +2591,21 @@ fn test_diff_conflict_sides_differ() {
     ");
 
     // Diff from conflict to resolved
-    insta::assert_snapshot!(diff_git_materialized("left1+right1", "base"), @r#"
-    diff --git a/file b/file
-    index 0000000000..94c99a3280 100644
+    insta::assert_snapshot!(diff_git_materialized("left1+right1", "base"), @"
+    diff --cc file
+    index 387667c810,5651d57036..94c99a3280
     --- a/file
     +++ b/file
-    @@ -2,12 +2,3 @@
-     line 2
-    -<<<<<<< conflict 1 of 1
-    -+++++++ zsuskuln 713a980c "left1"
-    -left 3.1
-    -left 3.2
-    -left 3.3
-    -%%%%%%% diff from: rlvkpnrz aa7e33ed "base"
-    -\\\\\\\        to: vruxwmqv 3fe2e860 "right1"
-    --line 3
-    -+right 3.1
-    ->>>>>>> conflict 1 of 1 ends
-    +line 3
-     line 4
+    @@@ -2,5 -2,3 +2,3 @@@
+      line 2
+    - left 3.1
+    - left 3.2
+    - left 3.3
+     -right 3.1
+    ++line 3
+      line 4
     [EOF]
-    "#);
+    ");
     insta::assert_snapshot!(diff_color_words_materialized("left1+right1", "base"), @r#"
     [38;5;3mResolved conflict in file:[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
@@ -3058,6 +3052,55 @@ fn test_diff_conflict_three_sides() {
          [38;5;2m   3[39m: [4m[38;5;2mline 3 c.2[24m[39m
     [38;5;6m>>>>>>> Conflict ends[39m
     [2m[38;5;1m   5[0m [2m[38;5;2m   5[0m: line 5
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_diff_conflict_three_sides_combined() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let base_content = "shared\n";
+    let side1_content = "shared\none\n";
+    let side2_content = "shared\ntwo\n";
+    let side3_content = "shared\nthree\n";
+    let resolved_content = "";
+    let create_content_commit = |name: &str, parents: &[&str], content: &str| {
+        create_commit_with_files(&work_dir, name, parents, &[("file", content)]);
+    };
+
+    create_content_commit("base", &[], base_content);
+    create_content_commit("side1", &["base"], side1_content);
+    create_content_commit("side2", &["base"], side2_content);
+    create_content_commit("side3", &["base"], side3_content);
+    create_commit_with_files(&work_dir, "side1+side2", &["side1", "side2"], &[]);
+    create_commit_with_files(
+        &work_dir,
+        "side1+side2+side3",
+        &["side1+side2", "side3"],
+        &[],
+    );
+    create_content_commit("resolved", &["side1+side2+side3"], resolved_content);
+
+    let output = work_dir.run_jj([
+        "diff",
+        "--git",
+        "--context=0",
+        "--from=side1+side2+side3",
+        "--to=resolved",
+    ]);
+    insta::assert_snapshot!(output, @"
+    diff --cc file
+    index 5bfa7e356c,2b0daf402e,fa1bc30c9c..e69de29bb2
+    --- a/file
+    +++ b/file
+    @@@@ -1,2 -1,2 -1,2 +0,0 @@@@
+    ---shared
+    -  one
+     - two
+      -three
     [EOF]
     ");
 }
@@ -3911,6 +3954,175 @@ fn test_diff_stat_binary_and_text() {
 }
 
 #[test]
+fn test_diff_git_combined_diff_resolved() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "base\n");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+
+    work_dir.run_jj(["new", "root()", "-m", "A"]).success();
+    work_dir.write_file("file", "left\n");
+
+    work_dir.run_jj(["new", "root()", "-m", "B"]).success();
+    work_dir.write_file("file", "right\n");
+
+    work_dir
+        .run_jj(["new", "subject(A)", "subject(B)", "-m", "merge"])
+        .success();
+    work_dir.write_file("file", "resolved\n");
+
+    let output = work_dir.run_jj(["diff", "--git"]);
+    insta::assert_snapshot!(output, @"
+    diff --cc file
+    index 45cf141ba6,c376d892e8..2ab19ae607
+    --- a/file
+    +++ b/file
+    @@@ -1,1 -1,1 +1,1 @@@
+    - left
+     -right
+    ++resolved
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_diff_git_combined_diff_resolved_full() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "base\n");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+
+    work_dir.run_jj(["new", "root()", "-m", "A"]).success();
+    work_dir.write_file("file", "left\n");
+
+    work_dir.run_jj(["new", "root()", "-m", "B"]).success();
+    work_dir.write_file("file", "right\n");
+
+    work_dir
+        .run_jj(["new", "subject(A)", "subject(B)", "-m", "merge"])
+        .success();
+    work_dir.write_file("file", "resolved\n");
+
+    let output = work_dir.run_jj(["diff", "--git", "-c"]);
+    insta::assert_snapshot!(output, @r"
+    diff --combined file
+    index 45cf141ba6,c376d892e8..2ab19ae607
+    --- a/file
+    +++ b/file
+    @@@ -1,1 -1,1 +1,1 @@@
+    - left
+     -right
+    ++resolved
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_diff_git_combined_diff_resolved_matches_parent() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "base\n");
+    work_dir.run_jj(["commit", "-m", "base"]).success();
+
+    work_dir.run_jj(["new", "root()", "-m", "A"]).success();
+    work_dir.write_file("file", "left\n");
+
+    work_dir.run_jj(["new", "root()", "-m", "B"]).success();
+    work_dir.write_file("file", "right\n");
+
+    work_dir
+        .run_jj(["new", "subject(A)", "subject(B)", "-m", "merge"])
+        .success();
+    work_dir.write_file("file", "left\n");
+
+    let output = work_dir.run_jj(["diff", "--git"]);
+    insta::assert_snapshot!(output, @"");
+
+    let output = work_dir.run_jj(["diff", "--git", "-c"]);
+    insta::assert_snapshot!(output, @"
+    diff --combined file
+    index 45cf141ba6,c376d892e8..45cf141ba6
+    --- a/file
+    +++ b/file
+    @@@ -1,1 -1,1 +1,1 @@@
+     -right
+     +left
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_diff_git_combined_dense_hunk_filtering() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let base_content = "L01\nL02\nL03\nL04\nL05\nL06\n";
+    let left_content = "L01\nL02-left\nL03\nL04\nL05-left\nL06\n";
+    let right_content = "L01\nL02-right\nL03\nL04\nL05-right\nL06\n";
+    let resolved_content = "L01\nL02-left\nL03\nL04\nL05-merged\nL06\n";
+
+    create_commit_with_files(&work_dir, "base", &[], &[("f.txt", base_content)]);
+    create_commit_with_files(&work_dir, "left", &["base"], &[("f.txt", left_content)]);
+    create_commit_with_files(&work_dir, "right", &["base"], &[("f.txt", right_content)]);
+    create_commit_with_files(&work_dir, "left+right", &["left", "right"], &[]);
+    create_commit_with_files(
+        &work_dir,
+        "resolved",
+        &["left+right"],
+        &[("f.txt", resolved_content)],
+    );
+
+    let output = work_dir.run_jj([
+        "diff",
+        "--git",
+        "--context=0",
+        "--from=left+right",
+        "--to=resolved",
+    ]);
+    insta::assert_snapshot!(output, @"
+    diff --cc f.txt
+    index aff1051a6e,62bea48b95..b75b4b3435
+    --- a/f.txt
+    +++ b/f.txt
+    @@@ -5,1 -5,1 +5,1 @@@
+    - L05-left
+     -L05-right
+    ++L05-merged
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj([
+        "diff",
+        "--git",
+        "-c",
+        "--context=0",
+        "--from=left+right",
+        "--to=resolved",
+    ]);
+    insta::assert_snapshot!(output, @"
+    diff --combined f.txt
+    index aff1051a6e,62bea48b95..b75b4b3435
+    --- a/f.txt
+    +++ b/f.txt
+    @@@ -2,1 -2,1 +2,1 @@@
+     -L02-right
+     +L02-left
+    @@@ -5,1 -5,1 +5,1 @@@
+    - L05-left
+     -L05-right
+    ++L05-merged
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_diff_revisions() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -4005,4 +4217,36 @@ fn test_diff_revisions() {
     C
     [EOF]
     ");
+}
+
+#[test]
+fn test_diff_git_combined_binary_resolution() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file.bin", b"\x00\x01\x02");
+    work_dir.run_jj(["describe", "-m", "A"]).success();
+    work_dir.run_jj(["new", "-m", "B"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "B"])
+        .success();
+
+    work_dir.write_file("file.bin", b"\x00\x01\x02\x03");
+    work_dir.run_jj(["new", "@-", "-m", "C"]).success();
+
+    work_dir.write_file("file.bin", b"\x00\x01\x02\x04");
+
+    work_dir.run_jj(["new", "B", "@", "-m", "Merge"]).success();
+
+    work_dir.write_file("file.bin", b"\x00\x01\x02\x05");
+
+    let output = work_dir.run_jj(["diff", "--git"]);
+    insta::assert_snapshot!(output, @r"
+    diff --cc file.bin
+    index eaf36c1dac,f75c32acfb..ed694c56f2
+    Binary files differ
+    [EOF]
+    "
+    );
 }

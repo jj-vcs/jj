@@ -184,21 +184,15 @@ fn test_interdiff_conflicting() {
         .success();
 
     let output = work_dir.run_jj(["interdiff", "--from", "left", "--to", "right", "--git"]);
-    insta::assert_snapshot!(output, @r"
-    diff --git a/file b/file
-    index 0000000000..24c5735c3e 100644
+    insta::assert_snapshot!(output, @"
+    diff --cc file
+    index 8baef1b4ab,5716ca5987..24c5735c3e
     --- a/file
     +++ b/file
-    @@ -1,8 +1,1 @@
-    -<<<<<<< conflict 1 of 1
-    -%%%%%%% diff from: qpvuntsm d0c049cd (original parents)
-    -\\\\\\\        to: zsuskuln 0b2c304e (new parents)
-    --foo
-    -+abc
-    -+++++++ rlvkpnrz b23f92c3 (original revision)
-    -bar
-    ->>>>>>> conflict 1 of 1 ends
-    +def
+    @@@ -1,1 -1,1 +1,1 @@@
+    - abc
+     -bar
+    ++def
     [EOF]
     ");
 
