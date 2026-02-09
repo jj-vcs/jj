@@ -599,6 +599,11 @@ export default defineConfig({
 Note: There was a [request](https://github.com/vitejs/vite/issues/20036) to include `.jj`
 in the default ignore list, but manual configuration remains the recommended approach.
 
+### How can I manually trigger (e.g., periodic) snapshots?
+
+See
+[Manually triggering a snapshot](./operation-log.md#manually-triggering-a-snapshot).
+
 ### I want to write a tool which integrates with Jujutsu. Should I use the library or parse the CLI?
 
 There are some trade-offs and there is no definitive answer yet.

@@ -25,6 +25,19 @@ The following operators are supported:
 * `x-`: Parents of `x` (e.g. `@-`)
 * `x+`: Children of `x`
 
+## Manually triggering a snapshot
+
+Most `jj` commands will automatically snapshot the working copy at the start of
+the command, and again at the end of the command if the working copy changed
+(for example, running `jj describe --message` or `jj new`). However, if you'd
+like to manually trigger a snapshot for whatever reason, such as for scripting,
+prompt info, or periodic snapshots in parallel with something like a
+[`watch` command](./FAQ.md#can-i-monitor-how-jj-log-evolves), you can run
+`jj util snapshot`. By default this command will print whether a snapshot was
+taken, which you can silence with the global `--quiet` flag. If you would like
+to see the ID of the current operation after this command, you should run
+`jj op log --limit 1` so you can restore to that operation later if needed.
+
 ## Divergent operations
 
 One benefit of the operation log (and the reason for its creation) is that it
