@@ -377,7 +377,7 @@ impl ConfigEnv {
                 if let Ok(Ok(value)) = env::var("JJ_RANDOMNESS_SEED").map(|s| s.parse::<u64>()) {
                     ChaCha20Rng::seed_from_u64(value)
                 } else {
-                    ChaCha20Rng::from_os_rng()
+                    rand::make_rng()
                 },
             )),
         }

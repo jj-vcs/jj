@@ -307,7 +307,7 @@ impl JJRng {
     fn internal_rng_from_seed(seed: Option<u64>) -> ChaCha20Rng {
         match seed {
             Some(seed) => ChaCha20Rng::seed_from_u64(seed),
-            None => ChaCha20Rng::from_os_rng(),
+            None => rand::make_rng(),
         }
     }
 }

@@ -22,7 +22,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use prost::Message as _;
-use rand::Rng as _;
+use rand::RngExt as _;
 use rand_chacha::ChaCha20Rng;
 use tempfile::NamedTempFile;
 use thiserror::Error;
