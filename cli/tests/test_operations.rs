@@ -3129,6 +3129,371 @@ fn test_op_log_anonymize() {
     ");
 }
 
+#[test]
+fn test_op_immutable_revisions() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "tags() | bookmarks()""#);
+
+    // 1. Basic addition and removal elision
+    // Create a stack of 5 commits, all immutable.
+    for i in 1..=5 {
+        work_dir
+            .run_jj(["new", "@", "-m", &format!("commit {}", i)])
+            .success();
+    }
+    work_dir.run_jj(["tag", "set", "t1", "-r", "@"]).success();
+
+    // Move working copy away
+    work_dir.run_jj(["new", "root()"]).success();
+
+    // Abandon the immutable stack
+    work_dir
+        .run_jj(["abandon", "--ignore-immutable", "::t1 & ~root()"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @r"
+    fd638d288857 test-username@host.example.com 2001-02-03 04:05:15.000 +07:00 - 2001-02-03 04:05:15.000 +07:00
+    abandon commit 9c86781f3fe9097ffc530e65fd2ab4aff1e654bd and 5 more
+    args: jj abandon --ignore-immutable '::t1 & ~root()'
+
+    Changed commits:
+    ○  - royxmykx/0 9c86781f (hidden) (empty) commit 5
+       (Elided 5 newly removed immutable revisions)
+    [EOF]
+    ");
+
+    // Undo
+    work_dir.run_jj(["op", "undo"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @r"
+    1b2569787fc2 test-username@host.example.com 2001-02-03 04:05:17.000 +07:00 - 2001-02-03 04:05:17.000 +07:00
+    revert operation fd638d28885779be99bce3ccc5430c1238b822501cd5f2a468a99cd6b265814f320a6854917bd42fabedf883565bc67f4e0e5a09a76c10a3833950be3d904b1b
+    args: jj op undo
+
+    Changed commits:
+    ○  + royxmykx 9c86781f (empty) commit 5
+       (Elided 5 newly added immutable revisions)
+    [EOF]
+    ");
+
+    // 2. Multiple branches elision
+    work_dir.run_jj(["new", "t1", "-m", "f1 1"]).success();
+    work_dir.run_jj(["new", "@", "-m", "f1 2"]).success();
+    work_dir.run_jj(["new", "@", "-m", "f1 3"]).success();
+    work_dir.run_jj(["tag", "set", "f1", "-r", "@"]).success();
+
+    work_dir.run_jj(["new", "t1", "-m", "f2 1"]).success();
+    work_dir.run_jj(["new", "@", "-m", "f2 2"]).success();
+    work_dir.run_jj(["new", "@", "-m", "f2 3"]).success();
+    work_dir.run_jj(["tag", "set", "f2", "-r", "@"]).success();
+
+    // Move WC away
+    work_dir.run_jj(["new", "root()"]).success();
+
+    // Abandon both chains
+    work_dir
+        .run_jj(["abandon", "--ignore-immutable", "(::f1 | ::f2) & ~root()"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @r"
+    e804a8a94ba8 test-username@host.example.com 2001-02-03 04:05:28.000 +07:00 - 2001-02-03 04:05:28.000 +07:00
+    abandon commit e7f51c58b0862dc0c255d9efd11fb9a89f07eb88 and 11 more
+    args: jj abandon --ignore-immutable '(::f1 | ::f2) & ~root()'
+
+    Changed commits:
+    ○  - xtnwkqum/0 e7f51c58 (hidden) (empty) f2 3
+    ○  - kxryzmor/0 c800ddaf (hidden) (empty) f1 3
+       (Elided 10+ newly removed immutable revisions)
+    [EOF]
+    ");
+
+    // 3. Mixed addition/removal elision (Rebase)
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "all()""#);
+    work_dir
+        .run_jj(["new", "root()", "-m", "new parent"])
+        .success();
+    work_dir
+        .run_jj(["rebase", "--ignore-immutable", "-s", "f1", "-d", "@"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @r"
+    da69e16c42be test-username@host.example.com 2001-02-03 04:05:31.000 +07:00 - 2001-02-03 04:05:31.000 +07:00
+    rebase commit c800ddafb47b1f58b2e136cee7eedb8e4b14f3e1 and descendants
+    args: jj rebase --ignore-immutable -s f1 -d @
+
+    Changed commits:
+    ○  + kxryzmor c0601b1a (empty) f1 3
+       - kxryzmor/1 c800ddaf (hidden) (empty) f1 3
+    ○  + lylxulpl 45f4190b (empty) f1 2
+       (Elided 7 newly added immutable revisions)
+    [EOF]
+    ");
+
+    // 4. Case where both added and removed immutable revisions are elided.
+    work_dir.run_jj(["new", "root()", "-m", "mix-a1"]).success();
+    for i in 2..=5 {
+        work_dir
+            .run_jj(["new", "@", "-m", &format!("mix-a{}", i)])
+            .success();
+    }
+    work_dir
+        .run_jj(["bookmark", "set", "ba", "-r", "@"])
+        .success();
+
+    work_dir.run_jj(["new", "root()", "-m", "mix-b1"]).success();
+    for i in 2..=5 {
+        work_dir
+            .run_jj(["new", "@", "-m", &format!("mix-b{}", i)])
+            .success();
+    }
+    work_dir
+        .run_jj(["bookmark", "set", "bb", "-r", "@"])
+        .success();
+
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "tags() | bookmarks()""#);
+
+    // Rebase bb chain onto ba head.
+    work_dir
+        .run_jj(["rebase", "--ignore-immutable", "-s", "bb----", "-d", "ba"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @r"
+    ccd86e4b60bc test-username@host.example.com 2001-02-03 04:05:45.000 +07:00 - 2001-02-03 04:05:45.000 +07:00
+    rebase commit ab70fbea9077680bb39aaa90574befc3a774a802 and descendants
+    args: jj rebase --ignore-immutable -s bb---- -d ba
+
+    Changed commits:
+    ○  + opwsxtwu ca42e75c (empty) (no description set)
+    │  - opwsxtwu/1 9b44bc31 (hidden) (empty) (no description set)
+    ○  + sknynlsz 5e3b8880 bb | (empty) (no description set)
+       - sknynlsz/1 e2b69a93 (hidden) (empty) (no description set)
+       (Elided 4 newly added and 4 newly removed immutable revisions)
+
+    Changed working copy default@:
+    + opwsxtwu ca42e75c (empty) (no description set)
+    - opwsxtwu/1 9b44bc31 (hidden) (empty) (no description set)
+
+    Changed local bookmarks:
+    bb:
+    + sknynlsz 5e3b8880 bb | (empty) (no description set)
+    - sknynlsz/1 e2b69a93 (hidden) (empty) (no description set)
+    [EOF]
+    ");
+
+    // 5. Case where exactly one immutable revision is elided (singular "revision")
+    work_dir
+        .run_jj(["new", "root()", "-m", "single-1"])
+        .success();
+    work_dir.run_jj(["new", "@", "-m", "single-2"]).success();
+    work_dir
+        .run_jj(["tag", "set", "ts", "-r", "@", "--allow-move"])
+        .success();
+    // Abandon to see single removal elision
+    work_dir
+        .run_jj(["abandon", "--ignore-immutable", "::ts & ~root()"])
+        .success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @r"
+    e0e5c083269a test-username@host.example.com 2001-02-03 04:05:50.000 +07:00 - 2001-02-03 04:05:50.000 +07:00
+    abandon commit bb1713bdb80c1da3c053401c74b7546d4ff33573 and 1 more
+    args: jj abandon --ignore-immutable '::ts & ~root()'
+
+    Changed commits:
+    ○  + nvqkskzz 52c426f9 (empty) (no description set)
+       - nvqkskzz/1 25ebba37 (hidden) (empty) (no description set)
+    ○  - sryyqqkq/0 bb1713bd (hidden) (empty) single-2
+       (Elided 1 newly removed immutable revision)
+
+    Changed working copy default@:
+    + nvqkskzz 52c426f9 (empty) (no description set)
+    - nvqkskzz/1 25ebba37 (hidden) (empty) (no description set)
+    [EOF]
+    ");
+
+    // Undo to see single addition elision
+    work_dir.run_jj(["op", "undo"]).success();
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show"]), @r"
+    640cd280bc6f test-username@host.example.com 2001-02-03 04:05:52.000 +07:00 - 2001-02-03 04:05:52.000 +07:00
+    revert operation e0e5c083269a6bff4e454e51606e14131000d941eb61ca10e31bc05518daed9dfa6dddf20f792faf8d170fc3e3bdd7fc6c0742b251958400b2344f358b6a7c93
+    args: jj op undo
+
+    Changed commits:
+    ○  + nvqkskzz 25ebba37 (empty) (no description set)
+    │  - nvqkskzz/0 52c426f9 (hidden) (empty) (no description set)
+    ○  + sryyqqkq bb1713bd (empty) single-2
+       (Elided 1 newly added immutable revision)
+
+    Changed working copy default@:
+    + nvqkskzz 25ebba37 (empty) (no description set)
+    - nvqkskzz/0 52c426f9 (hidden) (empty) (no description set)
+    [EOF]
+    ");
+
+    // 6. op diff and op log tests
+    insta::assert_snapshot!(work_dir.run_jj(["op", "diff", "--from", "e804a8a94ba8"]), @r"
+    From operation: e804a8a94ba8 (2001-02-03 08:05:28) abandon commit e7f51c58b0862dc0c255d9efd11fb9a89f07eb88 and 11 more
+      To operation: 640cd280bc6f (2001-02-03 08:05:52) revert operation e0e5c083269a6bff4e454e51606e14131000d941eb61ca10e31bc05518daed9dfa6dddf20f792faf8d170fc3e3bdd7fc6c0742b251958400b2344f358b6a7c93
+
+    Changed commits:
+    ○  + nvqkskzz 25ebba37 (empty) (no description set)
+    ○  + sryyqqkq bb1713bd (empty) single-2
+    ○  + sknynlsz 5e3b8880 bb | (empty) (no description set)
+    ○  + wvmqtotl 6d61a328 (empty) mix-b3
+    ○  + zxvrqtmq 7c16381f (empty) (no description set)
+    ○  + rkoyqlrv 9cd03fb2 (empty) mix-b2
+    ○  + nmmmqslz 104d8af6 (empty) (no description set)
+    ○  + soqnvnyz be9d073e (empty) mix-b1
+    ○  + kxryzmor c0601b1a (empty) f1 3
+    ○  + nxkxtmvy 683c2911 (empty) (no description set)
+    ○  + pzsxstzt c7a68dc2 (empty) new parent
+    ○  - tlkvzzqu/0 3f6d698d (hidden) (empty) (no description set)
+    ○  + lylxulpl 45f4190b (empty) f1 2
+       (Elided 10+ newly added immutable revisions)
+
+    Changed working copy default@:
+    + nvqkskzz 25ebba37 (empty) (no description set)
+    - tlkvzzqu/0 3f6d698d (hidden) (empty) (no description set)
+
+    Changed local bookmarks:
+    ba:
+    + qmykwtmu bf08817c ba | (empty) (no description set)
+    - (absent)
+    bb:
+    + sknynlsz 5e3b8880 bb | (empty) (no description set)
+    - (absent)
+
+    Changed local tags:
+    ts:
+    + sryyqqkq bb1713bd (empty) single-2
+    - (absent)
+    [EOF]
+    ");
+
+    insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-p", "--limit", "1"]), @r"
+    @  640cd280bc6f test-username@host.example.com 2001-02-03 04:05:52.000 +07:00 - 2001-02-03 04:05:52.000 +07:00
+    │  revert operation e0e5c083269a6bff4e454e51606e14131000d941eb61ca10e31bc05518daed9dfa6dddf20f792faf8d170fc3e3bdd7fc6c0742b251958400b2344f358b6a7c93
+    │  args: jj op undo
+    │
+    │  Changed commits:
+    │  ○  + nvqkskzz 25ebba37 (empty) (no description set)
+    │  │  - nvqkskzz/0 52c426f9 (hidden) (empty) (no description set)
+    │  ○  + sryyqqkq bb1713bd (empty) single-2
+    │     Modified commit description:
+    │             1: single-2
+    │     (Elided 1 newly added immutable revision)
+    │
+    │  Changed working copy default@:
+    │  + nvqkskzz 25ebba37 (empty) (no description set)
+    │  - nvqkskzz/0 52c426f9 (hidden) (empty) (no description set)
+    [EOF]
+    ");
+
+    // 7. Accuracy: Show local heads of affected set even if they have immutable
+    // descendants elsewhere (e.g. already hidden).
+    // root -> c1 -> c2 -> c3 (all immutable)
+    work_dir.run_jj(["new", "root()", "-m", "acc-c1"]).success();
+    let c1_id = work_dir
+        .run_jj(["log", "-T", "commit_id", "-r", "@", "--no-graph"])
+        .stdout
+        .raw()
+        .trim()
+        .to_string();
+    work_dir.run_jj(["new", "@", "-m", "acc-c2"]).success();
+    let c2_id = work_dir
+        .run_jj(["log", "-T", "commit_id", "-r", "@", "--no-graph"])
+        .stdout
+        .raw()
+        .trim()
+        .to_string();
+    work_dir.run_jj(["new", "@", "-m", "acc-c3"]).success();
+    let c3_id = work_dir
+        .run_jj(["log", "-T", "commit_id", "-r", "@", "--no-graph"])
+        .stdout
+        .raw()
+        .trim()
+        .to_string();
+
+    // Use all() to ensure the hidden c3 is seen as the head of the global immutable
+    // set.
+    test_env.add_config(&format!(
+        r#"revset-aliases."immutable_heads()" = "all() & {}""#,
+        c3_id
+    ));
+
+    // Track all with bookmarks.
+    work_dir
+        .run_jj(["bookmark", "create", "ba1", "-r", &c1_id])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "ba2", "-r", &c2_id])
+        .success();
+    work_dir
+        .run_jj(["bookmark", "create", "ba3", "-r", &c3_id])
+        .success();
+    work_dir.run_jj(["new", "root()"]).success();
+
+    // Operation A: Hide acc-c3 by abandoning it. c1 and c2 remain visible via
+    // bookmarks.
+    work_dir
+        .run_jj(["abandon", "--ignore-immutable", "-r", &c3_id])
+        .success();
+    let op_a = work_dir.current_operation_id();
+
+    // Operation B: Abandon c1 and c2. Both become hidden.
+    // newly_hidden = {c1, c2}.
+    // Option 1 (Fix) shows the head (c2) and elides the parent (c1).
+    work_dir
+        .run_jj(["abandon", "--ignore-immutable", "-r", &c1_id, "-r", &c2_id])
+        .success();
+    let op_b = work_dir.current_operation_id();
+
+    // With --show-all-immutable-revisions, the diff should show both c1 and c2 as
+    // newly hidden.
+    let output = work_dir.run_jj([
+        "op",
+        "diff",
+        "--from",
+        &op_a,
+        "--to",
+        &op_b,
+        "--show-all-immutable-revisions",
+    ]);
+    insta::assert_snapshot!(output, @"
+    From operation: aab77968a5e8 (2001-02-03 08:06:06) abandon commit 6fb9eaa318ce55d18a37eeb885d0dbdae626245a
+      To operation: c0c8d5ac174a (2001-02-03 08:06:07) abandon commit 8f46ae08b21ae4187216762908cd31d9727da828 and 1 more
+
+    Changed commits:
+    ○  - zmurkyul/0 8f46ae08 (hidden) (empty) acc-c2
+    ○  - muymlknp/0 01d29995 (hidden) (empty) acc-c1
+
+    Changed local bookmarks:
+    ba1:
+    + (absent)
+    - muymlknp/0 01d29995 (hidden) (empty) acc-c1
+    ba2:
+    + (absent)
+    - zmurkyul/0 8f46ae08 (hidden) (empty) acc-c2
+    [EOF]
+    ");
+
+    // Without --show-all-immutable-revisions, the diff should show c2 as the head
+    // of the newly hidden set and elide c1.
+    let output = work_dir.run_jj(["op", "diff", "--from", &op_a, "--to", &op_b]);
+    insta::assert_snapshot!(output, @"
+    From operation: aab77968a5e8 (2001-02-03 08:06:06) abandon commit 6fb9eaa318ce55d18a37eeb885d0dbdae626245a
+      To operation: c0c8d5ac174a (2001-02-03 08:06:07) abandon commit 8f46ae08b21ae4187216762908cd31d9727da828 and 1 more
+
+    Changed commits:
+    ○  - zmurkyul/0 8f46ae08 (hidden) (empty) acc-c2
+       (Elided 1 newly removed immutable revision)
+
+    Changed local bookmarks:
+    ba1:
+    + (absent)
+    - muymlknp/0 01d29995 (hidden) (empty) acc-c1
+    ba2:
+    + (absent)
+    - zmurkyul/0 8f46ae08 (hidden) (empty) acc-c2
+    [EOF]
+    ");
+}
+
 fn init_bare_git_repo(git_repo_path: &Path) -> gix::Repository {
     let git_repo = git::init_bare(git_repo_path);
     let commit_result = git::add_commit(

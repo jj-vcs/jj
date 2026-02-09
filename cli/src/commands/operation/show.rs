@@ -69,6 +69,14 @@ pub struct OperationShowArgs {
 
     #[command(flatten)]
     diff_format: DiffFormatArgs,
+
+    /// Show all immutable revisions
+    ///
+    /// By default, only the heads of the set of added/removed immutable
+    /// revisions are shown. The intent is to hide long ranges of fetched
+    /// revisions.
+    #[arg(long)]
+    show_all_immutable_revisions: bool,
 }
 
 pub fn cmd_op_show(
@@ -133,6 +141,7 @@ pub fn cmd_op_show(
         }
         show_op_diff(
             ui,
+            workspace_env,
             formatter.as_mut(),
             repo.as_ref(),
             &parent_repo,
@@ -141,6 +150,7 @@ pub fn cmd_op_show(
             (!args.no_graph).then_some(graph_style),
             &with_content_format,
             diff_renderer.as_ref(),
+            args.show_all_immutable_revisions,
         )?;
     }
     Ok(())

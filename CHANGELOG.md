@@ -48,6 +48,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   between two timestamps. It can be used in conjunction with `.duration()` in
   order to obtain a human-friendly duration between two `Timestamp`s.
 
+* `jj op show`, `jj op diff`, `jj op log -p` now only show the head immutable
+  revisions by default. To see all the immutable revisions, a new flag 
+  `--show-all-immutable-revisions`, can be used. [#6083](https://github.com/jj-vcs/jj/issues/6083)
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04
