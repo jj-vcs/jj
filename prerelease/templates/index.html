@@ -3021,6 +3021,14 @@ defined.</p>
   the predicate <code>expression</code>. Example: <code>parents.any(|c| c.description().contains("fix"))</code></li>
 <li><code>.all(|item| expression) -&gt; Boolean</code>: Returns true if all elements satisfy
   the predicate <code>expression</code>. Example: <code>parents.all(|c| c.mine())</code></li>
+<li><code>.first() -&gt; T</code>: Returns the first element. Errors if the list is empty.</li>
+<li><code>.last() -&gt; T</code>: Returns the last element. Errors if the list is empty.</li>
+<li><code>.get(index: Integer) -&gt; T</code>: Returns the element at <code>index</code> (0-based). Errors
+  if the index is out of bounds.</li>
+<li><code>.reverse() -&gt; List</code>: Returns the list in reverse order.</li>
+<li><code>.skip(count: Integer) -&gt; List</code>: Skips the first <code>count</code> elements and
+  returns the rest.</li>
+<li><code>.take(count: Integer) -&gt; List</code>: Returns only the first <code>count</code> elements.</li>
 </ul>
 <h3 id="listtrailer-type"><code>List&lt;Trailer&gt;</code> type<a class="headerlink" href="#listtrailer-type" title="Permanent link">&para;</a></h3>
 <p>The following methods are defined. See also the <code>List</code> type.</p>
