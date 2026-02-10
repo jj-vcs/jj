@@ -82,6 +82,8 @@ use crate::view::View;
 pub const REMOTE_NAME_FOR_LOCAL_GIT_REPO: &RemoteName = RemoteName::new("git");
 /// Git ref prefix that would conflict with the reserved "git" remote.
 pub const RESERVED_REMOTE_REF_NAMESPACE: &str = "refs/remotes/git/";
+/// Git ref prefix where remote bookmarks are stored.
+const REMOTE_BOOKMARK_REF_NAMESPACE: &str = "refs/remotes/";
 /// Git ref prefix where remote tags will be temporarily fetched.
 const REMOTE_TAG_REF_NAMESPACE: &str = "refs/jj/remote-tags/";
 /// Ref name used as a placeholder to unset HEAD without a commit.
@@ -325,7 +327,10 @@ pub fn parse_git_ref(full_name: &GitRefName) -> Option<(GitRefKind, RemoteRefSym
         let name = RefName::new(name);
         let remote = REMOTE_NAME_FOR_LOCAL_GIT_REPO;
         Some((GitRefKind::Bookmark, RemoteRefSymbol { name, remote }))
-    } else if let Some(remote_and_name) = full_name.as_str().strip_prefix("refs/remotes/") {
+    } else if let Some(remote_and_name) = full_name
+        .as_str()
+        .strip_prefix(REMOTE_BOOKMARK_REF_NAMESPACE)
+    {
         let (remote, name) = remote_and_name.split_once('/')?;
         // "refs/remotes/origin/HEAD" isn't a real remote-tracking branch
         if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO || name == "HEAD" {
@@ -369,7 +374,7 @@ fn to_git_ref_name(kind: GitRefKind, symbol: RemoteRefSymbol<'_>) -> Option<GitR
             if remote == REMOTE_NAME_FOR_LOCAL_GIT_REPO {
                 Some(format!("refs/heads/{name}").into())
             } else {
-                Some(format!("refs/remotes/{remote}/{name}").into())
+                Some(format!("{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/{name}").into())
             }
         }
         GitRefKind::Tag => {
@@ -1921,7 +1926,7 @@ impl GitRemoteManagementError {
 
 fn default_fetch_refspec(remote: &RemoteName) -> String {
     format!(
-        "+refs/heads/*:refs/remotes/{remote}/*",
+        "+refs/heads/*:{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/*",
         remote = remote.as_str()
     )
 }
@@ -2201,7 +2206,10 @@ fn remove_remote_git_refs(
     git_repo: &mut gix::Repository,
     remote: &RemoteName,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-    let prefix = format!("refs/remotes/{remote}/", remote = remote.as_str());
+    let prefix = format!(
+        "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/",
+        remote = remote.as_str()
+    );
     let edits: Vec<_> = git_repo
         .references()?
         .prefixed(prefix.as_str())?
@@ -2214,7 +2222,10 @@ fn remove_remote_git_refs(
 
 fn remove_remote_refs(mut_repo: &mut MutableRepo, remote: &RemoteName) {
     mut_repo.remove_remote(remote);
-    let prefix = format!("refs/remotes/{remote}/", remote = remote.as_str());
+    let prefix = format!(
+        "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/",
+        remote = remote.as_str()
+    );
     let git_refs_to_delete = mut_repo
         .view()
         .git_refs()
@@ -2291,8 +2302,14 @@ fn rename_remote_git_refs(
     old_remote_name: &RemoteName,
     new_remote_name: &RemoteName,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-    let old_prefix = format!("refs/remotes/{}/", old_remote_name.as_str());
-    let new_prefix = format!("refs/remotes/{}/", new_remote_name.as_str());
+    let old_prefix = format!(
+        "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/",
+        remote = old_remote_name.as_str()
+    );
+    let new_prefix = format!(
+        "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/",
+        remote = new_remote_name.as_str()
+    );
     let ref_log_message = BString::from(format!(
         "renamed remote {old_remote_name} to {new_remote_name}",
         old_remote_name = old_remote_name.as_symbol(),
@@ -2376,15 +2393,21 @@ fn rename_remote_refs(
     new_remote_name: &RemoteName,
 ) {
     mut_repo.rename_remote(old_remote_name.as_ref(), new_remote_name.as_ref());
-    let prefix = format!("refs/remotes/{}/", old_remote_name.as_str());
+    let prefix = format!(
+        "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/",
+        remote = old_remote_name.as_str()
+    );
     let git_refs = mut_repo
         .view()
         .git_refs()
         .iter()
         .filter_map(|(old, target)| {
             old.as_str().strip_prefix(&prefix).map(|p| {
-                let new: GitRefNameBuf =
-                    format!("refs/remotes/{}/{p}", new_remote_name.as_str()).into();
+                let new: GitRefNameBuf = format!(
+                    "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/{p}",
+                    remote = new_remote_name.as_str()
+                )
+                .into();
                 (old.clone(), new, target.clone())
             })
         })
@@ -2472,7 +2495,10 @@ pub fn expand_fetch_refspecs(
             .map_ok(|glob| {
                 RefSpec::forced(
                     format!("refs/heads/{glob}"),
-                    format!("refs/remotes/{remote}/{glob}", remote = remote.as_str()),
+                    format!(
+                        "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/{glob}",
+                        remote = remote.as_str()
+                    ),
                 )
             }),
         positive_tags
@@ -2728,7 +2754,7 @@ fn parse_fetch_refspec(
 
     if let Some(dst) = positive_dst {
         let dst_without_prefix = dst
-            .strip_prefix("refs/remotes/")
+            .strip_prefix(REMOTE_BOOKMARK_REF_NAMESPACE)
             .ok_or("only refs/remotes/ is supported for fetch destinations")?;
         let dst_branch = dst_without_prefix
             .strip_prefix(remote_name.as_str())
