@@ -17,6 +17,7 @@ config_list = 'builtin_config_list'
 draft_commit_description = 'builtin_draft_commit_description'
 
 duplicate_description = 'description'
+new_description = ''
 
 commit_trailers = ''
 

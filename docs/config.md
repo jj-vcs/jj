@@ -233,6 +233,31 @@ concat(
 Note that `description` usually ends with a `\n` if it is not blank. Use
 `.trim_end()` to remove the `\n`.
 
+### New commit description
+
+When `jj new` creates a commit without an explicit `-m` message, it evaluates
+the `new_description` template to populate the description. By default, this
+template is empty.
+
+You can customize this to automatically generate descriptions for new commits.
+For example, to auto-generate merge commit messages:
+
+```toml
+[templates]
+new_description = '''
+if(parents.len() > 1,
+  "Merge " ++ parents.skip(1).map(|p| coalesce(
+    p.bookmarks().first().name(),
+    p.change_id().shortest(8)
+  )).join(", ") ++ " into " ++ coalesce(
+    parents.first().bookmarks().first().name(),
+    parents.first().change_id().shortest(8)
+  ) ++ "\n",
+  ""
+)
+'''
+```
+
 ### Bookmark/tag listing order
 
 By default, `jj bookmark list` and `jj tag list` display bookmarks and tags

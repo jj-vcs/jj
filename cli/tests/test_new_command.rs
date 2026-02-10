@@ -314,6 +314,50 @@ fn test_new_merge_same_change() {
 }
 
 #[test]
+fn test_new_description_template() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    test_env.add_config(r#"templates.new_description = '"custom default\n"'"#);
+
+    let output = work_dir.run_jj(["new"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: rlvkpnrz 0cdaf03d (empty) custom default
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    ");
+
+    let output = work_dir.run_jj(["new", "-m", "explicit message"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: kkmpptxz ccc7aea5 (empty) explicit message
+    Parent commit (@-)      : rlvkpnrz 0cdaf03d (empty) custom default
+    [EOF]
+    ");
+
+    test_env.add_config(r#"templates.new_description = '""'"#);
+    let output = work_dir.run_jj(["new"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Working copy  (@) now at: zsuskuln 49261437 (empty) (no description set)
+    Parent commit (@-)      : kkmpptxz ccc7aea5 (empty) explicit message
+    [EOF]
+    ");
+
+    // Test that template can access commit properties
+    test_env.add_config(r#"templates.new_description = '"parents: " ++ parents.len() ++ "\n"'"#);
+    let output = work_dir.run_jj(["new"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Working copy  (@) now at: mzvwutvl 10155342 (empty) parents: 1
+    Parent commit (@-)      : zsuskuln 49261437 (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_new_insert_after() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();

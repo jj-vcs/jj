@@ -20,6 +20,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj new` now evaluates the `new_description` template to populate the
+  initial commit description when no `-m` message is provided.
+
 * Templates now support `first()`, `last()`, `get(index)`, `reverse()`,
   `skip(count)`, and `take(count)` methods on list types for more flexible
   list manipulation.

@@ -15,6 +15,7 @@
 use std::collections::HashSet;
 use std::io::Write as _;
 
+use bstr::ByteVec as _;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
@@ -32,6 +33,7 @@ use crate::command_error::CommandError;
 use crate::complete;
 use crate::description_util::add_trailers;
 use crate::description_util::join_message_paragraphs;
+use crate::text_util;
 use crate::ui::Ui;
 
 /// Create a new, empty change and (by default) edit it in the working copy
@@ -206,16 +208,29 @@ pub(crate) fn cmd_new(
         .repo_mut()
         .new_commit(parent_commit_ids, merged_tree)
         .detach();
-    let mut description = join_message_paragraphs(&args.message_paragraphs);
+    let description = if !args.message_paragraphs.is_empty() {
+        join_message_paragraphs(&args.message_paragraphs)
+    } else {
+        let template_text = tx.settings().get_string("templates.new_description")?;
+        if template_text.is_empty() {
+            String::new()
+        } else {
+            let template = tx.parse_commit_template(ui, &template_text)?;
+            let temp_commit = commit_builder.write_hidden().block_on()?;
+            text_util::complete_newline(
+                template.format_plain_text(&temp_commit).into_string_lossy(),
+            )
+        }
+    };
     if !description.is_empty() {
         // The first trailer would become the first line of the description.
         // Also, a commit with no description is treated in a special way in jujutsu: it
         // can be discarded as soon as it's no longer the working copy. Adding a
         // trailer to an empty description would break that logic.
-        commit_builder.set_description(description);
-        description = add_trailers(ui, &tx, &commit_builder)?;
+        commit_builder.set_description(&description);
+        let description = add_trailers(ui, &tx, &commit_builder)?;
+        commit_builder.set_description(&description);
     }
-    commit_builder.set_description(&description);
     let new_commit = commit_builder.write(tx.repo_mut()).block_on()?;
 
     let child_commits: Vec<_> = child_commit_ids
