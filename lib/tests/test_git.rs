@@ -5624,12 +5624,15 @@ fn test_remote_remove_refs() {
     empty_git_commit(&git_repo, "refs/remotes/foo/a", &[]);
     empty_git_commit(&git_repo, "refs/remotes/foo/x/y", &[]);
     let commit_foobar_a = empty_git_commit(&git_repo, "refs/remotes/foobar/a", &[]);
+    empty_git_commit(&git_repo, "refs/jj/remote-tags/foo/x/y", &[]);
+    let commit_tag_foobar_a = empty_git_commit(&git_repo, "refs/jj/remote-tags/foobar/a", &[]);
 
     let mut tx = repo.start_transaction();
     git::remove_remote(tx.repo_mut(), "foo".as_ref()).unwrap();
     let repo = &tx.commit("remove").unwrap();
 
     let git_repo = get_git_repo(repo);
+    // remote bookmarks
     assert!(
         git_repo
             .try_find_reference("refs/remotes/foo/a")
@@ -5648,6 +5651,21 @@ fn test_remote_remove_refs() {
             .unwrap()
             .id(),
         commit_foobar_a,
+    );
+
+    // remote tags
+    assert!(
+        git_repo
+            .try_find_reference("refs/jj/remote-tags/foo/x/y")
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        git_repo
+            .find_reference("refs/jj/remote-tags/foobar/a")
+            .unwrap()
+            .id(),
+        commit_tag_foobar_a,
     );
 }
 
@@ -5675,12 +5693,15 @@ fn test_remote_rename_refs() {
     let commit_foo_a = empty_git_commit(&git_repo, "refs/remotes/foo/a", &[]);
     let commit_foo_x_y = empty_git_commit(&git_repo, "refs/remotes/foo/x/y", &[]);
     let commit_foobar_a = empty_git_commit(&git_repo, "refs/remotes/foobar/a", &[]);
+    let commit_tag_foo_x_y = empty_git_commit(&git_repo, "refs/jj/remote-tags/foo/x/y", &[]);
+    let commit_tag_foobar_a = empty_git_commit(&git_repo, "refs/jj/remote-tags/foobar/a", &[]);
 
     let mut tx = repo.start_transaction();
     git::rename_remote(tx.repo_mut(), "foo".as_ref(), "bar".as_ref()).unwrap();
     let repo = &tx.commit("rename").unwrap();
 
     let git_repo = get_git_repo(repo);
+    // remote bookmarks
     assert!(
         git_repo
             .try_find_reference("refs/remotes/foo/a")
@@ -5710,6 +5731,28 @@ fn test_remote_rename_refs() {
             .unwrap()
             .id(),
         commit_foobar_a,
+    );
+
+    // remote tags
+    assert!(
+        git_repo
+            .try_find_reference("refs/jj/remote-tags/foo/x/y")
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        git_repo
+            .find_reference("refs/jj/remote-tags/bar/x/y")
+            .unwrap()
+            .id(),
+        commit_tag_foo_x_y,
+    );
+    assert_eq!(
+        git_repo
+            .find_reference("refs/jj/remote-tags/foobar/a")
+            .unwrap()
+            .id(),
+        commit_tag_foobar_a,
     );
 }
 

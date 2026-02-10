@@ -2206,16 +2206,25 @@ fn remove_remote_git_refs(
     git_repo: &mut gix::Repository,
     remote: &RemoteName,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-    let prefix = format!(
+    let bookmark_prefix = format!(
         "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/",
         remote = remote.as_str()
     );
-    let edits: Vec<_> = git_repo
-        .references()?
-        .prefixed(prefix.as_str())?
-        .map_ok(remove_ref)
-        .try_collect()?;
-    // TODO: update REMOTE_TAG_REF_NAMESPACE as well
+    let tag_prefix = format!(
+        "{REMOTE_TAG_REF_NAMESPACE}{remote}/",
+        remote = remote.as_str()
+    );
+    let edits: Vec<_> = itertools::chain(
+        git_repo
+            .references()?
+            .prefixed(bookmark_prefix.as_str())?
+            .map_ok(remove_ref),
+        git_repo
+            .references()?
+            .prefixed(tag_prefix.as_str())?
+            .map_ok(remove_ref),
+    )
+    .try_collect()?;
     git_repo.edit_references(edits)?;
     Ok(())
 }
@@ -2302,24 +2311,19 @@ fn rename_remote_git_refs(
     old_remote_name: &RemoteName,
     new_remote_name: &RemoteName,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-    let old_prefix = format!(
-        "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/",
-        remote = old_remote_name.as_str()
-    );
-    let new_prefix = format!(
-        "{REMOTE_BOOKMARK_REF_NAMESPACE}{remote}/",
-        remote = new_remote_name.as_str()
-    );
-    let ref_log_message = BString::from(format!(
-        "renamed remote {old_remote_name} to {new_remote_name}",
-        old_remote_name = old_remote_name.as_symbol(),
-        new_remote_name = new_remote_name.as_symbol(),
-    ));
-
-    let edits: Vec<_> = git_repo
-        .references()?
-        .prefixed(old_prefix.as_str())?
-        .map_ok(|old_ref| {
+    let to_prefixes = |namespace: &str| {
+        (
+            format!("{namespace}{remote}/", remote = old_remote_name.as_str()),
+            format!("{namespace}{remote}/", remote = new_remote_name.as_str()),
+        )
+    };
+    let to_rename_edits = {
+        let ref_log_message = BString::from(format!(
+            "renamed remote {old_remote_name} to {new_remote_name}",
+            old_remote_name = old_remote_name.as_symbol(),
+            new_remote_name = new_remote_name.as_symbol(),
+        ));
+        move |old_prefix: &str, new_prefix: &str, old_ref: gix::Reference| {
             let new_name = BString::new(
                 [
                     new_prefix.as_bytes(),
@@ -2335,10 +2339,23 @@ fn rename_remote_git_refs(
                 ),
                 remove_ref(old_ref),
             ]
-        })
-        .flatten_ok()
-        .try_collect()?;
-    // TODO: update REMOTE_TAG_REF_NAMESPACE as well
+        }
+    };
+
+    let (old_bookmark_prefix, new_bookmark_prefix) = to_prefixes(REMOTE_BOOKMARK_REF_NAMESPACE);
+    let (old_tag_prefix, new_tag_prefix) = to_prefixes(REMOTE_TAG_REF_NAMESPACE);
+    let edits: Vec<_> = itertools::chain(
+        git_repo
+            .references()?
+            .prefixed(old_bookmark_prefix.as_str())?
+            .map_ok(|old_ref| to_rename_edits(&old_bookmark_prefix, &new_bookmark_prefix, old_ref)),
+        git_repo
+            .references()?
+            .prefixed(old_tag_prefix.as_str())?
+            .map_ok(|old_ref| to_rename_edits(&old_tag_prefix, &new_tag_prefix, old_ref)),
+    )
+    .flatten_ok()
+    .try_collect()?;
     git_repo.edit_references(edits)?;
     Ok(())
 }
