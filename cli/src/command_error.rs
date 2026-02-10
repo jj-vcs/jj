@@ -447,6 +447,10 @@ impl From<ConvergeError> for CommandError {
             ConvergeError::Backend(err) => err.into(),
             ConvergeError::RevsetEvaluation(err) => err.into(),
             ConvergeError::WalkPredecessors(err) => err.into(),
+            ConvergeError::NoDivergentChanges() => user_error("No divergent changes to converge"),
+            ConvergeError::NeedUserInput() => user_error("Convergence requires user input"),
+            ConvergeError::UserAborted() => user_error("Convergence was aborted by the user"),
+            ConvergeError::IO(err) => err.into(),
             ConvergeError::Other(err) => internal_error(err),
         }
     }

@@ -458,6 +458,13 @@ impl<T> Merge<T> {
         trivial_merge(&self.values, same_change)
     }
 
+    /// If this merge can be trivially resolved after deduplicating same diffs,
+    /// returns the value it resolves to.
+    ///
+    /// This can be useful to "converge" algorithms. A converge algorithm is an
+    /// algorithm that tries to solve a divergent change-id by replacing the
+    /// two-or-more divergent commits with a single commit for the given
+    /// change-id. See <https://github.com/jj-vcs/jj/blob/main/docs/design/jj-converge-command.md> for more details.
     pub fn try_resolve_deduplicating_same_diffs(&self) -> Option<&T>
     where
         T: Eq + Hash,
