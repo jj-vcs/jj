@@ -112,9 +112,11 @@ $ jj gerrit upload -r xcv
 
 ## `Change-Id` management
 
-When uploading, `jj gerrit upload` adds a `Change-Id` footer based on the JJ
-change id. That means that any changes made to a JJ change will become a new
-patch set on the Gerrit change during the next upload.
+If you do not provide an explicit `Change-Id` footer in your commits,
+`jj gerrit upload` will generate a transient one for you based on your JJ
+change ID. This means that as long as the JJ change ID remains the same (and
+you don't add an explicit Change-Id footer), it will upload as a new patch set
+on the existing change.
 
 Keep this association in mind when splitting or squashing changes. For example,
 when splitting a change, the portion that you want associated with the
