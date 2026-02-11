@@ -2171,15 +2171,13 @@ y) | z</code> or <code>x &amp; (y | z)</code>.</p>
 <details class="examples">
 <summary>Examples</summary>
 <p>Given this history:
-<div class="highlight"><pre><span></span><code>o D
+<div class="highlight"><pre><span></span><code>D
 |\
-| o C
-| |
-o | B
+B C
 |/
-o A
+A
 |
-o root()
+root()
 </code></pre></div></p>
 <p><strong>Operator</strong> <code>x-</code></p>
 <ul>
@@ -2530,17 +2528,14 @@ visible_heads())</code>.</p>
 <details class="examples">
 <summary>Examples</summary>
 <p>Given this history:
-<div class="highlight"><pre><span></span><code>o E
-|
-| o D
+<div class="highlight"><pre><span></span><code>E
+| D
 |/|
-| o C
-| |
-o | B
+B C
 |/
-o A
+A
 |
-o root()
+root()
 </code></pre></div></p>
 <p><strong>function</strong> <code>reachable()</code></p>
 <p><code>reachable(srcs, domain)</code> finds all commits reachable from <code>srcs</code> by
