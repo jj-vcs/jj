@@ -111,15 +111,13 @@ y) | z` or `x & (y | z)`.
 
     Given this history:
     ```
-    o D
+    D
     |\
-    | o C
-    | |
-    o | B
+    B C
     |/
-    o A
+    A
     |
-    o root()
+    root()
     ```
 
     **Operator** `x-`
@@ -435,17 +433,14 @@ revsets (expressions) as arguments.
 
     Given this history:
     ```
-    o E
-    |
-    | o D
+    E
+    | D
     |/|
-    | o C
-    | |
-    o | B
+    B C
     |/
-    o A
+    A
     |
-    o root()
+    root()
     ```
 
     **function** `reachable()`
