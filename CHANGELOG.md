@@ -34,6 +34,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   as `jj simplify-parents` on the rebased commits.
   [#7711](https://github.com/jj-vcs/jj/issues/7711)
 
+* Templates now support a `replace_fn()` method on strings for pattern-based
+  string replacement, using a lambda to format replacement text. Supports all
+  string patterns, including regex with capture groups
+  (e.g. `"hello world".replace_fn(regex:'(\w+) (\w+)', |_, h, w| w ++ " " ++ h)`).
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04
