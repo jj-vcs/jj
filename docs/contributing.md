@@ -43,7 +43,9 @@ the reviewers will help you provide a topic if you have difficulties choosing
 it. [How to Write a Git Commit Message] is a good
 guide if you're new to writing good commit messages. We are not particularly
 strict about the style, but please do explain the reason for the change unless
-it's obvious.
+it's obvious. If the PR closes an open issue or feature request for the
+project, include the `Closes #<issue-number>` or `Fixes #<issue-number>` in
+the commit description.
 
 [Conventional Commits]: https://www.conventionalcommits.org/en/v1.0.0/
 [How to Write a Git Commit Message]: https://cbea.ms/git-commit/
