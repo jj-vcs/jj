@@ -19,6 +19,8 @@ use std::process::exit;
 
 use clap::Parser;
 use itertools::Itertools as _;
+#[cfg(unix)]
+use nix::sys::signal;
 
 /// A fake diff-editor, useful for testing
 #[derive(Parser, Debug)]
@@ -58,7 +60,13 @@ fn main() {
         let parts = command.split(' ').collect_vec();
         match parts.as_slice() {
             [""] => {}
-            ["crash"] => std::process::abort(),
+            ["crash"] => {
+                // Coredump generation varies by UNIX and is irrelevant to tests
+                // Prefer raising SIGTERM to crash without dumping core
+                #[cfg(unix)]
+                let _ = signal::raise(signal::Signal::SIGTERM);
+                std::process::abort()
+            }
             ["abort"] => exit(127),
             ["skip"] => exit(125),
             ["fail"] => exit(1),

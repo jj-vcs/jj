@@ -205,11 +205,9 @@ fn test_util_exec_crash() {
     );
 
     if cfg!(unix) {
-        // abort produces SIGABRT; strip any "(core dumped)" string
-        let output = output.normalize_stderr_with(|s| s.replacen(" (core dumped)", "", 1));
         insta::assert_snapshot!(output, @r"
         ------- stderr -------
-        Error: External command was terminated by signal: 6 (SIGABRT)
+        Error: External command was terminated by signal: 15 (SIGTERM)
         [EOF]
         [exit status: 1]
         ");

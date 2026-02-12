@@ -21,6 +21,8 @@ use std::process::ExitCode;
 use bstr::ByteSlice as _;
 use clap::Parser;
 use itertools::Itertools as _;
+#[cfg(unix)]
+use nix::sys::signal;
 
 /// A fake code formatter, useful for testing
 ///
@@ -158,6 +160,10 @@ fn main() -> ExitCode {
         write!(file, "{stdout}").unwrap();
     }
     if args.abort {
+        // Coredump generation varies by UNIX and is irrelevant to tests
+        // Prefer raising SIGTERM to crash without dumping core
+        #[cfg(unix)]
+        let _ = signal::raise(signal::Signal::SIGTERM);
         std::process::abort()
     } else if args.fail {
         ExitCode::FAILURE

@@ -113,6 +113,7 @@ whoami = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }
+nix = { workspace = true, features = [ "signal" ] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

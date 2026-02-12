@@ -2423,6 +2423,7 @@ dependencies = [
  "jsonschema",
  "libc",
  "maplit",
+ "nix 0.31.1",
  "once_cell",
  "pest",
  "pest_derive",
