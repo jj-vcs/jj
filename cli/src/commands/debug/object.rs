@@ -106,13 +106,13 @@ pub fn cmd_debug_object(
     match args {
         DebugObjectArgs::Commit(args) => {
             let id = CommitId::try_from_hex(&args.id)
-                .ok_or_else(|| user_error("Invalid hex commit id"))?;
+                .ok_or_else(|| user_error(format!(r#"Invalid hex commit id: "{}""#, args.id)))?;
             let commit = repo_loader.store().get_commit(&id)?;
             writeln!(ui.stdout(), "{:#?}", commit.store_commit())?;
         }
         DebugObjectArgs::File(args) => {
-            let id =
-                FileId::try_from_hex(&args.id).ok_or_else(|| user_error("Invalid hex file id"))?;
+            let id = FileId::try_from_hex(&args.id)
+                .ok_or_else(|| user_error(format!(r#"Invalid hex file id: "{}""#, args.id)))?;
             let path = RepoPathBuf::from_internal_string(&args.path).map_err(user_error)?;
             let mut contents = repo_loader.store().read_file(&path, &id).block_on()?;
             let mut buf = vec![];
@@ -121,13 +121,13 @@ pub fn cmd_debug_object(
         }
         DebugObjectArgs::Operation(args) => {
             let id = OperationId::try_from_hex(&args.id)
-                .ok_or_else(|| user_error("Invalid hex operation id"))?;
+                .ok_or_else(|| user_error(format!(r#"Invalid hex operation id: "{}""#, args.id)))?;
             let operation = repo_loader.op_store().read_operation(&id).block_on()?;
             writeln!(ui.stdout(), "{operation:#?}")?;
         }
         DebugObjectArgs::Symlink(args) => {
             let id = SymlinkId::try_from_hex(&args.id)
-                .ok_or_else(|| user_error("Invalid hex symlink id"))?;
+                .ok_or_else(|| user_error(format!(r#"Invalid hex symlink id: "{}""#, args.id)))?;
             let path = RepoPathBuf::from_internal_string(&args.path).map_err(user_error)?;
             let target = repo_loader.store().read_symlink(&path, &id).block_on()?;
             writeln!(ui.stdout(), "{target}")?;
@@ -144,8 +144,9 @@ pub fn cmd_debug_object(
                     return Err(user_error("The path is not a single tree in the commit"));
                 }
             } else {
-                TreeId::try_from_hex(args.id.as_ref().unwrap())
-                    .ok_or_else(|| user_error("Invalid hex tree id"))?
+                let tree_id = args.id.as_ref().unwrap();
+                TreeId::try_from_hex(tree_id)
+                    .ok_or_else(|| user_error(format!(r#"Invalid hex tree id: "{tree_id}""#)))?
             };
             let tree = repo_loader.store().get_tree(dir, &id)?;
             writeln!(ui.stdout(), "{:#?}", tree.data())?;
@@ -156,8 +157,9 @@ pub fn cmd_debug_object(
                 let op = workspace_command.resolve_single_op(op_string)?;
                 op.view_id().clone()
             } else {
-                ViewId::try_from_hex(args.id.as_ref().unwrap())
-                    .ok_or_else(|| user_error("Invalid hex view id"))?
+                let view_id = args.id.as_ref().unwrap();
+                ViewId::try_from_hex(view_id)
+                    .ok_or_else(|| user_error(format!(r#"Invalid hex view id: "{view_id}""#)))?
             };
             let view = repo_loader.op_store().read_view(&id).block_on()?;
             writeln!(ui.stdout(), "{view:#?}")?;
