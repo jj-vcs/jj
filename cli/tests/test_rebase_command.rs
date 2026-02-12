@@ -142,26 +142,26 @@ fn test_rebase_empty_sets() {
     let output = work_dir.run_jj(["rebase", "-r=none()", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Nothing changed.
+    No revisions to rebase.
     [EOF]
     ");
     let output = work_dir.run_jj(["rebase", "-s=none()", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Nothing changed.
+    No revisions to rebase.
     [EOF]
     ");
     let output = work_dir.run_jj(["rebase", "-b=none()", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Nothing changed.
+    No revisions to rebase.
     [EOF]
     ");
     // Empty because "b..a" is empty
     let output = work_dir.run_jj(["rebase", "-b=a", "-o=b"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
-    Nothing changed.
+    No revisions to rebase.
     [EOF]
     ");
 }

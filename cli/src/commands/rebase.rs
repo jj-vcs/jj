@@ -382,6 +382,7 @@ pub(crate) fn cmd_rebase(
         simplify_ancestor_merge: args.simplify_parents,
     };
     let mut workspace_command = command.workspace_helper(ui)?;
+
     let loc = if !args.revisions.is_empty() {
         plan_rebase_revisions(ui, &workspace_command, &args.revisions, &args.destination)?
     } else if !args.source.is_empty() {
@@ -389,6 +390,15 @@ pub(crate) fn cmd_rebase(
     } else {
         plan_rebase_branch(ui, &workspace_command, &args.branch, &args.destination)?
     };
+
+    let target_ids = match &loc.target {
+        MoveCommitsTarget::Commits(ids) => ids,
+        MoveCommitsTarget::Roots(ids) => ids,
+    };
+    if target_ids.is_empty() {
+        writeln!(ui.status(), "No revisions to rebase.")?;
+        return Ok(());
+    }
 
     let mut tx = workspace_command.start_transaction();
     let mut computed_move = compute_move_commits(tx.repo(), &loc)?;

@@ -35,8 +35,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [#7711](https://github.com/jj-vcs/jj/issues/7711)
 
 * `jj rebase --branch` and `jj rebase --source` will no longer return an error
-  if the given argument resolves to an empty revision set.
-  `jj rebase --revisions` already behaved this way.
+  if the given argument resolves to an empty revision set
+  (`jj rebase --revisions` already behaved this way). Instead, a message will be
+  printed to inform the user why nothing has changed.
 
 * Changed Git representation of conflicted commits to include files from the
   first side of the conflict. This should prevent unchanged files from being
