@@ -599,6 +599,22 @@ export default defineConfig({
 Note: There was a [request](https://github.com/vitejs/vite/issues/20036) to include `.jj`
 in the default ignore list, but manual configuration remains the recommended approach.
 
+### How can I manually trigger (e.g., periodic) snapshots?
+
+Most `jj` commands will automatically snapshot the working copy at the start of
+the command if needed. However, if you'd like to manually trigger a snapshot for
+whatever reason, such as for scripting, prompt info, or periodic snapshots in
+parallel with something like a
+[`watch` command](#can-i-monitor-how-jj-log-evolves), you can run
+`jj util snapshot`. By default this command will print whether a snapshot was
+taken, which you can silence with the global `--quiet` flag. This command is
+likely most useful for scripting rather than for running on the command line by
+a human.
+
+If you want to see the ID of the current operation after this command, it would
+be simpler to run `jj operation log --limit 1` directly, since that command also
+takes a snapshot if needed.
+
 ### I want to write a tool which integrates with Jujutsu. Should I use the library or parse the CLI?
 
 There are some trade-offs and there is no definitive answer yet.

@@ -18,6 +18,7 @@ mod exec;
 mod gc;
 mod install_man_pages;
 mod markdown_help;
+mod snapshot;
 
 use clap::Subcommand;
 use tracing::instrument;
@@ -34,6 +35,8 @@ use self::install_man_pages::UtilInstallManPagesArgs;
 use self::install_man_pages::cmd_util_install_man_pages;
 use self::markdown_help::UtilMarkdownHelp;
 use self::markdown_help::cmd_util_markdown_help;
+use self::snapshot::UtilSnapshotArgs;
+use self::snapshot::cmd_util_snapshot;
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
@@ -47,6 +50,7 @@ pub(crate) enum UtilCommand {
     Gc(UtilGcArgs),
     InstallManPages(UtilInstallManPagesArgs),
     MarkdownHelp(UtilMarkdownHelp),
+    Snapshot(UtilSnapshotArgs),
 }
 
 #[instrument(skip_all)]
@@ -62,5 +66,6 @@ pub(crate) fn cmd_util(
         UtilCommand::Gc(args) => cmd_util_gc(ui, command, args),
         UtilCommand::InstallManPages(args) => cmd_util_install_man_pages(ui, command, args),
         UtilCommand::MarkdownHelp(args) => cmd_util_markdown_help(ui, command, args),
+        UtilCommand::Snapshot(args) => cmd_util_snapshot(ui, command, args),
     }
 }

@@ -1192,15 +1192,19 @@ impl WorkspaceCommandHelper {
         Ok(stats)
     }
 
-    /// Snapshot the working copy if allowed, and import Git refs if the working
-    /// copy is collocated with Git.
+    /// Snapshots the working copy if allowed, and imports Git refs if the
+    /// working copy is collocated with Git.
+    ///
+    /// Returns whether a snapshot was taken.
     #[instrument(skip_all)]
-    pub fn maybe_snapshot(&mut self, ui: &Ui) -> Result<(), CommandError> {
+    pub fn maybe_snapshot(&mut self, ui: &Ui) -> Result<bool, CommandError> {
+        let op_id_before = self.repo().op_id().clone();
         let stats = self
             .maybe_snapshot_impl(ui)
             .map_err(|err| err.into_command_error())?;
         print_snapshot_stats(ui, &stats, self.env().path_converter())?;
-        Ok(())
+        let op_id_after = self.repo().op_id();
+        Ok(op_id_before != *op_id_after)
     }
 
     /// Imports new HEAD from the colocated Git repo.

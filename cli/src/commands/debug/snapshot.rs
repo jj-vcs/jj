@@ -12,14 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// TODO: Delete in jj 0.45.0+
+
 use std::fmt::Debug;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::ui::Ui;
 
-/// Trigger a snapshot in the op log
+/// [DEPRECATED] Trigger a snapshot in the op log
+///
+/// This command is deprecated; use `jj util snapshot` instead.
 #[derive(clap::Args, Clone, Debug)]
+#[command(hide = true)]
 pub struct DebugSnapshotArgs {}
 
 pub fn cmd_debug_snapshot(
@@ -27,6 +32,10 @@ pub fn cmd_debug_snapshot(
     command: &CommandHelper,
     _args: &DebugSnapshotArgs,
 ) -> Result<(), CommandError> {
+    writeln!(
+        ui.warning_default(),
+        "`jj debug snapshot` is deprecated; use `jj util snapshot` instead"
+    )?;
     // workspace helper will snapshot as needed
     command.workspace_helper(ui)?;
     Ok(())

@@ -261,3 +261,33 @@ fn test_install_man_pages() {
     assert!(man_dir.is_dir());
     assert!(fs::read_dir(man_dir).unwrap().next().is_some());
 }
+
+#[test]
+fn test_util_snapshot() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("foo", "foo");
+
+    let output = work_dir.run_jj(["util", "snapshot"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Snapshot complete.
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_util_snapshot_nothing_changed() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["util", "snapshot"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    No snapshot needed.
+    [EOF]
+    ");
+}

@@ -14,6 +14,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Deprecations
 
+* `jj debug snapshot` is deprecated in favor of `jj util snapshot`. Although
+  this was an undocumented command in the first place, it will be removed after
+  6 months (v0.45.0) to give people time to migrate away.
+
 ### New features
 
 * Templates now support `first()`, `last()`, `get(index)`, `reverse()`,
@@ -47,6 +51,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New template function `Timestamp::since(ts)` that returns the `TimestampRange`
   between two timestamps. It can be used in conjunction with `.duration()` in
   order to obtain a human-friendly duration between two `Timestamp`s.
+
+* Added new `jj util snapshot` command to manually or programmatically trigger a
+  snapshot. This introduces an official alternative to the
+  previously-undocumented `jj debug snapshot` command. The Watchman integration
+  has also been updated to use this command instead.
 
 ### Fixed bugs
 
