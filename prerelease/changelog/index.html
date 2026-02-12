@@ -6646,6 +6646,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   if the given argument resolves to an empty revision set.
   <code>jj rebase --revisions</code> already behaved this way.</p>
 </li>
+<li>
+<p>Changed Git representation of conflicted commits to include files from the
+  first side of the conflict. This should prevent unchanged files from being
+  highlighted as "added" in editors when checking out a conflicted commit in a
+  colocated workspace.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <h2 id="0380-2026-02-04"><a href="https://github.com/jj-vcs/jj/compare/v0.37.0...v0.38.0">0.38.0</a> - 2026-02-04<a class="headerlink" href="#0380-2026-02-04" title="Permanent link">&para;</a></h2>
