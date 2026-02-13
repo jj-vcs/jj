@@ -6643,8 +6643,9 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </li>
 <li>
 <p><code>jj rebase --branch</code> and <code>jj rebase --source</code> will no longer return an error
-  if the given argument resolves to an empty revision set.
-  <code>jj rebase --revisions</code> already behaved this way.</p>
+  if the given argument resolves to an empty revision set
+  (<code>jj rebase --revisions</code> already behaved this way). Instead, a message will be
+  printed to inform the user why nothing has changed.</p>
 </li>
 <li>
 <p>Changed Git representation of conflicted commits to include files from the
