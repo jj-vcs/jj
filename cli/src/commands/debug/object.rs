@@ -21,8 +21,10 @@ use jj_lib::backend::FileId;
 use jj_lib::backend::SymlinkId;
 use jj_lib::backend::TreeId;
 use jj_lib::backend::TreeValue;
+use jj_lib::merge::MergedTreeValue;
 use jj_lib::op_store::OperationId;
 use jj_lib::op_store::ViewId;
+use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use pollster::FutureExt as _;
 use tokio::io::AsyncReadExt as _;
@@ -50,11 +52,16 @@ pub struct DebugObjectCommitArgs {
 }
 
 #[derive(clap::Args, Clone, Debug)]
+#[command(group(clap::ArgGroup::new("target").required(true)))]
 pub struct DebugObjectFileArgs {
     #[arg(value_hint = clap::ValueHint::FilePath)]
     path: String,
 
-    id: String,
+    #[arg(group = "target")]
+    id: Option<String>,
+
+    #[arg(long, short, group = "target")]
+    revision: Option<RevisionArg>,
 }
 
 #[derive(clap::Args, Clone, Debug)]
@@ -67,7 +74,11 @@ pub struct DebugObjectSymlinkArgs {
     #[arg(value_hint = clap::ValueHint::FilePath)]
     path: String,
 
-    id: String,
+    #[arg(group = "target")]
+    id: Option<String>,
+
+    #[arg(long, short, group = "target")]
+    revision: Option<RevisionArg>,
 }
 
 #[derive(clap::Args, Clone, Debug)]
@@ -111,9 +122,20 @@ pub fn cmd_debug_object(
             writeln!(ui.stdout(), "{:#?}", commit.store_commit())?;
         }
         DebugObjectArgs::File(args) => {
-            let id = FileId::try_from_hex(&args.id)
-                .ok_or_else(|| user_error(format!(r#"Invalid hex file id: "{}""#, args.id)))?;
             let path = RepoPathBuf::from_internal_string(&args.path).map_err(user_error)?;
+            let id = if let Some(rev) = &args.revision {
+                if let Some(Some(TreeValue::File { id, .. })) =
+                    get_tree_value(ui, command, rev, &path)?.as_resolved()
+                {
+                    id.clone()
+                } else {
+                    return Err(user_error("The path is not a single file in the commit"));
+                }
+            } else {
+                let file_id = args.id.as_ref().unwrap();
+                FileId::try_from_hex(file_id)
+                    .ok_or_else(|| user_error(format!(r#"Invalid hex file id: "{file_id}""#)))?
+            };
             let mut contents = repo_loader.store().read_file(&path, &id).block_on()?;
             let mut buf = vec![];
             contents.read_to_end(&mut buf).block_on()?;
@@ -126,19 +148,30 @@ pub fn cmd_debug_object(
             writeln!(ui.stdout(), "{operation:#?}")?;
         }
         DebugObjectArgs::Symlink(args) => {
-            let id = SymlinkId::try_from_hex(&args.id)
-                .ok_or_else(|| user_error(format!(r#"Invalid hex symlink id: "{}""#, args.id)))?;
             let path = RepoPathBuf::from_internal_string(&args.path).map_err(user_error)?;
+            let id = if let Some(rev) = &args.revision {
+                if let Some(Some(TreeValue::Symlink(id))) =
+                    get_tree_value(ui, command, rev, &path)?.as_resolved()
+                {
+                    id.clone()
+                } else {
+                    return Err(user_error("The path is not a single symlink in the commit"));
+                }
+            } else {
+                let symlink_id = args.id.as_ref().unwrap();
+                SymlinkId::try_from_hex(symlink_id).ok_or_else(|| {
+                    user_error(format!(r#"Invalid hex symlink id: "{symlink_id}""#))
+                })?
+            };
             let target = repo_loader.store().read_symlink(&path, &id).block_on()?;
             writeln!(ui.stdout(), "{target}")?;
         }
         DebugObjectArgs::Tree(args) => {
             let dir = RepoPathBuf::from_internal_string(&args.dir).map_err(user_error)?;
             let id = if let Some(rev) = &args.revision {
-                let workspace_command = command.workspace_helper_no_snapshot(ui)?;
-                let commit = workspace_command.resolve_single_rev(ui, rev)?;
-                let tree_value = commit.tree().path_value(&dir)?;
-                if let Some(Some(TreeValue::Tree(id))) = tree_value.as_resolved() {
+                if let Some(Some(TreeValue::Tree(id))) =
+                    get_tree_value(ui, command, rev, &dir)?.as_resolved()
+                {
                     id.clone()
                 } else {
                     return Err(user_error("The path is not a single tree in the commit"));
@@ -167,4 +200,16 @@ pub fn cmd_debug_object(
     }
 
     Ok(())
+}
+
+fn get_tree_value(
+    ui: &mut Ui,
+    command: &CommandHelper,
+    rev: &RevisionArg,
+    path: &RepoPath,
+) -> Result<MergedTreeValue, CommandError> {
+    let workspace_command = command.workspace_helper_no_snapshot(ui)?;
+    let commit = workspace_command.resolve_single_rev(ui, rev)?;
+    let tree_value = commit.tree().path_value(path)?;
+    Ok(tree_value)
 }
