@@ -1165,6 +1165,46 @@ fn test_rebase_descendants_divergent_rewrite() {
 }
 
 #[test]
+fn test_rebase_descendants_hidden() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    // Commits B and C are hidden. C is then replaced by D. B should remain hidden.
+    //
+    // D
+    // | C
+    // | |
+    // | B
+    // |/
+    // A
+    let mut tx = repo.start_transaction();
+    let commit_a = write_random_commit(tx.repo_mut());
+    let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
+    tx.repo_mut().record_abandoned_commit(&commit_b);
+    tx.repo_mut().record_abandoned_commit(&commit_c);
+    tx.repo_mut().rebase_descendants().unwrap();
+    let repo = tx.commit("test").unwrap();
+    let mut tx = repo.start_transaction();
+
+    let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
+    tx.repo_mut()
+        .set_rewritten_commit(commit_c.id().clone(), commit_d.id().clone());
+    let rebase_map =
+        rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
+    assert_eq!(rebase_map.len(), 0);
+
+    // TODO: Only D should be visible
+    assert_eq!(
+        *tx.repo().view().heads(),
+        hashset! {
+            commit_b.id().clone(),
+            commit_d.id().clone(),
+        }
+    );
+}
+
+#[test]
 fn test_rebase_descendants_repeated() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
