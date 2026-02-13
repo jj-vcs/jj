@@ -264,8 +264,9 @@ as <code dir="auto">jj simplify-parents</code> on the rebased commits.
 </li>
 <li>
 <p><code dir="auto">jj rebase --branch</code> and <code dir="auto">jj rebase --source</code> will no longer return an error
-if the given argument resolves to an empty revision set.
-<code dir="auto">jj rebase --revisions</code> already behaved this way.</p>
+if the given argument resolves to an empty revision set
+(<code dir="auto">jj rebase --revisions</code> already behaved this way). Instead, a message will be
+printed to inform the user why nothing has changed.</p>
 </li>
 <li>
 <p>Changed Git representation of conflicted commits to include files from the
