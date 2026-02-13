@@ -2312,6 +2312,7 @@ fn test_op_diff_word_wrap() {
         work_dir.run_jj_with(|cmd| {
             cmd.args(args)
                 .arg(format!("--config=ui.log-word-wrap={word_wrap}"))
+                .arg("--config=revset-aliases.'immutable_heads()'='root()'")
                 .env("COLUMNS", columns.to_string())
         })
     };
@@ -3140,7 +3141,7 @@ fn test_op_immutable_revisions() {
     // Create a stack of 5 commits, all immutable.
     for i in 1..=5 {
         work_dir
-            .run_jj(["new", "@", "-m", &format!("commit {}", i)])
+            .run_jj(["new", "@", "-m", &format!("commit {i}")])
             .success();
     }
     work_dir.run_jj(["tag", "set", "t1", "-r", "@"]).success();
@@ -3231,7 +3232,7 @@ fn test_op_immutable_revisions() {
     work_dir.run_jj(["new", "root()", "-m", "mix-a1"]).success();
     for i in 2..=5 {
         work_dir
-            .run_jj(["new", "@", "-m", &format!("mix-a{}", i)])
+            .run_jj(["new", "@", "-m", &format!("mix-a{i}")])
             .success();
     }
     work_dir
@@ -3241,7 +3242,7 @@ fn test_op_immutable_revisions() {
     work_dir.run_jj(["new", "root()", "-m", "mix-b1"]).success();
     for i in 2..=5 {
         work_dir
-            .run_jj(["new", "@", "-m", &format!("mix-b{}", i)])
+            .run_jj(["new", "@", "-m", &format!("mix-b{i}")])
             .success();
     }
     work_dir
@@ -3411,9 +3412,8 @@ fn test_op_immutable_revisions() {
 
     // Use all() to ensure the hidden c3 is seen as the head of the global immutable
     // set.
-    test_env.add_config(&format!(
-        r#"revset-aliases."immutable_heads()" = "all() & {}""#,
-        c3_id
+    test_env.add_config(format!(
+        r#"revset-aliases."immutable_heads()" = "all() & {c3_id}""#,
     ));
 
     // Track all with bookmarks.
@@ -3490,6 +3490,304 @@ fn test_op_immutable_revisions() {
     ba2:
     + (absent)
     - zmurkyul/0 8f46ae08 (hidden) (empty) acc-c2
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_op_user_immutable_expression_resolution_failure() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    test_env.add_config(
+        r#"
+[templates]
+commit_summary = 'commit_id.short() ++ " " ++ description.first_line()'
+[template-aliases]
+'format_short_id(id)' = 'id.substr(0, 12)'
+'format_short_change_id_with_change_offset(commit)' = 'commit.change_id().short()'
+"#,
+    );
+
+    // 1. Initial commits.
+    work_dir.run_jj(["new", "root()", "-m", "base"]).success();
+
+    // 2. Create bookmark_x (op_create).
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", "bookmark_x"])
+        .success();
+    let op_create = work_dir.current_operation_id();
+
+    // 3. Create a stack of 2 commits.
+    for i in 1..=2 {
+        work_dir
+            .run_jj(["new", "@", "-m", &format!("stack {i}")])
+            .success();
+    }
+    work_dir
+        .run_jj(["bookmark", "set", "bookmark_x", "-r@"])
+        .success();
+
+    // 4. Rebase the stack (op_rebase).
+    work_dir
+        .run_jj(["new", "root()", "-m", "new_base"])
+        .success();
+    let new_base = "@";
+    work_dir
+        .run_jj(["rebase", "-s", "bookmark_x-", "-d", new_base])
+        .success();
+    let op_rebase = work_dir.current_operation_id();
+
+    // Configure immutable_heads() to require 'bookmark_x'.
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "bookmark_x""#);
+
+    // 5. Test op show for op_rebase: should show ELISION summary.
+    // bookmark_x exists in both states of the rebase.
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show", &op_rebase]), @"
+    d7357a6e9445 test-username@host.example.com 2001-02-03 04:05:14.000 +07:00 - 2001-02-03 04:05:14.000 +07:00
+    rebase commit 0f12cf5c679b373cb1ee0fa3e441c2f5030c4dc9 and descendants
+    args: jj rebase -s bookmark_x- -d @
+
+    Changed commits:
+    ○  + 3cafca23bb81 stack 2
+       - 5456f1af47ed stack 2
+       (Elided 1 newly added and 1 newly removed immutable revisions)
+
+    Changed local bookmarks:
+    bookmark_x:
+    + 3cafca23bb81 stack 2
+    - 5456f1af47ed stack 2
+    [EOF]
+    ");
+
+    // 6. Test op show for op_create: should show WARNING.
+    // bookmark_x did not exist in the 'from' state.
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show", &op_create]), @"
+    3dbd8faecb6a test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    create bookmark bookmark_x pointing to commit 2308e5a241f7a47f186b0686ffb17aa613a727d7
+    args: jj bookmark create -r@ bookmark_x
+
+    Warning: Could not resolve immutable heads for elision
+       (Use --show-all-immutable-revisions to see all changes)
+
+    Changed local bookmarks:
+    bookmark_x:
+    + 2308e5a241f7 base
+    - (absent)
+    [EOF]
+    ");
+
+    // 7. Test op show  for op_create with the flag: should show all changes and NO
+    //    WARNING.
+    insta::assert_snapshot!(work_dir.run_jj(["op", "show", &op_create, "--show-all-immutable-revisions"]), @"
+    3dbd8faecb6a test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    create bookmark bookmark_x pointing to commit 2308e5a241f7a47f186b0686ffb17aa613a727d7
+    args: jj bookmark create -r@ bookmark_x
+
+    Changed local bookmarks:
+    bookmark_x:
+    + 2308e5a241f7 base
+    - (absent)
+    [EOF]
+    ");
+
+    // 8. Test op diff from BEFORE creation to op_rebase: should show WARNING.
+    let op_before_create = format!("{op_create}-");
+    insta::assert_snapshot!(work_dir.run_jj(["op", "diff", "--from", &op_before_create, "--to", &op_rebase]), @"
+    From operation: 846f3490f39c (2001-02-03 08:05:08) new empty commit
+      To operation: d7357a6e9445 (2001-02-03 08:05:14) rebase commit 0f12cf5c679b373cb1ee0fa3e441c2f5030c4dc9 and descendants
+
+    Warning: Could not resolve immutable heads for elision
+       (Use --show-all-immutable-revisions to see all changes)
+
+    Changed working copy default@:
+    + 6b753f7043b4 new_base
+    - 2308e5a241f7 base
+
+    Changed local bookmarks:
+    bookmark_x:
+    + 3cafca23bb81 stack 2
+    - (absent)
+    [EOF]
+    ");
+
+    // 9. Test op diff with the flag: should show all changes and NO WARNING.
+    insta::assert_snapshot!(work_dir.run_jj([
+        "op",
+        "diff",
+        "--from",
+        &op_before_create,
+        "--to",
+        &op_rebase,
+        "--show-all-immutable-revisions",
+    ]), @"
+    From operation: 846f3490f39c (2001-02-03 08:05:08) new empty commit
+      To operation: d7357a6e9445 (2001-02-03 08:05:14) rebase commit 0f12cf5c679b373cb1ee0fa3e441c2f5030c4dc9 and descendants
+
+    Changed commits:
+    ○  + 3cafca23bb81 stack 2
+    ○  + e7bd1678832f stack 1
+    ○  + 6b753f7043b4 new_base
+
+    Changed working copy default@:
+    + 6b753f7043b4 new_base
+    - 2308e5a241f7 base
+
+    Changed local bookmarks:
+    bookmark_x:
+    + 3cafca23bb81 stack 2
+    - (absent)
+    [EOF]
+    ");
+
+    // 10. Test op log -p: should show BOTH behaviors.
+    insta::assert_snapshot!(work_dir.run_jj(["op", "log", "-p", "--limit", "6"]), @"
+    @  d7357a6e9445 test-username@host.example.com 2001-02-03 04:05:14.000 +07:00 - 2001-02-03 04:05:14.000 +07:00
+    │  rebase commit 0f12cf5c679b373cb1ee0fa3e441c2f5030c4dc9 and descendants
+    │  args: jj rebase -s bookmark_x- -d @
+    │
+    │  Changed commits:
+    │  ○  + 3cafca23bb81 stack 2
+    │     - 5456f1af47ed stack 2
+    │     (Elided 1 newly added and 1 newly removed immutable revisions)
+    │
+    │  Changed local bookmarks:
+    │  bookmark_x:
+    │  + 3cafca23bb81 stack 2
+    │  - 5456f1af47ed stack 2
+    ○  e6f03405abd6 test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
+    │  new empty commit
+    │  args: jj new 'root()' -m new_base
+    │
+    │  Changed commits:
+    │  ○  + 6b753f7043b4 new_base
+    │     Modified commit description:
+    │             1: new_base
+    │
+    │  Changed working copy default@:
+    │  + 6b753f7043b4 new_base
+    │  - 5456f1af47ed stack 2
+    ○  7b4df3149e27 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    │  point bookmark bookmark_x to commit 5456f1af47edb52cfd73d582364cc4dd6ddb08cf
+    │  args: jj bookmark set bookmark_x -r@
+    │
+    │  Changed local bookmarks:
+    │  bookmark_x:
+    │  + 5456f1af47ed stack 2
+    │  - 2308e5a241f7 base
+    ○  b19acb25ac12 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    │  new empty commit
+    │  args: jj new @ -m 'stack 2'
+    │
+    │  Changed commits:
+    │  ○  + 5456f1af47ed stack 2
+    │     Modified commit description:
+    │             1: stack 2
+    │
+    │  Changed working copy default@:
+    │  + 5456f1af47ed stack 2
+    │  - 0f12cf5c679b stack 1
+    ○  9fc913cf5a33 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │  new empty commit
+    │  args: jj new @ -m 'stack 1'
+    │
+    │  Changed commits:
+    │  ○  + 0f12cf5c679b stack 1
+    │     Modified commit description:
+    │             1: stack 1
+    │
+    │  Changed working copy default@:
+    │  + 0f12cf5c679b stack 1
+    │  - 2308e5a241f7 base
+    ○  3dbd8faecb6a test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │  create bookmark bookmark_x pointing to commit 2308e5a241f7a47f186b0686ffb17aa613a727d7
+    │  args: jj bookmark create -r@ bookmark_x
+    │
+    │  Warning: Could not resolve immutable heads for elision
+    │     (Use --show-all-immutable-revisions to see all changes)
+    │
+    │  Changed local bookmarks:
+    │  bookmark_x:
+    │  + 2308e5a241f7 base
+    │  - (absent)
+    [EOF]
+    ");
+
+    // 11. Test op log -p with the flag: should show all changes and NO WARNING.
+    insta::assert_snapshot!(work_dir.run_jj([
+        "op",
+        "log",
+        "-p",
+        "--limit",
+        "6",
+        "--show-all-immutable-revisions"
+    ]), @"
+    @  d7357a6e9445 test-username@host.example.com 2001-02-03 04:05:14.000 +07:00 - 2001-02-03 04:05:14.000 +07:00
+    │  rebase commit 0f12cf5c679b373cb1ee0fa3e441c2f5030c4dc9 and descendants
+    │  args: jj rebase -s bookmark_x- -d @
+    │
+    │  Changed commits:
+    │  ○  + 3cafca23bb81 stack 2
+    │  │  - 5456f1af47ed stack 2
+    │  ○  + e7bd1678832f stack 1
+    │     - 0f12cf5c679b stack 1
+    │
+    │  Changed local bookmarks:
+    │  bookmark_x:
+    │  + 3cafca23bb81 stack 2
+    │  - 5456f1af47ed stack 2
+    ○  e6f03405abd6 test-username@host.example.com 2001-02-03 04:05:13.000 +07:00 - 2001-02-03 04:05:13.000 +07:00
+    │  new empty commit
+    │  args: jj new 'root()' -m new_base
+    │
+    │  Changed commits:
+    │  ○  + 6b753f7043b4 new_base
+    │     Modified commit description:
+    │             1: new_base
+    │
+    │  Changed working copy default@:
+    │  + 6b753f7043b4 new_base
+    │  - 5456f1af47ed stack 2
+    ○  7b4df3149e27 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    │  point bookmark bookmark_x to commit 5456f1af47edb52cfd73d582364cc4dd6ddb08cf
+    │  args: jj bookmark set bookmark_x -r@
+    │
+    │  Changed local bookmarks:
+    │  bookmark_x:
+    │  + 5456f1af47ed stack 2
+    │  - 2308e5a241f7 base
+    ○  b19acb25ac12 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    │  new empty commit
+    │  args: jj new @ -m 'stack 2'
+    │
+    │  Changed commits:
+    │  ○  + 5456f1af47ed stack 2
+    │     Modified commit description:
+    │             1: stack 2
+    │
+    │  Changed working copy default@:
+    │  + 5456f1af47ed stack 2
+    │  - 0f12cf5c679b stack 1
+    ○  9fc913cf5a33 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │  new empty commit
+    │  args: jj new @ -m 'stack 1'
+    │
+    │  Changed commits:
+    │  ○  + 0f12cf5c679b stack 1
+    │     Modified commit description:
+    │             1: stack 1
+    │
+    │  Changed working copy default@:
+    │  + 0f12cf5c679b stack 1
+    │  - 2308e5a241f7 base
+    ○  3dbd8faecb6a test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │  create bookmark bookmark_x pointing to commit 2308e5a241f7a47f186b0686ffb17aa613a727d7
+    │  args: jj bookmark create -r@ bookmark_x
+    │
+    │  Changed local bookmarks:
+    │  bookmark_x:
+    │  + 2308e5a241f7 base
+    │  - (absent)
     [EOF]
     ");
 }

@@ -34,6 +34,7 @@ use jj_lib::refs::diff_named_remote_refs;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::revset::RevsetResolutionError;
 use jj_lib::revset::SymbolResolver;
 use pollster::FutureExt as _;
 
@@ -52,6 +53,17 @@ use crate::graphlog::GraphStyle;
 use crate::graphlog::get_graphlog;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
+
+#[derive(Debug, thiserror::Error)]
+#[error("Could not resolve immutable heads")]
+struct ImmutableHeadsResolutionError(#[source] RevsetResolutionError);
+
+impl From<ImmutableHeadsResolutionError> for CommandError {
+    fn from(err: ImmutableHeadsResolutionError) -> Self {
+        use crate::command_error::CommandErrorKind;
+        Self::new(CommandErrorKind::User, err)
+    }
+}
 
 /// Compare changes to the repository between two operations
 #[derive(clap::Args, Clone, Debug)]
@@ -191,14 +203,39 @@ pub fn show_op_diff(
     diff_renderer: Option<&DiffRenderer>,
     show_all_immutable_revisions: bool,
 ) -> Result<(), CommandError> {
-    let op_commits_diff = compute_operation_commits_diff(
+    let op_commits_diff_result = match compute_operation_commits_diff(
         workspace_env,
         current_repo,
         from_repo,
         to_repo,
         show_all_immutable_revisions,
-    )?;
-    if !op_commits_diff.changes.is_empty() {
+    ) {
+        Ok(op_commits_diff) => Some(op_commits_diff),
+        Err(err)
+            if err
+                .error
+                .downcast_ref::<ImmutableHeadsResolutionError>()
+                .is_some() =>
+        {
+            writeln!(formatter)?;
+            with_content_format.write(formatter, |formatter| {
+                writeln!(
+                    formatter.labeled("warning"),
+                    "Warning: Could not resolve immutable heads for elision"
+                )?;
+                writeln!(
+                    formatter,
+                    "   (Use --show-all-immutable-revisions to see all changes)"
+                )
+            })?;
+            None
+        }
+        Err(err) => return Err(err),
+    };
+
+    if let Some(op_commits_diff) = op_commits_diff_result
+        && !op_commits_diff.changes.is_empty()
+    {
         let revset = RevsetExpression::commits(op_commits_diff.changes.keys().cloned().collect())
             .evaluate(current_repo)?;
         writeln!(formatter)?;
@@ -645,26 +682,21 @@ fn compute_operation_commits_diff(
                 .extensions
                 .symbol_resolvers(),
         );
-        if let (Ok(to_immutable_expr), Ok(from_immutable_expr)) = (
-            workspace_env
-                .immutable_expression()
-                .resolve_user_expression(to_repo, &to_repo_symbol_resolver),
-            workspace_env
-                .immutable_expression()
-                .resolve_user_expression(from_repo, &from_repo_symbol_resolver),
-        ) {
-            let newly_hidden_immutable_expr = newly_hidden_expr.intersection(&from_immutable_expr);
-            from_immutable_non_heads_expr =
-                newly_hidden_immutable_expr.minus(&newly_hidden_immutable_expr.heads());
-            let newly_visible_immutable_expr = newly_visible_expr.intersection(&to_immutable_expr);
-            to_immutable_non_heads_expr =
-                newly_visible_immutable_expr.minus(&newly_visible_immutable_expr.heads());
-        } else {
-            // Fall back to none if the expression failed to resolve (e.g. because it
-            // referred to a bookmark that doesn't exist in one of the repos).
-            to_immutable_non_heads_expr = RevsetExpression::none();
-            from_immutable_non_heads_expr = RevsetExpression::none();
-        }
+        let to_immutable_expr = workspace_env
+            .immutable_expression()
+            .resolve_user_expression(to_repo, &to_repo_symbol_resolver)
+            .map_err(ImmutableHeadsResolutionError)?;
+        let from_immutable_expr = workspace_env
+            .immutable_expression()
+            .resolve_user_expression(from_repo, &from_repo_symbol_resolver)
+            .map_err(ImmutableHeadsResolutionError)?;
+
+        let newly_hidden_immutable_expr = newly_hidden_expr.intersection(&from_immutable_expr);
+        from_immutable_non_heads_expr =
+            newly_hidden_immutable_expr.minus(&newly_hidden_immutable_expr.heads());
+        let newly_visible_immutable_expr = newly_visible_expr.intersection(&to_immutable_expr);
+        to_immutable_non_heads_expr =
+            newly_visible_immutable_expr.minus(&newly_visible_immutable_expr.heads());
     }
 
     let elided_newly_visible_estimate = newly_visible_expr
