@@ -1223,7 +1223,8 @@ impl MutableRepo {
 
     fn update_heads(&mut self) -> Result<(), RevsetEvaluationError> {
         let old_commits_expression =
-            RevsetExpression::commits(self.parent_mapping.keys().cloned().collect());
+            RevsetExpression::commits(self.parent_mapping.keys().cloned().collect())
+                .intersection(&RevsetExpression::visible_heads().ancestors());
         let heads_to_add_expression = old_commits_expression
             .parents()
             .minus(&old_commits_expression);

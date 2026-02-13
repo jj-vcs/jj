@@ -1194,11 +1194,9 @@ fn test_rebase_descendants_hidden() {
         rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
     assert_eq!(rebase_map.len(), 0);
 
-    // TODO: Only D should be visible
     assert_eq!(
         *tx.repo().view().heads(),
         hashset! {
-            commit_b.id().clone(),
             commit_d.id().clone(),
         }
     );
