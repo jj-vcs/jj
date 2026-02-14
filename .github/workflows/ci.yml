@@ -30,7 +30,7 @@ jobs:
           cargo_flags: "--all-features"
           extra_targets: ""
         - build: macos-x86_64
-          os: macos-15
+          os: macos-26
           cargo_flags: "--target x86_64-apple-darwin"
           extra_targets: "x86_64-apple-darwin"
         - build: macos-aarch64
