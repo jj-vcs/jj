@@ -2511,6 +2511,7 @@ dependencies = [
  "toml_edit",
  "tracing",
  "watchman_client",
+ "windows-sys 0.61.2",
  "winreg",
 ]
 
