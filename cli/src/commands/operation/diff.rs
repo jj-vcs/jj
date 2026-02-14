@@ -34,10 +34,13 @@ use jj_lib::refs::diff_named_remote_refs;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::revset::RevsetResolutionError;
+use jj_lib::revset::SymbolResolver;
 use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
+use crate::cli_util::WorkspaceCommandEnvironment;
 use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -50,6 +53,17 @@ use crate::graphlog::GraphStyle;
 use crate::graphlog::get_graphlog;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
+
+#[derive(Debug, thiserror::Error)]
+#[error("Could not resolve immutable heads")]
+struct ImmutableHeadsResolutionError(#[source] RevsetResolutionError);
+
+impl From<ImmutableHeadsResolutionError> for CommandError {
+    fn from(err: ImmutableHeadsResolutionError) -> Self {
+        use crate::command_error::CommandErrorKind;
+        Self::new(CommandErrorKind::User, err)
+    }
+}
 
 /// Compare changes to the repository between two operations
 #[derive(clap::Args, Clone, Debug)]
@@ -83,6 +97,14 @@ pub struct OperationDiffArgs {
 
     #[command(flatten)]
     diff_format: DiffFormatArgs,
+
+    /// Show all immutable revisions
+    ///
+    /// By default, only the heads of the set of added/removed immutable
+    /// revisions are shown. The intent is to hide long ranges of fetched
+    /// revisions.
+    #[arg(long)]
+    show_all_immutable_revisions: bool,
 }
 
 pub fn cmd_op_diff(
@@ -150,6 +172,7 @@ pub fn cmd_op_diff(
 
     show_op_diff(
         ui,
+        workspace_env,
         formatter.as_mut(),
         merged_repo,
         &from_repo,
@@ -158,6 +181,7 @@ pub fn cmd_op_diff(
         (!args.no_graph).then_some(graph_style),
         &with_content_format,
         diff_renderer.as_ref(),
+        args.show_all_immutable_revisions,
     )
 }
 
@@ -168,6 +192,7 @@ pub fn cmd_op_diff(
 #[expect(clippy::too_many_arguments)]
 pub fn show_op_diff(
     ui: &Ui,
+    workspace_env: &WorkspaceCommandEnvironment,
     formatter: &mut dyn Formatter,
     current_repo: &dyn Repo,
     from_repo: &Arc<ReadonlyRepo>,
@@ -176,11 +201,43 @@ pub fn show_op_diff(
     graph_style: Option<GraphStyle>,
     with_content_format: &LogContentFormat,
     diff_renderer: Option<&DiffRenderer>,
+    show_all_immutable_revisions: bool,
 ) -> Result<(), CommandError> {
-    let changes = compute_operation_commits_diff(current_repo, from_repo, to_repo)?;
-    if !changes.is_empty() {
-        let revset =
-            RevsetExpression::commits(changes.keys().cloned().collect()).evaluate(current_repo)?;
+    let op_commits_diff_result = match compute_operation_commits_diff(
+        workspace_env,
+        current_repo,
+        from_repo,
+        to_repo,
+        show_all_immutable_revisions,
+    ) {
+        Ok(op_commits_diff) => Some(op_commits_diff),
+        Err(err)
+            if err
+                .error
+                .downcast_ref::<ImmutableHeadsResolutionError>()
+                .is_some() =>
+        {
+            writeln!(formatter)?;
+            with_content_format.write(formatter, |formatter| {
+                writeln!(
+                    formatter.labeled("warning"),
+                    "Warning: Could not resolve immutable heads for elision"
+                )?;
+                writeln!(
+                    formatter,
+                    "   (Use --show-all-immutable-revisions to see all changes)"
+                )
+            })?;
+            None
+        }
+        Err(err) => return Err(err),
+    };
+
+    if let Some(op_commits_diff) = op_commits_diff_result
+        && !op_commits_diff.changes.is_empty()
+    {
+        let revset = RevsetExpression::commits(op_commits_diff.changes.keys().cloned().collect())
+            .evaluate(current_repo)?;
         writeln!(formatter)?;
         with_content_format.write(formatter, |formatter| {
             writeln!(formatter, "Changed commits:")
@@ -191,7 +248,7 @@ pub fn show_op_diff(
             let graph_iter = TopoGroupedGraphIterator::new(revset.iter_graph(), |id| id);
             for node in graph_iter {
                 let (commit_id, mut edges) = node?;
-                let modified_change = changes.get(&commit_id).unwrap();
+                let modified_change = op_commits_diff.changes.get(&commit_id).unwrap();
                 // Omit "missing" edge to keep the graph concise.
                 edges.retain(|edge| !edge.is_missing());
 
@@ -228,7 +285,7 @@ pub fn show_op_diff(
         } else {
             for commit_id in revset.iter() {
                 let commit_id = commit_id?;
-                let modified_change = changes.get(&commit_id).unwrap();
+                let modified_change = op_commits_diff.changes.get(&commit_id).unwrap();
                 with_content_format.write(formatter, |formatter| {
                     write_modified_change_summary(
                         formatter,
@@ -243,6 +300,7 @@ pub fn show_op_diff(
                 }
             }
         }
+        write_elided_commit_counts(formatter, with_content_format, &op_commits_diff)?;
     }
 
     let changed_working_copies = diff_named_commit_ids(
@@ -424,6 +482,53 @@ pub fn show_op_diff(
     Ok(())
 }
 
+fn write_elided_commit_counts(
+    formatter: &mut dyn Formatter,
+    with_content_format: &LogContentFormat,
+    op_commits_diff: &OperationCommitsDiff,
+) -> Result<(), std::io::Error> {
+    let newly_visible = op_commits_diff.elided_newly_visible_estimate;
+    let newly_hidden = op_commits_diff.elided_newly_hidden_estimate;
+
+    let format_count = |(lower, maybe_upper): (usize, Option<usize>)| match (lower, maybe_upper) {
+        (0, Some(0)) => None,
+        (0, _) => Some("some".to_string()),
+        (lower, Some(upper)) if upper == lower => Some(format!("{lower}")),
+        _ => Some(format!("{lower}+")),
+    };
+
+    let parts: Vec<String> = [
+        (format_count(newly_visible), "added"),
+        (format_count(newly_hidden), "removed"),
+    ]
+    .into_iter()
+    .filter_map(|(count, label)| count.map(|c| format!("{c} newly {label}")))
+    .collect();
+
+    if parts.is_empty() {
+        return Ok(());
+    }
+
+    let is_zero = |(l, u): (usize, Option<usize>)| l == 0 && u == Some(0);
+    let is_exactly_one = |(l, u): (usize, Option<usize>)| l == 1 && u == Some(1);
+    let single_revision_elided = (is_exactly_one(newly_visible) && is_zero(newly_hidden))
+        || (is_zero(newly_visible) && is_exactly_one(newly_hidden));
+    let revision_str = if single_revision_elided {
+        "revision"
+    } else {
+        "revisions"
+    };
+    with_content_format.write(formatter, |formatter| {
+        writeln!(
+            formatter,
+            "   (Elided {} immutable {})",
+            parts.join(" and "),
+            revision_str
+        )
+    })?;
+    Ok(())
+}
+
 /// Writes a summary for the given `ModifiedChange`.
 fn write_modified_change_summary(
     formatter: &mut dyn Formatter,
@@ -524,31 +629,91 @@ impl ModifiedChange {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct OperationCommitsDiff {
+    changes: HashMap<CommitId, ModifiedChange>,
+    elided_newly_visible_estimate: (usize, Option<usize>),
+    elided_newly_hidden_estimate: (usize, Option<usize>),
+}
+
 /// Computes created/rewritten/abandoned commits between two operations.
 ///
 /// Returns a map of [`ModifiedChange`]s containing the new and old commits. For
 /// created/rewritten commits, the map entries are indexed by new ids. For
 /// abandoned commits, the entries are indexed by old ids.
 fn compute_operation_commits_diff(
+    workspace_env: &WorkspaceCommandEnvironment,
     repo: &dyn Repo,
     from_repo: &ReadonlyRepo,
     to_repo: &ReadonlyRepo,
-) -> Result<HashMap<CommitId, ModifiedChange>, CommandError> {
+    show_all_immutable_revisions: bool,
+) -> Result<OperationCommitsDiff, CommandError> {
     let store = repo.store();
     let from_heads = from_repo.view().heads().iter().cloned().collect_vec();
     let to_heads = to_repo.view().heads().iter().cloned().collect_vec();
     let from_expr = RevsetExpression::commits(from_heads);
     let to_expr = RevsetExpression::commits(to_heads);
+    let newly_hidden_expr = to_expr.range(&from_expr);
+    let newly_visible_expr = from_expr.range(&to_expr);
 
     let predecessor_commits = accumulate_predecessors(
         slice::from_ref(to_repo.operation()),
         slice::from_ref(from_repo.operation()),
     )?;
 
+    // Compute immutable commit expressions.
+    let to_immutable_non_heads_expr;
+    let from_immutable_non_heads_expr;
+    if show_all_immutable_revisions {
+        to_immutable_non_heads_expr = RevsetExpression::none();
+        from_immutable_non_heads_expr = RevsetExpression::none();
+    } else {
+        let to_repo_symbol_resolver = SymbolResolver::new(
+            to_repo,
+            workspace_env
+                .revset_parse_context()
+                .extensions
+                .symbol_resolvers(),
+        );
+        let from_repo_symbol_resolver = SymbolResolver::new(
+            from_repo,
+            workspace_env
+                .revset_parse_context()
+                .extensions
+                .symbol_resolvers(),
+        );
+        let to_immutable_expr = workspace_env
+            .immutable_expression()
+            .resolve_user_expression(to_repo, &to_repo_symbol_resolver)
+            .map_err(ImmutableHeadsResolutionError)?;
+        let from_immutable_expr = workspace_env
+            .immutable_expression()
+            .resolve_user_expression(from_repo, &from_repo_symbol_resolver)
+            .map_err(ImmutableHeadsResolutionError)?;
+
+        let newly_hidden_immutable_expr = newly_hidden_expr.intersection(&from_immutable_expr);
+        from_immutable_non_heads_expr =
+            newly_hidden_immutable_expr.minus(&newly_hidden_immutable_expr.heads());
+        let newly_visible_immutable_expr = newly_visible_expr.intersection(&to_immutable_expr);
+        to_immutable_non_heads_expr =
+            newly_visible_immutable_expr.minus(&newly_visible_immutable_expr.heads());
+    }
+
+    let elided_newly_visible_estimate = newly_visible_expr
+        .intersection(&to_immutable_non_heads_expr)
+        .evaluate(repo)?
+        .count_estimate()?;
+    let elided_newly_hidden_estimate = newly_hidden_expr
+        .intersection(&from_immutable_non_heads_expr)
+        .evaluate(repo)?
+        .count_estimate()?;
+
     // Collect hidden commits to find abandoned/rewritten changes.
     let mut hidden_commits_by_change: HashMap<ChangeId, CommitId> = HashMap::new();
     let mut abandoned_commits: HashSet<CommitId> = HashSet::new();
-    let newly_hidden = to_expr.range(&from_expr).evaluate(repo)?;
+    let newly_hidden = newly_hidden_expr
+        .minus(&from_immutable_non_heads_expr)
+        .evaluate(repo)?;
     for item in newly_hidden.commit_change_ids() {
         let (commit_id, change_id) = item?;
         // Just pick one if diverged. Divergent commits shouldn't be considered
@@ -561,7 +726,9 @@ fn compute_operation_commits_diff(
 
     // For each new commit, copy/deduce predecessors based on change id.
     let mut changes: HashMap<CommitId, ModifiedChange> = HashMap::new();
-    let newly_visible = from_expr.range(&to_expr).evaluate(repo)?;
+    let newly_visible = newly_visible_expr
+        .minus(&to_immutable_non_heads_expr)
+        .evaluate(repo)?;
     for item in newly_visible.commit_change_ids() {
         let (commit_id, change_id) = item?;
         let predecessor_ids = if let Some(ids) = predecessor_commits.get(&commit_id) {
@@ -592,7 +759,11 @@ fn compute_operation_commits_diff(
         changes.insert(commit_id, change);
     }
 
-    Ok(changes)
+    Ok(OperationCommitsDiff {
+        changes,
+        elided_newly_visible_estimate,
+        elided_newly_hidden_estimate,
+    })
 }
 
 /// Displays the diffs of a modified change.
