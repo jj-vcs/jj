@@ -630,6 +630,18 @@ mod tests {
             absolute_git_url(&cwd, "https://user:pass@example.org/").unwrap(),
             "https://user:pass@example.org/"
         );
+
+        // %-encoded paths: %20 ' ', %25 '%'
+        assert_eq!(
+            absolute_git_url(&cwd, "https://example.org/%20%25").unwrap(),
+            "https://example.org/%20%25"
+        );
+        // No exact match because "/" isn't an absolute path on Windows
+        assert!(
+            absolute_git_url(&cwd, "file:///%20%25")
+                .unwrap()
+                .ends_with("/%20%25")
+        );
     }
 
     #[test]
