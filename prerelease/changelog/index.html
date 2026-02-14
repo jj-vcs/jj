@@ -6616,6 +6616,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h3 id="release-highlights">Release highlights<a class="headerlink" href="#release-highlights" title="Permanent link">&para;</a></h3>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h3>
 <h3 id="deprecations">Deprecations<a class="headerlink" href="#deprecations" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>jj debug snapshot</code> is deprecated in favor of <code>jj util snapshot</code>. Although
+  this was an undocumented command in the first place, it will be removed after
+  6 months (v0.45.0) to give people time to migrate away.</li>
+</ul>
 <h3 id="new-features">New features<a class="headerlink" href="#new-features" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
@@ -6657,6 +6662,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p>New template function <code>Timestamp::since(ts)</code> that returns the <code>TimestampRange</code>
   between two timestamps. It can be used in conjunction with <code>.duration()</code> in
   order to obtain a human-friendly duration between two <code>Timestamp</code>s.</p>
+</li>
+<li>
+<p>Added new <code>jj util snapshot</code> command to manually or programmatically trigger a
+  snapshot. This introduces an official alternative to the
+  previously-undocumented <code>jj debug snapshot</code> command. The Watchman integration
+  has also been updated to use this command instead.</p>
 </li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>

@@ -3308,6 +3308,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#jj-util-snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      jj util snapshot
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#jj-version" class="md-nav__link">
     <span class="md-ellipsis">
       jj version
@@ -7574,6 +7583,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#jj-util-snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      jj util snapshot
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#jj-version" class="md-nav__link">
     <span class="md-ellipsis">
       jj version
@@ -7890,6 +7908,7 @@ does not match the <code>jj help</code> output exactly.</p>
 <li><a href="#jj-util-gc"><code>jj util gc</code>↴</a></li>
 <li><a href="#jj-util-install-man-pages"><code>jj util install-man-pages</code>↴</a></li>
 <li><a href="#jj-util-markdown-help"><code>jj util markdown-help</code>↴</a></li>
+<li><a href="#jj-util-snapshot"><code>jj util snapshot</code>↴</a></li>
 <li><a href="#jj-version"><code>jj version</code>↴</a></li>
 <li><a href="#jj-workspace"><code>jj workspace</code>↴</a></li>
 <li><a href="#jj-workspace-add"><code>jj workspace add</code>↴</a></li>
@@ -10386,6 +10405,7 @@ achieved with <code>jj new</code>.</p>
 <li><code>gc</code> — Run backend-dependent garbage collection</li>
 <li><code>install-man-pages</code> — Install Jujutsu's manpages to the provided path</li>
 <li><code>markdown-help</code> — Print the CLI help for all subcommands in Markdown</li>
+<li><code>snapshot</code> — Snapshot the working copy if needed</li>
 </ul>
 <h2 id="jj-util-completion"><code>jj util completion</code><a class="headerlink" href="#jj-util-completion" title="Permanent link">&para;</a></h2>
 <p>Print a command-line-completion script</p>
@@ -10479,6 +10499,11 @@ already explicitly passing your script into the right shell.</p>
 <h2 id="jj-util-markdown-help"><code>jj util markdown-help</code><a class="headerlink" href="#jj-util-markdown-help" title="Permanent link">&para;</a></h2>
 <p>Print the CLI help for all subcommands in Markdown</p>
 <p><strong>Usage:</strong> <code>jj util markdown-help</code></p>
+<h2 id="jj-util-snapshot"><code>jj util snapshot</code><a class="headerlink" href="#jj-util-snapshot" title="Permanent link">&para;</a></h2>
+<p>Snapshot the working copy if needed</p>
+<p>Snapshots the working copy and updates the working-copy commit if the working copy has changed since the last snapshot. Since almost every command snapshots the working copy, there is very little reason to run this command as a human; it is mostly meant for scripts.</p>
+<p>If you want to see the ID of the current operation after this command, run <code>jj operation log --limit 1</code>. However, since that command also snapshots the working copy, there would be no need to run <code>jj util snapshot</code> first.</p>
+<p><strong>Usage:</strong> <code>jj util snapshot</code></p>
 <h2 id="jj-version"><code>jj version</code><a class="headerlink" href="#jj-version" title="Permanent link">&para;</a></h2>
 <p>Display version information</p>
 <p><strong>Usage:</strong> <code>jj version</code></p>

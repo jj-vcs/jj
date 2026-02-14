@@ -724,6 +724,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-can-i-manually-trigger-eg-periodic-snapshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      How can I manually trigger (e.g., periodic) snapshots?
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#i-want-to-write-a-tool-which-integrates-with-jujutsu-should-i-use-the-library-or-parse-the-cli" class="md-nav__link">
     <span class="md-ellipsis">
       I want to write a tool which integrates with Jujutsu. Should I use the library or parse the CLI?
@@ -2297,6 +2306,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-can-i-manually-trigger-eg-periodic-snapshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      How can I manually trigger (e.g., periodic) snapshots?
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#i-want-to-write-a-tool-which-integrates-with-jujutsu-should-i-use-the-library-or-parse-the-cli" class="md-nav__link">
     <span class="md-ellipsis">
       I want to write a tool which integrates with Jujutsu. Should I use the library or parse the CLI?
@@ -2805,6 +2823,19 @@ which can slow down both tools and occasionally cause file access conflicts.</p>
 </code></pre></div>
 <p>Note: There was a <a href="https://github.com/vitejs/vite/issues/20036">request</a> to include <code>.jj</code>
 in the default ignore list, but manual configuration remains the recommended approach.</p>
+<h3 id="how-can-i-manually-trigger-eg-periodic-snapshots">How can I manually trigger (e.g., periodic) snapshots?<a class="headerlink" href="#how-can-i-manually-trigger-eg-periodic-snapshots" title="Permanent link">&para;</a></h3>
+<p>Most <code>jj</code> commands will automatically snapshot the working copy at the start of
+the command if needed. However, if you'd like to manually trigger a snapshot for
+whatever reason, such as for scripting, prompt info, or periodic snapshots in
+parallel with something like a
+<a href="#can-i-monitor-how-jj-log-evolves"><code>watch</code> command</a>, you can run
+<code>jj util snapshot</code>. By default this command will print whether a snapshot was
+taken, which you can silence with the global <code>--quiet</code> flag. This command is
+likely most useful for scripting rather than for running on the command line by
+a human.</p>
+<p>If you want to see the ID of the current operation after this command, it would
+be simpler to run <code>jj operation log --limit 1</code> directly, since that command also
+takes a snapshot if needed.</p>
 <h3 id="i-want-to-write-a-tool-which-integrates-with-jujutsu-should-i-use-the-library-or-parse-the-cli">I want to write a tool which integrates with Jujutsu. Should I use the library or parse the CLI?<a class="headerlink" href="#i-want-to-write-a-tool-which-integrates-with-jujutsu-should-i-use-the-library-or-parse-the-cli" title="Permanent link">&para;</a></h3>
 <p>There are some trade-offs and there is no definitive answer yet.</p>
 <ul>
