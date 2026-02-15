@@ -10,6 +10,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Release highlights
 
+* `jj arrange` command brings up a TUI where you can reorder and abandon
+  revisions. [#1531](https://github.com/jj-vcs/jj/issues/1531)
+
 ### Breaking changes
 
 ### Deprecations

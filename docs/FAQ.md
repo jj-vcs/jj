@@ -195,7 +195,8 @@ example, if you have a linear chain of revisions `A` through `C` and want to
 move `C` before `B`, use `jj rebase -r C -B B`. See `jj help rebase` for more
 examples.
 
-There is a [tracking issue][reordering] you can check for updates.
+For more complicated cases, try `jj arrange`. It is still under development,
+and will gain more features over time.
 
 To squash or split commits, use `jj squash` and `jj split`.
 
@@ -654,5 +655,3 @@ revsets. This seemed unlikely to be accepted by the Git project.
 [revsets]: revsets.md
 
 [templates]: templates.md
-
-[reordering]: https://github.com/jj-vcs/jj/issues/1531
