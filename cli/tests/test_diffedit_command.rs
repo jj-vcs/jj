@@ -192,6 +192,8 @@ fn test_diffedit() {
     let output = work_dir.run_jj(["diffedit", "file2"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     Working copy  (@) now at: tlkvzzqu 06bdff15 (no description set)
     Parent commit (@-)      : kkmpptxz e4245972 (no description set)
     Added 0 files, modified 1 files, removed 0 files
@@ -328,6 +330,8 @@ fn test_diffedit_existing_instructions() {
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A JJ-INSTRUCTIONS
     Working copy  (@) now at: qpvuntsm e914aaad (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     Added 0 files, modified 1 files, removed 0 files

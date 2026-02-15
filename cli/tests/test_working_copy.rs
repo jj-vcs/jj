@@ -33,6 +33,8 @@ fn test_snapshot_large_file() {
     empty
     [EOF]
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A empty
     Warning: Refused to snapshot some files:
       large: 13.0B (13 bytes); the maximum size allowed is 10.0B (10 bytes)
     Hint: This is to prevent large files from being added by accident. You can fix this by:
@@ -113,6 +115,11 @@ fn test_snapshot_large_file() {
     empty
     large
     large2
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 2 new files:
+    A large
+    A large2
     [EOF]
     ");
 }
@@ -274,6 +281,10 @@ fn test_snapshot_invalid_ignore_pattern() {
     A .gitignore
     Working copy  (@) : qpvuntsm c9cf4826 (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A .gitignore
     [EOF]
     ");
 

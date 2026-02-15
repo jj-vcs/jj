@@ -348,6 +348,8 @@ fn test_squash_partial() {
     let output = work_dir.run_jj(["squash", "-i", "file1", "file3"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file3
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 3615d80e c | (no description set)
     Parent commit (@-)      : kkmpptxz 037106c4 b | (no description set)
@@ -1190,6 +1192,10 @@ fn test_squash_from_multiple_partial_no_op() {
     ├─╯
     ○  93d495c46d89 a
     ◆  000000000000 (empty)
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A d
     [EOF]
     ");
     let setup_opid = work_dir.current_operation_id();

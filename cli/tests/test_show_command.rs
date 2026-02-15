@@ -90,6 +90,10 @@ fn test_show_basic() {
        2    3: baz quxquux
     Modified regular file file3 (file1 => file3):
     [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file3
+    [EOF]
     ");
 
     let output = work_dir.run_jj(["show", "--context=0"]);
@@ -295,6 +299,10 @@ fn test_show_with_template_no_patch() {
     insta::assert_snapshot!(output, @r"
     a new commit
     [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
+    [EOF]
     ");
 }
 
@@ -316,6 +324,10 @@ fn test_show_with_no_patch() {
 
         a new commit
 
+    [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A file1
     [EOF]
     ");
 }
