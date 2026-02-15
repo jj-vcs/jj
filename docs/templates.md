@@ -138,6 +138,15 @@ The following methods are defined.
 * `.first_line_in_hunk() -> Boolean`: False when the directly preceding line
   references the same commit.
 
+### `AnyList` type
+
+_Conversion: `Boolean`: no, `Serialize`: maybe, `Template`: maybe_
+
+The following methods are defined.
+
+* `.join(separator: Template) -> Template`: Concatenate elements with
+  the given `separator`.
+
 ### `Boolean` type
 
 _Conversion: `Boolean`: yes, `Serialize`: yes, `Template`: yes_
@@ -363,7 +372,7 @@ defined.
   the given `separator`.
 * `.filter(|item| expression) -> List`: Filter list elements by predicate
   `expression`. Example: `description.lines().filter(|s| s.contains("#"))`
-* `.map(|item| expression) -> ListTemplate`: Apply template `expression`
+* `.map(|item| expression) -> AnyList`: Apply template `expression`
   to each element. Example: `parents.map(|c| c.commit_id().short())`
 * `.any(|item| expression) -> Boolean`: Returns true if any element satisfies
   the predicate `expression`. Example: `parents.any(|c| c.description().contains("fix"))`
@@ -384,15 +393,6 @@ The following methods are defined. See also the `List` type.
 
 * `.contains_key(key: Stringify) -> Boolean`: True if the commit description
   contains at least one trailer with the key `key`.
-
-### `ListTemplate` type
-
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
-
-The following methods are defined.
-
-* `.join(separator: Template) -> Template`: Concatenate elements with
-  the given `separator`.
 
 ### `Operation` type
 

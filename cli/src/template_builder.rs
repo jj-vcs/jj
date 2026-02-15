@@ -46,6 +46,8 @@ use crate::template_parser::TemplateParseError;
 use crate::template_parser::TemplateParseErrorKind;
 use crate::template_parser::TemplateParseResult;
 use crate::template_parser::UnaryOp;
+use crate::templater::AnyTemplateProperty;
+use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::CoalesceTemplate;
@@ -55,8 +57,8 @@ use crate::templater::Email;
 use crate::templater::HyperlinkTemplate;
 use crate::templater::JoinTemplate;
 use crate::templater::LabelTemplate;
+use crate::templater::ListMapProperty;
 use crate::templater::ListPropertyTemplate;
-use crate::templater::ListTemplate;
 use crate::templater::Literal;
 use crate::templater::PlainTextFormattedProperty;
 use crate::templater::PropertyPlaceholder;
@@ -79,7 +81,7 @@ use crate::time_util;
 /// globally available functions in the template language depending on the
 /// context in which it is invoked.
 pub trait TemplateLanguage<'a> {
-    type Property: CoreTemplatePropertyVar<'a>;
+    type Property: CoreTemplatePropertyVar<'a> + 'a;
 
     fn settings(&self) -> &UserSettings;
 
@@ -175,7 +177,7 @@ where
     Self: WrapTemplateProperty<'a, TimestampRange>,
 {
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self;
-    fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self;
+    fn wrap_any_list(property: BoxedAnyProperty<'a>) -> Self;
 
     /// Type name of the property output.
     fn type_name(&self) -> &'static str;
@@ -221,7 +223,7 @@ pub enum CoreTemplatePropertyKind<'a> {
     // wrapped in a TemplateProperty. Another reason is that the outermost
     // caller expects a Template, not a TemplateProperty of Template output.
     Template(Box<dyn Template + 'a>),
-    ListTemplate(Box<dyn ListTemplate + 'a>),
+    AnyList(BoxedAnyProperty<'a>),
 }
 
 /// Implements `WrapTemplateProperty<type>` for core property types.
@@ -256,8 +258,8 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         Self::Template(template)
     }
 
-    fn wrap_list_template(template: Box<dyn ListTemplate + 'a>) -> Self {
-        Self::ListTemplate(template)
+    fn wrap_any_list(property: BoxedAnyProperty<'a>) -> Self {
+        Self::AnyList(property)
     }
 
     fn type_name(&self) -> &'static str {
@@ -275,7 +277,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Timestamp(_) => "Timestamp",
             Self::TimestampRange(_) => "TimestampRange",
             Self::Template(_) => "Template",
-            Self::ListTemplate(_) => "ListTemplate",
+            Self::AnyList(_) => "AnyList",
         }
     }
 
@@ -293,11 +295,11 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::SizeHint(_) => None,
             Self::Timestamp(_) => None,
             Self::TimestampRange(_) => None,
-            // Template types could also be evaluated to boolean, but it's less likely
-            // to apply label() or .map() and use the result as conditional. It's also
-            // unclear whether ListTemplate should behave as a "list" or a "template".
+            // Template and AnyList types could also be evaluated to boolean,
+            // but it's less likely to apply label() or .map() and use the
+            // result as conditional.
             Self::Template(_) => None,
-            Self::ListTemplate(_) => None,
+            Self::AnyList(_) => None,
         }
     }
 
@@ -347,7 +349,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Timestamp(property) => Some(property.into_serialize()),
             Self::TimestampRange(property) => Some(property.into_serialize()),
             Self::Template(_) => None,
-            Self::ListTemplate(_) => None,
+            Self::AnyList(property) => property.try_into_serialize(),
         }
     }
 
@@ -366,7 +368,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Timestamp(property) => Some(property.into_template()),
             Self::TimestampRange(property) => Some(property.into_template()),
             Self::Template(template) => Some(template),
-            Self::ListTemplate(template) => Some(template),
+            Self::AnyList(property) => property.try_into_template(),
         }
     }
 
@@ -412,7 +414,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Timestamp(_), _) => None,
             (Self::TimestampRange(_), _) => None,
             (Self::Template(_), _) => None,
-            (Self::ListTemplate(_), _) => None,
+            (Self::AnyList(_), _) => None,
         }
     }
 
@@ -443,7 +445,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Timestamp(_), _) => None,
             (Self::TimestampRange(_), _) => None,
             (Self::Template(_), _) => None,
-            (Self::ListTemplate(_), _) => None,
+            (Self::AnyList(_), _) => None,
         }
     }
 }
@@ -471,8 +473,8 @@ pub type TemplateBuildMethodFn<'a, L, T, P> = BuildMethodFn<'a, L, BoxedTemplate
 /// Function that translates method call node of `Template`.
 pub type BuildTemplateMethodFn<'a, L, P> = BuildMethodFn<'a, L, Box<dyn Template + 'a>, P>;
 
-/// Function that translates method call node of `ListTemplate`.
-pub type BuildListTemplateMethodFn<'a, L, P> = BuildMethodFn<'a, L, Box<dyn ListTemplate + 'a>, P>;
+/// Function that translates method call node of `Any*`.
+pub type BuildAnyMethodFn<'a, L, P> = BuildMethodFn<'a, L, BoxedAnyProperty<'a>, P>;
 
 /// Table of functions that translate global function call node.
 pub type TemplateBuildFunctionFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
@@ -486,9 +488,9 @@ pub type TemplateBuildMethodFnMap<'a, L, T, P = <L as TemplateLanguage<'a>>::Pro
 pub type BuildTemplateMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
     HashMap<&'static str, BuildTemplateMethodFn<'a, L, P>>;
 
-/// Table of functions that translate method call node of `ListTemplate`.
-pub type BuildListTemplateMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
-    HashMap<&'static str, BuildListTemplateMethodFn<'a, L, P>>;
+/// Table of functions that translate method call node of `Any*`.
+pub type BuildAnyMethodFnMap<'a, L, P = <L as TemplateLanguage<'a>>::Property> =
+    HashMap<&'static str, BuildAnyMethodFn<'a, L, P>>;
 
 /// Symbol table of functions and methods available in the core template.
 pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a>>::Property> {
@@ -504,7 +506,7 @@ pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a
     pub timestamp_methods: TemplateBuildMethodFnMap<'a, L, Timestamp, P>,
     pub timestamp_range_methods: TemplateBuildMethodFnMap<'a, L, TimestampRange, P>,
     pub template_methods: BuildTemplateMethodFnMap<'a, L, P>,
-    pub list_template_methods: BuildListTemplateMethodFnMap<'a, L, P>,
+    pub any_list_methods: BuildAnyMethodFnMap<'a, L, P>,
 }
 
 pub fn merge_fn_map<'s, F>(base: &mut HashMap<&'s str, F>, extension: HashMap<&'s str, F>) {
@@ -530,7 +532,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             timestamp_methods: HashMap::new(),
             timestamp_range_methods: HashMap::new(),
             template_methods: HashMap::new(),
-            list_template_methods: HashMap::new(),
+            any_list_methods: HashMap::new(),
         }
     }
 
@@ -548,7 +550,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             timestamp_methods,
             timestamp_range_methods,
             template_methods,
-            list_template_methods,
+            any_list_methods,
         } = other;
 
         merge_fn_map(&mut self.functions, functions);
@@ -563,7 +565,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         merge_fn_map(&mut self.timestamp_methods, timestamp_methods);
         merge_fn_map(&mut self.timestamp_range_methods, timestamp_range_methods);
         merge_fn_map(&mut self.template_methods, template_methods);
-        merge_fn_map(&mut self.list_template_methods, list_template_methods);
+        merge_fn_map(&mut self.any_list_methods, any_list_methods);
     }
 }
 
@@ -586,7 +588,7 @@ where
             timestamp_methods: builtin_timestamp_methods(),
             timestamp_range_methods: builtin_timestamp_range_methods(),
             template_methods: HashMap::new(),
-            list_template_methods: builtin_list_template_methods(),
+            any_list_methods: builtin_any_list_methods(),
         }
     }
 
@@ -684,10 +686,10 @@ where
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, template, function)
             }
-            CoreTemplatePropertyKind::ListTemplate(template) => {
-                let table = &self.list_template_methods;
+            CoreTemplatePropertyKind::AnyList(property) => {
+                let table = &self.any_list_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
-                build(language, diagnostics, build_ctx, template, function)
+                build(language, diagnostics, build_ctx, property, function)
             }
         }
     }
@@ -751,6 +753,20 @@ impl<'a, P: CoreTemplatePropertyVar<'a>> Expression<P> {
 
     pub fn try_into_cmp(self, other: Self) -> Option<BoxedTemplateProperty<'a, Ordering>> {
         self.property.try_into_cmp(other.property)
+    }
+}
+
+impl<'a, P: CoreTemplatePropertyVar<'a>> AnyTemplateProperty<'a> for Expression<P> {
+    fn try_into_serialize(self: Box<Self>) -> Option<BoxedSerializeProperty<'a>> {
+        (*self).try_into_serialize()
+    }
+
+    fn try_into_template(self: Box<Self>) -> Option<Box<dyn Template + 'a>> {
+        (*self).try_into_template()
+    }
+
+    fn try_join(self: Box<Self>, _: Box<dyn Template + 'a>) -> Option<Box<dyn Template + 'a>> {
+        None
     }
 }
 
@@ -1496,18 +1512,23 @@ fn builtin_timestamp_range_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     map
 }
 
-fn builtin_list_template_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
--> BuildListTemplateMethodFnMap<'a, L> {
+fn builtin_any_list_methods<'a, L: TemplateLanguage<'a> + ?Sized>() -> BuildAnyMethodFnMap<'a, L> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
-    let mut map = BuildListTemplateMethodFnMap::<L>::new();
+    let mut map = BuildAnyMethodFnMap::<L>::new();
     map.insert(
         "join",
         |language, diagnostics, build_ctx, self_template, function| {
             let [separator_node] = function.expect_exact_arguments()?;
             let separator =
                 expect_template_expression(language, diagnostics, build_ctx, separator_node)?;
-            Ok(L::Property::wrap_template(self_template.join(separator)))
+            Ok(L::Property::wrap_template(
+                self_template.try_join(separator).ok_or_else(|| {
+                    // FIXME: This error should probably be reported on the type
+                    // within the AnyListTemplateProperty.
+                    TemplateParseError::expected_type("Template", "AnyList", function.name_span)
+                })?,
+            ))
         },
     );
     map
@@ -1566,9 +1587,9 @@ where
     map.insert(
         "map",
         |language, diagnostics, build_ctx, self_property, function| {
-            let template =
+            let map_result =
                 build_map_operation(language, diagnostics, build_ctx, self_property, function)?;
-            Ok(L::Property::wrap_list_template(template))
+            Ok(L::Property::wrap_any_list(map_result))
         },
     );
     map.insert(
@@ -1717,7 +1738,7 @@ fn build_map_operation<'a, L, O, P>(
     build_ctx: &BuildContext<L::Property>,
     self_property: P,
     function: &FunctionCallNode,
-) -> TemplateParseResult<Box<dyn ListTemplate + 'a>>
+) -> TemplateParseResult<BoxedAnyProperty<'a>>
 where
     L: TemplateLanguage<'a> + ?Sized,
     L::Property: WrapTemplateProperty<'a, O>,
@@ -1727,26 +1748,18 @@ where
 {
     let [lambda_node] = function.expect_exact_arguments()?;
     let item_placeholder = PropertyPlaceholder::new();
-    let item_template =
+    let mapped_item =
         template_parser::catch_aliases(diagnostics, lambda_node, |diagnostics, node| {
             let lambda = template_parser::expect_lambda(node)?;
             build_lambda_expression(
                 build_ctx,
                 lambda,
                 &[&|| item_placeholder.clone().into_dyn_wrapped()],
-                |build_ctx, body| {
-                    expect_template_expression(language, diagnostics, build_ctx, body)
-                },
+                |build_ctx, body| expect_any_expression(language, diagnostics, build_ctx, body),
             )
         })?;
-    let list_template = ListPropertyTemplate::new(
-        self_property,
-        Literal(" "), // separator
-        move |formatter, item| {
-            item_placeholder.with_value(item, || item_template.format(formatter))
-        },
-    );
-    Ok(Box::new(list_template))
+    let mapped_list = ListMapProperty::new(self_property, item_placeholder, mapped_item);
+    Ok(Box::new(mapped_list))
 }
 
 /// Builds expression that checks if any item in the list satisfies the
@@ -2404,6 +2417,20 @@ pub fn expect_template_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
     )
 }
 
+pub fn expect_any_expression<'a, L: TemplateLanguage<'a> + ?Sized>(
+    language: &L,
+    diagnostics: &mut TemplateDiagnostics,
+    build_ctx: &BuildContext<L::Property>,
+    node: &ExpressionNode,
+) -> TemplateParseResult<BoxedAnyProperty<'a>> {
+    template_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
+        Ok(
+            Box::new(build_expression(language, diagnostics, build_ctx, node)?)
+                as BoxedAnyProperty<'a>,
+        )
+    })
+}
+
 fn expect_expression_of_type<'a, L: TemplateLanguage<'a> + ?Sized, T>(
     language: &L,
     diagnostics: &mut TemplateDiagnostics,
@@ -2915,7 +2942,7 @@ mod tests {
         1 | if(sl0.map(|x| x), true, false)
           |    ^------------^
           |
-          = Expected expression of type `Boolean`, but actual type is `ListTemplate`
+          = Expected expression of type `Boolean`, but actual type is `AnyList`
         ");
 
         env.add_keyword("empty_email", || literal(Email("".to_owned())));
@@ -4414,19 +4441,9 @@ mod tests {
             env.render_ok("json(timestamp_range)"),
             @r#"{"start":"1970-01-01T00:00:00Z","end":"1970-01-01T23:00:00-01:00"}"#);
 
-        // Template and ListTemplate are unserializable
-        insta::assert_snapshot!(env.parse_err(r#"json(string_list.map(|s| s))"#), @"
-         --> 1:6
-          |
-        1 | json(string_list.map(|s| s))
-          |      ^--------------------^
-          |
-          = Expected expression of type `Serialize`, but actual type is `ListTemplate`
-        ");
-        assert_matches!(
-            env.parse_err_kind("json(label('', ''))"),
-            TemplateParseErrorKind::Expression(_)
-        );
+        // AnyList is serializable if the inner type is.
+        insta::assert_snapshot!(env.render_ok(r#"json(string_list.map(|s| s))"#), @r#"["foo","bar"]"#);
+        insta::assert_snapshot!(env.render_ok(r#"json(string_list.map(|s| size_hint))"#), @"[[5,null],[5,null]]");
     }
 
     #[test]
@@ -4743,5 +4760,52 @@ mod tests {
           |     ^
         invalid unquoted key, expected letters, numbers, `-`, `_`
         ");
+    }
+
+    #[test]
+    fn test_any_list_type() {
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("words", || {
+            literal(vec!["foo".to_owned(), "bar".to_owned()])
+        });
+        env.add_keyword("size_hint", || literal((10, None)));
+        env.add_color("red", crossterm::style::Color::Red);
+
+        // Map items are not required to implement both Template and Serialize.
+        insta::assert_snapshot!(env.render_ok(
+            r#"words.map(|x| label("red", x))"#),
+            @"[38;5;9mfoo[39m [38;5;9mbar[39m");
+        insta::assert_snapshot!(env.render_ok(
+            r#"words.map(|x| label("red", x)).join(",")"#),
+            @"[38;5;9mfoo[39m,[38;5;9mbar[39m");
+        insta::assert_snapshot!(env.render_ok(
+            r#"json(words.map(|x| size_hint))"#),
+            @"[[10,null],[10,null]]");
+
+        // You cannot use the result if when the trait is not implemented.
+        insta::assert_snapshot!(env.parse_err(r#"words.map(|x| size_hint)"#), @r#"
+         --> 1:1
+          |
+        1 | words.map(|x| size_hint)
+          | ^----------------------^
+          |
+          = Expected expression of type `Template`, but actual type is `AnyList`
+        "#);
+        insta::assert_snapshot!(env.parse_err(r#"words.map(|x| size_hint).join(",")"#), @r#"
+         --> 1:26
+          |
+        1 | words.map(|x| size_hint).join(",")
+          |                          ^--^
+          |
+          = Expected expression of type `Template`, but actual type is `AnyList`
+        "#);
+        insta::assert_snapshot!(env.parse_err(r#"json(words.map(|x| label("red", x)))"#), @r#"
+         --> 1:6
+          |
+        1 | json(words.map(|x| label("red", x)))
+          |      ^----------------------------^
+          |
+          = Expected expression of type `Serialize`, but actual type is `AnyList`
+        "#);
     }
 }
