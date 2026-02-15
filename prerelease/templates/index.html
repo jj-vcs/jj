@@ -2730,23 +2730,65 @@ equivalent to <code>self.commit_id()</code>.</p>
 type</a> are available as keywords. For example,
 <code>current_operation</code> is equivalent to <code>self.current_operation()</code>.</p>
 <h2 id="operators">Operators<a class="headerlink" href="#operators" title="Permanent link">&para;</a></h2>
-<p>The following operators are supported.</p>
+<p>The following operators are supported. <code>x</code> and <code>y</code> below can be any expression.</p>
+<p>Operators are listed in order of binding power from strongest to weakest, e.g.
+<code>x ++ y * z</code> is interpreted as <code>x ++ (y * z)</code> since <code>*</code> has stronger binding
+power than <code>++</code>. Infix operators of the same binding power are parsed from left
+to right, e.g. <code>x * y / z</code> is interpreted as <code>(x * y) / z</code>.</p>
+<p>As seen above, parentheses can be used to control evaluation order, e.g. <code>(x +
+y) * z</code>.</p>
+<ol>
+<li>
 <ul>
 <li><code>x.f()</code>: Method call.</li>
+<li><code>f(x)</code>: Function call.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>-x</code>: Negate integer value.</li>
 <li><code>!x</code>: Logical not.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>x * y</code>, <code>x / y</code>, <code>x % y</code>: Multiplication/division/remainder. Operands must
-  be <code>Integer</code>s.</li>
+     be <code>Integer</code>s.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>x + y</code>, <code>x - y</code>: Addition/subtraction. Operands must be <code>Integer</code>s.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>x &gt;= y</code>, <code>x &gt; y</code>, <code>x &lt;= y</code>, <code>x &lt; y</code>: Greater than or equal/greater than/
-  lesser than or equal/lesser than. Operands must be <code>Integer</code>s.</li>
+     lesser than or equal/lesser than. Operands must be <code>Integer</code>s.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>x == y</code>, <code>x != y</code>: Equal/not equal. Operands must be either <code>Boolean</code>,
-  <code>Integer</code>, or <code>String</code>.</li>
+     <code>Integer</code>, or <code>String</code>.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>x &amp;&amp; y</code>: Logical and, short-circuiting.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>x || y</code>: Logical or, short-circuiting.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>x ++ y</code>: Concatenate <code>x</code> and <code>y</code> templates.</li>
 </ul>
-<p>(listed in order of binding strengths)</p>
+</li>
+</ol>
 <h2 id="global-functions">Global functions<a class="headerlink" href="#global-functions" title="Permanent link">&para;</a></h2>
 <p>The following functions are defined.</p>
 <ul>
