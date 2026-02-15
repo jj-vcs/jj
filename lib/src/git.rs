@@ -701,9 +701,15 @@ fn abandon_unreachable_commits(
         RevsetExpression::root(),
     ]);
     let abandoned_expression = pinned_expression
-        .range(&RevsetExpression::commits(hidable_git_heads))
+        .range(&RevsetExpression::commits(hidable_git_heads.clone()))
         // Don't include already-abandoned commits in GitImportStats
-        .intersection(&RevsetExpression::visible_heads().ancestors());
+        .intersection(&RevsetExpression::visible_heads().ancestors())
+        // Don't include commits which are still reachable from the remaining visible heads
+        .minus(
+            &RevsetExpression::visible_heads()
+                .minus(&RevsetExpression::commits(hidable_git_heads))
+                .ancestors(),
+        );
     let abandoned_commit_ids: Vec<_> = abandoned_expression
         .evaluate(mut_repo)
         .map_err(|err| err.into_backend_error())?
