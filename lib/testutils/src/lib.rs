@@ -845,7 +845,7 @@ pub trait CommitBuilderExt {
 
 impl CommitBuilderExt for CommitBuilder<'_> {
     fn write_unwrap(self) -> Commit {
-        self.write().unwrap()
+        self.write().block_on().unwrap()
     }
 }
 

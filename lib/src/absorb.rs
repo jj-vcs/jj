@@ -313,13 +313,13 @@ pub fn absorb_hunks(
             if commit_builder.is_discardable()? {
                 commit_builder.abandon();
             } else {
-                rewritten_source = Some(commit_builder.write()?);
+                rewritten_source = Some(commit_builder.write().await?);
                 num_rebased += 1;
             }
             return Ok(());
         }
         let Some(tree_builder) = selected_trees.remove(rewriter.old_commit().id()) else {
-            rewriter.rebase().await?.write()?;
+            rewriter.rebase().await?.write().await?;
             num_rebased += 1;
             return Ok(());
         };
@@ -348,7 +348,8 @@ pub fn absorb_hunks(
         let new_commit = commit_builder
             .set_tree(new_tree)
             .set_predecessors(predecessors)
-            .write()?;
+            .write()
+            .await?;
         rewritten_destinations.push(new_commit);
         Ok(())
     })?;

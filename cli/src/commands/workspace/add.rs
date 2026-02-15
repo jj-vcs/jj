@@ -215,7 +215,7 @@ pub fn cmd_workspace_add(
         description = add_trailers(ui, &tx, &commit_builder)?;
     }
     commit_builder.set_description(&description);
-    let new_wc_commit = commit_builder.write(tx.repo_mut())?;
+    let new_wc_commit = commit_builder.write(tx.repo_mut()).block_on()?;
 
     tx.edit(&new_wc_commit)?;
     tx.finish(

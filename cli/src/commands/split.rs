@@ -322,7 +322,7 @@ pub(crate) fn cmd_split(
         };
         let description = if use_editor {
             commit_builder.set_description(description);
-            let temp_commit = commit_builder.write_hidden()?;
+            let temp_commit = commit_builder.write_hidden().block_on()?;
             let intro = "Enter a description for the selected changes.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
@@ -330,7 +330,7 @@ pub(crate) fn cmd_split(
             description
         };
         commit_builder.set_description(description);
-        commit_builder.write(tx.repo_mut())?
+        commit_builder.write(tx.repo_mut()).block_on()?
     };
 
     // Create the second commit, which includes everything the user didn't
@@ -383,7 +383,7 @@ pub(crate) fn cmd_split(
         let description = if show_editor {
             let new_description = add_trailers(ui, &tx, &commit_builder)?;
             commit_builder.set_description(new_description);
-            let temp_commit = commit_builder.write_hidden()?;
+            let temp_commit = commit_builder.write_hidden().block_on()?;
             let intro = "Enter a description for the remaining changes.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
@@ -391,7 +391,7 @@ pub(crate) fn cmd_split(
             description
         };
         commit_builder.set_description(description);
-        commit_builder.write(tx.repo_mut())?
+        commit_builder.write(tx.repo_mut()).block_on()?
     };
 
     let (first_commit, second_commit, num_rebased) = if use_move_flags {
@@ -433,7 +433,7 @@ fn move_first_commit(
     tx.repo_mut()
         .transform_descendants(vec![target.commit.id().clone()], async |rewriter| {
             let old_commit_id = rewriter.old_commit().id().clone();
-            let new_commit = rewriter.rebase().await?.write()?;
+            let new_commit = rewriter.rebase().await?.write().await?;
             rewritten_commits.insert(old_commit_id, new_commit.id().clone());
             Ok(())
         })?;
@@ -516,7 +516,7 @@ fn rewrite_descendants(
             } else {
                 rewriter.replace_parent(first_commit.id(), [second_commit.id()]);
             }
-            rewriter.rebase().await?.write()?;
+            rewriter.rebase().await?.write().await?;
             Ok(())
         },
     )?;

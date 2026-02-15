@@ -380,11 +380,11 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
     let mut builder = tx.repo_mut().rewrite_commit(&commit1).detach();
     builder.set_predecessors(vec![]);
     // Writing to the store should work
-    let commit2 = builder.write_hidden().unwrap();
+    let commit2 = builder.write_hidden().block_on().unwrap();
     assert_eq!(commit1, commit2);
     // Writing to the repo shouldn't work, which would create cycle in
     // predecessors/parent mappings
-    let result = builder.write(tx.repo_mut());
+    let result = builder.write(tx.repo_mut()).block_on();
     assert_matches!(result, Err(BackendError::Other(_)));
     tx.repo_mut().rebase_descendants().unwrap();
     tx.commit("test").unwrap();
@@ -399,7 +399,8 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
         .repo_mut()
         .rewrite_commit(&commit1)
         .set_description("rewritten")
-        .write();
+        .write()
+        .block_on();
     assert_matches!(result, Err(BackendError::Other(_)));
     tx.repo_mut().rebase_descendants().unwrap();
     tx.commit("test").unwrap();

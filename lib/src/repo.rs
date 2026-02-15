@@ -1208,7 +1208,8 @@ impl MutableRepo {
                 let merged_parents_tree = merge_commit_trees(self, &new_commits).block_on()?;
                 let commit = self
                     .new_commit(new_commit_ids.clone(), merged_parents_tree)
-                    .write()?;
+                    .write()
+                    .block_on()?;
                 recreated_wc_commits.insert(old_commit_id, commit.clone());
                 commit
             };
@@ -1447,7 +1448,7 @@ impl MutableRepo {
         self.transform_descendants(roots, async |rewriter| {
             if rewriter.parents_changed() {
                 let builder = rewriter.reparent();
-                builder.write()?;
+                builder.write().await?;
                 num_reparented += 1;
             }
             Ok(())
@@ -1519,7 +1520,8 @@ impl MutableRepo {
     ) -> Result<Commit, CheckOutCommitError> {
         let wc_commit = self
             .new_commit(vec![commit.id().clone()], commit.tree())
-            .write()?;
+            .write()
+            .block_on()?;
         self.edit(name, &wc_commit)?;
         Ok(wc_commit)
     }

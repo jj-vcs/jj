@@ -21,6 +21,7 @@ use itertools::Itertools as _;
 use jj_lib::commit::conflict_label_for_commits;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -177,7 +178,8 @@ pub(crate) fn cmd_restore(
         tx.repo_mut()
             .rewrite_commit(&to_commit)
             .set_tree(new_tree)
-            .write()?;
+            .write()
+            .block_on()?;
         // rebase_descendants early; otherwise the new commit would always have
         // a conflicted change id at this point.
         let (num_rebased, extra_msg) = if args.restore_descendants {

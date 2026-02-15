@@ -19,6 +19,7 @@ use jj_lib::backend::Signature;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -197,7 +198,7 @@ new working-copy commit.
     };
     let description = if use_editor {
         commit_builder.set_description(description);
-        let temp_commit = commit_builder.write_hidden()?;
+        let temp_commit = commit_builder.write_hidden().block_on()?;
         let intro = "";
         let description = description_template(ui, &tx, intro, &temp_commit)?;
         let description = edit_description(&text_editor, &description)?;
@@ -216,14 +217,15 @@ new working-copy commit.
         description
     };
     commit_builder.set_description(description);
-    let new_commit = commit_builder.write(tx.repo_mut())?;
+    let new_commit = commit_builder.write(tx.repo_mut()).block_on()?;
 
     let workspace_names = tx.repo().view().workspaces_for_wc_commit_id(commit.id());
     if !workspace_names.is_empty() {
         let new_wc_commit = tx
             .repo_mut()
             .new_commit(vec![new_commit.id().clone()], commit.tree())
-            .write()?;
+            .write()
+            .block_on()?;
 
         // Does nothing if there's no bookmarks to advance.
         tx.advance_bookmarks(advanceable_bookmarks, new_commit.id())?;

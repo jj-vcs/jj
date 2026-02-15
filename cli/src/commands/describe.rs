@@ -23,6 +23,7 @@ use jj_lib::backend::Signature;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetIteratorExt as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -229,7 +230,7 @@ pub(crate) fn cmd_describe(
             // can be discarded as soon as it's no longer the working copy. Adding a
             // trailer to an empty description would break that logic.
             if use_editor || !commit_builder.description().is_empty() {
-                let temp_commit = commit_builder.write_hidden()?;
+                let temp_commit = commit_builder.write_hidden().block_on()?;
                 let new_description = add_trailers_with_template(&trailer_template, &temp_commit)?;
                 commit_builder.set_description(new_description);
             }
@@ -243,6 +244,7 @@ pub(crate) fn cmd_describe(
             .map(|(commit, commit_builder)| {
                 commit_builder
                     .write_hidden()
+                    .block_on()
                     .map(|temp_commit| (commit.id(), temp_commit))
             })
             .try_collect()?;
@@ -320,10 +322,11 @@ pub(crate) fn cmd_describe(
                     .set_author(temp_builder.author().clone())
                     // Copy back committer for consistency with author timestamp
                     .set_committer(temp_builder.committer().clone())
-                    .write()?;
+                    .write()
+                    .await?;
                 num_described += 1;
             } else {
-                commit_builder.write()?;
+                commit_builder.write().await?;
                 num_reparented += 1;
             }
             Ok(())

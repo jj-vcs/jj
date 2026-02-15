@@ -248,11 +248,11 @@ pub(crate) fn cmd_metaedit(
                 }
 
                 if rewrite {
-                    let new_commit = commit_builder.write()?;
+                    let new_commit = commit_builder.write().await?;
                     modified.push(new_commit);
                 }
             } else if rewriter.parents_changed() {
-                rewriter.reparent().write()?;
+                rewriter.reparent().write().await?;
                 num_reparented += 1;
             }
             Ok(())

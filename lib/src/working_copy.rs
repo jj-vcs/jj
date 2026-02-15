@@ -441,7 +441,8 @@ pub fn create_and_check_out_recovery_commit(
     let new_commit = repo_mut
         .new_commit(vec![commit_id.clone()], commit.tree())
         .set_description(description)
-        .write()?;
+        .write()
+        .block_on()?;
     repo_mut.set_wc_commit(workspace_name, new_commit.id().clone())?;
 
     let repo = tx.commit("recovery commit")?;

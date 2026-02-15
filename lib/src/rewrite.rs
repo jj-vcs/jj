@@ -193,7 +193,7 @@ pub async fn rebase_commit(
 ) -> BackendResult<Commit> {
     let rewriter = CommitRewriter::new(mut_repo, old_commit, new_parents);
     let builder = rewriter.rebase().await?;
-    builder.write()
+    builder.write().await
 }
 
 /// Helps rewrite a commit.
@@ -417,7 +417,7 @@ pub fn rebase_commit_with_options(
         .rebase_with_empty_behavior(options.empty)
         .block_on()?
     {
-        let new_commit = builder.write()?;
+        let new_commit = builder.write().block_on()?;
         Ok(RebasedCommit::Rewritten(new_commit))
     } else {
         assert_eq!(new_parents_len, 1);
@@ -1053,7 +1053,10 @@ pub async fn duplicate_commits(
         if let Some(desc) = target_descriptions.get(original_commit_id) {
             new_commit_builder = new_commit_builder.set_description(desc);
         }
-        duplicated_old_to_new.insert(original_commit_id.clone(), new_commit_builder.write()?);
+        duplicated_old_to_new.insert(
+            original_commit_id.clone(),
+            new_commit_builder.write().await?,
+        );
     }
 
     // Replace the original commit IDs in `target_head_ids` with the duplicated
@@ -1089,7 +1092,7 @@ pub async fn duplicate_commits(
             rewriter.set_new_parents(child_new_parent_ids.into_iter().collect());
         }
         num_rebased += 1;
-        rewriter.rebase().await?.write()?;
+        rewriter.rebase().await?.write().await?;
         Ok(())
     })?;
 
@@ -1141,7 +1144,10 @@ pub fn duplicate_commits_onto_parents(
         if let Some(desc) = target_descriptions.get(original_commit_id) {
             new_commit_builder = new_commit_builder.set_description(desc);
         }
-        duplicated_old_to_new.insert(original_commit_id.clone(), new_commit_builder.write()?);
+        duplicated_old_to_new.insert(
+            original_commit_id.clone(),
+            new_commit_builder.write().block_on()?,
+        );
     }
 
     Ok(DuplicateCommitsStats {
@@ -1319,7 +1325,8 @@ pub fn squash_commits<'repo>(
             .block_on()?;
             repo.rewrite_commit(&source.commit.commit)
                 .set_tree(new_source_tree)
-                .write()?;
+                .write()
+                .block_on()?;
         }
     }
 

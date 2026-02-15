@@ -1946,6 +1946,7 @@ to the current parents may contain changes from multiple commits.
                 .rewrite_commit(&wc_commit)
                 .set_tree(new_tree.clone())
                 .write()
+                .block_on()
                 .map_err(snapshot_command_error)?;
             mut_repo
                 .set_wc_commit(workspace_name, commit.id().clone())

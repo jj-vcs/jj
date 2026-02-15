@@ -179,7 +179,8 @@ pub(crate) fn cmd_revert(
             .repo_mut()
             .new_commit(parent_ids, new_tree.clone())
             .set_description(new_commit_description)
-            .write()?;
+            .write()
+            .block_on()?;
         parent_ids = vec![new_commit.id().clone()];
         parent_labels = new_commit.conflict_label();
         reverted_commits.push(new_commit);
@@ -211,7 +212,7 @@ pub(crate) fn cmd_revert(
                 rewriter.set_new_parents(child_new_parent_ids.into_iter().collect());
             }
             num_rebased += 1;
-            rewriter.rebase().await?.write()?;
+            rewriter.rebase().await?.write().await?;
             Ok(())
         })?;
 
