@@ -61,7 +61,7 @@ use crate::complete;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
-/// Interactively rearrange the commit graph.
+/// Interactively arrange the commit graph.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct ArrangeArgs {
     /// The revisions to edit.

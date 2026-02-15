@@ -14,6 +14,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj`↴](#jj)
 * [`jj abandon`↴](#jj-abandon)
 * [`jj absorb`↴](#jj-absorb)
+* [`jj arrange`↴](#jj-arrange)
 * [`jj bisect`↴](#jj-bisect)
 * [`jj bisect run`↴](#jj-bisect-run)
 * [`jj bookmark`↴](#jj-bookmark)
@@ -143,6 +144,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 
 * `abandon` — Abandon a revision
 * `absorb` — Move changes from a revision into the stack of mutable revisions
+* `arrange` — Interactively arrange the commit graph
 * `bisect` — Find a bad revision by bisection
 * `bookmark` — Manage bookmarks [default alias: b]
 * `commit` — Update the description and create a new change on top [default alias: ci]
@@ -279,6 +281,20 @@ The modification made by `jj absorb` can be reviewed by `jj op show -p`.
    Only ancestors of the source revision will be considered.
 
   Default value: `mutable()`
+
+
+
+## `jj arrange`
+
+Interactively arrange the commit graph
+
+**Usage:** `jj arrange [OPTIONS]`
+
+###### **Options:**
+
+* `-r`, `--revisions <REVSETS>` — The revisions to edit.
+
+   If no revisions are specified, this defaults to the `revsets.arrange` setting, or `reachable(@, mutable())` if it is not set.
 
 
 
