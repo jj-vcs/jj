@@ -100,6 +100,7 @@ pub fn resolve_op_for_load(
             }
             .into())
         })
+        .block_on()
     };
     let get_head_ops = || get_current_head_ops(op_store, op_heads_store);
     resolve_single_op(op_store, get_current_op, get_head_ops, op_str)

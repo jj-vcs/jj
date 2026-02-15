@@ -758,7 +758,8 @@ impl RepoLoader {
             self.op_heads_store.as_ref(),
             &self.op_store,
             |op_heads| self.resolve_op_heads(op_heads),
-        )?;
+        )
+        .block_on()?;
         let view = op.view()?;
         self.finish_load(op, view)
     }

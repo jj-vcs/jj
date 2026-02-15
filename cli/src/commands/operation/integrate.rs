@@ -82,7 +82,8 @@ pub fn cmd_op_integrate(
                 .operation()
                 .clone())
         },
-    )?;
+    )
+    .block_on()?;
 
     Ok(())
 }

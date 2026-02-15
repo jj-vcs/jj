@@ -716,6 +716,7 @@ impl CommandHelper {
                         .clone())
                 },
             )
+            .block_on()
         }
     }
 
