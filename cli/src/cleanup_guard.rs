@@ -59,7 +59,9 @@ mod platform {
     use libc::SIGTERM;
     use libc::c_int;
 
-    use super::*;
+    use super::GuardTable;
+    use super::LIVE_GUARDS;
+    use super::io;
 
     /// Safety: Must be called at most once
     pub unsafe fn init() -> io::Result<()> {
