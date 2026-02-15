@@ -61,6 +61,7 @@ use jj_lib::config::ConfigLayer;
 use jj_lib::config::ConfigMigrationRule;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
+use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fileset;
@@ -3553,16 +3554,6 @@ pub fn merge_args_with<'k, 'v, T, U>(
     pos_values.into_iter().map(|(_, value)| value).collect()
 }
 
-fn get_string_or_array(
-    config: &StackedConfig,
-    key: &'static str,
-) -> Result<Vec<String>, ConfigGetError> {
-    config
-        .get(key)
-        .map(|string| vec![string])
-        .or_else(|_| config.get::<Vec<String>>(key))
-}
-
 fn resolve_default_command(
     ui: &Ui,
     config: &StackedConfig,
@@ -3587,8 +3578,26 @@ fn resolve_default_command(
     if let Some(matches) = matches
         && matches.subcommand_name().is_none()
     {
-        let args = get_string_or_array(config, "ui.default-command").optional()?;
-        if args.is_none() {
+        // Try loading as either a string or an array.
+        // Only use `.optional()?` on the latter call to `config.get` - if it
+        // was used on both, the type error from the first check would return
+        // early.
+        let default_command = if let Ok(string) = config.get::<String>("ui.default-command") {
+            // Warn when the user has misconfigured their default command as
+            // "log -n 5" instead of ["log", "-n", "5"]
+            if string.contains(' ') {
+                let elements: ConfigValue = string.split_whitespace().collect();
+                writeln!(
+                    ui.warning_default(),
+                    "To include flags/arguments in `ui.default-command`, use an array instead of \
+                     a string: `ui.default-command = {elements}`"
+                )?;
+            }
+
+            vec![string]
+        } else if let Some(array) = config.get::<Vec<String>>("ui.default-command").optional()? {
+            array
+        } else {
             writeln!(
                 ui.hint_default(),
                 "Use `jj -h` for a list of available commands."
@@ -3597,8 +3606,9 @@ fn resolve_default_command(
                 ui.hint_no_heading(),
                 "Run `jj config set --user ui.default-command log` to disable this message."
             )?;
-        }
-        let default_command = args.unwrap_or_else(|| vec!["log".to_string()]);
+
+            vec!["log".to_string()]
+        };
 
         // Insert the default command directly after the path to the binary.
         string_args.splice(1..1, default_command);

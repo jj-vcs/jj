@@ -138,6 +138,63 @@ fn test_no_subcommand() {
     Parent commit (@-)      : lylxulpl 19f3adb2 foo
     [EOF]
     ");
+
+    // We get a warning if the default command isn't recognized and looks like
+    // it should have been specified as an array.
+    test_env.add_config(r#"ui.default-command="log -n 10""#);
+    let output = work_dir.run_jj([""; 0]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Warning: To include flags/arguments in `ui.default-command`, use an array instead of a string: `ui.default-command = ["log", "-n", "10"]`
+    error: unrecognized subcommand 'log -n 10'
+
+      tip: a similar subcommand exists: 'log'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    "#);
+
+    // Hint isn't printed for explicit subcommands.
+    let output = work_dir.run_jj(["foobar"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: unrecognized subcommand 'foobar'
+
+      tip: a similar subcommand exists: 'bookmark'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    // Hint isn't printed for explicit subcommands with spaces.
+    let output = work_dir.run_jj(["log -n 10"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    error: unrecognized subcommand 'log -n 10'
+
+      tip: a similar subcommand exists: 'log'
+
+    Usage: jj [OPTIONS] <COMMAND>
+
+    For more information, try '--help'.
+    [EOF]
+    [exit status: 2]
+    ");
+
+    // While the default command is invalid, explicit subcommands still work.
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output, @r"
+    The working copy has no changes.
+    Working copy  (@) : kxryzmor 8db1ba9a (empty) (no description set)
+    Parent commit (@-): lylxulpl 19f3adb2 foo
+    [EOF]
+    ");
 }
 
 #[test]
