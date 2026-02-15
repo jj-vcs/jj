@@ -225,7 +225,7 @@ pub fn get_external_tool_config(
         return Ok(None);
     };
     if tool.program.is_empty() {
-        tool.program = name.to_owned();
+        name.clone_into(&mut tool.program);
     }
     Ok(Some(tool))
 }
