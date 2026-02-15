@@ -40,6 +40,7 @@ use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use maplit::hashmap;
 use maplit::hashset;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::assert_tree_eq;
@@ -92,7 +93,7 @@ fn make_commit(
     content: &[(&RepoPath, &str)],
 ) -> Commit {
     let tree = create_tree(tx.base_repo(), content);
-    tx.repo_mut().new_commit(parents, tree).write().unwrap()
+    tx.repo_mut().new_commit(parents, tree).write_unwrap()
 }
 
 fn list_dir(dir: &Path) -> Vec<String> {
@@ -139,8 +140,7 @@ fn test_gc() {
     let commit_h = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_f.id().clone()])
         .set_predecessors(vec![commit_d.id().clone()])
-        .write()
-        .unwrap();
+        .write_unwrap();
     let repo = tx.commit("test").unwrap();
     assert_eq!(
         *repo.view().heads(),

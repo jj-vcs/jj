@@ -11,6 +11,7 @@ use jj_lib::signing::Signer;
 use jj_lib::signing::Verification;
 use jj_lib::test_signing_backend::TestSigningBackend;
 use test_case::test_case;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
 use testutils::create_random_commit;
@@ -72,13 +73,11 @@ fn manual(backend: TestRepoBackend) {
     let mut tx = repo.start_transaction();
     let commit1 = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit2 = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
         .set_author(someone_else())
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.commit("test").unwrap();
 
     let commit1 = repo.store().get_commit(commit1.id()).unwrap();
@@ -101,13 +100,12 @@ fn keep_on_rewrite(backend: TestRepoBackend) {
     let mut tx = repo.start_transaction();
     let commit = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let rewritten = mut_repo.rewrite_commit(&commit).write().unwrap();
+    let rewritten = mut_repo.rewrite_commit(&commit).write_unwrap();
 
     let commit = repo.store().get_commit(rewritten.id()).unwrap();
     assert_eq!(commit.verification().unwrap(), good_verification());
@@ -126,8 +124,7 @@ fn manual_drop_on_rewrite(backend: TestRepoBackend) {
     let mut tx = repo.start_transaction();
     let commit = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
@@ -135,8 +132,7 @@ fn manual_drop_on_rewrite(backend: TestRepoBackend) {
     let rewritten = mut_repo
         .rewrite_commit(&commit)
         .set_sign_behavior(SignBehavior::Drop)
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     let commit = repo.store().get_commit(rewritten.id()).unwrap();
     assert_eq!(commit.verification().unwrap(), None);
@@ -155,8 +151,7 @@ fn forced(backend: TestRepoBackend) {
     let mut tx = repo.start_transaction();
     let commit = create_random_commit(tx.repo_mut())
         .set_author(someone_else())
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.commit("test").unwrap();
 
     let commit = repo.store().get_commit(commit.id()).unwrap();
@@ -194,8 +189,7 @@ fn drop_behavior(backend: TestRepoBackend) {
     let mut tx = repo.start_transaction();
     let commit = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.commit("test").unwrap();
 
     let original_commit = repo.store().get_commit(commit.id()).unwrap();
@@ -203,7 +197,7 @@ fn drop_behavior(backend: TestRepoBackend) {
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    let rewritten = mut_repo.rewrite_commit(&original_commit).write().unwrap();
+    let rewritten = mut_repo.rewrite_commit(&original_commit).write_unwrap();
 
     let rewritten_commit = repo.store().get_commit(rewritten.id()).unwrap();
     assert_eq!(rewritten_commit.verification().unwrap(), None);

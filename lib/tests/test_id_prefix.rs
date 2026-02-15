@@ -33,6 +33,7 @@ use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 
@@ -67,8 +68,7 @@ fn test_id_prefix() {
             .new_commit(vec![parent_id.clone()], repo.store().empty_merged_tree())
             .set_author(signature.clone())
             .set_committer(signature)
-            .write()
-            .unwrap()
+            .write_unwrap()
     };
     let mut commits = vec![create_commit(root_commit_id)];
     for _ in 0..25 {
@@ -273,8 +273,7 @@ fn test_id_prefix_divergent() {
                 .set_author(signature.clone())
                 .set_committer(signature)
                 .set_change_id(change_id)
-                .write()
-                .unwrap()
+                .write_unwrap()
         };
 
     let first_change_id = ChangeId::from_hex("a5333333333333333333333333333333");
@@ -417,8 +416,7 @@ fn test_id_prefix_hidden() {
             )
             .set_author(signature.clone())
             .set_committer(signature)
-            .write()
-            .unwrap();
+            .write_unwrap();
         commits.push(commit);
     }
 
@@ -554,8 +552,7 @@ fn test_id_prefix_shadowed_by_ref() {
             vec![root_commit_id.clone()],
             repo.store().empty_merged_tree(),
         )
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     let commit_id_sym = commit.id().to_string();
     let change_id_sym = commit.change_id().to_string();

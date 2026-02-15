@@ -69,6 +69,7 @@ use jj_lib::workspace::Workspace;
 use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
@@ -1297,8 +1298,7 @@ fn test_snapshot_modified_materialized_conflict(
             vec![test_workspace.repo.store().root_commit_id().clone()],
             tree,
         )
-        .write()
-        .unwrap();
+        .write_unwrap();
     let tree = create_tree(
         &test_workspace.repo,
         &parent1_contents
@@ -1309,8 +1309,7 @@ fn test_snapshot_modified_materialized_conflict(
     let parent1_commit = tx
         .repo_mut()
         .new_commit(vec![base_commit.id().clone()], tree)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let tree = create_tree(
         &test_workspace.repo,
         &parent2_contents
@@ -1321,8 +1320,7 @@ fn test_snapshot_modified_materialized_conflict(
     let parent2_commit = tx
         .repo_mut()
         .new_commit(vec![base_commit.id().clone()], tree)
-        .write()
-        .unwrap();
+        .write_unwrap();
     // Update the repo to pick up the new commits.
     test_workspace.repo = tx.commit("create parent commits").unwrap();
 

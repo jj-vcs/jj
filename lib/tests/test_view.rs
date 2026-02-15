@@ -27,6 +27,7 @@ use jj_lib::repo::Repo as _;
 use maplit::btreemap;
 use maplit::hashset;
 use test_case::test_case;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::commit_transactions;
 use testutils::create_random_commit;
@@ -556,8 +557,7 @@ fn test_merge_views_divergent() {
         .repo_mut()
         .rewrite_commit(&commit_a)
         .set_description("A2")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx1.repo_mut().rebase_descendants().unwrap();
 
     let mut tx2 = repo.start_transaction();
@@ -565,8 +565,7 @@ fn test_merge_views_divergent() {
         .repo_mut()
         .rewrite_commit(&commit_a)
         .set_description("A3")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx2.repo_mut().rebase_descendants().unwrap();
 
     let repo = commit_transactions(vec![tx1, tx2]);
@@ -597,8 +596,7 @@ fn test_merge_views_child_on_rewritten(child_first: bool) {
         .repo_mut()
         .rewrite_commit(&commit_a)
         .set_description("A2")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx2.repo_mut().rebase_descendants().unwrap();
 
     let repo = if child_first {
@@ -631,8 +629,7 @@ fn test_merge_views_child_on_rewritten_divergent(on_rewritten: bool, child_first
     let commit_a2 = write_random_commit(tx.repo_mut());
     let commit_a3 = create_random_commit(tx.repo_mut())
         .set_change_id(commit_a2.change_id().clone())
-        .write()
-        .unwrap();
+        .write_unwrap();
     let repo = tx.commit("test").unwrap();
 
     let mut tx1 = repo.start_transaction();
@@ -644,8 +641,7 @@ fn test_merge_views_child_on_rewritten_divergent(on_rewritten: bool, child_first
         .repo_mut()
         .rewrite_commit(&commit_a2)
         .set_description("A4")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx2.repo_mut().rebase_descendants().unwrap();
 
     let repo = if child_first {

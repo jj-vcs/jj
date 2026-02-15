@@ -26,6 +26,7 @@ use jj_lib::workspace::Workspace;
 use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
 use testutils::assert_tree_eq;
@@ -217,8 +218,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     let parent1_commit = tx
         .repo_mut()
         .new_commit(vec![root_commit.id().clone()], tree)
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.commit("commit parent1").unwrap();
 
     test_workspace
@@ -235,8 +235,7 @@ fn create_conflict_snapshot_and_read(extra_setting: &str) -> Vec<u8> {
     let parent2_commit = tx
         .repo_mut()
         .new_commit(vec![root_commit.id().clone()], tree)
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.commit("commit parent2").unwrap();
 
     // Reload the repo to pick up the new commits.
@@ -415,14 +414,12 @@ fn test_eol_conversion_update_conflicts(
     let parent1_commit = tx
         .repo_mut()
         .new_commit(vec![root_commit.id().clone()], tree)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let tree = testutils::create_tree(&test_workspace.repo, &[(file_repo_path, parent2_contents)]);
     let parent2_commit = tx
         .repo_mut()
         .new_commit(vec![root_commit.id().clone()], tree)
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.commit("commit parent 2").unwrap();
 
     // Reload the repo to pick up the new commits.

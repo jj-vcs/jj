@@ -44,6 +44,7 @@ use maplit::hashmap;
 use maplit::hashset;
 use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::assert_abandoned_with_parent;
 use testutils::assert_rebased_onto;
@@ -87,8 +88,7 @@ fn test_merge_criss_cross() {
         tx.repo_mut()
             .new_commit(parents, tree)
             .set_description(description)
-            .write()
-            .unwrap()
+            .write_unwrap()
     };
     let commit_a = make_commit("A", vec![repo.store().root_commit_id().clone()], tree_a);
     let commit_b = make_commit("B", vec![commit_a.id().clone()], tree_b);
@@ -1227,8 +1227,7 @@ fn test_rebase_descendants_repeated() {
         .repo_mut()
         .rewrite_commit(&commit_b)
         .set_description("b2")
-        .write()
-        .unwrap();
+        .write_unwrap();
     let rebase_map =
         rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
     let commit_c2 = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c, &[commit_b2.id()]);
@@ -1251,8 +1250,7 @@ fn test_rebase_descendants_repeated() {
         .repo_mut()
         .rewrite_commit(&commit_b2)
         .set_description("b3")
-        .write()
-        .unwrap();
+        .write_unwrap();
     let rebase_map =
         rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
     let commit_c3 = assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit_c2, &[commit_b3.id()]);
@@ -1286,29 +1284,25 @@ fn test_rebase_descendants_contents() {
     let commit_a = tx
         .repo_mut()
         .new_commit(vec![repo.store().root_commit_id().clone()], tree1)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let path2 = repo_path("file2");
     let tree2 = create_tree(repo, &[(path2, "content")]);
     let commit_b = tx
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree2)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let path3 = repo_path("file3");
     let tree3 = create_tree(repo, &[(path3, "content")]);
     let commit_c = tx
         .repo_mut()
         .new_commit(vec![commit_b.id().clone()], tree3)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let path4 = repo_path("file4");
     let tree4 = create_tree(repo, &[(path4, "content")]);
     let commit_d = tx
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree4)
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     tx.repo_mut()
         .set_rewritten_commit(commit_b.id().clone(), commit_d.id().clone());
@@ -1357,7 +1351,7 @@ fn test_rebase_descendants_basic_bookmark_update() {
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
+    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write_unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
@@ -1395,14 +1389,12 @@ fn test_rebase_descendants_bookmark_move_two_steps() {
         .repo_mut()
         .rewrite_commit(&commit_b)
         .set_description("different")
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit_c2 = tx
         .repo_mut()
         .rewrite_commit(&commit_c)
         .set_description("more different")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     let heads = tx.repo().view().heads();
     assert_eq!(heads.len(), 1);
@@ -1445,7 +1437,7 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
+    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write_unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
@@ -1558,21 +1550,19 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
+    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write_unwrap();
     // Different description so they're not the same commit
     let commit_b3 = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
         .set_description("different")
-        .write()
-        .unwrap();
+        .write_unwrap();
     // Different description so they're not the same commit
     let commit_b4 = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
         .set_description("more different")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.repo_mut().set_divergent_rewrite(
         commit_b.id().clone(),
         vec![
@@ -1581,13 +1571,12 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
             commit_b4.id().clone(),
         ],
     );
-    let commit_b41 = tx.repo_mut().rewrite_commit(&commit_b4).write().unwrap();
+    let commit_b41 = tx.repo_mut().rewrite_commit(&commit_b4).write_unwrap();
     let commit_b42 = tx
         .repo_mut()
         .rewrite_commit(&commit_b4)
         .set_description("different")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.repo_mut().set_divergent_rewrite(
         commit_b4.id().clone(),
         vec![commit_b41.id().clone(), commit_b42.id().clone()],
@@ -1650,22 +1639,20 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() {
     let repo = tx.commit("test").unwrap();
 
     let mut tx = repo.start_transaction();
-    let commit_a2 = tx.repo_mut().rewrite_commit(&commit_a).write().unwrap();
+    let commit_a2 = tx.repo_mut().rewrite_commit(&commit_a).write_unwrap();
     // Different description so they're not the same commit
     let commit_a3 = tx
         .repo_mut()
         .rewrite_commit(&commit_a)
         .set_description("different")
-        .write()
-        .unwrap();
-    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write().unwrap();
+        .write_unwrap();
+    let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write_unwrap();
     // Different description so they're not the same commit
     let commit_b3 = tx
         .repo_mut()
         .rewrite_commit(&commit_b)
         .set_description("different")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.repo_mut().set_divergent_rewrite(
         commit_a.id().clone(),
         vec![commit_a2.id().clone(), commit_a3.id().clone()],
@@ -1733,8 +1720,7 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() {
         .repo_mut()
         .rewrite_commit(&commit_b)
         .set_parents(vec![commit_c.id().clone()])
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     assert_eq!(
         tx.repo().get_local_bookmark("main".as_ref()),
@@ -1926,8 +1912,7 @@ fn test_rebase_descendants_update_checkout() {
         .repo_mut()
         .rewrite_commit(&commit_b)
         .set_description("C")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     let repo = tx.commit("test").unwrap();
 
@@ -2072,8 +2057,7 @@ fn test_empty_commit_option(empty_behavior: EmptyBehavior) {
                     .collect_vec(),
             )
             .set_tree(tree.clone())
-            .write()
-            .unwrap()
+            .write_unwrap()
     };
     let commit_b = create_commit(&[&commit_a], &tree_b);
     let commit_c = create_commit(&[&commit_b], &tree_c);
@@ -2190,27 +2174,22 @@ fn test_rebase_abandoning_empty() {
     let commit_d = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_c.id().clone()])
         .set_tree(commit_c.tree())
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit_e = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_c.id().clone()])
         .set_tree(commit_c.tree())
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit_b2 = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_a.id().clone()])
         .set_tree(commit_b.tree())
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit_f = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_e.id().clone()])
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit_g = create_random_commit(tx.repo_mut())
         .set_parents(vec![commit_e.id().clone()])
         .set_tree(commit_e.tree())
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     let workspace = WorkspaceNameBuf::from("ws");
     tx.repo_mut()
@@ -2332,8 +2311,7 @@ fn test_find_duplicate_divergent_commits() {
                 change_id_byte;
                 store.change_id_length()
             ]))
-            .write()
-            .unwrap()
+            .write_unwrap()
     };
 
     let commit_a1 = make_commit(0xAA, tree_a1, vec![store.root_commit_id().clone()]);

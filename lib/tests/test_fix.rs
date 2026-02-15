@@ -28,6 +28,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use pollster::FutureExt as _;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::assert_tree_eq;
 use testutils::create_tree;
@@ -94,8 +95,7 @@ fn fix_file(store: &Store, file_to_fix: &FileToFix) -> Result<Option<FileId>, Fi
 fn create_commit(tx: &mut Transaction, parents: Vec<CommitId>, tree: MergedTree) -> CommitId {
     tx.repo_mut()
         .new_commit(parents, tree)
-        .write()
-        .unwrap()
+        .write_unwrap()
         .id()
         .clone()
 }

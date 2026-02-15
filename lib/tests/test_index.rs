@@ -44,6 +44,7 @@ use jj_lib::revset::PARENTS_RANGE_FULL;
 use jj_lib::revset::ResolvedExpression;
 use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::assert_tree_eq;
 use testutils::commit_transactions;
@@ -851,8 +852,7 @@ fn test_changed_path_segments() {
     let commit1 = tx
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree1)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let repo = tx.commit("test").unwrap();
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(count_segment_files(), 1);
@@ -872,8 +872,7 @@ fn test_changed_path_segments() {
     let commit2 = tx
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree2)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let repo = tx.commit("test").unwrap();
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(count_segment_files(), 2);
@@ -905,8 +904,7 @@ fn test_build_changed_path_segments() {
         let tree = create_tree(&repo, &[(repo_path(&i.to_string()), "")]);
         tx.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree)
-            .write()
-            .unwrap();
+            .write_unwrap();
     }
     let repo = tx.commit("test").unwrap();
 
@@ -954,8 +952,7 @@ fn test_build_changed_path_segments_partially_enabled() {
             let tree = create_tree(&repo, &[(repo_path(&i.to_string()), "")]);
             tx.repo_mut()
                 .new_commit(vec![root_commit_id.clone()], tree)
-                .write()
-                .unwrap();
+                .write_unwrap();
         }
         let repo = tx.commit("test").unwrap();
         let repo = enable_changed_path_index(&repo);
@@ -963,8 +960,7 @@ fn test_build_changed_path_segments_partially_enabled() {
         let tree = create_tree(&repo, &[(repo_path("5"), "")]);
         tx.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree)
-            .write()
-            .unwrap();
+            .write_unwrap();
         tx
     };
     let mut tx2 = repo.start_transaction();
@@ -972,8 +968,7 @@ fn test_build_changed_path_segments_partially_enabled() {
         let tree = create_tree(&repo, &[(repo_path(&i.to_string()), "")]);
         tx2.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree)
-            .write()
-            .unwrap();
+            .write_unwrap();
     }
     let repo = commit_transactions(vec![tx1, tx2]);
     let stats = as_readonly_index(&repo).stats();
@@ -1025,21 +1020,18 @@ fn test_merge_changed_path_segments_both_enabled() {
     let mut tx = repo.start_transaction();
     tx.repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree1)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let repo = tx.commit("test").unwrap();
 
     // Merge concurrent index segments without the common base segment
     let mut tx1 = repo.start_transaction();
     tx1.repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree2)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let mut tx2 = repo.start_transaction();
     tx2.repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree3)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let repo = commit_transactions(vec![tx1, tx2]);
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(stats.num_commits, 4);
@@ -1065,22 +1057,19 @@ fn test_merge_changed_path_segments_enabled_and_disabled() {
         let mut tx = repo.start_transaction();
         tx.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree1)
-            .write()
-            .unwrap();
+            .write_unwrap();
         let repo = tx.commit("test").unwrap();
         let repo = enable_changed_path_index(&repo);
         let mut tx = repo.start_transaction();
         tx.repo_mut()
             .new_commit(vec![root_commit_id.clone()], tree2)
-            .write()
-            .unwrap();
+            .write_unwrap();
         tx
     };
     let mut tx2 = repo.start_transaction();
     tx2.repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree3)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let repo = commit_transactions(vec![tx1, tx2]);
     let stats = as_readonly_index(&repo).stats();
     assert_eq!(stats.num_commits, 4);
@@ -1119,18 +1108,15 @@ fn test_commit_is_empty(indexed: bool) {
     let commit1 = tx
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], root_tree.clone())
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit2 = tx
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree2)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit3 = tx
         .repo_mut()
         .new_commit(vec![root_commit_id.clone()], tree3)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit4 = tx
         .repo_mut()
         .new_commit(
@@ -1141,8 +1127,7 @@ fn test_commit_is_empty(indexed: bool) {
             ],
             tree4.clone(),
         )
-        .write()
-        .unwrap();
+        .write_unwrap();
     let repo = tx.commit("test").unwrap();
 
     // Sanity check
@@ -1179,8 +1164,7 @@ fn test_change_id_index() {
             .new_commit(vec![root_commit.id().clone()], root_commit.tree())
             .set_change_id(ChangeId::from_hex(change_id))
             .set_description(format!("commit {commit_number}"))
-            .write()
-            .unwrap()
+            .write_unwrap()
     };
     let commit_1 = commit_with_change_id("abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
     let commit_2 = commit_with_change_id("aaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");

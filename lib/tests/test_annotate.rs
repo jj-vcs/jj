@@ -30,6 +30,7 @@ use jj_lib::repo::Repo;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::RevsetExpression;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::create_tree;
 use testutils::read_file;
@@ -54,8 +55,7 @@ fn create_commit_fn(
             .set_author(signature.clone())
             .set_committer(signature.clone())
             .set_description(description)
-            .write()
-            .unwrap()
+            .write_unwrap()
     }
 }
 

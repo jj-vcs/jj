@@ -35,6 +35,7 @@ use jj_lib::repo::Repo;
 use jj_lib::settings::UserSettings;
 use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
@@ -198,14 +199,12 @@ fn test_isolation() {
     let rewrite1 = mut_repo1
         .rewrite_commit(&initial)
         .set_description("rewrite1")
-        .write()
-        .unwrap();
+        .write_unwrap();
     mut_repo1.rebase_descendants().unwrap();
     let rewrite2 = mut_repo2
         .rewrite_commit(&initial)
         .set_description("rewrite2")
-        .write()
-        .unwrap();
+        .write_unwrap();
     mut_repo2.rebase_descendants().unwrap();
 
     // Neither transaction has committed yet, so each transaction sees its own
@@ -239,8 +238,7 @@ fn test_stored_commit_predecessors() {
         .repo_mut()
         .rewrite_commit(&commit1)
         .set_description("rewritten")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     let repo = tx.commit("test").unwrap();
 
@@ -500,8 +498,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         .repo_mut()
         .rewrite_commit(&commit_a0)
         .set_description("a1")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     let [commit_b1] = head_commits(tx.repo()).try_into().unwrap();
     tx.repo_mut().add_head(&commit_b0).unwrap(); // resurrect rewritten commits
@@ -519,8 +516,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         .repo_mut()
         .rewrite_commit(&commit_a1)
         .set_description("a2")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     let repo_4 = tx.commit("op4").unwrap();
 

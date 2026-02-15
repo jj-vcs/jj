@@ -67,6 +67,7 @@ use jj_lib::test_signing_backend::TestSigningBackend;
 use jj_lib::workspace::Workspace;
 use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
@@ -177,8 +178,7 @@ fn test_resolve_symbol_commit_id() {
             .set_description(format!("test {i}"))
             .set_author(signature.clone())
             .set_committer(signature.clone())
-            .write()
-            .unwrap();
+            .write_unwrap();
         commits.push(commit);
     }
     let repo = tx.commit("test").unwrap();
@@ -320,8 +320,7 @@ fn test_resolve_symbol_change_id(readonly: bool) {
             .set_description(format!("test {i}"))
             .set_author(author.clone())
             .set_committer(committer.clone())
-            .write()
-            .unwrap();
+            .write_unwrap();
         commits.push(commit);
     }
 
@@ -425,8 +424,7 @@ fn test_resolve_symbol_divergent_change_id() {
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = create_random_commit(tx.repo_mut())
         .set_change_id(commit1.change_id().clone())
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     let change_id = commit1.change_id();
     assert_matches!(
@@ -465,8 +463,7 @@ fn test_resolve_symbol_hidden_change_id() {
         .repo_mut()
         .rewrite_commit(&commit1)
         .set_description("updated commit")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     let repo = tx.commit("rewrite commit").unwrap();
 
@@ -535,7 +532,7 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
     let repo1 = tx.commit("test").unwrap();
 
     let mut tx = repo1.start_transaction();
-    let commit2 = tx.repo_mut().rewrite_commit(&commit1).write().unwrap();
+    let commit2 = tx.repo_mut().rewrite_commit(&commit1).write_unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     let repo2 = tx.commit("test").unwrap();
 
@@ -3175,7 +3172,7 @@ fn test_evaluate_expression_latest() {
         let builder = create_random_commit(mut_repo);
         let mut committer = builder.committer().clone();
         committer.timestamp.timestamp = MillisSinceEpoch(sec * 1000);
-        builder.set_committer(committer).write().unwrap()
+        builder.set_committer(committer).write_unwrap()
     };
     let commit1_t3 = write_commit_with_committer_timestamp(3);
     let commit2_t2 = write_commit_with_committer_timestamp(2);
@@ -3590,18 +3587,15 @@ fn test_evaluate_expression_description() {
 
     let commit1 = create_random_commit(mut_repo)
         .set_description("commit 1\n")
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit2 = create_random_commit(mut_repo)
         .set_parents(vec![commit1.id().clone()])
         .set_description("commit 2\n\nblah blah...\n")
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit3 = create_random_commit(mut_repo)
         .set_parents(vec![commit2.id().clone()])
         .set_description("commit 3\n")
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     // Can find multiple matches
     assert_eq!(
@@ -3689,8 +3683,7 @@ fn test_evaluate_expression_author() {
             email: "email1".to_string(),
             timestamp,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit2 = create_random_commit(mut_repo)
         .set_parents(vec![commit1.id().clone()])
         .set_author(Signature {
@@ -3698,8 +3691,7 @@ fn test_evaluate_expression_author() {
             email: "email2".to_string(),
             timestamp,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit3 = create_random_commit(mut_repo)
         .set_parents(vec![commit2.id().clone()])
         .set_author(Signature {
@@ -3707,8 +3699,7 @@ fn test_evaluate_expression_author() {
             email: "email3".to_string(),
             timestamp,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     // Can find multiple matches
     assert_eq!(
@@ -3799,8 +3790,7 @@ fn test_evaluate_expression_author_date() {
             email: "email1".to_string(),
             timestamp: timestamp2,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit2 = create_random_commit(mut_repo)
         .set_parents(vec![commit1.id().clone()])
         .set_author(Signature {
@@ -3813,8 +3803,7 @@ fn test_evaluate_expression_author_date() {
             email: "email1".to_string(),
             timestamp: timestamp2,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit3 = create_random_commit(mut_repo)
         .set_parents(vec![commit2.id().clone()])
         .set_author(Signature {
@@ -3827,8 +3816,7 @@ fn test_evaluate_expression_author_date() {
             email: "email1".to_string(),
             timestamp: timestamp2,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     // Can find multiple matches
     assert_eq!(
@@ -3865,8 +3853,7 @@ fn test_evaluate_expression_committer_date() {
             email: "email1".to_string(),
             timestamp: timestamp1,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit2 = create_random_commit(mut_repo)
         .set_parents(vec![commit1.id().clone()])
         .set_author(Signature {
@@ -3879,8 +3866,7 @@ fn test_evaluate_expression_committer_date() {
             email: "email1".to_string(),
             timestamp: timestamp2,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit3 = create_random_commit(mut_repo)
         .set_parents(vec![commit2.id().clone()])
         .set_author(Signature {
@@ -3893,8 +3879,7 @@ fn test_evaluate_expression_committer_date() {
             email: "email1".to_string(),
             timestamp: timestamp3,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     // Can find multiple matches
     assert_eq!(
@@ -3927,8 +3912,7 @@ fn test_evaluate_expression_mine() {
             email: "email1".to_string(),
             timestamp,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit2 = create_random_commit(mut_repo)
         .set_parents(vec![commit1.id().clone()])
         .set_author(Signature {
@@ -3936,8 +3920,7 @@ fn test_evaluate_expression_mine() {
             email: settings.user_email().to_owned(),
             timestamp,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
     // Can find a unique match
     assert_eq!(
         resolve_commit_ids(mut_repo, "mine()"),
@@ -3951,8 +3934,7 @@ fn test_evaluate_expression_mine() {
             email: settings.user_email().to_ascii_uppercase(),
             timestamp,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
     // Can find multiple matches
     assert_eq!(
         resolve_commit_ids(mut_repo, "mine()"),
@@ -3997,8 +3979,7 @@ fn test_evaluate_expression_signed() {
             timestamp,
         })
         .set_sign_behavior(SignBehavior::Own)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit2 = create_random_commit(mut_repo)
         .set_parents(vec![commit1.id().clone()])
         .set_committer(Signature {
@@ -4007,8 +3988,7 @@ fn test_evaluate_expression_signed() {
             timestamp,
         })
         .set_sign_behavior(SignBehavior::Drop)
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     assert!(commit1.is_signed());
     assert!(!commit2.is_signed());
@@ -4040,8 +4020,7 @@ fn test_evaluate_expression_committer() {
             email: "email1".to_string(),
             timestamp,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit2 = create_random_commit(mut_repo)
         .set_parents(vec![commit1.id().clone()])
         .set_committer(Signature {
@@ -4049,8 +4028,7 @@ fn test_evaluate_expression_committer() {
             email: "email2".to_string(),
             timestamp,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit3 = create_random_commit(mut_repo)
         .set_parents(vec![commit2.id().clone()])
         .set_committer(Signature {
@@ -4058,8 +4036,7 @@ fn test_evaluate_expression_committer() {
             email: "email3".to_string(),
             timestamp,
         })
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     // Can find multiple matches
     assert_eq!(
@@ -4123,12 +4100,10 @@ fn test_evaluate_expression_at_operation() {
     let mut tx = repo0.start_transaction();
     let commit1_op1 = create_random_commit(tx.repo_mut())
         .set_description("commit1@op1")
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit2_op1 = create_random_commit(tx.repo_mut())
         .set_description("commit2@op1")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.repo_mut().set_local_bookmark_target(
         "commit1_ref".as_ref(),
         RefTarget::normal(commit1_op1.id().clone()),
@@ -4140,20 +4115,17 @@ fn test_evaluate_expression_at_operation() {
         .repo_mut()
         .rewrite_commit(&commit1_op1)
         .set_description("commit1@op2")
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit3_op2 = create_random_commit(tx.repo_mut())
         .set_description("commit3@op2")
-        .write()
-        .unwrap();
+        .write_unwrap();
     tx.repo_mut().rebase_descendants().unwrap();
     let repo2 = tx.commit("test").unwrap();
 
     let mut tx = repo2.start_transaction();
     let _commit4_op3 = create_random_commit(tx.repo_mut())
         .set_description("commit4@op3")
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     // Symbol resolution:
     assert_eq!(
@@ -4538,18 +4510,15 @@ fn test_evaluate_expression_filter_combinator() {
     let root_commit_id = repo.store().root_commit_id();
     let commit1 = create_random_commit(mut_repo)
         .set_description("commit 1")
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit2 = create_random_commit(mut_repo)
         .set_parents(vec![commit1.id().clone()])
         .set_description("commit 2")
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit3 = create_random_commit(mut_repo)
         .set_parents(vec![commit2.id().clone()])
         .set_description("commit 3")
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     // Not intersected with a set node
     assert_eq!(
@@ -4639,20 +4608,16 @@ fn test_evaluate_expression_file(indexed: bool) {
     );
     let commit1 = mut_repo
         .new_commit(vec![repo.store().root_commit_id().clone()], tree1)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit2 = mut_repo
         .new_commit(vec![commit1.id().clone()], tree2)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit3 = mut_repo
         .new_commit(vec![commit2.id().clone()], tree3.clone())
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit4 = mut_repo
         .new_commit(vec![commit3.id().clone()], tree3)
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     let resolve = |file_path: &RepoPath| -> Vec<CommitId> {
         let mut_repo = &*mut_repo;
@@ -4768,20 +4733,16 @@ fn test_evaluate_expression_diff_lines(indexed: bool) {
     );
     let commit1 = mut_repo
         .new_commit(vec![repo.store().root_commit_id().clone()], tree1)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit2 = mut_repo
         .new_commit(vec![commit1.id().clone()], tree2)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit3 = mut_repo
         .new_commit(vec![commit2.id().clone()], tree3)
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit4 = mut_repo
         .new_commit(vec![commit3.id().clone()], tree4)
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     let query = |revset_str: &str| {
         resolve_commit_ids_in_workspace(
@@ -4868,8 +4829,7 @@ fn test_evaluate_expression_diff_lines_non_utf8() {
     });
     let commit1 = mut_repo
         .new_commit(vec![repo.store().root_commit_id().clone()], tree1)
-        .write()
-        .unwrap();
+        .write_unwrap();
 
     let query = |revset_str: &str| resolve_commit_ids(mut_repo, revset_str);
 
@@ -4894,8 +4854,7 @@ fn test_evaluate_expression_diff_lines_conflict(indexed: bool) {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
-    let mut create_commit =
-        |parent_ids, tree| mut_repo.new_commit(parent_ids, tree).write().unwrap();
+    let mut create_commit = |parent_ids, tree| mut_repo.new_commit(parent_ids, tree).write_unwrap();
 
     let file_path = repo_path("file");
     let tree1 = create_tree(&repo, &[(file_path, "0\n1\n")]);
@@ -4946,8 +4905,7 @@ fn test_evaluate_expression_file_merged_parents(indexed: bool) {
     let tree3 = create_tree(&repo, &[(file_path1, "1\n3\n"), (file_path2, "1\n3\n")]);
     let tree4 = create_tree(&repo, &[(file_path1, "1\n4\n"), (file_path2, "2\n1\n3\n")]);
 
-    let mut create_commit =
-        |parent_ids, tree| mut_repo.new_commit(parent_ids, tree).write().unwrap();
+    let mut create_commit = |parent_ids, tree| mut_repo.new_commit(parent_ids, tree).write_unwrap();
     let commit1 = create_commit(vec![repo.store().root_commit_id().clone()], tree1);
     let commit2 = create_commit(vec![commit1.id().clone()], tree2);
     let commit3 = create_commit(vec![commit1.id().clone()], tree3);
@@ -5007,8 +4965,7 @@ fn test_evaluate_expression_conflict() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
-    let mut create_commit =
-        |parent_ids, tree| mut_repo.new_commit(parent_ids, tree).write().unwrap();
+    let mut create_commit = |parent_ids, tree| mut_repo.new_commit(parent_ids, tree).write_unwrap();
 
     // Create a few trees, including one with a conflict in `file1`
     let file_path1 = repo_path("file1");
@@ -5046,8 +5003,7 @@ fn test_evaluate_expression_divergent() {
     let commit1 = write_random_commit(mut_repo);
     let commit2 = create_random_commit(mut_repo)
         .set_change_id(commit1.change_id().clone())
-        .write()
-        .unwrap();
+        .write_unwrap();
     let _commit3 = write_random_commit(mut_repo);
     let _commit4 = write_random_commit(mut_repo);
 

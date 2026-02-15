@@ -20,6 +20,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::duplicate_commits;
 use jj_lib::transaction::Transaction;
 use pollster::FutureExt as _;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::assert_tree_eq;
 use testutils::create_tree;
@@ -49,28 +50,23 @@ fn test_duplicate_linear_contents() {
             vec![repo.store().root_commit_id().clone()],
             empty_tree.clone(),
         )
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit_b = tx
         .repo_mut()
         .new_commit(vec![commit_a.id().clone()], tree_1.clone())
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit_c = tx
         .repo_mut()
         .new_commit(vec![commit_b.id().clone()], tree_1_2.clone())
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit_d = tx
         .repo_mut()
         .new_commit(vec![commit_c.id().clone()], tree_2.clone())
-        .write()
-        .unwrap();
+        .write_unwrap();
     let commit_e = tx
         .repo_mut()
         .new_commit(vec![commit_d.id().clone()], tree_2.clone())
-        .write()
-        .unwrap();
+        .write_unwrap();
     let repo = tx.commit("test").unwrap();
 
     let duplicate_in_between = |tx: &mut Transaction,

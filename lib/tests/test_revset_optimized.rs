@@ -35,6 +35,7 @@ use jj_lib::rewrite::RebaseOptions;
 use jj_lib::rewrite::RebasedCommit;
 use jj_lib::settings::UserSettings;
 use proptest::prelude::*;
+use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 
 fn stable_settings() -> UserSettings {
@@ -56,8 +57,7 @@ fn write_new_commit<'a>(
     let tree = repo.store().empty_merged_tree();
     repo.new_commit(parents, tree)
         .set_description(desc)
-        .write()
-        .unwrap()
+        .write_unwrap()
 }
 
 fn rebase_descendants(repo: &mut MutableRepo) -> Vec<Commit> {
@@ -380,8 +380,7 @@ fn test_rewritten() {
         .repo_mut()
         .rewrite_commit(&commits[2])
         .set_description("2b")
-        .write()
-        .unwrap();
+        .write_unwrap();
     commits.push(commit2b);
     commits.extend(rebase_descendants(tx.repo_mut()));
     let repo = tx.commit("b").unwrap();

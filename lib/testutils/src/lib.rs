@@ -692,8 +692,7 @@ pub fn write_random_commit_with_parents(mut_repo: &mut MutableRepo, parents: &[&
     };
     create_random_commit(mut_repo)
         .set_parents(parents.iter().map(|commit| commit.id().clone()).collect())
-        .write()
-        .unwrap()
+        .write_unwrap()
 }
 
 pub fn write_working_copy_file(workspace_root: &Path, path: &RepoPath, contents: impl AsRef<[u8]>) {
@@ -838,6 +837,16 @@ pub fn assert_no_forgotten_test_files(test_dir: &Path) {
             .map(|mod_stem| format!("{mod_stem}.rs"))
             .join(", "),
     );
+}
+
+pub trait CommitBuilderExt {
+    fn write_unwrap(self) -> Commit;
+}
+
+impl CommitBuilderExt for CommitBuilder<'_> {
+    fn write_unwrap(self) -> Commit {
+        self.write().unwrap()
+    }
 }
 
 /// Returns true if the directory appears to be on a filesystem with strict
