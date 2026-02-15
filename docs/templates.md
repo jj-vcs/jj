@@ -26,23 +26,37 @@ type](#operation-type) are available as keywords. For example,
 
 ## Operators
 
-The following operators are supported.
+The following operators are supported. `x` and `y` below can be any expression.
 
-* `x.f()`: Method call.
-* `-x`: Negate integer value.
-* `!x`: Logical not.
-* `x * y`, `x / y`, `x % y`: Multiplication/division/remainder. Operands must
-  be `Integer`s.
-* `x + y`, `x - y`: Addition/subtraction. Operands must be `Integer`s.
-* `x >= y`, `x > y`, `x <= y`, `x < y`: Greater than or equal/greater than/
-  lesser than or equal/lesser than. Operands must be `Integer`s.
-* `x == y`, `x != y`: Equal/not equal. Operands must be either `Boolean`,
-  `Integer`, or `String`.
-* `x && y`: Logical and, short-circuiting.
-* `x || y`: Logical or, short-circuiting.
-* `x ++ y`: Concatenate `x` and `y` templates.
+Operators are listed in order of binding power from strongest to weakest, e.g.
+`x ++ y * z` is interpreted as `x ++ (y * z)` since `*` has stronger binding
+power than `++`. Infix operators of the same binding power are parsed from left
+to right, e.g. `x * y / z` is interpreted as `(x * y) / z`.
 
-(listed in order of binding strengths)
+As seen above, parentheses can be used to control evaluation order, e.g. `(x +
+y) * z`.
+
+1. * `x.f()`: Method call.
+
+2. * `-x`: Negate integer value.
+   * `!x`: Logical not.
+
+3. * `x * y`, `x / y`, `x % y`: Multiplication/division/remainder. Operands must
+     be `Integer`s.
+
+4. * `x + y`, `x - y`: Addition/subtraction. Operands must be `Integer`s.
+
+5. * `x >= y`, `x > y`, `x <= y`, `x < y`: Greater than or equal/greater than/
+     lesser than or equal/lesser than. Operands must be `Integer`s.
+
+6. * `x == y`, `x != y`: Equal/not equal. Operands must be either `Boolean`,
+     `Integer`, or `String`.
+
+7. * `x && y`: Logical and, short-circuiting.
+
+8. * `x || y`: Logical or, short-circuiting.
+
+9. * `x ++ y`: Concatenate `x` and `y` templates.
 
 ## Global functions
 
