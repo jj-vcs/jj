@@ -28,6 +28,12 @@ alternative to the default `:builtin` diff-editor.
 
 Find it [here][hunk.nvim].
 
+## Hunk.nvim
+
+Jiejie.nvim is a Neovim frontend for Jujutsu in the style of [vim-fugitive](https://github.com/tpope/vim-fugitive).
+
+Find it [jiejie.nvim][jiejie.nvim].
+
 ## JJ-FZF
 
 Centered around the `jj log` graph view, jj-fzf provides previews of diffs, the
@@ -99,6 +105,7 @@ You can find other community contributed tools and integrations in our
 [diffedit3]: https://github.com/ilyagr/diffedit3
 [gg]: https://github.com/gulbanana/gg
 [hunk.nvim]: https://github.com/julienvincent/hunk.nvim
+[jiejie.nvim]: https://github.com/jceb/jiejie.nvim
 [jj-fzf]: https://github.com/tim-janik/jj-fzf
 [jj_tui]: https://github.com/faldor20/jj_tui
 [jjk]: https://github.com/keanemind/jjk
