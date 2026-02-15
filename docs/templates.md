@@ -42,22 +42,24 @@ y) * z`.
 2. * `-x`: Negate integer value.
    * `!x`: Logical not.
 
-3. * `x * y`, `x / y`, `x % y`: Multiplication/division/remainder. Operands must
+3. * `p:x`: String pattern or pattern alias named `p`.
+
+4. * `x * y`, `x / y`, `x % y`: Multiplication/division/remainder. Operands must
      be `Integer`s.
 
-4. * `x + y`, `x - y`: Addition/subtraction. Operands must be `Integer`s.
+5. * `x + y`, `x - y`: Addition/subtraction. Operands must be `Integer`s.
 
-5. * `x >= y`, `x > y`, `x <= y`, `x < y`: Greater than or equal/greater than/
+6. * `x >= y`, `x > y`, `x <= y`, `x < y`: Greater than or equal/greater than/
      lesser than or equal/lesser than. Operands must be `Integer`s.
 
-6. * `x == y`, `x != y`: Equal/not equal. Operands must be either `Boolean`,
+7. * `x == y`, `x != y`: Equal/not equal. Operands must be either `Boolean`,
      `Integer`, or `String`.
 
-7. * `x && y`: Logical and, short-circuiting.
+8. * `x && y`: Logical and, short-circuiting.
 
-8. * `x || y`: Logical or, short-circuiting.
+9. * `x || y`: Logical or, short-circuiting.
 
-9. * `x ++ y`: Concatenate `x` and `y` templates.
+10. * `x ++ y`: Concatenate `x` and `y` templates.
 
 ## Global functions
 

@@ -89,21 +89,17 @@ formal_parameters = {
   | ""
 }
 
-// NOTE: string pattern identifiers additionally allow "-" in them, which
-// results in some oddness with the `-` operator, though does not yet cause
-// ambiguity. This may prove annoying at some future point.
-string_pattern_identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "-")* }
-string_pattern = ${
-    string_pattern_identifier
-    ~ pattern_kind_op
-    ~ (identifier | string_literal | raw_string_literal)
-}
+// NOTE: Pattern identifiers additionally allow "-" in them, which results in
+// some oddness with the `-` operator.
+pattern_identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "-")* }
+pattern = ${ pattern_identifier ~ pattern_kind_op ~ pattern_value_expression }
+pattern_value_expression = { prefixed_term }
 
 primary = {
   ("(" ~ template ~ ")")
   | function
   | lambda
-  | string_pattern
+  | pattern
   | identifier
   | string_literal
   | raw_string_literal
@@ -122,7 +118,8 @@ expression = {
   prefixed_term ~ (infix_ops ~ prefixed_term)*
 }
 
-template = {
+// Whitespace is allowed in value part of <name>:(<template>) expression.
+template = !{
   expression ~ (concat_op ~ expression)*
 }
 
@@ -132,7 +129,7 @@ function_alias_declaration = {
   identifier ~ "(" ~ formal_parameters ~ ")"
 }
 pattern_alias_declaration = {
-  string_pattern_identifier ~ pattern_kind_op ~ identifier
+  pattern_identifier ~ pattern_kind_op ~ identifier
 }
 alias_declaration = _{
   SOI ~ (function_alias_declaration

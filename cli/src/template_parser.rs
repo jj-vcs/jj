@@ -97,8 +97,9 @@ impl Rule {
             Self::function_arguments => None,
             Self::lambda => None,
             Self::formal_parameters => None,
-            Self::string_pattern_identifier => None,
-            Self::string_pattern => None,
+            Self::pattern_identifier => None,
+            Self::pattern => None,
+            Self::pattern_value_expression => None,
             Self::primary => None,
             Self::term => None,
             Self::prefixed_term => None,
@@ -291,8 +292,7 @@ pub enum ExpressionKind<'i> {
     Boolean(bool),
     Integer(i64),
     String(String),
-    /// `<name>:<value>` where `<value>` should be `Identifier` or `String`, but
-    /// may be an arbitrary expression after alias substitution.
+    /// `<name>:<value>` where `<value>` is usually `String`.
     Pattern(Box<PatternNode<'i>>),
     Unary(UnaryOp, Box<ExpressionNode<'i>>),
     Binary(BinaryOp, Box<ExpressionNode<'i>>, Box<ExpressionNode<'i>>),
@@ -426,7 +426,7 @@ pub struct LambdaNode<'i> {
 fn parse_identifier_or_literal(pair: Pair<Rule>) -> ExpressionKind {
     assert!(matches!(
         pair.as_rule(),
-        Rule::identifier | Rule::string_pattern_identifier
+        Rule::identifier | Rule::pattern_identifier
     ));
     match pair.as_str() {
         "false" => ExpressionKind::Boolean(false),
@@ -506,20 +506,15 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
             })?;
             ExpressionKind::Integer(value)
         }
-        Rule::string_pattern => {
+        Rule::pattern => {
             let [lhs, op, rhs] = expr.into_inner().collect_array().unwrap();
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
+            assert_eq!(rhs.as_rule(), Rule::pattern_value_expression);
             let name_span = lhs.as_span();
-            let value_span = rhs.as_span();
-            let name = parse_identifier_name(lhs)?;
-            let value_expr = match rhs.as_rule() {
-                Rule::identifier => ExpressionKind::Identifier(parse_identifier_name(rhs)?),
-                _ => ExpressionKind::String(parse_string_literal(rhs)),
-            };
             let pattern = Box::new(PatternNode {
-                name,
+                name: parse_identifier_name(lhs)?,
                 name_span,
-                value: ExpressionNode::new(value_expr, value_span),
+                value: parse_expression_node(rhs)?,
             });
             ExpressionKind::Pattern(pattern)
         }
@@ -560,7 +555,6 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
 }
 
 fn parse_expression_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
-    assert_eq!(pair.as_rule(), Rule::expression);
     static PRATT: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
         PrattParser::new()
             .op(Op::infix(Rule::logical_or_op, Assoc::Left))
@@ -1258,7 +1252,7 @@ mod tests {
     }
 
     #[test]
-    fn test_string_pattern() {
+    fn test_pattern() {
         fn unwrap_pattern(kind: ExpressionKind<'_>) -> (&str, ExpressionKind<'_>) {
             match kind {
                 ExpressionKind::Pattern(pattern) => (pattern.name, pattern.value.kind),
@@ -1282,16 +1276,16 @@ mod tests {
             unwrap_pattern(parse_into_kind("regex:meow").unwrap()),
             ("regex", ExpressionKind::Identifier("meow"))
         );
-        assert_matches!(
-            parse_into_kind("regex:false"),
-            Err(TemplateParseErrorKind::Expression(_)),
-            "boolean literal isn't an identifier"
+        assert_eq!(
+            unwrap_pattern(parse_into_kind("regex:false").unwrap()),
+            ("regex", ExpressionKind::Boolean(false))
         );
-        assert_matches!(
-            parse_into_kind("regex:0"),
-            Err(TemplateParseErrorKind::SyntaxError),
-            "integer literal isn't an identifier"
+        assert_eq!(
+            unwrap_pattern(parse_into_kind("regex:0").unwrap()),
+            ("regex", ExpressionKind::Integer(0))
         );
+
+        // Whitespace isn't allowed in between
         assert_eq!(
             parse_into_kind("regex: 'with spaces'"),
             Err(TemplateParseErrorKind::SyntaxError),
@@ -1306,6 +1300,41 @@ mod tests {
             parse_into_kind("regex : 'with spaces'"),
             Err(TemplateParseErrorKind::SyntaxError),
             "certainly not both"
+        );
+        // Whitespace is allowed in parenthesized value expression
+        assert_eq!(
+            parse_normalized("exact:( 'foo' )"),
+            parse_normalized("exact:'foo'"),
+        );
+
+        // Functions and method calls are allowed
+        assert_eq!(parse_normalized("x:f(y)"), parse_normalized("x:(f(y))"));
+        assert_eq!(parse_normalized("x:y.f(z)"), parse_normalized("x:(y.f(z))"));
+        // Negation operations are also allowed
+        assert_eq!(parse_normalized("x:-y"), parse_normalized("x:(-y)"));
+        assert_eq!(parse_normalized("x:!y"), parse_normalized("x:(!y)"));
+        // Other operators have lower binding strength
+        assert_eq!(parse_normalized("x:y*z"), parse_normalized("(x:y)*(z)"));
+        assert_eq!(parse_normalized("x:y++z"), parse_normalized("(x:y)++(z)"));
+
+        // Pattern prefix is like (type)x cast, so is evaluated from right
+        assert_eq!(parse_normalized("x:y:z"), parse_normalized("x:(y:z)"));
+        assert_eq!(parse_normalized("x:y:-z"), parse_normalized("x:(y:(-z))"));
+        assert_eq!(parse_normalized("x:-y:z"), parse_normalized("x:(-(y:z))"));
+        assert_eq!(parse_normalized("!x:y:z"), parse_normalized("!(x:(y:z))"));
+
+        // Pattern names with dash
+        assert_eq!(
+            unwrap_pattern(parse_into_kind("x-y:z").unwrap()),
+            ("x-y", ExpressionKind::Identifier("z"))
+        );
+        assert_eq!(
+            parse_normalized("x+y-z:a"),
+            parse_normalized("(x)+(y-z:(a))")
+        );
+        assert_eq!(
+            parse_normalized("x-y+z:a"),
+            parse_normalized("((x)-(y))+(z:(a))")
         );
     }
 
