@@ -76,10 +76,12 @@ y) | z` or `x & (y | z)`.
 
 <!-- The following list is based on `PRATT` in `revset_parser.rs`. -->
 
-1. * `x-`: Parents of `x`, can be empty.
+1. * `f(x)`: Function call.
+
+2. * `x-`: Parents of `x`, can be empty.
    * `x+`: Children of `x`, can be empty.
 
-2. * `x::`: Descendants of `x`, including the commits in `x` itself. Equivalent to
+3. * `x::`: Descendants of `x`, including the commits in `x` itself. Equivalent to
      `x::visible_heads()` if no hidden revisions are mentioned.
    * `x..`: Revisions that are not ancestors of `x`. Equivalent to `~::x`, and
      `x..visible_heads()` if no hidden revisions are mentioned.
@@ -97,12 +99,12 @@ y) | z` or `x & (y | z)`.
      Equivalent to `~root()`, and `root()..visible_heads()` if no hidden revisions
      are mentioned.
 
-3. * `~x`: Revisions that are not in `x`.
+4. * `~x`: Revisions that are not in `x`.
 
-4. * `x & y`: Revisions that are in both `x` and `y`.
+5. * `x & y`: Revisions that are in both `x` and `y`.
    * `x ~ y`: Revisions that are in `x` but not in `y`.
 
-5. * `x | y`: Revisions that are in either `x` or `y` (or both).
+6. * `x | y`: Revisions that are in either `x` or `y` (or both).
 
 <!-- The following format will be understood by the web site generator, and will
  generate a folded section that can be unfolded at will. -->

@@ -37,6 +37,7 @@ As seen above, parentheses can be used to control evaluation order, e.g. `(x +
 y) * z`.
 
 1. * `x.f()`: Method call.
+   * `f(x)`: Function call.
 
 2. * `-x`: Negate integer value.
    * `!x`: Logical not.
