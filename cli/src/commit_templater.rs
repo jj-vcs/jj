@@ -1503,7 +1503,8 @@ fn builtin_commit_evolution_entry_methods<'repo>()
             let matcher: Rc<dyn Matcher> = files.to_matcher().into();
             let out_property = self_property.and_then(move |entry| {
                 let predecessors: Vec<_> = entry.predecessors().try_collect()?;
-                let from_tree = rebase_to_dest_parent(repo, &predecessors, &entry.commit)?;
+                let from_tree =
+                    rebase_to_dest_parent(repo, &predecessors, &entry.commit).block_on()?;
                 let to_tree = entry.commit.tree();
                 Ok(TreeDiff {
                     from_tree,

@@ -326,7 +326,9 @@ pub(crate) fn cmd_squash(
         &source_commits,
         &destination,
         args.keep_emptied,
-    )? {
+    )
+    .block_on()?
+    {
         let mut commit_builder = squashed.commit_builder.detach();
         let single_description = match squashed_description {
             SquashedDescription::Exact(description) => Some(description),

@@ -1408,7 +1408,7 @@ impl MutableRepo {
             async |rewriter| {
                 if rewriter.parents_changed() {
                     let old_commit = rewriter.old_commit().clone();
-                    let rebased_commit = rebase_commit_with_options(rewriter, options)?;
+                    let rebased_commit = rebase_commit_with_options(rewriter, options).await?;
                     progress(old_commit, rebased_commit);
                 }
                 Ok(())

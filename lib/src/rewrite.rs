@@ -24,7 +24,6 @@ use futures::try_join;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::backend::BackendError;
@@ -396,7 +395,7 @@ pub enum RebasedCommit {
     Abandoned { parent_id: CommitId },
 }
 
-pub fn rebase_commit_with_options(
+pub async fn rebase_commit_with_options(
     mut rewriter: CommitRewriter<'_>,
     options: &RebaseOptions,
 ) -> BackendResult<RebasedCommit> {
@@ -413,11 +412,8 @@ pub fn rebase_commit_with_options(
         _ => None,
     };
     let new_parents_len = rewriter.new_parents.len();
-    if let Some(builder) = rewriter
-        .rebase_with_empty_behavior(options.empty)
-        .block_on()?
-    {
-        let new_commit = builder.write().block_on()?;
+    if let Some(builder) = rewriter.rebase_with_empty_behavior(options.empty).await? {
+        let new_commit = builder.write().await?;
         Ok(RebasedCommit::Rewritten(new_commit))
     } else {
         assert_eq!(new_parents_len, 1);
@@ -429,7 +425,7 @@ pub fn rebase_commit_with_options(
 
 /// Moves changes from `sources` to the `destination` parent, returns new tree.
 // TODO: pass conflict labels as argument to provide more specific information
-pub fn rebase_to_dest_parent(
+pub async fn rebase_to_dest_parent(
     repo: &dyn Repo,
     sources: &[Commit],
     destination: &Commit,
@@ -462,7 +458,7 @@ pub fn rebase_to_dest_parent(
         ),
         diffs,
     ))
-    .block_on()
+    .await
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
@@ -916,7 +912,8 @@ fn apply_move_commits(
                     } else {
                         rebase_descendant_options
                     },
-                )?;
+                )
+                .await?;
                 if let RebasedCommit::Abandoned { .. } = rebased_commit {
                     num_abandoned_empty += 1;
                 } else if is_target_commit {
@@ -1111,7 +1108,7 @@ pub async fn duplicate_commits(
 /// If `target_descriptions` is not empty, it will be consulted to retrieve the
 /// new descriptions of the target commits, falling back to the original if
 /// the map does not contain an entry for a given commit.
-pub fn duplicate_commits_onto_parents(
+pub async fn duplicate_commits_onto_parents(
     mut_repo: &mut MutableRepo,
     target_commits: &[CommitId],
     target_descriptions: &HashMap<CommitId, String>,
@@ -1146,7 +1143,7 @@ pub fn duplicate_commits_onto_parents(
         }
         duplicated_old_to_new.insert(
             original_commit_id.clone(),
-            new_commit_builder.write().block_on()?,
+            new_commit_builder.write().await?,
         );
     }
 
@@ -1272,7 +1269,7 @@ pub struct SquashedCommit<'repo> {
 /// Squash `sources` into `destination` and return a [`SquashedCommit`] for the
 /// resulting commit. Caller is responsible for setting the description and
 /// finishing the commit.
-pub fn squash_commits<'repo>(
+pub async fn squash_commits<'repo>(
     repo: &'repo mut MutableRepo,
     sources: &[CommitWithSelection],
     destination: &Commit,
@@ -1322,11 +1319,11 @@ pub fn squash_commits<'repo>(
                 (source_tree, source.commit.commit.conflict_label()),
                 [source.diff.clone().invert()],
             ))
-            .block_on()?;
+            .await?;
             repo.rewrite_commit(&source.commit.commit)
                 .set_tree(new_source_tree)
                 .write()
-                .block_on()?;
+                .await?;
         }
     }
 
@@ -1367,7 +1364,7 @@ pub fn squash_commits<'repo>(
         ),
         source_commits.into_iter().map(|source| source.diff),
     ))
-    .block_on()?;
+    .await?;
 
     let commit_builder = repo
         .rewrite_commit(&rewritten_destination)
@@ -1382,7 +1379,7 @@ pub fn squash_commits<'repo>(
 /// Find divergent commits from the target that are already present with
 /// identical contents in the destination. These commits should be able to be
 /// safely abandoned.
-pub fn find_duplicate_divergent_commits(
+pub async fn find_duplicate_divergent_commits(
     repo: &dyn Repo,
     new_parent_ids: &[CommitId],
     target: &MoveCommitsTarget,
@@ -1449,7 +1446,8 @@ pub fn find_duplicate_divergent_commits(
 
             let ancestor_candidate = repo.store().get_commit(&ancestor_candidate_id)?;
             let new_tree =
-                rebase_to_dest_parent(repo, slice::from_ref(target_commit), &ancestor_candidate)?;
+                rebase_to_dest_parent(repo, slice::from_ref(target_commit), &ancestor_candidate)
+                    .await?;
             // Check whether the rebased commit would have the same tree as the existing
             // commit if they had the same parents. If so, we can skip this rebased commit.
             if new_tree.tree_ids() == ancestor_candidate.tree_ids() {

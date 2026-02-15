@@ -2204,7 +2204,9 @@ fn test_rebase_abandoning_empty() {
         simplify_ancestor_merge: true,
     };
     let rewriter = CommitRewriter::new(tx.repo_mut(), commit_b, vec![commit_b2.id().clone()]);
-    rebase_commit_with_options(rewriter, &rebase_options).unwrap();
+    rebase_commit_with_options(rewriter, &rebase_options)
+        .block_on()
+        .unwrap();
     let rebase_map = rebase_descendants_with_options_return_map(tx.repo_mut(), &rebase_options);
     assert_eq!(rebase_map.len(), 5);
     let new_commit_c = assert_rebased_onto(tx.repo(), &rebase_map, &commit_c, &[commit_b2.id()]);
@@ -2329,6 +2331,7 @@ fn test_find_duplicate_divergent_commits() {
         &[commit_a2.id().clone()],
         &MoveCommitsTarget::Roots(vec![commit_d.id().clone()]),
     )
+    .block_on()
     .unwrap();
     // Commits b2 and c2 are duplicates
     assert_eq!(duplicate_commits, &[commit_c2.clone(), commit_b2.clone()]);
@@ -2339,6 +2342,7 @@ fn test_find_duplicate_divergent_commits() {
         &[commit_e.id().clone()],
         &MoveCommitsTarget::Roots(vec![commit_b1.id().clone()]),
     )
+    .block_on()
     .unwrap();
     // Commits b1 and c1 are duplicates. Commit a2 is not a duplicate, because
     // it already had a1 as an ancestor before the rebase.
@@ -2354,6 +2358,7 @@ fn test_find_duplicate_divergent_commits() {
             commit_e.id().clone(),
         ]),
     )
+    .block_on()
     .unwrap();
     // Commit c2 is a duplicate
     assert_eq!(duplicate_commits, std::slice::from_ref(&commit_c2));
