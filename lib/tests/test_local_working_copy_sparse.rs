@@ -19,7 +19,6 @@ use jj_lib::matchers::EverythingMatcher;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
-use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::WorkingCopy as _;
 use pollster::FutureExt as _;
 use testutils::TestWorkspace;
@@ -74,15 +73,10 @@ fn test_sparse_checkout() {
         .set_sparse_patterns(sparse_patterns.clone())
         .block_on()
         .unwrap();
-    assert_eq!(
-        stats,
-        CheckoutStats {
-            updated_files: 0,
-            added_files: 0,
-            removed_files: 3,
-            skipped_files: 0,
-        }
-    );
+    assert_eq!(stats.updated_files, 0);
+    assert_eq!(stats.added_files, 0);
+    assert_eq!(stats.removed_files, 3);
+    assert_eq!(stats.skipped_files, 0);
     assert_eq!(
         locked_ws.locked_wc().sparse_patterns().unwrap(),
         sparse_patterns
@@ -148,15 +142,10 @@ fn test_sparse_checkout() {
         .set_sparse_patterns(sparse_patterns.clone())
         .block_on()
         .unwrap();
-    assert_eq!(
-        stats,
-        CheckoutStats {
-            updated_files: 0,
-            added_files: 2,
-            removed_files: 2,
-            skipped_files: 0,
-        }
-    );
+    assert_eq!(stats.updated_files, 0);
+    assert_eq!(stats.added_files, 2);
+    assert_eq!(stats.removed_files, 2);
+    assert_eq!(stats.skipped_files, 0);
     assert_eq!(locked_wc.sparse_patterns().unwrap(), sparse_patterns);
     assert!(
         root_file1_path

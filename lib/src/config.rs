@@ -239,7 +239,7 @@ impl ToConfigNamePath for &ConfigNamePathBuf {
     }
 }
 
-impl ToConfigNamePath for &'static str {
+impl ToConfigNamePath for &str {
     // This can be changed to ConfigNamePathStr(str) if allocation cost matters.
     type Output = ConfigNamePathBuf;
 

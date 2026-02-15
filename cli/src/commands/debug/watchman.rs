@@ -117,6 +117,7 @@ pub fn cmd_debug_watchman(
             writeln!(ui.stdout(), "Changed files: {changed_files:?}")?;
         }
         DebugWatchmanCommand::ResetClock => {
+            let path_converter = workspace_command.path_converter().clone();
             let (mut locked_ws, _commit) = workspace_command.start_working_copy_mutation()?;
             let Some(locked_local_wc): Option<&mut LockedLocalWorkingCopy> =
                 locked_ws.locked_wc().downcast_mut()
@@ -125,7 +126,9 @@ pub fn cmd_debug_watchman(
                     "This command requires a standard local-disk working copy",
                 ));
             };
-            locked_local_wc.reset_watchman()?;
+            locked_local_wc
+                .reset_watchman()
+                .map_err(|err| CommandError::from_snapshot_error(err, &path_converter))?;
             locked_ws.finish(repo.op_id().clone())?;
             writeln!(ui.status(), "Reset Watchman clock")?;
         }

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::error;
-use std::error::Error as _;
+use std::error::Error;
 use std::io;
 use std::io::Write as _;
 use std::iter;
@@ -36,6 +36,7 @@ use jj_lib::fileset::FilesetParseErrorKind;
 use jj_lib::fix::FixError;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::index::IndexError;
+use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_heads_store::OpHeadResolutionError;
 use jj_lib::op_heads_store::OpHeadsStoreError;
 use jj_lib::op_store::OpStoreError;
@@ -46,6 +47,7 @@ use jj_lib::repo::EditCommitError;
 use jj_lib::repo::RepoLoaderError;
 use jj_lib::repo::RewriteRootCommit;
 use jj_lib::repo_path::RepoPathBuf;
+use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::repo_path::UiPathParseError;
 use jj_lib::revset;
 use jj_lib::revset::RevsetEvaluationError;
@@ -57,6 +59,8 @@ use jj_lib::str_util::StringPatternParseError;
 use jj_lib::trailer::TrailerParseError;
 use jj_lib::transaction::TransactionCommitError;
 use jj_lib::view::RenameWorkspaceError;
+use jj_lib::working_copy::CheckoutError;
+use jj_lib::working_copy::FilterIgnoreReason;
 use jj_lib::working_copy::RecoverWorkspaceError;
 use jj_lib::working_copy::ResetError;
 use jj_lib::working_copy::SnapshotError;
@@ -151,6 +155,51 @@ impl CommandError {
     pub fn extend_hints(&mut self, hints: impl IntoIterator<Item = String>) {
         self.hints
             .extend(hints.into_iter().map(ErrorHint::PlainText));
+    }
+
+    pub fn from_checkout_error(
+        err: CheckoutError,
+        commit_id: &CommitId,
+        path_converter: &RepoPathUiConverter,
+    ) -> Self {
+        let err = match Self::try_into_conversion_error(err, path_converter) {
+            Ok(err) => return err,
+            Err(err) => err,
+        };
+        internal_error_with_message(
+            format!("Failed to check out commit {}", commit_id.hex()),
+            err,
+        )
+    }
+
+    pub fn from_snapshot_error(err: SnapshotError, path_converter: &RepoPathUiConverter) -> Self {
+        let err = match Self::try_into_conversion_error(err, path_converter) {
+            Ok(err) => return err,
+            Err(err) => err,
+        };
+        internal_error_with_message("Failed to snapshot the working copy", err)
+    }
+
+    fn try_into_conversion_error<E>(err: E, path_converter: &RepoPathUiConverter) -> Result<Self, E>
+    where
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        let source = err;
+        let mut maybe_err: Option<&dyn Error> = Some(&source);
+        while let Some(err) = maybe_err {
+            if let Some(FilterIgnoreReason::FilterCommandFailed {
+                path, filter_name, ..
+            }) = err.downcast_ref::<FilterIgnoreReason>()
+            {
+                return Ok(user_error(format!(
+                    "Failed to call the {} filter to convert the {} file.",
+                    filter_name,
+                    path_converter.format_file_path(path)
+                )));
+            }
+            maybe_err = err.source();
+        }
+        Err(source)
     }
 }
 
@@ -396,12 +445,6 @@ impl From<OpsetEvaluationError> for CommandError {
             OpsetEvaluationError::OpHeadsStore(err) => err.into(),
             OpsetEvaluationError::OpStore(err) => err.into(),
         }
-    }
-}
-
-impl From<SnapshotError> for CommandError {
-    fn from(err: SnapshotError) -> Self {
-        internal_error_with_message("Failed to snapshot the working copy", err)
     }
 }
 
