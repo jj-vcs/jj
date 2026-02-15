@@ -112,9 +112,9 @@ use crate::template_parser::TemplateDiagnostics;
 use crate::template_parser::TemplateParseError;
 use crate::template_parser::TemplateParseResult;
 use crate::templater;
+use crate::templater::BoxedAnyProperty;
 use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
-use crate::templater::ListTemplate;
 use crate::templater::Literal;
 use crate::templater::PlainTextFormattedProperty;
 use crate::templater::SizeHint;
@@ -494,8 +494,8 @@ impl<'repo> CoreTemplatePropertyVar<'repo> for CommitTemplatePropertyKind<'repo>
         Self::Core(CoreTemplatePropertyKind::wrap_template(template))
     }
 
-    fn wrap_list_template(template: Box<dyn ListTemplate + 'repo>) -> Self {
-        Self::Core(CoreTemplatePropertyKind::wrap_list_template(template))
+    fn wrap_any_list(property: BoxedAnyProperty<'repo>) -> Self {
+        Self::Core(CoreTemplatePropertyKind::wrap_any_list(property))
     }
 
     fn type_name(&self) -> &'static str {
