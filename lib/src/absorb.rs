@@ -23,7 +23,6 @@ use std::sync::Arc;
 use bstr::BString;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::annotate::FileAnnotator;
@@ -342,7 +341,7 @@ pub fn absorb_hunks(
                 format!("absorbed changes (from {source_commit_label})"),
             ),
         ]))
-        .block_on()?;
+        .await?;
         let mut predecessors = commit_builder.predecessors().to_vec();
         predecessors.push(source.commit.id().clone());
         let new_commit = commit_builder
