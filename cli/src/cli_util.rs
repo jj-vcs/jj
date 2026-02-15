@@ -572,6 +572,7 @@ impl CommandHelper {
                 // fine if we picked the new wc_commit_id.
                 let stale_stats = workspace_command
                     .snapshot_working_copy(ui)
+                    .block_on()
                     .map_err(|err| err.into_command_error())?;
 
                 let wc_commit_id = workspace_command.get_wc_commit_id().unwrap();
@@ -1181,7 +1182,7 @@ impl WorkspaceCommandHelper {
         // pointing to the new working-copy commit might not be exported.
         // In that situation, the ref would be conflicted anyway, so export
         // failure is okay.
-        let stats = self.snapshot_working_copy(ui)?;
+        let stats = self.snapshot_working_copy(ui).block_on()?;
 
         // import_git_refs() can rebase the working-copy commit.
         #[cfg(feature = "git")]
@@ -1899,7 +1900,7 @@ to the current parents may contain changes from multiple commits.
     }
 
     #[instrument(skip_all)]
-    fn snapshot_working_copy(
+    async fn snapshot_working_copy(
         &mut self,
         ui: &Ui,
     ) -> Result<SnapshotStats, SnapshotWorkingCopyError> {
@@ -1934,7 +1935,7 @@ to the current parents may contain changes from multiple commits.
             locked_ws
                 .locked_wc()
                 .snapshot(&options)
-                .block_on()
+                .await
                 .map_err(snapshot_command_error)?
         };
         if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
@@ -1946,7 +1947,7 @@ to the current parents may contain changes from multiple commits.
                 .rewrite_commit(&wc_commit)
                 .set_tree(new_tree.clone())
                 .write()
-                .block_on()
+                .await
                 .map_err(snapshot_command_error)?;
             mut_repo
                 .set_wc_commit(workspace_name, commit.id().clone())
@@ -1982,7 +1983,7 @@ to the current parents may contain changes from multiple commits.
         if self.working_copy_shared_with_git
             && let Ok(resolved_tree) = new_tree
                 .trees()
-                .block_on()
+                .await
                 .map_err(snapshot_command_error)?
                 .into_resolved()
             && resolved_tree
