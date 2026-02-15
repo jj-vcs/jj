@@ -94,12 +94,13 @@ formal_parameters = {
   | ""
 }
 
-string_pattern = { strict_identifier ~ pattern_kind_op ~ symbol }
+pattern = { strict_identifier ~ pattern_kind_op ~ pattern_value_expression }
+pattern_value_expression = { neighbors_expression }
 
 primary = {
   "(" ~ whitespace* ~ expression ~ whitespace* ~ ")"
   | function
-  | string_pattern
+  | pattern
   // "@" operator cannot be nested
   | symbol ~ at_op ~ symbol
   | symbol ~ at_op

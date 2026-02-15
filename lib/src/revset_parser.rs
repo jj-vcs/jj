@@ -125,7 +125,8 @@ impl Rule {
             Self::argument => None,
             Self::function_arguments => None,
             Self::formal_parameters => None,
-            Self::string_pattern => None,
+            Self::pattern => None,
+            Self::pattern_value_expression => None,
             Self::primary => None,
             Self::neighbors_expression => None,
             Self::range_expression => None,
@@ -319,8 +320,7 @@ pub enum ExpressionKind<'i> {
     Identifier(&'i str),
     /// Quoted symbol or string.
     String(String),
-    /// `<name>:<value>` where `<value>` should be `Identifier` or `String`, but
-    /// may be an arbitrary expression after alias substitution.
+    /// `<name>:<value>` where `<value>` is usually `Identifier` or `String`.
     Pattern(Box<PatternNode<'i>>),
     /// `<name>@<remote>`
     RemoteSymbol(RemoteRefSymbolBuf),
@@ -594,21 +594,15 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
             )?);
             ExpressionKind::FunctionCall(function)
         }
-        Rule::string_pattern => {
+        Rule::pattern => {
             let [lhs, op, rhs] = first.into_inner().collect_array().unwrap();
             assert_eq!(lhs.as_rule(), Rule::strict_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
-            let name_span = lhs.as_span();
-            let value_span = rhs.as_span();
-            let name = lhs.as_str();
-            let value_expr = match rhs.as_rule() {
-                Rule::identifier => ExpressionKind::Identifier(rhs.as_str()),
-                _ => ExpressionKind::String(parse_as_string_literal(rhs)),
-            };
+            assert_eq!(rhs.as_rule(), Rule::pattern_value_expression);
             let pattern = Box::new(PatternNode {
-                name,
-                name_span,
-                value: ExpressionNode::new(value_expr, value_span),
+                name: lhs.as_str(),
+                name_span: lhs.as_span(),
+                value: parse_expression_node(rhs)?,
             });
             ExpressionKind::Pattern(pattern)
         }
@@ -1199,7 +1193,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_string_pattern() {
+    fn test_parse_pattern() {
         fn unwrap_pattern(kind: ExpressionKind<'_>) -> (&str, ExpressionKind<'_>) {
             match kind {
                 ExpressionKind::Pattern(pattern) => (pattern.name, pattern.value.kind),
@@ -1219,6 +1213,22 @@ mod tests {
             parse_into_kind(r#""exact:foo""#),
             Ok(ExpressionKind::String("exact:foo".to_owned()))
         );
+        // Symbol-like value expressions
+        assert_eq!(
+            unwrap_pattern(parse_into_kind("x:@").unwrap()),
+            ("x", ExpressionKind::AtCurrentWorkspace)
+        );
+        assert_eq!(
+            unwrap_pattern(parse_into_kind("x:y@z").unwrap()),
+            (
+                "x",
+                ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf {
+                    name: "y".into(),
+                    remote: "z".into(),
+                })
+            )
+        );
+
         assert_eq!(
             parse_normalized(r#"(exact:"foo" )"#),
             parse_normalized(r#"(exact:"foo")"#),
@@ -1227,10 +1237,42 @@ mod tests {
             unwrap_pattern(parse_into_kind(r#"exact:'\'"#).unwrap()),
             ("exact", ExpressionKind::String(r"\".to_owned()))
         );
+
+        // Whitespace isn't allowed in between
         assert_matches!(
-            parse_into_kind(r#"exact:("foo" )"#),
-            Err(RevsetParseErrorKind::NotInfixOperator { .. })
+            parse_into_kind("exact: foo"),
+            Err(RevsetParseErrorKind::SyntaxError)
         );
+        assert_matches!(
+            parse_into_kind("exact :foo"),
+            Err(RevsetParseErrorKind::SyntaxError)
+        );
+        // Whitespace is allowed in parenthesized value expression
+        assert_eq!(
+            parse_normalized("exact:( 'foo' )"),
+            parse_normalized("exact:'foo'"),
+        );
+
+        // Functions are allowed
+        assert_eq!(parse_normalized("x:f(y)"), parse_normalized("x:(f(y))"));
+        // Neighbor postfix operations are also allowed
+        assert_eq!(parse_normalized("x:@-+"), parse_normalized("x:((@-)+)"));
+        // Ranges have lower binding strength because we wouldn't want to parse
+        // x::: as x:(::)
+        assert_eq!(parse_normalized("x:y::z"), parse_normalized("(x:y)::(z)"));
+        assert_matches!(
+            parse_into_kind("x:::"),
+            Err(RevsetParseErrorKind::SyntaxError)
+        );
+        // Logical operators have lower binding strength
+        assert_eq!(parse_normalized("x:y&z"), parse_normalized("(x:y)&(z)"));
+        assert_matches!(
+            parse_into_kind("x:~y"), // (x:) ~ (y)
+            Err(RevsetParseErrorKind::NotPostfixOperator { .. })
+        );
+
+        // Pattern prefix is like (type)x cast, so is evaluated from right
+        assert_eq!(parse_normalized("x:y:z"), parse_normalized("x:(y:z)"));
     }
 
     #[test]

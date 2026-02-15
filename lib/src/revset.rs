@@ -4067,7 +4067,7 @@ mod tests {
             @r#"Expression("Invalid string expression")"#);
         insta::assert_debug_snapshot!(
             parse(r#"bookmarks(exact:"foo"+)"#).unwrap_err().kind(),
-            @r#"Expression("Invalid string expression")"#);
+            @r#"Expression("Expected string")"#);
 
         insta::assert_debug_snapshot!(
             parse(r#"tags("foo")"#).unwrap(),
@@ -4086,7 +4086,7 @@ mod tests {
             @r#"Expression("Invalid string expression")"#);
         insta::assert_debug_snapshot!(
             parse(r#"tags(exact:"foo"+)"#).unwrap_err().kind(),
-            @r#"Expression("Invalid string expression")"#);
+            @r#"Expression("Expected string")"#);
 
         // String pattern isn't allowed at top level.
         assert_matches!(
