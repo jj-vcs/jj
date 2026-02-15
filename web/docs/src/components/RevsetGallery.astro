@@ -1,0 +1,534 @@
+---
+/*
+Renders an interactive visualizer for revsets.
+
+The user may select a "group" on the left column, then a particular "example" (specific revset) of the group in the middle column.
+Then, the SVG graph will highlight the nodes that are selected by the revset.
+
+No client-side JavaScript is used, only CSS and native HTML inputs.
+*/
+
+/** A single example that will be rendered in the SVG graph. */
+interface Example {
+  /** The revset being visualized. */
+  revset: string;
+
+  /** The list of nodes that will be highlighted (1 char each). */
+  select: string;
+}
+
+/** An item (e.g. an operator or function) that is described in the docs, with individual examples that can be rendered. */
+interface Item {
+  /** The text of the item (e.g. "x", "x+", "root()", etc.). */
+  label: string;
+
+  /** The list of examples that will be rendered in the 2nd column. */
+  examples: Example[];
+}
+
+/** A group of items (e.g. "Operations", "Functions", etc.). */
+interface Group {
+  /** The title of the group (e.g. "Operations", "Functions", etc.). */
+  title: string;
+
+  /** The items in the group. */
+  items: Item[];
+}
+
+/** A node in the displayed revision graph. */
+type Node = {
+  revisionId: string;
+  special?: string;
+  hidden?: boolean;
+  bookmark?: string;
+  hideRevisionId?: boolean;
+};
+
+/** A node in the graph from the props. Can be a single character (e.g. "A", "B", "C", etc.) or a more complex node with additional metadata. */
+type InputNode = string | Node;
+
+interface Props {
+  /** The groups of items that will be rendered in the 1st column. */
+  groups: Group[];
+
+  /** The rows of nodes to be rendered, as lists of columns. You may use "" to skip a column. */
+  rows: InputNode[][];
+
+  /**
+   * The list of connections between nodes.
+   * Each string is a list of nodes that are connected in a line, for convenience.
+   * For example, "ABC" will connect A to B, and B to C.
+   */
+  connections: string[];
+}
+
+const { groups, rows, connections } = Astro.props;
+
+const allItems = groups.flatMap((group) => group.items);
+
+/** SVG viewBox area (origin 0, 0 at top left) */
+const svgDimensions = { width: 100, height: 210 };
+
+/** Padding around the viewBox area */
+const padding = { top: 10, bottom: 10, left: 25, right: 30 };
+
+/** Calculated gap between nodes */
+const gap = {
+  x:
+    (svgDimensions.width - padding.left - padding.right) /
+    (rows.reduce((max, row) => Math.max(max, row.length), 0) - 1),
+  y: (svgDimensions.height - padding.top - padding.bottom) / (rows.length - 1),
+};
+
+const nodes = rows.flatMap((row, rowIndex) =>
+  row
+    .map((node, nodeIndex) => {
+      if (node === "") {
+        return null;
+      }
+
+      const info: Node = typeof node === "string" ? { revisionId: node } : node;
+      return {
+        ...info,
+        x: padding.left + nodeIndex * gap.x,
+        y: padding.top + rowIndex * gap.y,
+      };
+    })
+    .filter((n) => n != null),
+);
+
+const edges = connections.flatMap((connection) =>
+  connection
+    .split("")
+    .map((node, i) => {
+      if (i === 0) {
+        return null;
+      }
+
+      const from = nodes.find((n) => n.revisionId === connection[i - 1]);
+      const to = nodes.find((n) => n.revisionId === node);
+
+      if (!from || !to) {
+        return null;
+      }
+
+      return {
+        from,
+        to,
+      };
+    })
+    .filter((e) => e != null),
+);
+
+// Since the labels need ids, and ids must be unique, add a random string per component.
+const uid = Math.random().toString(36).substring(2, 9);
+
+// https://github.com/withastro/astro/issues/11167
+// Avoids client-side JS entirely, but is it worth it?
+// Because we can't add or remove classes, we have to put the CSS declarations inline here unfortunately.
+
+// Highlight the selected item label in the left column.
+const labelStyles = allItems
+  .map(
+    (_, i) => `
+  :has(#revset-${uid}-${i}:checked) label[for="revset-${uid}-${i}"] {
+    font-weight: 600;
+    color: var(--sl-color-accent);
+    background-color: var(--sl-color-gray-6);
+    position: relative;
+  }`,
+  )
+  .join("\n");
+
+// Highlight the selected example button in the middle column.
+const exampleLabelStyles = allItems
+  .flatMap((item, itemIndex) =>
+    item.examples.map(
+      (_, revsetIndex) => `
+  :has(#example-${uid}-${itemIndex}-${revsetIndex}:checked) label[for="example-${uid}-${itemIndex}-${revsetIndex}"] {
+    font-weight: 600;
+    color: var(--sl-color-accent);
+    background-color: var(--sl-color-gray-6);
+  }`,
+    ),
+  )
+  .join("\n");
+
+// Show the list of example buttons for the selected item in the left column.
+const exampleColumnVisibility = allItems
+  .map(
+    (_, i) => `
+  #revset-${uid}-${i}:checked ~ .examples .group[data-item="${i}"] {
+    display: flex;
+  }`,
+  )
+  .join("\n");
+
+const exampleStyles = allItems
+  .flatMap((item, i) =>
+    item.examples.map((example, j) => {
+      if (example.select.length === 0) {
+        // If select: "", show that the example is none().
+        return `
+  #revset-${uid}-${i}:checked ~ #example-${uid}-${i}-${j}:checked ~ .visual {
+    svg {
+      opacity: 0.4;
+    }
+    .none-box {
+      display: flex;
+    }
+  }
+        `;
+      }
+
+      const nodeSelectors = example.select
+        .split("")
+        .map((node) => `[data-name="${node}"]`)
+        .join(",");
+
+      const highlightedNodes = `
+  ${nodeSelectors} {
+    text:first-of-type {
+      font-weight: 700;
+    }
+
+    circle {
+      fill: var(--selected);
+      stroke: var(--selected);
+      stroke-dasharray: unset;
+    }
+  }`;
+
+      // If two selected nodes are connected, select the edge as well.
+      const highlightedEdges = edges
+        .filter(
+          (e) =>
+            example.select.includes(e.from.revisionId) &&
+            example.select.includes(e.to.revisionId),
+        )
+        .map(
+          (e) => `
+    line[data-from="${e.from.revisionId}"][data-to="${e.to.revisionId}"] {
+      stroke-width: 0.9;
+      stroke-dasharray: unset;
+      color: var(--selected);
+    }`,
+        )
+        .join("\n");
+
+      // For this pair of checkboxes, do the correct highlighting.
+      return `
+  #revset-${uid}-${i}:checked ~ #example-${uid}-${i}-${j}:checked ~ .visual svg {
+    ${highlightedNodes}
+    ${highlightedEdges}
+  }`;
+    }),
+  )
+  .join("\n");
+
+const computedStyles = `
+  ${labelStyles}
+  ${exampleLabelStyles}
+  ${exampleColumnVisibility}
+  ${exampleStyles}
+`;
+---
+
+<div class="root">
+  <style set:html={computedStyles}></style>
+
+  {
+    // Hidden radio buttons, one group/name for entire left column
+    allItems.map((_, i) => (
+      <input
+        type="radio"
+        id={`revset-${uid}-${i}`}
+        name={`revset-select-${uid}`}
+        checked={i === 0}
+      />
+    ))
+  }
+
+  {
+    // Hidden radio buttons, one group/name for each item in the left column
+    allItems.flatMap((item, i) =>
+      item.examples.map((_, j) => (
+        <input
+          type="radio"
+          id={`example-${uid}-${i}-${j}`}
+          name={`example-${uid}-${i}`}
+          checked={j === 0}
+        />
+      )),
+    )
+  }
+
+  <div class="revsets">
+    {
+      // Labels that toggle the radio buttons for the left column
+      groups.map((group) => (
+        <div class="group">
+          <h5>{group.title}</h5>
+          {group.items.map((item) => (
+            <label for={`revset-${uid}-${allItems.indexOf(item)}`}>
+              {item.label}
+            </label>
+          ))}
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="examples">
+    {
+      // Labels that toggle the radio buttons for the middle column.
+      // Only the appropriate group is shown based on the left column's selection.
+      groups
+        .flatMap((group) => group.items)
+        .map((item, i) => (
+          <div class="group" data-item={i}>
+            <h5>Examples</h5>
+            {item.examples.map((example, j) => (
+              <label for={`example-${uid}-${i}-${j}`}>{example.revset}</label>
+            ))}
+          </div>
+        ))
+    }
+  </div>
+
+  <div class="visual">
+    <svg viewBox={`0 0 ${svgDimensions.width} ${svgDimensions.height}`}>
+      <g class="y-info" transform="translate(10, 0)">
+        <line x1="0" y1="207" x2="0" y2="3"></line>
+        <polygon class="arrow" points="0,3 -2,6 2,6"></polygon>
+        <g transform="translate(-5, 50)">
+          <text>Descendants</text>
+        </g>
+        <polygon class="arrow" points="0,210 -2,207 2,207"></polygon>
+        <g transform="translate(-5, 170)">
+          <text>Ancestors</text>
+        </g>
+      </g>
+
+      <g class="edges">
+        {
+          edges.map((edge) => (
+            <line
+              class={edge.from.hidden || edge.to.hidden ? "hidden" : ""}
+              x1={edge.from.x}
+              y1={edge.from.y}
+              x2={edge.to.x}
+              y2={edge.to.y}
+              data-from={edge.from.revisionId}
+              data-to={edge.to.revisionId}
+            />
+          ))
+        }
+      </g>
+      <g class="nodes">
+        {
+          nodes.map((node) => (
+            <g
+              transform={`translate(${node.x}, ${node.y})`}
+              data-name={node.revisionId}
+              class={node.hidden ? "hidden" : ""}
+            >
+              <circle />
+              {!node.hideRevisionId && <text>{node.revisionId}</text>}
+              {node.bookmark && <text class="bookmark">{node.bookmark}</text>}
+              {node.special && <text class="special">{node.special}</text>}
+              {node.hidden && <text class="hidden-text">(hidden)</text>}
+            </g>
+          ))
+        }
+      </g>
+    </svg>
+    <div class="none-box">none()</div>
+  </div>
+</div>
+
+<!-- COLUMN/INTERACTION STYLES -->
+<style>
+  div {
+    margin: 0;
+  }
+
+  .root {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+    gap: 1rem;
+    margin: 2rem 0;
+    align-items: start;
+
+    --selected: var(--sl-color-text);
+    --bookmark: #ff8ffd;
+    --special: #00ff00;
+    --hidden: var(--sl-color-gray-3);
+  }
+
+  :root[data-theme="light"] .root {
+    --bookmark: #eb67e8;
+    --special: #10a778;
+  }
+
+  .root > input[type="radio"] {
+    display: none;
+  }
+
+  .visual {
+    position: relative;
+    grid-row: 2;
+    grid-column: span 2;
+  }
+
+  @media (min-width: 40rem) {
+    .root {
+      grid-template-columns: 160px 160px 1fr;
+    }
+
+    .visual {
+      grid-row: 1;
+      grid-column: 3;
+    }
+  }
+
+  @media (min-width: 50rem) {
+    .root {
+      grid-template-columns: 120px 120px 1fr;
+    }
+  }
+
+  @media (min-width: 60rem) {
+    .root {
+      grid-template-columns: 160px 160px 1fr;
+    }
+  }
+
+  .revsets,
+  .examples {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .revsets {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .examples {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .examples .group {
+    display: none;
+  }
+
+  h5 {
+    margin-bottom: 0.75rem;
+  }
+
+  .revsets label,
+  .examples label {
+    cursor: pointer;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s;
+    font-family: var(--__sl-font-mono);
+    margin: 0;
+  }
+
+  .revsets label:hover,
+  .examples label:hover {
+    background-color: var(--sl-color-gray-6);
+  }
+  .none-box {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    background: var(--sl-color-gray-6);
+    border-radius: 0.5rem;
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+    font-family: var(--__sl-font-mono);
+    padding: 1rem 2rem;
+  }
+</style>
+
+<!-- SVG STYLES -->
+<style>
+  text {
+    fill: currentColor;
+    font-family: var(--__sl-font);
+    font-size: 3px;
+  }
+  .nodes text {
+    fill: currentColor;
+    font-size: 5px;
+    text-anchor: start;
+    dominant-baseline: central;
+    font-family: var(--__sl-font-mono);
+  }
+  .nodes text:first-of-type {
+    transform: translate(5px, 0);
+  }
+
+  .nodes text:nth-of-type(2) {
+    transform: translate(11px, 0);
+  }
+
+  .nodes text.bookmark {
+    font-size: 4px;
+    fill: var(--bookmark);
+    font-family: var(--__sl-font-mono);
+  }
+  .hidden {
+    color: var(--hidden);
+  }
+  .nodes text.special {
+    font-size: 4px;
+    fill: var(--special);
+  }
+  .nodes text.hidden-text {
+    font-size: 3.5px;
+    transform: translate(9px, 0);
+  }
+  .nodes circle {
+    r: 2.5px;
+    stroke: var(--sl-color-text);
+    stroke-width: 0.6;
+    fill: var(--sl-color-bg);
+  }
+  .nodes .hidden circle {
+    stroke: var(--hidden);
+    stroke-dasharray: 1;
+  }
+  .edges .hidden {
+    stroke-dasharray: 1;
+  }
+  .arrow {
+    fill: var(--sl-color-text);
+  }
+  .y-info line {
+    stroke: var(--sl-color-text);
+    stroke-width: 0.5;
+  }
+  .edges line {
+    stroke: currentColor;
+    stroke-width: 0.4;
+  }
+  .y-info text {
+    text-anchor: middle;
+    dominant-baseline: central;
+    transform: rotate(-90deg);
+    font-size: 5px;
+  }
+</style>
