@@ -101,6 +101,7 @@ impl Rule {
             Self::string_pattern => None,
             Self::primary => None,
             Self::term => None,
+            Self::prefixed_term => None,
             Self::expression => None,
             Self::template => None,
             Self::program => None,

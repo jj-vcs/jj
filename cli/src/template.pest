@@ -114,8 +114,12 @@ term = {
   primary ~ ("." ~ function)*
 }
 
+prefixed_term = _{
+  prefix_ops* ~ term
+}
+
 expression = {
-  prefix_ops* ~ term ~ (infix_ops ~ prefix_ops* ~ term)*
+  prefixed_term ~ (infix_ops ~ prefixed_term)*
 }
 
 template = {
