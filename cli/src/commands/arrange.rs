@@ -18,7 +18,6 @@ use std::time::Duration;
 use crossterm::ExecutableCommand as _;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
-use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
 use crossterm::event::{self};
 use crossterm::terminal::EnterAlternateScreen;
@@ -97,13 +96,16 @@ fn run_tui<B: ratatui::backend::Backend>(
 
         if event::poll(Duration::from_millis(100))
             .map_err(|e| internal_error(format!("Failed to poll for TUI events: {e}")))?
-            && let Event::Key(KeyEvent {
-                code, modifiers, ..
-            }) = event::read()
+            && let Event::Key(event) = event::read()
                 .map_err(|e| internal_error(format!("Failed to read TUI events: {e}")))?
         {
+            // On Windows, we get Press and Release (and maybe Repeat) events, but on Linux
+            // we only get Press.
+            if event.is_release() {
+                continue;
+            }
             #[expect(clippy::single_match)] // There will soon be more matches
-            match (code, modifiers) {
+            match (event.code, event.modifiers) {
                 (KeyCode::Char('q'), KeyModifiers::NONE) => {
                     return Ok(());
                 }
