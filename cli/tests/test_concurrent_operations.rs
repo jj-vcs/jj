@@ -41,7 +41,7 @@ fn test_concurrent_operation_divergence() {
 
     // "op log --at-op" should work without merging the head operations
     let output = work_dir.run_jj(["op", "log", "--at-op=d8ced2ea64a8"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  d8ced2ea64a8 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     │  args: jj describe -m 'message 2' --at-op @-
@@ -53,7 +53,7 @@ fn test_concurrent_operation_divergence() {
 
     // We should be informed about the concurrent modification
     let output = get_log_output(&work_dir);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  message 1
     │ ○  message 2
     ├─╯
@@ -80,7 +80,7 @@ fn test_concurrent_operations_auto_rebase() {
 
     // We should be informed about the concurrent modification
     let output = get_log_output(&work_dir);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  new child
     @  rewritten
     ◆
@@ -108,7 +108,7 @@ fn test_concurrent_operations_wc_modified() {
 
     // We should be informed about the concurrent modification
     let output = get_log_output(&work_dir);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  new child1
     │ ○  new child2
     ├─╯
@@ -120,7 +120,7 @@ fn test_concurrent_operations_wc_modified() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file b/file
     index 12f00e90b6..2e0996000b 100644
     --- a/file
@@ -133,7 +133,7 @@ fn test_concurrent_operations_wc_modified() {
 
     // The working copy should be committed after merging the operations
     let output = work_dir.run_jj(["op", "log", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  snapshot working copy
     ○    reconcile divergent operations
     ├─╮
@@ -169,7 +169,7 @@ fn test_concurrent_snapshot_wc_reloadable() {
 
     let template = r#"id.short() ++ "\n" ++ description ++ "\n" ++ tags"#;
     let output = work_dir.run_jj(["op", "log", "-T", template]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  a631dcf37fea
     │  commit c91a0909a9d3f3d8392ba9fab88f4b40fc0810ee
     │  args: jj commit -m 'new child1'
@@ -205,7 +205,7 @@ fn test_concurrent_snapshot_wc_reloadable() {
     .unwrap();
     work_dir.write_file("child2", "");
     let output = work_dir.run_jj(["describe", "-m", "new child2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 493da83e new child2
     Parent commit (@-)      : rlvkpnrz 15bd889d new child1
@@ -215,7 +215,7 @@ fn test_concurrent_snapshot_wc_reloadable() {
     // Since the repo can be reloaded before snapshotting, "child2" should be
     // a child of "child1", not of "initial".
     let output = work_dir.run_jj(["log", "-T", "description", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  new child2
     │  A child2
     ○  new child1

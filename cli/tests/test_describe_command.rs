@@ -30,7 +30,7 @@ fn test_describe() {
 
     // Set a description using `-m` flag
     let output = work_dir.run_jj(["describe", "-m", "description from CLI"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 7b186b4f (empty) description from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -39,7 +39,7 @@ fn test_describe() {
 
     // Set the same description using `-m` flag, but with explicit newline
     let output = work_dir.run_jj(["describe", "-m", "description from CLI\n"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -49,7 +49,7 @@ fn test_describe() {
     // make no changes
     std::fs::write(&edit_script, "dump editor0").unwrap();
     let output = work_dir.run_jj(["describe"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -66,7 +66,7 @@ fn test_describe() {
     // Set a description in editor
     std::fs::write(&edit_script, "write\ndescription from editor").unwrap();
     let output = work_dir.run_jj(["describe"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 28173c3e (empty) description from editor
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -80,7 +80,7 @@ fn test_describe() {
     )
     .unwrap();
     let output = work_dir.run_jj(["describe"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm e7488502 (empty) description among comment
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -90,14 +90,14 @@ fn test_describe() {
     // Multi-line description
     std::fs::write(&edit_script, "write\nline1\nline2\n\nline4\n\n").unwrap();
     let output = work_dir.run_jj(["describe"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 7438c202 (empty) line1
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     line1
     line2
 
@@ -108,7 +108,7 @@ fn test_describe() {
     // Multi-line description again with CRLF, which should make no changes
     std::fs::write(&edit_script, "write\nline1\r\nline2\r\n\r\nline4\r\n\r\n").unwrap();
     let output = work_dir.run_jj(["describe"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -117,14 +117,14 @@ fn test_describe() {
     // Multi-line description starting with newlines
     std::fs::write(&edit_script, "write\n\n\nline1\nline2").unwrap();
     let output = work_dir.run_jj(["describe"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm f38e2bd7 (empty) line1
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     line1
     line2
     [EOF]
@@ -132,7 +132,7 @@ fn test_describe() {
 
     // Clear description
     let output = work_dir.run_jj(["describe", "-m", ""]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 7c00df81 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -140,7 +140,7 @@ fn test_describe() {
     ");
     std::fs::write(&edit_script, "write\n").unwrap();
     let output = work_dir.run_jj(["describe"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -156,7 +156,7 @@ fn test_describe() {
             ("exit code", "exit status"), // Windows
         ],
     }, {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ------- stderr -------
         Error: Failed to edit description
         Caused by: Editor '<redacted>' exited with exit status: 1
@@ -182,14 +182,14 @@ fn test_describe() {
     )
     .unwrap();
     let output = work_dir.run_jj(["describe"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 0ec68094 (empty) description from editor
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     description from editor
 
     content of message from editor
@@ -209,7 +209,7 @@ fn test_describe_editor_env() {
             .env("EDITOR", "this-editor-does-not-exist")
     });
     insta::assert_snapshot!(
-        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @r"
+        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @"
     ------- stderr -------
     Error: Failed to edit description
     Caused by:
@@ -225,7 +225,7 @@ fn test_describe_editor_env() {
             .env("EDITOR", "bad-editor-from-editor-env")
     });
     insta::assert_snapshot!(
-        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @r"
+        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @"
     ------- stderr -------
     Error: Failed to edit description
     Caused by:
@@ -241,7 +241,7 @@ fn test_describe_editor_env() {
             .env("VISUAL", "bad-editor-from-visual-env")
     });
     insta::assert_snapshot!(
-        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @r"
+        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @"
     ------- stderr -------
     Error: Failed to edit description
     Caused by:
@@ -256,7 +256,7 @@ fn test_describe_editor_env() {
             .env("JJ_EDITOR", "bad-jj-editor-from-jj-editor-env")
     });
     insta::assert_snapshot!(
-        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @r"
+        output.normalize_stderr_with(|s| s.split_inclusive('\n').take(3).collect()), @"
     ------- stderr -------
     Error: Failed to edit description
     Caused by:
@@ -272,7 +272,7 @@ fn test_describe_no_matching_revisions() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["describe", "none()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No revisions to describe.
     [EOF]
@@ -289,7 +289,7 @@ fn test_describe_multiple_commits() {
     // Initial setup
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["new"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  3cd3b246e098
     ○  43444d88b009
     ○  e8849ae12c70
@@ -299,7 +299,7 @@ fn test_describe_multiple_commits() {
 
     // Set the description of multiple commits using `-m` flag
     let output = work_dir.run_jj(["describe", "-r@", "-r@--", "-m", "description from CLI"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Updated 2 commits
     Rebased 1 descendant commits
@@ -307,7 +307,7 @@ fn test_describe_multiple_commits() {
     Parent commit (@-)      : rlvkpnrz 650ac8f2 (empty) (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  4c3ccb9d4fb2 description from CLI
     ○  650ac8f249be
     ○  0ff65c91377a description from CLI
@@ -320,7 +320,7 @@ fn test_describe_multiple_commits() {
     // Commit descriptions are edited in topological order
     std::fs::write(&edit_script, "dump editor0").unwrap();
     let output = work_dir.run_jj(["describe", "-r@", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -369,14 +369,14 @@ fn test_describe_multiple_commits() {
     )
     .unwrap();
     let output = work_dir.run_jj(["describe", "@", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Updated 2 commits
     Working copy  (@) now at: kkmpptxz 87c0f3c7 (empty) description from editor of @
     Parent commit (@-)      : rlvkpnrz 9b9041eb (empty) description from editor of @-
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  87c0f3c75a22 description from editor of @
     │
     │  further commit message of @
@@ -413,7 +413,7 @@ fn test_describe_multiple_commits() {
     )
     .unwrap();
     let output = work_dir.run_jj(["describe", "@", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The following commits were found in the edited message multiple times: 9b9041eb2f04
     [EOF]
@@ -443,7 +443,7 @@ fn test_describe_multiple_commits() {
     )
     .unwrap();
     let output = work_dir.run_jj(["describe", "@", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The following commits were not being edited, but were found in the edited message: 000000000000
     [EOF]
@@ -465,7 +465,7 @@ fn test_describe_multiple_commits() {
     )
     .unwrap();
     let output = work_dir.run_jj(["describe", "@", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The description for the following commits were not found in the edited message: 9b9041eb2f04
     [EOF]
@@ -505,7 +505,7 @@ fn test_describe_multiple_commits() {
             ("exit code", "exit status"), // Windows
         ],
     }, {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ------- stderr -------
         Error: Failed to edit description
         Caused by: Editor '<redacted>' exited with exit status: 1
@@ -535,7 +535,7 @@ fn test_describe_multiple_commits() {
     )
     .unwrap();
     let output = work_dir.run_jj(["describe", "@-", "@--"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Updated 2 commits
     Rebased 1 descendant commits
@@ -543,7 +543,7 @@ fn test_describe_multiple_commits() {
     Parent commit (@-)      : rlvkpnrz d1c1edbd (empty) description from editor for @-
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  5a6249e9e71a description from editor of @
     │
     │  further commit message of @
@@ -568,7 +568,7 @@ fn test_multiple_message_args() {
         "-m",
         "Second Paragraph from CLI",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 9b8ad205 (empty) First Paragraph from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -576,7 +576,7 @@ fn test_multiple_message_args() {
     ");
 
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     First Paragraph from CLI
 
     Second Paragraph from CLI
@@ -591,7 +591,7 @@ fn test_multiple_message_args() {
         "-m",
         "Second Paragraph from CLI\n",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -607,7 +607,7 @@ fn test_multiple_message_args() {
         "-m",
         "Second Paragraph from CLI",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm ac46ea93 (empty) First Paragraph from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -615,7 +615,7 @@ fn test_multiple_message_args() {
     ");
 
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     First Paragraph from CLI
 
 
@@ -634,14 +634,14 @@ fn test_describe_stdin_description() {
             .args(["describe", "--stdin"])
             .write_stdin("first stdin\nsecond stdin")
     });
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm b9990801 (empty) first stdin
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     first stdin
     second stdin
     [EOF]
@@ -660,7 +660,7 @@ fn test_describe_default_description() {
     work_dir.write_file("file2", "bar\n");
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
     let output = work_dir.run_jj(["describe"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 7276dfff TESTED=TODO
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -683,7 +683,7 @@ fn test_describe_default_description() {
     // Default description shouldn't be used if --no-edit
     work_dir.run_jj(["new", "root()"]).success();
     let output = work_dir.run_jj(["describe", "--no-edit", "--reset-author"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Warning: `jj describe --reset-author` is deprecated; use `jj metaedit --update-author` instead
@@ -732,7 +732,7 @@ fn test_describe_author() {
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["new"]).success();
-    insta::assert_snapshot!(get_signatures(), @r"
+    insta::assert_snapshot!(get_signatures(), @"
     @  Test User test.user@example.com 2001-02-03 04:05:10.000 +07:00
     │  Test User test.user@example.com 2001-02-03 04:05:10.000 +07:00
     ○  Test User test.user@example.com 2001-02-03 04:05:09.000 +07:00
@@ -753,7 +753,7 @@ fn test_describe_author() {
             "Super Seeder <super.seeder@example.com>",
         ])
         .success();
-    insta::assert_snapshot!(get_signatures(), @r"
+    insta::assert_snapshot!(get_signatures(), @"
     @  Super Seeder super.seeder@example.com 2001-02-03 04:05:12.000 +07:00
     │  Test User test.user@example.com 2001-02-03 04:05:12.000 +07:00
     ○  Test User test.user@example.com 2001-02-03 04:05:09.000 +07:00
@@ -787,7 +787,7 @@ fn test_describe_author() {
             "Super Seeder <super.seeder@example.com>",
         ])
         .success();
-    insta::assert_snapshot!(get_signatures(), @r"
+    insta::assert_snapshot!(get_signatures(), @"
     @  Super Seeder super.seeder@example.com 2001-02-03 04:05:12.000 +07:00
     │  Test User test.user@example.com 2001-02-03 04:05:14.000 +07:00
     ○  Super Seeder super.seeder@example.com 2001-02-03 04:05:14.000 +07:00
@@ -810,7 +810,7 @@ fn test_describe_author() {
             "--reset-author",
         ])
         .success();
-    insta::assert_snapshot!(get_signatures(), @r"
+    insta::assert_snapshot!(get_signatures(), @"
     @  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:16.000 +07:00
     │  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:16.000 +07:00
     ○  Super Seeder super.seeder@example.com 2001-02-03 04:05:14.000 +07:00
@@ -834,7 +834,7 @@ fn test_describe_author() {
             "--reset-author",
         ])
         .success();
-    insta::assert_snapshot!(get_signatures(), @r"
+    insta::assert_snapshot!(get_signatures(), @"
     @  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
     │  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
     ○  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:18.000 +07:00
@@ -898,7 +898,7 @@ fn test_describe_with_editor_and_message_args_opens_editor() {
 
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
     let output = work_dir.run_jj(["describe", "-m", "message from command line", "--editor"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm f9bee6de (empty) message from command line
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -927,7 +927,7 @@ fn test_describe_change_with_existing_message_with_editor_and_message_args_opens
 
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
     let output = work_dir.run_jj(["describe", "-m", "new message", "--editor"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm f8f14f7c (empty) new message
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -950,7 +950,7 @@ fn test_editor_cannot_be_used_with_no_edit() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["describe", "--no-edit", "--editor"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the argument '--no-edit' cannot be used with '--editor'
 
@@ -971,7 +971,7 @@ fn test_describe_deprecated_edit_flag() {
 
     std::fs::write(edit_script, ["write\nfinal message"].join("\0")).unwrap();
     let output = work_dir.run_jj(["describe", "-m", "initial message", "--edit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: `jj describe --edit` is deprecated; use `jj describe --editor` instead
     Working copy  (@) now at: qpvuntsm 46842128 (empty) final message
@@ -994,7 +994,7 @@ fn test_add_trailer() {
         "--config",
         r#"templates.commit_trailers='"Signed-off-by: " ++ committer'"#,
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 55c6f83d (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -1002,7 +1002,7 @@ fn test_add_trailer() {
     ");
 
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Message from CLI
 
     Signed-off-by: Test User <test.user@example.com>
@@ -1016,7 +1016,7 @@ fn test_add_trailer() {
         "--config",
         r#"templates.commit_trailers='"CC: alice@example.com\nChange-Id: I6a6a6964" ++ self.change_id().normal_hex()'"#,
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Working copy  (@) now at: qpvuntsm 2b2e302d (empty) Message from CLI
@@ -1025,7 +1025,7 @@ fn test_add_trailer() {
     ");
 
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Message from CLI
 
     Signed-off-by: Test User <test.user@example.com>
@@ -1041,7 +1041,7 @@ fn test_add_trailer() {
         "--config",
         r#"templates.commit_trailers='"CC: alice@example.com"'"#,
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Nothing changed.
@@ -1049,7 +1049,7 @@ fn test_add_trailer() {
     ");
 
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Message from CLI
 
     Signed-off-by: Test User <test.user@example.com>
@@ -1065,7 +1065,7 @@ fn test_add_trailer() {
         "--config",
         r#"templates.commit_trailers='"this is an invalid trailer"'"#,
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Error: Invalid trailer line: this is an invalid trailer
@@ -1075,7 +1075,7 @@ fn test_add_trailer() {
 
     // it doesn't modify a commit with an empty description
     let output = work_dir.run_jj(["new"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: yostqsxw dbea21e1 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 2b2e302d (empty) Message from CLI
@@ -1087,7 +1087,7 @@ fn test_add_trailer() {
         "--config",
         r#"templates.commit_trailers='"CC: alice@example.com"'"#,
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Nothing changed.
@@ -1107,7 +1107,7 @@ fn test_add_trailer_committer() {
     );
 
     let output = work_dir.run_jj(["describe", "-m", "Message from CLI"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 67458426 (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -1115,7 +1115,7 @@ fn test_add_trailer_committer() {
     ");
 
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Message from CLI
 
     Signed-off-by: test.user@example.com
@@ -1129,7 +1129,7 @@ fn test_add_trailer_committer() {
         "--config",
         "user.email=foo@bar.org",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: `jj describe --no-edit` is deprecated; use `jj metaedit` instead
     Working copy  (@) now at: qpvuntsm 05ddee5c (empty) Message from CLI
@@ -1138,7 +1138,7 @@ fn test_add_trailer_committer() {
     ");
 
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Message from CLI
 
     Signed-off-by: test.user@example.com
@@ -1149,7 +1149,7 @@ fn test_add_trailer_committer() {
     // trailer is added with the expected committer in the editor
     std::fs::write(&edit_script, "dump editor0").unwrap();
     let output = work_dir.run_jj(["describe", "--config", "user.email=foo@bar.net"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm b7dafa2c (empty) Message from CLI
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -1170,7 +1170,7 @@ fn test_add_trailer_committer() {
     "#);
 
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Message from CLI
 
     Signed-off-by: test.user@example.com
@@ -1183,7 +1183,7 @@ fn test_add_trailer_committer() {
     work_dir.run_jj(["new"]).success();
     std::fs::write(&edit_script, "dump editor0").unwrap();
     let output = work_dir.run_jj(["describe"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv b6148729 (empty) Signed-off-by: test.user@example.com
     Parent commit (@-)      : qpvuntsm b7dafa2c (empty) Message from CLI

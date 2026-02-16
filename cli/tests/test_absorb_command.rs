@@ -34,7 +34,7 @@ fn test_absorb_simple() {
     // Empty commit
     work_dir.run_jj(["new"]).success();
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -43,7 +43,7 @@ fn test_absorb_simple() {
     // Insert first and last lines
     work_dir.write_file("file1", "1X\n1a\n1b\n2a\n2b\n2Z\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 2 revisions:
       zsuskuln 95568809 2
@@ -56,7 +56,7 @@ fn test_absorb_simple() {
     // Modify middle line in hunk
     work_dir.write_file("file1", "1X\n1A\n1b\n2a\n2b\n2Z\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       kkmpptxz 5810eb0f 1
@@ -69,7 +69,7 @@ fn test_absorb_simple() {
     // Remove middle line from hunk
     work_dir.write_file("file1", "1X\n1A\n1b\n2a\n2Z\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       zsuskuln dd109863 2
@@ -81,13 +81,13 @@ fn test_absorb_simple() {
     // Insert ambiguous line in between
     work_dir.write_file("file1", "1X\n1A\n1b\nY\n2a\n2Z\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
+    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @"
     @  yostqsxw bde51bc9 (no description set)
     │  diff --git a/file1 b/file1
     │  index 8653ca354d..88eb438902 100644
@@ -126,7 +126,7 @@ fn test_absorb_simple() {
        index 0000000000..e69de29bb2
     [EOF]
     ");
-    insta::assert_snapshot!(get_evolog(&work_dir, "subject(1)"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "subject(1)"), @"
     ○    kkmpptxz 5810eb0f 1
     ├─╮
     │ ○  yqosqzyt/0 39b42898 (hidden) (no description set)
@@ -139,7 +139,7 @@ fn test_absorb_simple() {
     ○  kkmpptxz/3 eb943711 (hidden) (empty) 1
     [EOF]
     ");
-    insta::assert_snapshot!(get_evolog(&work_dir, "subject(2)"), @r"
+    insta::assert_snapshot!(get_evolog(&work_dir, "subject(2)"), @"
     ○    zsuskuln dd109863 2
     ├─╮
     │ ○  vruxwmqv/0 761492a8 (hidden) (no description set)
@@ -173,7 +173,7 @@ fn test_absorb_replace_single_line_hunk() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "2a\n1A\n2b\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 125fba68 (conflict) 1
@@ -248,7 +248,7 @@ fn test_absorb_merge() {
     work_dir.write_file("file1", "0a\n2a\n2b\n");
 
     let output = work_dir.run_jj(["new", "-m3", "subject(1)", "subject(2)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl 42875bf7 (empty) 3
     Parent commit (@-)      : kkmpptxz 9c66f62f 1
@@ -260,7 +260,7 @@ fn test_absorb_merge() {
     // Modify first and last lines, absorb from merge
     work_dir.write_file("file1", "1A\n1b\n0a\n2a\n2B\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 2 revisions:
       zsuskuln a6fde7ea 2
@@ -279,7 +279,7 @@ fn test_absorb_merge() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file2", "3A\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       mzvwutvl faf778a4 3
@@ -288,7 +288,7 @@ fn test_absorb_merge() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
+    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @"
     @  vruxwmqv cec519a1 (empty) (no description set)
     ○    mzvwutvl faf778a4 3
     ├─╮  diff --git a/file2 b/file2
@@ -344,7 +344,7 @@ fn test_absorb_discardable_merge_with_descendant() {
     work_dir.write_file("file1", "0a\n2a\n2b\n");
 
     let output = work_dir.run_jj(["new", "subject(1)", "subject(2)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl ad00b91a (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 9c66f62f 1
@@ -360,7 +360,7 @@ fn test_absorb_discardable_merge_with_descendant() {
     work_dir.write_file("file2", "3a\n");
     // Then absorb the merge commit
     let output = work_dir.run_jj(["absorb", "--from=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 2 revisions:
       zsuskuln a6cd8e87 2
@@ -372,7 +372,7 @@ fn test_absorb_discardable_merge_with_descendant() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
+    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @"
     @    royxmykx df946e9b 3
     ├─╮  diff --git a/file2 b/file2
     │ │  new file mode 100644
@@ -423,7 +423,7 @@ fn test_absorb_conflict() {
     work_dir.run_jj(["new", "root()"]).success();
     work_dir.write_file("file1", "2a\n2b\n");
     let output = work_dir.run_jj(["rebase", "-r@", "-dsubject(1)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 commits to destination
     Working copy  (@) now at: kkmpptxz 628e2b00 (conflict) (no description set)
@@ -457,7 +457,7 @@ fn test_absorb_conflict() {
 
     // Cannot absorb from conflict
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Skipping file1: Is a conflict
     Nothing changed.
@@ -468,7 +468,7 @@ fn test_absorb_conflict() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "1A\n1b\n2a\n2B\n");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Skipping file1: Is a conflict
     Nothing changed.
@@ -495,7 +495,7 @@ fn test_absorb_deleted_file() {
     // Since the destinations are chosen based on content diffs, file3 cannot be
     // absorbed.
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 38af7fd3 1
@@ -507,7 +507,7 @@ fn test_absorb_deleted_file() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
+    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @"
     @  kkmpptxz efd883f6 (no description set)
     │  diff --git a/file3 b/file3
     │  deleted file mode 100644
@@ -550,7 +550,7 @@ fn test_absorb_deleted_file_with_multiple_hunks() {
     work_dir.remove_file("file1");
     work_dir.remove_file("file2");
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 2 revisions:
       kkmpptxz 3e1b2472 (conflict) 2
@@ -667,7 +667,7 @@ fn test_absorb_file_mode() {
 
     // Mode change shouldn't be absorbed
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm 2a0c7f1d 1
@@ -679,7 +679,7 @@ fn test_absorb_file_mode() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
+    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @"
     @  zsuskuln 8ca9761d (no description set)
     │  diff --git a/file1 b/file1
     │  old mode 100755
@@ -713,7 +713,7 @@ fn test_absorb_from_into() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "1a\nX\n2a\n1b\nY\n1c\n2b\nZ\n");
     let output = work_dir.run_jj(["absorb", "--into=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       kkmpptxz cae507ef 2
@@ -725,7 +725,7 @@ fn test_absorb_from_into() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_diffs(&work_dir, "@-::"), @r"
+    insta::assert_snapshot!(get_diffs(&work_dir, "@-::"), @"
     @  zsuskuln f02fd9ea (no description set)
     │  diff --git a/file1 b/file1
     │  index faf62af049..c2d0b12547 100644
@@ -758,7 +758,7 @@ fn test_absorb_from_into() {
     // Absorb all lines from the working-copy parent. An empty commit won't be
     // discarded because "absorb" isn't a command to squash commit descriptions.
     let output = work_dir.run_jj(["absorb", "--from=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       rlvkpnrz ddaed33d 1
@@ -768,7 +768,7 @@ fn test_absorb_from_into() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
+    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @"
     @  zsuskuln 3652e5e5 (no description set)
     │  diff --git a/file1 b/file1
     │  index faf62af049..c2d0b12547 100644
@@ -820,7 +820,7 @@ fn test_absorb_paths() {
     work_dir.write_file("file2", "1A\n");
 
     let output = work_dir.run_jj(["absorb", "nonexistent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Nothing changed.
@@ -828,7 +828,7 @@ fn test_absorb_paths() {
     ");
 
     let output = work_dir.run_jj(["absorb", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       qpvuntsm ca07fabe 1
@@ -840,7 +840,7 @@ fn test_absorb_paths() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @r"
+    insta::assert_snapshot!(get_diffs(&work_dir, "mutable()"), @"
     @  kkmpptxz 4d80ada8 (no description set)
     │  diff --git a/file2 b/file2
     │  index a8994dc188..268de3f3ec 100644
@@ -889,7 +889,7 @@ fn test_absorb_immutable() {
 
     // Immutable revisions are excluded by default
     let output = work_dir.run_jj(["absorb"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Absorbed changes into 1 revisions:
       kkmpptxz e68cc3e2 2
@@ -916,7 +916,7 @@ fn test_absorb_immutable() {
     [exit status: 1]
     "#);
 
-    insta::assert_snapshot!(get_diffs(&work_dir, ".."), @r"
+    insta::assert_snapshot!(get_diffs(&work_dir, ".."), @"
     @  mzvwutvl 88443af7 (no description set)
     │  diff --git a/file1 b/file1
     │  index 75e4047831..428796ca20 100644

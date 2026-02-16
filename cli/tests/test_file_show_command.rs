@@ -29,14 +29,14 @@ fn test_show() {
 
     // Can print the contents of a file in a commit
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a
     [EOF]
     ");
 
     // Defaults to printing the working-copy version
     let output = work_dir.run_jj(["file", "show", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     b
     [EOF]
     ");
@@ -48,14 +48,14 @@ fn test_show() {
         "dir\\file2"
     };
     let output = work_dir.run_jj(["file", "show", subdir_file]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     c
     [EOF]
     ");
 
     // Error if the path doesn't exist
     let output = work_dir.run_jj(["file", "show", "nonexistent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No such path: nonexistent
     [EOF]
@@ -64,7 +64,7 @@ fn test_show() {
 
     // Can print files under the specified directory
     let output = work_dir.run_jj(["file", "show", "dir"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     c
     [EOF]
     ");
@@ -72,7 +72,7 @@ fn test_show() {
     // Can print a single file with template
     let template = r#""--- " ++ path ++ "\n""#;
     let output = work_dir.run_jj(["file", "show", "-T", template, "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     --- file1
     b
     [EOF]
@@ -80,7 +80,7 @@ fn test_show() {
 
     // Can print multiple files with template
     let output = work_dir.run_jj(["file", "show", "-T", template, "."]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     --- dir/file2
     c
     --- file1
@@ -92,7 +92,7 @@ fn test_show() {
 
     // Can glob for multiple files too
     let output = work_dir.run_jj(["file", "show", "-T", template, "file*"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     --- file1
     b
     --- file3
@@ -102,7 +102,7 @@ fn test_show() {
 
     // Unmatched paths should generate warnings
     let output = work_dir.run_jj(["file", "show", "file1", "non-existent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     b
     [EOF]
     ------- stderr -------
@@ -145,7 +145,7 @@ fn test_show_symlink() {
     // Can print multiple files with template
     let template = r#""--- " ++ path ++ " [" ++ file_type ++ "]\n""#;
     let output = work_dir.run_jj(["file", "show", "-T", template, "."]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     --- dir/file2 [file]
     c
     --- file1 [file]

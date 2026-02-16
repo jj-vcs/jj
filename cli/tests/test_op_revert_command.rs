@@ -27,7 +27,7 @@ fn test_revert_root_operation() {
     // TODO: `jj op revert 'root()'` is not a valid command, so use the
     // hardcoded root op id here.
     let output = work_dir.run_jj(["op", "revert", "000000000000"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Cannot revert root operation
     [EOF]
@@ -44,7 +44,7 @@ fn test_revert_merge_operation() {
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["new", "--at-op=@-"]).success();
     let output = work_dir.run_jj(["op", "revert"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Error: Cannot revert a merge operation
@@ -65,7 +65,7 @@ fn test_revert_rewrite_with_child() {
     work_dir.run_jj(["describe", "-m", "modified"]).success();
     work_dir.run_jj(["new", "-m", "child"]).success();
     let output = work_dir.run_jj(["log", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  child
     ○  modified
     ◆
@@ -76,7 +76,7 @@ fn test_revert_rewrite_with_child() {
     // Since we undid the description-change, the child commit should now be on top
     // of the initial commit
     let output = work_dir.run_jj(["log", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  child
     ○  initial
     ◆
@@ -110,7 +110,7 @@ fn test_git_push_revert() {
     //   ------------------------------------------
     //    local `main`     | BB      |   --   | --
     //    remote-tracking  | AA      |   AA   | AA
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
     [EOF]
@@ -123,7 +123,7 @@ fn test_git_push_revert() {
     //   ------------------------------------------
     //    local  `main`    | BB      |   --   | --
     //    remote-tracking  | BB      |   BB   | BB
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @origin: qpvuntsm d9a9f6a0 (empty) BB
     [EOF]
@@ -137,7 +137,7 @@ fn test_git_push_revert() {
     //   ------------------------------------------
     //    local  `main`    | BB      |   --   | --
     //    remote-tracking  | AA      |   AA   | BB
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
     [EOF]
@@ -154,7 +154,7 @@ fn test_git_push_revert() {
     // remote-tracking bookmarks, but that also has undersired consequences: the
     // second fetch in `jj git fetch && jj op revert && jj git fetch` would
     // become a no-op.
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main (conflicted):
       - qpvuntsm/2 3a44d6c5 (hidden) (empty) AA
       + qpvuntsm/0 1e742089 (divergent) (empty) CC
@@ -192,7 +192,7 @@ fn test_git_push_revert_with_import() {
     //   ------------------------------------------
     //    local `main`     | BB      |   --   | --
     //    remote-tracking  | AA      |   AA   | AA
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
     [EOF]
@@ -205,7 +205,7 @@ fn test_git_push_revert_with_import() {
     //   ------------------------------------------
     //    local  `main`    | BB      |   --   | --
     //    remote-tracking  | BB      |   BB   | BB
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @origin: qpvuntsm d9a9f6a0 (empty) BB
     [EOF]
@@ -219,7 +219,7 @@ fn test_git_push_revert_with_import() {
     //   ------------------------------------------
     //    local  `main`    | BB      |   --   | --
     //    remote-tracking  | AA      |   AA   | BB
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
     [EOF]
@@ -235,7 +235,7 @@ fn test_git_push_revert_with_import() {
     //   ------------------------------------------
     //    local  `main`    | BB      |   --   | --
     //    remote-tracking  | BB      |   BB   | BB
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @origin: qpvuntsm d9a9f6a0 (empty) BB
     [EOF]
@@ -245,7 +245,7 @@ fn test_git_push_revert_with_import() {
     work_dir.run_jj(["git", "fetch"]).success();
     // There is not a conflict. This seems like a good outcome; reverting `git push`
     // was essentially a no-op.
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm 1e742089 (empty) CC
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 d9a9f6a0 (hidden) (empty) BB
     [EOF]
@@ -280,7 +280,7 @@ fn test_git_push_revert_colocated() {
     //   ------------------------------------------
     //    local `main`     | BB      |   BB   | BB
     //    remote-tracking  | AA      |   AA   | AA
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @git: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
@@ -294,7 +294,7 @@ fn test_git_push_revert_colocated() {
     //   ------------------------------------------
     //    local `main`     | BB      |   BB   | BB
     //    remote-tracking  | BB      |   BB   | BB
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @git: qpvuntsm d9a9f6a0 (empty) BB
       @origin: qpvuntsm d9a9f6a0 (empty) BB
@@ -317,7 +317,7 @@ fn test_git_push_revert_colocated() {
     //   ------------------------------------------
     //    local `main`     | BB      |   BB   | BB
     //    remote-tracking  | AA      |   AA   | AA
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @git: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
@@ -328,7 +328,7 @@ fn test_git_push_revert_colocated() {
     work_dir.run_jj(["git", "fetch"]).success();
     // We have the same conflict as `test_git_push_revert`. TODO: why did we get the
     // same result in a seemingly different way?
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main (conflicted):
       - qpvuntsm/2 3a44d6c5 (hidden) (empty) AA
       + qpvuntsm/0 1e742089 (divergent) (empty) CC
@@ -359,14 +359,14 @@ fn test_git_push_revert_repo_only() {
         .success();
     work_dir.run_jj(["describe", "-m", "AA"]).success();
     work_dir.run_jj(["git", "push", "--allow-new"]).success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm 3a44d6c5 (empty) AA
       @origin: qpvuntsm 3a44d6c5 (empty) AA
     [EOF]
     ");
     test_env.advance_test_rng_seed_to_multiple_of(100_000);
     work_dir.run_jj(["describe", "-m", "BB"]).success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 3a44d6c5 (hidden) (empty) AA
     [EOF]
@@ -378,7 +378,7 @@ fn test_git_push_revert_repo_only() {
     work_dir
         .run_jj(["op", "restore", "--what=repo", &pre_push_opid])
         .success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm d9a9f6a0 (empty) BB
       @origin: qpvuntsm d9a9f6a0 (empty) BB
     [EOF]
@@ -387,7 +387,7 @@ fn test_git_push_revert_repo_only() {
     work_dir.run_jj(["describe", "-m", "CC"]).success();
     work_dir.run_jj(["git", "fetch"]).success();
     // This currently gives an identical result to `test_git_push_revert_import`.
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm 1e742089 (empty) CC
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 d9a9f6a0 (hidden) (empty) BB
     [EOF]
@@ -423,7 +423,7 @@ fn test_bookmark_track_untrack_revert() {
     work_dir
         .run_jj(["bookmark", "delete", "feature2"])
         .success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qpvuntsm bab5b5ef (empty) commit
       @origin: qpvuntsm bab5b5ef (empty) commit
     feature2 (deleted)
@@ -435,7 +435,7 @@ fn test_bookmark_track_untrack_revert() {
     work_dir
         .run_jj(["bookmark", "untrack", "feature1 | feature2"])
         .success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qpvuntsm bab5b5ef (empty) commit
     feature1@origin: qpvuntsm bab5b5ef (empty) commit
     feature2@origin: qpvuntsm bab5b5ef (empty) commit
@@ -443,7 +443,7 @@ fn test_bookmark_track_untrack_revert() {
     ");
 
     work_dir.run_jj(["op", "revert"]).success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qpvuntsm bab5b5ef (empty) commit
       @origin: qpvuntsm bab5b5ef (empty) commit
     feature2 (deleted)
@@ -452,7 +452,7 @@ fn test_bookmark_track_untrack_revert() {
     ");
 
     work_dir.run_jj(["op", "revert"]).success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qpvuntsm bab5b5ef (empty) commit
     feature1@origin: qpvuntsm bab5b5ef (empty) commit
     feature2@origin: qpvuntsm bab5b5ef (empty) commit
@@ -460,7 +460,7 @@ fn test_bookmark_track_untrack_revert() {
     ");
 
     work_dir.run_jj(["bookmark", "track", "feature1"]).success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qpvuntsm bab5b5ef (empty) commit
       @origin: qpvuntsm bab5b5ef (empty) commit
     feature2@origin: qpvuntsm bab5b5ef (empty) commit
@@ -468,7 +468,7 @@ fn test_bookmark_track_untrack_revert() {
     ");
 
     work_dir.run_jj(["op", "revert"]).success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qpvuntsm bab5b5ef (empty) commit
     feature1@origin: qpvuntsm bab5b5ef (empty) commit
     feature2@origin: qpvuntsm bab5b5ef (empty) commit

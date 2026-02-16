@@ -136,7 +136,7 @@ fn test_materialize_conflict_basic() {
     );
     insta::assert_snapshot!(
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Snapshot),
-        @r"
+        @"
     line 1
     line 2
     <<<<<<< conflict 1 of 1
@@ -160,7 +160,7 @@ fn test_materialize_conflict_basic() {
     );
     insta::assert_snapshot!(
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Git),
-        @r"
+        @"
     line 1
     line 2
     <<<<<<< side #1
@@ -294,7 +294,7 @@ fn test_materialize_conflict_three_sides() {
     // Test materializing "snapshot" conflict markers
     insta::assert_snapshot!(
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Snapshot),
-        @r"
+        @"
     line 1
     <<<<<<< conflict 1 of 1
     +++++++ side #1
@@ -322,7 +322,7 @@ fn test_materialize_conflict_three_sides() {
     // "git" conflict markers don't support more than 2 sides)
     insta::assert_snapshot!(
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Git),
-        @r"
+        @"
     line 1
     <<<<<<< conflict 1 of 1
     +++++++ side #1
@@ -894,7 +894,7 @@ fn test_materialize_conflict_with_labels() {
             &conflict_labels,
             ConflictMarkerStyle::Snapshot,
         ),
-        @r"
+        @"
     <<<<<<< conflict 1 of 1
     +++++++ side 1 conflict label
     side 1
@@ -914,7 +914,7 @@ fn test_materialize_conflict_with_labels() {
             &conflict_labels,
             ConflictMarkerStyle::Git,
         ),
-        @r"
+        @"
     <<<<<<< side 1 conflict label
     side 1
     ||||||| base conflict label
@@ -1988,7 +1988,7 @@ fn test_update_conflict_from_content_with_long_markers() {
     assert!(materialized_marker_len > MIN_CONFLICT_MARKER_LEN);
     let materialized =
         materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Snapshot);
-    insta::assert_snapshot!(materialized, @r"
+    insta::assert_snapshot!(materialized, @"
     <<<<<<<<<<<<<<<< conflict 1 of 2
     ++++++++++++++++ side #1
     <<<< left 1
@@ -2058,17 +2058,17 @@ fn test_update_conflict_from_content_with_long_markers() {
     let [new_left_side, new_base, new_right_side] = new_conflict_terms.as_slice() else {
         unreachable!()
     };
-    insta::assert_snapshot!(new_left_side, @r"
+    insta::assert_snapshot!(new_left_side, @"
     <<<< left 1
     line 2
     line 3
     ");
-    insta::assert_snapshot!(new_base, @r"
+    insta::assert_snapshot!(new_base, @"
     line 1
     line 2
     line 3
     ");
-    insta::assert_snapshot!(new_right_side, @r"
+    insta::assert_snapshot!(new_right_side, @"
     >>>>>>> right 1
     line 2
     line 3
@@ -2090,7 +2090,7 @@ fn test_update_conflict_from_content_with_long_markers() {
     // conflict markers now
     insta::assert_snapshot!(
         materialize_conflict_string(store, path, &new_conflict, ConflictMarkerStyle::Snapshot),
-        @r"
+        @"
     <<<<<<<<<<< conflict 1 of 1
     +++++++++++ side #1
     <<<< left 1
@@ -2162,7 +2162,7 @@ fn test_update_conflict_from_content_no_eol() {
     let materialized =
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Snapshot);
     insta::assert_snapshot!(materialized.to_owned() + "[EOF]",
-        @r"
+        @"
     line 1
     <<<<<<< conflict 1 of 2
     +++++++ side #1
@@ -2201,7 +2201,7 @@ fn test_update_conflict_from_content_no_eol() {
     let materialized =
         &materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Git);
     insta::assert_snapshot!(materialized.to_owned() + "[EOF]",
-        @r"
+        @"
     line 1
     <<<<<<< side #1
     line 2 left
@@ -2473,7 +2473,7 @@ fn test_update_from_content_malformed_conflict() {
     let [new_left_side, new_base, new_right_side] = new_conflict_terms.as_slice() else {
         unreachable!()
     };
-    insta::assert_snapshot!(new_left_side, @r"
+    insta::assert_snapshot!(new_left_side, @"
     line 1
     line 2 left
     line 3
@@ -2485,7 +2485,7 @@ fn test_update_from_content_malformed_conflict() {
     >>>>>>> conflict 2 of 2 ends
     line 5
     ");
-    insta::assert_snapshot!(new_base, @r"
+    insta::assert_snapshot!(new_base, @"
     line 1
     line 2
     line 3
@@ -2497,7 +2497,7 @@ fn test_update_from_content_malformed_conflict() {
     >>>>>>> conflict 2 of 2 ends
     line 5
     ");
-    insta::assert_snapshot!(new_right_side, @r"
+    insta::assert_snapshot!(new_right_side, @"
     line 1
     line 2 right
     line 3

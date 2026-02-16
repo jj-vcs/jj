@@ -61,7 +61,7 @@ fn test_gitignores() {
     work_dir.write_file("file3", "contents");
 
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     A .gitignore
     A file0
     A file3
@@ -93,12 +93,12 @@ fn test_gitignores_relative_excludes_file_path() {
     // to the cwd.
     let sub_dir = work_dir.create_dir("sub");
     let output = sub_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     A ../not-ignored
     [EOF]
     ");
     let output = test_env.run_jj_in(".", ["-Rrepo", "diff", "-s"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     A repo/not-ignored
     [EOF]
     ");
@@ -131,7 +131,7 @@ fn test_gitignores_ignored_file_in_target_commit() {
 
     // Update to the commit with the "ignored" file
     let output = work_dir.run_jj(["edit", "with-file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 3cf51c1a with-file | (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -142,7 +142,7 @@ fn test_gitignores_ignored_file_in_target_commit() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--git", "--from", &target_commit_id]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/ignored b/ignored
     index 8a69467466..4d9be5127b 100644
     --- a/ignored

@@ -28,7 +28,7 @@ fn test_file_search() {
 
     // Searches all files in the current revision by default
     let output = work_dir.run_jj(["file", "search", "--pattern=*foo*"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     dir/file3
     file1
     [EOF]
@@ -40,21 +40,21 @@ fn test_file_search() {
 
     // Can search files in another revision
     let output = work_dir.run_jj(["file", "search", "--pattern=*foo*", "-r=@-"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     file1
     [EOF]
     ");
 
     // Can filter by path
     let output = work_dir.run_jj(["file", "search", "--pattern=*foo*", "dir"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     dir/file3
     [EOF]
     ");
 
     // Warning if path doesn't exist
     let output = work_dir.run_jj(["file", "search", "--pattern=*foo*", "file9"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     ------- stderr -------
     Warning: No matching entries for paths: file9
     [EOF]
@@ -88,14 +88,14 @@ fn test_file_search_conflicts() {
 
     // Matches positive terms
     let output = work_dir.run_jj(["file", "search", "--pattern=*foo*"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     file1
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "search", "--pattern=*bar*"]);
     insta::assert_snapshot!(output.normalize_backslash(), @"");
     let output = work_dir.run_jj(["file", "search", "--pattern=*baz*"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     file1
     [EOF]
     ");

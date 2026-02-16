@@ -35,7 +35,7 @@ fn test_restore() {
 
     // There is no `-r` argument
     let output = work_dir.run_jj(["restore", "-r=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: `jj restore` does not have a `--revision`/`-r` option.
     Hint: To modify the current revision, use `--from`.
@@ -46,7 +46,7 @@ fn test_restore() {
 
     // Restores from parent by default
     let output = work_dir.run_jj(["restore"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz ff7ef1df (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 1d3e40a3 (no description set)
@@ -59,12 +59,12 @@ fn test_restore() {
     // Can restore another revision from its parents
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["diff", "-s", "-r=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     A file2
     [EOF]
     ");
     let output = work_dir.run_jj(["restore", "-c=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kkmpptxz faa5911c (conflict) (no description set)
@@ -88,7 +88,7 @@ fn test_restore() {
     // Can restore this revision from another revision
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--from", "@--"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 3beda426 (no description set)
     Parent commit (@-)      : rlvkpnrz 1d3e40a3 (no description set)
@@ -96,7 +96,7 @@ fn test_restore() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file2
     [EOF]
     ");
@@ -104,7 +104,7 @@ fn test_restore() {
     // Can restore into other revision
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--into", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kkmpptxz 5edd8125 (empty) (no description set)
@@ -114,7 +114,7 @@ fn test_restore() {
     let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["diff", "-s", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     A file2
     A file3
@@ -124,7 +124,7 @@ fn test_restore() {
     // Can combine `--from` and `--into`
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--from", "@", "--into", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kkmpptxz 9807d79b (empty) (no description set)
@@ -134,7 +134,7 @@ fn test_restore() {
     let output = work_dir.run_jj(["diff", "-s"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["diff", "-s", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     A file2
     A file3
@@ -144,7 +144,7 @@ fn test_restore() {
     // Can restore only specified paths
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "file2", "file3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 08b04134 (no description set)
     Parent commit (@-)      : rlvkpnrz 1d3e40a3 (no description set)
@@ -152,14 +152,14 @@ fn test_restore() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     [EOF]
     ");
 
     // The output filtered to a non-existent file should display a warning.
     let output = work_dir.run_jj(["restore", "nonexistent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Nothing changed.
@@ -179,7 +179,7 @@ fn test_restore_conflicted_merge() {
     create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b\n")]);
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    conflict
     ├─╮
     │ ○  b
@@ -218,7 +218,7 @@ fn test_restore_conflicted_merge() {
 
     // ...and restore it back again.
     let output = work_dir.run_jj(["restore", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 7efcd5f8 conflict | (conflict) (empty) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
@@ -259,7 +259,7 @@ fn test_restore_conflicted_merge() {
 
     // ... and restore it back again.
     let output = work_dir.run_jj(["restore"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv e0c3b307 conflict | (conflict) (empty) conflict
     Parent commit (@-)      : zsuskuln 45537d53 a | a
@@ -297,7 +297,7 @@ fn test_restore_restore_descendants() {
     );
     create_commit_with_files(&work_dir, "ab", &["a", "b"], &[("file", "ab\n")]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    ab
     ├─╮
     │ ○  b
@@ -312,7 +312,7 @@ fn test_restore_restore_descendants() {
     // Commit "b" was not supposed to modify "file", restore it from its parent
     // while preserving its child commit content.
     let output = work_dir.run_jj(["restore", "-c", "b", "file", "--restore-descendants"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits (while preserving their content)
     Working copy  (@) now at: vruxwmqv 14c0c336 ab | ab
@@ -323,7 +323,7 @@ fn test_restore_restore_descendants() {
 
     // Check that "a", "b", and "ab" have their expected content by diffing them.
     // "ab" must have kept its content.
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--from=a", "--to=ab", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--from=a", "--to=ab", "--git"]), @"
     diff --git a/file b/file
     index 7898192261..81bf396956 100644
     --- a/file
@@ -340,7 +340,7 @@ fn test_restore_restore_descendants() {
     +b
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--from=b", "--to=ab", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--from=b", "--to=ab", "--git"]), @"
     diff --git a/file b/file
     index df967b96a5..81bf396956 100644
     --- a/file
@@ -367,7 +367,7 @@ fn test_restore_interactive() {
         &[("file1", "b1\n"), ("file2", "b2\n"), ("file3", "b3\n")],
     );
     let output = work_dir.run_jj(["log", "--summary"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:11 b 38153274
     │  b
     │  M file1
@@ -393,7 +393,7 @@ fn test_restore_interactive() {
 
     // Restore file1 and file3
     let output = work_dir.run_jj(["restore", "-i", "--from=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: zsuskuln 7cd0a341 b | b
     Parent commit (@-)      : rlvkpnrz 6c8d5b87 a | a
@@ -402,7 +402,7 @@ fn test_restore_interactive() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @"
     You are restoring changes from: rlvkpnrz 6c8d5b87 a | a
     to commit: zsuskuln 38153274 b | b
 
@@ -411,7 +411,7 @@ fn test_restore_interactive() {
     ");
 
     let output = work_dir.run_jj(["log", "--summary"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:13 b 7cd0a341
     │  b
     │  M file2
@@ -426,7 +426,7 @@ fn test_restore_interactive() {
     // Try again with --tool, which should imply --interactive
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["restore", "--tool=fake-diff-editor"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: zsuskuln 0f1263f5 b | b
     Parent commit (@-)      : rlvkpnrz 6c8d5b87 a | a
@@ -435,7 +435,7 @@ fn test_restore_interactive() {
     ");
 
     let output = work_dir.run_jj(["log", "--summary"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:16 b 0f1263f5
     │  b
     │  M file2
@@ -464,7 +464,7 @@ fn test_restore_interactive_merge() {
         &[("file1", "c1\n"), ("file2", "c2\n"), ("file3", "c3\n")],
     );
     let output = work_dir.run_jj(["log", "--summary"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    royxmykx test.user@example.com 2001-02-03 08:05:13 c e37470c3
     ├─╮  c
     │ │  M file1
@@ -491,7 +491,7 @@ fn test_restore_interactive_merge() {
 
     // Restore file1 and file3
     let output = work_dir.run_jj(["restore", "-i"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: royxmykx 196af27b c | c
     Parent commit (@-)      : rlvkpnrz 78059355 a | a
@@ -501,7 +501,7 @@ fn test_restore_interactive_merge() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @"
     You are restoring changes from: rlvkpnrz 78059355 a | a
                                     zsuskuln ca7e57cd b | b
     to commit: royxmykx e37470c3 c | c
@@ -511,7 +511,7 @@ fn test_restore_interactive_merge() {
     ");
 
     let output = work_dir.run_jj(["log", "--summary"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    royxmykx test.user@example.com 2001-02-03 08:05:15 c 196af27b
     ├─╮  c
     │ │  M file2
@@ -541,7 +541,7 @@ fn test_restore_interactive_with_paths() {
         &[("file1", "b1\n"), ("file2", "b2\n"), ("file3", "b3\n")],
     );
     let output = work_dir.run_jj(["log", "--summary"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:11 b 38153274
     │  b
     │  M file1
@@ -565,7 +565,7 @@ fn test_restore_interactive_with_paths() {
 
     // Restore file1 (file2 is reset by interactive editor)
     let output = work_dir.run_jj(["restore", "-i", "file1", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: zsuskuln 8b2f997d b | b
     Parent commit (@-)      : rlvkpnrz 6c8d5b87 a | a
@@ -574,7 +574,7 @@ fn test_restore_interactive_with_paths() {
     ");
 
     let output = work_dir.run_jj(["log", "--summary"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:13 b 8b2f997d
     │  b
     │  M file2

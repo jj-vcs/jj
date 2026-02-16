@@ -50,7 +50,7 @@ fn test_gc_args() {
     insta::assert_snapshot!(output, @"");
 
     let output = work_dir.run_jj(["util", "gc", "--at-op=@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Cannot garbage collect from a non-head operation
     [EOF]
@@ -58,7 +58,7 @@ fn test_gc_args() {
     ");
 
     let output = work_dir.run_jj(["util", "gc", "--expire=foobar"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: --expire only accepts 'now'
     [EOF]
@@ -94,7 +94,7 @@ fn test_gc_operation_log() {
 
     // Now this doesn't work.
     let output = work_dir.run_jj(["debug", "object", "operation", &op_to_remove]);
-    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @"
     ------- stderr -------
     Internal error: Failed to load an operation
     Caused by:
@@ -163,7 +163,7 @@ fn test_util_exec_fail() {
         ],
     );
     // Ensures only stdout contains text
-    insta::assert_snapshot!(output.normalize_stderr_with(|s| s.replace(".exe", "")), @r"
+    insta::assert_snapshot!(output.normalize_stderr_with(|s| s.replace(".exe", "")), @"
     ------- stderr -------
     error: unexpected argument '--badopt' found
 
@@ -181,7 +181,7 @@ fn test_util_exec_fail() {
 fn test_util_exec_not_found() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["util", "exec", "--", "jj-test-missing-program"]);
-    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @"
     ------- stderr -------
     Error: Failed to execute external command 'jj-test-missing-program'
     [EOF]
@@ -205,7 +205,7 @@ fn test_util_exec_crash() {
     );
 
     if cfg!(unix) {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ------- stderr -------
         Error: External command was terminated by signal: 15 (SIGTERM)
         [EOF]
@@ -237,7 +237,7 @@ fn test_util_exec_sets_env() {
             r#"echo "$JJ_WORKSPACE_ROOT""#,
         ],
     );
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     $TEST_ENV/repo
     [EOF]
     ");
@@ -269,7 +269,7 @@ fn test_util_snapshot() {
     work_dir.write_file("foo", "foo");
 
     let output = work_dir.run_jj(["util", "snapshot"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Snapshot complete.
     [EOF]
@@ -283,7 +283,7 @@ fn test_util_snapshot_nothing_changed() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["util", "snapshot"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No snapshot needed.
     [EOF]

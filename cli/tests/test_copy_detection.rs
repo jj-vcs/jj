@@ -28,7 +28,7 @@ fn test_simple_rename() {
     work_dir.write_file("modified", "original");
     work_dir.write_file("something", "changed");
     insta::assert_snapshot!(
-        work_dir.run_jj(["debug", "copy-detection"]).normalize_backslash(), @r"
+        work_dir.run_jj(["debug", "copy-detection"]).normalize_backslash(), @"
     original -> modified
     [EOF]
     ");

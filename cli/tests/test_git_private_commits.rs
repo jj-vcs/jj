@@ -91,7 +91,7 @@ fn test_git_private_commits_block_pushing() {
     // Will not push when a pushed commit is contained in git.private-commits
     test_env.add_config(r#"git.private-commits = "description('private*')""#);
     let output = work_dir.run_jj(["git", "push", "--all"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Won't push commit 7f665ca27d4e since it is private
     Hint: Rejected commit: yqosqzyt 7f665ca2 main* | (empty) private 1
@@ -103,7 +103,7 @@ fn test_git_private_commits_block_pushing() {
     // May push when the commit is removed from git.private-commits
     test_env.add_config(r#"git.private-commits = "none()""#);
     let output = work_dir.run_jj(["git", "push", "--all"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
       Move forward bookmark main from 95cc152cd086 to 7f665ca27d4e
@@ -128,7 +128,7 @@ fn test_git_private_commits_can_be_overridden() {
     // Will not push when a pushed commit is contained in git.private-commits
     test_env.add_config(r#"git.private-commits = "description('private*')""#);
     let output = work_dir.run_jj(["git", "push", "--all"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Won't push commit 7f665ca27d4e since it is private
     Hint: Rejected commit: yqosqzyt 7f665ca2 main* | (empty) private 1
@@ -139,7 +139,7 @@ fn test_git_private_commits_can_be_overridden() {
 
     // May push when the commit is removed from git.private-commits
     let output = work_dir.run_jj(["git", "push", "--all", "--allow-private"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
       Move forward bookmark main from 95cc152cd086 to 7f665ca27d4e
@@ -164,7 +164,7 @@ fn test_git_private_commits_are_not_checked_if_immutable() {
     test_env.add_config(r#"git.private-commits = "description('private*')""#);
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "all()""#);
     let output = work_dir.run_jj(["git", "push", "--all"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
       Move forward bookmark main from 95cc152cd086 to 7f665ca27d4e
@@ -194,7 +194,7 @@ fn test_git_private_commits_not_directly_in_line_block_pushing() {
 
     test_env.add_config(r#"git.private-commits = "description('private*')""#);
     let output = work_dir.run_jj(["git", "push", "-b=bookmark1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Won't push commit 613114f44bdd since it is private
     Hint: Rejected commit: yqosqzyt 613114f4 (empty) private 1
@@ -218,7 +218,7 @@ fn test_git_private_commits_descending_from_commits_pushed_do_not_block_pushing(
 
     test_env.add_config(r#"git.private-commits = "description('private*')""#);
     let output = work_dir.run_jj(["git", "push", "-b=main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
       Move forward bookmark main from 95cc152cd086 to f0291dea729d
@@ -246,7 +246,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
         .run_jj(["bookmark", "set", "main", "-r@"])
         .success();
     let output = work_dir.run_jj(["git", "push", "-b=main", "-b=bookmark1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
       Add bookmark bookmark1 to 95cc152cd086
@@ -264,7 +264,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
         .run_jj(["bookmark", "set", "bookmark1", "-r=main"])
         .success();
     let output = work_dir.run_jj(["git", "push", "--all"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
       Move forward bookmark bookmark1 from 95cc152cd086 to 03bc2bf271e0
@@ -280,7 +280,7 @@ fn test_git_private_commits_already_on_the_remote_do_not_block_push() {
         .run_jj(["bookmark", "create", "-r@", "bookmark2"])
         .success();
     let output = work_dir.run_jj(["git", "push", "-b=bookmark2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
       Add bookmark bookmark2 to 987ee765174d
@@ -304,7 +304,7 @@ fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
         .run_jj(["bookmark", "set", "main", "-r@"])
         .success();
     let output = work_dir.run_jj(["git", "push", "-b=main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
       Move forward bookmark main from 95cc152cd086 to 7eb69d0eaf71
@@ -316,7 +316,7 @@ fn test_git_private_commits_are_evaluated_separately_for_each_remote() {
     // But pushing to a repo that doesn't have the private commit yet is still
     // blocked
     let output = work_dir.run_jj(["git", "push", "--remote=other", "-b=main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Won't push commit 469f044473ed since it is private
     Hint: Rejected commit: znkkpsqq 469f0444 (empty) private 1

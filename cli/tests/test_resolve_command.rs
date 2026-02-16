@@ -38,7 +38,7 @@ fn test_resolution() {
     create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b\n")]);
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    conflict
     ├─╮
     │ ○  b
@@ -48,7 +48,7 @@ fn test_resolution() {
     ◆
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    2-sided conflict
     [EOF]
     ");
@@ -71,7 +71,7 @@ fn test_resolution() {
     )
     .unwrap();
     let output = work_dir.run_jj(["resolve"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file
     Working copy  (@) now at: vruxwmqv 741263c9 conflict | conflict
@@ -99,7 +99,7 @@ fn test_resolution() {
     +resolution
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     ------- stderr -------
     Error: No conflicts found at this revision
     [EOF]
@@ -114,7 +114,7 @@ fn test_resolution() {
         "--config=ui.merge-editor='false'",
         "--tool=fake-editor",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file
     Working copy  (@) now at: vruxwmqv 1f8a36f7 conflict | conflict
@@ -140,7 +140,7 @@ fn test_resolution() {
     +resolution
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     ------- stderr -------
     Error: No conflicts found at this revision
     [EOF]
@@ -217,7 +217,7 @@ fn test_resolution() {
         "resolve",
         "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file
     Working copy  (@) now at: vruxwmqv a9cb79b1 conflict | (conflict) conflict
@@ -266,7 +266,7 @@ fn test_resolution() {
      >>>>>>> conflict 1 of 1 ends
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    2-sided conflict
     [EOF]
     ");
@@ -295,7 +295,7 @@ fn test_resolution() {
     )
     .unwrap();
     let output = work_dir.run_jj(["resolve"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file
     Working copy  (@) now at: vruxwmqv 2cc7f5e3 conflict | conflict
@@ -330,7 +330,7 @@ fn test_resolution() {
     +>>>>>>>
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     ------- stderr -------
     Error: No conflicts found at this revision
     [EOF]
@@ -364,7 +364,7 @@ fn test_resolution() {
         "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
         "--config=merge-tools.fake-editor.conflict-marker-style=git",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file
     Working copy  (@) now at: vruxwmqv cd45e3c2 conflict | (conflict) conflict
@@ -411,7 +411,7 @@ fn test_resolution() {
      >>>>>>> conflict 1 of 1 ends
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    2-sided conflict
     [EOF]
     ");
@@ -444,7 +444,7 @@ fn test_resolution() {
         "resolve",
         "--config=merge-tools.fake-editor.merge-conflict-exit-codes=[1]",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file
     Working copy  (@) now at: vruxwmqv 097d6249 conflict | (conflict) conflict
@@ -483,7 +483,7 @@ fn test_resolution() {
      >>>>>>> conflict 1 of 1 ends
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    2-sided conflict
     [EOF]
     ");
@@ -512,7 +512,7 @@ fn test_resolution() {
         "resolve",
         "--config=merge-tools.fake-editor.merge-conflict-exit-codes=[1]",
     ]);
-    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     ------- stderr -------
     Resolving conflicts in: file
     Error: Failed to resolve conflicts
@@ -551,7 +551,7 @@ fn test_files_still_have_conflicts() {
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
     create_commit_with_files(&work_dir, "c", &["conflict"], &[]);
     create_commit_with_files(&work_dir, "d", &["base"], &[]);
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  d
     │ ×  c
     │ ×    conflict
@@ -576,7 +576,7 @@ fn test_files_still_have_conflicts() {
         "--config",
         "hints.resolving-conflicts=false",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file1
     Rebased 1 descendant commits
@@ -598,7 +598,7 @@ fn test_files_still_have_conflicts() {
         "--config",
         "hints.resolving-conflicts=false",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file1
     Rebased 1 descendant commits
@@ -632,7 +632,7 @@ fn check_resolve_produces_input_file(
     let output = work_dir.run_jj(["resolve", "--config", &merge_arg_config, filename]);
     insta::allow_duplicates! {
         insta::assert_snapshot!(
-            output.normalize_stderr_with(|s| s.replacen(filename, "$FILENAME", 1)), @r"
+            output.normalize_stderr_with(|s| s.replacen(filename, "$FILENAME", 1)), @"
         ------- stderr -------
         Resolving conflicts in: $FILENAME
         Error: Failed to resolve conflicts
@@ -654,7 +654,7 @@ fn test_normal_conflict_input_files() {
     create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b\n")]);
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    conflict
     ├─╮
     │ ○  b
@@ -664,7 +664,7 @@ fn test_normal_conflict_input_files() {
     ◆
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    2-sided conflict
     [EOF]
     ");
@@ -695,7 +695,7 @@ fn test_baseless_conflict_input_files() {
     create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b\n")]);
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    conflict
     ├─╮
     │ ○  b
@@ -705,7 +705,7 @@ fn test_baseless_conflict_input_files() {
     ◆
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    2-sided conflict
     [EOF]
     ");
@@ -735,12 +735,12 @@ fn test_too_many_parents() {
     create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b\n")]);
     create_commit_with_files(&work_dir, "c", &["base"], &[("file", "c\n")]);
     create_commit_with_files(&work_dir, "conflict", &["a", "b", "c"], &[]);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    3-sided conflict
     [EOF]
     ");
     // Test warning color
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list", "--color=always"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list", "--color=always"]), @"
     file    [38;5;1m3-sided[38;5;3m conflict[39m
     [EOF]
     ");
@@ -787,7 +787,7 @@ fn test_simplify_conflict_sides() {
     fileB: Ok(Conflicted([Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("d00491fd7e5bb6fa28c517a0bb32b8b506539d4d"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("df967b96a579e45a18b8251732d16804b2e56a55"), executable: false, copy_id: CopyId("") }), Some(File { id: FileId("0cfbf08886fca9a91cb753ec8734c84fcbe52c9f"), executable: false, copy_id: CopyId("") })]))
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     fileA    2-sided conflict
     fileB    2-sided conflict
     [EOF]
@@ -844,7 +844,7 @@ fn test_simplify_conflict_sides() {
         "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
         "fileB",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: fileB
     Working copy  (@) now at: nkmrtpmo e3edd72f conflict | (conflict) conflict
@@ -874,7 +874,7 @@ fn test_simplify_conflict_sides() {
     2_edited
     >>>>>>> conflict 1 of 1 ends
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     fileA    2-sided conflict
     fileB    2-sided conflict
     [EOF]
@@ -893,7 +893,7 @@ fn test_edit_delete_conflict_input_files() {
     work_dir.remove_file("file");
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    conflict
     ├─╮
     │ ○  b
@@ -903,7 +903,7 @@ fn test_edit_delete_conflict_input_files() {
     ◆
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    2-sided conflict including 1 deletion
     [EOF]
     ");
@@ -936,7 +936,7 @@ fn test_file_vs_dir() {
     // Without a placeholder file, `jj` ignores an empty directory
     work_dir.write_file("file/placeholder", "");
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    conflict
     ├─╮
     │ ○  b
@@ -947,7 +947,7 @@ fn test_file_vs_dir() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    2-sided conflict including a directory
     [EOF]
     ");
@@ -982,7 +982,7 @@ fn test_description_with_dir_and_deletion() {
     create_commit_with_files(&work_dir, "del", &["base"], &[]);
     work_dir.remove_file("file");
     create_commit_with_files(&work_dir, "conflict", &["edit", "dir", "del"], &[]);
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @      conflict
     ├─┬─╮
     │ │ ○  del
@@ -995,12 +995,12 @@ fn test_description_with_dir_and_deletion() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    3-sided conflict including 1 deletion and a directory
     [EOF]
     ");
     // Test warning color. The deletion is fine, so it's not highlighted
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list", "--color=always"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list", "--color=always"]), @"
     file    [38;5;1m3-sided[38;5;3m conflict including 1 deletion and [38;5;1ma directory[39m
     [EOF]
     ");
@@ -1050,7 +1050,7 @@ fn test_resolve_conflicts_with_executable() {
     );
     work_dir.run_jj(["file", "chmod", "x", "file2"]).success();
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file1    2-sided conflict including an executable
     file2    2-sided conflict including an executable
     [EOF]
@@ -1082,7 +1082,7 @@ fn test_resolve_conflicts_with_executable() {
     // Test resolving the conflict in "file1", which should produce an executable
     std::fs::write(&editor_script, b"write\nresolution1\n").unwrap();
     let output = work_dir.run_jj(["resolve", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file1
     Working copy  (@) now at: znkkpsqq 59e1d672 conflict | (conflict) conflict
@@ -1118,7 +1118,7 @@ fn test_resolve_conflicts_with_executable() {
     +resolution1
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file2    2-sided conflict including an executable
     [EOF]
     ");
@@ -1127,7 +1127,7 @@ fn test_resolve_conflicts_with_executable() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&editor_script, b"write\nresolution2\n").unwrap();
     let output = work_dir.run_jj(["resolve", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file2
     Working copy  (@) now at: znkkpsqq d3f09ac5 conflict | (conflict) conflict
@@ -1163,7 +1163,7 @@ fn test_resolve_conflicts_with_executable() {
     +resolution2
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file1    2-sided conflict including an executable
     [EOF]
     ");
@@ -1171,7 +1171,7 @@ fn test_resolve_conflicts_with_executable() {
     // Pick "our" contents, but merges executable bits
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["resolve", "--tool=:ours"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: znkkpsqq d902c14b conflict | conflict
     Parent commit (@-)      : mzvwutvl 86f7f0e3 a | a
@@ -1214,7 +1214,7 @@ fn test_resolve_conflicts_with_executable() {
     // Pick "their" contents, but merges executable bits
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["resolve", "--tool=:theirs"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: znkkpsqq a340ca5f conflict | conflict
     Parent commit (@-)      : mzvwutvl 86f7f0e3 a | a
@@ -1301,7 +1301,7 @@ fn test_resolve_change_delete_executable() {
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
 
     // Test the setup
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file1    2-sided conflict including 1 deletion and an executable
     file2    2-sided conflict including 1 deletion and an executable
     file3    2-sided conflict including an executable
@@ -1309,7 +1309,7 @@ fn test_resolve_change_delete_executable() {
     file5    2-sided conflict including 1 deletion and an executable
     [EOF]
     ");
-    insta::assert_snapshot!(file_list("all()"), @r"
+    insta::assert_snapshot!(file_list("all()"), @"
     file1 c -
     file2 c -
     file3 c -
@@ -1317,7 +1317,7 @@ fn test_resolve_change_delete_executable() {
     file5 c x
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["log", "--git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "--git"]), @"
     @    kmkuslsw test.user@example.com 2001-02-03 08:05:18 conflict 1196e800 (conflict)
     ├─╮  (empty) conflict
     │ ○  vruxwmqv test.user@example.com 2001-02-03 08:05:17 b 888b6cc3
@@ -1416,7 +1416,7 @@ fn test_resolve_change_delete_executable() {
     insta::assert_snapshot!(output, @"");
     std::fs::write(&editor_script, "write\nresolved\n").unwrap();
     let output = work_dir.run_jj(["resolve", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file2
     Working copy  (@) now at: kmkuslsw 3f8814ba conflict | (conflict) conflict
@@ -1448,7 +1448,7 @@ fn test_resolve_change_delete_executable() {
 
     // Take modified content, the executable bit should be kept as "-"
     let output = work_dir.run_jj(["resolve", "file4", "--tool=:ours"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw 0810a8d2 conflict | (conflict) conflict
     Parent commit (@-)      : mzvwutvl e2d3924b a | a
@@ -1461,7 +1461,7 @@ fn test_resolve_change_delete_executable() {
 
     // Take modified content, the executable bit should be kept as "x"
     let output = work_dir.run_jj(["resolve", "file5", "--tool=:theirs"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw 7337267a conflict | conflict
     Parent commit (@-)      : mzvwutvl e2d3924b a | a
@@ -1471,7 +1471,7 @@ fn test_resolve_change_delete_executable() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(file_list("all()"), @r"
+    insta::assert_snapshot!(file_list("all()"), @"
     file2 - -
     file3 - x
     file4 - -
@@ -1495,7 +1495,7 @@ fn test_pass_path_argument() {
     create_commit_with_files(&work_dir, "a", &["base"], &[("file", "a\n")]);
     create_commit_with_files(&work_dir, "b", &["base"], &[("file", "b\n")]);
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    2-sided conflict
     [EOF]
     ");
@@ -1526,7 +1526,7 @@ fn test_pass_path_argument() {
         "file",
         r#"--config=merge-tools.fake-editor.merge-args=["$output", "$path"]"#,
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file
     Working copy  (@) now at: vruxwmqv 682816de conflict | conflict
@@ -1560,7 +1560,7 @@ fn test_pass_path_argument() {
         "file",
         r#"--config=merge-tools.fake-editor.merge-args=["$output", "$path"]"#,
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Error: No conflicts found at the given path(s)
@@ -1584,7 +1584,7 @@ fn test_resolve_long_conflict_markers() {
     create_commit_with_files(&work_dir, "a", &["base"], &[("file", "<<<<<<< a\n")]);
     create_commit_with_files(&work_dir, "b", &["base"], &[("file", ">>>>>>> b\n")]);
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    2-sided conflict
     [EOF]
     ");
@@ -1622,7 +1622,7 @@ fn test_resolve_long_conflict_markers() {
     )
     .unwrap();
     let output = work_dir.run_jj(["resolve"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file
     Working copy  (@) now at: vruxwmqv ad16cc38 conflict | (conflict) conflict
@@ -1664,7 +1664,7 @@ fn test_resolve_long_conflict_markers() {
     +>>>>>>> conflict 1 of 1 ends
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    2-sided conflict
     [EOF]
     ");
@@ -1692,7 +1692,7 @@ fn test_resolve_long_conflict_markers() {
         "resolve",
         "--config=merge-tools.fake-editor.merge-tool-edits-conflict-markers=true",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file
     Working copy  (@) now at: vruxwmqv bbbee812 conflict | (conflict) conflict
@@ -1740,7 +1740,7 @@ fn test_resolve_long_conflict_markers() {
      >>>>>>>>>>> conflict 1 of 1 ends
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    2-sided conflict
     [EOF]
     ");
@@ -1768,7 +1768,7 @@ fn test_resolve_long_conflict_markers() {
         "resolve",
         r#"--config=merge-tools.fake-editor.merge-args=["$output", "$marker_length"]"#,
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: file
     Working copy  (@) now at: vruxwmqv 4405a045 conflict | (conflict) conflict
@@ -1805,7 +1805,7 @@ fn test_resolve_long_conflict_markers() {
      >>>>>>>>>>> conflict 1 of 1 ends
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file    2-sided conflict
     [EOF]
     ");
@@ -1856,7 +1856,7 @@ fn test_multiple_conflicts() {
     );
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    conflict
     ├─╮
     │ ○  b
@@ -1888,13 +1888,13 @@ fn test_multiple_conflicts() {
     >>>>>>> conflict 1 of 1 ends
     "#);
     let setup_opid = work_dir.current_operation_id();
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     another_file                        2-sided conflict
     this_file_has_a_very_long_name_to_test_padding 2-sided conflict
     [EOF]
     ");
     // Test colors
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list", "--color=always"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list", "--color=always"]), @"
     another_file                        [38;5;3m2-sided conflict[39m
     this_file_has_a_very_long_name_to_test_padding [38;5;3m2-sided conflict[39m
     [EOF]
@@ -1903,7 +1903,7 @@ fn test_multiple_conflicts() {
     // Check that we can manually pick which of the conflicts to resolve first
     std::fs::write(&editor_script, "expect\n\0write\nresolution another_file\n").unwrap();
     let output = work_dir.run_jj(["resolve", "another_file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Resolving conflicts in: another_file
     Working copy  (@) now at: vruxwmqv 90639b66 conflict | (conflict) conflict
@@ -1939,7 +1939,7 @@ fn test_multiple_conflicts() {
     +resolution another_file
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     this_file_has_a_very_long_name_to_test_padding 2-sided conflict
     [EOF]
     ");
@@ -1998,13 +1998,13 @@ fn test_multiple_conflicts() {
     [EOF]
     "#);
 
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     ------- stderr -------
     Error: No conflicts found at this revision
     [EOF]
     [exit status: 2]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["resolve"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve"]), @"
     ------- stderr -------
     Error: No conflicts found at this revision
     [EOF]
@@ -2043,7 +2043,7 @@ fn test_multiple_conflicts_with_error() {
         &[("file1", "b1\n"), ("file2", "b2\n")],
     );
     create_commit_with_files(&work_dir, "conflict", &["a", "b"], &[]);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file1    2-sided conflict
     file2    2-sided conflict
     [EOF]
@@ -2079,7 +2079,7 @@ fn test_multiple_conflicts_with_error() {
     )
     .unwrap();
     let output = work_dir.run_jj(["resolve"]);
-    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     ------- stderr -------
     Resolving conflicts in: file1
     Resolving conflicts in: file2
@@ -2119,7 +2119,7 @@ fn test_multiple_conflicts_with_error() {
     +resolution1
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file2    2-sided conflict
     [EOF]
     ");
@@ -2132,7 +2132,7 @@ fn test_multiple_conflicts_with_error() {
     )
     .unwrap();
     let output = work_dir.run_jj(["resolve"]);
-    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     ------- stderr -------
     Resolving conflicts in: file1
     Resolving conflicts in: file2
@@ -2172,7 +2172,7 @@ fn test_multiple_conflicts_with_error() {
     +resolution1
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file2    2-sided conflict
     [EOF]
     ");
@@ -2181,7 +2181,7 @@ fn test_multiple_conflicts_with_error() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&editor_script, "fail").unwrap();
     let output = work_dir.run_jj(["resolve"]);
-    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     ------- stderr -------
     Resolving conflicts in: file1
     Error: Failed to resolve conflicts
@@ -2190,7 +2190,7 @@ fn test_multiple_conflicts_with_error() {
     [exit status: 1]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file1    2-sided conflict
     file2    2-sided conflict
     [EOF]
@@ -2244,7 +2244,7 @@ fn test_resolve_with_contents_of_side() {
     ◆
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     file     2-sided conflict
     other    2-sided conflict
     [EOF]
@@ -2284,7 +2284,7 @@ fn test_resolve_with_contents_of_side() {
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @"a");
     insta::assert_snapshot!(work_dir.read_file("other"), @"left");
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     ------- stderr -------
     Error: No conflicts found at this revision
     [EOF]
@@ -2305,7 +2305,7 @@ fn test_resolve_with_contents_of_side() {
     ");
     insta::assert_snapshot!(work_dir.read_file("file"), @"b");
     insta::assert_snapshot!(work_dir.read_file("other"), @"right");
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "--list"]), @"
     ------- stderr -------
     Error: No conflicts found at this revision
     [EOF]

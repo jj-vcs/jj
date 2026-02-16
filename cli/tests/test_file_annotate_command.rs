@@ -46,7 +46,7 @@ fn test_annotate_linear() {
     );
 
     let output = work_dir.run_jj(["file", "annotate", "file.txt"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     qpvuntsm foo      2001-02-03 08:05:08    1: line1
     kkmpptxz test.use 2001-02-03 08:05:10    2: new text from new commit
     [EOF]
@@ -69,7 +69,7 @@ fn test_annotate_non_file() {
 
     work_dir.write_file("dir/file.txt", "");
     let output = work_dir.run_jj(["file", "annotate", "dir"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Path exists but is not a regular file: dir
     [EOF]
@@ -129,7 +129,7 @@ fn test_annotate_merge() {
     );
 
     let output = work_dir.run_jj(["file", "annotate", "file.txt"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     qpvuntsm test.use 2001-02-03 08:05:08    1: line1
     zsuskuln test.use 2001-02-03 08:05:11    2: new text from new commit 1
     royxmykx test.use 2001-02-03 08:05:13    3: new text from new commit 2
@@ -225,7 +225,7 @@ fn test_annotate_merge_one_sided_conflict_resolution() {
     work_dir.write_file("file.txt", "line1\nnew text from new commit 1\n");
 
     let output = work_dir.run_jj(["file", "annotate", "file.txt"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     qpvuntsm test.use 2001-02-03 08:05:08    1: line1
     zsuskuln test.use 2001-02-03 08:05:11    2: new text from new commit 1
     [EOF]
@@ -244,7 +244,7 @@ fn test_annotate_abandoned() {
     work_dir.run_jj(["abandon"]).success();
 
     let output = work_dir.run_jj(["file", "annotate", "-rat_operation(@-, @)", "file.txt"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     qpvuntsm test.use 2001-02-03 08:05:08    1: line1
     rlvkpnrz test.use 2001-02-03 08:05:09    2: line2
     [EOF]
@@ -284,7 +284,7 @@ fn test_annotate_with_template() {
     "#};
 
     let output = work_dir.run_jj(["file", "annotate", "file.txt", "-T", template]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
 
     qpvuntsm initial
     2001-02-03 08:05:08 Test User <test.user@example.com>

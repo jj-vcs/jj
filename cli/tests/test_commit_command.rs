@@ -26,7 +26,7 @@ fn test_commit_with_description_from_cli() {
 
     // Description applies to the current working-copy (not the new one)
     work_dir.run_jj(["commit", "-m=first"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  eb9fd2ab82e7
     ○  68a505386f93 first
     ◆  000000000000
@@ -46,7 +46,7 @@ fn test_commit_with_editor() {
     work_dir.run_jj(["describe", "-m=initial"]).success();
     std::fs::write(&edit_script, ["dump editor0", "write\nmodified"].join("\0")).unwrap();
     work_dir.run_jj(["commit"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  2094c8f2e360
     ○  a7ba1eb73836 modified
     ◆  000000000000
@@ -105,13 +105,13 @@ fn test_commit_with_empty_description_from_cli() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["commit", "-m="]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  51b556e22ca0
     ○  cc8ff2284a8c
     ◆  000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 51b556e2 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm cc8ff228 (empty) (no description set)
@@ -129,7 +129,7 @@ fn test_commit_with_empty_description_from_editor() {
     // Check that the text file gets initialized and leave it untouched.
     std::fs::write(&edit_script, ["dump editor0"].join("\0")).unwrap();
     let output = work_dir.run_jj(["commit"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  51b556e22ca0
     ○  cc8ff2284a8c
     ◆  000000000000
@@ -144,7 +144,7 @@ fn test_commit_with_empty_description_from_editor() {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Hint: The commit message was left empty.
     If this was not intentional, run `jj undo` to restore the previous state.
@@ -176,7 +176,7 @@ fn test_commit_interactive() {
     work_dir.run_jj(["commit", "-i"]).success();
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @"
     You are splitting the working-copy commit: qpvuntsm d849dc34 add files
 
     The diff initially shows all changes. Adjust the right side until it shows the
@@ -217,7 +217,7 @@ fn test_commit_interactive() {
     "#);
 
     let output = work_dir.run_jj(["log", "--summary"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 9b0176ab
     │  (no description set)
     │  A file2
@@ -255,7 +255,7 @@ fn test_commit_interactive_with_paths() {
 
     // Select file1 and file2 by args, then select file1 interactively
     let output = work_dir.run_jj(["commit", "-i", "file1", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 50f426df (no description set)
     Parent commit (@-)      : rlvkpnrz eb640375 edit
@@ -274,7 +274,7 @@ fn test_commit_interactive_with_paths() {
     "#);
 
     let output = work_dir.run_jj(["log", "--summary"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 50f426df
     │  (no description set)
     │  M file2
@@ -304,7 +304,7 @@ fn test_commit_with_default_description() {
     std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
     work_dir.run_jj(["commit"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  cba559ac1a48
     ○  7276dfff8027 TESTED=TODO
     ◆  000000000000
@@ -416,7 +416,7 @@ fn test_commit_without_working_copy() {
 
     work_dir.run_jj(["workspace", "forget"]).success();
     let output = work_dir.run_jj(["commit", "-m=first"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: This command requires a working copy
     [EOF]
@@ -435,14 +435,14 @@ fn test_commit_paths() {
 
     work_dir.run_jj(["commit", "-m=first", "file1"]).success();
     let output = work_dir.run_jj(["diff", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Added regular file file1:
             1: foo
     [EOF]
     ");
 
     let output = work_dir.run_jj(["diff"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Added regular file file2:
             1: bar
     [EOF]
@@ -459,7 +459,7 @@ fn test_commit_paths_warning() {
     work_dir.write_file("file2", "bar\n");
 
     let output = work_dir.run_jj(["commit", "-m=first", "file3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: The given paths do not match any file: file3
     Working copy  (@) now at: rlvkpnrz 4c6f0146 (no description set)
@@ -468,7 +468,7 @@ fn test_commit_paths_warning() {
     ");
 
     let output = work_dir.run_jj(["diff"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Added regular file file1:
             1: foo
     Added regular file file2:
@@ -491,7 +491,7 @@ fn test_commit_reset_author() {
         let template = r#"format_signature(author) ++ "\n" ++ format_signature(committer)"#;
         work_dir.run_jj(["log", "-r@", "-T", template])
     };
-    insta::assert_snapshot!(get_signatures(), @r"
+    insta::assert_snapshot!(get_signatures(), @"
     @  Test User test.user@example.com 2001-02-03 04:05:07.000 +07:00
     │  Test User test.user@example.com 2001-02-03 04:05:07.000 +07:00
     ~
@@ -508,7 +508,7 @@ fn test_commit_reset_author() {
             "-m1",
         ])
         .success();
-    insta::assert_snapshot!(get_signatures(), @r"
+    insta::assert_snapshot!(get_signatures(), @"
     @  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:09.000 +07:00
     │  Ove Ridder ove.ridder@example.com 2001-02-03 04:05:09.000 +07:00
     ~
@@ -529,7 +529,7 @@ fn test_commit_trailers() {
     work_dir.write_file("file1", "foo\n");
 
     let output = work_dir.run_jj(["commit", "-m=first"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 0c0495f3 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm ae86ffd4 first
@@ -537,7 +537,7 @@ fn test_commit_trailers() {
     ");
 
     let output = work_dir.run_jj(["log", "--no-graph", "-r@-", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     first
 
     Reviewed-by: test.user@example.com
@@ -546,7 +546,7 @@ fn test_commit_trailers() {
 
     // the new committer should appear in the trailer
     let output = work_dir.run_jj(["commit", "--config=user.email=foo@bar.org", "-m=second"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: zsuskuln fd73eac2 (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 6e69e833 (empty) second
@@ -554,7 +554,7 @@ fn test_commit_trailers() {
     ");
 
     let output = work_dir.run_jj(["log", "--no-graph", "-r@-", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     second
 
     Reviewed-by: foo@bar.org
@@ -564,7 +564,7 @@ fn test_commit_trailers() {
     // the trailer is added in the editor
     std::fs::write(&edit_script, "dump editor0").unwrap();
     let output = work_dir.run_jj(["commit", "--config=user.email=foo@bar.org"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: royxmykx dac9709c (empty) (no description set)
     Parent commit (@-)      : zsuskuln d9ced309 (empty) Reviewed-by: foo@bar.org
@@ -586,7 +586,7 @@ fn test_commit_trailers() {
     "#);
 
     let output = work_dir.run_jj(["log", "--no-graph", "-r@-", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Reviewed-by: foo@bar.org
     [EOF]
     ");
@@ -616,7 +616,7 @@ fn test_commit_with_editor_and_message_args() {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  c3a4bb8be8d7
     ○  f6acb1a163f2 message from command line
     ◆  000000000000
@@ -686,13 +686,13 @@ fn test_commit_with_editor_without_message() {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  f5a89f0f6366
     ○  38f3e84bb6a9
     ◆  000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Hint: The commit message was left empty.
     If this was not intentional, run `jj undo` to restore the previous state.

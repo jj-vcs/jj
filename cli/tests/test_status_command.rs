@@ -30,7 +30,7 @@ fn test_status_copies() {
     work_dir.write_file("rename-target", "rename");
 
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     M copy-source
     C {copy-source => copy-target}
@@ -59,7 +59,7 @@ fn test_status_merge() {
     // The output should mention each parent, and the diff should be empty (compared
     // to the auto-merged parents)
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     The working copy has no changes.
     Working copy  (@) : mzvwutvl f62dad77 (empty) (no description set)
     Parent commit (@-): rlvkpnrz a007d87b left | (empty) left
@@ -81,7 +81,7 @@ fn test_status_ignored_gitignore() {
     work_dir.write_file(".gitignore", "untracked/\n!dummy\n");
 
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     A .gitignore
     Working copy  (@) : qpvuntsm 32bad97e (no description set)
@@ -101,7 +101,7 @@ fn test_status_filtered() {
 
     // The output filtered to file_1 should not list the addition of file_2.
     let output = work_dir.run_jj(["status", "file_1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     A file_1
     Working copy  (@) : qpvuntsm 2f169edb (no description set)
@@ -111,7 +111,7 @@ fn test_status_filtered() {
 
     // The output filtered to a non-existent file should display a warning.
     let output = work_dir.run_jj(["status", "nonexistent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     Working copy  (@) : qpvuntsm 2f169edb (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
@@ -137,7 +137,7 @@ fn test_status_conflicted_bookmarks() {
         .success();
 
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     The working copy has no changes.
     Working copy  (@) : qpvuntsm/1 99025a24 local_bookmark?? | (divergent) (empty) a
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
@@ -180,7 +180,7 @@ fn test_status_conflicted_bookmarks() {
     // create conflicted remote bookmark
     work_dir.run_jj(["git", "fetch", "--at-op", "@-"]).success();
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     The working copy has no changes.
     Working copy  (@) : qpvuntsm/1 99025a24 local_bookmark?? | (divergent) (empty) a
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
@@ -244,7 +244,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 
     let output = work_dir.run_jj(["log", "-r", "::"]);
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 06b8a9dd (conflict)
     │  (empty) boom-cont-2
     ×  royxmykx test.user@example.com 2001-02-03 08:05:12 fc966143 (conflict)
@@ -262,7 +262,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     ");
 
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     The working copy has no changes.
     Working copy  (@) : yqosqzyt 06b8a9dd (conflict) (empty) boom-cont-2
     Parent commit (@-): royxmykx fc966143 (conflict) (empty) boom-cont
@@ -280,7 +280,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 
     // Can filter by paths for conflicts.
     let output = work_dir.run_jj(["status", "conflicted1.txt"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     The working copy has no changes.
     Working copy  (@) : yqosqzyt 06b8a9dd (conflict) (empty) boom-cont-2
     Parent commit (@-): royxmykx fc966143 (conflict) (empty) boom-cont
@@ -296,7 +296,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     ");
 
     let output = work_dir.run_jj(["status", "--color=always"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     The working copy has no changes.
     Working copy  (@) : [1m[38;5;13my[38;5;8mqosqzyt[39m [38;5;12m06[38;5;8mb8a9dd[39m [38;5;9m(conflict)[39m [38;5;10m(empty)[39m boom-cont-2[0m
     Parent commit (@-): [1m[38;5;5mr[0m[38;5;8moyxmykx[39m [1m[38;5;4mf[0m[38;5;8mc966143[39m [38;5;1m(conflict)[39m [38;5;2m(empty)[39m boom-cont
@@ -313,7 +313,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     ");
 
     let output = work_dir.run_jj(["status", "--config=hints.resolving-conflicts=false"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     The working copy has no changes.
     Working copy  (@) : yqosqzyt 06b8a9dd (conflict) (empty) boom-cont-2
     Parent commit (@-): royxmykx fc966143 (conflict) (empty) boom-cont
@@ -336,7 +336,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     // wc is now conflict free, parent is also conflict free
     let output = work_dir.run_jj(["log", "-r", "::"]);
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  lylxulpl test.user@example.com 2001-02-03 08:05:21 cb6faf76
     │  fixed 2
     ○  wqnwkozp test.user@example.com 2001-02-03 08:05:20 4ecf4b33
@@ -359,7 +359,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 
     let output = work_dir.run_jj(["status"]);
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     M conflicted1.txt
     M conflicted2.txt
@@ -373,7 +373,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     work_dir.run_jj(["edit", "@-"]).success();
     let output = work_dir.run_jj(["log", "-r", "::"]);
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  lylxulpl test.user@example.com 2001-02-03 08:05:21 cb6faf76
     │  fixed 2
     @  wqnwkozp test.user@example.com 2001-02-03 08:05:20 4ecf4b33
@@ -396,7 +396,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 
     let output = work_dir.run_jj(["status"]);
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     M conflicted1.txt
     M conflicted2.txt
@@ -412,7 +412,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
     work_dir.run_jj(["edit", "root()+"]).success();
     let output = work_dir.run_jj(["log", "-r", "::"]);
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  lylxulpl test.user@example.com 2001-02-03 08:05:21 cb6faf76
     │  fixed 2
     ○  wqnwkozp test.user@example.com 2001-02-03 08:05:20 4ecf4b33
@@ -435,7 +435,7 @@ fn test_status_display_relevant_working_commit_conflict_hints() {
 
     let output = work_dir.run_jj(["status"]);
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     A conflicted1.txt
     A conflicted2.txt
@@ -469,7 +469,7 @@ fn test_status_simplify_conflict_sides() {
     create_commit_with_files(&work_dir, "conflict", &["conflictA", "conflictB"], &[]);
 
     insta::assert_snapshot!(work_dir.run_jj(["status"]),
-    @r"
+    @"
     The working copy has no changes.
     Working copy  (@) : nkmrtpmo ae2d1b1f conflict | (conflict) (empty) conflict
     Parent commit (@-): kmkuslsw fb05b298 conflictA | (conflict) (empty) conflictA
@@ -503,7 +503,7 @@ fn test_status_untracked_files() {
     sub_dir.write_file("initially-untracked", "...");
 
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     Untracked paths:
     ? always-untracked-file
     ? initially-untracked-file
@@ -523,7 +523,7 @@ fn test_status_untracked_files() {
         .success();
 
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     Working copy changes:
     A initially-untracked-file
     A sub/initially-untracked
@@ -538,7 +538,7 @@ fn test_status_untracked_files() {
     work_dir.run_jj(["new"]).success();
 
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     Untracked paths:
     ? always-untracked-file
     ? sub/always-untracked
@@ -556,7 +556,7 @@ fn test_status_untracked_files() {
         ])
         .success();
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     Working copy changes:
     D initially-untracked-file
     D sub/initially-untracked
@@ -572,7 +572,7 @@ fn test_status_untracked_files() {
     work_dir.run_jj(["new"]).success();
 
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     Untracked paths:
     ? always-untracked-file
     ? initially-untracked-file
@@ -583,7 +583,7 @@ fn test_status_untracked_files() {
     ");
 
     let output = work_dir.dir("sub").run_jj(["status"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     Untracked paths:
     ? ../always-untracked-file
     ? ../initially-untracked-file
@@ -601,7 +601,7 @@ fn test_status_no_working_copy() {
     let work_dir = test_env.work_dir("repo");
     work_dir.run_jj(["workspace", "forget"]).success();
 
-    insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["status"]), @"
     No working copy
     [EOF]
     ");

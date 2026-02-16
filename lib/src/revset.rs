@@ -6060,7 +6060,7 @@ mod tests {
         let _guard = settings.bind_to_scope();
 
         // Heads of basic range operators can be folded.
-        insta::assert_debug_snapshot!(optimize(parse("heads(::)").unwrap()), @r"
+        insta::assert_debug_snapshot!(optimize(parse("heads(::)").unwrap()), @"
         HeadsRange {
             roots: None,
             heads: VisibleHeadsOrReferenced,
@@ -6078,7 +6078,7 @@ mod tests {
         "#);
         // It might be better to use `roots: Root`, but it would require adding a
         // special case for `~root()`, and this should be similar in performance.
-        insta::assert_debug_snapshot!(optimize(parse("heads(..)").unwrap()), @r"
+        insta::assert_debug_snapshot!(optimize(parse("heads(..)").unwrap()), @"
         HeadsRange {
             roots: None,
             heads: VisibleHeadsOrReferenced,

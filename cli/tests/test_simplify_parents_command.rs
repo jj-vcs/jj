@@ -24,7 +24,7 @@ fn test_simplify_parents_no_commits() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["simplify-parents", "-r", "root() ~ root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -38,7 +38,7 @@ fn test_simplify_parents_immutable() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["simplify-parents", "-r", "root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
@@ -55,7 +55,7 @@ fn test_simplify_parents_no_change() {
     create_commit(&work_dir, "a", &["root()"]);
     create_commit(&work_dir, "b", &["a"]);
     let output = work_dir.run_jj(["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  b
     ○  a
     ◆
@@ -63,14 +63,14 @@ fn test_simplify_parents_no_change() {
     ");
 
     let output = work_dir.run_jj(["simplify-parents", "-s", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  b
     ○  a
     ◆
@@ -89,7 +89,7 @@ fn test_simplify_parents_no_change_diamond() {
     create_commit(&work_dir, "c", &["a"]);
     create_commit(&work_dir, "d", &["b", "c"]);
     let output = work_dir.run_jj(["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    d
     ├─╮
     │ ○  c
@@ -101,14 +101,14 @@ fn test_simplify_parents_no_change_diamond() {
     ");
 
     let output = work_dir.run_jj(["simplify-parents", "-r", "all() ~ root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    d
     ├─╮
     │ ○  c
@@ -132,7 +132,7 @@ fn test_simplify_parents_redundant_parent(args: &[&str]) {
     create_commit(&work_dir, "c", &["a", "b"]);
     let output = work_dir.run_jj(["log", "-r", "all()", "-T", "description"]);
     insta::allow_duplicates! {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         @    c
         ├─╮
         │ ○  b
@@ -144,7 +144,7 @@ fn test_simplify_parents_redundant_parent(args: &[&str]) {
     }
     let output = work_dir.run_jj(args);
     insta::allow_duplicates! {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ------- stderr -------
         Removed 1 edges from 1 out of 3 commits.
         Working copy  (@) now at: royxmykx 265f0407 c | c
@@ -155,7 +155,7 @@ fn test_simplify_parents_redundant_parent(args: &[&str]) {
 
     let output = work_dir.run_jj(["log", "-r", "all()", "-T", "description"]);
     insta::allow_duplicates! {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         @  c
         ○  b
         ○  a
@@ -178,7 +178,7 @@ fn test_simplify_parents_multiple_redundant_parents() {
     create_commit(&work_dir, "e", &["d"]);
     create_commit(&work_dir, "f", &["d", "e"]);
     let output = work_dir.run_jj(["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    f
     ├─╮
     │ ○  e
@@ -196,7 +196,7 @@ fn test_simplify_parents_multiple_redundant_parents() {
 
     // Test with `-r`.
     let output = work_dir.run_jj(["simplify-parents", "-r", "c", "-r", "f"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Removed 2 edges from 2 out of 2 commits.
     Rebased 2 descendant commits
@@ -206,7 +206,7 @@ fn test_simplify_parents_multiple_redundant_parents() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  f
     ○  e
     ○  d
@@ -220,7 +220,7 @@ fn test_simplify_parents_multiple_redundant_parents() {
     // Test with `-s`.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["simplify-parents", "-s", "c"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Removed 2 edges from 2 out of 4 commits.
     Rebased 2 descendant commits
@@ -230,7 +230,7 @@ fn test_simplify_parents_multiple_redundant_parents() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  f
     ○  e
     ○  d
@@ -255,7 +255,7 @@ fn test_simplify_parents_no_args() {
     create_commit(&work_dir, "e", &["d"]);
     create_commit(&work_dir, "f", &["d", "e"]);
     let output = work_dir.run_jj(["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    f
     ├─╮
     │ ○  e
@@ -272,7 +272,7 @@ fn test_simplify_parents_no_args() {
     let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["simplify-parents"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Removed 2 edges from 2 out of 6 commits.
     Rebased 2 descendant commits
@@ -282,7 +282,7 @@ fn test_simplify_parents_no_args() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  f
     ○  e
     ○  d
@@ -297,7 +297,7 @@ fn test_simplify_parents_no_args() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     test_env.add_config(r#"revsets.simplify-parents = "d::""#);
     let output = work_dir.run_jj(["simplify-parents"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Removed 1 edges from 1 out of 3 commits.
     Working copy  (@) now at: kmkuslsw 1180d0f5 f | f
@@ -306,7 +306,7 @@ fn test_simplify_parents_no_args() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  f
     ○  e
     ○  d

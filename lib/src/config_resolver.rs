@@ -1005,7 +1005,7 @@ mod tests {
             hostname: "",
         };
         let resolved_config = resolve(&source_config, &context).unwrap();
-        insta::assert_snapshot!(resolved_config.layers()[0].data, @r"
+        insta::assert_snapshot!(resolved_config.layers()[0].data, @"
         a = 'a none'
         b = 'b none'
         ");
@@ -1207,14 +1207,14 @@ mod tests {
             ),
         ]
         "#);
-        insta::assert_snapshot!(config.layers()[0].data, @r"
+        insta::assert_snapshot!(config.layers()[0].data, @"
         [foo]
         new = 'foo.old #0'
         [bar]
         [baz]
         new = 'baz.new #0'
         ");
-        insta::assert_snapshot!(config.layers()[1].data, @r"
+        insta::assert_snapshot!(config.layers()[1].data, @"
         [bar]
 
         [baz]
@@ -1267,7 +1267,7 @@ mod tests {
             ),
         ]
         "#);
-        insta::assert_snapshot!(config.layers()[0].data, @r"
+        insta::assert_snapshot!(config.layers()[0].data, @"
         [foo]
         new = ['foo.old #0']
         [bar]

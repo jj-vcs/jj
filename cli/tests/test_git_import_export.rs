@@ -39,7 +39,7 @@ fn test_resolution_of_git_tracking_bookmarks() {
     work_dir
         .run_jj(["describe", "-r", "main", "-m", "new_message"])
         .success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main: qpvuntsm 384a1421 (empty) new_message
       @git (ahead by 1 commits, behind by 1 commits): qpvuntsm/1 a7f9930b (hidden) (empty) old_message
     [EOF]
@@ -50,15 +50,15 @@ fn test_resolution_of_git_tracking_bookmarks() {
         let template = r#"commit_id ++ " " ++ description"#;
         work_dir.run_jj(["log", "-r", expr, "-T", template, "--no-graph"])
     };
-    insta::assert_snapshot!(query("main"), @r"
+    insta::assert_snapshot!(query("main"), @"
     384a14213707d776d0517f65cdcf954d07d88c40 new_message
     [EOF]
     ");
-    insta::assert_snapshot!(query("main@git"), @r"
+    insta::assert_snapshot!(query("main@git"), @"
     a7f9930bb6d54ba39e6c254135b9bfe32041fea4 old_message
     [EOF]
     ");
-    insta::assert_snapshot!(query(r#"remote_bookmarks("main", "git")"#), @r"
+    insta::assert_snapshot!(query(r#"remote_bookmarks("main", "git")"#), @"
     a7f9930bb6d54ba39e6c254135b9bfe32041fea4 old_message
     [EOF]
     ");
@@ -100,13 +100,13 @@ fn test_git_export_undo() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "a"])
         .success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     a: qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "export"]);
     insta::assert_snapshot!(output, @"");
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-ra@git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-ra@git"]), @"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 a e8849ae1
     │  (empty) (no description set)
     ~
@@ -132,7 +132,7 @@ fn test_git_export_undo() {
         ),
     ]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-ra@git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-ra@git"]), @"
     ------- stderr -------
     Error: Revision `a@git` doesn't exist
     Hint: Did you mean `a`?
@@ -143,7 +143,7 @@ fn test_git_export_undo() {
     // This would re-export bookmark "a" and create git-tracking bookmark.
     let output = work_dir.run_jj(["git", "export"]);
     insta::assert_snapshot!(output, @"");
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-ra@git"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-ra@git"]), @"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 a e8849ae1
     │  (empty) (no description set)
     ~
@@ -179,12 +179,12 @@ fn test_git_import_undo() {
     let base_operation_id = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["git", "import"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: a@git [new] tracked
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     a: qpvuntsm e8849ae1 (empty) (no description set)
       @git: qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
@@ -192,7 +192,7 @@ fn test_git_import_undo() {
 
     // "git import" can be undone by default.
     let output = work_dir.run_jj(["op", "restore", &base_operation_id]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Restored to operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
@@ -200,12 +200,12 @@ fn test_git_import_undo() {
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
     // Try "git import" again, which should re-import the bookmark "a".
     let output = work_dir.run_jj(["git", "import"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: a@git [new] tracked
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     a: qpvuntsm e8849ae1 (empty) (no description set)
       @git: qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
@@ -241,12 +241,12 @@ fn test_git_import_move_export_with_default_undo() {
     let base_operation_id = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["git", "import"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: a@git [new] tracked
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     a: qpvuntsm e8849ae1 (empty) (no description set)
       @git: qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
@@ -257,14 +257,14 @@ fn test_git_import_move_export_with_default_undo() {
     work_dir
         .run_jj(["bookmark", "set", "a", "--to=@"])
         .success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     a: royxmykx e7d0d5fd (empty) (no description set)
       @git (behind by 1 commits): qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "export"]);
     insta::assert_snapshot!(output, @"");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     a: royxmykx e7d0d5fd (empty) (no description set)
       @git: royxmykx e7d0d5fd (empty) (no description set)
     [EOF]
@@ -274,7 +274,7 @@ fn test_git_import_move_export_with_default_undo() {
     // the previous test. However, "git export" can't: the bookmarks in the git
     // repo stay where they were.
     let output = work_dir.run_jj(["op", "restore", &base_operation_id]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Restored to operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
     Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
@@ -296,12 +296,12 @@ fn test_git_import_move_export_with_default_undo() {
     // The last bookmark "a" state is imported from git. No idea what's the most
     // intuitive result here.
     let output = work_dir.run_jj(["git", "import"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: a@git [new] tracked
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     a: royxmykx e7d0d5fd (empty) (no description set)
       @git: royxmykx e7d0d5fd (empty) (no description set)
     [EOF]
@@ -354,7 +354,7 @@ fn test_git_import_export_stats_color() {
     let output = work_dir
         .run_jj(["git", "import", "--color=always"])
         .success();
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: [38;5;5mbar@git[39m [new] tracked
     bookmark: [38;5;5mfoo@git[39m [updated] tracked

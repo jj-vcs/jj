@@ -27,7 +27,7 @@ fn test_new() {
     work_dir.run_jj(["describe", "-m", "add a file"]).success();
     work_dir.run_jj(["new", "-m", "a new commit"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  22aec45f30a36a2d244c70e131e369d79e400962 a new commit
     ○  55eabcc47301440da7a71d5610d3db021d1925ca add a file
     ◆  0000000000000000000000000000000000000000
@@ -38,7 +38,7 @@ fn test_new() {
     work_dir
         .run_jj(["new", "-m", "off of root", "root()"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  8818c9ee28d00667cb3072a2114a67619ded7ceb off of root
     │ ○  22aec45f30a36a2d244c70e131e369d79e400962 a new commit
     │ ○  55eabcc47301440da7a71d5610d3db021d1925ca add a file
@@ -51,7 +51,7 @@ fn test_new() {
     work_dir
         .run_jj(["new", "--edit", "-m", "yet another commit"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  9629f035563a7d9fa86becc783ae71557bd25269 yet another commit
     ○  8818c9ee28d00667cb3072a2114a67619ded7ceb off of root
     │ ○  22aec45f30a36a2d244c70e131e369d79e400962 a new commit
@@ -63,7 +63,7 @@ fn test_new() {
 
     // --edit cannot be used with --no-edit
     let output = work_dir.run_jj(["new", "--edit", "B", "--no-edit", "D"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the argument '--edit' cannot be used with '--no-edit'
 
@@ -95,7 +95,7 @@ fn test_new_merge() {
 
     // Create a merge commit
     work_dir.run_jj(["new", "main", "@"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    94ce38ef81dc7912c1574cc5aa2f434b9057d58a
     ├─╮
     │ ○  5bf404a038660799fae348cc31b9891349c128c1 add file2
@@ -112,12 +112,12 @@ fn test_new_merge() {
     // Same test with `--no-edit`
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["new", "main", "@", "--no-edit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created new commit kpqxywon 061f4210 (empty) (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     ○    061f42107e030034242b424264f22985429552c1
     ├─╮
     │ @  5bf404a038660799fae348cc31b9891349c128c1 add file2
@@ -130,7 +130,7 @@ fn test_new_merge() {
     // Same test with `jj new`
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir.run_jj(["new", "main", "@"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    cee60a55c085ff349af7fa1e7d6b7d4b7bdd4c3a
     ├─╮
     │ ○  5bf404a038660799fae348cc31b9891349c128c1 add file2
@@ -142,7 +142,7 @@ fn test_new_merge() {
 
     // merge with non-unique revisions
     let output = work_dir.run_jj(["new", "@", "3a44e"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Revision `3a44e` doesn't exist
     [EOF]
@@ -150,7 +150,7 @@ fn test_new_merge() {
     ");
     // duplicates are allowed
     let output = work_dir.run_jj(["new", "@", "visible_heads()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: uyznsvlq 68a7f50c (empty) (no description set)
     Parent commit (@-)      : lylxulpl cee60a55 (empty) (no description set)
@@ -159,7 +159,7 @@ fn test_new_merge() {
 
     // merge with root
     let output = work_dir.run_jj(["new", "@", "root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
     [EOF]
@@ -190,7 +190,7 @@ fn test_new_merge_parents_order() {
             "subject(4)",
         ])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @          2034dc93c6ddad404d1aa677ab99b0621d8e109d
     ├─┬─┬─┬─╮
     │ │ │ │ ○  de5bab19f679c52a021c343b8942ca875ec6aae7 4
@@ -219,7 +219,7 @@ fn test_new_merge_conflicts() {
 
     // merge line by line by default
     let output = work_dir.run_jj(["new", "2|3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 4665f78e (conflict) (empty) (no description set)
     Parent commit (@-)      : royxmykx 1b282e07 3 | 3
@@ -247,7 +247,7 @@ fn test_new_merge_conflicts() {
 
     // merge word by word
     let output = work_dir.run_jj(["new", "2|3", "--config=merge.hunk-level=word"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: znkkpsqq 892ac90f (empty) (no description set)
     Parent commit (@-)      : royxmykx 1b282e07 3 | 3
@@ -255,7 +255,7 @@ fn test_new_merge_conflicts() {
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @"
     3a 1a 2a
     1b
     2c
@@ -274,14 +274,14 @@ fn test_new_merge_same_change() {
 
     // same-change conflict is resolved by default
     let output = work_dir.run_jj(["new", "2|3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 7bebf0fe (empty) (no description set)
     Parent commit (@-)      : royxmykx 1b9fe696 3 | 3
     Parent commit (@-)      : zsuskuln 829e1e90 2 | 2
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.read_file("file"), @r"
+    insta::assert_snapshot!(work_dir.read_file("file"), @"
     a
     b
     ");
@@ -291,7 +291,7 @@ fn test_new_merge_same_change() {
 
     // keep same-change conflict
     let output = work_dir.run_jj(["new", "2|3", "--config=merge.same-change=keep"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: znkkpsqq 7be86433 (conflict) (empty) (no description set)
     Parent commit (@-)      : royxmykx 1b9fe696 3 | 3
@@ -319,7 +319,7 @@ fn test_new_insert_after() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     setup_before_insertion(&work_dir);
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     @    F
     ├─╮
     │ ○  E
@@ -335,7 +335,7 @@ fn test_new_insert_after() {
 
     // --insert-after can be repeated; --after is an alias
     let output = work_dir.run_jj(["new", "-m", "G", "--insert-after", "B", "--after", "D"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kxryzmor 57acfedf (empty) G
@@ -343,7 +343,7 @@ fn test_new_insert_after() {
     Parent commit (@-)      : vruxwmqv 521674f5 D | (empty) D
     [EOF]
     ");
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     ○  C
     │ ○  F
     ╭─┤
@@ -360,14 +360,14 @@ fn test_new_insert_after() {
     ");
 
     let output = work_dir.run_jj(["new", "-m", "H", "--insert-after", "D"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 3 descendant commits
     Working copy  (@) now at: uyznsvlq fd3f1413 (empty) H
     Parent commit (@-)      : vruxwmqv 521674f5 D | (empty) D
     [EOF]
     ");
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     ○  C
     │ ○  F
     ╭─┤
@@ -406,7 +406,7 @@ fn test_new_insert_after_children() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     setup_before_insertion(&work_dir);
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     @    F
     ├─╮
     │ ○  E
@@ -431,7 +431,7 @@ fn test_new_insert_after_children() {
         "--insert-after",
         "C",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Refusing to create a loop: commit d32ebe56a293 would be both an ancestor and a descendant of the new commit
     [EOF]
@@ -445,7 +445,7 @@ fn test_new_insert_before() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     setup_before_insertion(&work_dir);
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     @    F
     ├─╮
     │ ○  E
@@ -468,7 +468,7 @@ fn test_new_insert_before() {
         "--insert-before",
         "F",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kxryzmor 2f16c40d (empty) G
@@ -477,7 +477,7 @@ fn test_new_insert_before() {
     Parent commit (@-)      : znkkpsqq 56a33cd0 E | (empty) E
     [EOF]
     ");
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     ○  F
     │ ○  C
     ├─╯
@@ -515,7 +515,7 @@ fn test_new_insert_before_root_successors() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     setup_before_insertion(&work_dir);
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     @    F
     ├─╮
     │ ○  E
@@ -538,14 +538,14 @@ fn test_new_insert_before_root_successors() {
         "--insert-before",
         "D",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 5 descendant commits
     Working copy  (@) now at: kxryzmor 8c026b06 (empty) G
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     ○    F
     ├─╮
     │ ○  E
@@ -569,7 +569,7 @@ fn test_new_insert_before_no_loop() {
     setup_before_insertion(&work_dir);
     let template = r#"commit_id.short() ++ " " ++ if(description, description, "root")"#;
     let output = work_dir.run_jj(["log", "-T", template]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    a8176a8a5348 F
     ├─╮
     │ ○  56a33cd09d90 E
@@ -592,7 +592,7 @@ fn test_new_insert_before_no_loop() {
         "--insert-before",
         "C",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Refusing to create a loop: commit bb98b0102ef5 would be both an ancestor and a descendant of the new commit
     [EOF]
@@ -606,7 +606,7 @@ fn test_new_insert_before_no_root_merge() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     setup_before_insertion(&work_dir);
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     @    F
     ├─╮
     │ ○  E
@@ -629,7 +629,7 @@ fn test_new_insert_before_no_root_merge() {
         "--insert-before",
         "D",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
     [EOF]
@@ -643,7 +643,7 @@ fn test_new_insert_before_root() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     setup_before_insertion(&work_dir);
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     @    F
     ├─╮
     │ ○  E
@@ -658,7 +658,7 @@ fn test_new_insert_before_root() {
     ");
 
     let output = work_dir.run_jj(["new", "-m", "G", "--insert-before", "root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
@@ -672,7 +672,7 @@ fn test_new_insert_after_before() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     setup_before_insertion(&work_dir);
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     @    F
     ├─╮
     │ ○  E
@@ -687,14 +687,14 @@ fn test_new_insert_after_before() {
     ");
 
     let output = work_dir.run_jj(["new", "-m", "G", "--after", "C", "--before", "F"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kxryzmor 55a63f47 (empty) G
     Parent commit (@-)      : mzvwutvl d32ebe56 C | (empty) C
     [EOF]
     ");
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     ○      F
     ├─┬─╮
     │ │ @  G
@@ -710,14 +710,14 @@ fn test_new_insert_after_before() {
     ");
 
     let output = work_dir.run_jj(["new", "-m", "H", "--after", "D", "--before", "B"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 4 descendant commits
     Working copy  (@) now at: uyznsvlq fd3f1413 (empty) H
     Parent commit (@-)      : vruxwmqv 521674f5 D | (empty) D
     [EOF]
     ");
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     ○      F
     ├─┬─╮
     │ │ ○  G
@@ -744,7 +744,7 @@ fn test_new_insert_after_before_no_loop() {
     setup_before_insertion(&work_dir);
     let template = r#"commit_id.short() ++ " " ++ if(description, description, "root")"#;
     let output = work_dir.run_jj(["log", "-T", template]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    a8176a8a5348 F
     ├─╮
     │ ○  56a33cd09d90 E
@@ -767,7 +767,7 @@ fn test_new_insert_after_before_no_loop() {
         "--insert-after",
         "C",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Refusing to create a loop: commit d32ebe56a293 would be both an ancestor and a descendant of the new commit
     [EOF]
@@ -783,7 +783,7 @@ fn test_new_insert_after_empty_before() {
     setup_before_insertion(&work_dir);
     let template = r#"commit_id.short() ++ " " ++ if(description, description, "root")"#;
     let output = work_dir.run_jj(["log", "-T", template]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    a8176a8a5348 F
     ├─╮
     │ ○  56a33cd09d90 E
@@ -798,7 +798,7 @@ fn test_new_insert_after_empty_before() {
     ");
 
     let output = work_dir.run_jj(["new", "-mG", "--insert-before=none()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No revisions found to use as parent
     [EOF]
@@ -806,13 +806,13 @@ fn test_new_insert_after_empty_before() {
     ");
 
     let output = work_dir.run_jj(["new", "-mG", "--insert-before=none()", "--insert-after=B"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: nkmrtpmo d7088f92 (empty) G
     Parent commit (@-)      : kkmpptxz bb98b010 B | (empty) B
     [EOF]
     ");
-    insta::assert_snapshot!(get_short_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_short_log_output(&work_dir), @"
     @  G
     │ ○  C
     ├─╯
@@ -848,7 +848,7 @@ fn test_new_conflicting_bookmarks() {
     work_dir.run_jj(["st"]).success();
 
     let output = work_dir.run_jj(["new", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Name `foo` is conflicted
     Hint: Use commit ID to select single revision from: 96948328bc42, 401ea16fc3fe
@@ -874,7 +874,7 @@ fn test_new_conflicting_change_ids() {
     work_dir.run_jj(["st"]).success();
 
     let output = work_dir.run_jj(["new", "qpvuntsm"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Change ID `qpvuntsm` is divergent
     Hint: Use change offset to select single revision: qpvuntsm/0, qpvuntsm/1
@@ -895,7 +895,7 @@ fn test_new_error_revision_does_not_exist() {
     work_dir.run_jj(["new", "-m", "two"]).success();
 
     let output = work_dir.run_jj(["new", "this"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Revision `this` doesn't exist
     [EOF]
@@ -919,7 +919,7 @@ fn test_new_with_trailers() {
     work_dir.run_jj(["new", "-m", "two"]).success();
 
     let output = work_dir.run_jj(["log", "--no-graph", "-r@", "-Tdescription"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     two
 
     Signed-off-by: test.user@example.com

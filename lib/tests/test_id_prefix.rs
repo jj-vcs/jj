@@ -83,7 +83,7 @@ fn test_id_prefix() {
         .map(|(i, commit)| format!("{} {}", &commit.id().hex()[..3], i))
         .sorted()
         .join("\n");
-    insta::assert_snapshot!(commit_prefixes, @r"
+    insta::assert_snapshot!(commit_prefixes, @"
     0c8 9
     18f 7
     19a 10
@@ -117,7 +117,7 @@ fn test_id_prefix() {
         .map(|(i, commit)| format!("{} {}", &commit.change_id().hex()[..3], i))
         .sorted()
         .join("\n");
-    insta::assert_snapshot!(change_prefixes, @r"
+    insta::assert_snapshot!(change_prefixes, @"
     026 9
     030 13
     1b5 6
@@ -297,7 +297,7 @@ fn test_id_prefix_divergent() {
         .enumerate()
         .map(|(i, commit)| format!("{} {}", &commit.change_id().hex()[..4], i))
         .join("\n");
-    insta::assert_snapshot!(change_prefixes, @r"
+    insta::assert_snapshot!(change_prefixes, @"
     a533 0
     a500 1
     a500 2
@@ -307,7 +307,7 @@ fn test_id_prefix_divergent() {
         .enumerate()
         .map(|(i, commit)| format!("{} {}", &commit.id().hex()[..4], i))
         .join("\n");
-    insta::assert_snapshot!(commit_prefixes, @r"
+    insta::assert_snapshot!(commit_prefixes, @"
     e2b9 0
     f8d1 1
     c596 2
@@ -427,7 +427,7 @@ fn test_id_prefix_hidden() {
         .map(|(i, commit)| format!("{} {}", &commit.id().hex()[..3], i))
         .sorted()
         .join("\n");
-    insta::assert_snapshot!(commit_prefixes, @r"
+    insta::assert_snapshot!(commit_prefixes, @"
     3ae 6
     64c 5
     84e 2
@@ -445,7 +445,7 @@ fn test_id_prefix_hidden() {
         .map(|(i, commit)| format!("{} {}", &commit.change_id().hex()[..3], i))
         .sorted()
         .join("\n");
-    insta::assert_snapshot!(change_prefixes, @r"
+    insta::assert_snapshot!(change_prefixes, @"
     026 9
     1b5 6
     26b 3

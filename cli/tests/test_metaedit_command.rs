@@ -37,7 +37,7 @@ fn test_metaedit() {
         .success();
     work_dir.write_file("file1", "c\n");
     // Test the setup
-    insta::assert_snapshot!(get_log(&work_dir), @r"
+    insta::assert_snapshot!(get_log(&work_dir), @"
     @  Commit ID: 22be6c4e01da7039a1a8c3adb91b8841252bb354
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
@@ -76,7 +76,7 @@ fn test_metaedit() {
     // Without arguments, the commits are not rewritten.
     // TODO: Require an argument?
     let output = work_dir.run_jj(["metaedit", "kkmpptxzrspx"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -89,7 +89,7 @@ fn test_metaedit() {
         "--update-author",
         "kkmpptxzrspx",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -107,7 +107,7 @@ fn test_metaedit() {
             "kkmpptxzrspx",
         ])
         .success();
-    insta::assert_snapshot!(get_log(&work_dir), @r"
+    insta::assert_snapshot!(get_log(&work_dir), @"
     @  Commit ID: 6f31b2555777ac2261dd17008b6fdc42619ebe1f
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
@@ -147,7 +147,7 @@ fn test_metaedit() {
     work_dir
         .run_jj(["metaedit", "--update-author-timestamp", "kkmpptxzrspx"])
         .success();
-    insta::assert_snapshot!(get_log(&work_dir), @r"
+    insta::assert_snapshot!(get_log(&work_dir), @"
     @  Commit ID: b23f6a3f160d122f8d8dacd8d2acff2d29d5ba84
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
@@ -192,7 +192,7 @@ fn test_metaedit() {
             "kkmpptxzrspx",
         ])
         .success();
-    insta::assert_snapshot!(get_log(&work_dir), @r"
+    insta::assert_snapshot!(get_log(&work_dir), @"
     @  Commit ID: 74007c679b9e4f13d1e3d553ef8397586b033421
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
@@ -236,7 +236,7 @@ fn test_metaedit() {
             "1995-12-19T16:39:57-08:00",
         ])
         .success();
-    insta::assert_snapshot!(get_log(&work_dir), @r"
+    insta::assert_snapshot!(get_log(&work_dir), @"
     @  Commit ID: a527219f85839d58ddb6115fbc4f0f8bc6649266
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
@@ -288,7 +288,7 @@ fn test_metaedit() {
     work_dir
         .run_jj(["metaedit", "--force-rewrite", "kkmpptxzrspx"])
         .success();
-    insta::assert_snapshot!(get_log(&work_dir), @r"
+    insta::assert_snapshot!(get_log(&work_dir), @"
     @  Commit ID: 6c0aa6574ef6450eaf7eae1391cc6c769c53a50c
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
@@ -329,7 +329,7 @@ fn test_metaedit() {
     let work_dir = test_env.work_dir("repo");
 
     // update existing commit with restored test author config
-    insta::assert_snapshot!(work_dir.run_jj(["metaedit", "--force-rewrite"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["metaedit", "--force-rewrite"]), @"
     ------- stderr -------
     Modified 1 commits:
       mzvwutvl 75259df4 c | (no description set)
@@ -337,7 +337,7 @@ fn test_metaedit() {
     Parent commit (@-)      : kkmpptxz 0a570dfb b | (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["show"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["show"]), @"
     Commit ID: 75259df433eebc10b3ad78a9814d6647b764ce28
     Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     Bookmarks: c
@@ -354,7 +354,7 @@ fn test_metaedit() {
     // When resetting the description has no effect, the commits are not rewritten.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["metaedit", "--message", "", "kkmpptxzrspx"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -364,7 +364,7 @@ fn test_metaedit() {
     work_dir
         .run_jj(["metaedit", "--message", "d\ne\nf"])
         .success();
-    insta::assert_snapshot!(get_log(&work_dir), @r"
+    insta::assert_snapshot!(get_log(&work_dir), @"
     @  Commit ID: 502004368461738c866bc690ce08f7c219a4de10
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
@@ -403,7 +403,7 @@ fn test_metaedit() {
 
     // Set empty description
     work_dir.run_jj(["metaedit", "--message", ""]).success();
-    insta::assert_snapshot!(get_log(&work_dir), @r"
+    insta::assert_snapshot!(get_log(&work_dir), @"
     @  Commit ID: a44f230f9af7eed606af7713774feba5e39f36f7
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
@@ -445,7 +445,7 @@ fn test_metaedit_no_matching_revisions() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["metaedit", "--update-change-id", "none()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No revisions to modify.
     [EOF]
@@ -473,7 +473,7 @@ fn test_metaedit_multiple_revisions() {
         .success();
     work_dir.write_file("file1", "c\n");
     // Test the setup
-    insta::assert_snapshot!(get_log(&work_dir), @r"
+    insta::assert_snapshot!(get_log(&work_dir), @"
     @  Commit ID: 22be6c4e01da7039a1a8c3adb91b8841252bb354
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
@@ -519,7 +519,7 @@ fn test_metaedit_multiple_revisions() {
         "--update-author",
         "kkmpptxz::mzvwutvl",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Modified 2 commits:
       kkmpptxz d84add51 b | (no description set)
@@ -529,7 +529,7 @@ fn test_metaedit_multiple_revisions() {
     Parent commit (@-)      : mzvwutvl 447d6d8a c | (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log(&work_dir), @r"
+    insta::assert_snapshot!(get_log(&work_dir), @"
     @  Commit ID: ebd66676fa9e0cd2c9f560bc0dc343b8809e4dfe
     │  Change ID: yostqsxwqrltovqlrlzszywzslusmuup
     │  Author   : Test User <test.user@example.com> (2001-02-03 04:05:15.000 +07:00)
@@ -594,7 +594,7 @@ fn test_new_change_id() {
     work_dir.write_file("file1", "c\n");
 
     let output = work_dir.run_jj(["metaedit", "--update-change-id", "kkmpptxzrspx"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Modified 1 commits:
       yqosqzyt 01d6741e b | (no description set)
@@ -603,7 +603,7 @@ fn test_new_change_id() {
     Parent commit (@-)      : yqosqzyt 01d6741e b | (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log(&work_dir), @r"
+    insta::assert_snapshot!(get_log(&work_dir), @"
     @  Commit ID: 0c3fe2d854b2b492a053156a505d6c40fe783138
     │  Change ID: mzvwutvlkqwtuzoztpszkqxkqmqyqyxo
     │  Bookmarks: c
@@ -637,7 +637,7 @@ fn test_new_change_id() {
 
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "yqosqzytrlswkspswpqrmlplxylrzsnz"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "yqosqzytrlswkspswpqrmlplxylrzsnz"]), @"
     ○  yqosqzyt test.user@example.com 2001-02-03 08:05:13 b 01d6741e
     │  (no description set)
     │  -- operation adf0af78a0fd edit commit metadata for commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
@@ -649,7 +649,7 @@ fn test_new_change_id() {
        -- operation 686c6e44c08d new empty commit
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "mzvwut"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "-r", "mzvwut"]), @"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:13 c 0c3fe2d8
     │  (no description set)
     │  -- operation adf0af78a0fd edit commit metadata for commit 75591b1896b4990e7695701fd7cdbb32dba3ff50
@@ -674,7 +674,7 @@ fn test_metaedit_option_mutual_exclusion() {
         "metaedit",
         "--author=Alice <alice@example.com>",
         "--update-author",
-    ]), @r"
+    ]), @"
     ------- stderr -------
     error: the argument '--author <AUTHOR>' cannot be used with '--update-author'
 
@@ -689,7 +689,7 @@ fn test_metaedit_option_mutual_exclusion() {
         "metaedit",
         "--update-committer-timestamp",
         "--force-rewrite",
-    ]), @r"
+    ]), @"
     ------- stderr -------
     error: the argument '--update-committer-timestamp' cannot be used with '--force-rewrite'
 
@@ -712,7 +712,7 @@ fn test_update_empty_author_or_email() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
 
     // show that commit has no author set
-    insta::assert_snapshot!(test_env.work_dir("repo").run_jj(["show"]), @r"
+    insta::assert_snapshot!(test_env.work_dir("repo").run_jj(["show"]), @"
     Commit ID: 42c91a3e183efb4499038d0d9aa3d14b5deafde0
     Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     Author   : (no name set) <(no email set)> (2001-02-03 08:05:07)
@@ -730,7 +730,7 @@ fn test_update_empty_author_or_email() {
 
     // update existing commit with restored test author config
     insta::assert_snapshot!(work_dir.run_jj(["metaedit", "--update-author", "--quiet"]), @"");
-    insta::assert_snapshot!(work_dir.run_jj(["show"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["show"]), @"
     Commit ID: 0f13b5f2ea7fad147c133c81b87d31e7b1b8c564
     Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -756,7 +756,7 @@ fn test_update_empty_author_or_email() {
       jj config set --user user.email "someone@example.com"
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["show"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["show"]), @"
     Commit ID: 234908d4748ff3224a87888d8b52a4923e1a89a5
     Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     Author   : Test User <(no email set)> (2001-02-03 08:05:09)
@@ -782,7 +782,7 @@ fn test_update_empty_author_or_email() {
       jj config set --user user.name "Some One"
     [EOF]
     "#);
-    insta::assert_snapshot!(work_dir.run_jj(["show"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["show"]), @"
     Commit ID: ac5048cf35372ddc30e2590271781a3eab0bcaf8
     Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     Author   : (no name set) <test.user@example.com> (2001-02-03 08:05:09)
@@ -808,7 +808,7 @@ fn test_metaedit_set_same_timestamp_twice() {
         "--author-timestamp",
         "2001-02-03 04:05:14.000+07:00",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Modified 1 commits:
       qpvuntsm 51b97b23 (empty) (no description set)
@@ -823,7 +823,7 @@ fn test_metaedit_set_same_timestamp_twice() {
         "--author-timestamp",
         "2001-02-03 04:05:14.000+07:00",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]

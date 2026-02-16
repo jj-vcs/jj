@@ -36,7 +36,7 @@ backend = "test"
     work_dir.run_jj(["commit", "-m", "three"]).success();
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:10 fbef508b
     │  (empty) (no description set)
     ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 8c63f712
@@ -50,7 +50,7 @@ backend = "test"
     ");
 
     let output = work_dir.run_jj(["sign", "-r", "..@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Signed 4 commits:
       qpvuntsm 7fb98da0 (empty) one
@@ -63,7 +63,7 @@ backend = "test"
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:12 8d7bc037 [✓︎]
     │  (empty) (no description set)
     ○  kkmpptxz test.user@example.com 2001-02-03 08:05:12 d2174a79 [✓︎]
@@ -79,7 +79,7 @@ backend = "test"
     // Commits already always signed, even if they are already signed by me.
     // https://github.com/jj-vcs/jj/issues/5786
     let output = work_dir.run_jj(["sign", "-r", "..@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Signed 4 commits:
       qpvuntsm a57217b4 (empty) one
@@ -93,7 +93,7 @@ backend = "test"
 
     // Signing nothing is a valid no-op.
     let output = work_dir.run_jj(["sign", "-r", "none()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -124,7 +124,7 @@ backend = "test"
     work_dir.run_jj(["sign"]).success();
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 72a53d81 [✓︎]
     │  (empty) (no description set)
     ○  qpvuntsm test.user@example.com 2001-02-03 08:05:08 401ea16f
@@ -161,7 +161,7 @@ key = "some-key"
         .success();
 
     let output = work_dir.run_jj(["log", "-r", "@-|@--", "-Tbuiltin_log_detailed"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  Commit ID: 810ff318afe002ce54260260e4d4f7071eb476ed
     │  Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     │  Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -213,7 +213,7 @@ backend = "test"
         ])
         .success();
     let output = work_dir.run_jj(["sign", "-r", "..@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Signed 3 commits:
       qpvuntsm 2c0b7924 (empty) one
@@ -227,7 +227,7 @@ backend = "test"
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:12 1b3596cb
     │  (empty) (no description set)
     ○  kkmpptxz someone@else.com 2001-02-03 08:05:12 ed55e398 [✓︎]
@@ -263,7 +263,7 @@ backend = "test"
     work_dir.run_jj(["desc", "-m", "C"]).success();
 
     let output = work_dir.run_jj(["sign", "-r", "@|@--"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Signed 2 commits:
       qpvuntsm 0e149d92 (empty) A
@@ -275,7 +275,7 @@ backend = "test"
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:11 ab7e21e9 [✓︎]
     │  (empty) C
     ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:11 3981b3e4
@@ -303,7 +303,7 @@ backend = "none"
 
     let output = work_dir.run_jj(["sign", "-r", "@-"]);
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No signing backend configured
     Hint: For configuring a signing backend, see https://docs.jj-vcs.dev/latest/config/#commit-signing
@@ -336,7 +336,7 @@ backend = "test"
     work_dir.run_jj(["sign", "-r", "..@"]).success();
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:11 be4609e2 [✓︎]
     │  (empty) (no description set)
     ○  kkmpptxz test.user@example.com 2001-02-03 08:05:11 7b6ad8e6 [✓︎]
@@ -351,7 +351,7 @@ backend = "test"
 
     // Unsign a single commit, resigning the descendant
     let output = work_dir.run_jj(["unsign", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Unsigned 1 commits:
       kkmpptxz 9efcace6 (empty) three
@@ -362,7 +362,7 @@ backend = "test"
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:13 654e12b9 [✓︎]
     │  (empty) (no description set)
     ○  kkmpptxz test.user@example.com 2001-02-03 08:05:13 9efcace6
@@ -377,7 +377,7 @@ backend = "test"
 
     // Unsign multiple commits, with both signed and unsigned descendants
     let output = work_dir.run_jj(["unsign", "-r", "..@--"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Unsigned 2 commits:
       qpvuntsm d265d645 (empty) one
@@ -389,7 +389,7 @@ backend = "test"
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:15 ad24007a [✓︎]
     │  (empty) (no description set)
     ○  kkmpptxz test.user@example.com 2001-02-03 08:05:15 df10e25c
@@ -404,7 +404,7 @@ backend = "test"
 
     // Unsigning nothing is a valid no-op.
     let output = work_dir.run_jj(["unsign", "-r", "none()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -444,7 +444,7 @@ backend = "test"
     };
 
     let (_, stderr) = run_jj_as_someone_else(&["unsign", "-r", "..@"]);
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(stderr, @"
     Unsigned 4 commits:
       qpvuntsm 4430b844 (empty) one
       rlvkpnrz 65d9cdf7 (empty) two
@@ -457,7 +457,7 @@ backend = "test"
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  zsuskuln test.user@example.com 2001-02-03 08:05:12 0fda7ce2
     │  (empty) (no description set)
     ○  kkmpptxz test.user@example.com 2001-02-03 08:05:12 f6eb4a7e

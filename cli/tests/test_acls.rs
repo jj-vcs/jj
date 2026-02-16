@@ -39,7 +39,7 @@ fn test_diff() {
     SecretBackend::adopt_git_repo(work_dir.root());
 
     let output = work_dir.run_jj(["diff", "--color-words"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     Modified regular file a-first:
        1    1: foobar
     Access denied to added-secret: No access
@@ -51,7 +51,7 @@ fn test_diff() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--summary"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     M a-first
     C {a-first => added-secret}
     D deleted-secret
@@ -61,7 +61,7 @@ fn test_diff() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--types"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     FF a-first
     FF {a-first => added-secret}
     F- deleted-secret
@@ -71,7 +71,7 @@ fn test_diff() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--stat"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     a-first                   | 2 +-
     {a-first => added-secret} | 2 +-
     deleted-secret            | 1 -
@@ -82,7 +82,7 @@ fn test_diff() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--git"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     diff --git a/a-first b/a-first
     index 257cc5642c..5716ca5987 100644
     --- a/a-first
@@ -115,7 +115,7 @@ fn test_file_list_show() {
 
     // "file list" should just work since it doesn't access file content
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a-first
     secret
     z-last
@@ -123,7 +123,7 @@ fn test_file_list_show() {
     ");
 
     let output = work_dir.run_jj(["file", "show", "."]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     foo
     baz
     [EOF]

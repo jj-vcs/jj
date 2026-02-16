@@ -21,7 +21,7 @@ fn test_syntax_error() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["log", "-r", ":x"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: `:` is not a prefix operator
     Caused by:  --> 1:1
@@ -36,7 +36,7 @@ fn test_syntax_error() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "x &"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Syntax error
     Caused by:  --> 1:4
@@ -51,7 +51,7 @@ fn test_syntax_error() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "x - y"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: `-` is not an infix operator
     Caused by:  --> 1:3
@@ -66,7 +66,7 @@ fn test_syntax_error() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "HEAD^"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: `^` is not a postfix operator
     Caused by:  --> 1:5
@@ -88,7 +88,7 @@ fn test_bad_function_call() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["log", "-r", "all(or::nothing)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Function `all`: Expected 0 arguments
     Caused by:  --> 1:5
@@ -102,7 +102,7 @@ fn test_bad_function_call() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "parents()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Function `parents`: Expected 1 to 2 arguments
     Caused by:  --> 1:9
@@ -116,7 +116,7 @@ fn test_bad_function_call() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "parents(foo, bar, baz)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Function `parents`: Expected 1 to 2 arguments
     Caused by:  --> 1:9
@@ -130,7 +130,7 @@ fn test_bad_function_call() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "heads(foo, bar)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Function `heads`: Expected 1 arguments
     Caused by:  --> 1:7
@@ -144,7 +144,7 @@ fn test_bad_function_call() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "latest(a, not_an_integer)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Expected integer
     Caused by:  --> 1:11
@@ -159,7 +159,7 @@ fn test_bad_function_call() {
 
     // "N to M arguments"
     let output = work_dir.run_jj(["log", "-r", "ancestors()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Function `ancestors`: Expected 1 to 2 arguments
     Caused by:  --> 1:11
@@ -173,7 +173,7 @@ fn test_bad_function_call() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "change_id(glob:a)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Expected change ID prefix
     Caused by:  --> 1:11
@@ -187,7 +187,7 @@ fn test_bad_function_call() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "commit_id(xyzzy)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Invalid commit ID prefix
     Caused by:  --> 1:11
@@ -201,7 +201,7 @@ fn test_bad_function_call() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "files(not::a-fileset)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: In fileset expression
     Caused by:
@@ -269,7 +269,7 @@ fn test_bad_function_call() {
     "#);
 
     let output = work_dir.run_jj(["log", "-r", "bookmarks(bad:pattern)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Invalid string pattern
     Caused by:
@@ -286,7 +286,7 @@ fn test_bad_function_call() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "bookmarks(regex:'(')"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Invalid string pattern
     Caused by:
@@ -305,7 +305,7 @@ fn test_bad_function_call() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "root()::whatever()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Function `whatever` doesn't exist
     Caused by:  --> 1:9
@@ -333,7 +333,7 @@ fn test_bad_function_call() {
     "#);
 
     let output = work_dir.run_jj(["log", "-r", "remote_bookmarks(remote=a, b)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Function `remote_bookmarks`: Positional argument follows keyword argument
     Caused by:  --> 1:28
@@ -347,7 +347,7 @@ fn test_bad_function_call() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "remote_bookmarks(=foo)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Syntax error
     Caused by:  --> 1:18
@@ -362,7 +362,7 @@ fn test_bad_function_call() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "remote_bookmarks(remote=)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Syntax error
     Caused by:  --> 1:25
@@ -395,7 +395,7 @@ fn test_function_name_hint() {
     );
 
     // The suggestion "bookmarks" shouldn't be duplicated
-    insta::assert_snapshot!(evaluate("bookmark()"), @r"
+    insta::assert_snapshot!(evaluate("bookmark()"), @"
     ------- stderr -------
     Error: Failed to parse revset: Function `bookmark` doesn't exist
     Caused by:  --> 1:1
@@ -410,7 +410,7 @@ fn test_function_name_hint() {
     ");
 
     // Both builtin function and function alias should be suggested
-    insta::assert_snapshot!(evaluate("author_()"), @r"
+    insta::assert_snapshot!(evaluate("author_()"), @"
     ------- stderr -------
     Error: Failed to parse revset: Function `author_` doesn't exist
     Caused by:  --> 1:1
@@ -424,7 +424,7 @@ fn test_function_name_hint() {
     [exit status: 1]
     ");
 
-    insta::assert_snapshot!(evaluate("my_bookmarks"), @r"
+    insta::assert_snapshot!(evaluate("my_bookmarks"), @"
     ------- stderr -------
     Error: Failed to parse revset: In alias `my_bookmarks`
     Caused by:
@@ -453,7 +453,7 @@ fn test_bad_symbol_or_argument_should_not_be_optimized_out() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["log", "-r", "unknown & none()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Revision `unknown` doesn't exist
     [EOF]
@@ -461,7 +461,7 @@ fn test_bad_symbol_or_argument_should_not_be_optimized_out() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "all() | unknown"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Revision `unknown` doesn't exist
     [EOF]
@@ -469,7 +469,7 @@ fn test_bad_symbol_or_argument_should_not_be_optimized_out() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "description(regex:'(') & none()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Invalid string pattern
     Caused by:
@@ -519,7 +519,7 @@ fn test_default_string_pattern() {
 
     // glob match by default
     let output = work_dir.run_jj(["log", "-rauthor('*test.user*')"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
     ~
@@ -532,7 +532,7 @@ fn test_default_string_pattern() {
         "-rauthor('test.user')",
         "--config=ui.revsets-use-glob-by-default=false",
     ]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
     ~
@@ -591,19 +591,19 @@ fn test_alias() {
     );
 
     let output = work_dir.run_jj(["log", "-r", "my-root"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "-r", "identity(my-root)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "-r", "root() & syntax-error"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: In alias `syntax-error`
     Caused by:
@@ -625,7 +625,7 @@ fn test_alias() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "identity()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: Function `identity`: Expected 1 arguments
     Caused by:  --> 1:10
@@ -639,7 +639,7 @@ fn test_alias() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "my_author(none())"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: In alias `my_author(x)`
     Caused by:
@@ -666,7 +666,7 @@ fn test_alias() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "my_author(unknown:pat)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: In alias `my_author(x)`
     Caused by:
@@ -749,7 +749,7 @@ fn test_alias() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "root() & recurse"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse revset: In alias `recurse`
     Caused by:
@@ -798,7 +798,7 @@ fn test_alias_override() {
     // 'f(x)' should be overridden by --config 'f(a)'. If aliases were sorted
     // purely by name, 'f(a)' would come first.
     let output = work_dir.run_jj(["log", "-r", "f(_)", "--config=revset-aliases.'f(a)'=arg"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Revision `arg` doesn't exist
     [EOF]
@@ -913,11 +913,11 @@ fn test_revset_committer_date_with_time_zone() {
 
     let (before_log, after_log) =
         log_commits_before_and_after("2023-01-25 12:00", "2023-02-01T00:00:00-05:00", NEW_YORK);
-    insta::assert_snapshot!(before_log, @r"
+    insta::assert_snapshot!(before_log, @"
     first 2023-01-25 11:30:00.000 -05:00
     [EOF]
     ");
-    insta::assert_snapshot!(after_log, @r"
+    insta::assert_snapshot!(after_log, @"
     third 2023-01-25 13:30:00.000 -05:00
     second 2023-01-25 12:30:00.000 -05:00
     [EOF]
@@ -927,11 +927,11 @@ fn test_revset_committer_date_with_time_zone() {
     // evaluate 12:00 on commit date, not the current date
     let (before_log, after_log) =
         log_commits_before_and_after("2023-01-25 12:00", "2023-06-01T00:00:00-04:00", NEW_YORK);
-    insta::assert_snapshot!(before_log, @r"
+    insta::assert_snapshot!(before_log, @"
     first 2023-01-25 11:30:00.000 -05:00
     [EOF]
     ");
-    insta::assert_snapshot!(after_log, @r"
+    insta::assert_snapshot!(after_log, @"
     third 2023-01-25 13:30:00.000 -05:00
     second 2023-01-25 12:30:00.000 -05:00
     [EOF]
@@ -940,12 +940,12 @@ fn test_revset_committer_date_with_time_zone() {
     // Change the local time zone and ensure the result changes
     let (before_log, after_log) =
         log_commits_before_and_after("2023-01-25 12:00", "2023-06-01T00:00:00-06:00", CHICAGO);
-    insta::assert_snapshot!(before_log, @r"
+    insta::assert_snapshot!(before_log, @"
     second 2023-01-25 12:30:00.000 -05:00
     first 2023-01-25 11:30:00.000 -05:00
     [EOF]
     ");
-    insta::assert_snapshot!(after_log, @r"
+    insta::assert_snapshot!(after_log, @"
     third 2023-01-25 13:30:00.000 -05:00
     [EOF]
     ");
@@ -953,11 +953,11 @@ fn test_revset_committer_date_with_time_zone() {
     // Time zone far outside USA with no DST
     let (before_log, after_log) =
         log_commits_before_and_after("2023-01-26 03:00", "2023-06-01T00:00:00+10:00", AUSTRALIA);
-    insta::assert_snapshot!(before_log, @r"
+    insta::assert_snapshot!(before_log, @"
     first 2023-01-25 11:30:00.000 -05:00
     [EOF]
     ");
-    insta::assert_snapshot!(after_log, @r"
+    insta::assert_snapshot!(after_log, @"
     third 2023-01-25 13:30:00.000 -05:00
     second 2023-01-25 12:30:00.000 -05:00
     [EOF]

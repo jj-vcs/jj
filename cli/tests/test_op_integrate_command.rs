@@ -26,7 +26,7 @@ fn test_integrate_integrated_operation() {
     let output = work_dir.run_jj(["op", "integrate", "@"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["op", "log"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
@@ -61,7 +61,7 @@ fn test_integrate_sibling_operation() {
 
     // The working copy should now be at the old unintegrated sibling operation
     let output = work_dir.run_jj(["op", "log"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Internal error: The repo was loaded at operation 5959e60d9534, which seems to be a sibling of the working copy's operation 98a299ea1b9b
     Hint: Run `jj op integrate 98a299ea1b9b` to add the working copy's operation to the operation log.
@@ -71,13 +71,13 @@ fn test_integrate_sibling_operation() {
 
     // Integrate the operation
     let output = work_dir.run_jj(["op", "integrate", &unintegrated_id]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     The specified operation has been integrated with other existing operations.
     [EOF]
     ");
     let output = work_dir.run_jj(["op", "log"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    5fff7495e1c0 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     ├─╮  reconcile divergent operations
     │ │  args: jj op integrate 98a299ea1b9bd7555bec90a7abf34b877f1ad2ec45e5c0a4962115b5ac1124124524b2935fdf149cdc6634524ce54683479cc978624f84d84270f42264fe0ef9

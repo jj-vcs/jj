@@ -35,7 +35,7 @@ fn test_track_untrack() {
 
     // Errors out when not run at the head operation
     let output = work_dir.run_jj(["file", "untrack", "file1", "--at-op", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: This command must be able to update the working copy.
     Hint: Don't use --at-op.
@@ -44,7 +44,7 @@ fn test_track_untrack() {
     ");
     // Errors out when no path is specified
     let output = work_dir.run_jj(["file", "untrack"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the following required arguments were not provided:
       <FILESETS>...
@@ -57,7 +57,7 @@ fn test_track_untrack() {
     ");
     // Errors out when a specified file is not ignored
     let output = work_dir.run_jj(["file", "untrack", "file1", "file1.bak"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: 'file1' is not ignored.
     Hint: Files that are not ignored will be added back by the next command.
@@ -84,7 +84,7 @@ fn test_track_untrack() {
 
     // Warns if path doesn't exist
     let output = work_dir.run_jj(["file", "untrack", "nonexistent"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     [EOF]
@@ -92,7 +92,7 @@ fn test_track_untrack() {
 
     // Errors out when multiple specified files are not ignored
     let output = work_dir.run_jj(["file", "untrack", "target"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     ------- stderr -------
     Error: 'target/file2' and 1 other files are not ignored.
     Hint: Files that are not ignored will be added back by the next command.
@@ -122,7 +122,7 @@ fn test_track_untrack_sparse() {
     // doesn't need to be ignored (because it won't be automatically added
     // back).
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1
     file2
     [EOF]
@@ -133,7 +133,7 @@ fn test_track_untrack_sparse() {
     let output = work_dir.run_jj(["file", "untrack", "file2"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1
     [EOF]
     ");
@@ -142,7 +142,7 @@ fn test_track_untrack_sparse() {
     let output = work_dir.run_jj(["file", "track", "file2"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1
     [EOF]
     ");
@@ -161,7 +161,7 @@ fn test_auto_track() {
 
     // Only configured paths get auto-tracked
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1.rs
     [EOF]
     ");
@@ -170,7 +170,7 @@ fn test_auto_track() {
     let output = work_dir.run_jj(["file", "track", "file3.md"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1.rs
     file3.md
     [EOF]
@@ -180,7 +180,7 @@ fn test_auto_track() {
     let output = work_dir.run_jj(["file", "untrack", "file3.md"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1.rs
     [EOF]
     ");
@@ -189,7 +189,7 @@ fn test_auto_track() {
     let sub_dir = work_dir.create_dir("sub");
     sub_dir.write_file("file1.rs", "initial");
     let output = sub_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     ../file1.rs
     [EOF]
     ");
@@ -198,7 +198,7 @@ fn test_auto_track() {
     let output = sub_dir.run_jj(["file", "track", "file1.rs"]);
     insta::assert_snapshot!(output, @"");
     let output = sub_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     ../file1.rs
     file1.rs
     [EOF]
@@ -251,7 +251,7 @@ fn test_track_ignored() {
 
     // Now untrack the file; eviction is immediate and affects descendants
     let output = work_dir.run_jj(["file", "untrack", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     [EOF]
@@ -261,7 +261,7 @@ fn test_track_ignored() {
     let output = work_dir.run_jj(["file", "track", "file1.bak"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1
     [EOF]
     ");
@@ -279,7 +279,7 @@ fn test_track_ignored_with_flag() {
 
     // Test the setup
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     .gitignore
     file1.txt
     [EOF]
@@ -289,7 +289,7 @@ fn test_track_ignored_with_flag() {
     let output = work_dir.run_jj(["file", "track", "--include-ignored", "file2.ignored"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     .gitignore
     file1.txt
     file2.ignored
@@ -373,7 +373,7 @@ fn test_track_ignored_directory() {
 
     // Test the setup
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     .gitignore
     [EOF]
     ");
@@ -382,7 +382,7 @@ fn test_track_ignored_directory() {
     let output = work_dir.run_jj(["file", "track", "--include-ignored", "ignored_dir"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     .gitignore
     ignored_dir/file1.txt
     ignored_dir/file2.txt

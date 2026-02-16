@@ -28,7 +28,7 @@ fn test_edit() {
 
     // Errors out without argument
     let output = work_dir.run_jj(["edit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the following required arguments were not provided:
       <REVSET|-r <REVSET>>
@@ -42,7 +42,7 @@ fn test_edit() {
 
     // Errors out with duplicated arguments
     let output = work_dir.run_jj(["edit", "@", "-r@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the argument '[REVSET]' cannot be used with '-r <REVSET>'
 
@@ -55,7 +55,7 @@ fn test_edit() {
 
     // Makes the specified commit the working-copy commit
     let output = work_dir.run_jj(["edit", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 1f6994f8 first
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -63,7 +63,7 @@ fn test_edit() {
     [EOF]
     ");
     let output = get_log_output(&work_dir);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  adc8b2014db6 second
     @  1f6994f8b95b first
     ◆  000000000000
@@ -74,7 +74,7 @@ fn test_edit() {
     // Changes in the working copy are amended into the commit
     work_dir.write_file("file2", "0");
     let output = get_log_output(&work_dir);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  29c4ac30d18f second
     @  b10da1f49611 first
     ◆  000000000000
@@ -86,7 +86,7 @@ fn test_edit() {
 
     // Cannot edit multiple revisions
     let output = work_dir.run_jj(["edit", "-r::"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Revset `::` resolved to more than one revision
     Hint: The revset `::` resolved to these revisions:
@@ -106,7 +106,7 @@ fn test_edit_current() {
 
     // Editing the current revision is a no-op
     let output = work_dir.run_jj(["edit", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Already editing that commit
     [EOF]
@@ -114,7 +114,7 @@ fn test_edit_current() {
 
     // No operation created
     let output = work_dir.run_jj(["op", "log", "--limit=1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     [EOF]
@@ -161,7 +161,7 @@ fn test_edit_current_wc_commit_missing() {
 
     // Pass --ignore-working-copy to avoid triggering the error at snapshot time
     let output = work_dir.run_jj(["edit", "--ignore-working-copy", &wc_child_id]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Internal error: Failed to edit a commit
     Caused by:

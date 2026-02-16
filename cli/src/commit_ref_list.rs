@@ -528,7 +528,7 @@ mod tests {
     #[test]
     fn test_sort_by_name() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::Name]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::Name]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         bug-fix@origin      Test User       test.user@g.com  0             Test User       test.user@g.com  0
         bug-fix@upstream    Test User       test.user@g.com  0             Test User       test.user@g.com  0
@@ -541,7 +541,7 @@ mod tests {
     #[test]
     fn test_sort_by_name_desc() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::NameDesc]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::NameDesc]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         feature@origin      -               -                -             -               -                -
         feature             Test User       test.user@g.com  0             Test User       test.user@g.com  0
@@ -554,7 +554,7 @@ mod tests {
     #[test]
     fn test_sort_by_author_name() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::AuthorName]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::AuthorName]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         foo@origin          -               -                -             -               -                -
         foo@upstream        alice           test.user@g.com  0             Test User       test.user@g.com  0
@@ -567,7 +567,7 @@ mod tests {
     #[test]
     fn test_sort_by_author_name_desc() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::AuthorNameDesc]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::AuthorNameDesc]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         foo                 eve             test.user@g.com  0             Test User       test.user@g.com  0
         foo                 bob             test.user@g.com  0             Test User       test.user@g.com  0
@@ -580,7 +580,7 @@ mod tests {
     #[test]
     fn test_sort_by_author_email() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::AuthorEmail]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::AuthorEmail]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         foo@origin          -               -                -             -               -                -
         foo@upstream        Test User       alice@g.com      0             Test User       test.user@g.com  0
@@ -593,7 +593,7 @@ mod tests {
     #[test]
     fn test_sort_by_author_email_desc() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::AuthorEmailDesc]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::AuthorEmailDesc]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         foo                 Test User       eve@g.com        0             Test User       test.user@g.com  0
         foo                 Test User       bob@g.com        0             Test User       test.user@g.com  0
@@ -606,7 +606,7 @@ mod tests {
     #[test]
     fn test_sort_by_author_date() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::AuthorDate]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::AuthorDate]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         foo@origin          -               -                -             -               -                -
         foo                 Test User       test.user@g.com  1             Test User       test.user@g.com  0
@@ -619,7 +619,7 @@ mod tests {
     #[test]
     fn test_sort_by_author_date_desc() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::AuthorDateDesc]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::AuthorDateDesc]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         foo@origin          Test User       test.user@g.com  3             Test User       test.user@g.com  0
         foo                 Test User       test.user@g.com  2             Test User       test.user@g.com  0
@@ -632,7 +632,7 @@ mod tests {
     #[test]
     fn test_sort_by_committer_name() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::CommitterName]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::CommitterName]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         foo@origin          -               -                -             -               -                -
         foo@upstream        Test User       test.user@g.com  0             alice           test.user@g.com  0
@@ -645,7 +645,7 @@ mod tests {
     #[test]
     fn test_sort_by_committer_name_desc() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::CommitterNameDesc]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::CommitterNameDesc]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         foo                 Test User       test.user@g.com  0             eve             test.user@g.com  0
         foo                 Test User       test.user@g.com  0             bob             test.user@g.com  0
@@ -658,7 +658,7 @@ mod tests {
     #[test]
     fn test_sort_by_committer_email() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::CommitterEmail]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::CommitterEmail]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         foo@origin          -               -                -             -               -                -
         foo@upstream        Test User       test.user@g.com  0             Test User       alice@g.com      0
@@ -671,7 +671,7 @@ mod tests {
     #[test]
     fn test_sort_by_committer_email_desc() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::CommitterEmailDesc]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::CommitterEmailDesc]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         foo                 Test User       test.user@g.com  0             Test User       eve@g.com        0
         foo                 Test User       test.user@g.com  0             Test User       bob@g.com        0
@@ -684,7 +684,7 @@ mod tests {
     #[test]
     fn test_sort_by_committer_date() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::CommitterDate]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::CommitterDate]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         foo@origin          -               -                -             -               -                -
         foo                 Test User       test.user@g.com  0             Test User       test.user@g.com  1
@@ -697,7 +697,7 @@ mod tests {
     #[test]
     fn test_sort_by_committer_date_desc() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::CommitterDateDesc]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::CommitterDateDesc]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         foo@origin          Test User       test.user@g.com  0             Test User       test.user@g.com  3
         foo                 Test User       test.user@g.com  0             Test User       test.user@g.com  2
@@ -710,7 +710,7 @@ mod tests {
     #[test]
     fn test_sort_by_author_date_desc_and_name() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::AuthorDateDesc, SortKey::Name]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::AuthorDateDesc, SortKey::Name]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         bug-fix@origin      Test User       test.user@g.com  3             Test User       test.user@g.com  0
         chore               Test User       test.user@g.com  2             Test User       test.user@g.com  0
@@ -723,7 +723,7 @@ mod tests {
     #[test]
     fn test_sort_by_committer_name_and_name_desc() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::CommitterName, SortKey::NameDesc]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::CommitterName, SortKey::NameDesc]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         feature@origin      -               -                -             -               -                -
         bug-fix@upstream    Test User       test.user@g.com  0             alice           test.user@g.com  0
@@ -738,7 +738,7 @@ mod tests {
     #[test]
     fn test_sort_by_name_and_committer_date() {
         insta::assert_snapshot!(
-            prepare_data_sort_and_snapshot(&[SortKey::Name, SortKey::AuthorDate]), @r"
+            prepare_data_sort_and_snapshot(&[SortKey::Name, SortKey::AuthorDate]), @"
         Name                AuthorName      AuthorEmail      AuthorDate    CommitterName   CommitterEmail   CommitterDate
         bug-fix@origin      Test User       test.user@g.com  3             Test User       test.user@g.com  0
         bug-fix@upstream    Test User       test.user@g.com  1             Test User       test.user@g.com  0

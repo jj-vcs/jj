@@ -60,7 +60,7 @@ fn test_file_list() {
         ) ++ "\n"
     "#};
     let output = work_dir.run_jj(["file", "list", "-T", template]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     conflict-exec-file [conflict] conflict=true executable=true
     conflict-file [conflict] conflict=true executable=false
     dir/file [file] conflict=false executable=false

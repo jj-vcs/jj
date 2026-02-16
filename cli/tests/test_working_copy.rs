@@ -91,7 +91,7 @@ fn test_snapshot_large_file() {
 
     // test invalid configuration
     let output = work_dir.run_jj(["file", "list", "--config=snapshot.max-new-file-size=[]"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Config error: Invalid type or value for snapshot.max-new-file-size
     Caused by: Expected a positive integer or a string in '<number><unit>' form
@@ -102,14 +102,14 @@ fn test_snapshot_large_file() {
 
     // No error if we disable auto-tracking of the path
     let output = work_dir.run_jj(["file", "list", "--config=snapshot.auto-track='none()'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     empty
     [EOF]
     ");
 
     // max-new-file-size=0 means no limit
     let output = work_dir.run_jj(["file", "list", "--config=snapshot.max-new-file-size=0"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     empty
     large
     large 2
@@ -155,7 +155,7 @@ fn test_snapshot_large_file_restore() {
     // However, the next command will snapshot the large file because it is now
     // tracked. TODO: Should we remember the untracked state?
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     A file
     Working copy  (@) : kkmpptxz 09eba65e (no description set)
@@ -269,7 +269,7 @@ fn test_snapshot_invalid_ignore_pattern() {
 
     // Test invalid pattern in .gitignore
     work_dir.write_file(".gitignore", " []\n");
-    insta::assert_snapshot!(work_dir.run_jj(["st"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["st"]), @"
     Working copy changes:
     A .gitignore
     Working copy  (@) : qpvuntsm c9cf4826 (no description set)
@@ -279,7 +279,7 @@ fn test_snapshot_invalid_ignore_pattern() {
 
     // Test invalid UTF-8 in .gitignore
     work_dir.write_file(".gitignore", b"\xff\n");
-    insta::assert_snapshot!(work_dir.run_jj(["st"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["st"]), @"
     ------- stderr -------
     Internal error: Failed to snapshot the working copy
     Caused by:
@@ -392,7 +392,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
 
     // The file should still be conflicted, and the new content should be saved
     let output = work_dir.run_jj(["st"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     M file
     Working copy  (@) : mzvwutvl d31c99cf (conflict) (no description set)
@@ -446,7 +446,7 @@ fn test_conflict_marker_length_stored_in_working_copy() {
     );
 
     let output = work_dir.run_jj(["st"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     M file
     Working copy  (@) : mzvwutvl 469d479f (no description set)
@@ -499,7 +499,7 @@ fn test_submodule_ignored() {
         &format!("{}/submodule", test_env.env_root().display()),
         "sub",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Cloning into '$TEST_ENV/repo/sub'...
     done.
@@ -591,7 +591,7 @@ fn test_snapshot_jjconflict_trees() {
 
     // We should see a warning regarding '.jjconflict' trees being checked out.
     let output = work_dir.run_jj(["st"]);
-    insta::assert_snapshot!(output.to_string().replace('\\', "/"), @r"
+    insta::assert_snapshot!(output.to_string().replace('\\', "/"), @"
     Working copy changes:
     A .jjconflict-base-0/file
     A .jjconflict-side-0/file

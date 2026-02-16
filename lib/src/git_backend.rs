@@ -2401,7 +2401,7 @@ mod tests {
         let obj = git_repo
             .find_object(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))
             .unwrap();
-        insta::assert_snapshot!(str::from_utf8(&obj.data).unwrap(), @r"
+        insta::assert_snapshot!(str::from_utf8(&obj.data).unwrap(), @"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
@@ -2419,11 +2419,11 @@ mod tests {
         let sig = commit.secure_sig.expect("failed to read the signature");
         assert_eq!(&sig, &returned_sig);
 
-        insta::assert_snapshot!(str::from_utf8(&sig.sig).unwrap(), @r"
+        insta::assert_snapshot!(str::from_utf8(&sig.sig).unwrap(), @"
         test sig
         hash=03feb0caccbacce2e7b7bca67f4c82292dd487e669ed8a813120c9f82d3fd0801420a1f5d05e1393abfe4e9fc662399ec4a9a1898c5f1e547e0044a52bd4bd29
         ");
-        insta::assert_snapshot!(str::from_utf8(&sig.data).unwrap(), @r"
+        insta::assert_snapshot!(str::from_utf8(&sig.data).unwrap(), @"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000

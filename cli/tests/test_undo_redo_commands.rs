@@ -29,7 +29,7 @@ fn test_undo_root_operation() {
     ");
 
     let output = work_dir.run_jj(["undo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Cannot undo root operation
     [EOF]
@@ -46,7 +46,7 @@ fn test_undo_merge_operation() {
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["new", "--at-op=@-"]).success();
     let output = work_dir.run_jj(["undo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Concurrent modification detected, resolving automatically.
     Error: Cannot undo a merge operation
@@ -150,7 +150,7 @@ fn test_undo_with_rev_arg_falls_back_to_revert() {
     work_dir.run_jj(["new", "-m", "will be reverted"]).success();
     work_dir.run_jj(["new", "-m", "will remain"]).success();
     let output = work_dir.run_jj(["undo", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: `jj undo <operation>` is deprecated; use `jj op revert <operation>` instead
     Reverted operation: 8bb65efbd8a6 (2001-02-03 08:05:08) new empty commit
@@ -161,7 +161,7 @@ fn test_undo_with_rev_arg_falls_back_to_revert() {
     ");
 
     let output = work_dir.run_jj(["op", "show", "--no-op-diff"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     2271d7b5fdc8 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     revert operation 8bb65efbd8a6030d0e4d4a1d32c231994d4a8289af1292c53070f1ece4d96b4551beb1cde98a57102b35dedb4c9a97ee34d08bc04de67d58ce0ee36c34fad578
     args: jj undo @-
@@ -177,7 +177,7 @@ fn test_redo_non_undo_operation() {
 
     work_dir.run_jj(["new", "-m", "a"]).success();
     let output = work_dir.run_jj(["redo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Nothing to redo
     [EOF]
@@ -220,7 +220,7 @@ fn test_jump_over_old_redo_stack() {
     assert_eq!(work_dir.read_file("state"), "D");
 
     // nothing left to redo
-    insta::assert_snapshot!(work_dir.run_jj(["redo"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["redo"]), @"
     ------- stderr -------
     Error: Nothing to redo
     [EOF]

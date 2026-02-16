@@ -31,7 +31,7 @@ fn test_evolog_with_or_without_diff() {
     work_dir.write_file("file1", "resolved\n");
 
     let output = work_dir.run_jj(["evolog"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
     │  -- operation 6db8cd4108b4 snapshot working copy
@@ -49,7 +49,7 @@ fn test_evolog_with_or_without_diff() {
 
     // Color
     let output = work_dir.run_jj(["--color=always", "evolog"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m[38;5;2m@[0m  [1m[38;5;13mr[38;5;8mlvkpnrz[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:10[39m [38;5;12m3[38;5;8m3c10ace[39m[0m
     │  [1mmy description[0m
     │  [38;5;8m--[39m operation [38;5;4m6db8cd4108b4[39m snapshot working copy
@@ -102,7 +102,7 @@ fn test_evolog_with_or_without_diff() {
 
     // Multiple starting revisions
     let output = work_dir.run_jj(["evolog", "-r.."]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
     │  -- operation 6db8cd4108b4 snapshot working copy
@@ -126,7 +126,7 @@ fn test_evolog_with_or_without_diff() {
 
     // Test `--limit`
     let output = work_dir.run_jj(["evolog", "--limit=2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
     │  -- operation 6db8cd4108b4 snapshot working copy
@@ -138,7 +138,7 @@ fn test_evolog_with_or_without_diff() {
 
     // Test `--no-graph`
     let output = work_dir.run_jj(["evolog", "--no-graph"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     my description
     -- operation 6db8cd4108b4 snapshot working copy
@@ -225,14 +225,14 @@ fn test_evolog_template() {
 
     // default template with operation
     let output = work_dir.run_jj(["evolog", "-r@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:09 2b17ac71
        (empty) (no description set)
        -- operation 2931515731a6 add workspace 'default'
     [EOF]
     ");
     let output = work_dir.run_jj(["evolog", "-r@", "--color=debug"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m[38;5;2m<<evolog commit node working_copy mutable::@>>[0m  [1m[38;5;13m<<evolog working_copy mutable commit change_id shortest prefix::k>>[38;5;8m<<evolog working_copy mutable commit change_id shortest rest::kmpptxz>>[39m<<evolog working_copy mutable:: >>[38;5;3m<<evolog working_copy mutable commit author email local::test.user>><<evolog working_copy mutable commit author email::@>><<evolog working_copy mutable commit author email domain::example.com>>[39m<<evolog working_copy mutable:: >>[38;5;14m<<evolog working_copy mutable commit committer timestamp local format::2001-02-03 08:05:09>>[39m<<evolog working_copy mutable:: >>[38;5;12m<<evolog working_copy mutable commit commit_id shortest prefix::2>>[38;5;8m<<evolog working_copy mutable commit commit_id shortest rest::b17ac71>>[39m<<evolog working_copy mutable::>>[0m
        [1m[38;5;10m<<evolog working_copy mutable empty::(empty)>>[39m<<evolog working_copy mutable:: >>[38;5;10m<<evolog working_copy mutable empty description placeholder::(no description set)>>[39m<<evolog working_copy mutable::>>[0m
        [38;5;8m<<evolog separator::-->>[39m<<evolog:: operation >>[38;5;4m<<evolog operation id short::2931515731a6>>[39m<<evolog:: >><<evolog operation description first_line::add workspace 'default'>><<evolog::>>
@@ -241,13 +241,13 @@ fn test_evolog_template() {
 
     // default template without operation
     let output = work_dir.run_jj(["evolog", "-rmain@origin"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:07 main@origin e8849ae1
        (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["evolog", "-rmain@origin", "--color=debug"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog immutable commit change_id shortest prefix::q>>[0m[38;5;8m<<evolog immutable commit change_id shortest rest::pvuntsm>>[39m<<evolog immutable:: >>[38;5;3m<<evolog immutable commit author email local::test.user>><<evolog immutable commit author email::@>><<evolog immutable commit author email domain::example.com>>[39m<<evolog immutable:: >>[38;5;6m<<evolog immutable commit committer timestamp local format::2001-02-03 08:05:07>>[39m<<evolog immutable:: >>[38;5;5m<<evolog immutable commit bookmarks name::main>><<evolog immutable commit bookmarks::@>><<evolog immutable commit bookmarks remote::origin>>[39m<<evolog immutable:: >>[1m[38;5;4m<<evolog immutable commit commit_id shortest prefix::e>>[0m[38;5;8m<<evolog immutable commit commit_id shortest rest::8849ae1>>[39m<<evolog immutable::>>
        [38;5;2m<<evolog immutable empty::(empty)>>[39m<<evolog immutable:: >>[38;5;2m<<evolog immutable empty description placeholder::(no description set)>>[39m<<evolog immutable::>>
     [EOF]
@@ -255,12 +255,12 @@ fn test_evolog_template() {
 
     // default template with root commit
     let output = work_dir.run_jj(["evolog", "-rroot()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
     let output = work_dir.run_jj(["evolog", "-rroot()", "--color=debug"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m[38;5;14m<<evolog commit node immutable::◆>>[0m  [1m[38;5;5m<<evolog immutable commit change_id shortest prefix::z>>[0m[38;5;8m<<evolog immutable commit change_id shortest rest::zzzzzzz>>[39m<<evolog immutable:: >>[38;5;2m<<evolog immutable root::root()>>[39m<<evolog immutable:: >>[1m[38;5;4m<<evolog immutable commit commit_id shortest prefix::0>>[0m[38;5;8m<<evolog immutable commit commit_id shortest rest::0000000>>[39m<<evolog immutable::>>
     [EOF]
     ");
@@ -292,7 +292,7 @@ fn test_evolog_with_custom_symbols() {
     let config = "templates.log_node='if(current_working_copy, \"$\", \"┝\")'";
     let output = work_dir.run_jj(["evolog", "--config", config]);
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     $  rlvkpnrz test.user@example.com 2001-02-03 08:05:10 33c10ace
     │  my description
     │  -- operation 7710a1e21552 snapshot working copy
@@ -326,7 +326,7 @@ fn test_evolog_word_wrap() {
     work_dir.run_jj(["describe", "-m", "first"]).success();
 
     // ui.log-word-wrap option applies to both graph/no-graph outputs
-    insta::assert_snapshot!(render(&["evolog"], 40, false), @r"
+    insta::assert_snapshot!(render(&["evolog"], 40, false), @"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:08 68a50538
     │  (empty) first
     │  -- operation 75545f7ff2df describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
@@ -335,7 +335,7 @@ fn test_evolog_word_wrap() {
        -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ");
-    insta::assert_snapshot!(render(&["evolog"], 40, true), @r"
+    insta::assert_snapshot!(render(&["evolog"], 40, true), @"
     @  qpvuntsm test.user@example.com
     │  2001-02-03 08:05:08 68a50538
     │  (empty) first
@@ -349,7 +349,7 @@ fn test_evolog_word_wrap() {
        workspace 'default'
     [EOF]
     ");
-    insta::assert_snapshot!(render(&["evolog", "--no-graph"], 40, false), @r"
+    insta::assert_snapshot!(render(&["evolog", "--no-graph"], 40, false), @"
     qpvuntsm test.user@example.com 2001-02-03 08:05:08 68a50538
     (empty) first
     -- operation 75545f7ff2df describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
@@ -358,7 +358,7 @@ fn test_evolog_word_wrap() {
     -- operation 8f47435a3990 add workspace 'default'
     [EOF]
     ");
-    insta::assert_snapshot!(render(&["evolog", "--no-graph"], 40, true), @r"
+    insta::assert_snapshot!(render(&["evolog", "--no-graph"], 40, true), @"
     qpvuntsm test.user@example.com
     2001-02-03 08:05:08 68a50538
     (empty) first
@@ -535,7 +535,7 @@ fn test_evolog_abandoned_op() {
     work_dir.write_file("file2", "");
     work_dir.run_jj(["describe", "-mfile2"]).success();
 
-    insta::assert_snapshot!(work_dir.run_jj(["evolog", "--summary"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "--summary"]), @"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:09 e1869e5d
     │  file2
     │  -- operation 043c31d6dd84 describe commit 32cabcfa05c604a36074d74ae59964e4e5eb18e9
@@ -561,7 +561,7 @@ fn test_evolog_abandoned_op() {
 
     // Unreachable predecessors are omitted, therefore the bottom commit shows
     // diffs from the empty tree.
-    insta::assert_snapshot!(work_dir.run_jj(["evolog", "--summary"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["evolog", "--summary"]), @"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:09 e1869e5d
     │  file2
     │  -- operation ab2192a635be describe commit 32cabcfa05c604a36074d74ae59964e4e5eb18e9
@@ -580,7 +580,7 @@ fn test_evolog_with_no_template() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["evolog", "-T"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: a value is required for '--template <TEMPLATE>' but none was supplied
 
@@ -626,7 +626,7 @@ fn test_evolog_reversed_no_graph() {
     work_dir.run_jj(["describe", "-m", "b"]).success();
     work_dir.run_jj(["describe", "-m", "c"]).success();
     let output = work_dir.run_jj(["evolog", "--reversed", "--no-graph"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     qpvuntsm/3 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
     (empty) (no description set)
     -- operation 8f47435a3990 add workspace 'default'
@@ -643,7 +643,7 @@ fn test_evolog_reversed_no_graph() {
     ");
 
     let output = work_dir.run_jj(["evolog", "--limit=2", "--reversed", "--no-graph"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     qpvuntsm/1 test.user@example.com 2001-02-03 08:05:09 9f43967b (hidden)
     (empty) b
     -- operation 3851e9877d51 describe commit b86e28cd6862624ad77e1aaf31e34b2c7545bebd
@@ -679,7 +679,7 @@ fn test_evolog_reverse_with_graph() {
         ])
         .success();
     let output = work_dir.run_jj(["evolog", "-r", "subject(c+d+e)", "--reversed"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  qpvuntsm/4 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
     │  (empty) (no description set)
     │  -- operation 8f47435a3990 add workspace 'default'
@@ -705,7 +705,7 @@ fn test_evolog_reverse_with_graph() {
     ");
 
     let output = work_dir.run_jj(["evolog", "-rsubject(c+d+e)", "--limit=3", "--reversed"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  mzvwutvl/0 test.user@example.com 2001-02-03 08:05:11 6a4ff8aa (hidden)
     │  (empty) d
     │  -- operation bc5f758ddd39 new empty commit

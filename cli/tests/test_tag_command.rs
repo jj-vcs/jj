@@ -24,12 +24,12 @@ fn test_tag_set_delete() {
 
     work_dir.run_jj(["commit", "-mcommit1"]).success();
     let output = work_dir.run_jj(["tag", "set", "-r@-", "foo", "bar"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created 2 tags pointing to qpvuntsm b876c5f4 (empty) commit1
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  bbc749308d7f
     ◆  b876c5f49546 bar foo
     ◆  000000000000
@@ -37,14 +37,14 @@ fn test_tag_set_delete() {
     ");
 
     let output = work_dir.run_jj(["tag", "set", "foo", "baz"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Refusing to move tag: foo
     Hint: Use --allow-move to update existing tags.
     [EOF]
     [exit status: 1]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  bbc749308d7f
     ◆  b876c5f49546 bar foo
     ◆  000000000000
@@ -52,7 +52,7 @@ fn test_tag_set_delete() {
     ");
 
     let output = work_dir.run_jj(["tag", "set", "--allow-move", "foo", "baz"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Created 1 tags pointing to rlvkpnrz bbc74930 (empty) (no description set)
@@ -62,7 +62,7 @@ fn test_tag_set_delete() {
     Parent commit (@-)      : rlvkpnrz bbc74930 (empty) (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  13cbd51558a6
     ◆  bbc749308d7f baz foo
     ◆  b876c5f49546 bar
@@ -71,12 +71,12 @@ fn test_tag_set_delete() {
     ");
 
     let output = work_dir.run_jj(["tag", "delete", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Deleted 1 tags.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  13cbd51558a6
     ◆  bbc749308d7f baz
     ◆  b876c5f49546 bar
@@ -85,13 +85,13 @@ fn test_tag_set_delete() {
     ");
 
     let output = work_dir.run_jj(["tag", "set", "--allow-move", "-r@-", "baz"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Nothing changed.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  13cbd51558a6
     ◆  bbc749308d7f baz
     ◆  b876c5f49546 bar
@@ -100,12 +100,12 @@ fn test_tag_set_delete() {
     ");
 
     let output = work_dir.run_jj(["tag", "delete", "b*"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Deleted 2 tags.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  13cbd51558a6
     ○  bbc749308d7f
     ○  b876c5f49546
@@ -121,14 +121,14 @@ fn test_tag_at_root() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["tag", "set", "-rroot()", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Created 1 tags pointing to zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "export"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     Warning: Failed to export some tags:
@@ -146,7 +146,7 @@ fn test_tag_bad_name() {
     work_dir.run_jj(["commit", "-mcommit1"]).success();
 
     let output = work_dir.run_jj(["tag", "set", ""]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: invalid value '' for '<NAMES>...': Failed to parse tag name: Syntax error
 
@@ -163,7 +163,7 @@ fn test_tag_bad_name() {
     ");
 
     let output = work_dir.run_jj(["tag", "set", "''"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: invalid value '''' for '<NAMES>...': Failed to parse tag name: Expected non-empty string
 
@@ -180,7 +180,7 @@ fn test_tag_bad_name() {
     ");
 
     let output = work_dir.run_jj(["tag", "set", "foo@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: invalid value 'foo@' for '<NAMES>...': Failed to parse tag name: Syntax error
 
@@ -198,7 +198,7 @@ fn test_tag_bad_name() {
 
     // quoted name works
     let output = work_dir.run_jj(["tag", "set", "-r@-", "'foo@'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created 1 tags pointing to qpvuntsm b876c5f4 (empty) commit1
     [EOF]
@@ -212,7 +212,7 @@ fn test_tag_unknown() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["tag", "delete", "unknown"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching tags for names: unknown
     No tags to delete.
@@ -220,7 +220,7 @@ fn test_tag_unknown() {
     ");
 
     let output = work_dir.run_jj(["tag", "delete", "unknown*"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No tags to delete.
     [EOF]
@@ -263,7 +263,7 @@ fn test_tag_list() {
         ])
         .success();
 
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list"]), @"
     conflicted_tag (conflicted):
       - rlvkpnrz 893e67dc (empty) commit1
       + zsuskuln 76abdd20 (empty) commit2
@@ -276,7 +276,7 @@ fn test_tag_list() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--color=always"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--color=always"]), @"
     [38;5;5mconflicted_tag[39m [38;5;1m(conflicted)[39m:
       - [1m[38;5;5mrl[0m[38;5;8mvkpnrz[39m [1m[38;5;4m8[0m[38;5;8m93e67dc[39m [38;5;2m(empty)[39m commit1
       + [1m[38;5;5mzs[0m[38;5;8muskuln[39m [1m[38;5;4m7[0m[38;5;8m6abdd20[39m [38;5;2m(empty)[39m commit2
@@ -287,12 +287,12 @@ fn test_tag_list() {
     ");
 
     // Test pattern matching.
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "test_tag2"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "test_tag2"]), @"
     test_tag2: zsuskuln 76abdd20 (empty) commit2
     [EOF]
     ");
 
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "'test_tag?'"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "'test_tag?'"]), @"
     test_tag2: zsuskuln 76abdd20 (empty) commit2
     [EOF]
     ");
@@ -320,7 +320,7 @@ fn test_tag_list() {
     // Unmatched exact name pattern should be warned. "test_tag2" exists, but
     // isn't included in the match.
     insta::assert_snapshot!(
-        work_dir.run_jj(["tag", "list", "test* & ~*2", "unknown ~ test_tag2"]), @r"
+        work_dir.run_jj(["tag", "list", "test* & ~*2", "unknown ~ test_tag2"]), @"
     test_tag: rlvkpnrz 893e67dc (empty) commit1
     [EOF]
     ------- stderr -------
@@ -346,7 +346,7 @@ fn test_tag_list() {
       separate(" ", "added_targets:", added_targets.map(|c| c.description().first_line())) ++ "\n",
     )
     "#;
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-T", template]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-T", template]), @"
     [conflicted_tag]
     present: true
     conflict: true

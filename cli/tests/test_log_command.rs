@@ -22,7 +22,7 @@ fn test_log_with_empty_revision() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["log", "-r="]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: a value is required for '--revisions <REVSETS>' but none was supplied
 
@@ -39,7 +39,7 @@ fn test_log_with_no_template() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["log", "-T"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: a value is required for '--template <TEMPLATE>' but none was supplied
 
@@ -108,7 +108,7 @@ fn test_log_with_diff_stats() {
     "#;
 
     let output = work_dir.run_jj(["log", "-T", template]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  M modified file1 file1
     │  M modified file2 file2
     │  M modified file3 file3
@@ -146,7 +146,7 @@ fn test_log_with_or_without_diff() {
     work_dir.write_file("file1", "foo\nbar\n");
 
     let output = work_dir.run_jj(["log", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  a new commit
     ○  add a file
     ◆
@@ -154,7 +154,7 @@ fn test_log_with_or_without_diff() {
     ");
 
     let output = work_dir.run_jj(["log", "-T", "description", "-p"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  a new commit
     │  Modified regular file file1:
     │     1    1: foo
@@ -167,7 +167,7 @@ fn test_log_with_or_without_diff() {
     ");
 
     let output = work_dir.run_jj(["log", "-T", "description", "--no-graph"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a new commit
     add a file
     [EOF]
@@ -175,7 +175,7 @@ fn test_log_with_or_without_diff() {
 
     // `-G` is the short name of --no-graph
     let output = work_dir.run_jj(["log", "-T", r#"commit_id.short() ++ "\n""#, "-G"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     58c940c45833
     007859d3ad71
     000000000000
@@ -184,7 +184,7 @@ fn test_log_with_or_without_diff() {
 
     // `-p` for default diff output, `-s` for summary
     let output = work_dir.run_jj(["log", "-T", "description", "-p", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  a new commit
     │  M file1
     │  Modified regular file file1:
@@ -200,7 +200,7 @@ fn test_log_with_or_without_diff() {
 
     // `-s` for summary, `--git` for git diff (which implies `-p`)
     let output = work_dir.run_jj(["log", "-T", "description", "-s", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  a new commit
     │  M file1
     │  diff --git a/file1 b/file1
@@ -225,7 +225,7 @@ fn test_log_with_or_without_diff() {
 
     // `-p` for default diff output, `--stat` for diff-stat
     let output = work_dir.run_jj(["log", "-T", "description", "-p", "--stat"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  a new commit
     │  file1 | 1 +
     │  1 file changed, 1 insertion(+), 0 deletions(-)
@@ -277,7 +277,7 @@ fn test_log_with_or_without_diff() {
         "-s",
         "--config=ui.diff-formatter=:summary",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  a new commit
     │  M file1
     ○  add a file
@@ -288,7 +288,7 @@ fn test_log_with_or_without_diff() {
 
     // `-p` enables default "color-words" diff output, so `--color-words` is noop
     let output = work_dir.run_jj(["log", "-T", "description", "-p", "--color-words"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  a new commit
     │  Modified regular file file1:
     │     1    1: foo
@@ -302,7 +302,7 @@ fn test_log_with_or_without_diff() {
 
     // `--git` enables git diff, so `-p` is noop
     let output = work_dir.run_jj(["log", "-T", "description", "--no-graph", "-p", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a new commit
     diff --git a/file1 b/file1
     index 257cc5642c..3bd1f0e297 100644
@@ -332,7 +332,7 @@ fn test_log_with_or_without_diff() {
         "--git",
         "--color-words",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the argument '--git' cannot be used with '--color-words'
 
@@ -345,7 +345,7 @@ fn test_log_with_or_without_diff() {
 
     // `-s` with or without graph
     let output = work_dir.run_jj(["log", "-T", "description", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  a new commit
     │  M file1
     ○  add a file
@@ -354,7 +354,7 @@ fn test_log_with_or_without_diff() {
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-T", "description", "--no-graph", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a new commit
     M file1
     add a file
@@ -364,7 +364,7 @@ fn test_log_with_or_without_diff() {
 
     // `--git` implies `-p`, with or without graph
     let output = work_dir.run_jj(["log", "-T", "description", "-r", "@", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  a new commit
     │  diff --git a/file1 b/file1
     ~  index 257cc5642c..3bd1f0e297 100644
@@ -376,7 +376,7 @@ fn test_log_with_or_without_diff() {
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-T", "description", "-r", "@", "--no-graph", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a new commit
     diff --git a/file1 b/file1
     index 257cc5642c..3bd1f0e297 100644
@@ -390,7 +390,7 @@ fn test_log_with_or_without_diff() {
 
     // `--color-words` implies `-p`, with or without graph
     let output = work_dir.run_jj(["log", "-T", "description", "-r", "@", "--color-words"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  a new commit
     │  Modified regular file file1:
     ~     1    1: foo
@@ -406,7 +406,7 @@ fn test_log_with_or_without_diff() {
         "--no-graph",
         "--color-words",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a new commit
     Modified regular file file1:
        1    1: foo
@@ -486,7 +486,7 @@ fn test_log_shortest_accessors() {
         @"qpv[untsmwlqt] 82[16f646c36d][EOF]");
 
     insta::assert_snapshot!(
-        render("::@", r#"change_id.shortest() ++ " " ++ commit_id.shortest() ++ "\n""#), @r"
+        render("::@", r#"change_id.shortest() ++ " " ++ commit_id.shortest() ++ "\n""#), @"
     wq c2
     km 74
     kp 97
@@ -502,7 +502,7 @@ fn test_log_shortest_accessors() {
     ");
 
     insta::assert_snapshot!(
-        render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @r"
+        render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @"
     wq[nwkozpkust] c2[b4c0bb3362]
     km[kuslswpqwq] 74[fcd50c0643]
     kp[qxywonksrl] 97[dcaada9b8d]
@@ -520,7 +520,7 @@ fn test_log_shortest_accessors() {
     // Can get shorter prefixes in configured revset
     test_env.add_config(r#"revsets.short-prefixes = "(@----)::""#);
     insta::assert_snapshot!(
-        render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @r"
+        render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @"
     w[qnwkozpkust] c[2b4c0bb3362]
     km[kuslswpqwq] 74[fcd50c0643]
     kp[qxywonksrl] 9[7dcaada9b8d]
@@ -538,7 +538,7 @@ fn test_log_shortest_accessors() {
     // Can disable short prefixes by setting to empty string
     test_env.add_config(r#"revsets.short-prefixes = """#);
     insta::assert_snapshot!(
-        render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @r"
+        render("::@", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @"
     wq[nwkozpkust] c2[b4c0bb3362]
     km[kuslswpqwq] 74[fcd50c0643]
     kp[qxywonksrl] 97[dcaada9b8d]
@@ -558,7 +558,7 @@ fn test_log_shortest_accessors() {
         .run_jj(["bookmark", "set", "-r@", "z", "zz", "zzz"])
         .success();
     insta::assert_snapshot!(
-        render("root()", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @r"
+        render("root()", r#"format_id(change_id) ++ " " ++ format_id(commit_id) ++ "\n""#), @"
     zzzz[zzzzzzzz] 00[0000000000]
     [EOF]
     ");
@@ -593,7 +593,7 @@ fn test_log_bad_short_prefixes() {
     // Warn on resolution of short prefixes
     test_env.add_config("revsets.short-prefixes = 'missing'");
     let output = work_dir.run_jj(["log", "-Tcommit_id.shortest()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  e
     ◆  0
     [EOF]
@@ -613,7 +613,7 @@ fn test_log_bad_short_prefixes() {
     // Error on resolution of short prefixes
     test_env.add_config("revsets.short-prefixes = 'missing'");
     let output = work_dir.run_jj(["log", "-r0"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to resolve short-prefixes disambiguation revset
     Caused by: Revision `missing` doesn't exist
@@ -649,7 +649,7 @@ fn test_log_prefix_highlight_styled() {
         .run_jj(["bookmark", "c", "-r@", "original"])
         .success();
     insta::assert_snapshot!(
-        work_dir.run_jj(["log", "-r", "original", "-T", &prefix_format(Some(12))]), @r"
+        work_dir.run_jj(["log", "-r", "original", "-T", &prefix_format(Some(12))]), @"
     @  Change qpvuntsmwlqt initial 8216f646c36d original
     │
     ~
@@ -669,7 +669,7 @@ fn test_log_prefix_highlight_styled() {
     }
 
     insta::assert_snapshot!(
-        work_dir.run_jj(["log", "-r", "original", "-T", &prefix_format(Some(12))]), @r"
+        work_dir.run_jj(["log", "-r", "original", "-T", &prefix_format(Some(12))]), @"
     ○  Change qpvuntsmwlqt initial 8216f646c36d original
     │
     ~
@@ -683,7 +683,7 @@ fn test_log_prefix_highlight_styled() {
         "-T",
         &prefix_format(Some(12)),
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m[38;5;8mnwkozpkust[39m commit9 [1m[38;5;4mc2[0m[38;5;8mb4c0bb3362[39m
     ○  Change [1m[38;5;5mkm[0m[38;5;8mkuslswpqwq[39m commit8 [1m[38;5;4m74[0m[38;5;8mfcd50c0643[39m
     ○  Change [1m[38;5;5mkp[0m[38;5;8mqxywonksrl[39m commit7 [1m[38;5;4m97[0m[38;5;8mdcaada9b8d[39m
@@ -705,7 +705,7 @@ fn test_log_prefix_highlight_styled() {
         "-T",
         &prefix_format(Some(3)),
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m[38;5;8mn[39m commit9 [1m[38;5;4mc2[0m[38;5;8mb[39m
     ○  Change [1m[38;5;5mkm[0m[38;5;8mk[39m commit8 [1m[38;5;4m74[0m[38;5;8mf[39m
     ○  Change [1m[38;5;5mkp[0m[38;5;8mq[39m commit7 [1m[38;5;4m97[0m[38;5;8md[39m
@@ -727,7 +727,7 @@ fn test_log_prefix_highlight_styled() {
         "-T",
         &prefix_format(None),
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m[38;5;2m@[0m  Change [1m[38;5;5mwq[0m commit9 [1m[38;5;4mc2[0m
     ○  Change [1m[38;5;5mkm[0m commit8 [1m[38;5;4m74[0m
     ○  Change [1m[38;5;5mkp[0m commit7 [1m[38;5;4m97[0m
@@ -772,7 +772,7 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
     work_dir
         .run_jj(["bookmark", "c", "-r@", "original"])
         .success();
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "all()", "-T", prefix_format]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "all()", "-T", prefix_format]), @"
     @  Change q[pvuntsmwlqt] initial 8[216f646c36d] original
     ◆  Change z[zzzzzzzzzzz] 00[0000000000]
     [EOF]
@@ -786,20 +786,20 @@ fn test_log_prefix_highlight_counts_hidden_commits() {
     work_dir.run_jj(["abandon", "subject(extra)"]).success();
 
     // The unique prefixes became longer.
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-T", prefix_format]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-T", prefix_format]), @"
     @  Change wq[nwkozpkust] 88[e8407a4f0a]
     │ ○  Change qpv[untsmwlqt] initial 82[16f646c36d] original
     ├─╯
     ◆  Change zzz[zzzzzzzzz] 00[0000000000]
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "8", "-T", prefix_format]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "8", "-T", prefix_format]), @"
     ------- stderr -------
     Error: Commit ID prefix `8` is ambiguous
     [EOF]
     [exit status: 1]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "88", "-T", prefix_format]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r", "88", "-T", prefix_format]), @"
     @  Change wq[nwkozpkust] 88[e8407a4f0a]
     │
     ~
@@ -813,7 +813,7 @@ fn test_log_author_format() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    insta::assert_snapshot!(work_dir.run_jj(["log", "--revisions=@"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "--revisions=@"]), @"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
     ~
@@ -826,7 +826,7 @@ fn test_log_author_format() {
         &format!("{decl}='signature.email().local()'"),
         "log",
         "--revisions=@",
-    ]), @r"
+    ]), @"
     @  qpvuntsm test.user 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
     ~
@@ -847,7 +847,7 @@ fn test_log_divergence() {
         .success();
     // No divergence
     let output = work_dir.run_jj(["log", "-T", template]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  description 1
     ◆
     [EOF]
@@ -858,7 +858,7 @@ fn test_log_divergence() {
         .run_jj(["describe", "-m", "description 2", "--at-operation", "@-"])
         .success();
     let output = work_dir.run_jj(["log", "-T", template]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  description 1 !divergence!
     │ ○  description 2 !divergence!
     ├─╯
@@ -880,7 +880,7 @@ fn test_log_reversed() {
     work_dir.run_jj(["new", "-m", "second"]).success();
 
     let output = work_dir.run_jj(["log", "-T", "description", "--reversed"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ◆
     ○  first
     @  second
@@ -888,7 +888,7 @@ fn test_log_reversed() {
     ");
 
     let output = work_dir.run_jj(["log", "-T", "description", "--reversed", "--no-graph"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     first
     second
     [EOF]
@@ -909,7 +909,7 @@ fn test_log_filtered_by_path() {
 
     // The output filtered to a non-existent file should display a warning.
     let output = work_dir.run_jj(["log", "-r", "@-", "-T", "description", "nonexistent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     [EOF]
@@ -926,7 +926,7 @@ fn test_log_filtered_by_path() {
     "#);
 
     let output = work_dir.run_jj(["log", "-T", "description", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  second
     ○  first
     │
@@ -935,7 +935,7 @@ fn test_log_filtered_by_path() {
     ");
 
     let output = work_dir.run_jj(["log", "-T", "description", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  second
     │
     ~
@@ -943,7 +943,7 @@ fn test_log_filtered_by_path() {
     ");
 
     let output = work_dir.run_jj(["log", "-T", "description", "-s", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  second
     │  M file1
     ○  first
@@ -953,7 +953,7 @@ fn test_log_filtered_by_path() {
     ");
 
     let output = work_dir.run_jj(["log", "-T", "description", "-s", "file2", "--no-graph"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     second
     A file2
     [EOF]
@@ -961,7 +961,7 @@ fn test_log_filtered_by_path() {
 
     // empty revisions are filtered out by "all()" fileset.
     let output = work_dir.run_jj(["log", "-Tdescription", "-s", "all()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  second
     │  M file1
     │  A file2
@@ -983,7 +983,7 @@ fn test_log_filtered_by_path() {
             "root:file1",
         ],
     );
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     @  second
     │  M repo/file1
     ○  first
@@ -1001,7 +1001,7 @@ fn test_log_filtered_by_path() {
         "-rfiles(file2)",
         "--no-graph",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     second
     M file1
     A file2
@@ -1026,7 +1026,7 @@ fn test_log_limit() {
         .success();
 
     let output = work_dir.run_jj(["log", "-T", "description", "--limit=3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    d
     ├─╮
     │ ○  b
@@ -1037,7 +1037,7 @@ fn test_log_limit() {
 
     // Applied on sorted DAG
     let output = work_dir.run_jj(["log", "-T", "description", "--limit=2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    d
     ├─╮
     │ ○  b
@@ -1045,7 +1045,7 @@ fn test_log_limit() {
     ");
 
     let output = work_dir.run_jj(["log", "-T", "description", "--limit=2", "--no-graph"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     d
     c
     [EOF]
@@ -1054,7 +1054,7 @@ fn test_log_limit() {
     // Applied on reversed DAG: Because the node "a" is omitted, "b" and "c" are
     // rendered as roots.
     let output = work_dir.run_jj(["log", "-T", "description", "--limit=3", "--reversed"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  c
     │ ○  b
     ├─╯
@@ -1069,7 +1069,7 @@ fn test_log_limit() {
         "--reversed",
         "--no-graph",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     b
     c
     d
@@ -1078,7 +1078,7 @@ fn test_log_limit() {
 
     // Applied on filtered commits
     let output = work_dir.run_jj(["log", "-T", "description", "--limit=1", "b", "c"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  c
     │
     ~
@@ -1099,7 +1099,7 @@ fn test_log_warn_path_might_be_revset() {
 
     // Don't warn if the file actually exists.
     let output = work_dir.run_jj(["log", "file1", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @
     │
     ~
@@ -1122,7 +1122,7 @@ fn test_log_warn_path_might_be_revset() {
     // been added to the working copy, yet.
     let sub_dir = work_dir.create_dir_all("dir");
     let output = sub_dir.run_jj(["log", "."]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: .
     [EOF]
@@ -1148,7 +1148,7 @@ fn test_log_warn_path_might_be_revset() {
 
     // If an explicit revision is provided, then suppress the warning.
     let output = work_dir.run_jj(["log", "@", "-r", "@", "-T", "description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: @
     [EOF]
@@ -1169,13 +1169,13 @@ fn test_default_revset() {
 
     // Log should only contain one line (for the root commit), and not show the
     // commit created above.
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-T", "commit_id"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-T", "commit_id"]), @"
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
 
     // The default revset is not used if a path is specified
-    insta::assert_snapshot!(work_dir.run_jj(["log", "file1", "-T", "description"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "file1", "-T", "description"]), @"
     @  add a file
     │
     ~
@@ -1197,7 +1197,7 @@ fn test_default_revset_per_repo() {
 
     // Log should only contain one line (for the root commit), and not show the
     // commit created above.
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-T", "commit_id"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-T", "commit_id"]), @"
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
@@ -1219,14 +1219,14 @@ fn test_multiple_revsets() {
     test_env.add_config(r#"revsets.log = "root()""#);
 
     insta::assert_snapshot!(
-        work_dir.run_jj(["log", "-T", "bookmarks", "-rfoo"]), @r"
+        work_dir.run_jj(["log", "-T", "bookmarks", "-rfoo"]), @"
     ○  foo
     │
     ~
     [EOF]
     ");
     insta::assert_snapshot!(
-        work_dir.run_jj(["log", "-T", "bookmarks", "-rfoo", "-rbar", "-rbaz"]), @r"
+        work_dir.run_jj(["log", "-T", "bookmarks", "-rfoo", "-rbar", "-rbaz"]), @"
     @  baz
     ○  bar
     ○  foo
@@ -1235,7 +1235,7 @@ fn test_multiple_revsets() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        work_dir.run_jj(["log", "-T", "bookmarks", "-rfoo", "-rfoo"]), @r"
+        work_dir.run_jj(["log", "-T", "bookmarks", "-rfoo", "-rfoo"]), @"
     ○  foo
     │
     ~
@@ -1265,7 +1265,7 @@ fn test_graph_template_color() {
     // First test without color for comparison
     let template = r#"label(if(current_working_copy, "working_copy"), description)"#;
     let output = work_dir.run_jj(["log", "-T", template]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  single line
     ○  first line
     │  second line
@@ -1274,7 +1274,7 @@ fn test_graph_template_color() {
     [EOF]
     ");
     let output = work_dir.run_jj(["--color=always", "log", "-T", template]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m[38;5;2m@[0m  [1m[38;5;2msingle line[0m
     ○  [38;5;1mfirst line[39m
     │  [38;5;1msecond line[39m
@@ -1283,7 +1283,7 @@ fn test_graph_template_color() {
     [EOF]
     ");
     let output = work_dir.run_jj(["--color=debug", "log", "-T", template]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m[38;5;2m<<log commit node working_copy mutable::@>>[0m  [1m[38;5;2m<<log commit working_copy description::single line>>[0m
     <<log commit node mutable::○>>  [38;5;1m<<log commit description::first line>>[39m
     │  [38;5;1m<<log commit description::second line>>[39m
@@ -1316,7 +1316,7 @@ fn test_graph_styles() {
 
     // Default (curved) style
     let output = work_dir.run_jj(["log", "-T=description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    merge
     ├─╮
     │ ○  side bookmark
@@ -1372,7 +1372,7 @@ fn test_graph_styles() {
     // Curved style
     test_env.add_config(r#"ui.graph.style = "curved""#);
     let output = work_dir.run_jj(["log", "-T=description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    merge
     ├─╮
     │ ○  side bookmark
@@ -1390,7 +1390,7 @@ fn test_graph_styles() {
     // Square style
     test_env.add_config(r#"ui.graph.style = "square""#);
     let output = work_dir.run_jj(["log", "-T=description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    merge
     ├─┐
     │ ○  side bookmark
@@ -1407,7 +1407,7 @@ fn test_graph_styles() {
 
     // Invalid style name
     let output = work_dir.run_jj(["log", "--config=ui.graph.style=unknown"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Config error: Invalid type or value for ui.graph.style
     Caused by: unknown variant `unknown`, expected one of `ascii`, `ascii-large`, `curved`, `square`
@@ -1444,24 +1444,24 @@ fn test_log_word_wrap() {
         .success();
 
     // ui.log-word-wrap option applies to both graph/no-graph outputs
-    insta::assert_snapshot!(render(&["log", "-r@"], 40, false), @r"
+    insta::assert_snapshot!(render(&["log", "-r@"], 40, false), @"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 bafb1ee5
     │  (empty) merge
     ~
     [EOF]
     ");
-    insta::assert_snapshot!(render(&["log", "-r@"], 40, true), @r"
+    insta::assert_snapshot!(render(&["log", "-r@"], 40, true), @"
     @  mzvwutvl test.user@example.com
     │  2001-02-03 08:05:11 bafb1ee5
     ~  (empty) merge
     [EOF]
     ");
-    insta::assert_snapshot!(render(&["log", "--no-graph", "-r@"], 40, false), @r"
+    insta::assert_snapshot!(render(&["log", "--no-graph", "-r@"], 40, false), @"
     mzvwutvl test.user@example.com 2001-02-03 08:05:11 bafb1ee5
     (empty) merge
     [EOF]
     ");
-    insta::assert_snapshot!(render(&["log", "--no-graph", "-r@"], 40, true), @r"
+    insta::assert_snapshot!(render(&["log", "--no-graph", "-r@"], 40, true), @"
     mzvwutvl test.user@example.com
     2001-02-03 08:05:11 bafb1ee5
     (empty) merge
@@ -1469,7 +1469,7 @@ fn test_log_word_wrap() {
     ");
 
     // Color labels should be preserved
-    insta::assert_snapshot!(render(&["log", "-r@", "--color=always"], 40, true), @r"
+    insta::assert_snapshot!(render(&["log", "-r@", "--color=always"], 40, true), @"
     [1m[38;5;2m@[0m  [1m[38;5;13mm[38;5;8mzvwutvl[39m [38;5;3mtest.user@example.com[39m[0m
     │  [1m[38;5;14m2001-02-03 08:05:11[39m [38;5;12mb[38;5;8mafb1ee5[39m[0m
     ~  [1m[38;5;10m(empty)[39m merge[0m
@@ -1478,7 +1478,7 @@ fn test_log_word_wrap() {
 
     // Graph width should be subtracted from the term width
     let template = r#""0 1 2 3 4 5 6 7 8 9""#;
-    insta::assert_snapshot!(render(&["log", "-T", template], 10, true), @r"
+    insta::assert_snapshot!(render(&["log", "-T", template], 10, true), @"
     @    0 1 2
     ├─╮  3 4 5
     │ │  6 7 8
@@ -1501,7 +1501,7 @@ fn test_log_word_wrap() {
     ");
 
     // Shouldn't panic with $COLUMNS < graph_width
-    insta::assert_snapshot!(render(&["log", "-r@"], 0, true), @r"
+    insta::assert_snapshot!(render(&["log", "-r@"], 0, true), @"
     @  mzvwutvl
     │  test.user@example.com
     ~  2001-02-03
@@ -1511,7 +1511,7 @@ fn test_log_word_wrap() {
        merge
     [EOF]
     ");
-    insta::assert_snapshot!(render(&["log", "-r@"], 1, true), @r"
+    insta::assert_snapshot!(render(&["log", "-r@"], 1, true), @"
     @  mzvwutvl
     │  test.user@example.com
     ~  2001-02-03
@@ -1557,7 +1557,7 @@ fn test_log_diff_stat_width() {
     work_dir.run_jj(["new", "root()"]).success();
     work_dir.write_file("file2", "foo\n".repeat(100));
 
-    insta::assert_snapshot!(render(&["log", "--stat", "--no-graph"], 30), @r"
+    insta::assert_snapshot!(render(&["log", "--stat", "--no-graph"], 30), @"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:09 9490cfd3
     (no description set)
     file2 | 100 ++++++++++++++++++
@@ -1572,7 +1572,7 @@ fn test_log_diff_stat_width() {
     ");
 
     // Graph width should be subtracted
-    insta::assert_snapshot!(render(&["log", "--stat"], 30), @r"
+    insta::assert_snapshot!(render(&["log", "--stat"], 30), @"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 9490cfd3
     │  (no description set)
     │  file2 | 100 +++++++++++++++
@@ -1608,7 +1608,7 @@ fn test_elided() {
     let get_log = |revs: &str| work_dir.run_jj(["log", "-T", r#"description ++ "\n""#, "-r", revs]);
 
     // Test the setup
-    insta::assert_snapshot!(get_log("::"), @r"
+    insta::assert_snapshot!(get_log("::"), @"
     @    merge
     ├─╮
     │ ○  side bookmark 2
@@ -1628,7 +1628,7 @@ fn test_elided() {
     // Elide some commits from each side of the merge. It's unclear that a revision
     // was skipped on the left side.
     test_env.add_config("ui.log-synthetic-elided-nodes = false");
-    insta::assert_snapshot!(get_log("@ | @- | subject(initial)"), @r"
+    insta::assert_snapshot!(get_log("@ | @- | subject(initial)"), @"
     @    merge
     ├─╮
     │ ○  side bookmark 2
@@ -1643,7 +1643,7 @@ fn test_elided() {
 
     // Elide shared commits. It's unclear that a revision was skipped on the right
     // side (#1252).
-    insta::assert_snapshot!(get_log("@-- | root()"), @r"
+    insta::assert_snapshot!(get_log("@-- | root()"), @"
     ○  side bookmark 1
     ╷
     ╷ ○  main bookmark 1
@@ -1656,7 +1656,7 @@ fn test_elided() {
 
     // Elide some commits from each side of the merge
     test_env.add_config("ui.log-synthetic-elided-nodes = true");
-    insta::assert_snapshot!(get_log("@ | @- | subject(initial)"), @r"
+    insta::assert_snapshot!(get_log("@ | @- | subject(initial)"), @"
     @    merge
     ├─╮
     │ ○  side bookmark 2
@@ -1674,7 +1674,7 @@ fn test_elided() {
 
     // Elide shared commits. To keep the implementation simple, it still gets
     // rendered as two synthetic nodes.
-    insta::assert_snapshot!(get_log("@-- | root()"), @r"
+    insta::assert_snapshot!(get_log("@-- | root()"), @"
     ○  side bookmark 1
     │
     ~  (elided revisions)
@@ -1714,7 +1714,7 @@ fn test_log_with_custom_symbols() {
         templates.log_node = 'if(self, if(current_working_copy, "$", if(root, "┴", "┝")), "🮀")'
         "###,
     );
-    insta::assert_snapshot!(get_log("@ | @- | subject(initial) | root()"), @r"
+    insta::assert_snapshot!(get_log("@ | @- | subject(initial) | root()"), @"
     $    merge
     ├─╮
     │ ┝  side bookmark 2
@@ -1770,7 +1770,7 @@ fn test_log_full_description_template() {
         .success();
 
     let output = work_dir.run_jj(["log", "-T", "builtin_log_compact_full_description"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 3a70504b
     │  (empty) (no description set)
     │
@@ -1814,7 +1814,7 @@ fn test_log_anonymize() {
     work_dir.run_jj(["bookmark", "move", "b1", "-t@"]).success();
 
     let output = work_dir.run_jj(["log", "-r::", "-Tbuiltin_log_redacted"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  yqosqzyt user-78cd 2001-02-03 08:05:13 bookmark-dc8b* de3c47af
     │  (empty) (redacted)
     ◆  qpvuntsm user-78cd 2001-02-03 08:05:08 bookmark-dc8b@remote-86e9 bookmark-56f1 bookmark-ff9e@remote-86e9 37b69cda
@@ -1837,19 +1837,19 @@ fn test_log_count() {
     work_dir.run_jj(["new", "-m", "third"]).success();
 
     let output = work_dir.run_jj(["log", "--count"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     4
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "--count", "-r", "all() ~ root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     3
     [EOF]
     ");
 
     let output = work_dir.run_jj(["log", "--count", "--limit", "2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     2
     [EOF]
     ");
@@ -1862,7 +1862,7 @@ fn test_log_count() {
             .success();
     }
     let output = work_dir.run_jj(["log", "--count"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     14
     [EOF]
     ");

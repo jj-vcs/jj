@@ -29,7 +29,7 @@ fn test_basics() {
     create_commit(&work_dir, "d", &["c"]);
     create_commit(&work_dir, "e", &["a", "d"]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    [znk] e
     ├─╮
     │ ○  [vru] d
@@ -44,7 +44,7 @@ fn test_basics() {
     let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks", "d"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       vruxwmqv 636920e4 d | d
@@ -55,7 +55,7 @@ fn test_basics() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    [znk] e
     ├─╮
     │ ○  [roy] c d
@@ -69,7 +69,7 @@ fn test_basics() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks"]); // abandons `e`
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       znkkpsqq 03e0d4bf e | e
@@ -79,7 +79,7 @@ fn test_basics() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    [nkm]
     ├─╮
     │ ○  [vru] d e??
@@ -94,7 +94,7 @@ fn test_basics() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "descendants(d)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 2 commits:
       znkkpsqq 03e0d4bf e | e
@@ -106,7 +106,7 @@ fn test_basics() {
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    [xtn]
     ├─╮
     │ ○  [roy] c
@@ -121,14 +121,14 @@ fn test_basics() {
     // Test abandoning the same commit twice directly
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "-rb", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       zsuskuln 123b4d91 b | b
     Deleted bookmarks: b
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    [znk] e
     ├─╮
     │ ○  [vru] d
@@ -142,7 +142,7 @@ fn test_basics() {
     // Test abandoning the same commit twice indirectly
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "d::", "e"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 2 commits:
       znkkpsqq 03e0d4bf e | e
@@ -154,7 +154,7 @@ fn test_basics() {
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    [xlz]
     ├─╮
     │ ○  [roy] c
@@ -167,7 +167,7 @@ fn test_basics() {
     ");
 
     let output = work_dir.run_jj(["abandon", "none()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No revisions to abandon.
     [EOF]
@@ -186,7 +186,7 @@ fn test_abandon_many() {
 
     // The list of commits should be elided.
     let output = work_dir.run_jj(["abandon", ".."]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 11 commits:
       kpqxywon 6faec5d1 (empty) commit9
@@ -224,7 +224,7 @@ fn test_bug_2600() {
     create_commit(&work_dir, "c", &["b"]);
 
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  [znk] c
     ○    [vru] b
     ├─╮
@@ -239,7 +239,7 @@ fn test_bug_2600() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "base"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       zsuskuln 67c2f714 base | base
@@ -252,7 +252,7 @@ fn test_bug_2600() {
     ");
     // Commits "a" and "b" should both have "nottherootcommit" as parent, and "b"
     // should keep "a" as second parent.
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  [znk] c
     ○    [vru] b
     ├─╮
@@ -265,7 +265,7 @@ fn test_bug_2600() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       royxmykx 183dbbca a | a
@@ -279,7 +279,7 @@ fn test_bug_2600() {
     // Commit "b" should have "base" as parent. It should not have two parent
     // pointers to that commit even though it was a merge commit before we abandoned
     // "a".
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  [znk] c
     ○  [vru] b
     ○  [zsu] base
@@ -290,7 +290,7 @@ fn test_bug_2600() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["abandon", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       vruxwmqv cedee197 b | b
@@ -303,7 +303,7 @@ fn test_bug_2600() {
     [EOF]
     ");
     // Commit "c" should inherit the parents from the abndoned commit "b".
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    [znk] c
     ├─╮
     │ ○  [roy] a
@@ -316,7 +316,7 @@ fn test_bug_2600() {
 
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     // ========= Reminder of the setup ===========
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  [znk] c
     ○    [vru] b
     ├─╮
@@ -328,7 +328,7 @@ fn test_bug_2600() {
     [EOF]
     ");
     let output = work_dir.run_jj(["abandon", "--retain-bookmarks", "a", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 2 commits:
       vruxwmqv cedee197 b | b
@@ -341,7 +341,7 @@ fn test_bug_2600() {
     ");
     // Commit "c" should have "base" as parent. As when we abandoned "a", it should
     // not have two parent pointers to the same commit.
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  [znk] c
     ○  [zsu] a b base
     ○  [rlv] nottherootcommit
@@ -349,7 +349,7 @@ fn test_bug_2600() {
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "list", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     b: zsuskuln 67c2f714 base
     [EOF]
     ");
@@ -368,7 +368,7 @@ fn test_bug_2600_rootcommit_special_case() {
     create_commit(&work_dir, "c", &["b"]);
 
     // Setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  [vru] c
     ○    [roy] b
     ├─╮
@@ -381,7 +381,7 @@ fn test_bug_2600_rootcommit_special_case() {
 
     // Now, the test
     let output = work_dir.run_jj(["abandon", "base"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The Git backend does not support creating merge commits with the root commit as one of the parents.
     [EOF]
@@ -397,7 +397,7 @@ fn test_double_abandon() {
 
     create_commit(&work_dir, "a", &[]);
     // Test the setup
-    insta::assert_snapshot!(work_dir.run_jj(["log", "--no-graph", "-r", "a"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "--no-graph", "-r", "a"]), @"
     rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a 7d980be7
     a
     [EOF]
@@ -410,7 +410,7 @@ fn test_double_abandon() {
         .into_raw();
 
     let output = work_dir.run_jj(["abandon", &commit_id]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       rlvkpnrz 7d980be7 a | a
@@ -421,7 +421,7 @@ fn test_double_abandon() {
     [EOF]
     ");
     let output = work_dir.run_jj(["abandon", &commit_id]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Skipping 1 revisions that are already hidden.
     No revisions to abandon.
@@ -443,7 +443,7 @@ fn test_abandon_restore_descendants() {
 
     // Remove the commit containing "bar"
     let output = work_dir.run_jj(["abandon", "-r@-", "--restore-descendants"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       rlvkpnrz b23f92c3 (no description set)
@@ -453,7 +453,7 @@ fn test_abandon_restore_descendants() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file b/file
     index 257cc5642c..76018072e0 100644
     --- a/file
@@ -494,7 +494,7 @@ fn test_abandon_tracking_bookmarks() {
     local_dir
         .run_jj(["bookmark", "set", "-r@", "bar"])
         .success();
-    insta::assert_snapshot!(get_log_output(&local_dir), @r"
+    insta::assert_snapshot!(get_log_output(&local_dir), @"
     @  [zsu] bar
     │ ○  [qpv] foo
     ├─╯
@@ -503,7 +503,7 @@ fn test_abandon_tracking_bookmarks() {
     ");
 
     let output = local_dir.run_jj(["abandon", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       qpvuntsm e8849ae1 foo | (empty) (no description set)
@@ -512,7 +512,7 @@ fn test_abandon_tracking_bookmarks() {
     [EOF]
     ");
     let output = local_dir.run_jj(["abandon", "bar"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Abandoned 1 commits:
       zsuskuln c2934cfb bar | (empty) (no description set)

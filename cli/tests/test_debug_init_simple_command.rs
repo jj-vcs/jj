@@ -43,7 +43,7 @@ fn test_init_local() {
         ".",
         ["debug", "init-simple", "--ignore-working-copy", "repo2"],
     );
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: --ignore-working-copy is not respected
     [EOF]
@@ -51,7 +51,7 @@ fn test_init_local() {
     ");
 
     let output = test_env.run_jj_in(".", ["debug", "init-simple", "--at-op=@-", "repo3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: --at-op is not respected
     [EOF]

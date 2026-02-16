@@ -25,7 +25,7 @@ fn test_debug_fileset() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["debug", "fileset", "all()"]);
-    assert_snapshot!(output, @r"
+    assert_snapshot!(output, @"
     -- Parsed:
     All
 
@@ -63,7 +63,7 @@ fn test_debug_revset() {
     let _guard = insta_settings.bind_to_scope();
 
     let output = work_dir.run_jj(["debug", "revset", "root()"]);
-    assert_snapshot!(output, @r"
+    assert_snapshot!(output, @"
     -- Parsed:
     Root
 
@@ -89,7 +89,7 @@ fn test_debug_revset() {
     ");
 
     let output = work_dir.run_jj(["debug", "revset", "--no-optimize", "root() & ~@"]);
-    assert_snapshot!(output, @r"
+    assert_snapshot!(output, @"
     -- Parsed:
     Intersection(
         ..
@@ -116,7 +116,7 @@ fn test_debug_revset() {
     ");
 
     let output = work_dir.run_jj(["debug", "revset", "--no-resolve", "foo & ~bar"]);
-    assert_snapshot!(output, @r"
+    assert_snapshot!(output, @"
     -- Parsed:
     Intersection(
         ..
@@ -137,7 +137,7 @@ fn test_debug_revset() {
         "--no-optimize",
         "foo & ~bar",
     ]);
-    assert_snapshot!(output, @r"
+    assert_snapshot!(output, @"
     -- Parsed:
     Intersection(
         ..
@@ -153,7 +153,7 @@ fn test_debug_index() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["debug", "index"]);
-    assert_snapshot!(filter_index_stats(output), @r"
+    assert_snapshot!(filter_index_stats(output), @"
     === Commits ===
     Number of commits: 2
     Number of merges: 0
@@ -172,13 +172,13 @@ fn test_debug_index() {
 
     // Enable changed-path index, index one commit
     let output = work_dir.run_jj(["debug", "index-changed-paths", "-n1"]);
-    assert_snapshot!(output, @r"
+    assert_snapshot!(output, @"
     ------- stderr -------
     Finished indexing 1..2 commits.
     [EOF]
     ");
     let output = work_dir.run_jj(["debug", "index"]);
-    assert_snapshot!(filter_index_stats(output), @r"
+    assert_snapshot!(filter_index_stats(output), @"
     === Commits ===
     Number of commits: 2
     Number of merges: 0
@@ -209,7 +209,7 @@ fn test_debug_reindex() {
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["new"]).success();
     let output = work_dir.run_jj(["debug", "index"]);
-    assert_snapshot!(filter_index_stats(output), @r"
+    assert_snapshot!(filter_index_stats(output), @"
     === Commits ===
     Number of commits: 4
     Number of merges: 0
@@ -229,13 +229,13 @@ fn test_debug_reindex() {
     [EOF]
     ");
     let output = work_dir.run_jj(["debug", "reindex"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Finished indexing 4 commits.
     [EOF]
     ");
     let output = work_dir.run_jj(["debug", "index"]);
-    assert_snapshot!(filter_index_stats(output), @r"
+    assert_snapshot!(filter_index_stats(output), @"
     === Commits ===
     Number of commits: 4
     Number of merges: 0
@@ -269,7 +269,7 @@ fn test_debug_stacked_table() {
         ".jj/repo/store/extra",
         "--key-size=20", // HASH_LENGTH
     ]);
-    assert_snapshot!(filter_index_stats(output), @r"
+    assert_snapshot!(filter_index_stats(output), @"
     Number of entries: 4
     Stats per level:
       Level 0:

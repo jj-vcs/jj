@@ -46,13 +46,13 @@ fn test_diffedit() {
     )
     .unwrap();
     let output = work_dir.run_jj(["diffedit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @"
     You are editing changes in: kkmpptxz e4245972 (no description set)
 
     The diff initially shows the commit's changes.
@@ -61,7 +61,7 @@ fn test_diffedit() {
     don't make any changes, then the operation will be aborted.
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     M file2
     [EOF]
@@ -70,13 +70,13 @@ fn test_diffedit() {
     // Try again with ui.diff-instructions=false
     std::fs::write(&edit_script, "files-before file1 file2\0files-after file2").unwrap();
     let output = work_dir.run_jj(["diffedit", "--config=ui.diff-instructions=false"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     M file2
     [EOF]
@@ -93,13 +93,13 @@ fn test_diffedit() {
         "--config=ui.diff-editor='false'",
         "--tool=fake-diff-editor",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     M file2
     [EOF]
@@ -108,7 +108,7 @@ fn test_diffedit() {
     // Nothing happens if the diff-editor exits with an error
     std::fs::write(&edit_script, "rm file2\0fail").unwrap();
     let output = work_dir.run_jj(["diffedit"]);
-    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     ------- stderr -------
     Error: Failed to edit diff
     Caused by: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
@@ -116,7 +116,7 @@ fn test_diffedit() {
     [exit status: 1]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     M file2
     [EOF]
@@ -125,7 +125,7 @@ fn test_diffedit() {
     // Can edit changes to individual files
     std::fs::write(&edit_script, "reset file2").unwrap();
     let output = work_dir.run_jj(["diffedit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 40ad4f80 (no description set)
     Parent commit (@-)      : rlvkpnrz 7e268da3 (no description set)
@@ -133,7 +133,7 @@ fn test_diffedit() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     [EOF]
     ");
@@ -142,7 +142,7 @@ fn test_diffedit() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write file3\nmodified\n").unwrap();
     let output = work_dir.run_jj(["diffedit", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kkmpptxz 9f0ebae1 (no description set)
@@ -161,7 +161,7 @@ fn test_diffedit() {
     )
     .unwrap();
     let output = work_dir.run_jj(["diffedit", "--from", "@--"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 215fca5f (no description set)
     Parent commit (@-)      : rlvkpnrz 7e268da3 (no description set)
@@ -169,7 +169,7 @@ fn test_diffedit() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     D file2
     [EOF]
@@ -190,7 +190,7 @@ fn test_diffedit() {
     )
     .unwrap();
     let output = work_dir.run_jj(["diffedit", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: tlkvzzqu 06bdff15 (no description set)
     Parent commit (@-)      : kkmpptxz e4245972 (no description set)
@@ -198,7 +198,7 @@ fn test_diffedit() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     C {file3 => file1}
     M file3
     [EOF]
@@ -218,7 +218,7 @@ fn test_diffedit() {
     )
     .unwrap();
     let output = work_dir.run_jj(["diffedit", "--to", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kkmpptxz 9a4e9bcc (no description set)
@@ -226,7 +226,7 @@ fn test_diffedit() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @"
     You are editing changes in: rlvkpnrz 7e268da3 (no description set)
 
     The diff initially shows the commit's changes relative to:
@@ -236,7 +236,7 @@ fn test_diffedit() {
     don't make any changes, then the operation will be aborted.
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     [EOF]
     ");
@@ -263,13 +263,13 @@ fn test_diffedit_new_file() {
     )
     .unwrap();
     let output = work_dir.run_jj(["diffedit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     A file2
     [EOF]
@@ -278,7 +278,7 @@ fn test_diffedit_new_file() {
     // Creating `file1` on the right side is noticed by `jj diffedit`
     std::fs::write(&edit_script, "write file1\nmodified\n").unwrap();
     let output = work_dir.run_jj(["diffedit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz c26dcad1 (no description set)
     Parent commit (@-)      : qpvuntsm eb7b8a1f (no description set)
@@ -286,7 +286,7 @@ fn test_diffedit_new_file() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     M file1
     A file2
     [EOF]
@@ -301,13 +301,13 @@ fn test_diffedit_new_file() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write new_file\nnew file\n").unwrap();
     let output = work_dir.run_jj(["diffedit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     A file2
     [EOF]
@@ -326,7 +326,7 @@ fn test_diffedit_existing_instructions() {
 
     std::fs::write(&edit_script, "write JJ-INSTRUCTIONS\nmodified\n").unwrap();
     let output = work_dir.run_jj(["diffedit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm e914aaad (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -427,7 +427,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     )
     .unwrap();
     let output = work_dir.run_jj(["diffedit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl a2e4617e (conflict) (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 74e448a1 side-a
@@ -508,7 +508,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
 
     // File should be conflicted with no changes
     let output = work_dir.run_jj(["st"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     The working copy has no changes.
     Working copy  (@) : mzvwutvl a2e4617e (conflict) (empty) (no description set)
     Parent commit (@-): rlvkpnrz 74e448a1 side-a
@@ -551,26 +551,26 @@ fn test_diffedit_3pane() {
     )
     .unwrap();
     let output = work_dir.run_jj(["diffedit", "--config", config_with_output_as_after]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     M file2
     [EOF]
     ");
     // Nothing happens if we make no changes, `config_with_right_as_after` version
     let output = work_dir.run_jj(["diffedit", "--config", config_with_right_as_after]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     M file2
     [EOF]
@@ -579,7 +579,7 @@ fn test_diffedit_3pane() {
     // Can edit changes to individual files
     std::fs::write(&edit_script, "reset file2").unwrap();
     let output = work_dir.run_jj(["diffedit", "--config", config_with_output_as_after]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 239413bd (no description set)
     Parent commit (@-)      : rlvkpnrz 7e268da3 (no description set)
@@ -587,7 +587,7 @@ fn test_diffedit_3pane() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     [EOF]
     ");
@@ -596,7 +596,7 @@ fn test_diffedit_3pane() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write file1\nnew content").unwrap();
     let output = work_dir.run_jj(["diffedit", "--config", config_with_output_as_after]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 95873a91 (no description set)
     Parent commit (@-)      : rlvkpnrz 7e268da3 (no description set)
@@ -604,7 +604,7 @@ fn test_diffedit_3pane() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     M file1
     M file2
     [EOF]
@@ -614,13 +614,13 @@ fn test_diffedit_3pane() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write file1\nnew content").unwrap();
     let output = work_dir.run_jj(["diffedit", "--config", config_with_right_as_after]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     M file2
     [EOF]
@@ -656,7 +656,7 @@ fn test_diffedit_merge() {
     work_dir.run_jj(["new"]).success();
     // Test the setup
     let output = work_dir.run_jj(["diff", "-r", "@-", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     M file1
     A file3
     [EOF]
@@ -669,7 +669,7 @@ fn test_diffedit_merge() {
     )
     .unwrap();
     let output = work_dir.run_jj(["diffedit", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: yqosqzyt 9fc53f3e (conflict) (empty) (no description set)
@@ -680,7 +680,7 @@ fn test_diffedit_merge() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     A file3
     [EOF]
@@ -718,13 +718,13 @@ fn test_diffedit_old_restore_interactive_tests() {
 
     // Nothing happens if we make no changes
     let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     M file2
     C {file2 => file3}
@@ -734,7 +734,7 @@ fn test_diffedit_old_restore_interactive_tests() {
     // Nothing happens if the diff-editor exits with an error
     std::fs::write(&edit_script, "rm file2\0fail").unwrap();
     let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
-    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     ------- stderr -------
     Error: Failed to edit diff
     Caused by: Tool exited with exit status: 1 (run with --debug to see the exact invocation)
@@ -742,7 +742,7 @@ fn test_diffedit_old_restore_interactive_tests() {
     [exit status: 1]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     M file2
     C {file2 => file3}
@@ -752,7 +752,7 @@ fn test_diffedit_old_restore_interactive_tests() {
     // Can restore changes to individual files
     std::fs::write(&edit_script, "reset file2\0reset file3").unwrap();
     let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 83b62f75 (no description set)
     Parent commit (@-)      : qpvuntsm fc6f5e82 (no description set)
@@ -760,7 +760,7 @@ fn test_diffedit_old_restore_interactive_tests() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     [EOF]
     ");
@@ -769,7 +769,7 @@ fn test_diffedit_old_restore_interactive_tests() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "write file3\nunrelated\n").unwrap();
     let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 8119c685 (no description set)
     Parent commit (@-)      : qpvuntsm fc6f5e82 (no description set)
@@ -777,7 +777,7 @@ fn test_diffedit_old_restore_interactive_tests() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file1 b/file1
     deleted file mode 100644
     index 7898192261..0000000000
@@ -819,7 +819,7 @@ fn test_diffedit_restore_descendants() {
     // Add a ";" after the line with "bar". There should be no conflict.
     std::fs::write(edit_script, "write file\nprintln!(\"bar\");\n").unwrap();
     let output = work_dir.run_jj(["diffedit", "-r", "@-", "--restore-descendants"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits (while preserving their content)
     Working copy  (@) now at: kkmpptxz a35ef1a5 (no description set)

@@ -68,7 +68,7 @@ fn test_chmod_regular_conflict() {
     create_commit_with_files(&work_dir, "conflict", &["x", "n"], &[]);
 
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    conflict
     ├─╮
     │ ○  n
@@ -136,7 +136,7 @@ fn test_chmod_regular_conflict() {
 
     // Unmatched paths should generate warnings
     let output = work_dir.run_jj(["file", "chmod", "x", "nonexistent", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Working copy  (@) now at: yostqsxw a1b4dce4 conflict | (conflict) conflict
@@ -162,7 +162,7 @@ fn test_chmod_nonfile() {
 
     symlink_file("target", work_dir.root().join("symlink")).unwrap();
     let output = work_dir.run_jj(["show"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Commit ID: 82976318a088d30054540d1a11ffb4c79fb5d47e
     Change ID: qpvuntsmwlqtpsluzzsnyyzlmlwvmlnu
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
@@ -176,7 +176,7 @@ fn test_chmod_nonfile() {
     ");
 
     let output = work_dir.run_jj(["file", "chmod", "n", "symlink"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Found neither a file nor a conflict at 'symlink'.
     [EOF]
@@ -208,7 +208,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     // Create a file-dir conflict and a file-deletion conflict
     create_commit_with_files(&work_dir, "file_dir", &["file", "dir"], &[]);
     create_commit_with_files(&work_dir, "file_deletion", &["file", "deletion"], &[]);
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    file_deletion
     ├─╮
     │ ○  deletion
@@ -238,7 +238,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     [EOF]
     "#);
     let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_dir"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Some of the sides of the conflict are not files at 'file'.
     [EOF]
@@ -263,7 +263,7 @@ fn test_chmod_file_dir_deletion_conflicts() {
     [EOF]
     "#);
     let output = work_dir.run_jj(["file", "chmod", "x", "file", "-r=file_deletion"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw b468931e file_deletion | (conflict) file_deletion
     Parent commit (@-)      : zsuskuln bc9cdea1 file | file
@@ -379,7 +379,7 @@ fn test_chmod_exec_bit_settings() {
 
     assert_file_executable(path, false);
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     M file
     Working copy  (@) : znkkpsqq 71681768 ignore | ignore
@@ -387,7 +387,7 @@ fn test_chmod_exec_bit_settings() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "chmod", "x", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: znkkpsqq ef0a25b6 ignore | ignore
     Parent commit (@-)      : rlvkpnrz 1792382a base | base
@@ -460,7 +460,7 @@ fn test_chmod_exec_bit_ignore_then_respect() {
 
     // Set the in-repo executable bit to true.
     let output = work_dir.run_jj(["file", "chmod", "x", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz cb3f99cb base | base
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -474,7 +474,7 @@ fn test_chmod_exec_bit_ignore_then_respect() {
 
     // This simultaneously snapshots and updates the executable bit.
     let output = work_dir.run_jj(["file", "chmod", "x", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 96872a96 base | base
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)

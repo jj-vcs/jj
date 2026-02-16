@@ -26,7 +26,7 @@ fn test_parallelize_no_descendants() {
         work_dir.run_jj(["commit", &format!("-m{n}")]).success();
     }
     work_dir.run_jj(["describe", "-m=6"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  e12cca0818cd 6 parents: 5
     ○  44f4686efbe9 5 parents: 4
     ○  6858f6e16a6c 4 parents: 3
@@ -38,7 +38,7 @@ fn test_parallelize_no_descendants() {
     ");
 
     work_dir.run_jj(["parallelize", "subject(1)::"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  22b8a32d1949 6 parents:
     │ ○  436e81ced43f 5 parents:
     ├─╯
@@ -66,7 +66,7 @@ fn test_parallelize_with_descendants_simple() {
         work_dir.run_jj(["commit", &format!("-m{n}")]).success();
     }
     work_dir.run_jj(["describe", "-m=6"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  e12cca0818cd 6 parents: 5
     ○  44f4686efbe9 5 parents: 4
     ○  6858f6e16a6c 4 parents: 3
@@ -80,7 +80,7 @@ fn test_parallelize_with_descendants_simple() {
     work_dir
         .run_jj(["parallelize", "subject(1)::subject(4)"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  75ac07d7dedc 6 parents: 5
     ○        39791a4c42c5 5 parents: 1 2 3 4
     ├─┬─┬─╮
@@ -110,7 +110,7 @@ fn test_parallelize_where_interior_has_non_target_children() {
     }
     work_dir.run_jj(["new", "subject(2)", "-m=2c"]).success();
     work_dir.run_jj(["new", "subject(5)", "-m=6"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  9554e07afe42 6 parents: 5
     ○  44f4686efbe9 5 parents: 4
     ○  6858f6e16a6c 4 parents: 3
@@ -126,7 +126,7 @@ fn test_parallelize_where_interior_has_non_target_children() {
     work_dir
         .run_jj(["parallelize", "subject(1)::subject(4)"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  8bbff9ba415a 6 parents: 5
     ○        3bfb6f7542f6 5 parents: 1 2 3 4
     ├─┬─┬─╮
@@ -155,7 +155,7 @@ fn test_parallelize_where_root_has_non_target_children() {
     }
     work_dir.run_jj(["new", "subject(1)", "-m=1c"]).success();
     work_dir.run_jj(["new", "subject(3)", "-m=4"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  4c392c2965f0 4 parents: 3
     ○  8cfb27e238c8 3 parents: 2
     ○  320daf48ba58 2 parents: 1
@@ -168,7 +168,7 @@ fn test_parallelize_where_root_has_non_target_children() {
     work_dir
         .run_jj(["parallelize", "subject(1)::subject(3)"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @      a5d4e90a54bf 4 parents: 1 2 3
     ├─┬─╮
     │ │ ○  1d9fa9e05929 3 parents:
@@ -199,7 +199,7 @@ fn test_parallelize_with_merge_commit_child() {
         .run_jj(["new", "subject(2)", "subject(a)", "-m", "2a-c"])
         .success();
     work_dir.run_jj(["new", "subject(3)", "-m", "4"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  e6a543fcc5d8 4 parents: 3
     ○  8cfb27e238c8 3 parents: 2
     │ ○  af7ad8059bf1 2a-c parents: 2 a
@@ -216,7 +216,7 @@ fn test_parallelize_with_merge_commit_child() {
     work_dir
         .run_jj(["parallelize", "subject(1)::subject(3)"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @      431d5005bab0 4 parents: 1 2 3
     ├─┬─╮
     │ │ ○  3b6586259aa9 3 parents:
@@ -243,7 +243,7 @@ fn test_parallelize_disconnected_target_commits() {
         work_dir.run_jj(["commit", &format!("-m{n}")]).success();
     }
     work_dir.run_jj(["describe", "-m=3"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  8cfb27e238c8 3 parents: 2
     ○  320daf48ba58 2 parents: 1
     ○  884fe9b9c656 1 parents:
@@ -252,12 +252,12 @@ fn test_parallelize_disconnected_target_commits() {
     ");
 
     let output = work_dir.run_jj(["parallelize", "subject(1)", "-r=subject(3)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  8cfb27e238c8 3 parents: 2
     ○  320daf48ba58 2 parents: 1
     ○  884fe9b9c656 1 parents:
@@ -280,7 +280,7 @@ fn test_parallelize_head_is_a_merge() {
     work_dir
         .run_jj(["new", "subject(2)", "subject(b)", "-m=merged-head"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    c634925e6ac2 merged-head parents: 2 b
     ├─╮
     │ ○  448c6310957c b parents: a
@@ -294,7 +294,7 @@ fn test_parallelize_head_is_a_merge() {
     ");
 
     work_dir.run_jj(["parallelize", "subject(1)::"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    f97b547cdca0 merged-head parents: 0 b
     ├─╮
     │ ○  448c6310957c b parents: a
@@ -322,7 +322,7 @@ fn test_parallelize_interior_target_is_a_merge() {
         .run_jj(["new", "subject(1)", "subject(a)", "-m=2"])
         .success();
     work_dir.run_jj(["new", "-m=3"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  d84d604297c3 3 parents: 2
     ○    5684656729e6 2 parents: 1 a
     ├─╮
@@ -335,7 +335,7 @@ fn test_parallelize_interior_target_is_a_merge() {
     ");
 
     work_dir.run_jj(["parallelize", "subject(1)::"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    d0dae190124d 3 parents: 0 a
     ├─╮
     │ │ ○  d5756d591190 2 parents: 0 a
@@ -362,7 +362,7 @@ fn test_parallelize_root_is_a_merge() {
         .success();
     work_dir.run_jj(["new", "-m=2"]).success();
     work_dir.run_jj(["new", "-m=3"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  ce0ec2d2d844 3 parents: 2
     ○  44681d919431 2 parents: 1
     ○    8a06bcc06aad 1 parents: y x
@@ -377,7 +377,7 @@ fn test_parallelize_root_is_a_merge() {
     work_dir
         .run_jj(["parallelize", "subject(1)::subject(2)"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    2949bc60f108 3 parents: 1 2
     ├─╮
     │ ○    bf222a0e51d4 2 parents: y x
@@ -400,7 +400,7 @@ fn test_parallelize_multiple_heads() {
     work_dir.run_jj(["commit", "-m=0"]).success();
     work_dir.run_jj(["describe", "-m=1"]).success();
     work_dir.run_jj(["new", "subject(0)", "-m=2"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  96d58e6cf428 2 parents: 0
     │ ○  42fc76489fb1 1 parents: 0
     ├─╯
@@ -410,7 +410,7 @@ fn test_parallelize_multiple_heads() {
     ");
 
     work_dir.run_jj(["parallelize", "subject(0)::"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  fefea56b23ab 2 parents:
     │ ○  c4b1ea1106d1 1 parents:
     ├─╯
@@ -432,7 +432,7 @@ fn test_parallelize_multiple_heads_with_and_without_children() {
     work_dir.run_jj(["commit", "-m=0"]).success();
     work_dir.run_jj(["describe", "-m=1"]).success();
     work_dir.run_jj(["new", "subject(0)", "-m=2"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  96d58e6cf428 2 parents: 0
     │ ○  42fc76489fb1 1 parents: 0
     ├─╯
@@ -444,7 +444,7 @@ fn test_parallelize_multiple_heads_with_and_without_children() {
     work_dir
         .run_jj(["parallelize", "-r=subject(0)", "subject(1)"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  96d58e6cf428 2 parents: 0
     ○  fc8a812f1b99 0 parents:
     │ ○  c4b1ea1106d1 1 parents:
@@ -465,7 +465,7 @@ fn test_parallelize_multiple_roots() {
         .run_jj(["new", "subject(1)", "subject(a)", "-m=2"])
         .success();
     work_dir.run_jj(["new", "-m=3"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  9653da1c76e9 3 parents: 2
     ○    248a57e1c968 2 parents: 1 a
     ├─╮
@@ -478,7 +478,7 @@ fn test_parallelize_multiple_roots() {
 
     // Succeeds because the roots have the same parents.
     work_dir.run_jj(["parallelize", "root().."]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  0c77dac691b5 3 parents:
     │ ○  1a23775d87d5 2 parents:
     ├─╯
@@ -503,7 +503,7 @@ fn test_parallelize_multiple_heads_with_different_children() {
     work_dir.run_jj(["commit", "-m=a"]).success();
     work_dir.run_jj(["commit", "-m=b"]).success();
     work_dir.run_jj(["commit", "-m=c"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  afa59494cb01 parents: c
     ○  8897bad1837f c parents: b
     ○  448c6310957c b parents: a
@@ -523,7 +523,7 @@ fn test_parallelize_multiple_heads_with_different_children() {
             "subject(a)::subject(b)",
         ])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  7d3e76dfbc7b parents: c
     ○    6dbfcf648fad c parents: a b
     ├─╮
@@ -554,7 +554,7 @@ fn test_parallelize_multiple_roots_with_different_parents() {
     work_dir
         .run_jj(["new", "subject(2)", "subject(b)", "-m=merged-head"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    4e5f16f52b5e merged-head parents: 2 b
     ├─╮
     │ ○  7686d0ce4f97 b parents: a
@@ -569,7 +569,7 @@ fn test_parallelize_multiple_roots_with_different_parents() {
     work_dir
         .run_jj(["parallelize", "subject(2)::", "subject(b)::"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    180840c2f967 merged-head parents: 1 a
     ├─╮
     │ │ ○  7686d0ce4f97 b parents: a
@@ -597,7 +597,7 @@ fn test_parallelize_complex_nonlinear_target() {
     work_dir.run_jj(["new", "-m=1c", "subject(1)"]).success();
     work_dir.run_jj(["new", "-m=2c", "subject(2)"]).success();
     work_dir.run_jj(["new", "-m=3c", "subject(3)"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  5cca06f145b2 3c parents: 3
     │ ○    095be6de6f23 4 parents: 3 2 1
     ╭─┼─╮
@@ -616,14 +616,14 @@ fn test_parallelize_complex_nonlinear_target() {
     ");
 
     let output = work_dir.run_jj(["parallelize", "subject(0)::subject(4)"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: yostqsxw d6bb6520 (empty) 3c
     Parent commit (@-)      : rlvkpnrz 973f85cf (empty) 0
     Parent commit (@-)      : mzvwutvl 47ec86fe (empty) 3
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    d6bb652004e4 3c parents: 0 3
     ├─╮
     │ ○  47ec86fe7334 3 parents:
@@ -671,7 +671,7 @@ fn test_parallelize_immutable_base_commits() {
     work_dir
         .run_jj(["config", "set", "--repo", "revsets.log", "all()"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  1a0f8336974a y2 parents: y1
     ○  0e07ea90229f y1 parents: y
     ◆  a0fb97fc193f y parents:
@@ -687,7 +687,7 @@ fn test_parallelize_immutable_base_commits() {
     work_dir
         .run_jj(["parallelize", "subject(x*)", "subject(y*)"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  264da1b87cf3 y2 parents:
     │ ○  636008757721 y1 parents:
     ├─╯
@@ -729,7 +729,7 @@ fn test_parallelize_no_immutable_non_base_commits() {
     work_dir
         .run_jj(["config", "set", "--repo", "revsets.log", "all()"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  d6c30fecfe88 x3 parents: x2
     ○  6411b5818334 x2 parents: x1
     ◆  6d01ab1fb731 x1 parents: x

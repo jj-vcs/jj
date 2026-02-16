@@ -423,7 +423,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph), @r"
+        insta::assert_snapshot!(format_graph(graph), @"
         D    direct(C), indirect(B)
         ├─╮
         C ╷  direct(A)
@@ -453,7 +453,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         C  missing(Y)
         │
         ~
@@ -464,7 +464,7 @@ mod tests {
 
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         C  missing(Y)
         │
         ~
@@ -494,7 +494,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         E  direct(B)
         │
         │ D  direct(A)
@@ -507,7 +507,7 @@ mod tests {
         ");
         // D-A is found earlier than B-A, but B is emitted first because it belongs to
         // the emitting branch.
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         E  direct(B)
         │
         │ C  direct(B)
@@ -540,7 +540,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         F  direct(D)
         │
         │ E  direct(C)
@@ -553,7 +553,7 @@ mod tests {
         │
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         F  direct(D)
         │
         D  direct(B)
@@ -591,7 +591,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         I  direct(E)
         │
         │ H  direct(C)
@@ -610,7 +610,7 @@ mod tests {
         ├─╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         I  direct(E)
         │
         │ F  direct(E)
@@ -656,7 +656,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         I  direct(A)
         │
         │ H  direct(C)
@@ -679,7 +679,7 @@ mod tests {
         ├─╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         I  direct(A)
         │
         │ B  direct(A)
@@ -728,7 +728,7 @@ mod tests {
         )
         .map(Ok)
         .collect_vec();
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         G  direct(A)
         │
         │ F  direct(C)
@@ -744,7 +744,7 @@ mod tests {
         A
         ");
         // A::F is picked at A, and A will be unblocked. Then, C::D at C, ...
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         G  direct(A)
         │
         │ F  direct(C)
@@ -769,7 +769,7 @@ mod tests {
         )
         .map(Ok)
         .collect_vec();
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         L  direct(A)
         │
         │ K  direct(H)
@@ -795,7 +795,7 @@ mod tests {
         A
         ");
         // A::K is picked at A, and A will be unblocked. Then, H::I at H, ...
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         L  direct(A)
         │
         │ K  direct(H)
@@ -831,7 +831,7 @@ mod tests {
         .sorted_by(|(id1, _), (id2, _)| id2.cmp(id1))
         .map(Ok)
         .collect_vec();
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         L  direct(A)
         │
         │ K  direct(E)
@@ -857,7 +857,7 @@ mod tests {
         A
         ");
         // A::K is picked at A, and A will be unblocked. Then, E::G at E, ...
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         L  direct(A)
         │
         │ K  direct(E)
@@ -891,7 +891,7 @@ mod tests {
         )
         .map(Ok)
         .collect_vec();
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         K    direct(E), direct(J)
         ├─╮
         │ J  direct(G)
@@ -920,7 +920,7 @@ mod tests {
         ");
         // K-E,J is resolved without queuing new heads. Then, G::H, F::I, B::C, and
         // A::D.
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         K    direct(E), direct(J)
         ├─╮
         │ J  direct(G)
@@ -957,7 +957,7 @@ mod tests {
         .sorted_by(|(id1, _), (id2, _)| id2.cmp(id1))
         .map(Ok)
         .collect_vec();
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         K    direct(I), direct(J)
         ├─╮
         │ J  direct(D)
@@ -986,7 +986,7 @@ mod tests {
         ");
         // K-I,J is resolved without queuing new heads. Then, D::F, B::H, C::E, and
         // A::G.
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         K    direct(I), direct(J)
         ├─╮
         │ J  direct(D)
@@ -1026,7 +1026,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         F  direct(E)
         │
         E    direct(C), direct(D)
@@ -1039,7 +1039,7 @@ mod tests {
         ├─╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         F  direct(E)
         │
         E    direct(C), direct(D)
@@ -1075,7 +1075,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         E  direct(D)
         │
         D    missing(Y), direct(C)
@@ -1092,7 +1092,7 @@ mod tests {
           │
           A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         E  direct(D)
         │
         D    missing(Y), direct(C)
@@ -1134,7 +1134,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         G  direct(E)
         │
         │ F  direct(D)
@@ -1149,7 +1149,7 @@ mod tests {
         ├───╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         G  direct(E)
         │
         E    direct(B), direct(C)
@@ -1179,7 +1179,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         H  direct(F)
         │
         │ G  direct(E)
@@ -1196,7 +1196,7 @@ mod tests {
         ├─╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         H  direct(F)
         │
         F  direct(D)
@@ -1224,7 +1224,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         D  direct(C)
         │
         C    direct(B), direct(A)
@@ -1236,7 +1236,7 @@ mod tests {
           A
         ");
         // A is emitted first because it's the second parent.
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         D  direct(C)
         │
         C    direct(B), direct(A)
@@ -1267,7 +1267,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         J    direct(I), direct(G)
         ├─╮
         I │    direct(H), direct(E)
@@ -1289,7 +1289,7 @@ mod tests {
         A
         ");
         // Second branches are visited first.
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         J    direct(I), direct(G)
         ├─╮
         │ G  direct(D)
@@ -1327,7 +1327,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         J  direct(F)
         │
         │ I  direct(E)
@@ -1348,7 +1348,7 @@ mod tests {
         ├─╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         J  direct(F)
         │
         F  direct(C)
@@ -1386,7 +1386,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         J  direct(F)
         │
         │ I  direct(G)
@@ -1409,7 +1409,7 @@ mod tests {
         │
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         J  direct(F)
         │
         F  direct(D)
@@ -1444,7 +1444,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         E  direct(C)
         │
         │ D  direct(B)
@@ -1457,7 +1457,7 @@ mod tests {
         │
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         E  direct(C)
         │
         C  direct(A)
@@ -1486,7 +1486,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         I    direct(H), direct(G)
         ├─╮
         H │  direct(D)
@@ -1507,7 +1507,7 @@ mod tests {
         ");
         // Topological order must be preserved. Depending on the implementation,
         // E might be requested more than once by paths D->E and B->D->E.
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         I    direct(H), direct(G)
         ├─╮
         │ G  direct(B)
@@ -1539,7 +1539,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         E  direct(B)
         │
         │ D  direct(A)
@@ -1554,7 +1554,7 @@ mod tests {
         // Emit the branch C first
         let mut iter = topo_grouped(graph.iter().cloned());
         iter.prioritize_branch('C');
-        insta::assert_snapshot!(format_graph(iter), @r"
+        insta::assert_snapshot!(format_graph(iter), @"
         C  direct(B)
         │
         │ E  direct(B)
@@ -1569,7 +1569,7 @@ mod tests {
         // Emit the branch D first
         let mut iter = topo_grouped(graph.iter().cloned());
         iter.prioritize_branch('D');
-        insta::assert_snapshot!(format_graph(iter), @r"
+        insta::assert_snapshot!(format_graph(iter), @"
         D  direct(A)
         │
         │ E  direct(B)
@@ -1586,7 +1586,7 @@ mod tests {
         let mut iter = topo_grouped(graph.iter().cloned());
         iter.prioritize_branch('C');
         iter.prioritize_branch('D');
-        insta::assert_snapshot!(format_graph(iter), @r"
+        insta::assert_snapshot!(format_graph(iter), @"
         C  direct(B)
         │
         │ E  direct(B)
@@ -1601,7 +1601,7 @@ mod tests {
         // Non-head node can be prioritized
         let mut iter = topo_grouped(graph.iter().cloned());
         iter.prioritize_branch('B');
-        insta::assert_snapshot!(format_graph(iter), @r"
+        insta::assert_snapshot!(format_graph(iter), @"
         E  direct(B)
         │
         │ C  direct(B)
@@ -1616,7 +1616,7 @@ mod tests {
         // Root node can be prioritized
         let mut iter = topo_grouped(graph.iter().cloned());
         iter.prioritize_branch('A');
-        insta::assert_snapshot!(format_graph(iter), @r"
+        insta::assert_snapshot!(format_graph(iter), @"
         D  direct(A)
         │
         │ E  direct(B)
@@ -1644,7 +1644,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         I  direct(E)
         │
         │ H  direct(C)
@@ -1668,7 +1668,7 @@ mod tests {
         let mut iter = topo_grouped(graph.iter().cloned());
         iter.prioritize_branch('B');
         iter.prioritize_branch('G');
-        insta::assert_snapshot!(format_graph(iter), @r"
+        insta::assert_snapshot!(format_graph(iter), @"
         B  direct(A)
         │
         │ G  direct(A)
@@ -1697,7 +1697,7 @@ mod tests {
         iter.prioritize_branch('H');
         iter.prioritize_branch('B');
         iter.prioritize_branch('G');
-        insta::assert_snapshot!(format_graph(iter), @r"
+        insta::assert_snapshot!(format_graph(iter), @"
         D  direct(C)
         │
         │ H  direct(C)
@@ -1737,7 +1737,7 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         I  direct(A)
         │
         │ H  direct(C)
@@ -1764,7 +1764,7 @@ mod tests {
         // Emit the sub graph G first
         let mut iter = topo_grouped(graph.iter().cloned());
         iter.prioritize_branch('G');
-        insta::assert_snapshot!(format_graph(iter), @r"
+        insta::assert_snapshot!(format_graph(iter), @"
         G  direct(E)
         │
         │ F  direct(E)
@@ -1793,7 +1793,7 @@ mod tests {
         iter.prioritize_branch('E');
         iter.prioritize_branch('C');
         iter.prioritize_branch('A');
-        insta::assert_snapshot!(format_graph(iter), @r"
+        insta::assert_snapshot!(format_graph(iter), @"
         G  direct(E)
         │
         │ F  direct(E)
@@ -1826,14 +1826,14 @@ mod tests {
             ('A', vec![]),
         ]
         .map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         C    direct(A), direct(B)
         ├─╮
         │ B  direct(A)
         ├─╯
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         C    direct(A), direct(B)
         ├─╮
         │ B  direct(A)
@@ -1859,12 +1859,12 @@ mod tests {
         // The graph shouldn't have duplicated parent->child edges, but topo-grouped
         // iterator can handle it anyway.
         let graph = [('B', vec![direct('A'), direct('A')]), ('A', vec![])].map(Ok);
-        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @r"
+        insta::assert_snapshot!(format_graph(graph.iter().cloned()), @"
         B  direct(A), direct(A)
         │
         A
         ");
-        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @r"
+        insta::assert_snapshot!(format_graph(topo_grouped(graph.iter().cloned())), @"
         B  direct(A), direct(A)
         │
         A

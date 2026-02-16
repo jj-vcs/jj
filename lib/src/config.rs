@@ -984,7 +984,7 @@ mod tests {
                 ConfigValue::from_str("'value'").unwrap(),
             )
             .unwrap();
-        insta::assert_snapshot!(layer.data, @r"
+        insta::assert_snapshot!(layer.data, @"
         ['foo' . bar]
         'baz' = 'value'
         ");
@@ -1288,7 +1288,7 @@ mod tests {
             a.a.c = 'a.a.c #1'
             a.c = 'a.c #1'
         "}));
-        insta::assert_snapshot!(config.get_table("a").unwrap(), @r"
+        insta::assert_snapshot!(config.get_table("a").unwrap(), @"
         a.a = 'a.a.a #0'
         a.b = 'a.a.b #1'
         a.c = 'a.a.c #1'
@@ -1336,7 +1336,7 @@ mod tests {
         config.add_layer(new_user_layer(indoc! {"
             a.a.b = 'a.a.b #2'
         "}));
-        insta::assert_snapshot!(config.get_table("a").unwrap(), @r"
+        insta::assert_snapshot!(config.get_table("a").unwrap(), @"
         a.b = 'a.a.b #2'
         b = 'a.b #0'
         ");

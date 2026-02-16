@@ -29,7 +29,7 @@ fn test_rewrite_immutable_generic() {
     work_dir.run_jj(["new", "main-", "-m=c"]).success();
     work_dir.write_file("file", "c");
     let output = work_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:12 a6923629
     │  c
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:10 main 9d190342
@@ -72,7 +72,7 @@ fn test_rewrite_immutable_generic() {
     // Cannot rewrite the root commit even with an empty set of immutable commits
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "none()""#);
     let output = work_dir.run_jj(["edit", "root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
@@ -108,7 +108,7 @@ fn test_rewrite_immutable_generic() {
     ");
     // ... but not the root commit
     let output = work_dir.run_jj(["--ignore-immutable", "edit", "root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
@@ -120,7 +120,7 @@ fn test_rewrite_immutable_generic() {
         r#"revset-aliases."immutable_heads()" = "present(bookmark_that_does_not_exist)""#,
     );
     let output = work_dir.run_jj(["new", "main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: wqnwkozp 8fc35e6e (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 9d190342 main | b
@@ -130,7 +130,7 @@ fn test_rewrite_immutable_generic() {
     // immutable_heads() of different arity doesn't shadow the 0-ary one
     test_env.add_config(r#"revset-aliases."immutable_heads(foo)" = "none()""#);
     let output = work_dir.run_jj(["edit", "root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
@@ -149,7 +149,7 @@ fn test_new_wc_commit_when_wc_immutable() {
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
     work_dir.run_jj(["new", "-m=a"]).success();
     let output = work_dir.run_jj(["bookmark", "set", "main", "-r@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Moved 1 bookmarks to kkmpptxz e1cb4cf3 main | (empty) a
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
@@ -169,7 +169,7 @@ fn test_immutable_heads_set_to_working_copy() {
         .success();
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "@""#);
     let output = work_dir.run_jj(["new", "-m=a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
     Working copy  (@) now at: pmmvwywv 08e27304 (empty) (no description set)
@@ -194,7 +194,7 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
     let workspace1_dir = test_env.work_dir("workspace1");
     workspace1_dir.run_jj(["edit", "default@"]).success();
     let output = work_dir.run_jj(["bookmark", "set", "main", "-r@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Moved 1 bookmarks to kkmpptxz e1cb4cf3 main | (empty) a
     Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
@@ -207,7 +207,7 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
         .run_jj(["workspace", "update-stale"])
         .success();
     let output = workspace1_dir.run_jj(["log", "--no-graph"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     nppvrztz test.user@example.com 2001-02-03 08:05:12 workspace1@ e89ed162
     (empty) (no description set)
     royxmykx test.user@example.com 2001-02-03 08:05:12 default@ cec19492
@@ -246,7 +246,7 @@ fn test_rewrite_immutable_commands() {
 
     // Log shows mutable commits, their parents, and trunk() by default
     let output = work_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:14 55c97dc7
     │  (no description set)
     │ ◆  mzvwutvl test.user@example.com 2001-02-03 08:05:12 main 1ca17106 (conflict)
@@ -622,7 +622,7 @@ fn test_immutable_log() {
     // The immutable commits should be indicated in the graph even with
     // `--ignore-immutable`
     let output = work_dir.run_jj(["log", "--ignore-immutable"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 43444d88
     │  (empty) (no description set)
     ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1

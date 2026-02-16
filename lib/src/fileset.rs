@@ -1398,7 +1398,7 @@ mod tests {
 
         let expr =
             FilesetExpression::UnionAll(vec![FilesetExpression::None, FilesetExpression::All]);
-        insta::assert_debug_snapshot!(expr.to_matcher(), @r"
+        insta::assert_debug_snapshot!(expr.to_matcher(), @"
         UnionMatcher {
             input1: NothingMatcher,
             input2: EverythingMatcher,

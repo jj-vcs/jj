@@ -28,7 +28,7 @@ fn test_revert() {
     create_commit_with_files(&work_dir, "c", &["b"], &[]);
     create_commit_with_files(&work_dir, "d", &["c"], &[]);
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  98fb6151f954 d
     ○  96ff42270bbc c
     ○  58aaf278bf58 b
@@ -37,7 +37,7 @@ fn test_revert() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-ra", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     A a
     [EOF]
     ");
@@ -45,7 +45,7 @@ fn test_revert() {
 
     // Reverting without a location is an error
     let output = work_dir.run_jj(["revert", "-ra"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the following required arguments were not provided:
       <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
@@ -77,7 +77,7 @@ fn test_revert() {
     [EOF]
     "#);
     let output = work_dir.run_jj(["diff", "-s", "-r@+"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D a
     [EOF]
     ");
@@ -105,7 +105,7 @@ fn test_revert() {
     [EOF]
     "#);
     let output = work_dir.run_jj(["diff", "-s", "-r@++"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     A a
     [EOF]
     ");
@@ -135,7 +135,7 @@ fn test_revert() {
     [EOF]
     "#);
     let output = work_dir.run_jj(["diff", "-s", "-rb+"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D a
     [EOF]
     ");
@@ -165,7 +165,7 @@ fn test_revert() {
     [EOF]
     "#);
     let output = work_dir.run_jj(["diff", "-s", "-rd-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D a
     [EOF]
     ");
@@ -198,7 +198,7 @@ fn test_revert() {
     [EOF]
     "#);
     let output = work_dir.run_jj(["diff", "-s", "-r", "a+ & d-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D a
     [EOF]
     ");
@@ -206,7 +206,7 @@ fn test_revert() {
 
     // Revert nothing
     let output = work_dir.run_jj(["revert", "-r", "none()", "-d", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No revisions to revert.
     [EOF]
@@ -226,7 +226,7 @@ fn test_revert_multiple() {
     create_commit_with_files(&work_dir, "e", &["d"], &[("a", "a\nb\nc\n")]);
 
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  51a01d6d8cc4 e
     ○  4b9d123d3b33 d
     ○  05e1f540476f c
@@ -335,13 +335,13 @@ fn test_revert_description_template() {
     create_commit_with_files(&work_dir, "a", &[], &[("a", "a\n")]);
 
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  7d980be7a1d4 a
     ◆  000000000000
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     A a
     [EOF]
     ");
@@ -373,7 +373,7 @@ fn test_revert_with_conflict() {
     create_commit_with_files(&work_dir, "c", &["b"], &[("a", "a\nb\nc\n")]);
 
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  48b910edc43e c
     ○  f93a910dbdf0 b
     ○  7d980be7a1d4 a

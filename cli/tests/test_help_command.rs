@@ -42,7 +42,7 @@ fn test_help() {
 
     // Help command should not work recursively
     let output = test_env.run_jj_in(".", ["workspace", "help", "root"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: unrecognized subcommand 'help'
 
@@ -86,7 +86,7 @@ fn test_help() {
     assert_eq!(help_cmd, help_flag);
 
     let output = test_env.run_jj_in(".", ["help", "unknown"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: unrecognized subcommand 'unknown'
 
@@ -100,7 +100,7 @@ fn test_help() {
     ");
 
     let output = test_env.run_jj_in(".", ["help", "log", "--", "-r"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Unknown command: log -r
     [EOF]
@@ -126,7 +126,7 @@ fn test_help_keyword() {
 
     // It should give hints if a similar keyword is present
     let output = test_env.run_jj_in(".", ["help", "-k", "rev"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: invalid value 'rev' for '--keyword <KEYWORD>'
       [possible values: bookmarks, config, filesets, glossary, revsets, templates, tutorial]
@@ -140,7 +140,7 @@ fn test_help_keyword() {
 
     // It should give error with a hint if no similar keyword is found
     let output = test_env.run_jj_in(".", ["help", "-k", "<no-similar-keyword>"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: invalid value '<no-similar-keyword>' for '--keyword <KEYWORD>'
       [possible values: bookmarks, config, filesets, glossary, revsets, templates, tutorial]
@@ -152,7 +152,7 @@ fn test_help_keyword() {
 
     // The keyword flag with no argument should error with a hint
     let output = test_env.run_jj_in(".", ["help", "-k"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: a value is required for '--keyword <KEYWORD>' but none was supplied
       [possible values: bookmarks, config, filesets, glossary, revsets, templates, tutorial]
@@ -165,7 +165,7 @@ fn test_help_keyword() {
     // It shouldn't show help for a certain keyword if the `--keyword` is not
     // present
     let output = test_env.run_jj_in(".", ["help", "revsets"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: unrecognized subcommand 'revsets'
 

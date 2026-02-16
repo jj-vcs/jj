@@ -34,7 +34,7 @@ fn test_next_simple() {
     work_dir.run_jj(["commit", "-m", "first"]).success();
     work_dir.run_jj(["commit", "-m", "second"]).success();
     work_dir.run_jj(["commit", "-m", "third"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  zsuskulnrvyr
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -46,7 +46,7 @@ fn test_next_simple() {
     // Move to `first`
     work_dir.run_jj(["new", "@--"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  royxmykxtrkr
     │ ○  kkmpptxzrspx third
     ├─╯
@@ -57,14 +57,14 @@ fn test_next_simple() {
     ");
 
     let output = work_dir.run_jj(["next"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 01f06d39 (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 7576de42 (empty) third
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  vruxwmqvtpmx
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -86,7 +86,7 @@ fn test_next_multiple() {
     work_dir.run_jj(["commit", "-m", "fourth"]).success();
     work_dir.run_jj(["new", "@---"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  royxmykxtrkr
     │ ○  zsuskulnrvyr fourth
     │ ○  kkmpptxzrspx third
@@ -99,14 +99,14 @@ fn test_next_multiple() {
 
     // We should now be the child of the fourth commit.
     let output = work_dir.run_jj(["next", "2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv a53dd783 (empty) (no description set)
     Parent commit (@-)      : zsuskuln c5025ce1 (empty) fourth
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  vruxwmqvtpmx
     ○  zsuskulnrvyr fourth
     ○  kkmpptxzrspx third
@@ -126,7 +126,7 @@ fn test_prev_simple() {
     work_dir.run_jj(["commit", "-m", "first"]).success();
     work_dir.run_jj(["commit", "-m", "second"]).success();
     work_dir.run_jj(["commit", "-m", "third"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  zsuskulnrvyr
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -136,14 +136,14 @@ fn test_prev_simple() {
     ");
 
     let output = work_dir.run_jj(["prev"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: royxmykx 539f176b (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  royxmykxtrkr
     │ ○  kkmpptxzrspx third
     ├─╯
@@ -164,7 +164,7 @@ fn test_prev_multiple_without_root() {
     work_dir.run_jj(["commit", "-m", "second"]).success();
     work_dir.run_jj(["commit", "-m", "third"]).success();
     work_dir.run_jj(["commit", "-m", "fourth"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  mzvwutvlkqwt
     ○  zsuskulnrvyr fourth
     ○  kkmpptxzrspx third
@@ -175,14 +175,14 @@ fn test_prev_multiple_without_root() {
     ");
 
     let output = work_dir.run_jj(["prev", "2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: yqosqzyt a4d3accb (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  yqosqzytrlsw
     │ ○  zsuskulnrvyr fourth
     │ ○  kkmpptxzrspx third
@@ -205,7 +205,7 @@ fn test_next_exceeding_history() {
     work_dir.run_jj(["commit", "-m", "third"]).success();
     work_dir.run_jj(["new", "-r", "@--"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  mzvwutvlkqwt
     │ ○  kkmpptxzrspx third
     ├─╯
@@ -217,7 +217,7 @@ fn test_next_exceeding_history() {
 
     // `jj next` beyond existing history fails.
     let output = work_dir.run_jj(["next", "3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No other descendant found 3 commit(s) forward from the working copy parent(s)
     Hint: Working copy parent: rlvkpnrz 9439bf06 (empty) second
@@ -239,7 +239,7 @@ fn test_next_parent_has_multiple_descendants() {
     work_dir.run_jj(["new", "root()", "-m", "3"]).success();
     work_dir.run_jj(["new", "-m", "4"]).success();
     work_dir.run_jj(["edit", "subject(3)"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     ○  mzvwutvlkqwt 4
     @  zsuskulnrvyr 3
     │ ○  kkmpptxzrspx 2
@@ -250,13 +250,13 @@ fn test_next_parent_has_multiple_descendants() {
     ");
 
     let output = work_dir.run_jj(["next", "--edit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl e5543950 (empty) 4
     Parent commit (@-)      : zsuskuln 83df6e43 (empty) 3
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  mzvwutvlkqwt 4
     ○  zsuskulnrvyr 3
     │ ○  kkmpptxzrspx 2
@@ -280,7 +280,7 @@ fn test_next_with_merge_commit_parent() {
         .success();
     work_dir.run_jj(["new", "-m", "4"]).success();
     work_dir.run_jj(["prev", "0"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  royxmykxtrkr
     │ ○  mzvwutvlkqwt 4
     ├─╯
@@ -294,13 +294,13 @@ fn test_next_with_merge_commit_parent() {
     ");
 
     let output = work_dir.run_jj(["next"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 7a09c355 (empty) (no description set)
     Parent commit (@-)      : mzvwutvl f02c921e (empty) 4
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  vruxwmqvtpmx
     ○  mzvwutvlkqwt 4
     ○    zsuskulnrvyr 3
@@ -326,7 +326,7 @@ fn test_next_on_merge_commit() {
         .success();
     work_dir.run_jj(["new", "-m", "4"]).success();
     work_dir.run_jj(["edit", "subject(3)"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     ○  mzvwutvlkqwt 4
     @    zsuskulnrvyr 3
     ├─╮
@@ -338,13 +338,13 @@ fn test_next_on_merge_commit() {
     ");
 
     let output = work_dir.run_jj(["next", "--edit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl f02c921e (empty) 4
     Parent commit (@-)      : zsuskuln d2500577 (empty) 3
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  mzvwutvlkqwt 4
     ○    zsuskulnrvyr 3
     ├─╮
@@ -367,7 +367,7 @@ fn test_next_fails_on_bookmarking_children_no_stdin() {
     work_dir.run_jj(["commit", "-m", "third"]).success();
     work_dir.run_jj(["new", "@--"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  royxmykxtrkr
     │ ○  zsuskulnrvyr third
     ├─╯
@@ -380,7 +380,7 @@ fn test_next_fails_on_bookmarking_children_no_stdin() {
 
     // Try to advance the working copy commit.
     let output = work_dir.run_jj(["next"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous next commit, choose one to target:
     1: zsuskuln 6fc6af46 (empty) third
@@ -403,7 +403,7 @@ fn test_next_fails_on_bookmarking_children_quit_prompt() {
     work_dir.run_jj(["commit", "-m", "third"]).success();
     work_dir.run_jj(["new", "@--"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  royxmykxtrkr
     │ ○  zsuskulnrvyr third
     ├─╯
@@ -416,7 +416,7 @@ fn test_next_fails_on_bookmarking_children_quit_prompt() {
 
     // Try to advance the working copy commit.
     let output = work_dir.run_jj_with(|cmd| force_interactive(cmd).arg("next").write_stdin("q\n"));
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous next commit, choose one to target:
     1: zsuskuln 6fc6af46 (empty) third
@@ -442,7 +442,7 @@ fn test_next_choose_bookmarking_child() {
     work_dir.run_jj(["new", "@--"]).success();
     // Advance the working copy commit.
     let output = work_dir.run_jj_with(|cmd| force_interactive(cmd).arg("next").write_stdin("2\n"));
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous next commit, choose one to target:
     1: royxmykx 3522c887 (empty) fourth
@@ -467,7 +467,7 @@ fn test_prev_on_merge_commit() {
     work_dir.run_jj(["new", "left", "right"]).success();
 
     // Check that the graph looks the way we expect.
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    royxmykxtrkr
     ├─╮
     │ ○  zsuskulnrvyr right second
@@ -479,7 +479,7 @@ fn test_prev_on_merge_commit() {
     let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj(["prev"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv b64f323d (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -492,7 +492,7 @@ fn test_prev_on_merge_commit() {
             .args(["prev", "--edit"])
             .write_stdin("2\n")
     });
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous prev commit, choose one to target:
     1: zsuskuln 22a08bc0 right | (empty) second
@@ -520,7 +520,7 @@ fn test_prev_on_merge_commit_with_parent_merge() {
         .success();
 
     // Check that the graph looks the way we expect.
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    royxmykxtrkr M
     ├─╮
     │ ○  mzvwutvlkqwt 1
@@ -536,7 +536,7 @@ fn test_prev_on_merge_commit_with_parent_merge() {
     let setup_opid = work_dir.current_operation_id();
 
     let output = work_dir.run_jj_with(|cmd| force_interactive(cmd).arg("prev").write_stdin("2\n"));
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous prev commit, choose one to target:
     1: kkmpptxz ab947132 (empty) y
@@ -554,7 +554,7 @@ fn test_prev_on_merge_commit_with_parent_merge() {
             .args(["prev", "--edit"])
             .write_stdin("2\n")
     });
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous prev commit, choose one to target:
     1: mzvwutvl 0e8fc48c (empty) 1
@@ -583,7 +583,7 @@ fn test_prev_prompts_on_multiple_parents() {
     work_dir.run_jj(["commit", "-m", "merge+1"]).success();
 
     // Check that the graph looks the way we expect.
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  yostqsxwqrlt
     ○  vruxwmqvtpmx merge+1
     ○      yqosqzytrlsw merge
@@ -603,7 +603,7 @@ fn test_prev_prompts_on_multiple_parents() {
             .args(["prev", "2"])
             .write_stdin("3\n")
     });
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     ambiguous prev commit, choose one to target:
     1: mzvwutvl 5ec63817 (empty) third
@@ -615,7 +615,7 @@ fn test_prev_prompts_on_multiple_parents() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  kpqxywonksrl
     │ ○  vruxwmqvtpmx merge+1
     │ ○    yqosqzytrlsw merge
@@ -630,7 +630,7 @@ fn test_prev_prompts_on_multiple_parents() {
     ");
 
     work_dir.run_jj(["next"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  wqnwkozpkust
     │ ○  vruxwmqvtpmx merge+1
     ├─╯
@@ -655,7 +655,7 @@ fn test_prev_beyond_root_fails() {
     work_dir.run_jj(["commit", "-m", "second"]).success();
     work_dir.run_jj(["commit", "-m", "third"]).success();
     work_dir.run_jj(["commit", "-m", "fourth"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  mzvwutvlkqwt
     ○  zsuskulnrvyr fourth
     ○  kkmpptxzrspx third
@@ -666,7 +666,7 @@ fn test_prev_beyond_root_fails() {
     ");
     // @- is at "fourth", and there is no parent 5 commits behind it.
     let output = work_dir.run_jj(["prev", "5"]);
-    insta::assert_snapshot!(output,@r"
+    insta::assert_snapshot!(output,@"
     ------- stderr -------
     Error: No ancestor found 5 commit(s) back from the working copy parents(s)
     Hint: Working copy parent: zsuskuln c5025ce1 (empty) fourth
@@ -688,7 +688,7 @@ fn test_prev_editing() {
     // Edit the "fourth" commit, which becomes the leaf.
     work_dir.run_jj(["edit", "@-"]).success();
     // Check that the graph looks the way we expect.
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  zsuskulnrvyr fourth
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -698,14 +698,14 @@ fn test_prev_editing() {
     ");
 
     let output = work_dir.run_jj(["prev", "--edit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 7576de42 (empty) third
     Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     ○  zsuskulnrvyr fourth
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -727,7 +727,7 @@ fn test_next_editing() {
     work_dir.run_jj(["commit", "-m", "fourth"]).success();
     work_dir.run_jj(["edit", "@---"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     ○  zsuskulnrvyr fourth
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
@@ -737,14 +737,14 @@ fn test_next_editing() {
     ");
 
     let output = work_dir.run_jj(["next", "--edit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 7576de42 (empty) third
     Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     ○  zsuskulnrvyr fourth
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -771,7 +771,7 @@ fn test_prev_conflict() {
     work_dir.run_jj(["new", "subject(third)"]).success();
     work_dir.run_jj(["commit", "-m", "fourth"]).success();
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  yqosqzytrlsw conflict
     ×  royxmykxtrkr conflict fourth
     ×  kkmpptxzrspx conflict third
@@ -781,7 +781,7 @@ fn test_prev_conflict() {
     [EOF]
     ");
     work_dir.run_jj(["prev", "--conflict"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  yostqsxwqrlt conflict
     │ ×  royxmykxtrkr conflict fourth
     ├─╯
@@ -808,7 +808,7 @@ fn test_prev_conflict_editing() {
     work_dir.write_file("content.txt", "first text");
     work_dir.run_jj(["new", "subject(third)"]).success();
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  royxmykxtrkr conflict
     ×  kkmpptxzrspx conflict third
     ○  rlvkpnrzqnoo second
@@ -818,7 +818,7 @@ fn test_prev_conflict_editing() {
     ");
     work_dir.run_jj(["prev", "--conflict", "--edit"]).success();
     // We now should be editing the third commit.
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  kkmpptxzrspx conflict third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -846,7 +846,7 @@ fn test_next_conflict() {
         .run_jj(["squash", "--into", "subject(third)"])
         .success();
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  royxmykxtrkr
     │ ×  kkmpptxzrspx conflict third
     │ ○  rlvkpnrzqnoo second
@@ -856,7 +856,7 @@ fn test_next_conflict() {
     [EOF]
     ");
     work_dir.run_jj(["next", "--conflict"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  vruxwmqvtpmx conflict
     ×  kkmpptxzrspx conflict third
     ○  rlvkpnrzqnoo second
@@ -882,7 +882,7 @@ fn test_next_conflict_editing() {
     work_dir.write_file("content.txt", "modified second");
     work_dir.run_jj(["edit", "@-"]).success();
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     ×  kkmpptxzrspx conflict
     ○  rlvkpnrzqnoo second
     @  qpvuntsmwlqt first
@@ -890,7 +890,7 @@ fn test_next_conflict_editing() {
     [EOF]
     ");
     work_dir.run_jj(["next", "--conflict", "--edit"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  kkmpptxzrspx conflict
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -910,14 +910,14 @@ fn test_next_conflict_head() {
     work_dir.write_file("file", "second");
     work_dir.run_jj(["abandon", "@-"]).success();
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  rlvkpnrzqnoo conflict
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
 
     let output = work_dir.run_jj(["next", "--conflict"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The working copy parent(s) have no other descendants with conflicts
     Hint: Working copy parent: zzzzzzzz 00000000 (empty) (no description set)
@@ -926,7 +926,7 @@ fn test_next_conflict_head() {
     ");
 
     let output = work_dir.run_jj(["next", "--conflict", "--edit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The working copy has no descendants with conflicts
     Hint: Working copy: rlvkpnrz 27780096 (conflict) (no description set)
@@ -946,7 +946,7 @@ fn test_movement_edit_mode_true() {
     work_dir.run_jj(["commit", "-m", "first"]).success();
     work_dir.run_jj(["commit", "-m", "second"]).success();
     work_dir.run_jj(["commit", "-m", "third"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  zsuskulnrvyr
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -957,7 +957,7 @@ fn test_movement_edit_mode_true() {
 
     work_dir.run_jj(["prev"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -966,14 +966,14 @@ fn test_movement_edit_mode_true() {
     ");
 
     let output = work_dir.run_jj(["prev"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 9439bf06 (empty) second
     Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -982,14 +982,14 @@ fn test_movement_edit_mode_true() {
     ");
 
     let output = work_dir.run_jj(["prev"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: qpvuntsm 68a50538 (empty) first
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     @  qpvuntsmwlqt first
@@ -998,7 +998,7 @@ fn test_movement_edit_mode_true() {
     ");
 
     let output = work_dir.run_jj(["prev"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The root commit 000000000000 is immutable
     [EOF]
@@ -1006,14 +1006,14 @@ fn test_movement_edit_mode_true() {
     ");
 
     let output = work_dir.run_jj(["next"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 9439bf06 (empty) second
     Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -1022,14 +1022,14 @@ fn test_movement_edit_mode_true() {
     ");
 
     let output = work_dir.run_jj(["next"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 7576de42 (empty) third
     Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -1038,14 +1038,14 @@ fn test_movement_edit_mode_true() {
     ");
 
     let output = work_dir.run_jj(["prev", "--no-edit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: uyznsvlq 1062d305 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  uyznsvlquzzm
     │ ○  kkmpptxzrspx third
     │ ○  rlvkpnrzqnoo second
@@ -1056,14 +1056,14 @@ fn test_movement_edit_mode_true() {
     ");
 
     let output = work_dir.run_jj(["next", "--no-edit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: xtnwkqum ccbc5bff (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  xtnwkqumpolk
     │ ○  kkmpptxzrspx third
     ├─╯
@@ -1074,7 +1074,7 @@ fn test_movement_edit_mode_true() {
     ");
 
     let output = work_dir.run_jj(["next"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No descendant found 1 commit(s) forward from the working copy
     Hint: Working copy: xtnwkqum ccbc5bff (empty) (no description set)
@@ -1094,7 +1094,7 @@ fn test_movement_edit_mode_false() {
     work_dir.run_jj(["commit", "-m", "first"]).success();
     work_dir.run_jj(["commit", "-m", "second"]).success();
     work_dir.run_jj(["commit", "-m", "third"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  zsuskulnrvyr
     ○  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
@@ -1105,7 +1105,7 @@ fn test_movement_edit_mode_false() {
 
     work_dir.run_jj(["prev"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  royxmykxtrkr
     │ ○  kkmpptxzrspx third
     ├─╯
@@ -1116,14 +1116,14 @@ fn test_movement_edit_mode_false() {
     ");
 
     let output = work_dir.run_jj(["prev", "--no-edit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 1a9aa547 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  vruxwmqvtpmx
     │ ○  kkmpptxzrspx third
     │ ○  rlvkpnrzqnoo second
@@ -1134,7 +1134,7 @@ fn test_movement_edit_mode_false() {
     ");
 
     let output = work_dir.run_jj(["prev", "3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No ancestor found 3 commit(s) back from the working copy parents(s)
     Hint: Working copy parent: qpvuntsm 68a50538 (empty) first
@@ -1143,14 +1143,14 @@ fn test_movement_edit_mode_false() {
     ");
 
     let output = work_dir.run_jj(["next"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kpqxywon 97dd6a5a (empty) (no description set)
     Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  kpqxywonksrl
     │ ○  kkmpptxzrspx third
     ├─╯
@@ -1161,7 +1161,7 @@ fn test_movement_edit_mode_false() {
     ");
 
     let output = work_dir.run_jj(["next", "--no-edit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: wqnwkozp 525e0f84 (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 7576de42 (empty) third
@@ -1169,14 +1169,14 @@ fn test_movement_edit_mode_false() {
     ");
 
     let output = work_dir.run_jj(["prev", "--edit", "2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: rlvkpnrz 9439bf06 (empty) second
     Parent commit (@-)      : qpvuntsm 68a50538 (empty) first
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     ○  kkmpptxzrspx third
     @  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -1185,14 +1185,14 @@ fn test_movement_edit_mode_false() {
     ");
 
     let output = work_dir.run_jj(["next", "--edit"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 7576de42 (empty) third
     Parent commit (@-)      : rlvkpnrz 9439bf06 (empty) second
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  kkmpptxzrspx third
     ○  rlvkpnrzqnoo second
     ○  qpvuntsmwlqt first
@@ -1215,7 +1215,7 @@ fn test_next_when_wc_has_descendants() {
     work_dir.run_jj(["commit", "-m", "right-2"]).success();
     work_dir.run_jj(["edit", "subject(right-wc)"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     ○  zsuskulnrvyr right-2
     ○  kkmpptxzrspx right-1
     @  rlvkpnrzqnoo right-wc
@@ -1225,7 +1225,7 @@ fn test_next_when_wc_has_descendants() {
     ");
 
     let output = work_dir.run_jj(["next", "2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The working copy must not have any children
     Hint: Create a new commit on top of this one or use `--edit`

@@ -26,7 +26,7 @@ fn test_show() {
     let output = work_dir.run_jj(["show"]);
     let output = output.normalize_stdout_with(|s| s.split_inclusive('\n').skip(2).collect());
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:07)
     Committer: Test User <test.user@example.com> (2001-02-03 08:05:07)
 
@@ -37,7 +37,7 @@ fn test_show() {
 
     // Specify revision with -r
     let output = work_dir.run_jj(["show", "-r@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Commit ID: 0000000000000000000000000000000000000000
     Change ID: zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
     Author   : (no name set) <(no email set)> (1970-01-01 11:00:00)
@@ -50,7 +50,7 @@ fn test_show() {
 
     // Specify both positional and -r args
     let output = work_dir.run_jj(["show", "@", "-r@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the argument '[REVSET]' cannot be used with '-r <REVSET>'
 
@@ -76,7 +76,7 @@ fn test_show_basic() {
     work_dir.write_file("file3", "foo\n");
 
     let output = work_dir.run_jj(["show"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -93,7 +93,7 @@ fn test_show_basic() {
     ");
 
     let output = work_dir.run_jj(["show", "--context=0"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -110,7 +110,7 @@ fn test_show_basic() {
     ");
 
     let output = work_dir.run_jj(["show", "--color=debug"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     <<show commit::Commit ID: >>[38;5;4m<<show commit commit_id::92e687faa4e5b681937f5a9c47feaa33e6b4892c>>[39m<<show commit::>>
     <<show commit::Change ID: >>[38;5;5m<<show commit change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m<<show commit::>>
     <<show commit::Author   : >>[38;5;3m<<show commit author name::Test User>>[39m<<show commit:: <>>[38;5;3m<<show commit author email local::test.user>><<show commit author email::@>><<show commit author email domain::example.com>>[39m<<show commit::> (>>[38;5;6m<<show commit author timestamp local format::2001-02-03 08:05:09>>[39m<<show commit::)>>
@@ -127,7 +127,7 @@ fn test_show_basic() {
     ");
 
     let output = work_dir.run_jj(["show", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -141,7 +141,7 @@ fn test_show_basic() {
     ");
 
     let output = work_dir.run_jj(["show", "--types"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -155,7 +155,7 @@ fn test_show_basic() {
     ");
 
     let output = work_dir.run_jj(["show", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -179,7 +179,7 @@ fn test_show_basic() {
     ");
 
     let output = work_dir.run_jj(["show", "--git", "--context=0"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -202,7 +202,7 @@ fn test_show_basic() {
     ");
 
     let output = work_dir.run_jj(["show", "--git", "--color=debug"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     <<show commit::Commit ID: >>[38;5;4m<<show commit commit_id::92e687faa4e5b681937f5a9c47feaa33e6b4892c>>[39m<<show commit::>>
     <<show commit::Change ID: >>[38;5;5m<<show commit change_id::rlvkpnrzqnoowoytxnquwvuryrwnrmlp>>[39m<<show commit::>>
     <<show commit::Author   : >>[38;5;3m<<show commit author name::Test User>>[39m<<show commit:: <>>[38;5;3m<<show commit author email local::test.user>><<show commit author email::@>><<show commit author email domain::example.com>>[39m<<show commit::> (>>[38;5;6m<<show commit author timestamp local format::2001-02-03 08:05:09>>[39m<<show commit::)>>
@@ -226,7 +226,7 @@ fn test_show_basic() {
     ");
 
     let output = work_dir.run_jj(["show", "-s", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -252,7 +252,7 @@ fn test_show_basic() {
     ");
 
     let output = work_dir.run_jj(["show", "--stat"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Commit ID: 92e687faa4e5b681937f5a9c47feaa33e6b4892c
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -276,7 +276,7 @@ fn test_show_with_template() {
 
     let output = work_dir.run_jj(["show", "-T", "description"]);
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a new commit
     [EOF]
     ");
@@ -292,7 +292,7 @@ fn test_show_with_template_no_patch() {
 
     let output = work_dir.run_jj(["show", "--no-patch", "-T", "description"]);
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a new commit
     [EOF]
     ");
@@ -308,7 +308,7 @@ fn test_show_with_no_patch() {
 
     let output = work_dir.run_jj(["show", "--no-patch"]);
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Commit ID: 86d5fa72f4ecc6d51478941ee9160db9c52b842e
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:08)
@@ -327,7 +327,7 @@ fn test_show_with_no_template() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["show", "-T"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: a value is required for '--template <TEMPLATE>' but none was supplied
 
@@ -385,7 +385,7 @@ fn test_show_relative_timestamps() {
             .collect()
     });
 
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Author   : Test User <test.user@example.com> (...timestamp...)
     Committer: Test User <test.user@example.com> (...timestamp...)
 

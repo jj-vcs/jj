@@ -48,13 +48,13 @@ fn test_bookmark_multiple_names() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["bookmark", "create", "-r@", "foo", "bar"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Created 2 bookmarks pointing to qpvuntsm e8849ae1 bar foo | (empty) (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  bar foo e8849ae12c70
     ◆   000000000000
     [EOF]
@@ -62,13 +62,13 @@ fn test_bookmark_multiple_names() {
 
     work_dir.run_jj(["new"]).success();
     let output = work_dir.run_jj(["bookmark", "set", "foo", "bar"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Moved 2 bookmarks to zsuskuln 0e555a27 bar foo | (empty) (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  bar foo 0e555a27ac99
     ○   e8849ae12c70
     ◆   000000000000
@@ -76,12 +76,12 @@ fn test_bookmark_multiple_names() {
     ");
 
     let output = work_dir.run_jj(["bookmark", "delete", "foo", "bar", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Deleted 2 bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @   0e555a27ac99
     ○   e8849ae12c70
     ◆   000000000000
@@ -90,7 +90,7 @@ fn test_bookmark_multiple_names() {
 
     // Hint should be omitted if -r is specified
     let output = work_dir.run_jj(["bookmark", "create", "-r@-", "foo", "bar"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Created 2 bookmarks pointing to qpvuntsm e8849ae1 bar foo | (empty) (no description set)
@@ -99,7 +99,7 @@ fn test_bookmark_multiple_names() {
 
     // Create and move with explicit -r
     let output = work_dir.run_jj(["bookmark", "set", "-r@", "bar", "baz"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Created 1 bookmarks pointing to zsuskuln 0e555a27 bar baz | (empty) (no description set)
@@ -109,7 +109,7 @@ fn test_bookmark_multiple_names() {
 
     // Noop changes should not be included in the stats
     let output = work_dir.run_jj(["bookmark", "set", "-r@", "foo", "bar", "baz"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Moved 1 bookmarks to zsuskuln 0e555a27 bar baz foo | (empty) (no description set)
@@ -124,14 +124,14 @@ fn test_bookmark_at_root() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["bookmark", "create", "fred", "-r=root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Created 1 bookmarks pointing to zzzzzzzz 00000000 fred | (empty) (no description set)
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "export"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     Warning: Failed to export some bookmarks:
@@ -147,7 +147,7 @@ fn test_bookmark_bad_name() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["bookmark", "create", ""]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: invalid value '' for '<NAMES>...': Failed to parse bookmark name: Syntax error
 
@@ -164,7 +164,7 @@ fn test_bookmark_bad_name() {
     ");
 
     let output = work_dir.run_jj(["bookmark", "set", "''"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: invalid value '''' for '<NAMES>...': Failed to parse bookmark name: Expected non-empty string
 
@@ -181,7 +181,7 @@ fn test_bookmark_bad_name() {
     ");
 
     let output = work_dir.run_jj(["bookmark", "rename", "x", ""]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: invalid value '' for '<NEW>': Failed to parse bookmark name: Syntax error
 
@@ -199,7 +199,7 @@ fn test_bookmark_bad_name() {
 
     // common errors
     let output = work_dir.run_jj(["bookmark", "set", "@-", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: invalid value '@-' for '<NAMES>...': Failed to parse bookmark name: Syntax error
 
@@ -216,7 +216,7 @@ fn test_bookmark_bad_name() {
     ");
 
     let stderr = work_dir.run_jj(["bookmark", "set", "-r@-", "foo@bar"]);
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(stderr, @"
     ------- stderr -------
     error: invalid value 'foo@bar' for '<NAMES>...': Failed to parse bookmark name: Syntax error
 
@@ -256,7 +256,7 @@ fn test_bookmark_move() {
         .success();
 
     let output = work_dir.run_jj(["bookmark", "move", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching bookmarks for names: foo
     No bookmarks to update.
@@ -264,7 +264,7 @@ fn test_bookmark_move() {
     ");
 
     let output = work_dir.run_jj(["bookmark", "set", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Created 1 bookmarks pointing to qpvuntsm e8849ae1 foo | (empty) (no description set)
@@ -273,7 +273,7 @@ fn test_bookmark_move() {
 
     work_dir.run_jj(["new"]).success();
     let output = work_dir.run_jj(["bookmark", "create", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Bookmark already exists: foo
     Hint: Use `jj bookmark set` to update it.
@@ -282,7 +282,7 @@ fn test_bookmark_move() {
     ");
 
     let output = work_dir.run_jj(["bookmark", "set", "foo", "--revision", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Moved 1 bookmarks to mzvwutvl 8afc18ff foo | (empty) (no description set)
@@ -290,7 +290,7 @@ fn test_bookmark_move() {
     ");
 
     let output = work_dir.run_jj(["bookmark", "set", "-r@-", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: foo
     Hint: Use --allow-backwards to allow it.
@@ -299,7 +299,7 @@ fn test_bookmark_move() {
     ");
 
     let output = work_dir.run_jj(["bookmark", "set", "-r@-", "--allow-backwards", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
@@ -307,7 +307,7 @@ fn test_bookmark_move() {
     ");
 
     let output = work_dir.run_jj(["bookmark", "move", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Moved 1 bookmarks to mzvwutvl 8afc18ff foo | (empty) (no description set)
@@ -315,7 +315,7 @@ fn test_bookmark_move() {
     ");
 
     let output = work_dir.run_jj(["bookmark", "move", "--to=@-", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: foo
     Hint: Use --allow-backwards to allow it.
@@ -324,7 +324,7 @@ fn test_bookmark_move() {
     ");
 
     let output = work_dir.run_jj(["bookmark", "move", "--to=@-", "--allow-backwards", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
@@ -337,7 +337,7 @@ fn test_bookmark_move() {
         .run_jj(["git", "push", "--allow-new", "-r@-"])
         .success();
     work_dir.run_jj(["bookmark", "delete", "foo"]).success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     foo (deleted)
       @origin: qpvuntsm 5f3ceb1e (empty) commit
     [EOF]
@@ -345,7 +345,7 @@ fn test_bookmark_move() {
 
     // Deleted tracking bookmark name should still be allocated
     let output = work_dir.run_jj(["bookmark", "create", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Tracked remote bookmarks exist for deleted bookmark: foo
     Hint: Use `jj bookmark set` to recreate the local bookmark. Run `jj bookmark untrack foo` to disassociate them.
@@ -355,13 +355,13 @@ fn test_bookmark_move() {
 
     // Restoring local target shouldn't invalidate tracking state
     let output = work_dir.run_jj(["bookmark", "set", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Moved 1 bookmarks to mzvwutvl 91b59745 foo* | (empty) (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     foo: mzvwutvl 91b59745 (empty) (no description set)
       @origin (behind by 1 commits): qpvuntsm 5f3ceb1e (empty) commit
     [EOF]
@@ -371,13 +371,13 @@ fn test_bookmark_move() {
     work_dir.run_jj(["bookmark", "untrack", "foo"]).success();
     work_dir.run_jj(["bookmark", "delete", "foo"]).success();
     let output = work_dir.run_jj(["bookmark", "create", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Created 1 bookmarks pointing to mzvwutvl 91b59745 foo | (empty) (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     foo: mzvwutvl 91b59745 (empty) (no description set)
     foo@origin: qpvuntsm 5f3ceb1e (empty) commit
     [EOF]
@@ -399,7 +399,7 @@ fn test_bookmark_move_matching() {
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["bookmark", "create", "c1"]).success();
     work_dir.run_jj(["new", "-mhead2"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @   0dd9a4b12283
     ○  c1 2cbf65662e56
     ○  b1 c2934cfbfb19
@@ -413,7 +413,7 @@ fn test_bookmark_move_matching() {
 
     // The default could be considered "--from=all() *", but is disabled
     let output = work_dir.run_jj(["bookmark", "move"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the following required arguments were not provided:
       <NAMES|--from <REVSETS>>
@@ -427,7 +427,7 @@ fn test_bookmark_move_matching() {
 
     // No bookmarks pointing to the source revisions
     let output = work_dir.run_jj(["bookmark", "move", "--from=none()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No bookmarks to update.
     [EOF]
@@ -435,7 +435,7 @@ fn test_bookmark_move_matching() {
 
     // No matching bookmarks within the source revisions
     let output = work_dir.run_jj(["bookmark", "move", "--from=::@", "'a?'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No bookmarks to update.
     [EOF]
@@ -443,7 +443,7 @@ fn test_bookmark_move_matching() {
 
     // Noop move
     let output = work_dir.run_jj(["bookmark", "move", "--to=a1", "a2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No bookmarks to update.
     [EOF]
@@ -451,13 +451,13 @@ fn test_bookmark_move_matching() {
 
     // Move from multiple revisions
     let output = work_dir.run_jj(["bookmark", "move", "--from=::@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Moved 2 bookmarks to vruxwmqv 0dd9a4b1 b1 c1 | (empty) head2
     Hint: Specify bookmark by name to update just one of the bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  b1 c1 0dd9a4b12283
     ○   2cbf65662e56
     ○   c2934cfbfb19
@@ -471,12 +471,12 @@ fn test_bookmark_move_matching() {
 
     // Move multiple bookmarks by name
     let output = work_dir.run_jj(["bookmark", "move", "b1", "c1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Moved 2 bookmarks to vruxwmqv 0dd9a4b1 b1 c1 | (empty) head2
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  b1 c1 0dd9a4b12283
     ○   2cbf65662e56
     ○   c2934cfbfb19
@@ -490,14 +490,14 @@ fn test_bookmark_move_matching() {
 
     // Try to move multiple bookmarks, but one of them isn't fast-forward
     let output = work_dir.run_jj(["bookmark", "move", "'?1'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: a1
     Hint: Use --allow-backwards to allow it.
     [EOF]
     [exit status: 1]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @   0dd9a4b12283
     ○  c1 2cbf65662e56
     ○  b1 c2934cfbfb19
@@ -510,12 +510,12 @@ fn test_bookmark_move_matching() {
 
     // Select by revision and name
     let output = work_dir.run_jj(["bookmark", "move", "--from=::a1+", "--to=a1+", "'?1'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Moved 1 bookmarks to kkmpptxz 9328ecc5 a1 | (empty) head1
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @   0dd9a4b12283
     ○  c1 2cbf65662e56
     ○  b1 c2934cfbfb19
@@ -549,7 +549,7 @@ fn test_bookmark_move_conflicting() {
     work_dir
         .run_jj(["bookmark", "create", "--at-op=@-", "-rsubject(B0)", "foo"])
         .success();
-    insta::assert_snapshot!(get_log(), @r"
+    insta::assert_snapshot!(get_log(), @"
     @  A1
     ○  A0 foo??
     │ ○  C0
@@ -565,7 +565,7 @@ fn test_bookmark_move_conflicting() {
 
     // Can't move the bookmark to C0 since it's sibling.
     let output = work_dir.run_jj(["bookmark", "set", "-rsubject(C0)", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Refusing to move bookmark backwards or sideways: foo
     Hint: Use --allow-backwards to allow it.
@@ -576,12 +576,12 @@ fn test_bookmark_move_conflicting() {
     // Can move the bookmark to A1 since it's descendant of A0. It's not
     // descendant of B0, though.
     let output = work_dir.run_jj(["bookmark", "set", "-rsubject(A1)", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Moved 1 bookmarks to mzvwutvl 0f5f3e2c foo | (empty) A1
     [EOF]
     ");
-    insta::assert_snapshot!(get_log(), @r"
+    insta::assert_snapshot!(get_log(), @"
     @  A1 foo
     ○  A0
     │ ○  C0
@@ -607,7 +607,7 @@ fn test_bookmark_rename() {
         .success();
 
     let output = work_dir.run_jj(["bookmark", "rename", "bnoexist", "blocal"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No such bookmark: bnoexist
     [EOF]
@@ -623,7 +623,7 @@ fn test_bookmark_rename() {
     work_dir.run_jj(["describe", "-m=commit-1"]).success();
     work_dir.run_jj(["bookmark", "create", "bexist"]).success();
     let output = work_dir.run_jj(["bookmark", "rename", "blocal1", "bexist"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Bookmark already exists: bexist
     [EOF]
@@ -640,7 +640,7 @@ fn test_bookmark_rename() {
         .success();
 
     let output = work_dir.run_jj(["bookmark", "rename", "bremote", "bremote2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Tracked remote bookmarks for bookmark bremote were not renamed.
     Hint: To rename the bookmark on the remote, you can `jj git push --bookmark bremote` first (to delete it on the remote), and then `jj git push --bookmark bremote2`. `jj git push --all --deleted` would also be sufficient.
@@ -648,7 +648,7 @@ fn test_bookmark_rename() {
     ");
     let op_id_after_rename = work_dir.current_operation_id();
     let output = work_dir.run_jj(["bookmark", "rename", "bremote2", "bremote"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Tracked remote bookmarks for bookmark bremote exist.
     Hint: Run `jj bookmark untrack bremote` to disassociate them.
@@ -658,7 +658,7 @@ fn test_bookmark_rename() {
         .run_jj(["op", "restore", &op_id_after_rename])
         .success();
     let output = work_dir.run_jj(["git", "push", "--bookmark", "bremote2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
       Add bookmark bremote2 to a9d7418c1c3f
@@ -671,7 +671,7 @@ fn test_bookmark_rename() {
         .run_jj(["bookmark", "forget", "bremote-untracked"])
         .success();
     let output = work_dir.run_jj(["bookmark", "rename", "bremote2", "bremote-untracked"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: The renamed bookmark already exists on the remote 'origin', tracking state was dropped.
     Hint: To track the existing remote bookmark, run `jj bookmark track bremote-untracked --remote=origin`
@@ -716,25 +716,25 @@ fn test_bookmark_forget_glob() {
     work_dir.run_jj(["bookmark", "create", "foo-4"]).success();
     let setup_opid = work_dir.current_operation_id();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  bar-2 foo-1 foo-3 foo-4 e8849ae12c70
     ◆   000000000000
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "forget", "'foo-[1-3]'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Forgot 2 local bookmarks.
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["bookmark", "forget", "'foo-[1-3]'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Forgot 2 local bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  bar-2 foo-4 e8849ae12c70
     ◆   000000000000
     [EOF]
@@ -743,12 +743,12 @@ fn test_bookmark_forget_glob() {
     // Forgetting a bookmark via both explicit name and glob pattern, or with
     // multiple glob patterns, shouldn't produce an error.
     let output = work_dir.run_jj(["bookmark", "forget", "foo-4", "foo-*", "foo-*"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Forgot 1 local bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  bar-2 e8849ae12c70
     ◆   000000000000
     [EOF]
@@ -756,7 +756,7 @@ fn test_bookmark_forget_glob() {
 
     // Malformed glob
     let output = work_dir.run_jj(["bookmark", "forget", "glob:'foo-[1-3'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse name pattern: Invalid string pattern
     Caused by:
@@ -773,7 +773,7 @@ fn test_bookmark_forget_glob() {
 
     // None of the globs match anything
     let output = work_dir.run_jj(["bookmark", "forget", "baz*", "boom*"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No bookmarks to forget.
     [EOF]
@@ -812,25 +812,25 @@ fn test_bookmark_delete_glob() {
     work_dir.run_jj(["bookmark", "track", "foo-5"]).success();
     let setup_opid = work_dir.current_operation_id();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  bar-2 foo-1 foo-3 foo-4 foo-5* 8e056f6b8c37
     ◆   000000000000
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "delete", "'foo-[1-3]'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Deleted 2 bookmarks.
     [EOF]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["bookmark", "delete", "'foo-[1-3]'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Deleted 2 bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  bar-2 foo-1@origin foo-3@origin foo-4 foo-5* 8e056f6b8c37
     ◆   000000000000
     [EOF]
@@ -839,7 +839,7 @@ fn test_bookmark_delete_glob() {
     // We get an error if none of the globs match live bookmarks. Unlike `jj
     // bookmark forget`, it's not allowed to delete already deleted bookmarks.
     let output = work_dir.run_jj(["bookmark", "delete", "'foo-[1-3]'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     No bookmarks to delete.
     [EOF]
@@ -848,12 +848,12 @@ fn test_bookmark_delete_glob() {
     // Deleting a bookmark via both explicit name and glob pattern, or with
     // multiple glob patterns, shouldn't produce an error.
     let output = work_dir.run_jj(["bookmark", "delete", "foo-4", "foo-*", "foo-*"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Deleted 2 bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  bar-2 foo-1@origin foo-3@origin foo-4@origin 8e056f6b8c37
     ◆   000000000000
     [EOF]
@@ -861,7 +861,7 @@ fn test_bookmark_delete_glob() {
 
     // The deleted bookmarks are still there, whereas absent-tracked bookmarks
     // aren't.
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     bar-2: qpvuntsm 8e056f6b (empty) commit
       @origin: qpvuntsm 8e056f6b (empty) commit
     foo-1 (deleted)
@@ -875,7 +875,7 @@ fn test_bookmark_delete_glob() {
 
     // Malformed glob
     let output = work_dir.run_jj(["bookmark", "delete", "glob:'foo-[1-3'"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse name pattern: Invalid string pattern
     Caused by:
@@ -892,7 +892,7 @@ fn test_bookmark_delete_glob() {
 
     // Unknown pattern kind
     let output = work_dir.run_jj(["bookmark", "forget", "whatever:bookmark"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse name pattern: Invalid string pattern
     Caused by:
@@ -921,7 +921,7 @@ fn test_bookmark_delete_export() {
 
     work_dir.run_jj(["bookmark", "delete", "foo"]).success();
     let output = work_dir.run_jj(["bookmark", "list", "--all-remotes"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     foo (deleted)
       @git: rlvkpnrz 43444d88 (empty) (no description set)
     [EOF]
@@ -942,7 +942,7 @@ fn test_bookmark_forget_export() {
 
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["bookmark", "create", "foo"]).success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     foo: rlvkpnrz 43444d88 (empty) (no description set)
     [EOF]
     ");
@@ -951,7 +951,7 @@ fn test_bookmark_forget_export() {
     let output = work_dir.run_jj(["git", "export"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["bookmark", "forget", "--include-remotes", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
@@ -961,7 +961,7 @@ fn test_bookmark_forget_export() {
     // remote-tracking bookmarks including the corresponding git-tracking bookmark.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
     let output = work_dir.run_jj(["log", "-r=foo", "--no-graph"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Revision `foo` doesn't exist
     [EOF]
@@ -1009,7 +1009,7 @@ fn test_bookmark_forget_fetched_bookmark() {
     work_dir
         .run_jj(["git", "fetch", "--remote=origin"])
         .success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     [EOF]
@@ -1033,7 +1033,7 @@ fn test_bookmark_forget_fetched_bookmark() {
     let output = work_dir.run_jj(["git", "export"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "import"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -1042,12 +1042,12 @@ fn test_bookmark_forget_fetched_bookmark() {
 
     // We can fetch feature1 again.
     let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: feature1@origin [new] tracked
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     [EOF]
@@ -1060,12 +1060,12 @@ fn test_bookmark_forget_fetched_bookmark() {
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
     // Fetch works even without the export-import
     let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: feature1@origin [new] tracked
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qomsplrm ebeb70d8 message
       @origin: qomsplrm ebeb70d8 message
     [EOF]
@@ -1082,7 +1082,7 @@ fn test_bookmark_forget_fetched_bookmark() {
         &[first_git_repo_commit],
     );
     let output = work_dir.run_jj(["bookmark", "forget", "--include-remotes", "feature1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
@@ -1091,12 +1091,12 @@ fn test_bookmark_forget_fetched_bookmark() {
 
     // Fetching a moved bookmark does not create a conflict
     let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: feature1@origin [new] tracked
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: tyvxnvqr 9175cb32 (empty) another message
       @origin: tyvxnvqr 9175cb32 (empty) another message
     [EOF]
@@ -1106,18 +1106,18 @@ fn test_bookmark_forget_fetched_bookmark() {
     work_dir
         .run_jj(["bookmark", "forget", "feature1"])
         .success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1@origin: tyvxnvqr 9175cb32 (empty) another message
     [EOF]
     ");
     // There should be no output here since the remote bookmark wasn't forgotten
     let output = work_dir.run_jj(["git", "fetch", "--remote=origin"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1@origin: tyvxnvqr 9175cb32 (empty) another message
     [EOF]
     ");
@@ -1156,7 +1156,7 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
     work_dir
         .run_jj(["bookmark", "delete", "feature1"])
         .success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1 (deleted)
       @origin: qomsplrm ebeb70d8 message
     [EOF]
@@ -1166,7 +1166,7 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
 
     // We can forget a deleted bookmark
     let output = work_dir.run_jj(["bookmark", "forget", "--include-remotes", "feature1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
@@ -1176,7 +1176,7 @@ fn test_bookmark_forget_deleted_or_nonexistent_bookmark() {
 
     // Can't forget a non-existent bookmark
     let output = work_dir.run_jj(["bookmark", "forget", "i_do_not_exist"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching bookmarks for names: i_do_not_exist
     No bookmarks to forget.
@@ -1211,20 +1211,20 @@ fn test_bookmark_track_untrack() {
     );
     test_env.add_config("remotes.origin.auto-track-bookmarks = '~*'");
     let output = work_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: feature1@origin [new] untracked
     bookmark: feature2@origin [new] untracked
     bookmark: main@origin     [new] untracked
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1@origin: qxxqrkql bd843888 commit 1
     feature2@origin: qxxqrkql bd843888 commit 1
     main@origin: qxxqrkql bd843888 commit 1
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @   e8849ae12c70
     │ ◆  feature1@origin feature2@origin main@origin bd843888ee66
     ├─╯
@@ -1247,7 +1247,7 @@ fn test_bookmark_track_untrack() {
     Started tracking 2 remote bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qxxqrkql bd843888 commit 1
       @origin: qxxqrkql bd843888 commit 1
     feature2@origin: qxxqrkql bd843888 commit 1
@@ -1258,7 +1258,7 @@ fn test_bookmark_track_untrack() {
 
     // Track non-existent remote bookmark
     let output = work_dir.run_jj(["bookmark", "track", "feature3", "--remote=origin"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching bookmarks for names: feature3
     Nothing changed.
@@ -1270,7 +1270,7 @@ fn test_bookmark_track_untrack() {
         .run_jj(["bookmark", "create", "-r@", "feature2"])
         .success();
     work_dir.run_jj(["bookmark", "track", "feature2"]).success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qxxqrkql bd843888 commit 1
       @origin: qxxqrkql bd843888 commit 1
     feature2 (conflicted):
@@ -1288,13 +1288,13 @@ fn test_bookmark_track_untrack() {
         .run_jj(["bookmark", "delete", "feature2"])
         .success();
     let output = work_dir.run_jj(["bookmark", "untrack", "feature1@origin", "feature2@origin"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: <bookmark>@<remote> syntax is deprecated, use `<bookmark> --remote=<remote>` instead.
     Stopped tracking 2 remote bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qxxqrkql bd843888 commit 1
     feature1@origin: qxxqrkql bd843888 commit 1
     feature2@origin: qxxqrkql bd843888 commit 1
@@ -1302,7 +1302,7 @@ fn test_bookmark_track_untrack() {
       @origin: qxxqrkql bd843888 commit 1
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @   e8849ae12c70
     │ ◆  feature1 feature1@origin feature2@origin main bd843888ee66
     ├─╯
@@ -1322,14 +1322,14 @@ fn test_bookmark_track_untrack() {
         ],
     );
     let output = work_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: feature1@origin [updated] untracked
     bookmark: feature2@origin [updated] untracked
     bookmark: main@origin     [updated] tracked
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qxxqrkql bd843888 commit 1
     feature1@origin: psynomvr 48ec79a4 commit 2
     feature2@origin: psynomvr 48ec79a4 commit 2
@@ -1337,7 +1337,7 @@ fn test_bookmark_track_untrack() {
       @origin: psynomvr 48ec79a4 commit 2
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @   e8849ae12c70
     │ ◆  feature1@origin feature2@origin main 48ec79a430e9
     ├─╯
@@ -1362,7 +1362,7 @@ fn test_bookmark_track_untrack() {
     );
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let output = work_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: feature1@origin [updated] untracked
     bookmark: feature2@origin [updated] untracked
@@ -1372,7 +1372,7 @@ fn test_bookmark_track_untrack() {
       psynomvr 48ec79a4 commit 2
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: qxxqrkql bd843888 commit 1
     feature1@origin: yumopmsr d8cd3e02 commit 3
     feature2@origin: yumopmsr d8cd3e02 commit 3
@@ -1382,7 +1382,7 @@ fn test_bookmark_track_untrack() {
       @origin: yumopmsr d8cd3e02 commit 3
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @   e8849ae12c70
     │ ◆  feature1@origin feature2@origin feature3 main d8cd3e020382
     ├─╯
@@ -1443,7 +1443,7 @@ fn test_bookmark_track_conflict() {
         .run_jj(["bookmark", "untrack", "main", "--remote=origin"])
         .success();
     let output = work_dir.run_jj(["bookmark", "track", "main", "--remote=origin"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     main (conflicted):
@@ -1454,7 +1454,7 @@ fn test_bookmark_track_conflict() {
     ");
 
     // origin2 differs but is not in conflict
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     main (conflicted):
       + qpvuntsm/0 467e027c (divergent) (empty) c
       + qpvuntsm/2 48ded843 (divergent) (empty) a
@@ -1469,7 +1469,7 @@ fn test_bookmark_track_conflict() {
         .run_jj(["bookmark", "untrack", "main", "--remote=origin2"])
         .success();
     let output = work_dir.run_jj(["bookmark", "track", "main", "--remote=origin2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     main (conflicted):
@@ -1505,7 +1505,7 @@ fn test_bookmark_track_untrack_patterns() {
     // Fetch new commit without auto tracking
     test_env.add_config("remotes.origin.auto-track-bookmarks = '~*'");
     let output = work_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: feature1@origin [new] untracked
     bookmark: feature2@origin [new] untracked
@@ -1514,18 +1514,18 @@ fn test_bookmark_track_untrack_patterns() {
 
     // Track/untrack new bookmark that doesn't exist at remote
     work_dir.run_jj(["bookmark", "create", "main"]).success();
-    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "track", "main"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "track", "main"]), @"
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "untrack", "main"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "untrack", "main"]), @"
     ------- stderr -------
     Stopped tracking 1 remote bookmarks.
     [EOF]
     ");
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "untrack", "main", "--remote=o*"]), @r"
+        work_dir.run_jj(["bookmark", "untrack", "main", "--remote=o*"]), @"
     ------- stderr -------
     Warning: Remote bookmark not tracked yet: main@origin
     Nothing changed.
@@ -1533,13 +1533,13 @@ fn test_bookmark_track_untrack_patterns() {
     ");
 
     // Track/untrack unknown bookmark
-    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "track", "maine*"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "track", "maine*"]), @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "untrack", "maine", "--remote=o* | unknown"]), @r"
+        work_dir.run_jj(["bookmark", "untrack", "maine", "--remote=o* | unknown"]), @"
     ------- stderr -------
     Warning: No matching bookmarks for names: maine
     Warning: No matching remotes for names: unknown
@@ -1550,7 +1550,7 @@ fn test_bookmark_track_untrack_patterns() {
     // Track already tracked bookmark
     work_dir.run_jj(["bookmark", "track", "feature1"]).success();
     let output = work_dir.run_jj(["bookmark", "track", "feature1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Remote bookmark already tracked: feature1@origin
     Nothing changed.
@@ -1559,7 +1559,7 @@ fn test_bookmark_track_untrack_patterns() {
 
     // Untrack non-tracking bookmark
     let output = work_dir.run_jj(["bookmark", "untrack", "feature2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Remote bookmark not tracked yet: feature2@origin
     Nothing changed.
@@ -1569,20 +1569,20 @@ fn test_bookmark_track_untrack_patterns() {
     // Track/untrack Git-tracking bookmark
     work_dir.run_jj(["git", "export"]).success();
     let output = work_dir.run_jj(["bookmark", "track", "main", "--remote=git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Remote bookmark already tracked: main@git
     Nothing changed.
     [EOF]
     ");
     let output = work_dir.run_jj(["bookmark", "untrack", "main", "--remote=git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Git-tracking bookmark cannot be untracked: main@git
     Nothing changed.
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: yrnqsqlx 41e7a49d commit
       @git: yrnqsqlx 41e7a49d commit
       @origin: yrnqsqlx 41e7a49d commit
@@ -1594,7 +1594,7 @@ fn test_bookmark_track_untrack_patterns() {
 
     // Git-tracking remote should not be warned by default
     let output = work_dir.run_jj(["bookmark", "track", "main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     [EOF]
@@ -1602,14 +1602,14 @@ fn test_bookmark_track_untrack_patterns() {
 
     // Untrack by pattern
     let output = work_dir.run_jj(["bookmark", "untrack", "~main", "--remote=*"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Git-tracking bookmark cannot be untracked: feature1@git
     Warning: Remote bookmark not tracked yet: feature2@origin
     Stopped tracking 1 remote bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: yrnqsqlx 41e7a49d commit
       @git: yrnqsqlx 41e7a49d commit
     feature1@origin: yrnqsqlx 41e7a49d commit
@@ -1622,13 +1622,13 @@ fn test_bookmark_track_untrack_patterns() {
 
     // Track by pattern
     let output = work_dir.run_jj(["bookmark", "track", "'feature?' | main", "--remote=~git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Remote bookmark already tracked: main@origin
     Started tracking 2 remote bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: yrnqsqlx 41e7a49d commit
       @git: yrnqsqlx 41e7a49d commit
       @origin: yrnqsqlx 41e7a49d commit
@@ -1669,7 +1669,7 @@ fn test_bookmark_track_absent() {
     create_commit_with_refs(&git_repo1, "commit", b"", &["refs/heads/feature1"]);
 
     let output = work_dir.run_jj(["git", "fetch", "--all-remotes"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: feature1@remote1 [new] untracked
     [EOF]
@@ -1677,12 +1677,12 @@ fn test_bookmark_track_absent() {
 
     // Track feature1: remote2 isn't tracked because there's no local bookmark
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "track", "feature1", "--remote=*"]), @r"
+        work_dir.run_jj(["bookmark", "track", "feature1", "--remote=*"]), @"
     ------- stderr -------
     Started tracking 1 remote bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: quutswnw 3fb14832 commit
       @remote1: quutswnw 3fb14832 commit
     [EOF]
@@ -1690,13 +1690,13 @@ fn test_bookmark_track_absent() {
 
     // Track feature1 again: remote2 is now tracked
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "track", "feature1", "--remote=*"]), @r"
+        work_dir.run_jj(["bookmark", "track", "feature1", "--remote=*"]), @"
     ------- stderr -------
     Warning: Remote bookmark already tracked: feature1@remote1
     Started tracking 1 remote bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: quutswnw 3fb14832 commit
       @remote1: quutswnw 3fb14832 commit
       @remote2 (not created yet)
@@ -1708,12 +1708,12 @@ fn test_bookmark_track_absent() {
         .run_jj(["bookmark", "create", "new-feature"])
         .success();
     insta::assert_snapshot!(
-        work_dir.run_jj(["bookmark", "track", "new-feature", "--remote=*"]), @r"
+        work_dir.run_jj(["bookmark", "track", "new-feature", "--remote=*"]), @"
     ------- stderr -------
     Started tracking 2 remote bookmarks.
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     feature1: quutswnw 3fb14832 commit
       @remote1: quutswnw 3fb14832 commit
       @remote2 (not created yet)
@@ -1791,7 +1791,7 @@ fn test_bookmark_list() {
     // Synchronized tracking remotes and non-tracking remotes aren't listed by
     // default
     let output = local_dir.run_jj(["bookmark", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     absent-tracked: wqnwkozp 0353dd35 (empty) local-only
       @origin (not created yet)
     local-only: wqnwkozp 0353dd35 (empty) local-only
@@ -1807,7 +1807,7 @@ fn test_bookmark_list() {
     ");
 
     let output = local_dir.run_jj(["bookmark", "list", "--all-remotes"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     absent-tracked: wqnwkozp 0353dd35 (empty) local-only
       @origin (not created yet)
     local-only: wqnwkozp 0353dd35 (empty) local-only
@@ -1825,7 +1825,7 @@ fn test_bookmark_list() {
     ");
 
     let output = local_dir.run_jj(["bookmark", "list", "--all-remotes", "--color=always"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [38;5;5mabsent-tracked[39m: [1m[38;5;13mw[38;5;8mqnwkozp[39m [38;5;12m03[38;5;8m53dd35[39m [38;5;10m(empty)[39m local-only[0m
       [38;5;5m@origin[39m (not created yet)
     [38;5;5mlocal-only[39m: [1m[38;5;13mw[38;5;8mqnwkozp[39m [38;5;12m03[38;5;8m53dd35[39m [38;5;10m(empty)[39m local-only[0m
@@ -1857,7 +1857,7 @@ fn test_bookmark_list() {
     )
     "#;
     let output = local_dir.run_jj(["bookmark", "list", "--all-remotes", "-T", template]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [absent-tracked]
     present: true
     conflict: false
@@ -2033,7 +2033,7 @@ fn test_bookmark_list_filtered() {
 
     let template = r#"separate(" ", commit_id.short(), bookmarks, if(hidden, "(hidden)"))"#;
     insta::assert_snapshot!(
-        local_dir.run_jj(["log", "-r::(bookmarks() | remote_bookmarks())", "-T", template]), @r"
+        local_dir.run_jj(["log", "-r::(bookmarks() | remote_bookmarks())", "-T", template]), @"
     @  4b2bc95cbda6 local-keep
     │ ○  e6970e0e1f55 remote-rewrite*
     ├─╯
@@ -2049,7 +2049,7 @@ fn test_bookmark_list_filtered() {
 
     // All bookmarks are listed by default.
     let output = local_dir.run_jj(["bookmark", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-delete (deleted)
       @origin: zsuskuln 0e6b7968 (empty) remote-delete
@@ -2067,7 +2067,7 @@ fn test_bookmark_list_filtered() {
 
     // "all()" doesn't include deleted bookmarks since they have no local targets.
     // So "all()" is identical to "bookmarks()".
-    insta::assert_snapshot!(query(&["-rall()"]), @r"
+    insta::assert_snapshot!(query(&["-rall()"]), @"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-keep: rlvkpnrz c2f2ee40 (empty) remote-keep
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
@@ -2077,7 +2077,7 @@ fn test_bookmark_list_filtered() {
 
     // Exclude remote-only bookmarks. "remote-rewrite@origin" is included since
     // local "remote-rewrite" target matches.
-    insta::assert_snapshot!(query(&["-rbookmarks()"]), @r"
+    insta::assert_snapshot!(query(&["-rbookmarks()"]), @"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-keep: rlvkpnrz c2f2ee40 (empty) remote-keep
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
@@ -2086,12 +2086,12 @@ fn test_bookmark_list_filtered() {
     ");
 
     // Select bookmarks by name.
-    insta::assert_snapshot!(query(&["remote-rewrite"]), @r"
+    insta::assert_snapshot!(query(&["remote-rewrite"]), @"
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (hidden) (empty) remote-rewrite
     [EOF]
     ");
-    insta::assert_snapshot!(query(&["-rbookmarks(remote-rewrite)"]), @r"
+    insta::assert_snapshot!(query(&["-rbookmarks(remote-rewrite)"]), @"
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (hidden) (empty) remote-rewrite
     [EOF]
@@ -2099,13 +2099,13 @@ fn test_bookmark_list_filtered() {
 
     // Select bookmarks by name, combined with --all-remotes
     local_dir.run_jj(["git", "export"]).success();
-    insta::assert_snapshot!(query(&["--all-remotes", "remote-rewrite"]), @r"
+    insta::assert_snapshot!(query(&["--all-remotes", "remote-rewrite"]), @"
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @git: royxmykx e6970e0e (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (hidden) (empty) remote-rewrite
     [EOF]
     ");
-    insta::assert_snapshot!(query(&["--all-remotes", "-rbookmarks(remote-rewrite)"]), @r"
+    insta::assert_snapshot!(query(&["--all-remotes", "-rbookmarks(remote-rewrite)"]), @"
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @git: royxmykx e6970e0e (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (hidden) (empty) remote-rewrite
@@ -2113,7 +2113,7 @@ fn test_bookmark_list_filtered() {
     ");
 
     // Select bookmarks with --remote
-    insta::assert_snapshot!(query(&["--remote", "origin"]), @r"
+    insta::assert_snapshot!(query(&["--remote", "origin"]), @"
     remote-delete (deleted)
       @origin: zsuskuln 0e6b7968 (empty) remote-delete
     remote-keep: rlvkpnrz c2f2ee40 (empty) remote-keep
@@ -2125,7 +2125,7 @@ fn test_bookmark_list_filtered() {
     Hint: Bookmarks marked as deleted can be *deleted permanently* on the remote by running `jj git push --deleted`. Use `jj bookmark forget` if you don't want that.
     [EOF]
     ");
-    insta::assert_snapshot!(query(&["--remote", "'gi?'"]), @r"
+    insta::assert_snapshot!(query(&["--remote", "'gi?'"]), @"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
       @git: kpqxywon 4b2bc95c (empty) local-keep
     remote-keep: rlvkpnrz c2f2ee40 (empty) remote-keep
@@ -2134,7 +2134,7 @@ fn test_bookmark_list_filtered() {
       @git: royxmykx e6970e0e (empty) rewritten
     [EOF]
     ");
-    insta::assert_snapshot!(query(&["--remote", "origin", "--remote", "git"]), @r"
+    insta::assert_snapshot!(query(&["--remote", "origin", "--remote", "git"]), @"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
       @git: kpqxywon 4b2bc95c (empty) local-keep
     remote-delete (deleted)
@@ -2152,7 +2152,7 @@ fn test_bookmark_list_filtered() {
     ");
 
     // Can select deleted bookmark by name pattern, but not by revset.
-    insta::assert_snapshot!(query(&["remote-delete"]), @r"
+    insta::assert_snapshot!(query(&["remote-delete"]), @"
     remote-delete (deleted)
       @origin: zsuskuln 0e6b7968 (empty) remote-delete
     [EOF]
@@ -2161,7 +2161,7 @@ fn test_bookmark_list_filtered() {
     [EOF]
     ");
     insta::assert_snapshot!(query(&["-rbookmarks(remote-delete)"]), @"");
-    insta::assert_snapshot!(query(&["-rremote-delete"]), @r"
+    insta::assert_snapshot!(query(&["-rremote-delete"]), @"
     ------- stderr -------
     Error: Revision `remote-delete` doesn't exist
     Hint: Did you mean `remote-delete@origin`, `remote-keep`, `remote-rewrite`, `remote-rewrite@origin`?
@@ -2170,7 +2170,7 @@ fn test_bookmark_list_filtered() {
     ");
 
     // Name patterns are OR-ed.
-    insta::assert_snapshot!(query(&["*-keep", "remote-* & *-delete"]), @r"
+    insta::assert_snapshot!(query(&["*-keep", "remote-* & *-delete"]), @"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-delete (deleted)
       @origin: zsuskuln 0e6b7968 (empty) remote-delete
@@ -2184,7 +2184,7 @@ fn test_bookmark_list_filtered() {
     // Unmatched exact name pattern should be warned. "remote-delete" exists in
     // remote. "remote-rewrite" exists, but isn't included in the match.
     insta::assert_snapshot!(
-        query(&["local-keep", "push-*", "unknown | remote-delete ~ remote-rewrite"]), @r"
+        query(&["local-keep", "push-*", "unknown | remote-delete ~ remote-rewrite"]), @"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-delete (deleted)
       @origin: zsuskuln 0e6b7968 (empty) remote-delete
@@ -2196,7 +2196,7 @@ fn test_bookmark_list_filtered() {
     ");
 
     // Name pattern and revset are OR-ed.
-    insta::assert_snapshot!(query(&["local-keep", "-rbookmarks(remote-rewrite)"]), @r"
+    insta::assert_snapshot!(query(&["local-keep", "-rbookmarks(remote-rewrite)"]), @"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
       @origin (ahead by 1 commits, behind by 1 commits): royxmykx/1 331d500d (hidden) (empty) remote-rewrite
@@ -2209,7 +2209,7 @@ fn test_bookmark_list_filtered() {
         "-rbookmarks(remote-rewrite)",
         "--remote",
         "git",
-    ]), @r"
+    ]), @"
     local-keep: kpqxywon 4b2bc95c (empty) local-keep
       @git: kpqxywon 4b2bc95c (empty) local-keep
     remote-rewrite: royxmykx e6970e0e (empty) rewritten
@@ -2218,7 +2218,7 @@ fn test_bookmark_list_filtered() {
     ");
 
     // Syntax error in name pattern
-    insta::assert_snapshot!(query(&["foo &"]), @r"
+    insta::assert_snapshot!(query(&["foo &"]), @"
     ------- stderr -------
     Error: Failed to parse name pattern: Syntax error
     Caused by:  --> 1:6
@@ -2316,7 +2316,7 @@ fn test_bookmark_list_much_remote_divergence() {
         .success();
 
     let output = local_dir.run_jj(["bookmark", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     local-only: zkyosouw a30800ad (empty) local-only
     remote-unsync: zkyosouw a30800ad (empty) local-only
       @origin (ahead by at least 10 commits, behind by at least 10 commits): uyznsvlq a52367f8 (empty) remote-unsync
@@ -2437,7 +2437,7 @@ fn test_bookmark_list_tracked() {
         .success();
 
     let output = local_dir.run_jj(["bookmark", "list", "--all-remotes"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     local-only: nmzmmopx 2a685e16 (empty) local-only
       @git: nmzmmopx 2a685e16 (empty) local-only
     remote-delete (deleted)
@@ -2460,7 +2460,7 @@ fn test_bookmark_list_tracked() {
     ");
 
     let output = local_dir.run_jj(["bookmark", "list", "--tracked"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     remote-delete (deleted)
       @origin: vruxwmqv b32031cf (empty) remote-delete
     remote-sync: rlvkpnrz 7a07dbee (empty) remote-sync
@@ -2477,7 +2477,7 @@ fn test_bookmark_list_tracked() {
     ");
 
     let output = local_dir.run_jj(["bookmark", "list", "--tracked", "--remote", "origin"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     remote-delete (deleted)
       @origin: vruxwmqv b32031cf (empty) remote-delete
     remote-sync: rlvkpnrz 7a07dbee (empty) remote-sync
@@ -2504,7 +2504,7 @@ fn test_bookmark_list_tracked() {
     ");
 
     let output = local_dir.run_jj(["bookmark", "list", "--tracked", "remote-unsync"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     remote-unsync: nmzmmopx 2a685e16 (empty) local-only
       @origin (ahead by 1 commits, behind by 1 commits): zsuskuln 553203ba (empty) remote-unsync
       @upstream (ahead by 1 commits, behind by 1 commits): zsuskuln 553203ba (empty) remote-unsync
@@ -2519,7 +2519,7 @@ fn test_bookmark_list_tracked() {
         .success();
 
     let output = local_dir.run_jj(["bookmark", "list", "--tracked", "remote-unsync"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     remote-unsync: nmzmmopx 2a685e16 (empty) local-only
       @origin (ahead by 1 commits, behind by 1 commits): zsuskuln 553203ba (empty) remote-unsync
     [EOF]
@@ -2543,14 +2543,14 @@ fn test_bookmark_list_conflicted() {
         .run_jj(["bookmark", "create", "foo", "-rsubject(b)", "--at-op=@-"])
         .success();
     work_dir.run_jj(["status"]).success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     bar: kkmpptxz a82129fb (empty) b
     foo (conflicted):
       + rlvkpnrz 4e1b2d80 (empty) a
       + kkmpptxz a82129fb (empty) b
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "list", "--conflicted"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "list", "--conflicted"]), @"
     foo (conflicted):
       + rlvkpnrz 4e1b2d80 (empty) a
       + kkmpptxz a82129fb (empty) b
@@ -2567,7 +2567,7 @@ fn test_bookmark_list_sort_unknown_key_error() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "list", "--sort", "date"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "list", "--sort", "date"]), @"
     ------- stderr -------
     error: invalid value 'date' for '--sort <SORT_KEY>'
       [possible values: name, name-, author-name, author-name-, author-email, author-email-, author-date, author-date-, committer-name, committer-name-, committer-email, committer-email-, committer-date, committer-date-]
@@ -2598,7 +2598,7 @@ fn test_bookmark_list_sort_multiple_keys() {
 
     let template =
         r#"name ++ ": " ++ if(normal_target, normal_target.committer().email()) ++ "\n""#;
-    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "list", "-T", template, "--sort", "committer-email,committer-date-"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bookmark", "list", "-T", template, "--sort", "committer-email,committer-date-"]), @"
     b: alice@g.c
     a: bob@g.c
     c: bob@g.c
@@ -2631,7 +2631,7 @@ fn test_bookmark_list_sort_using_config() {
         "list",
         "-T",
         template
-    ]), @r"
+    ]), @"
     b: alice@g.c
     a: bob@g.c
     c: bob@g.c
@@ -2665,7 +2665,7 @@ fn test_bookmark_list_sort_overriding_config() {
         "--sort=name-", // overriding config.
         "-T",
         template
-    ]), @r"
+    ]), @"
     c: bob@g.c
     b: alice@g.c
     a: bob@g.c
@@ -2713,7 +2713,7 @@ fn test_create_and_set_auto_track_bookmarks() {
         "mine/create",
         "not-mine/create",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     mine/create: rlvkpnrz 7eb1c95e (empty) (no description set)
       @fork (not created yet)
       @origin (not created yet)
@@ -2728,7 +2728,7 @@ fn test_create_and_set_auto_track_bookmarks() {
         .run_jj(["bookmark", "set", "mine/set", "not-mine/set"])
         .success();
     let output = repo_dir.run_jj(["bookmark", "list", "--all", "mine/set", "not-mine/set"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     mine/set: yqosqzyt 5fbe2b20 (empty) (no description set)
       @fork (not created yet)
       @origin (not created yet)
@@ -2744,7 +2744,7 @@ fn test_create_and_set_auto_track_bookmarks() {
         .run_jj(["bookmark", "forget", "mine/create", "mine/set"])
         .success();
     let output = repo_dir.run_jj(["bookmark", "create", "mine/create"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Warning: Auto-tracking bookmark that exists on the remote: mine/create@origin
@@ -2752,7 +2752,7 @@ fn test_create_and_set_auto_track_bookmarks() {
     [EOF]
     ");
     let output = repo_dir.run_jj(["bookmark", "set", "mine/set"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Warning: Auto-tracking bookmark that exists on the remote: mine/set@origin
@@ -2793,7 +2793,7 @@ fn test_create_and_set_auto_track_created_bookmarks() {
         ])
         .success();
     let output = repo_dir.run_jj(["bookmark", "list", "--all", "*/create"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     also-mine/create: rlvkpnrz 7eb1c95e (empty) (no description set)
       @origin (not created yet)
     mine/create: rlvkpnrz 7eb1c95e (empty) (no description set)
@@ -2813,7 +2813,7 @@ fn test_create_and_set_auto_track_created_bookmarks() {
         ])
         .success();
     let output = repo_dir.run_jj(["bookmark", "list", "--all", "*/set"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     also-mine/set: royxmykx 5fd666db (empty) (no description set)
       @origin (not created yet)
     mine/set: royxmykx 5fd666db (empty) (no description set)
@@ -2839,7 +2839,7 @@ fn test_bad_auto_track_bookmarks() {
         "a",
         "--config=remotes.origin.auto-track-bookmarks=''",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Config error: Invalid `remotes.origin.auto-track-bookmarks`: Syntax error
     Caused by:  --> 1:1
@@ -2860,7 +2860,7 @@ fn test_bad_auto_track_bookmarks() {
         "a",
         "--config=remotes.origin.auto-track-bookmarks='foo &'",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Config error: Invalid `remotes.origin.auto-track-bookmarks`: Syntax error
     Caused by:  --> 1:6
@@ -2881,7 +2881,7 @@ fn test_bad_auto_track_bookmarks() {
         "a",
         "--config=remotes.origin.auto-track-bookmarks=[{}]",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Config error: Invalid type or value for remotes.origin
     Caused by: invalid type: sequence, expected a string

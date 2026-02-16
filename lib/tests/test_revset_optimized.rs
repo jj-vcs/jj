@@ -194,7 +194,7 @@ fn test_mostly_linear() {
 
     // Commit ids for reference
     insta::assert_snapshot!(
-        commits.iter().map(|c| format!("{:<2} {}\n", c.description(), c.id())).join(""), @r"
+        commits.iter().map(|c| format!("{:<2} {}\n", c.description(), c.id())).join(""), @"
        00000000000000000000
     1  78f823b31f2c4a77030b
     2  1ba216c17ef680561823
@@ -248,7 +248,7 @@ fn test_weird_merges() {
 
     // Commit ids for reference
     insta::assert_snapshot!(
-        commits.iter().map(|c| format!("{:<2} {}\n", c.description(), c.id())).join(""), @r"
+        commits.iter().map(|c| format!("{:<2} {}\n", c.description(), c.id())).join(""), @"
        00000000000000000000
     1  78f823b31f2c4a77030b
     2  1ba216c17ef680561823
@@ -324,7 +324,7 @@ fn test_feature_branches() {
 
     // Commit ids for reference
     insta::assert_snapshot!(
-        commits.iter().map(|c| format!("{:<2} {}\n", c.description(), c.id())).join(""), @r"
+        commits.iter().map(|c| format!("{:<2} {}\n", c.description(), c.id())).join(""), @"
        00000000000000000000
     1  78f823b31f2c4a77030b
     2  6323cf55a45bcc85315d
@@ -393,7 +393,7 @@ fn test_rewritten() {
 
     // Commit ids for reference
     insta::assert_snapshot!(
-        commits.iter().map(|c| format!("{:<2} {}\n", c.description(), c.id())).join(""), @r"
+        commits.iter().map(|c| format!("{:<2} {}\n", c.description(), c.id())).join(""), @"
        00000000000000000000
     1  78f823b31f2c4a77030b
     2  1ba216c17ef680561823

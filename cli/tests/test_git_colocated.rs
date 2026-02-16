@@ -48,7 +48,7 @@ fn test_git_colocated() {
     work_dir
         .run_jj(["git", "init", "--git-repo", "."])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  524826059adc6f74de30f6be8f8eb86715d75b62
     ○  97358f54806c7cd005ed5ade68a779595efbae7e master initial
     ◆  0000000000000000000000000000000000000000
@@ -58,7 +58,7 @@ fn test_git_colocated() {
         git_repo.head_id().unwrap().to_string(),
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: 97358f54806c7cd005ed5ade68a779595efbae7e
     [EOF]
@@ -67,7 +67,7 @@ fn test_git_colocated() {
     // Modify the working copy. The working-copy commit should changed, but the Git
     // HEAD commit should not
     work_dir.write_file("file", "modified");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  9dfe8c7005c8dff6078ecdfd953c6bfddc633c90
     ○  97358f54806c7cd005ed5ade68a779595efbae7e master initial
     ◆  0000000000000000000000000000000000000000
@@ -77,7 +77,7 @@ fn test_git_colocated() {
         git_repo.head_id().unwrap().to_string(),
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: 97358f54806c7cd005ed5ade68a779595efbae7e
     [EOF]
@@ -85,7 +85,7 @@ fn test_git_colocated() {
 
     // Create a new change from jj and check that it's reflected in Git
     work_dir.run_jj(["new"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  4ddddef596e9d68f729f1be9e1b2cdaaf45bef08
     ○  9dfe8c7005c8dff6078ecdfd953c6bfddc633c90
     ○  97358f54806c7cd005ed5ade68a779595efbae7e master initial
@@ -97,7 +97,7 @@ fn test_git_colocated() {
         git_repo.head_id().unwrap().to_string(),
         @"9dfe8c7005c8dff6078ecdfd953c6bfddc633c90"
     );
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: 9dfe8c7005c8dff6078ecdfd953c6bfddc633c90
     [EOF]
@@ -126,7 +126,7 @@ fn test_git_colocated_intent_to_add() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file2.txt", "contents");
     work_dir.run_jj(["status"]).success();
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
     Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 file2.txt
     ");
@@ -137,7 +137,7 @@ fn test_git_colocated_intent_to_add() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file2.txt", "contents");
     work_dir.run_jj(["status"]).success();
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
     Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file2.txt
     ");
@@ -145,7 +145,7 @@ fn test_git_colocated_intent_to_add() {
     // If we edit an existing commit, new files are marked as intent-to-add
     work_dir.run_jj(["edit", "@-"]).success();
     work_dir.run_jj(["status"]).success();
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
     Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 file2.txt
     ");
@@ -161,7 +161,7 @@ fn test_git_colocated_intent_to_add() {
         .success();
     work_dir.write_file(".gitignore", "file2.txt");
     work_dir.run_jj(["file", "untrack", "file2.txt"]).success();
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 .gitignore
     Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
     ");
@@ -205,12 +205,12 @@ fn test_git_colocated_unborn_bookmark() {
         git_repo.head_name().unwrap().unwrap().as_bstr(),
         b"refs/heads/master"
     );
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
@@ -219,7 +219,7 @@ fn test_git_colocated_unborn_bookmark() {
     // Stage some change, and check out root. This shouldn't clobber the HEAD.
     add_file_to_index("file0", "");
     let output = work_dir.run_jj(["new", "root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: zsuskuln c2934cfb (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -231,21 +231,21 @@ fn test_git_colocated_unborn_bookmark() {
         git_repo.head_name().unwrap().unwrap().as_bstr(),
         b"refs/heads/master"
     );
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  c2934cfbfb196d2c473959667beffcc19e71e5e8
     │ ○  e6669bb3438ef218fa618e1047a1911d2b3410dd
     ├─╯
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ");
     // Staged change shouldn't persist.
     checkout_index();
-    insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["status"]), @"
     The working copy has no changes.
     Working copy  (@) : zsuskuln c2934cfb (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
@@ -256,7 +256,7 @@ fn test_git_colocated_unborn_bookmark() {
     // bookmark.
     add_file_to_index("file1", "");
     let output = work_dir.run_jj(["new"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 2d7a8abb (empty) (no description set)
     Parent commit (@-)      : zsuskuln ff536684 (no description set)
@@ -267,7 +267,7 @@ fn test_git_colocated_unborn_bookmark() {
         git_repo.head_id().unwrap().to_string(),
         @"ff5366846b039b25c6c4998fa74dca821c246243"
     );
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  2d7a8abb601ebf559df4037279e9f2e851a75e63
     ○  ff5366846b039b25c6c4998fa74dca821c246243
     │ ○  e6669bb3438ef218fa618e1047a1911d2b3410dd
@@ -275,14 +275,14 @@ fn test_git_colocated_unborn_bookmark() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: ff5366846b039b25c6c4998fa74dca821c246243
     [EOF]
     ");
     // Staged change shouldn't persist.
     checkout_index();
-    insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["status"]), @"
     The working copy has no changes.
     Working copy  (@) : vruxwmqv 2d7a8abb (empty) (no description set)
     Parent commit (@-): zsuskuln ff536684 (no description set)
@@ -298,7 +298,7 @@ fn test_git_colocated_unborn_bookmark() {
     // https://github.com/jj-vcs/jj/issues/1495
     add_file_to_index("file2", "");
     let output = work_dir.run_jj(["new", "root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: wqnwkozp 88e8407a (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -306,7 +306,7 @@ fn test_git_colocated_unborn_bookmark() {
     [EOF]
     ");
     assert!(git_repo.head().unwrap().is_unborn());
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  88e8407a4f0a5e6f40a7c6c494106764adc00fed
     │ ○  2dd7385602e703388fd266b939bba6f57a1439d3
     │ ○  ff5366846b039b25c6c4998fa74dca821c246243 master
@@ -316,14 +316,14 @@ fn test_git_colocated_unborn_bookmark() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ");
     // Staged change shouldn't persist.
     checkout_index();
-    insta::assert_snapshot!(work_dir.run_jj(["status"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["status"]), @"
     The working copy has no changes.
     Working copy  (@) : wqnwkozp 88e8407a (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
@@ -333,13 +333,13 @@ fn test_git_colocated_unborn_bookmark() {
     // New snapshot and commit can be created after the HEAD got unset.
     work_dir.write_file("file3", "");
     let output = work_dir.run_jj(["new"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: uyznsvlq 2fb16499 (empty) (no description set)
     Parent commit (@-)      : wqnwkozp bb21bc2d (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  2fb16499a987e632407402e38976ed250c939c42
     ○  bb21bc2dce2af92973fdd6d42686d77bd16bc466
     │ ○  2dd7385602e703388fd266b939bba6f57a1439d3
@@ -350,7 +350,7 @@ fn test_git_colocated_unborn_bookmark() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: bb21bc2dce2af92973fdd6d42686d77bd16bc466
     [EOF]
@@ -374,7 +374,7 @@ fn test_git_colocated_export_bookmarks_on_snapshot() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "foo"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  82a10a4d9ef783fd68b661f40ce10dd80d599d9e foo
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -383,7 +383,7 @@ fn test_git_colocated_export_bookmarks_on_snapshot() {
     // The bookmark gets updated when we modify the working copy, and it should get
     // exported to Git without requiring any other changes
     work_dir.write_file("file", "modified");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  00fc09f48ccf5c8b025a0f93b0ec3b0e4294a598 foo
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -435,7 +435,7 @@ fn test_git_colocated_rebase_on_import() {
             "update ref",
         )
         .unwrap();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  d46583362b91d0e172aec469ea1689995540de81
     ○  cbd6c887108743a4abb0919305646a6a914a665e master add a file
     ◆  0000000000000000000000000000000000000000
@@ -461,7 +461,7 @@ fn test_git_colocated_bookmarks() {
         .success();
     work_dir.run_jj(["new", "-m", "foo"]).success();
     work_dir.run_jj(["new", "@-", "-m", "bar"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  95e79774f8e7c785fc36da2b798ecfe0dc864e02 bar
     │ ○  b51ab2e2c88fe2d38bd7ca6946c4d87f281ce7e2 foo
     ├─╯
@@ -499,7 +499,7 @@ fn test_git_colocated_bookmarks() {
             "test",
         )
         .unwrap();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  507c0edcfc028f714f3c7a3027cb141f6610e867
     │ ○  b51ab2e2c88fe2d38bd7ca6946c4d87f281ce7e2 master foo
     ├─╯
@@ -527,20 +527,20 @@ fn test_git_colocated_bookmark_forget() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "foo"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  43444d88b0096888ebfd664c0cf792c9d15e3f14 foo
     ○  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
     foo: rlvkpnrz 43444d88 (empty) (no description set)
       @git: rlvkpnrz 43444d88 (empty) (no description set)
     [EOF]
     ");
 
     let output = work_dir.run_jj(["bookmark", "forget", "--include-remotes", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
@@ -561,7 +561,7 @@ fn test_git_colocated_bookmark_at_root() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["bookmark", "create", "foo", "-r=root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Created 1 bookmarks pointing to zzzzzzzz 00000000 foo | (empty) (no description set)
@@ -571,7 +571,7 @@ fn test_git_colocated_bookmark_at_root() {
     ");
 
     let output = work_dir.run_jj(["bookmark", "move", "foo", "--to=@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Moved 1 bookmarks to qpvuntsm e8849ae1 foo | (empty) (no description set)
@@ -585,7 +585,7 @@ fn test_git_colocated_bookmark_at_root() {
         "--allow-backwards",
         "--to=root()",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Target revision is empty.
     Moved 1 bookmarks to zzzzzzzz 00000000 foo* | (empty) (no description set)
@@ -654,7 +654,7 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     work_dir.run_jj(["describe", "-m", "two"]).success();
     work_dir.run_jj(["new", "@-"]).success();
     let output = work_dir.run_jj(["describe", "-m", "new"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 986aa548 (empty) new
     Parent commit (@-)      : slsumksp 97358f54 master | initial
@@ -666,7 +666,7 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
         b"refs/heads/master"
     );
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  986aa548466ed43b48c059854720e70d8ec2bf71 new
     │ ○  6b0f7d59e0749d3a6ff2ecf686d5fa48023b7b93 two
     ├─╯
@@ -674,7 +674,7 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: 97358f54806c7cd005ed5ade68a779595efbae7e
     [EOF]
@@ -705,7 +705,7 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
     git::clone(clone_dir.root(), origin_dir.root().to_str().unwrap(), None);
     clone_dir.run_jj(["git", "init", "--git-repo=."]).success();
     clone_dir.run_jj(["new", "A"]).success();
-    insta::assert_snapshot!(get_log_output(&clone_dir), @r"
+    insta::assert_snapshot!(get_log_output(&clone_dir), @"
     @  0060713e4c7c46c4ce0d69a43ac16451582eda79
     │ ○  dd905babf5b4ad4689f2da1350fd4f0ac5568209 C_to_move original C
     ├─╯
@@ -724,7 +724,7 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
         .run_jj(["describe", "C_to_move", "-m", "moved C"])
         .success();
     let output = clone_dir.run_jj(["git", "fetch"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     bookmark: B_to_delete@origin [deleted] untracked
     bookmark: C_to_move@origin   [updated] tracked
@@ -735,7 +735,7 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
     ");
     // "original C" and "B_to_delete" are abandoned, as the corresponding bookmarks
     // were deleted or moved on the remote (#864)
-    insta::assert_snapshot!(get_log_output(&clone_dir), @r"
+    insta::assert_snapshot!(get_log_output(&clone_dir), @"
     @  0060713e4c7c46c4ce0d69a43ac16451582eda79
     │ ○  fb297975e4ef98dc057f65b761aed2cdb0386598 C_to_move moved C
     ├─╯
@@ -770,7 +770,7 @@ fn test_git_colocated_rebase_dirty_working_copy() {
     // Because the working copy is dirty, the new working-copy commit will be
     // diverged. Therefore, the feature bookmark has change-delete conflict.
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Working copy changes:
     M file
     Working copy  (@) : rlvkpnrz e23559e3 feature?? | (no description set)
@@ -785,7 +785,7 @@ fn test_git_colocated_rebase_dirty_working_copy() {
     Done importing changes from the underlying Git repo.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  e23559e3bc6f22a5562297696fc357e2c581df77 feature??
     ○  f99015d7d9b82a5912ec4d96a18d2a4afbd8dd49
     ◆  0000000000000000000000000000000000000000
@@ -820,7 +820,7 @@ fn test_git_colocated_external_checkout() {
     work_dir.run_jj(["new"]).success();
 
     // Checked out anonymous bookmark
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  6f8612f0e7f6d52efd8a72615796df06f8d64cdc
     ○  319eaafc8fd04c763a0683a000bba5452082feb3 B
     │ ○  8777db25171cace71ad014598663d5ffc4fae6b1 master A
@@ -834,7 +834,7 @@ fn test_git_colocated_external_checkout() {
 
     // The old working-copy commit gets abandoned, but the whole bookmark should not
     // be abandoned. (#1042)
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  7ceeaaae54c8ac99ad34eeed7fe1e896f535be99
     ○  8777db25171cace71ad014598663d5ffc4fae6b1 master A
     │ ○  319eaafc8fd04c763a0683a000bba5452082feb3 B
@@ -849,7 +849,7 @@ fn test_git_colocated_external_checkout() {
     // Edit non-head commit
     work_dir.run_jj(["new", "subject(B)"]).success();
     work_dir.run_jj(["new", "-m=C", "--no-edit"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     ○  823204bc895aad19d46b895bc510fb3e9d0c97c7 C
     @  c6abf242550b7c4116d3821b69c79326889aeba0
     ○  319eaafc8fd04c763a0683a000bba5452082feb3 B
@@ -863,7 +863,7 @@ fn test_git_colocated_external_checkout() {
     git_check_out_ref("refs/heads/master");
 
     // The old working-copy commit shouldn't be abandoned. (#3747)
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  277b693c61dcdea59ac26d6982370f78751f6ef5
     ○  8777db25171cace71ad014598663d5ffc4fae6b1 master A
     │ ○  823204bc895aad19d46b895bc510fb3e9d0c97c7 C
@@ -908,7 +908,7 @@ fn test_git_colocated_concurrent_checkout() {
     "#);
 
     // git_head() isn't updated because the export failed
-    insta::assert_snapshot!(work_dir.run_jj(["log", "--summary", "--ignore-working-copy"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "--summary", "--ignore-working-copy"]), @"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:11 cf0ddbb4
     │  (empty) (no description set)
     ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b6786455
@@ -926,7 +926,7 @@ fn test_git_colocated_concurrent_checkout() {
     ");
 
     // The current Git HEAD is imported on the next jj invocation
-    insta::assert_snapshot!(work_dir.run_jj(["log", "--summary"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "--summary"]), @"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:13 9529e8f5
     │  (empty) (no description set)
     │ ○  zsuskuln test.user@example.com 2001-02-03 08:05:11 b6786455
@@ -955,7 +955,7 @@ fn test_git_colocated_squash_undo() {
     work_dir.run_jj(["git", "init", "--git-repo=."]).success();
     work_dir.run_jj(["ci", "-m=A"]).success();
     // Test the setup
-    insta::assert_snapshot!(get_log_output_divergence(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output_divergence(&work_dir), @"
     @  rlvkpnrzqnoo 682c866b0a2f
     ○  qpvuntsmwlqt 8777db25171c A
     ◆  zzzzzzzzzzzz 000000000000
@@ -963,7 +963,7 @@ fn test_git_colocated_squash_undo() {
     ");
 
     work_dir.run_jj(["squash"]).success();
-    insta::assert_snapshot!(get_log_output_divergence(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output_divergence(&work_dir), @"
     @  zsuskulnrvyr e1c3034f23b9
     ○  qpvuntsmwlqt ba304e200f4f A
     ◆  zzzzzzzzzzzz 000000000000
@@ -971,7 +971,7 @@ fn test_git_colocated_squash_undo() {
     ");
     work_dir.run_jj(["undo"]).success();
     // There should be no divergence here (#922)
-    insta::assert_snapshot!(get_log_output_divergence(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output_divergence(&work_dir), @"
     @  rlvkpnrzqnoo 682c866b0a2f
     ○  qpvuntsmwlqt 8777db25171c A
     ◆  zzzzzzzzzzzz 000000000000
@@ -992,13 +992,13 @@ fn test_git_colocated_undo_head_move() {
     insta::assert_snapshot!(
         git_repo.head_id().unwrap().to_string(),
         @"e8849ae12c709f2321908879bc724fdb2ab8a781");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  43444d88b0096888ebfd664c0cf792c9d15e3f14
     ○  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
@@ -1007,12 +1007,12 @@ fn test_git_colocated_undo_head_move() {
     // HEAD should be unset
     work_dir.run_jj(["undo"]).success();
     assert!(git_repo.head().unwrap().is_unborn());
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
@@ -1021,14 +1021,14 @@ fn test_git_colocated_undo_head_move() {
     // Create commit on non-root commit
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["new"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  5e37f1b8313299eb1b62221eefcf32881b0dc4c6
     ○  23e6e06a7471634da3567ef975fadf883082658f
     ○  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: 23e6e06a7471634da3567ef975fadf883082658f
     [EOF]
@@ -1052,13 +1052,13 @@ fn test_git_colocated_undo_head_move() {
     insta::assert_snapshot!(
         git_repo.head_id().unwrap().to_string(),
         @"e8849ae12c709f2321908879bc724fdb2ab8a781");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  23e6e06a7471634da3567ef975fadf883082658f
     ○  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
@@ -1091,7 +1091,7 @@ fn test_git_colocated_update_index_preserves_timestamps() {
         .success();
     work_dir.run_jj(["new"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  a1886a45815f0dcca5cefcc334d11ffb908a1eb8
     ○  8b0c962ef1fea901fb16f8a484e692a1f0dcbc59 commit2
     ○  d37eac5eea00fa74a41c1512839711f42aca2c35 commit1
@@ -1099,7 +1099,7 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) ed48318d9bf4 ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
     Unconflicted Mode(FILE) 2e0996000b7e ctime=0:0 mtime=0:0 size=0 flags=0 file2.txt
     Unconflicted Mode(FILE) d5f7fc3f74f7 ctime=0:0 mtime=0:0 size=0 flags=0 file4.txt
@@ -1110,7 +1110,7 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     // now, we at least want to preserve existing stat information when possible.
     update_git_index(work_dir.root());
 
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) ed48318d9bf4 ctime=[nonzero] mtime=[nonzero] size=18 flags=0 file1.txt
     Unconflicted Mode(FILE) 2e0996000b7e ctime=[nonzero] mtime=[nonzero] size=9 flags=0 file2.txt
     Unconflicted Mode(FILE) d5f7fc3f74f7 ctime=[nonzero] mtime=[nonzero] size=6 flags=0 file4.txt
@@ -1120,7 +1120,7 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     // touching the working copy
     work_dir.run_jj(["edit", "commit2"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  8b0c962ef1fea901fb16f8a484e692a1f0dcbc59 commit2
     ○  d37eac5eea00fa74a41c1512839711f42aca2c35 commit1
     ◆  0000000000000000000000000000000000000000
@@ -1128,7 +1128,7 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     ");
 
     // Index should contain stat for unchanged file still.
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) ed48318d9bf4 ctime=[nonzero] mtime=[nonzero] size=18 flags=0 file1.txt
     Unconflicted Mode(FILE) 28d2718c947b ctime=0:0 mtime=0:0 size=0 flags=0 file2.txt
     Unconflicted Mode(FILE) 528557ab3a42 ctime=0:0 mtime=0:0 size=0 flags=0 file3.txt
@@ -1138,7 +1138,7 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     // Create sibling commit, causing working copy to match index
     work_dir.run_jj(["new", "commit1"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  d9c7f1932e1135856d5905f1a0fc194ce2657065
     │ ○  8b0c962ef1fea901fb16f8a484e692a1f0dcbc59 commit2
     ├─╯
@@ -1148,7 +1148,7 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     ");
 
     // Index should contain stat for unchanged file still.
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) ed48318d9bf4 ctime=[nonzero] mtime=[nonzero] size=18 flags=0 file1.txt
     Unconflicted Mode(FILE) 28d2718c947b ctime=0:0 mtime=0:0 size=0 flags=0 file2.txt
     Unconflicted Mode(FILE) 528557ab3a42 ctime=0:0 mtime=0:0 size=0 flags=0 file3.txt
@@ -1184,7 +1184,7 @@ fn test_git_colocated_update_index_merge_conflict() {
         .run_jj(["bookmark", "create", "-r@", "right"])
         .success();
 
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
     Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 right.txt
@@ -1193,7 +1193,7 @@ fn test_git_colocated_update_index_merge_conflict() {
     // Update index with stat for base.txt
     update_git_index(work_dir.root());
 
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
     Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 right.txt
@@ -1202,7 +1202,7 @@ fn test_git_colocated_update_index_merge_conflict() {
     // Create merge conflict
     work_dir.run_jj(["new", "left", "right"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    3b7a70e06827787d9b89cb2943eb56c1fc01b199
     ├─╮
     │ ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
@@ -1215,7 +1215,7 @@ fn test_git_colocated_update_index_merge_conflict() {
 
     // Conflict should be added in index with correct blob IDs. The stat for
     // base.txt should not change.
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Base         Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=1000 conflict.txt
     Ours         Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 flags=2000 conflict.txt
@@ -1226,7 +1226,7 @@ fn test_git_colocated_update_index_merge_conflict() {
 
     work_dir.run_jj(["new"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  0e393df829aba628f38c7cea10ed084c01c4f8dc
     ×    3b7a70e06827787d9b89cb2943eb56c1fc01b199
     ├─╮
@@ -1239,7 +1239,7 @@ fn test_git_colocated_update_index_merge_conflict() {
     ");
 
     // Index should be the same after `jj new`.
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Base         Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=1000 conflict.txt
     Ours         Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 flags=2000 conflict.txt
@@ -1280,7 +1280,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
 
     work_dir.run_jj(["edit", "left"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  d0f55ffafa1e0e72980202c349af23d093f825be left
     │ ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
     ├─╯
@@ -1289,7 +1289,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
     Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 left.txt
@@ -1298,7 +1298,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
     // Update index with stat for base.txt
     update_git_index(work_dir.root());
 
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
     Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 left.txt
@@ -1309,7 +1309,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
         .run_jj(["rebase", "-r", "left", "-o", "right"])
         .success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  4f7465da96352c91b5ef51c7b6339cfac762ddd4 left
     ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
     ○  1861378a9167e6561bf8ce4a6fef2d7c0897dd87 base
@@ -1319,7 +1319,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
 
     // Index should contain files from parent commit, so there should be no conflict
     // in conflict.txt yet. The stat for base.txt should not change.
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
     Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 left.txt
@@ -1328,7 +1328,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
 
     work_dir.run_jj(["new"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  e4522a78bd213fdb32fdc85b3ba270efeaba058b
     ×  4f7465da96352c91b5ef51c7b6339cfac762ddd4 left
     ○  620e15db9fcd05fff912c52d2cafd36c9e01523c right
@@ -1339,7 +1339,7 @@ fn test_git_colocated_update_index_rebase_conflict() {
 
     // Now the working copy commit's parent is conflicted, so the index should have
     // a conflict with correct blob IDs.
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Base         Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=1000 conflict.txt
     Ours         Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 flags=2000 conflict.txt
@@ -1385,7 +1385,7 @@ fn test_git_colocated_update_index_3_sided_conflict() {
         .run_jj(["bookmark", "create", "-r@", "side-3"])
         .success();
 
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
     Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 side-3.txt
@@ -1394,7 +1394,7 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     // Update index with stat for base.txt
     update_git_index(work_dir.root());
 
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Unconflicted Mode(FILE) df967b96a579 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
     Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 side-3.txt
@@ -1405,7 +1405,7 @@ fn test_git_colocated_update_index_3_sided_conflict() {
         .run_jj(["new", "side-1", "side-2", "side-3"])
         .success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @      2d396332267d4158d0554a636343498ad74b1555
     ├─┬─╮
     │ │ ○  5008c8807feaa955d02e96cb1b0dcf51536fefb8 side-3
@@ -1420,7 +1420,7 @@ fn test_git_colocated_update_index_3_sided_conflict() {
 
     // We can't add conflicts with more than 2 sides to the index, so we add a dummy
     // conflict instead. The stat for base.txt should not change.
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Ours         Mode(FILE) eb8299123d2a ctime=0:0 mtime=0:0 size=0 flags=2000 .jj-do-not-resolve-this-conflict
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
@@ -1431,7 +1431,7 @@ fn test_git_colocated_update_index_3_sided_conflict() {
 
     work_dir.run_jj(["new"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  05c0d46f4f8e6fee4b1ee268242bc11a71745739
     ×      2d396332267d4158d0554a636343498ad74b1555
     ├─┬─╮
@@ -1446,7 +1446,7 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     ");
 
     // Index should be the same after `jj new`.
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Ours         Mode(FILE) eb8299123d2a ctime=0:0 mtime=0:0 size=0 flags=2000 .jj-do-not-resolve-this-conflict
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
@@ -1459,7 +1459,7 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     // precedence over the dummy conflict.
     work_dir.write_file(".jj-do-not-resolve-this-conflict", "file\n");
     work_dir.run_jj(["new"]).success();
-    insta::assert_snapshot!(get_index_state(work_dir.root()), @r"
+    insta::assert_snapshot!(get_index_state(work_dir.root()), @"
     Unconflicted Mode(FILE) f73f3093ff86 ctime=0:0 mtime=0:0 size=0 flags=0 .jj-do-not-resolve-this-conflict
     Unconflicted Mode(FILE) df967b96a579 ctime=[nonzero] mtime=[nonzero] size=5 flags=0 base.txt
     Unconflicted Mode(FILE) dd8f930010b3 ctime=0:0 mtime=0:0 size=0 flags=0 conflict.txt
@@ -1591,7 +1591,7 @@ fn test_git_colocated_unreachable_commits() {
     work_dir
         .run_jj(["git", "init", "--git-repo", "."])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  f3677b3e3b95a34e7017655ab612e1d11b59c713
     ○  cd740e230992f334de13a0bd0b35709b3f7a89af master initial
     ◆  0000000000000000000000000000000000000000
@@ -1604,7 +1604,7 @@ fn test_git_colocated_unreachable_commits() {
 
     // Check that trying to look up the second commit fails gracefully
     let output = work_dir.run_jj(["show", &commit2.to_string()]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Revision `b23bb53bdce25f0e03ff9e484eadb77626256041` doesn't exist
     [EOF]
@@ -1643,7 +1643,7 @@ fn test_git_colocated_operation_cleanup() {
         .success();
     work_dir.run_jj(["new"]).success();
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  40638ce20b8b74e94460e95709cb077f4307ad7c
     ○  a50e55141dcd5f8f8d549acd2232ce4839eaa798 feature 3
     │ ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main 2
@@ -1670,7 +1670,7 @@ fn test_git_colocated_operation_cleanup() {
         .unwrap();
     assert!(output.status.success());
     insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @"UU file");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  588c505e689d116180684778b29c540fe7180268
     ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main 2
     │ ○  a50e55141dcd5f8f8d549acd2232ce4839eaa798 feature 3
@@ -1685,14 +1685,14 @@ fn test_git_colocated_operation_cleanup() {
 
     // Reset the Git HEAD with Jujutsu.
     let output = work_dir.run_jj(["new", "main"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw aa14563c (empty) (no description set)
     Parent commit (@-)      : kkmpptxz cf3bb116 main | 2
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  aa14563cf5d892238f1e60260c5c284627d76e7c
     │ ○  588c505e689d116180684778b29c540fe7180268
     ├─╯
@@ -1703,7 +1703,7 @@ fn test_git_colocated_operation_cleanup() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: cf3bb116ded416d9b202e71303f260e504c2eeb9
     [EOF]

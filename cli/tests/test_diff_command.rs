@@ -38,7 +38,7 @@ fn test_diff_basic() {
     work_dir.write_file("file4", "1\n2\n3\n4\n");
 
     let output = work_dir.run_jj(["diff"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified regular file file2:
        1    1: 1
        2    2: 25
@@ -50,7 +50,7 @@ fn test_diff_basic() {
     ");
 
     let output = work_dir.run_jj(["diff", "--context=0"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified regular file file2:
        1    1: 1
        2    2: 25
@@ -62,7 +62,7 @@ fn test_diff_basic() {
     ");
 
     let output = work_dir.run_jj(["diff", "--color=debug"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [38;5;3m<<diff header::Modified regular file file2:>>[39m
     [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: 1>>
     [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: >>[4m[38;5;1m<<diff removed token::2>>[38;5;2m<<diff added token::5>>[24m[39m<<diff::>>
@@ -74,7 +74,7 @@ fn test_diff_basic() {
     ");
 
     let output = work_dir.run_jj(["diff", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     M file2
     R {file1 => file3}
     C {file2 => file4}
@@ -82,7 +82,7 @@ fn test_diff_basic() {
     ");
 
     let output = work_dir.run_jj(["diff", "--types"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     FF file2
     FF {file1 => file3}
     FF {file2 => file4}
@@ -90,7 +90,7 @@ fn test_diff_basic() {
     ");
 
     let output = work_dir.run_jj(["diff", "--types", "glob:file[12]"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     F- file1
     FF file2
     [EOF]
@@ -98,7 +98,7 @@ fn test_diff_basic() {
 
     let template = r#"source.path() ++ ' => ' ++ target.path() ++ ' (' ++ status ++ ")\n""#;
     let output = work_dir.run_jj(["diff", "-T", template]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file2 => file2 (modified)
     file1 => file3 (renamed)
     file2 => file4 (copied)
@@ -106,7 +106,7 @@ fn test_diff_basic() {
     ");
 
     let output = work_dir.run_jj(["diff", "--git", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file1 b/file1
     deleted file mode 100644
     index 257cc5642c..0000000000
@@ -118,7 +118,7 @@ fn test_diff_basic() {
     ");
 
     let output = work_dir.run_jj(["diff", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file2 b/file2
     index 94ebaf9001..1ffc51b472 100644
     --- a/file2
@@ -139,7 +139,7 @@ fn test_diff_basic() {
     ");
 
     let output = work_dir.run_jj(["diff", "--git", "--context=0"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file2 b/file2
     index 94ebaf9001..1ffc51b472 100644
     --- a/file2
@@ -159,7 +159,7 @@ fn test_diff_basic() {
     ");
 
     let output = work_dir.run_jj(["diff", "--git", "--color=debug"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m<<diff file_header::diff --git a/file2 b/file2>>[0m
     [1m<<diff file_header::index 94ebaf9001..1ffc51b472 100644>>[0m
     [1m<<diff file_header::--- a/file2>>[0m
@@ -180,7 +180,7 @@ fn test_diff_basic() {
     ");
 
     let output = work_dir.run_jj(["diff", "-s", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     M file2
     R {file1 => file3}
     C {file2 => file4}
@@ -204,7 +204,7 @@ fn test_diff_basic() {
     ");
 
     let output = work_dir.run_jj(["diff", "--stat"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file2            | 3 +--
     {file1 => file3} | 0
     {file2 => file4} | 0
@@ -214,7 +214,7 @@ fn test_diff_basic() {
 
     // Reverse-order diff
     let output = work_dir.run_jj(["diff", "--to", "@-", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file3 b/file1
     rename from file3
     rename to file1
@@ -243,7 +243,7 @@ fn test_diff_basic() {
 
     // Filter by glob pattern
     let output = work_dir.run_jj(["diff", "-s", "glob:file[12]"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     D file1
     M file2
     [EOF]
@@ -262,7 +262,7 @@ fn test_diff_basic() {
             "repo/y/z",
         ],
     );
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     M repo/file2
     R repo/{file1 => file3}
     C repo/{file2 => file4}
@@ -278,7 +278,7 @@ fn test_diff_basic() {
 
     // --tool=:<builtin>
     let output = work_dir.run_jj(["diff", "--tool=:summary", "--color-words", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     M file2
     Modified regular file file2:
        1    1: 1
@@ -288,7 +288,7 @@ fn test_diff_basic() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--tool=:git", "--stat", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file2 | 3 +--
     1 file changed, 1 insertion(+), 2 deletions(-)
     diff --git a/file2 b/file2
@@ -306,21 +306,21 @@ fn test_diff_basic() {
 
     // Bad combination
     let output = work_dir.run_jj(["diff", "--summary", "--tool=:stat"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: --tool=:stat cannot be used with --summary
     [EOF]
     [exit status: 2]
     ");
     let output = work_dir.run_jj(["diff", "--git", "--tool=:git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: --tool=:git cannot be used with --git
     [EOF]
     [exit status: 2]
     ");
     let output = work_dir.run_jj(["diff", "--git", "--tool=external"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: --tool=external cannot be used with --git
     [EOF]
@@ -355,7 +355,7 @@ fn test_diff_basic() {
     [exit status: 2]
     ");
     let output = work_dir.run_jj(["diff", "-T''", "--tool=:git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the argument '--template <TEMPLATE>' cannot be used with '--tool <TOOL>'
 
@@ -368,7 +368,7 @@ fn test_diff_basic() {
 
     // Bad builtin format
     let output = work_dir.run_jj(["diff", "--config=ui.diff-formatter=:unknown"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Config error: Invalid type or value for ui.diff-formatter
     Caused by: Invalid builtin diff format: unknown
@@ -386,7 +386,7 @@ fn test_diff_empty() {
 
     work_dir.write_file("file1", "");
     let output = work_dir.run_jj(["diff"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Added regular file file1:
         (empty)
     [EOF]
@@ -395,14 +395,14 @@ fn test_diff_empty() {
     work_dir.run_jj(["new"]).success();
     work_dir.remove_file("file1");
     let output = work_dir.run_jj(["diff"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Removed regular file file1:
         (empty)
     [EOF]
     ");
 
     let output = work_dir.run_jj(["diff", "--stat"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1 | 0
     1 file changed, 0 insertions(+), 0 deletions(-)
     [EOF]
@@ -446,7 +446,7 @@ fn test_diff_file_mode() {
     work_dir.remove_file("file4");
 
     let output = work_dir.run_jj(["diff", "-r@--"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Added executable file file1:
         (empty)
     Added executable file file2:
@@ -458,7 +458,7 @@ fn test_diff_file_mode() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-r@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Executable file became non-executable at file1:
             1: 2
     Executable file became non-executable at file2:
@@ -468,7 +468,7 @@ fn test_diff_file_mode() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-r@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Removed regular file file1:
        1     : 2
     Removed regular file file2:
@@ -481,7 +481,7 @@ fn test_diff_file_mode() {
     ");
 
     let output = work_dir.run_jj(["diff", "-r@--", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file1 b/file1
     new file mode 100755
     index 0000000000..e69de29bb2
@@ -505,7 +505,7 @@ fn test_diff_file_mode() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-r@-", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file1 b/file1
     old mode 100755
     new mode 100644
@@ -532,7 +532,7 @@ fn test_diff_file_mode() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "-r@", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file1 b/file1
     deleted file mode 100644
     index 0cfbf08886..0000000000
@@ -614,26 +614,26 @@ fn test_diff_types() {
             &format!(r#"--to=subject("{to}")"#),
         ])
     };
-    insta::assert_snapshot!(diff("missing", "file"), @r"
+    insta::assert_snapshot!(diff("missing", "file"), @"
     -F foo
     [EOF]
     ");
-    insta::assert_snapshot!(diff("file", "conflict"), @r"
+    insta::assert_snapshot!(diff("file", "conflict"), @"
     FC foo
     [EOF]
     ");
-    insta::assert_snapshot!(diff("conflict", "missing"), @r"
+    insta::assert_snapshot!(diff("conflict", "missing"), @"
     C- foo
     [EOF]
     ");
 
     #[cfg(unix)]
     {
-        insta::assert_snapshot!(diff("symlink", "file"), @r"
+        insta::assert_snapshot!(diff("symlink", "file"), @"
         LF foo
         [EOF]
         ");
-        insta::assert_snapshot!(diff("missing", "executable"), @r"
+        insta::assert_snapshot!(diff("missing", "executable"), @"
         -F foo
         [EOF]
         ");
@@ -649,7 +649,7 @@ fn test_diff_name_only() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("deleted", "d");
     work_dir.write_file("modified", "m");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--name-only"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--name-only"]), @"
     deleted
     modified
     [EOF]
@@ -660,7 +660,7 @@ fn test_diff_name_only() {
     work_dir.write_file("added", "add");
     work_dir.create_dir("sub");
     work_dir.write_file("sub/added", "sub/add");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--name-only"]).normalize_backslash(), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--name-only"]).normalize_backslash(), @"
     added
     deleted
     modified
@@ -687,14 +687,14 @@ fn test_diff_renamed_file_and_dir() {
 
     // Renamed directory y->x shouldn't be reported
     let output = work_dir.run_jj(["diff", "--summary"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     R {y => x}/file
     R {x => y}
     [EOF]
     ");
 
     let output = work_dir.run_jj(["diff", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/y/file b/x/file
     rename from y/file
     rename to x/file
@@ -712,7 +712,7 @@ fn test_diff_bad_args() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["diff", "-s", "--types"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the argument '--summary' cannot be used with '--types'
 
@@ -724,7 +724,7 @@ fn test_diff_bad_args() {
     ");
 
     let output = work_dir.run_jj(["diff", "--color-words", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the argument '--color-words' cannot be used with '--git'
 
@@ -757,7 +757,7 @@ fn test_diff_relative_paths() {
     let sub_dir1 = work_dir.dir("dir1");
     let output = sub_dir1.run_jj(["diff"]);
     #[cfg(unix)]
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified regular file file2:
        1    1: foo2bar2
     Modified regular file subdir1/file3:
@@ -783,7 +783,7 @@ fn test_diff_relative_paths() {
 
     let output = sub_dir1.run_jj(["diff", "-s"]);
     #[cfg(unix)]
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     M file2
     M subdir1/file3
     M ../dir2/file4
@@ -801,7 +801,7 @@ fn test_diff_relative_paths() {
 
     let output = sub_dir1.run_jj(["diff", "--types"]);
     #[cfg(unix)]
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     FF file2
     FF subdir1/file3
     FF ../dir2/file4
@@ -818,7 +818,7 @@ fn test_diff_relative_paths() {
     ");
 
     let output = sub_dir1.run_jj(["diff", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/dir1/file2 b/dir1/file2
     index 54b060eee9..1fe912cdd8 100644
     --- a/dir1/file2
@@ -852,7 +852,7 @@ fn test_diff_relative_paths() {
 
     let output = sub_dir1.run_jj(["diff", "--stat"]);
     #[cfg(unix)]
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file2         | 2 +-
     subdir1/file3 | 2 +-
     ../dir2/file4 | 2 +-
@@ -888,7 +888,7 @@ fn test_diff_hunks() {
     work_dir.write_file("file3", "foo\nbar\nbaz quux blah blah\n");
 
     let output = work_dir.run_jj(["diff"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified regular file file1:
             1: foo
     Modified regular file file2:
@@ -901,7 +901,7 @@ fn test_diff_hunks() {
     ");
 
     let output = work_dir.run_jj(["diff", "--color=debug"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [38;5;3m<<diff header::Modified regular file file1:>>[39m
     <<diff::     >>[38;5;2m<<diff added line_number::   1>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::foo>>[24m[39m
     [38;5;3m<<diff header::Modified regular file file2:>>[39m
@@ -914,7 +914,7 @@ fn test_diff_hunks() {
     ");
 
     let output = work_dir.run_jj(["diff", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file1 b/file1
     index e69de29bb2..257cc5642c 100644
     --- a/file1
@@ -940,7 +940,7 @@ fn test_diff_hunks() {
     ");
 
     let output = work_dir.run_jj(["diff", "--git", "--color=debug"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m<<diff file_header::diff --git a/file1 b/file1>>[0m
     [1m<<diff file_header::index e69de29bb2..257cc5642c 100644>>[0m
     [1m<<diff file_header::--- a/file1>>[0m
@@ -1076,7 +1076,7 @@ fn test_diff_color_words_inlining_threshold() {
 
     // default
     let output = work_dir.run_jj(["diff"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified regular file file1-single-line:
        1    1: == adds ==
        2    2: a X b Y Z c
@@ -1123,7 +1123,7 @@ fn test_diff_color_words_inlining_threshold() {
     ");
 
     // -1: inline all
-    insta::assert_snapshot!(render_diff(-1, &[]), @r"
+    insta::assert_snapshot!(render_diff(-1, &[]), @"
     Modified regular file file1-single-line:
        1    1: == adds ==
        2    2: a X b Y Z c
@@ -1166,7 +1166,7 @@ fn test_diff_color_words_inlining_threshold() {
     ");
 
     // 0: no inlining
-    insta::assert_snapshot!(render_diff(0, &[]), @r"
+    insta::assert_snapshot!(render_diff(0, &[]), @"
     Modified regular file file1-single-line:
        1    1: == adds ==
        2     : a b c
@@ -1224,7 +1224,7 @@ fn test_diff_color_words_inlining_threshold() {
     ");
 
     // 1: inline adds-only or removes-only lines
-    insta::assert_snapshot!(render_diff(1, &[]), @r"
+    insta::assert_snapshot!(render_diff(1, &[]), @"
     Modified regular file file1-single-line:
        1    1: == adds ==
        2    2: a X b Y Z c
@@ -1278,7 +1278,7 @@ fn test_diff_color_words_inlining_threshold() {
     ");
 
     // 2: inline up to adds + removes lines
-    insta::assert_snapshot!(render_diff(2, &[]), @r"
+    insta::assert_snapshot!(render_diff(2, &[]), @"
     Modified regular file file1-single-line:
        1    1: == adds ==
        2    2: a X b Y Z c
@@ -1327,7 +1327,7 @@ fn test_diff_color_words_inlining_threshold() {
     ");
 
     // 3: inline up to adds + removes + adds lines
-    insta::assert_snapshot!(render_diff(3, &[]), @r"
+    insta::assert_snapshot!(render_diff(3, &[]), @"
     Modified regular file file1-single-line:
        1    1: == adds ==
        2    2: a X b Y Z c
@@ -1374,7 +1374,7 @@ fn test_diff_color_words_inlining_threshold() {
     ");
 
     // 4: inline up to adds + removes + adds + removes lines
-    insta::assert_snapshot!(render_diff(4, &[]), @r"
+    insta::assert_snapshot!(render_diff(4, &[]), @"
     Modified regular file file1-single-line:
        1    1: == adds ==
        2    2: a X b Y Z c
@@ -1417,7 +1417,7 @@ fn test_diff_color_words_inlining_threshold() {
     ");
 
     // context words in added/removed lines should be labeled as such
-    insta::assert_snapshot!(render_diff(2, &["--color=always"]), @r"
+    insta::assert_snapshot!(render_diff(2, &["--color=always"]), @"
     [38;5;3mModified regular file file1-single-line:[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: == adds ==
     [38;5;1m   2[39m [38;5;2m   2[39m: a [4m[38;5;2mX [24m[39mb [4m[38;5;2mY Z [24m[39mc
@@ -1464,7 +1464,7 @@ fn test_diff_color_words_inlining_threshold() {
          [38;5;2m  14[39m: [4m[38;5;2mZ[24m e[39m
     [EOF]
     ");
-    insta::assert_snapshot!(render_diff(2, &["--color=debug"]), @r"
+    insta::assert_snapshot!(render_diff(2, &["--color=debug"]), @"
     [38;5;3m<<diff header::Modified regular file file1-single-line:>>[39m
     [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: == adds ==>>
     [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: a >>[4m[38;5;2m<<diff added token::X >>[24m[39m<<diff::b >>[4m[38;5;2m<<diff added token::Y Z >>[24m[39m<<diff::c>>
@@ -1575,7 +1575,7 @@ fn test_diff_color_words_omit_blank_right_line() {
     );
 
     let output = work_dir.run_jj(["diff"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified regular file file1:
        1    1: a x
             2:  y
@@ -1607,7 +1607,7 @@ fn test_diff_missing_newline() {
     work_dir.write_file("file2", "foo");
 
     let output = work_dir.run_jj(["diff"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified regular file file1:
        1    1: foo
             2: bar
@@ -1643,7 +1643,7 @@ fn test_diff_missing_newline() {
     ");
 
     let output = work_dir.run_jj(["diff", "--stat"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1 | 3 ++-
     file2 | 3 +--
     2 files changed, 3 insertions(+), 3 deletions(-)
@@ -1693,7 +1693,7 @@ fn test_color_words_diff_missing_newline() {
         "--no-graph",
         "--reversed",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     === Empty
     Added regular file file1:
         (empty)
@@ -1769,7 +1769,7 @@ fn test_color_words_diff_missing_newline() {
         "--no-graph",
         "--reversed",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     === Empty
     Added regular file file1:
         (empty)
@@ -1883,7 +1883,7 @@ fn test_diff_ignore_whitespace() {
 
     // Git diff as reference output
     let output = work_dir.run_jj(["diff", "-r@-", "--git", "--ignore-all-space"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file1 b/file1
     index f532aa68ad..d33445991b 100644
     --- a/file1
@@ -1891,7 +1891,7 @@ fn test_diff_ignore_whitespace() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--from=@--", "--git", "--ignore-all-space"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file1 b/file1
     index f532aa68ad..033c4a6168 100644
     --- a/file1
@@ -1906,7 +1906,7 @@ fn test_diff_ignore_whitespace() {
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--from=@--", "--git", "--ignore-space-change"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file1 b/file1
     index f532aa68ad..033c4a6168 100644
     --- a/file1
@@ -1925,19 +1925,19 @@ fn test_diff_ignore_whitespace() {
 
     // Diff-stat should respects the whitespace options
     let output = work_dir.run_jj(["diff", "-r@-", "--stat", "--ignore-all-space"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1 | 0
     1 file changed, 0 insertions(+), 0 deletions(-)
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--from=@--", "--stat", "--ignore-all-space"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1 | 2 ++
     1 file changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
     let output = work_dir.run_jj(["diff", "--from=@--", "--stat", "--ignore-space-change"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1 | 6 ++++--
     1 file changed, 4 insertions(+), 2 deletions(-)
     [EOF]
@@ -1945,7 +1945,7 @@ fn test_diff_ignore_whitespace() {
 
     // "..." is printed if contents differ only in whitespace
     let output = work_dir.run_jj(["diff", "-r@-", "--color=always", "--ignore-all-space"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [38;5;3mModified regular file file1:[39m
         ...
     [EOF]
@@ -1953,7 +1953,7 @@ fn test_diff_ignore_whitespace() {
 
     // Word-level changes are still highlighted
     let output = work_dir.run_jj(["diff", "--from=@--", "--color=always", "--ignore-all-space"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [38;5;3mModified regular file file1:[39m
          [38;5;2m   1[39m: [4m[38;5;2m{[24m[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   2[0m: [4m[38;5;2m    [24m[39mfoo {
@@ -1969,7 +1969,7 @@ fn test_diff_ignore_whitespace() {
         "--color=always",
         "--ignore-space-change",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [38;5;3mModified regular file file1:[39m
          [38;5;2m   1[39m: [4m[38;5;2m{[24m[39m
     [38;5;1m   1[39m [38;5;2m   2[39m: [4m[38;5;2m    [24m[39mfoo {
@@ -2018,7 +2018,7 @@ fn test_diff_skipped_context() {
     work_dir.write_file("file1", "a\nb\nc\nd\ne\nF\ng\nh\ni\nj");
 
     let output = work_dir.run_jj(["log", "-Tdescription", "-p", "--no-graph", "--reversed"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     === Left side of diffs
     Added regular file file1:
             1: a
@@ -2128,7 +2128,7 @@ context = 0
     work_dir.write_file("file1", "a\nb\nC\nd\ne");
 
     let output = work_dir.run_jj(["log", "-Tdescription", "-p", "--no-graph", "--reversed"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     === First commit
     Added regular file file1:
             1: a
@@ -2242,7 +2242,7 @@ fn test_diff_skipped_context_nondefault() {
         "--reversed",
         "--context=0",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     === Left side of diffs
     Added regular file file1:
             1: a
@@ -2293,7 +2293,7 @@ fn test_diff_leading_trailing_context() {
 
     // N=5 <= num_context_lines + 1: No room to skip.
     let output = work_dir.run_jj(["diff", "--context=4"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified regular file file1:
        1    1: 1
        2    2: 2
@@ -2314,7 +2314,7 @@ fn test_diff_leading_trailing_context() {
     // N=5 <= 2 * num_context_lines + 1: The last hunk wouldn't be split if
     // trailing diff existed.
     let output = work_dir.run_jj(["diff", "--context=3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified regular file file1:
         ...
        3    3: 3
@@ -2333,7 +2333,7 @@ fn test_diff_leading_trailing_context() {
     // N=5 > 2 * num_context_lines + 1: The last hunk should be split no matter
     // if trailing diff existed.
     let output = work_dir.run_jj(["diff", "--context=1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified regular file file1:
         ...
        5    5: 5
@@ -2347,7 +2347,7 @@ fn test_diff_leading_trailing_context() {
 
     // N=5 <= num_context_lines: No room to skip.
     let output = work_dir.run_jj(["diff", "--git", "--context=5"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file1 b/file1
     index 1bf57dee4a..69b3e1865c 100644
     --- a/file1
@@ -2372,7 +2372,7 @@ fn test_diff_leading_trailing_context() {
     // N=5 <= 2 * num_context_lines: The last hunk wouldn't be split if
     // trailing diff existed.
     let output = work_dir.run_jj(["diff", "--git", "--context=3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file1 b/file1
     index 1bf57dee4a..69b3e1865c 100644
     --- a/file1
@@ -2393,7 +2393,7 @@ fn test_diff_leading_trailing_context() {
     // N=5 > 2 * num_context_lines: The last hunk should be split no matter
     // if trailing diff existed.
     let output = work_dir.run_jj(["diff", "--git", "--context=2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/file1 b/file1
     index 1bf57dee4a..69b3e1865c 100644
     --- a/file1
@@ -2470,7 +2470,7 @@ fn test_diff_conflict_sides_differ() {
     // Test the setup. left2+right2 can be considered a modified version of
     // left1+right1.
     work_dir.run_jj(["new", "root()"]).success();
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @"
     ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 left2+right2 9bdc15d2 (conflict)
     ├─╮  (empty) left2+right2
     │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 right2 e57450eb
@@ -2571,7 +2571,7 @@ fn test_diff_conflict_sides_differ() {
     [2m[38;5;1m   5[0m [2m[38;5;2m  14[0m: line 5
     [EOF]
     "#);
-    insta::assert_snapshot!(diff_color_words_conflict_pair("base", "left1+right1"), @r"
+    insta::assert_snapshot!(diff_color_words_conflict_pair("base", "left1+right1"), @"
     [38;5;3mCreated conflict in file:[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
     [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
@@ -2630,7 +2630,7 @@ fn test_diff_conflict_sides_differ() {
     [2m[38;5;1m  14[0m [2m[38;5;2m   5[0m: line 5
     [EOF]
     "#);
-    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "base"), @r"
+    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "base"), @"
     [38;5;3mResolved conflict in file:[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
     [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
@@ -2694,7 +2694,7 @@ fn test_diff_conflict_sides_differ() {
     [38;5;1m  14[39m     : [4m[38;5;1mline 5[24m[39m
     [EOF]
     "#);
-    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @r"
+    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @"
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m [38;5;2m   1[39m: [4m[38;5;1mline[38;5;2mleft[24m[39m [4m[38;5;2m1.[24m[39m1
     [2m[38;5;1m   2[0m [2m[38;5;2m   2[0m: line 2
@@ -2782,7 +2782,7 @@ fn test_diff_conflict_bases_differ() {
     // Test the setup. left2+right2 can be considered a rebased version of
     // left1+right1.
     work_dir.run_jj(["new", "root()"]).success();
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @"
     ×    nkmrtpmo test.user@example.com 2001-02-03 08:05:22 left2+right2 18348d27 (conflict)
     ├─╮  (empty) left2+right2
     │ ○  kmkuslsw test.user@example.com 2001-02-03 08:05:19 right2 656695c3
@@ -2877,7 +2877,7 @@ fn test_diff_conflict_bases_differ() {
         ...
     [EOF]
     "#);
-    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @r"
+    insta::assert_snapshot!(diff_color_words_conflict_pair("left1+right1", "left2+right2"), @"
     [38;5;3mModified conflict in file:[39m
     [38;5;1m   1[39m     : [4m[38;5;1mline 1[24m[39m
     [2m[38;5;1m   2[0m [2m[38;5;2m   1[0m: line 2
@@ -2955,7 +2955,7 @@ fn test_diff_conflict_three_sides() {
 
     // Test the setup
     work_dir.run_jj(["new", "root()"]).success();
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-r~@"]), @"
     ×    lylxulpl test.user@example.com 2001-02-03 08:05:20 side1+side2+side3 90cd440f (conflict)
     ├─╮  (empty) side1+side2+side3
     │ ○  znkkpsqq test.user@example.com 2001-02-03 08:05:17 side3 f73063c9
@@ -2973,11 +2973,11 @@ fn test_diff_conflict_three_sides() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "-lrside1+side2"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "-lrside1+side2"]), @"
     file    2-sided conflict
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["resolve", "-lrside1+side2+side3"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["resolve", "-lrside1+side2+side3"]), @"
     file    3-sided conflict
     [EOF]
     ");
@@ -3037,7 +3037,7 @@ fn test_diff_conflict_three_sides() {
     [2m[38;5;1m  15[0m [2m[38;5;2m  19[0m: line 5
     [EOF]
     "#);
-    insta::assert_snapshot!(diff_color_words_conflict_pair("side1+side2", "side1+side2+side3"), @r"
+    insta::assert_snapshot!(diff_color_words_conflict_pair("side1+side2", "side1+side2+side3"), @"
     [38;5;3mModified conflict in file:[39m
     [2m[38;5;1m   1[0m [2m[38;5;2m   1[0m: line 1
     [38;5;6m<<<<<<< Modified conflict[39m
@@ -3085,7 +3085,7 @@ fn test_diff_external_tool() {
         settings
     };
     insta_portable_exit_status.bind(|| {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ------- stderr -------
         Warning: Tool exited with <exit status>: 1 (run with --debug to see the exact invocation)
         [EOF]
@@ -3109,7 +3109,7 @@ fn test_diff_external_tool() {
     .unwrap();
 
     // diff without file patterns
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor"]), @"
     file1
     file2
     --
@@ -3121,7 +3121,7 @@ fn test_diff_external_tool() {
     // diff with unset edit-args
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor",
         "--config=merge-tools.fake-diff-editor.edit-args=[]",
-    ]), @r"
+    ]), @"
     file1
     file2
     --
@@ -3135,7 +3135,7 @@ fn test_diff_external_tool() {
         insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor",
         "--config=merge-tools.fake-diff-editor.edit-args=[]",
         "--config=merge-tools.fake-diff-editor.diff-args=[]",
-    ]), @r"
+    ]), @"
         ------- stderr -------
         Error: The tool `fake-diff-editor` cannot be used for diff formatting
         [EOF]
@@ -3144,13 +3144,13 @@ fn test_diff_external_tool() {
     });
 
     // diff with file patterns
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor", "file1"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor", "file1"]), @"
     file1
     --
     [EOF]
     ");
 
-    insta::assert_snapshot!(work_dir.run_jj(["log", "-p", "--tool=fake-diff-editor"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["log", "-p", "--tool=fake-diff-editor"]), @"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 b1e84e17
     │  (no description set)
     │  file1
@@ -3168,7 +3168,7 @@ fn test_diff_external_tool() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(work_dir.run_jj(["show", "--tool=fake-diff-editor"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["show", "--tool=fake-diff-editor"]), @"
     Commit ID: b1e84e171e795eeb9cea971f052a30a21255a0a5
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -3186,7 +3186,7 @@ fn test_diff_external_tool() {
 
     // Enabled by default, looks up the merge-tools table
     let config = "--config=ui.diff-formatter=fake-diff-editor";
-    insta::assert_snapshot!(work_dir.run_jj(["diff", config]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", config]), @"
     file1
     file2
     --
@@ -3198,7 +3198,7 @@ fn test_diff_external_tool() {
     // Inlined command arguments
     let command_toml = to_toml_value(fake_diff_editor_path());
     let config = format!("--config=ui.diff-formatter=[{command_toml}, '$right', '$left']");
-    insta::assert_snapshot!(work_dir.run_jj(["diff", &config]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", &config]), @"
     file2
     file3
     --
@@ -3210,7 +3210,7 @@ fn test_diff_external_tool() {
     // Output of external diff tool shouldn't be escaped
     std::fs::write(&edit_script, "print \x1b[1;31mred").unwrap();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--color=always", "--tool=fake-diff-editor"]),
-        @r"
+        @"
     [1;31mred
     [EOF]
     ");
@@ -3218,7 +3218,7 @@ fn test_diff_external_tool() {
     // Non-zero exit code isn't an error
     std::fs::write(&edit_script, "print diff\0fail").unwrap();
     let output = work_dir.run_jj(["show", "--tool=fake-diff-editor"]);
-    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @r"
+    insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     Commit ID: b1e84e171e795eeb9cea971f052a30a21255a0a5
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -3235,7 +3235,7 @@ fn test_diff_external_tool() {
 
     // --tool=:builtin shouldn't be ignored
     let output = work_dir.run_jj(["diff", "--tool=:builtin"]);
-    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @"
     ------- stderr -------
     Error: Invalid builtin diff format: builtin
     [EOF]
@@ -3276,12 +3276,12 @@ fn test_diff_do_chdir() {
             != "$TEST_ENV/repo"
     );
 
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-echo"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-echo"]), @"
     left right
     [EOF]
     ");
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-echo",
-        "--config=merge-tools.fake-echo.diff-invocation-mode=file-by-file"]).normalize_backslash(), @r"
+        "--config=merge-tools.fake-echo.diff-invocation-mode=file-by-file"]).normalize_backslash(), @"
     left/file1 right/file1
     [EOF]
     ");
@@ -3301,7 +3301,7 @@ fn test_diff_external_available_width() {
     // Directory diff
     let output =
         work_dir.run_jj_with(|cmd| cmd.args(["diff", "--tool=fake-echo"]).env("COLUMNS", "50"));
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     50
     [EOF]
     ");
@@ -3312,7 +3312,7 @@ fn test_diff_external_available_width() {
             .arg("--config=merge-tools.fake-echo.diff-invocation-mode=file-by-file")
             .env("COLUMNS", "50")
     });
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     50
     [EOF]
     ");
@@ -3359,7 +3359,7 @@ fn test_diff_external_file_by_file_tool() {
     ];
 
     // diff without file patterns
-    insta::assert_snapshot!(work_dir.run_jj_with(|cmd| cmd.arg("diff").args(configs)), @r"
+    insta::assert_snapshot!(work_dir.run_jj_with(|cmd| cmd.arg("diff").args(configs)), @"
     ==
     file2
     --
@@ -3377,7 +3377,7 @@ fn test_diff_external_file_by_file_tool() {
 
     // diff with file patterns
     insta::assert_snapshot!(
-        work_dir.run_jj_with(|cmd| cmd.args(["diff", "file1"]).args(configs)), @r"
+        work_dir.run_jj_with(|cmd| cmd.args(["diff", "file1"]).args(configs)), @"
     ==
     file1
     --
@@ -3385,7 +3385,7 @@ fn test_diff_external_file_by_file_tool() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        work_dir.run_jj_with(|cmd| cmd.args(["log", "-p"]).args(configs)), @r"
+        work_dir.run_jj_with(|cmd| cmd.args(["log", "-p"]).args(configs)), @"
     @  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 6e901d9d
     │  (no description set)
     │  ==
@@ -3414,7 +3414,7 @@ fn test_diff_external_file_by_file_tool() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(work_dir.run_jj_with(|cmd| cmd.arg("show").args(configs)), @r"
+    insta::assert_snapshot!(work_dir.run_jj_with(|cmd| cmd.arg("show").args(configs)), @"
     Commit ID: 6e901d9d82f5cdfab386fc2b601186158d12cab7
     Change ID: rlvkpnrzqnoowoytxnquwvuryrwnrmlp
     Author   : Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -3465,7 +3465,7 @@ fn test_diff_external_tool_symlink() {
     .unwrap();
 
     // Shouldn't try to change permission of symlinks
-    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor"]), @"
     dead
     file
     --
@@ -3592,7 +3592,7 @@ fn test_diff_stat() {
     work_dir.write_file("file1", "foo\n");
 
     let output = work_dir.run_jj(["diff", "--stat"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1 | 1 +
     1 file changed, 1 insertion(+), 0 deletions(-)
     [EOF]
@@ -3601,7 +3601,7 @@ fn test_diff_stat() {
     work_dir.run_jj(["new"]).success();
 
     let output = work_dir.run_jj(["diff", "--stat"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     0 files changed, 0 insertions(+), 0 deletions(-)
     [EOF]
     ");
@@ -3611,7 +3611,7 @@ fn test_diff_stat() {
     work_dir.write_file("file1", "bar\n");
 
     let output = work_dir.run_jj(["diff", "--stat"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     file1 | 1 -
     1 file changed, 0 insertions(+), 1 deletion(-)
     [EOF]
@@ -3639,13 +3639,13 @@ fn test_diff_stat_long_name_or_stat() {
         work_dir.run_jj(["diff", "--stat"])
     };
 
-    insta::assert_snapshot!(get_stat(&work_dir, 1, 1), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 1, 1), @"
     1  | 1 +
     一 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @"
     1  | 10 ++++++++++
     一 | 10 ++++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
@@ -3653,43 +3653,43 @@ fn test_diff_stat_long_name_or_stat() {
     ");
     // 30 column display width means right edge is
     //                ... here ->|
-    insta::assert_snapshot!(get_stat(&work_dir, 1, 100), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 1, 100), @"
     1  | 100 +++++++++++++++++++++
     一 | 100 +++++++++++++++++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 10, 1), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 10, 1), @"
     1234567890        | 1 +
     ...四五六七八九十 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @"
     1234567890       | 10 ++++++++
     ...五六七八九十  | 10 ++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 10, 100), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 10, 100), @"
     1234567890       | 100 +++++++
     ...五六七八九十  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 50, 1), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 50, 1), @"
     ...78901234567890 | 1 +
     ...四五六七八九十 | 1 +
     2 files changed, 2 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 50, 10), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 50, 10), @"
     ...8901234567890 | 10 ++++++++
     ...五六七八九十  | 10 ++++++++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 50, 100), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 50, 100), @"
     ...8901234567890 | 100 +++++++
     ...五六七八九十  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
@@ -3699,25 +3699,25 @@ fn test_diff_stat_long_name_or_stat() {
     // Lengths around where we introduce the ellipsis
     // 30 column display width means right edge is
     //                ... here ->|
-    insta::assert_snapshot!(get_stat(&work_dir, 13, 100), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 13, 100), @"
     1234567890123    | 100 +++++++
     ...八九十一二三  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 14, 100), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 14, 100), @"
     12345678901234   | 100 +++++++
     ...九十一二三四  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 15, 100), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 15, 100), @"
     123456789012345  | 100 +++++++
     ...十一二三四五  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 16, 100), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 16, 100), @"
     1234567890123456 | 100 +++++++
     ...一二三四五六  | 100 +++++++
     2 files changed, 200 insertions(+), 0 deletions(-)
@@ -3727,7 +3727,7 @@ fn test_diff_stat_long_name_or_stat() {
     // Very narrow terminal (doesn't have to fit, just don't crash)
     test_env.add_env_var("COLUMNS", "10");
     let work_dir = test_env.work_dir("repo");
-    insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @"
     ... | 10 ++
     ... | 10 ++
     2 files changed, 20 insertions(+), 0 deletions(-)
@@ -3735,19 +3735,19 @@ fn test_diff_stat_long_name_or_stat() {
     ");
     test_env.add_env_var("COLUMNS", "3");
     let work_dir = test_env.work_dir("repo");
-    insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 10, 10), @"
     ... | 10 ++
     ... | 10 ++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 3, 10), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 3, 10), @"
     123 | 10 ++
     ... | 10 ++
     2 files changed, 20 insertions(+), 0 deletions(-)
     [EOF]
     ");
-    insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @r"
+    insta::assert_snapshot!(get_stat(&work_dir, 1, 10), @"
     1  | 10 +++
     一 | 10 +++
     2 files changed, 20 insertions(+), 0 deletions(-)
@@ -3772,7 +3772,7 @@ fn test_diff_stat_rounding() {
     work_dir.write_file("only_adds.txt", b"y\n".repeat(10));
 
     let output = work_dir.run_jj(["diff", "--stat"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     mostly_adds.txt    | 101 ++++-
     mostly_removes.txt | 301 +--------------
     only_adds.txt      |  10 +
@@ -3784,7 +3784,7 @@ fn test_diff_stat_rounding() {
     test_env.add_env_var("COLUMNS", "3");
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["diff", "--stat"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     .. | 101 +-
     .. | 301 +-
     .. |  10 +
@@ -3813,7 +3813,7 @@ fn test_diff_binary() {
     work_dir.write_file("binary_valid_utf8.png", b"\0\0\0");
 
     let output = work_dir.run_jj(["diff"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Added regular file binary_added.png:
         (binary)
     Modified regular file binary_modified.png:
@@ -3828,7 +3828,7 @@ fn test_diff_binary() {
     ");
 
     let output = work_dir.run_jj(["diff", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/binary_added.png b/binary_added.png
     new file mode 100644
     index 0000000000..deacfbc286
@@ -3852,7 +3852,7 @@ fn test_diff_binary() {
 
     let output = work_dir.run_jj(["diff", "--stat"]);
     // Rightmost display column          ->|
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     binary_added.png    | (binary) +12 bytes
     binary_modified.png | (binary)
     ...fied_to_text.png | (binary) -8 bytes
@@ -3880,7 +3880,7 @@ fn test_diff_stat_binary_and_text() {
     // Diff with a modified binary file with no change in size.
     let output = work_dir.run_jj(["diff", "--stat"]);
     // Rightmost display column          ->|
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ..._elided_long_file_name.png | (binary)
     1 file changed, 0 insertions(+), 0 deletions(-)
     [EOF]
@@ -3890,7 +3890,7 @@ fn test_diff_stat_binary_and_text() {
     work_dir.write_file("text_with_elided_long_file_name.txt", b"a\n".repeat(100));
     let output = work_dir.run_jj(["diff", "--stat"]);
     // Rightmost display column          ->|
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ...d_long_file_name.png | (binary)
     ...d_long_file_name.txt | 100 ++++++++++
     2 files changed, 100 insertions(+), 0 deletions(-)
@@ -3902,7 +3902,7 @@ fn test_diff_stat_binary_and_text() {
     work_dir.write_file("binary_with_elided_long_file_name.png", b"\x0033");
     let output = work_dir.run_jj(["diff", "--stat"]);
     // Rightmost display column          ->|
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ...ong_file_name.png | (binary) +1 bytes
     ...ong_file_name.txt | 100 +++++++++++++
     2 files changed, 100 insertions(+), 0 deletions(-)
@@ -3936,19 +3936,19 @@ fn test_diff_revisions() {
         work_dir.run_jj(["diff", "--name-only", "-r", expression])
     };
     // Can diff a single revision
-    insta::assert_snapshot!(diff_revisions("B"), @r"
+    insta::assert_snapshot!(diff_revisions("B"), @"
     B
     [EOF]
     ");
 
     // Can diff a merge
-    insta::assert_snapshot!(diff_revisions("E"), @r"
+    insta::assert_snapshot!(diff_revisions("E"), @"
     E
     [EOF]
     ");
 
     // A gap in the range is not allowed (yet at least)
-    insta::assert_snapshot!(diff_revisions("A|C"), @r"
+    insta::assert_snapshot!(diff_revisions("A|C"), @"
     ------- stderr -------
     Error: Cannot diff revsets with gaps in.
     Hint: Revision 2378873cd201 would need to be in the set.
@@ -3958,7 +3958,7 @@ fn test_diff_revisions() {
 
     // A merge into the chain is not allowed
     // We could decide to support this case
-    insta::assert_snapshot!(diff_revisions("C|E"), @r"
+    insta::assert_snapshot!(diff_revisions("C|E"), @"
     ------- stderr -------
     Error: Cannot diff revsets with gaps in.
     Hint: Revision a90b2fff19e9 would need to be in the set.
@@ -3967,7 +3967,7 @@ fn test_diff_revisions() {
     ");
 
     // Can diff a linear chain
-    insta::assert_snapshot!(diff_revisions("A::C"), @r"
+    insta::assert_snapshot!(diff_revisions("A::C"), @"
     A
     B
     C
@@ -3975,7 +3975,7 @@ fn test_diff_revisions() {
     ");
 
     // Can diff a chain with an internal merge
-    insta::assert_snapshot!(diff_revisions("B::E"), @r"
+    insta::assert_snapshot!(diff_revisions("B::E"), @"
     B
     C
     D
@@ -3984,7 +3984,7 @@ fn test_diff_revisions() {
     ");
 
     // Can diff a set with multiple roots
-    insta::assert_snapshot!(diff_revisions("C|D|E"), @r"
+    insta::assert_snapshot!(diff_revisions("C|D|E"), @"
     C
     D
     E
@@ -3992,7 +3992,7 @@ fn test_diff_revisions() {
     ");
 
     // Can diff a set with multiple heads
-    insta::assert_snapshot!(diff_revisions("B|C|D"), @r"
+    insta::assert_snapshot!(diff_revisions("B|C|D"), @"
     B
     C
     D
@@ -4000,7 +4000,7 @@ fn test_diff_revisions() {
     ");
 
     // Can diff a set with multiple root and multiple heads
-    insta::assert_snapshot!(diff_revisions("B|C"), @r"
+    insta::assert_snapshot!(diff_revisions("B|C"), @"
     B
     C
     [EOF]

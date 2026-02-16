@@ -184,7 +184,7 @@ fn test_resolve_symbol_commit_id() {
     let repo = tx.commit("test").unwrap();
 
     // Test the test setup
-    insta::assert_snapshot!(commits.iter().map(|c| c.id().hex()).join("\n"), @r"
+    insta::assert_snapshot!(commits.iter().map(|c| c.id().hex()).join("\n"), @"
     019f179b4479a4f3d1373b772866037929e4f63c
     019fd357eb2a4904c348b62d1f4cc2ac222cdbc7
     017dc442a1d77bb1620a1a32863580ae81543d7d
@@ -327,7 +327,7 @@ fn test_resolve_symbol_change_id(readonly: bool) {
     // Test the test setup
     insta::allow_duplicates! {
         insta::assert_snapshot!(
-            commits.iter().map(|c| format!("{} {}\n", c.id(), c.change_id())).join(""), @r"
+            commits.iter().map(|c| format!("{} {}\n", c.id(), c.change_id())).join(""), @"
         cd741d7f2c542e443df3c5bf2d4f8a15a2759e77 zvlyxpuvtsoopsqzlkorrpqrszrqvlnx
         0af32dcddbdf49c132ad39c3623a6196c6c987a5 zvzowopwpuymrlmonvnuruunomzqmlsy
         553ee869e64329d1022f5c00c63dff6621924c18 zvlynszrxlvlwvkwkwsymrpypvtsszor

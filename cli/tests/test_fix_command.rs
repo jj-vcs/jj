@@ -49,7 +49,7 @@ fn test_config_no_tools() {
 
     work_dir.write_file("file", "content\n");
     let output = work_dir.run_jj(["fix"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Config error: No `fix.tools` are configured
     For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
@@ -58,7 +58,7 @@ fn test_config_no_tools() {
     ");
 
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     content
     [EOF]
     ");
@@ -80,7 +80,7 @@ fn test_config_nonexistent_tool() {
     work_dir.write_file("file", "content\n");
     let output = work_dir.run_jj(["fix"]);
     // We inform the user about the non-existent tool
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Failed to start `nonexistent-fix-tool-binary`
     Fixed 0 commits of 1 checked.
@@ -116,17 +116,17 @@ fn test_config_multiple_tools() {
     work_dir.run_jj(["fix"]).success();
 
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     FOO
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "bar", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     bar
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "baz", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Baz
     [EOF]
     ");
@@ -159,7 +159,7 @@ fn test_config_multiple_tools_with_same_name() {
     work_dir.write_file("bar", "Bar\n");
 
     let output = work_dir.run_jj(["fix"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Config error: Configuration cannot be parsed as TOML document
     Caused by: TOML parse error at line 6, column 20
@@ -177,12 +177,12 @@ fn test_config_multiple_tools_with_same_name() {
     test_env.set_config_path("/dev/null");
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Foo
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "bar", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Bar
     [EOF]
     ");
@@ -222,17 +222,17 @@ fn test_config_disabled_tools() {
     work_dir.run_jj(["fix"]).success();
 
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     FOO
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "bar", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     bar
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "baz", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Baz
     [EOF]
     ");
@@ -258,7 +258,7 @@ fn test_config_disabled_tools_warning_when_all_tools_are_disabled() {
     work_dir.write_file("bar", "Bar\n");
 
     let output = work_dir.run_jj(["fix"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Config error: At least one entry of `fix.tools` must be enabled.
     For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
@@ -295,17 +295,17 @@ fn test_config_tables_overlapping_patterns() {
     work_dir.run_jj(["fix"]).success();
 
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     foo
     tool-1[EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "bar", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     bar
     tool-1tool-2[EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "baz", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     baz
     tool-2[EOF]
     ");
@@ -329,7 +329,7 @@ fn test_config_tables_all_commands_missing() {
     work_dir.write_file("foo", "foo\n");
 
     let output = work_dir.run_jj(["fix"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     ------- stderr -------
     Config error: Invalid type or value for fix.tools.my-tool-missing-command-1
     Caused by: missing field `command`
@@ -341,7 +341,7 @@ fn test_config_tables_all_commands_missing() {
     ");
 
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     foo
     [EOF]
     ");
@@ -369,7 +369,7 @@ fn test_config_tables_some_commands_missing() {
     work_dir.write_file("foo", "foo\n");
 
     let output = work_dir.run_jj(["fix"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @r"
+    insta::assert_snapshot!(output.normalize_backslash(), @"
     ------- stderr -------
     Config error: Invalid type or value for fix.tools.my-tool-missing-command
     Caused by: missing field `command`
@@ -381,7 +381,7 @@ fn test_config_tables_some_commands_missing() {
     ");
 
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     foo
     [EOF]
     ");
@@ -406,7 +406,7 @@ fn test_config_tables_empty_patterns_list() {
     work_dir.write_file("foo", "foo\n");
 
     let output = work_dir.run_jj(["fix"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
@@ -414,7 +414,7 @@ fn test_config_tables_empty_patterns_list() {
     ");
 
     let output = work_dir.run_jj(["file", "show", "foo", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     foo
     [EOF]
     ");
@@ -451,17 +451,17 @@ fn test_config_filesets() {
     work_dir.run_jj(["fix"]).success();
 
     let output = work_dir.run_jj(["file", "show", "a1", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     A1
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "b1", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
 
     1b[EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "b2", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
 
     2b[EOF]
     ");
@@ -493,17 +493,17 @@ fn test_relative_paths() {
     // filesets.
     sub_dir.run_jj(["fix", "foo3"]).success();
     let output = work_dir.run_jj(["file", "show", "foo1", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     unfixed
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "foo2", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     unfixed
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "dir/foo3", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     unfixed
     [EOF]
     ");
@@ -513,12 +513,12 @@ fn test_relative_paths() {
     let output = work_dir.run_jj(["file", "show", "foo1", "-r", "@"]);
     insta::assert_snapshot!(output, @"Fixed![EOF]");
     let output = work_dir.run_jj(["file", "show", "foo2", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     unfixed
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "dir/foo3", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     unfixed
     [EOF]
     ");
@@ -531,14 +531,14 @@ fn test_relative_paths() {
     let output = work_dir.run_jj(["file", "show", "foo2", "-r", "@"]);
     insta::assert_snapshot!(output, @"Fixed![EOF]");
     let output = work_dir.run_jj(["file", "show", "dir/foo3", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     unfixed
     [EOF]
     ");
 
     // The output filtered to a non-existent file should display a warning.
     let output = work_dir.run_jj(["fix", "nonexistent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Fixed 0 commits of 1 checked.
@@ -579,7 +579,7 @@ fn test_relative_tool_path_from_subdirectory() {
 
     // Run fix from workspace root
     let output = work_dir.run_jj(["fix"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm 57a27b36 (no description set)
@@ -589,12 +589,12 @@ fn test_relative_tool_path_from_subdirectory() {
     ");
 
     let output = work_dir.run_jj(["file", "show", "test.txt", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     HELLO WORLD
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "subdir/nested.txt", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     NESTED CONTENT
     [EOF]
     ");
@@ -604,7 +604,7 @@ fn test_relative_tool_path_from_subdirectory() {
 
     // Run fix from the subdirectory
     let output = sub_dir.run_jj(["fix"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm 05404d5b (no description set)
@@ -614,12 +614,12 @@ fn test_relative_tool_path_from_subdirectory() {
     ");
 
     let output = work_dir.run_jj(["file", "show", "test.txt", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     HELLO WORLD
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "subdir/nested.txt", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     NESTED CONTENT
     [EOF]
     ");
@@ -632,7 +632,7 @@ fn test_fix_empty_commit() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["fix", "-s", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
@@ -651,7 +651,7 @@ fn test_fix_leaf_commit() {
     work_dir.write_file("file", "affected");
 
     let output = work_dir.run_jj(["fix", "-s", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: rlvkpnrz f5c11961 (no description set)
@@ -688,7 +688,7 @@ fn test_fix_parent_commit() {
         .success();
 
     let output = work_dir.run_jj(["fix", "-s", "parent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 3 commits of 3 checked.
     Working copy  (@) now at: mzvwutvl e7ba6d31 child2 | (no description set)
@@ -726,7 +726,7 @@ fn test_fix_sibling_commit() {
         .success();
 
     let output = work_dir.run_jj(["fix", "-s", "child1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     [EOF]
@@ -761,7 +761,7 @@ fn test_fix_descendant_commits() {
         .success();
 
     let output = work_dir.run_jj(["fix", "-s", "parent", "child1", "child2", "nonexistent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Fixed 2 commits of 3 checked.
@@ -820,7 +820,7 @@ fn test_default_revset() {
     // foo (which is mutable but not reachable).
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "trunk2""#);
     let output = work_dir.run_jj(["fix"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 3 commits of 3 checked.
     Working copy  (@) now at: yostqsxw 932b950d bar2 | (no description set)
@@ -865,7 +865,7 @@ fn test_custom_default_revset() {
     test_env.add_config(r#"revsets.fix = "bar""#);
 
     let output = work_dir.run_jj(["fix"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     [EOF]
@@ -921,7 +921,7 @@ fn test_fix_empty_file() {
     work_dir.write_file("file", "");
 
     let output = work_dir.run_jj(["fix", "-s", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
@@ -956,7 +956,7 @@ fn test_fix_large_file() {
         ])
         .success();
     let output = work_dir.run_jj(["fix", "-s", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm d500c021 (no description set)
@@ -980,7 +980,7 @@ fn test_fix_some_paths() {
     work_dir.write_file("file2", "bar");
 
     let output = work_dir.run_jj(["fix", "-s", "@", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm 0279baba (no description set)
@@ -1003,7 +1003,7 @@ fn test_fix_cyclic() {
     work_dir.write_file("file", "content\n");
 
     let output = work_dir.run_jj(["fix"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm ce361156 (no description set)
@@ -1012,13 +1012,13 @@ fn test_fix_cyclic() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
 
     tnetnoc[EOF]
     ");
 
     let output = work_dir.run_jj(["fix"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm 547f589b (no description set)
@@ -1027,7 +1027,7 @@ fn test_fix_cyclic() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
 
     content[EOF]
     ");
@@ -1065,7 +1065,7 @@ fn test_deduplication() {
         .success();
 
     let output = work_dir.run_jj(["fix", "-s", "a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 4 commits of 4 checked.
     Working copy  (@) now at: yqosqzyt 9849a250 d | (no description set)
@@ -1074,22 +1074,22 @@ fn test_deduplication() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     FOO
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     BAR
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "c"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     BAR
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "d"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     FOO
     [EOF]
     ");
@@ -1097,7 +1097,7 @@ fn test_deduplication() {
     // Each new content string only appears once in the log, because all the other
     // inputs (like file name) were identical, and so the results were reused. We
     // sort the log because the order of execution inside `jj fix` is undefined.
-    insta::assert_snapshot!(sorted_lines(work_dir.root().join("file-fixlog")), @r"
+    insta::assert_snapshot!(sorted_lines(work_dir.root().join("file-fixlog")), @"
     BAR
     FOO
     ");
@@ -1124,14 +1124,14 @@ fn test_executed_but_nothing_changed() {
     work_dir.write_file("file", "content\n");
 
     let output = work_dir.run_jj(["fix", "-s", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     content
     [EOF]
     ");
@@ -1142,7 +1142,7 @@ fn test_executed_but_nothing_changed() {
     // directory at time of invocation.
     let sub_dir = work_dir.create_dir("dir");
     let output = sub_dir.run_jj(["fix"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
@@ -1150,7 +1150,7 @@ fn test_executed_but_nothing_changed() {
     ");
 
     let copy_content = work_dir.read_file("file-copy");
-    insta::assert_snapshot!(copy_content, @r"
+    insta::assert_snapshot!(copy_content, @"
     content
     content
     ");
@@ -1166,7 +1166,7 @@ fn test_failure() {
     work_dir.write_file("file", "content");
 
     let output = work_dir.run_jj(["fix", "-s", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: Fix tool `$FAKE_FORMATTER_PATH` exited with non-zero exit code for `file`
     Fixed 0 commits of 1 checked.
@@ -1191,7 +1191,7 @@ fn test_stderr_success() {
     // TODO: Associate the stderr lines with the relevant tool/file/commit instead
     // of passing it through directly.
     let output = work_dir.run_jj(["fix", "-s", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     file:
     error
@@ -1217,7 +1217,7 @@ fn test_stderr_failure() {
     work_dir.write_file("file", "old content");
 
     let output = work_dir.run_jj(["fix", "-s", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     file:
     error
@@ -1244,7 +1244,7 @@ fn test_missing_command() {
     // support multiple tools, we should also keep going to see if any of the other
     // executions succeed.
     let output = work_dir.run_jj(["fix", "-s", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
@@ -1263,7 +1263,7 @@ fn test_fix_file_types() {
     symlink_file("file", work_dir.root().join("link")).unwrap();
 
     let output = work_dir.run_jj(["fix", "-s", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm 0184b215 (no description set)
@@ -1289,7 +1289,7 @@ fn test_fix_executable() {
     std::fs::set_permissions(&path, permissions).unwrap();
 
     let output = work_dir.run_jj(["fix", "-s", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: qpvuntsm 5293bf26 (no description set)
@@ -1325,7 +1325,7 @@ fn test_fix_trivial_merge_commit() {
     work_dir.run_jj(["new", "a", "b"]).success();
 
     let output = work_dir.run_jj(["fix", "-s", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 0 commits of 1 checked.
     Nothing changed.
@@ -1365,7 +1365,7 @@ fn test_fix_adding_merge_commit() {
     work_dir.write_file("file_d", "change d");
 
     let output = work_dir.run_jj(["fix", "-s", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 1 commits of 1 checked.
     Working copy  (@) now at: mzvwutvl 9f580aac (no description set)
@@ -1404,7 +1404,7 @@ fn test_fix_both_sides_of_conflict() {
     // The conflicts are not different from the merged parent, so they would not be
     // fixed if we didn't fix the parents also.
     let output = work_dir.run_jj(["fix", "-s", "a", "-s", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 3 commits of 3 checked.
     Working copy  (@) now at: mzvwutvl 1bfa5dc3 (conflict) (empty) (no description set)
@@ -1416,12 +1416,12 @@ fn test_fix_both_sides_of_conflict() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     CONTENT A
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     CONTENT B
     [EOF]
     ");
@@ -1460,7 +1460,7 @@ fn test_fix_resolve_conflict() {
     // The conflicts are not different from the merged parent, so they would not be
     // fixed if we didn't fix the parents also.
     let output = work_dir.run_jj(["fix", "-s", "a", "-s", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 3 commits of 3 checked.
     Working copy  (@) now at: mzvwutvl c4e4665e (empty) (no description set)
@@ -1470,7 +1470,7 @@ fn test_fix_resolve_conflict() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     CONTENT
     [EOF]
     ");
@@ -1524,7 +1524,7 @@ fn test_all_files() {
         "c/c",
         "does_not.exist",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: does_not.exist
     Fixed 2 commits of 2 checked.
@@ -1535,50 +1535,50 @@ fn test_all_files() {
     ");
 
     let output = work_dir.run_jj(["file", "show", "a/a", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     parent aaa
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "b/b", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     parent bbb
     fixed[EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "c/c", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     parent ccc
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "ddd", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     parent ddd
     [EOF]
     ");
 
     let output = work_dir.run_jj(["file", "show", "a/a", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     child aaa
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "b/b", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     parent bbb
     fixed[EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "c/c", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     parent ccc
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "ddd", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     child ddd
     [EOF]
     ");
 
     // Not specifying files means all files will be fixed in each revision.
     let output = work_dir.run_jj(["fix", "--include-unchanged-files"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Fixed 2 commits of 2 checked.
     Working copy  (@) now at: rlvkpnrz 16aeb14c child
@@ -1588,43 +1588,43 @@ fn test_all_files() {
     ");
 
     let output = work_dir.run_jj(["file", "show", "a/a", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     parent aaa
     fixed[EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "b/b", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     parent bbb
     fixedfixed[EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "c/c", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     parent ccc
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "ddd", "-r", "@-"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     parent ddd
     [EOF]
     ");
 
     let output = work_dir.run_jj(["file", "show", "a/a", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     child aaa
     fixed[EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "b/b", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     parent bbb
     fixedfixed[EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "c/c", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     parent ccc
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "ddd", "-r", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     child ddd
     [EOF]
     ");

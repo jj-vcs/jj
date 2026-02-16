@@ -38,7 +38,7 @@ fn test_interdiff_basic() {
 
     // implicit --to
     let output = work_dir.run_jj(["interdiff", "--from", "left"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified commit description:
        1    1: add file2 leftright
     Modified regular file file2:
@@ -50,7 +50,7 @@ fn test_interdiff_basic() {
     // explicit --to
     work_dir.run_jj(["new", "@-"]).success();
     let output = work_dir.run_jj(["interdiff", "--from", "left", "--to", "right"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified commit description:
        1    1: add file2 leftright
     Modified regular file file2:
@@ -62,13 +62,13 @@ fn test_interdiff_basic() {
 
     // formats specifiers
     let output = work_dir.run_jj(["interdiff", "--from", "left", "--to", "right", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     M file2
     [EOF]
     ");
 
     let output = work_dir.run_jj(["interdiff", "--from", "left", "--to", "right", "--git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     diff --git a/JJ-COMMIT-DESCRIPTION b/JJ-COMMIT-DESCRIPTION
     --- JJ-COMMIT-DESCRIPTION
     +++ JJ-COMMIT-DESCRIPTION
@@ -112,7 +112,7 @@ fn test_interdiff_paths() {
         .success();
 
     let output = work_dir.run_jj(["interdiff", "--from", "left", "--to", "right", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified regular file file1:
        1    1: barbaz
     [EOF]
@@ -128,7 +128,7 @@ fn test_interdiff_paths() {
         "file2",
         "nonexistent",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Modified regular file file1:
        1    1: barbaz
     Modified regular file file2:
@@ -153,7 +153,7 @@ fn test_interdiff_paths() {
         "file1",
         "file2",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Removed regular file file1:
        1     : bar
     Modified regular file file2:
@@ -209,7 +209,7 @@ fn test_interdiff_conflicting() {
         "--from=left",
         "--to=right",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [38;5;3mResolved conflict in file:[39m
     [38;5;6m<<<<<<< Resolved conflict[39m
     [38;5;6m+++++++ left side #1 to right side #1[39m

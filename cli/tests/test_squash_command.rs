@@ -39,7 +39,7 @@ fn test_squash() {
         .success();
     work_dir.write_file("file1", "c\n");
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  22be6c4e01da c
     ○  75591b1896b4 b
     ○  e6086990958c a
@@ -50,13 +50,13 @@ fn test_squash() {
 
     // Squashes the working copy into the parent by default
     let output = work_dir.run_jj(["squash"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 2cf02eb8 (empty) (no description set)
     Parent commit (@-)      : kkmpptxz 9422c8d6 b c | (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  2cf02eb82d82 (empty)
     ○  9422c8d6f294 b c
     ○  e6086990958c a
@@ -64,7 +64,7 @@ fn test_squash() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     c
     [EOF]
     ");
@@ -72,26 +72,26 @@ fn test_squash() {
     // Can squash a given commit into its parent
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "-r", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 441a7a3a c | (no description set)
     Parent commit (@-)      : qpvuntsm 105931bf a b | (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  441a7a3a17b0 c
     ○  105931bfedad a b
     ◆  000000000000 (empty)
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     b
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     c
     [EOF]
     ");
@@ -109,7 +109,7 @@ fn test_squash() {
     work_dir
         .run_jj(["bookmark", "create", "-r@", "e"])
         .success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @    e05d4caaf6ce e (empty)
     ├─╮
     │ ○  9bb7863cfc78 d
@@ -121,7 +121,7 @@ fn test_squash() {
     [EOF]
     ");
     let output = work_dir.run_jj(["squash"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Cannot squash merge commits without a specified destination
     Hint: Use `--into` to specify which parent to squash into
@@ -133,13 +133,13 @@ fn test_squash() {
     work_dir.run_jj(["new", "e"]).success();
     work_dir.write_file("file1", "e\n");
     let output = work_dir.run_jj(["squash"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: xlzxqlsl 91a81249 (empty) (no description set)
     Parent commit (@-)      : nmzmmopx 9155baf5 e | (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  91a81249954f (empty)
     ○    9155baf5ced1 e
     ├─╮
@@ -152,7 +152,7 @@ fn test_squash() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "e"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     e
     [EOF]
     ");
@@ -183,7 +183,7 @@ fn test_squash_partial() {
     work_dir.write_file("file1", "c\n");
     work_dir.write_file("file2", "c\n");
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  87059ac9657b c
     ○  f2c9709f39e9 b
     ○  64ea60be8d77 a
@@ -197,7 +197,7 @@ fn test_squash_partial() {
     // into the parent
     std::fs::write(&edit_script, "dump JJ-INSTRUCTIONS instrs").unwrap();
     let output = work_dir.run_jj(["squash", "-r", "b", "-i"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 34484d82 c | (no description set)
@@ -206,7 +206,7 @@ fn test_squash_partial() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @r"
+        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @"
     You are moving changes from: kkmpptxz f2c9709f b | (no description set)
     into commit: qpvuntsm 64ea60be a | (no description set)
 
@@ -219,14 +219,14 @@ fn test_squash_partial() {
     from the source will be moved into the destination.
     ");
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  34484d825f47 c
     ○  3141e67514f6 a b
     ◆  000000000000 (empty)
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     b
     [EOF]
     ");
@@ -235,14 +235,14 @@ fn test_squash_partial() {
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
     std::fs::write(&edit_script, "reset file1").unwrap();
     let output = work_dir.run_jj(["squash", "-r", "b", "-i"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: mzvwutvl 37e1a0ef c | (no description set)
     Parent commit (@-)      : kkmpptxz b41e789d b | (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  37e1a0ef57ff c
     ○  b41e789df71c b
     ○  3af17565155e a
@@ -250,22 +250,22 @@ fn test_squash_partial() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file2", "-r", "a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     b
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     b
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file2", "-r", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     b
     [EOF]
     ");
@@ -275,14 +275,14 @@ fn test_squash_partial() {
     // Clear the script so we know it won't be used even without -i
     std::fs::write(&edit_script, "").unwrap();
     let output = work_dir.run_jj(["squash", "-r", "b", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: mzvwutvl 72ff256c c | (no description set)
     Parent commit (@-)      : kkmpptxz dd056a92 b | (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  72ff256cd290 c
     ○  dd056a925eb3 b
     ○  cf083f1d9ccf a
@@ -290,22 +290,22 @@ fn test_squash_partial() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file2", "-r", "a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     b
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     b
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file2", "-r", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     b
     [EOF]
     ");
@@ -313,7 +313,7 @@ fn test_squash_partial() {
     // If we specify only a non-existent file, then nothing changes.
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
     let output = work_dir.run_jj(["squash", "-r", "b", "nonexistent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Nothing changed.
@@ -334,7 +334,7 @@ fn test_squash_partial() {
     // No warning if we pass a positional argument does not parse as a revset
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
     let output = work_dir.run_jj(["squash", ".tmp"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: .tmp
     Nothing changed.
@@ -346,7 +346,7 @@ fn test_squash_partial() {
     work_dir.write_file("file3", "foo\n");
     std::fs::write(&edit_script, "reset file1").unwrap();
     let output = work_dir.run_jj(["squash", "-i", "file1", "file3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: mzvwutvl 3615d80e c | (no description set)
@@ -354,7 +354,7 @@ fn test_squash_partial() {
     [EOF]
     ");
     let output = work_dir.run_jj(["log", "-s"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  mzvwutvl test.user@example.com 2001-02-03 08:05:38 c 3615d80e
     │  (no description set)
     │  M file1
@@ -376,13 +376,13 @@ fn test_squash_partial() {
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
     std::fs::write(&edit_script, "reset file1\0reset file2").unwrap();
     let output = work_dir.run_jj(["squash", "-r", "b", "-i"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No changes selected
     [EOF]
     [exit status: 1]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  87059ac9657b c
     ○  f2c9709f39e9 b
     ○  64ea60be8d77 a
@@ -413,7 +413,7 @@ fn test_squash_keep_emptied() {
     work_dir.write_file("file1", "c\n");
     // Test the setup
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  22be6c4e01da c
     ○  75591b1896b4 b
     ○  e6086990958c a
@@ -422,7 +422,7 @@ fn test_squash_keep_emptied() {
     ");
 
     let output = work_dir.run_jj(["squash", "-r", "b", "--keep-emptied"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: mzvwutvl 093590e0 c | (no description set)
@@ -430,7 +430,7 @@ fn test_squash_keep_emptied() {
     [EOF]
     ");
     // With --keep-emptied, b remains even though it is now empty.
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  093590e044bd c
     ○  357946cf85df b (empty)
     ○  2269fb3b12f5 a
@@ -438,7 +438,7 @@ fn test_squash_keep_emptied() {
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     b
     [EOF]
     ");
@@ -494,7 +494,7 @@ fn test_squash_from_to() {
         .success();
     work_dir.write_file("file2", "f\n");
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  0fac1124d1ad f
     ○  4ebe104a0e4e e
     ○  dc71a460d5d6 d
@@ -509,7 +509,7 @@ fn test_squash_from_to() {
 
     // No-op if source and destination are the same
     let output = work_dir.run_jj(["squash", "--into", "@"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -517,14 +517,14 @@ fn test_squash_from_to() {
 
     // Can squash from sibling, which results in the source being abandoned
     let output = work_dir.run_jj(["squash", "--from", "c"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw 941ab024 f | (no description set)
     Parent commit (@-)      : znkkpsqq 4ebe104a e | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  941ab024b3f8 f
     ○  4ebe104a0e4e e
     ○  dc71a460d5d6 d
@@ -536,13 +536,13 @@ fn test_squash_from_to() {
     ");
     // The change from the source has been applied
     let output = work_dir.run_jj(["file", "show", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     c
     [EOF]
     ");
     // File `file2`, which was not changed in source, is unchanged
     let output = work_dir.run_jj(["file", "show", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     f
     [EOF]
     ");
@@ -550,7 +550,7 @@ fn test_squash_from_to() {
     // Can squash from ancestor
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from", "@--"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kmkuslsw c102d2c4 f | (no description set)
     Parent commit (@-)      : znkkpsqq beb7c033 e | (no description set)
@@ -558,7 +558,7 @@ fn test_squash_from_to() {
     ");
     // The change has been removed from the source (the change pointed to by 'd'
     // became empty and was abandoned)
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  c102d2c4e165 f
     ○  beb7c0338f7c e
     │ ○  ee0b260ffc44 c
@@ -571,7 +571,7 @@ fn test_squash_from_to() {
     // The change from the source has been applied (the file contents were already
     // "f", as is typically the case when moving changes from an ancestor)
     let output = work_dir.run_jj(["file", "show", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     f
     [EOF]
     ");
@@ -579,7 +579,7 @@ fn test_squash_from_to() {
     // Can squash from descendant
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from", "e", "--into", "d"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kmkuslsw 1bc21d4e f | (no description set)
@@ -588,7 +588,7 @@ fn test_squash_from_to() {
     ");
     // The change has been removed from the source (the change pointed to by 'e'
     // became empty and was abandoned)
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  1bc21d4e92d6 f
     ○  8b6b080ab587 d e
     │ ○  ee0b260ffc44 c
@@ -600,7 +600,7 @@ fn test_squash_from_to() {
     ");
     // The change from the source has been applied
     let output = work_dir.run_jj(["file", "show", "file2", "-r", "d"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     e
     [EOF]
     ");
@@ -608,7 +608,7 @@ fn test_squash_from_to() {
     // Can squash into the sources
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from", "e::f", "--into", "d"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: pkstwlsy 76baa567 (empty) (no description set)
     Parent commit (@-)      : vruxwmqv 415e4069 d e f | (no description set)
@@ -616,7 +616,7 @@ fn test_squash_from_to() {
     ");
     // The change has been removed from the source (the change pointed to by 'e'
     // became empty and was abandoned)
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  76baa567ed0a (empty)
     ○  415e40694e88 d e f
     │ ○  ee0b260ffc44 c
@@ -628,7 +628,7 @@ fn test_squash_from_to() {
     ");
     // The change from the source has been applied
     let output = work_dir.run_jj(["file", "show", "file2", "-r", "d"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     f
     [EOF]
     ");
@@ -671,7 +671,7 @@ fn test_squash_from_to_partial() {
         .success();
     work_dir.write_file("file3", "d\n");
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  dc71a460d5d6 d
     │ ○  499d601f6046 c
     │ ○  e31bf988d7c9 b
@@ -684,14 +684,14 @@ fn test_squash_from_to_partial() {
 
     // If we don't make any changes in the diff-editor, the whole change is moved
     let output = work_dir.run_jj(["squash", "-i", "--from", "c"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 85589465 d | (no description set)
     Parent commit (@-)      : qpvuntsm e3e04bea a | (no description set)
     Added 0 files, modified 2 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  85589465a5f7 d
     │ ○  e31bf988d7c9 b c
     ├─╯
@@ -701,18 +701,18 @@ fn test_squash_from_to_partial() {
     ");
     // The changes from the source has been applied
     let output = work_dir.run_jj(["file", "show", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     c
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     c
     [EOF]
     ");
     // File `file3`, which was not changed in source, is unchanged
     let output = work_dir.run_jj(["file", "show", "file3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     d
     [EOF]
     ");
@@ -721,14 +721,14 @@ fn test_squash_from_to_partial() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     std::fs::write(&edit_script, "reset file2").unwrap();
     let output = work_dir.run_jj(["squash", "-i", "--from", "c"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 62bd5cd9 d | (no description set)
     Parent commit (@-)      : qpvuntsm e3e04bea a | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  62bd5cd9f413 d
     │ ○  2748f30463ed c
     │ ○  e31bf988d7c9 b
@@ -739,19 +739,19 @@ fn test_squash_from_to_partial() {
     ");
     // The selected change from the source has been applied
     let output = work_dir.run_jj(["file", "show", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     c
     [EOF]
     ");
     // The unselected change from the source has not been applied
     let output = work_dir.run_jj(["file", "show", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a
     [EOF]
     ");
     // File `file3`, which was changed in source's parent, is unchanged
     let output = work_dir.run_jj(["file", "show", "file3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     d
     [EOF]
     ");
@@ -761,14 +761,14 @@ fn test_squash_from_to_partial() {
     // Clear the script so we know it won't be used
     std::fs::write(&edit_script, "").unwrap();
     let output = work_dir.run_jj(["squash", "--from", "c", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 76bf6139 d | (no description set)
     Parent commit (@-)      : qpvuntsm e3e04bea a | (no description set)
     Added 0 files, modified 1 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  76bf613928cf d
     │ ○  9d4418d4828e c
     │ ○  e31bf988d7c9 b
@@ -779,19 +779,19 @@ fn test_squash_from_to_partial() {
     ");
     // The selected change from the source has been applied
     let output = work_dir.run_jj(["file", "show", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     c
     [EOF]
     ");
     // The unselected change from the source has not been applied
     let output = work_dir.run_jj(["file", "show", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a
     [EOF]
     ");
     // File `file3`, which was changed in source's parent, is unchanged
     let output = work_dir.run_jj(["file", "show", "file3"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     d
     [EOF]
     ");
@@ -801,12 +801,12 @@ fn test_squash_from_to_partial() {
     // Clear the script so we know it won't be used
     std::fs::write(&edit_script, "").unwrap();
     let output = work_dir.run_jj(["squash", "--from", "c", "--into", "b", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  dc71a460d5d6 d
     │ ○  f964ce4bca71 c
     │ ○  e12c895adba6 b
@@ -817,13 +817,13 @@ fn test_squash_from_to_partial() {
     ");
     // The selected change from the source has been applied
     let output = work_dir.run_jj(["file", "show", "file1", "-r", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     c
     [EOF]
     ");
     // The unselected change from the source has not been applied
     let output = work_dir.run_jj(["file", "show", "file2", "-r", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a
     [EOF]
     ");
@@ -831,7 +831,7 @@ fn test_squash_from_to_partial() {
     // If we specify only a non-existent file, then nothing changes.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from", "c", "nonexistent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: nonexistent
     Nothing changed.
@@ -883,7 +883,7 @@ fn test_squash_from_multiple() {
         .success();
     work_dir.write_file("file", "f\n");
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  65e53f39b4d6 f
     ○      7dc592781647 e
     ├─┬─╮
@@ -900,7 +900,7 @@ fn test_squash_from_multiple() {
 
     // Squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b", "--from=c", "--into=d"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kpqxywon f584da5f f | (no description set)
@@ -915,7 +915,7 @@ fn test_squash_from_multiple() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  f584da5f6b0d f
     ○    6fbe5593f24a e
     ├─╮
@@ -946,14 +946,14 @@ fn test_squash_from_multiple() {
     // Squash a few commits up an down
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from=b|c|f", "--into=e"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: xznxytkn ec32238b (empty) (no description set)
     Parent commit (@-)      : yostqsxw 5298eef6 e f | (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  ec32238b2be5 (empty)
     ○    5298eef6bca5 e f
     ├─╮
@@ -965,14 +965,14 @@ fn test_squash_from_multiple() {
     ");
     // The changes from the sources have been applied to the destination
     let output = work_dir.run_jj(["file", "show", "-r=e", "file"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     f
     [EOF]
     ");
 
     // Empty squash shouldn't crash
     let output = work_dir.run_jj(["squash", "--from=none()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -1029,7 +1029,7 @@ fn test_squash_from_multiple_partial() {
     work_dir.write_file("file1", "f\n");
     work_dir.write_file("file2", "f\n");
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  4558bd852475 f
     ○      e2db96b2e57a e
     ├─┬─╮
@@ -1046,7 +1046,7 @@ fn test_squash_from_multiple_partial() {
 
     // Partially squash a few commits sideways
     let output = work_dir.run_jj(["squash", "--from=b|c", "--into=d", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 2 descendant commits
     Working copy  (@) now at: kpqxywon 9113246b f | (no description set)
@@ -1061,7 +1061,7 @@ fn test_squash_from_multiple_partial() {
     Then run `jj squash` to move the resolution into the conflicted commit.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  9113246bdbc0 f
     ○      f069c5953603 e
     ├─┬─╮
@@ -1076,12 +1076,12 @@ fn test_squash_from_multiple_partial() {
     ");
     // The selected changes have been removed from the sources
     let output = work_dir.run_jj(["file", "show", "-r=b", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "-r=c", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a
     [EOF]
     ");
@@ -1105,7 +1105,7 @@ fn test_squash_from_multiple_partial() {
     // The unselected change from the sources have not been applied to the
     // destination
     let output = work_dir.run_jj(["file", "show", "-r=d", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     d
     [EOF]
     ");
@@ -1113,14 +1113,14 @@ fn test_squash_from_multiple_partial() {
     // Partially squash a few commits up an down
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from=b|c|f", "--into=e", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kpqxywon b5a40c15 f | (no description set)
     Parent commit (@-)      : yostqsxw 5dea187c e | (no description set)
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  b5a40c154611 f
     ○      5dea187c414d e
     ├─┬─╮
@@ -1135,29 +1135,29 @@ fn test_squash_from_multiple_partial() {
     ");
     // The selected changes have been removed from the sources
     let output = work_dir.run_jj(["file", "show", "-r=b", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "-r=c", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     a
     [EOF]
     ");
     let output = work_dir.run_jj(["file", "show", "-r=f", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     f
     [EOF]
     ");
     // The selected changes from the sources have been applied to the destination
     let output = work_dir.run_jj(["file", "show", "-r=e", "file1"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     f
     [EOF]
     ");
     // The unselected changes from the sources have not been applied
     let output = work_dir.run_jj(["file", "show", "-r=d", "file2"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     d
     [EOF]
     ");
@@ -1182,7 +1182,7 @@ fn test_squash_from_multiple_partial_no_op() {
     work_dir.run_jj(["new", "@-", "-m=d"]).success();
     work_dir.write_file("d", "d\n");
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  fdb92bc249a0 d
     │ ○  0dc8cb72859d c
     ├─╯
@@ -1196,14 +1196,14 @@ fn test_squash_from_multiple_partial_no_op() {
 
     // Source commits that didn't match the paths are not rewritten
     let output = work_dir.run_jj(["squash", "--from=@-+ ~ @", "--into=@", "-m=d", "b"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl 6dfc239e d
     Parent commit (@-)      : qpvuntsm 93d495c4 a
     Added 1 files, modified 0 files, removed 0 files
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  6dfc239e2ba3 d
     │ ○  0dc8cb72859d c
     ├─╯
@@ -1216,7 +1216,7 @@ fn test_squash_from_multiple_partial_no_op() {
         "-T",
         r#"separate(" ", commit.commit_id().short(), commit.description())"#,
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @    6dfc239e2ba3 d
     ├─╮
     │ ○  b1a17f79a1a5 b
@@ -1229,12 +1229,12 @@ fn test_squash_from_multiple_partial_no_op() {
     // If no source commits match the paths, then the whole operation is a no-op
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["squash", "--from=@-+ ~ @", "--into=@", "-m=d", "a"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Nothing changed.
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_output(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  fdb92bc249a0 d
     │ ○  0dc8cb72859d c
     ├─╯
@@ -1283,7 +1283,7 @@ fn test_squash_description() {
     work_dir.run_jj(["op", "restore", &setup_opid1]).success();
     work_dir.run_jj(["describe", "-m", "source"]).success();
     work_dir.run_jj(["squash"]).success();
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     source
     [EOF]
     ");
@@ -1296,7 +1296,7 @@ fn test_squash_description() {
         .success();
     let setup_opid2 = work_dir.current_operation_id();
     work_dir.run_jj(["squash"]).success();
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     destination
     [EOF]
     ");
@@ -1304,7 +1304,7 @@ fn test_squash_description() {
     // An explicit description on the command-line overrides this
     work_dir.run_jj(["op", "restore", &setup_opid2]).success();
     work_dir.run_jj(["squash", "-m", "custom"]).success();
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     custom
     [EOF]
     ");
@@ -1315,7 +1315,7 @@ fn test_squash_description() {
     let setup_opid3 = work_dir.current_operation_id();
     std::fs::write(&edit_script, "dump editor0").unwrap();
     work_dir.run_jj(["squash"]).success();
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     destination
 
     source
@@ -1342,7 +1342,7 @@ fn test_squash_description() {
     // editor
     work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir.run_jj(["squash", "-m", "custom"]).success();
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     custom
     [EOF]
     ");
@@ -1359,7 +1359,7 @@ fn test_squash_description() {
             "custom",
         ])
         .success();
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     custom
 
     CC: test.user@example.com
@@ -1370,11 +1370,11 @@ fn test_squash_description() {
     // both descriptions are unchanged
     work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir.run_jj(["squash", "file1"]).success();
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     destination
     [EOF]
     ");
-    insta::assert_snapshot!(get_description(&work_dir, "@"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@"), @"
     source
     [EOF]
     ");
@@ -1420,7 +1420,7 @@ fn test_squash_description() {
     // trailers if defined in the commit_trailers template
     work_dir.run_jj(["op", "restore", &setup_opid3]).success();
     work_dir.run_jj(["describe", "-m", ""]).success();
-    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
     @  97f34efed913
     ○  e650dfcd7312 destination
     ◆  000000000000
@@ -1433,7 +1433,7 @@ fn test_squash_description() {
             r#"templates.commit_trailers='"CC: alice@example.com"'"#,
         ])
         .success();
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     destination
 
     CC: alice@example.com
@@ -1447,7 +1447,7 @@ fn test_squash_description() {
     work_dir
         .run_jj(["describe", "-r", "@-", "-m", ""])
         .success();
-    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
     @  40d544a674fa source
     ○  0cd53b79bf29
     ◆  000000000000
@@ -1460,7 +1460,7 @@ fn test_squash_description() {
             r#"templates.commit_trailers='"CC: alice@example.com"'"#,
         ])
         .success();
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     source
 
     CC: alice@example.com
@@ -1472,7 +1472,7 @@ fn test_squash_description() {
     work_dir
         .run_jj(["describe", "-r", "..", "-m", ""])
         .success();
-    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
     @  40803d8a1ce7
     ○  dd5a6e210d71
     ◆  000000000000
@@ -1493,7 +1493,7 @@ fn test_squash_description() {
     work_dir
         .run_jj(["describe", "-r", "@-", "-m", ""])
         .success();
-    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
     @  7ce5b3a58427 source
     ○  b9442a4ce005
     ◆  000000000000
@@ -1512,7 +1512,7 @@ fn test_squash_description() {
     // squashing with an empty message on the command line shouldn't add
     // any trailer
     work_dir.run_jj(["op", "restore", &setup_opid3]).success();
-    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
     @  2a79b102bf46 source
     ○  e650dfcd7312 destination
     ◆  000000000000
@@ -1568,20 +1568,20 @@ fn test_squash_empty() {
     work_dir.run_jj(["commit", "-m", "parent"]).success();
 
     let output = work_dir.run_jj(["squash"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz db7ad962 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 771da191 (empty) parent
     [EOF]
     ");
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     parent
     [EOF]
     ");
 
     work_dir.run_jj(["describe", "-m", "child"]).success();
     work_dir.run_jj(["squash"]).success();
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     parent
 
     child
@@ -1599,7 +1599,7 @@ fn test_squash_use_destination_message() {
     work_dir.run_jj(["commit", "-m=b"]).success();
     work_dir.run_jj(["describe", "-m=c"]).success();
     // Test the setup
-    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
     @  cf388db088f7 c
     ○  e412ddda5587 b
     ○  b86e28cd6862 a
@@ -1610,7 +1610,7 @@ fn test_squash_use_destination_message() {
 
     // Squash the current revision using the short name for the option.
     work_dir.run_jj(["squash", "-u"]).success();
-    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
     @  70c0f74e4486
     ○  44c1701e4ef8 b
     ○  b86e28cd6862 a
@@ -1628,7 +1628,7 @@ fn test_squash_use_destination_message() {
             "--into=subject(a)",
         ])
         .success();
-    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @r"
+    insta::assert_snapshot!(get_log_output_with_description(&work_dir), @"
     @  e5a16e0e6a46
     ○  6e47254e0803 a
     ◆  000000000000
@@ -1648,7 +1648,7 @@ fn test_squash_option_exclusion() {
         "squash",
         "--message=123",
         "--use-destination-message",
-    ]), @r"
+    ]), @"
     ------- stderr -------
     error: the argument '--message <MESSAGE>' cannot be used with '--use-destination-message'
 
@@ -1663,7 +1663,7 @@ fn test_squash_option_exclusion() {
         "squash",
         "-r@",
         "--into=@-"
-    ]), @r"
+    ]), @"
     ------- stderr -------
     error: the argument '--revision <REVSET>' cannot be used with '--into <REVSET>'
 
@@ -1678,7 +1678,7 @@ fn test_squash_option_exclusion() {
         "squash",
         "-r@",
         "--onto=@-"
-    ]), @r"
+    ]), @"
     ------- stderr -------
     error: the argument '--revision <REVSET>' cannot be used with '--onto <REVSETS>'
 
@@ -1693,7 +1693,7 @@ fn test_squash_option_exclusion() {
         "squash",
         "-r@",
         "--after=@-"
-    ]), @r"
+    ]), @"
     ------- stderr -------
     error: the argument '--revision <REVSET>' cannot be used with '--insert-after <REVSETS>'
 
@@ -1708,7 +1708,7 @@ fn test_squash_option_exclusion() {
         "squash",
         "-r@",
         "--before=@-"
-    ]), @r"
+    ]), @"
     ------- stderr -------
     error: the argument '--revision <REVSET>' cannot be used with '--insert-before <REVSETS>'
 
@@ -1723,7 +1723,7 @@ fn test_squash_option_exclusion() {
         "squash",
         "--onto=@",
         "--into=@-"
-    ]), @r"
+    ]), @"
     ------- stderr -------
     error: the argument '--onto <REVSETS>' cannot be used with '--into <REVSET>'
 
@@ -1738,7 +1738,7 @@ fn test_squash_option_exclusion() {
         "squash",
         "--after=@",
         "--into=@-"
-    ]), @r"
+    ]), @"
     ------- stderr -------
     error: the argument '--insert-after <REVSETS>' cannot be used with '--into <REVSET>'
 
@@ -1753,7 +1753,7 @@ fn test_squash_option_exclusion() {
         "squash",
         "--before=@-",
         "--into=@-"
-    ]), @r"
+    ]), @"
     ------- stderr -------
     error: the argument '--insert-before <REVSETS>' cannot be used with '--into <REVSET>'
 
@@ -1794,7 +1794,7 @@ fn test_squash_to_new_commit() {
         .success();
     let setup_opid = work_dir.current_operation_id();
 
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  mzvwutvlkqwt
     ○  zsuskulnrvyr bm4 file4
     │  A file4
@@ -1818,7 +1818,7 @@ fn test_squash_to_new_commit() {
         "--insert-before",
         "qpvuntsmwlqt",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created new commit kpqxywon f87660dd file 3&4
     Rebased 2 descendant commits
@@ -1827,7 +1827,7 @@ fn test_squash_to_new_commit() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  vzqnnsmrxxkw
     ○  rlvkpnrzqnoo bm2 bm3 bm4 file2
     │  A file2
@@ -1851,7 +1851,7 @@ fn test_squash_to_new_commit() {
         "--insert-after",
         "qpvuntsmwlqt",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created new commit lylxulpl 43cf43eb file 3&4
     Rebased 1 descendant commits
@@ -1860,7 +1860,7 @@ fn test_squash_to_new_commit() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  rsllmpnmslon
     ○  rlvkpnrzqnoo bm2 bm3 bm4 file2
     │  A file2
@@ -1884,7 +1884,7 @@ fn test_squash_to_new_commit() {
         "--onto",
         "qpvuntsmwlqt",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created new commit uyznsvlq fd4b7c85 file 3&4
     Working copy  (@) now at: uuqyqztp c2d532a4 (empty) (no description set)
@@ -1893,7 +1893,7 @@ fn test_squash_to_new_commit() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  uuqyqztpptml
     ○  rlvkpnrzqnoo bm2 bm3 bm4 file2
     │  A file2
@@ -1917,7 +1917,7 @@ fn test_squash_to_new_commit() {
         "--insert-after",
         "zsuskulnrvyr",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created new commit nmzmmopx c7558c47 file 3&4
     Rebased 1 descendant commits
@@ -1926,7 +1926,7 @@ fn test_squash_to_new_commit() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  pwyqokvyvunr
     ○  nmzmmopxokps file 3&4
     │  A file3
@@ -1950,7 +1950,7 @@ fn test_squash_to_new_commit() {
         "--insert-before",
         "zsuskulnrvyr",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created new commit nlrtlrxv c5286eac bm4 | file 3&4
     Rebased 1 descendant commits
@@ -1959,7 +1959,7 @@ fn test_squash_to_new_commit() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  plymsszllttm
     ○  nlrtlrxvuusk bm4 file 3&4
     │  A file3
@@ -1985,7 +1985,7 @@ fn test_squash_to_new_commit() {
         "--onto",
         "kkmpptxzrspx",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created new commit uuuvxpvw 2ad3f239 file 3&4
     Working copy  (@) now at: nmpuuozl 95ef3451 (empty) (no description set)
@@ -1994,7 +1994,7 @@ fn test_squash_to_new_commit() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  nmpuuozlonyz
     │ ○  uuuvxpvwspwr file 3&4
     ├─╯  A file3
@@ -2017,7 +2017,7 @@ fn test_squash_to_new_commit() {
         "--insert-before",
         "qpvuntsmwlqt",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created new commit pkstwlsy 41510a56 file 3&4
     Rebased 3 descendant commits
@@ -2044,7 +2044,7 @@ fn test_squash_to_new_commit() {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  mzvwutvlkqwt
     ○  rlvkpnrzqnoo bm2 bm3 bm4 file2
     │  A file2
@@ -2058,7 +2058,7 @@ fn test_squash_to_new_commit() {
     ");
 
     let output = work_dir.run_jj(["evolog", "-r", "pkstwlsyuyku"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○    pkstwlsy test.user@example.com 2001-02-03 08:05:35 41510a56
     ├─╮  file 3&4
     │ │  -- operation ad1aa66374f6 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
@@ -2100,7 +2100,7 @@ fn test_squash_to_new_commit() {
         "qpvuntsmwlqt",
         "--use-destination-message",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created new commit soqnvnyz bf2d3b81 (no description set)
     Rebased 3 descendant commits
@@ -2109,7 +2109,7 @@ fn test_squash_to_new_commit() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  mzvwutvlkqwt
     ○  rlvkpnrzqnoo bm2 bm3 bm4 file2
     │  A file2
@@ -2131,7 +2131,7 @@ fn test_squash_to_new_commit() {
         "qpvuntsmwlqt",
         "--use-destination-message",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created new commit nsrwusvy c2183685 (empty) (no description set)
     Rebased 5 descendant commits
@@ -2140,7 +2140,7 @@ fn test_squash_to_new_commit() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  mzvwutvlkqwt
     ○  zsuskulnrvyr bm4 file4
     │  A file4
@@ -2156,7 +2156,7 @@ fn test_squash_to_new_commit() {
     ");
 
     let output = work_dir.run_jj(["evolog", "-r", "nsrwusvynpoy"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  nsrwusvy test.user@example.com 2001-02-03 08:05:42 c2183685
        (empty) (no description set)
        -- operation a656ab530912 squash 0 commits
@@ -2174,7 +2174,7 @@ fn test_squash_to_new_commit() {
         "--use-destination-message",
         "no file",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Warning: No matching entries for paths: no file
     Created new commit wtlqussy 7eff41c8 (empty) (no description set)
@@ -2184,7 +2184,7 @@ fn test_squash_to_new_commit() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  mzvwutvlkqwt
     ○  zsuskulnrvyr bm4 file4
     │  A file4
@@ -2200,7 +2200,7 @@ fn test_squash_to_new_commit() {
     ");
 
     let output = work_dir.run_jj(["evolog", "-r", "wtlqussytxur"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  wtlqussy test.user@example.com 2001-02-03 08:05:46 7eff41c8
        (empty) (no description set)
        -- operation 1661e2cea988 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
@@ -2210,7 +2210,7 @@ fn test_squash_to_new_commit() {
     // squashing from an empty commit should produce an empty commit
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["new", "--no-edit", "root()"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created new commit szrrkvty f5e47d01 (empty) (no description set)
     [EOF]
@@ -2224,13 +2224,13 @@ fn test_squash_to_new_commit() {
         "root()",
         "--use-destination-message",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created new commit pyoswmwk 991d0644 (empty) (no description set)
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  mzvwutvlkqwt
     ○  zsuskulnrvyr bm4 file4
     │  A file4
@@ -2247,7 +2247,7 @@ fn test_squash_to_new_commit() {
     ");
 
     let output = work_dir.run_jj(["evolog", "-r", "pyoswmwkkqyt"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  pyoswmwk test.user@example.com 2001-02-03 08:05:50 991d0644
     │  (empty) (no description set)
     │  -- operation 60d056329b43 squash commit f5e47d019271a392eb7f92a6b2e9f8cf41d97049
@@ -2270,7 +2270,7 @@ fn test_squash_to_new_commit() {
         "--insert-before",
         "rlvkpnrzqnoo",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Created new commit vkywoywq 96673776 file 3&4
     Rebased 1 descendant commits
@@ -2279,7 +2279,7 @@ fn test_squash_to_new_commit() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  rsmzzqvrnpvn
     ○    rlvkpnrzqnoo bm2 bm3 bm4 file2
     ├─╮  A file2
@@ -2295,7 +2295,7 @@ fn test_squash_to_new_commit() {
     // squash-moves can use the current commit too
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     work_dir.run_jj(["edit", "bm3"]).success();
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     ○  zsuskulnrvyr bm4 file4
     │  A file4
     @  kkmpptxzrspx bm3 file3
@@ -2307,7 +2307,7 @@ fn test_squash_to_new_commit() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["squash", "--before", "rlvkpnrzqnoo"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["squash", "--before", "rlvkpnrzqnoo"]), @"
     ------- stderr -------
     Created new commit wxzmtyol bc0392dc file3
     Rebased 2 descendant commits
@@ -2315,7 +2315,7 @@ fn test_squash_to_new_commit() {
     Parent commit (@-)      : rlvkpnrz 264a43af bm2 bm3 | file2
     [EOF]
     ");
-    insta::assert_snapshot!(get_log_with_summary(&work_dir), @r"
+    insta::assert_snapshot!(get_log_with_summary(&work_dir), @"
     @  musouqkqsmll
     │ ○  zsuskulnrvyr bm4 file4
     ├─╯  A file4
@@ -2368,7 +2368,7 @@ fn test_squash_with_editor_combine_messages() {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
 
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     final description from editor
     [EOF]
     ");
@@ -2402,7 +2402,7 @@ fn test_squash_with_editor_and_message_args() {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     message from command line
     [EOF]
     ");
@@ -2447,7 +2447,7 @@ fn test_squash_with_editor_and_empty_message() {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
-    insta::assert_snapshot!(get_description(&work_dir, "@-"), @r"
+    insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     Trailer: value
     [EOF]
     ");

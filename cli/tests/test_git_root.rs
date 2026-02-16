@@ -23,7 +23,7 @@ fn test_git_root_git_backend_noncolocated() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["git", "root"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     $TEST_ENV/repo/.jj/repo/store/git
     [EOF]
     ");
@@ -38,7 +38,7 @@ fn test_git_root_git_backend_colocated() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["git", "root"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     $TEST_ENV/repo/.git
     [EOF]
     ");
@@ -78,7 +78,7 @@ fn test_git_root_git_backend_external_git_dir() {
         .success();
 
     let output = work_dir.run_jj(["git", "root"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     $TEST_ENV/git-repo/.git
     [EOF]
     ");
@@ -93,7 +93,7 @@ fn test_git_root_simple_backend() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["git", "root"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: The repo is not backed by a Git repo
     [EOF]

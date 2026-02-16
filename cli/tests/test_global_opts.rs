@@ -35,7 +35,7 @@ fn test_non_utf8_arg() {
         OsString::from_wide(&[0x0066, 0x006f, 0xD800, 0x006f])
     };
     let output = test_env.run_jj_in(".", [&invalid_utf]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Non-UTF-8 argument
     [EOF]
@@ -114,13 +114,13 @@ fn test_no_subcommand() {
         .run_jj(["bookmark", "create", "-r@", "show"])
         .success();
     // TODO: test_env.run_jj(["-r", "help"]).success()
-    insta::assert_snapshot!(work_dir.run_jj(["-r", "log"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["-r", "log"]), @"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 help log show e8849ae1
     │  (empty) (no description set)
     ~
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["-r", "show"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["-r", "show"]), @"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 help log show e8849ae1
     │  (empty) (no description set)
     ~
@@ -132,7 +132,7 @@ fn test_no_subcommand() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file.txt", "file");
     let output = work_dir.run_jj([""; 0]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: kxryzmor 8db1ba9a (empty) (no description set)
     Parent commit (@-)      : lylxulpl 19f3adb2 foo
@@ -148,7 +148,7 @@ fn test_ignore_working_copy() {
 
     work_dir.write_file("file", "initial");
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  82a10a4d9ef783fd68b661f40ce10dd80d599d9e
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -162,7 +162,7 @@ fn test_ignore_working_copy() {
 
     // But without --ignore-working-copy, we get a new commit ID.
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  00fc09f48ccf5c8b025a0f93b0ec3b0e4294a598
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -202,7 +202,7 @@ fn test_resolve_workspace_directory() {
 
     // Ancestor of cwd
     let output = sub_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     The working copy has no changes.
     Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
@@ -220,7 +220,7 @@ fn test_resolve_workspace_directory() {
 
     // Valid explicit path
     let output = sub_dir.run_jj(["status", "-R", "../.."]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     The working copy has no changes.
     Working copy  (@) : qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-): zzzzzzzz 00000000 (empty) (no description set)
@@ -341,7 +341,7 @@ fn test_invalid_filesets_looking_like_filepaths() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["file", "show", "abc~"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Failed to parse fileset: Syntax error
     Caused by:  --> 1:5
@@ -367,7 +367,7 @@ fn test_broken_repo_structure() {
     // Test the error message when the git repository can't be located.
     work_dir.remove_file(store_path.join("git_target"));
     let output = work_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @"
     ------- stderr -------
     Internal error: The repository appears broken or inaccessible
     Caused by:
@@ -379,7 +379,7 @@ fn test_broken_repo_structure() {
     // Test the error message when the commit backend is of unknown type.
     work_dir.write_file(&store_type_path, "unknown");
     let output = work_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Internal error: This version of the jj binary doesn't support this type of repo
     Caused by: Unsupported commit backend type 'unknown'
@@ -392,7 +392,7 @@ fn test_broken_repo_structure() {
     work_dir.remove_file(&store_type_path);
     work_dir.create_dir(&store_type_path);
     let output = work_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @"
     ------- stderr -------
     Internal error: The repository appears broken or inaccessible
     Caused by:
@@ -407,7 +407,7 @@ fn test_broken_repo_structure() {
     work_dir.remove_dir_all(".jj");
     work_dir.create_dir(".jj");
     let output = work_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output.strip_stderr_last_line(), @r"
+    insta::assert_snapshot!(output.strip_stderr_last_line(), @"
     ------- stderr -------
     Internal error: The repository appears broken or inaccessible
     Caused by:
@@ -427,7 +427,7 @@ fn test_color_config() {
 
     // Test that --color=always is respected.
     let output = work_dir.run_jj(["--color=always", "log", "-T", "commit_id"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m[38;5;2m@[0m  [38;5;4me8849ae12c709f2321908879bc724fdb2ab8a781[39m
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
@@ -436,7 +436,7 @@ fn test_color_config() {
     // Test that color is used if it's requested in the config file
     test_env.add_config(r#"ui.color="always""#);
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m[38;5;2m@[0m  [38;5;4me8849ae12c709f2321908879bc724fdb2ab8a781[39m
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
@@ -444,7 +444,7 @@ fn test_color_config() {
 
     // Test that --color=never overrides the config.
     let output = work_dir.run_jj(["--color=never", "log", "-T", "commit_id"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -452,7 +452,7 @@ fn test_color_config() {
 
     // Test that --color=auto overrides the config.
     let output = work_dir.run_jj(["--color=auto", "log", "-T", "commit_id"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -460,7 +460,7 @@ fn test_color_config() {
 
     // Test that --config 'ui.color=never' overrides the config.
     let output = work_dir.run_jj(["--config=ui.color=never", "log", "-T", "commit_id"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -475,7 +475,7 @@ fn test_color_config() {
         "-T",
         "commit_id",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -485,7 +485,7 @@ fn test_color_config() {
     test_env.add_env_var("NO_COLOR", "1");
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [1m[38;5;2m@[0m  [38;5;4me8849ae12c709f2321908879bc724fdb2ab8a781[39m
     [1m[38;5;14m◆[0m  [38;5;4m0000000000000000000000000000000000000000[39m
     [EOF]
@@ -497,7 +497,7 @@ fn test_color_config() {
         .success();
 
     let output = work_dir.run_jj(["log", "-T", "commit_id"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
     [EOF]
@@ -505,7 +505,7 @@ fn test_color_config() {
 
     // Invalid --color
     let output = work_dir.run_jj(["log", "--color=foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: invalid value 'foo' for '--color <WHEN>'
       [possible values: always, never, debug, auto]
@@ -516,7 +516,7 @@ fn test_color_config() {
     ");
     // Invalid ui.color
     let stderr = work_dir.run_jj(["log", "--config=ui.color=true"]);
-    insta::assert_snapshot!(stderr, @r"
+    insta::assert_snapshot!(stderr, @"
     ------- stderr -------
     Config error: Invalid type or value for ui.color
     Caused by: wanted string or table
@@ -580,7 +580,7 @@ fn test_color_ui_messages() {
         "--config=templates.log_node=commit_id",
         "-Tdescription",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     [38;5;4m8afc18ff677d32e40043e1bc8c1683c2f9c2e916[39m
     [1m[39m<[38;5;1mError: [39mNo Commit available>[0m  [38;5;8m(elided revisions)[39m
     [38;5;4m0000000000000000000000000000000000000000[39m
@@ -589,7 +589,7 @@ fn test_color_ui_messages() {
 
     // formatted hint
     let output = work_dir.run_jj(["edit", ".."]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     [1m[38;5;1mError: [39mRevset `..` resolved to more than one revision[0m
     [1m[38;5;6mHint: [0m[39mThe revset `..` resolved to these revisions:[39m
@@ -601,7 +601,7 @@ fn test_color_ui_messages() {
 
     // commit_summary template with debugging colors
     let output = work_dir.run_jj(["st", "--color", "debug"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     The working copy has no changes.
     Working copy  (@) : [1m[38;5;13m<<commit working_copy change_id shortest prefix::m>>[38;5;8m<<commit working_copy change_id shortest rest::zvwutvl>>[39m<<commit working_copy:: >>[38;5;12m<<commit working_copy commit_id shortest prefix::8>>[38;5;8m<<commit working_copy commit_id shortest rest::afc18ff>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty::(empty)>>[39m<<commit working_copy:: >>[38;5;10m<<commit working_copy empty description placeholder::(no description set)>>[0m
     Parent commit (@-): [1m[38;5;5m<<commit change_id shortest prefix::q>>[0m[38;5;8m<<commit change_id shortest rest::pvuntsm>>[39m<<commit:: >>[1m[38;5;4m<<commit commit_id shortest prefix::e>>[0m[38;5;8m<<commit commit_id shortest rest::8849ae1>>[39m<<commit:: >>[38;5;2m<<commit empty::(empty)>>[39m<<commit:: >>[38;5;2m<<commit empty description placeholder::(no description set)>>[39m
@@ -710,7 +710,7 @@ fn test_config_args() {
     [EOF]
     "#);
     let output = list_config(&["--config-file=file1.toml"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     test.key1 = 'file1'
     test.key2 = 'file1'
     [EOF]
@@ -745,7 +745,7 @@ fn test_config_args() {
     "#);
 
     let output = test_env.run_jj_in(".", ["config", "list", "--config=foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Config error: --config must be specified as NAME=VALUE
     For help, see https://docs.jj-vcs.dev/latest/config/ or use `jj help -k config`.
@@ -757,7 +757,7 @@ fn test_config_args() {
     insta::with_settings!({
         filters => [("(?m)^([2-9]): .*", "$1: <redacted>")],
     }, {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ------- stderr -------
         Config error: Failed to read configuration file
         Caused by:
@@ -777,7 +777,7 @@ fn test_invalid_config() {
 
     test_env.add_config("[section]key = value-missing-quotes");
     let output = test_env.run_jj_in(".", ["git", "init", "repo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Config error: Configuration cannot be parsed as TOML document
     Caused by: TOML parse error at line 1, column 10
@@ -801,7 +801,7 @@ fn test_invalid_config_value() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["status", "--config=snapshot.auto-track=[0]"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Config error: Invalid type or value for snapshot.auto-track
     Caused by: invalid type: sequence, expected a string
@@ -834,7 +834,7 @@ fn test_conditional_config() {
 
     // Sanity check
     let output = test_env.run_jj_in(".", ["config", "list", "--include-overridden", "aliases"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     aliases.foo = ['new', 'root()', '-mglobal']
     [EOF]
     ");
@@ -842,7 +842,7 @@ fn test_conditional_config() {
         &test_env.home_dir().join("repo1"),
         ["config", "list", "--include-overridden", "aliases"],
     );
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     # aliases.foo = ['new', 'root()', '-mglobal']
     # aliases.foo = ['new', 'root()', '-mhome']
     aliases.foo = ['new', 'root()', '-mrepo1']
@@ -852,7 +852,7 @@ fn test_conditional_config() {
         &test_env.home_dir().join("repo2"),
         ["config", "list", "--include-overridden", "aliases"],
     );
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     # aliases.foo = ['new', 'root()', '-mglobal']
     aliases.foo = ['new', 'root()', '-mhome']
     [EOF]
@@ -860,14 +860,14 @@ fn test_conditional_config() {
 
     // Aliases can be expanded by using the conditional tables
     let output = test_env.run_jj_in(&test_env.home_dir().join("repo1"), ["foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: royxmykx 7c486962 (empty) repo1
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
     let output = test_env.run_jj_in(&test_env.home_dir().join("repo2"), ["foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Working copy  (@) now at: yqosqzyt 072741b8 (empty) home
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
@@ -933,7 +933,7 @@ fn test_default_config() {
         &test_env.work_dir(""),
         &["config", "list", r#"-Tname ++ "\n""#],
     );
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     operation.hostname
     operation.username
     [EOF]
@@ -961,7 +961,7 @@ fn test_default_config() {
     "#);
 
     let output = run_jj(&work_dir, &["log"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  <change-id> (no email set) <date-time> <id>
     │  (empty) (no description set)
     ○  <change-id> (no email set) <date-time> <id>
@@ -974,7 +974,7 @@ fn test_default_config() {
         "--config=template-aliases.'format_time_range(t)'='format_timestamp(t.end())'";
     let output = run_jj(&work_dir, &["op", "log", time_config]);
     if maskable_op_user {
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         @  <id> <user>@<host> <date-time>
         │  new empty commit
         │  args: jj new
@@ -1042,7 +1042,7 @@ fn test_help() {
     let test_env = TestEnvironment::default();
 
     let output = test_env.run_jj_in(".", ["diffedit", "-h"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     Touch up the content changes in a revision with a diff editor
 
     Usage: jj diffedit [OPTIONS] [FILESETS]...

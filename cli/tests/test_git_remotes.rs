@@ -66,7 +66,7 @@ fn test_git_remotes() {
     ]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     bar http://example.com/repo/bar
     baz http://example.com/repo/baz (push: git@example.com:repo/baz)
     foo http://example.com/repo/foo
@@ -75,13 +75,13 @@ fn test_git_remotes() {
     let output = work_dir.run_jj(["git", "remote", "remove", "foo"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     bar http://example.com/repo/bar
     baz http://example.com/repo/baz (push: git@example.com:repo/baz)
     [EOF]
     ");
     let output = work_dir.run_jj(["git", "remote", "remove", "nonexistent"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No git remote named 'nonexistent'
     [EOF]
@@ -138,21 +138,21 @@ fn test_git_remote_add() {
         "foo",
         "http://example.com/repo/foo2",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Git remote named 'foo' already exists
     [EOF]
     [exit status: 1]
     ");
     let output = work_dir.run_jj(["git", "remote", "add", "git", "http://example.com/repo/git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Git remote named 'git' is reserved for local Git repository
     [EOF]
     [exit status: 1]
     ");
     let output = work_dir.run_jj(["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     foo http://example.com/repo/foo
     [EOF]
     ");
@@ -239,7 +239,7 @@ fn test_git_remote_set_url() {
         "bar",
         "http://example.com/repo/bar",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No git remote named 'bar'
     [EOF]
@@ -252,7 +252,7 @@ fn test_git_remote_set_url() {
         "git",
         "http://example.com/repo/git",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Git remote named 'git' is reserved for local Git repository
     [EOF]
@@ -267,7 +267,7 @@ fn test_git_remote_set_url() {
     ]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     foo http://example.com/repo/bar
     [EOF]
     ");
@@ -365,7 +365,7 @@ fn test_git_remote_set_url() {
         "--fetch",
         "https://example.com/repo/bar2",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     error: the argument '[URL]' cannot be used with '--fetch <FETCH>'
 
@@ -430,7 +430,7 @@ fn test_git_remote_relative_path() {
         .run_jj(["git", "remote", "add", "foo", path.to_str().unwrap()])
         .success();
     let output = work_dir.run_jj(["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     foo $TEST_ENV/native/sep
     [EOF]
     ");
@@ -443,7 +443,7 @@ fn test_git_remote_relative_path() {
         )
         .success();
     let output = work_dir.run_jj(["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     foo $TEST_ENV/unix/sep
     [EOF]
     ");
@@ -462,21 +462,21 @@ fn test_git_remote_rename() {
         .run_jj(["git", "remote", "add", "baz", "http://example.com/repo/baz"])
         .success();
     let output = work_dir.run_jj(["git", "remote", "rename", "bar", "foo"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: No git remote named 'bar'
     [EOF]
     [exit status: 1]
     ");
     let output = work_dir.run_jj(["git", "remote", "rename", "foo", "baz"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Git remote named 'baz' already exists
     [EOF]
     [exit status: 1]
     ");
     let output = work_dir.run_jj(["git", "remote", "rename", "foo", "git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Git remote named 'git' is reserved for local Git repository
     [EOF]
@@ -485,7 +485,7 @@ fn test_git_remote_rename() {
     let output = work_dir.run_jj(["git", "remote", "rename", "foo", "bar"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     bar http://example.com/repo/foo
     baz http://example.com/repo/baz
     [EOF]
@@ -521,7 +521,7 @@ fn test_git_remote_named_git() {
     let output = work_dir.run_jj(["git", "remote", "rename", "git", "bar"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     bar http://example.com/repo/repo
     [EOF]
     ------- stderr -------
@@ -539,7 +539,7 @@ fn test_git_remote_named_git() {
     "#);
     // @git bookmark shouldn't be renamed.
     let output = work_dir.run_jj(["log", "-rmain@git", "-Tbookmarks"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     @  main
     │
     ~
@@ -548,7 +548,7 @@ fn test_git_remote_named_git() {
 
     // The remote cannot be renamed back by jj.
     let output = work_dir.run_jj(["git", "remote", "rename", "bar", "git"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Git remote named 'git' is reserved for local Git repository
     [EOF]
@@ -574,7 +574,7 @@ fn test_git_remote_named_git() {
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "remote", "list"]);
     insta::assert_snapshot!(output, @"");
-    insta::assert_snapshot!(read_git_config(work_dir.root()), @r"
+    insta::assert_snapshot!(read_git_config(work_dir.root()), @"
     [core]
     	repositoryformatversion = 0
     	bare = false
@@ -582,7 +582,7 @@ fn test_git_remote_named_git() {
     ");
     // @git bookmark shouldn't be removed.
     let output = work_dir.run_jj(["log", "-rmain@git", "-Tbookmarks"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  main
     │
     ~
@@ -615,14 +615,14 @@ fn test_git_remote_with_slashes() {
         "another/origin",
         "http://examples.org/repo/repo",
     ]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Git remotes with slashes are incompatible with jj: another/origin
     [EOF]
     [exit status: 1]
     ");
     let output = work_dir.run_jj(["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     slash/origin http://example.com/repo/repo
     [EOF]
     ");
@@ -631,14 +631,14 @@ fn test_git_remote_with_slashes() {
     let output = work_dir.run_jj(["git", "remote", "rename", "slash/origin", "origin"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     origin http://example.com/repo/repo
     [EOF]
     ");
 
     // The remote cannot be renamed back by jj.
     let output = work_dir.run_jj(["git", "remote", "rename", "origin", "slash/origin"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ------- stderr -------
     Error: Git remotes with slashes are incompatible with jj: slash/origin
     [EOF]
@@ -657,7 +657,7 @@ fn test_git_remote_with_slashes() {
     insta::assert_snapshot!(output, @"");
     // @git bookmark shouldn't be removed.
     let output = work_dir.run_jj(["log", "-rmain@git", "-Tbookmarks"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     ○  main
     │
     ~
@@ -728,7 +728,7 @@ fn test_git_remote_with_global_git_remote_config() {
     // even incomplete ones like `origin`. This is inconsistent with
     // the other `git remote` commands, which ignore the global
     // configuration (even `git remote get-url`).
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     foo htps://example.com/repo/foo
     [EOF]
     ");
@@ -756,7 +756,7 @@ fn test_git_remote_with_global_git_remote_config() {
     // This has the unfortunate consequence that the original remote
     // still exists after renaming.
     let output = work_dir.run_jj(["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     bar htps://example.com/repo/foo
     foo htps://example.com/repo/foo
     [EOF]
@@ -781,7 +781,7 @@ fn test_git_remote_with_global_git_remote_config() {
     insta::assert_snapshot!(output, @"");
 
     let output = work_dir.run_jj(["git", "remote", "list"]);
-    insta::assert_snapshot!(output, @r"
+    insta::assert_snapshot!(output, @"
     bar htps://example.com/repo/foo
     foo htps://example.com/repo/foo
     origin https://example.com/repo/origin/2

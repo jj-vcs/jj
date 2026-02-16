@@ -1514,7 +1514,7 @@ mod tests {
         recorder.pop_label();
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 7)),
-            @r"
+            @"
         [38;5;1mfoo bar[39m
         [38;5;1mbaz[39m
         [38;5;1mqux[39m
@@ -1531,7 +1531,7 @@ mod tests {
         }
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 7)),
-            @r"
+            @"
         [38;5;1mfoo [38;5;6mbar[39m
         [38;5;1mbaz[39m
         [38;5;6mqux[39m
@@ -1548,7 +1548,7 @@ mod tests {
         }
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
-            @r"
+            @"
         [38;5;1m[39m
         [38;5;6mfoo[39m
         [38;5;1m[39m
@@ -1568,7 +1568,7 @@ mod tests {
         recorder.pop_label();
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
-            @r"
+            @"
         [38;5;1mfoo bar[39m
         [38;5;6mbaz[39m
         "
@@ -1584,7 +1584,7 @@ mod tests {
         recorder.pop_label();
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
-            @r"
+            @"
         [38;5;1mfoo bar[39m
         [38;5;1mba[38;5;6mz[39m
         "
