@@ -80,7 +80,7 @@ jobs:
         toolchain: 1.89
         # comma-separated list of extra targets to install
         targets: ${{ matrix.extra_targets }}
-    - uses: taiki-e/install-action@1e67dedb5e3c590e1c9d9272ace46ef689da250d
+    - uses: taiki-e/install-action@288875dd3d64326724fa6d9593062d9f8ba0b131
       with:
         tool: nextest
     - name: Install mold
@@ -136,7 +136,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15
+      - uses: cachix/install-nix-action@2126ae7fc54c9df00dd18f7f18754393182c73cd
       - run: nix flake check -L --show-trace
 
   check-protos:
@@ -300,7 +300,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@45cbd0c69e560cd9e7cd7f8c32362050c9b7ded2
+        uses: github/codeql-action/upload-sarif@9e907b5e64f6b83e7804b09294d44122997950d6
         with:
           sarif_file: results.sarif
           category: zizmor
