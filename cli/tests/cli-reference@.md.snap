@@ -2875,7 +2875,7 @@ The reverse of each of the given revisions is applied sequentially in reverse to
 
 The description of the new revisions can be customized with the `templates.revert_description` config variable.
 
-**Usage:** `jj revert <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>> <REVSETS|--revisions <REVSETS>>`
+**Usage:** `jj revert [OPTIONS] <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>> [REVSETS]...`
 
 ###### **Arguments:**
 
