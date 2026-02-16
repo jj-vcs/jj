@@ -27,13 +27,13 @@ chrono = { version = "0.4.43", default-features = false, features = [
     "clock",
     "serde",
 ] }
-clap = { version = "4.5.57", features = [
+clap = { version = "4.5.58", features = [
     "derive",
     "deprecated",
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.5.65", features = ["unstable-dynamic"] }
+clap_complete = { version = "4.5.66", features = ["unstable-dynamic"] }
 clap_complete_nushell = "4.5.10"
 # Update clap-markdown manually since test_generate_md_cli_help snapshot
 # will need regenerating.
@@ -43,12 +43,12 @@ clru = "0.6.2"
 criterion = "0.8.2"
 crossterm = { version = "0.29", default-features = false, features = ["windows"] }
 datatest-stable = "0.3.3"
-digest = "0.10.7"
+digest = "0.11.0"
 dunce = "1.0.5"
 either = "1.15.0"
 erased-serde = "0.4.9"
 etcetera = "0.11.0"
-futures = "0.3.31"
+futures = "0.3.32"
 gix = { version = "0.79.0", default-features = false, features = [
     "attributes",
     "blob-diff",
@@ -64,7 +64,7 @@ indoc = "2.0.7"
 insta = { version = "1.46.3", features = ["filters"] }
 interim = { version = "0.2.1", features = ["chrono_0_4"] }
 itertools = "0.14.0"
-jsonschema = { version = "0.41.0", default-features = false }
+jsonschema = { version = "0.42.0", default-features = false }
 libc = { version = "0.2.180" }
 maplit = "1.0.2"
 nix = "0.31.1"
@@ -104,7 +104,7 @@ smallvec = { version = "1.15.1", features = [
     "union",
 ] }
 strsim = "0.11.1"
-syn = "2.0.111"
+syn = "2.0.116"
 rustversion = "1.0.22"
 tempfile = "3.24.0"
 test-case = "3.3.1"
