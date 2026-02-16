@@ -220,6 +220,52 @@ fn test_new_wc_commit_when_wc_immutable_multi_workspace() {
 }
 
 #[test]
+fn test_new_wc_commit_when_wc_immutable_multi_workspace_already_immutable() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    // Consider other working copies immutable
+    test_env.add_config(r#"revset-aliases."immutable_heads()" = "working_copies() ~ @""#);
+    work_dir.run_jj(["new", "-m=a"]).success();
+    let output = work_dir
+        .run_jj(["workspace", "add", "../workspace1"])
+        .success();
+    // TODO: The current workspace is immutable from the new workspace's
+    // perspective, but we should not create a new commit for it.
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Created workspace in "../workspace1"
+    Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
+    Working copy  (@) now at: pmmvwywv 1cd27236 (empty) (no description set)
+    Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
+    [EOF]
+    "#);
+    let output = work_dir.run_jj(["log", "-r=::"]);
+    insta::assert_snapshot!(output, @r"
+    @  yxszmlut test.user@example.com 2001-02-03 08:05:09 default@ 88a6c421
+    │  (empty) (no description set)
+    ○  rlvkpnrz test.user@example.com 2001-02-03 08:05:08 167b8dbf
+    │  (empty) a
+    │ ◆  pmmvwywv test.user@example.com 2001-02-03 08:05:09 workspace1@ 1cd27236
+    ├─╯  (empty) (no description set)
+    ◆  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
+    │  (empty) (no description set)
+    ◆  zzzzzzzz root() 00000000
+    [EOF]
+    ");
+    // TODO: The other workspace was already immutable from the current workspace's
+    // perspective, so we don't create a new commit for it.
+    let output = work_dir.run_jj(["new"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Warning: The working-copy commit in workspace 'workspace1' became immutable, so a new commit has been created on top of it.
+    Working copy  (@) now at: mzvwutvl c460fde3 (empty) (no description set)
+    Parent commit (@-)      : yxszmlut 88a6c421 (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
 fn test_rewrite_immutable_commands() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
