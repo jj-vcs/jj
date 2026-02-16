@@ -95,7 +95,7 @@ fn test_git_colocation_enable_success() {
 
     // Verify that the repo changed
     let output = work_dir.run_jj(["op", "show", "-T", "description ++ '\n'"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     set git head to working copy parent
     [EOF]
     ");
@@ -124,7 +124,7 @@ fn test_git_colocation_enable_empty() {
     ");
 
     // Verify that Git HEAD was set correctly
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
@@ -236,7 +236,7 @@ fn test_git_colocation_disable_success() {
 
     // Verify that the repo changed
     let output = work_dir.run_jj(["op", "show", "-T", "description ++ '\n'"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     remove git head reference
     [EOF]
     ");
@@ -254,7 +254,7 @@ fn test_git_colocation_disable_empty() {
     let setup_op_id = work_dir.current_operation_id();
 
     // Verify that Git HEAD is unset
-    insta::assert_snapshot!(get_colocation_status(&work_dir), @"
+    insta::assert_snapshot!(get_colocation_status(&work_dir), @r"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]

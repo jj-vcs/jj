@@ -2231,7 +2231,7 @@ fn test_resolve_with_contents_of_side() {
     create_commit_with_files(&work_dir, "tip", &["conflict"], &[]);
 
     // Test the setup
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r"
     @  tip
     ×      conflict
     ├─┬─╮
@@ -2274,7 +2274,7 @@ fn test_resolve_with_contents_of_side() {
     // Check that ":ours" merge tool works correctly
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     let output = work_dir.run_jj(["resolve", "-r", "conflict", "--tool", ":ours"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kmkuslsw 6cca6d79 tip | (empty) tip
@@ -2295,7 +2295,7 @@ fn test_resolve_with_contents_of_side() {
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--git"]), @"");
     let output = work_dir.run_jj(["resolve", "-r", "conflict", "--tool", ":theirs"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Rebased 1 descendant commits
     Working copy  (@) now at: kmkuslsw 4a54e224 tip | (empty) tip

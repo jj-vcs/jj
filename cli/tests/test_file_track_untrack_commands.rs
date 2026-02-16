@@ -227,7 +227,7 @@ fn test_track_ignored() {
     let output = work_dir.run_jj(["file", "track", "file1"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     file1
     [EOF]
     ------- stderr -------
@@ -240,7 +240,7 @@ fn test_track_ignored() {
     let output = work_dir.run_jj(["file", "track", "file2"]);
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     file1
     file2
     [EOF]

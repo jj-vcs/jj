@@ -2603,7 +2603,7 @@ mod tests {
           |
           = expected <EOI>, `++`, `||`, `&&`, `==`, `!=`, `>=`, `>`, `<=`, `<`, `+`, `-`, `*`, `/`, or `%`
         ");
-        insta::assert_snapshot!(env.parse_err("1 +"), @"
+        insta::assert_snapshot!(env.parse_err("1 +"), @r"
          --> 1:4
           |
         1 | 1 +
@@ -2611,7 +2611,7 @@ mod tests {
           |
           = expected `!`, `-`, or <primary>
         ");
-        insta::assert_snapshot!(env.parse_err("self.timestamp"), @"
+        insta::assert_snapshot!(env.parse_err("self.timestamp"), @r"
          --> 1:6
           |
         1 | self.timestamp
@@ -2927,7 +2927,7 @@ mod tests {
 
         // even boolean config values must be extracted
         env.add_keyword("config_bool", || literal(ConfigValue::from(true)));
-        insta::assert_snapshot!(env.parse_err("if(config_bool, true, false)"), @"
+        insta::assert_snapshot!(env.parse_err("if(config_bool, true, false)"), @r"
          --> 1:4
           |
         1 | if(config_bool, true, false)
@@ -3605,7 +3605,10 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"" \n \r foo  bar \t \r ".trim_start()"#), @"foo  bar");
 
         insta::assert_snapshot!(env.render_ok(r#"" \n \r    \t \r ".trim_end()"#), @"");
-        insta::assert_snapshot!(env.render_ok(r#"" \n \r foo  bar \t \r ".trim_end()"#), @" foo  bar");
+        insta::assert_snapshot!(env.render_ok(r#"" \n \r foo  bar \t \r ".trim_end()"#), @r"
+
+        foo  bar
+        ");
 
         insta::assert_snapshot!(env.render_ok(r#""foo".substr(0, 0)"#), @"");
         insta::assert_snapshot!(env.render_ok(r#""foo".substr(0, 1)"#), @"f");
@@ -3881,7 +3884,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok("t0.before('1969')"), @"false");
         insta::assert_snapshot!(env.render_ok("t0.after('now')"), @"false");
         insta::assert_snapshot!(env.render_ok("t0.before('now')"), @"true");
-        insta::assert_snapshot!(env.parse_err("t0.before('invalid')"), @"
+        insta::assert_snapshot!(env.parse_err("t0.before('invalid')"), @r"
          --> 1:11
           |
         1 | t0.before('invalid')
@@ -3890,7 +3893,7 @@ mod tests {
           = Invalid date pattern
         expected unsupported identifier as position 0..7
         ");
-        insta::assert_snapshot!(env.parse_err("t0.before('invalid')"), @"
+        insta::assert_snapshot!(env.parse_err("t0.before('invalid')"), @r"
          --> 1:11
           |
         1 | t0.before('invalid')
@@ -3901,7 +3904,7 @@ mod tests {
         ");
 
         // Can only compare timestamps against string literals
-        insta::assert_snapshot!(env.parse_err("t0.after(t0)"), @"
+        insta::assert_snapshot!(env.parse_err("t0.after(t0)"), @r"
          --> 1:10
           |
         1 | t0.after(t0)
@@ -3909,7 +3912,7 @@ mod tests {
           |
           = Expected string literal
         ");
-        insta::assert_snapshot!(env.parse_err("t0.before(t0)"), @"
+        insta::assert_snapshot!(env.parse_err("t0.before(t0)"), @r"
          --> 1:11
           |
         1 | t0.before(t0)
@@ -3920,7 +3923,7 @@ mod tests {
 
         insta::assert_snapshot!(env.render_ok("t0.since(t0_plus1)"), @"1970-01-01 01:00:00.000 +01:00 - 1970-01-01 00:00:00.000 +00:00");
         insta::assert_snapshot!(env.render_ok("t0_plus1.since(t0)"), @"1970-01-01 00:00:00.000 +00:00 - 1970-01-01 01:00:00.000 +01:00");
-        insta::assert_snapshot!(env.parse_err("t0.since(false)"), @"
+        insta::assert_snapshot!(env.parse_err("t0.since(false)"), @r"
          --> 1:10
           |
         1 | t0.since(false)
@@ -4304,7 +4307,7 @@ mod tests {
         // separate() uses FormatRecorder internally; hyperlinks are preserved
         insta::assert_snapshot!(
             env.render_ok(r#"separate(" | ", hyperlink("http://a.com", "A"), hyperlink("http://b.com", "B"))"#),
-            @"\u{1b}]8;;http://a.com\u{1b}\\A\u{1b}]8;;\u{1b}\\ | \u{1b}]8;;http://b.com\u{1b}\\B\u{1b}]8;;\u{1b}\\");
+            @r"]8;;http://a.com\A]8;;\ | ]8;;http://b.com\B]8;;\");
     }
 
     #[test]
@@ -4313,7 +4316,7 @@ mod tests {
         // coalesce() uses FormatRecorder; hyperlinks are preserved
         insta::assert_snapshot!(
             env.render_ok(r#"coalesce(hyperlink("http://example.com", "Link"), "fallback")"#),
-            @"\u{1b}]8;;http://example.com\u{1b}\\Link\u{1b}]8;;\u{1b}\\");
+            @r"]8;;http://example.com\Link]8;;\");
         // Falls back to second when hyperlink text is empty
         insta::assert_snapshot!(
             env.render_ok(r#"coalesce(hyperlink("http://example.com", ""), "fallback")"#),
@@ -4415,7 +4418,7 @@ mod tests {
             @r#"{"start":"1970-01-01T00:00:00Z","end":"1970-01-01T23:00:00-01:00"}"#);
 
         // Template and ListTemplate are unserializable
-        insta::assert_snapshot!(env.parse_err(r#"json(string_list.map(|s| s))"#), @"
+        insta::assert_snapshot!(env.parse_err(r#"json(string_list.map(|s| s))"#), @r"
          --> 1:6
           |
         1 | json(string_list.map(|s| s))
@@ -4730,7 +4733,7 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#"if(config("non.existent"), "yes", "no")"#), @"no");
 
         // malformed config path
-        insta::assert_snapshot!(env.parse_err("config('user|name')"), @"
+        insta::assert_snapshot!(env.parse_err("config('user|name')"), @r"
          --> 1:8
           |
         1 | config('user|name')

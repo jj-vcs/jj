@@ -1240,7 +1240,7 @@ fn test_bookmark_track_untrack() {
         "main@origin",
         "nonexistent@origin",
     ]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: <bookmark>@<remote> syntax is deprecated, use `<bookmark> --remote=<remote>` instead.
     Warning: No matching remote bookmarks for names: nonexistent@origin
@@ -2491,7 +2491,7 @@ fn test_bookmark_list_tracked() {
     ");
 
     let output = local_dir.run_jj(["bookmark", "list", "--tracked", "--remote=git"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     local-only: nmzmmopx 2a685e16 (empty) local-only
       @git: nmzmmopx 2a685e16 (empty) local-only
     remote-sync: rlvkpnrz 7a07dbee (empty) remote-sync

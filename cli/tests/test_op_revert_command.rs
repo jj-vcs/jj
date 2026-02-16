@@ -397,7 +397,7 @@ fn test_git_push_revert_repo_only() {
     work_dir
         .run_jj(["op", "restore", "--what=remote-tracking", &pre_push_opid])
         .success();
-    insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
+    insta::assert_snapshot!(get_bookmark_output(&work_dir), @r"
     main: qpvuntsm 1e742089 (empty) CC
       @origin (ahead by 1 commits, behind by 1 commits): qpvuntsm/2 3a44d6c5 (hidden) (empty) AA
     [EOF]

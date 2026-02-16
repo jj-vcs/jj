@@ -297,7 +297,7 @@ fn test_bookmark_names() {
 
     // TODO: Make it so this only lists untracked remotes
     let output = work_dir.complete_fish(["bookmark", "track", "a", "--remote", ""]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     origin
     upstream
     [EOF]
@@ -305,7 +305,7 @@ fn test_bookmark_names() {
 
     // TODO: Make it so this only lists tracked remotes
     let output = work_dir.complete_fish(["bookmark", "untrack", "a", "--remote", ""]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     origin
     upstream
     [EOF]
@@ -476,7 +476,7 @@ fn test_bad_complete_env() {
 
     test_env.add_env_var("COMPLETE", "badshell");
     let output = test_env.run_jj_in(".", [""; 0]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: unknown shell `badshell`, expected one of `bash`, `elvish`, `fish`, `powershell`, `zsh`[EOF]
     [exit status: 2]
@@ -664,19 +664,19 @@ fn test_command_completion(shell: Shell) {
     let output = test_env.complete_at(shell, 1, ["b"]);
     match shell {
         Shell::Zsh => {
-            insta::assert_snapshot!(output, @"
+            insta::assert_snapshot!(output, @r"
             bisect:Find a bad revision by bisection
             bookmark:Manage bookmarks [default alias: b][EOF]
             ");
         }
         Shell::Bash => {
-            insta::assert_snapshot!(output, @"
+            insta::assert_snapshot!(output, @r"
             bisect
             bookmark[EOF]
             ");
         }
         Shell::Fish => {
-            insta::assert_snapshot!(output, @"
+            insta::assert_snapshot!(output, @r"
             bisect	Find a bad revision by bisection
             bookmark	Manage bookmarks [default alias: b]
             [EOF]
@@ -709,7 +709,7 @@ fn test_command_completion_short_name() {
 
     // Short command names should be omitted
     let output = test_env.complete_fish(["config", ""]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     edit	Start an editor on a jj config file
     get	Get the value of a given config option.
     list	List variables set in config files, along with their values
@@ -732,21 +732,21 @@ fn test_command_completion_short_name() {
 
     // Long command name should be suggested
     let output = test_env.complete_fish(["config", "e"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     edit	Start an editor on a jj config file
     [EOF]
     ");
 
     // Command arguments should be suggested for the short name
     let output = test_env.complete_fish(["config", "e", "--u"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     --user	Target the user-level config
     [EOF]
     ");
 
     // Command arguments should be suggested for the long name
     let output = test_env.complete_fish(["config", "edit", "--u"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     --user	Target the user-level config
     [EOF]
     ");
@@ -851,7 +851,7 @@ fn test_aliases_are_completed(shell: Shell) {
             insta::assert_snapshot!(output, @"user-alias[EOF]");
         }
         Shell::Fish => {
-            insta::assert_snapshot!(output, @"
+            insta::assert_snapshot!(output, @r"
             user-alias
             [EOF]
             ");
@@ -865,21 +865,21 @@ fn test_aliases_are_completed(shell: Shell) {
         .take_stdout_n_lines(2);
     match shell {
         Shell::Bash => {
-            insta::assert_snapshot!(output, @"
+            insta::assert_snapshot!(output, @r"
             create
             delete
             [EOF]
             ");
         }
         Shell::Zsh => {
-            insta::assert_snapshot!(output, @"
+            insta::assert_snapshot!(output, @r"
             create:Create a new bookmark
             delete:Delete an existing bookmark and propagate the deletion to remotes on the next push
             [EOF]
             ");
         }
         Shell::Fish => {
-            insta::assert_snapshot!(output, @"
+            insta::assert_snapshot!(output, @r"
             create	Create a new bookmark
             delete	Delete an existing bookmark and propagate the deletion to remotes on the next push
             [EOF]
@@ -1012,7 +1012,7 @@ fn test_revisions() {
 
     // complete all revisions
     let output = work_dir.complete_fish(["diff", "--from", ""]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     conflicted_bookmark	conflicted
     deleted_bookmark	(deleted bookmark)
     immutable_bookmark	immutable
@@ -1035,7 +1035,7 @@ fn test_revisions() {
 
     // complete all revisions in a revset expression
     let output = work_dir.complete_fish(["log", "-r", ".."]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ..conflicted_bookmark	conflicted
     ..deleted_bookmark	(deleted bookmark)
     ..immutable_bookmark	immutable
@@ -1058,7 +1058,7 @@ fn test_revisions() {
 
     // complete only mutable revisions
     let output = work_dir.complete_fish(["squash", "--into", ""]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     conflicted_bookmark	conflicted
     mutable_bookmark	mutable 1
     wv	working_copy
@@ -1075,7 +1075,7 @@ fn test_revisions() {
 
     // complete only mutable revisions in a revset expression
     let output = work_dir.complete_fish(["abandon", "y::"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     y::conflicted_bookmark	conflicted
     y::mutable_bookmark	mutable 1
     y::wv	working_copy
@@ -1099,7 +1099,7 @@ fn test_revisions() {
 
     // complete conflicted revisions in a revset expression
     let output = work_dir.complete_fish(["resolve", "-r", ""]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     conflicted_bookmark	conflicted
     x	conflicted
     alias_with_newline	    roots(
@@ -1110,7 +1110,7 @@ fn test_revisions() {
     // complete args of the default command
     test_env.add_config("ui.default-command = 'log'");
     let output = work_dir.complete_fish(["-r", ""]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     conflicted_bookmark	conflicted
     deleted_bookmark	(deleted bookmark)
     immutable_bookmark	immutable
@@ -1141,7 +1141,7 @@ fn test_revisions() {
     insta::assert_snapshot!(output, @"");
 
     let output = work_dir.complete_fish(["git", "push", "--named", "a="]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     a=conflicted_bookmark	conflicted
     a=deleted_bookmark	(deleted bookmark)
     a=immutable_bookmark	immutable

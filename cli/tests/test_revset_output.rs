@@ -557,7 +557,7 @@ fn test_deprecated_diff_contains() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["log", "-rdiff_contains('') | diff_lines('')"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: In revset expression
      --> 1:1
@@ -695,7 +695,7 @@ fn test_alias() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "author(exact:my-root)"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: In alias `my-root`
     Caused by:
@@ -716,7 +716,7 @@ fn test_alias() {
     ");
 
     let output = work_dir.run_jj(["log", "-r", "grep:my-root"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Failed to parse revset: In alias `grep:x`
     Caused by:
@@ -982,7 +982,7 @@ fn test_user_trunk_absent_or_conflicted() {
         .success();
     // "main" is still absent
     let output = work_dir.run_jj(["bookmark", "set", "-rsubject(A)", "main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main` doesn't exist
     The `trunk()` alias is temporarily set to `root()`.
@@ -993,7 +993,7 @@ fn test_user_trunk_absent_or_conflicted() {
 
     // "main" is now present
     let output = work_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:09 e3ebbfd5
@@ -1006,7 +1006,7 @@ fn test_user_trunk_absent_or_conflicted() {
 
     // make "main" conflicted ("main" doesn't exist at op @-)
     let output = work_dir.run_jj(["bookmark", "--at-op=@-", "set", "-rsubject(B)", "main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Failed to resolve `revset-aliases.trunk()`: Revision `main` doesn't exist
     The `trunk()` alias is temporarily set to `root()`.
@@ -1017,7 +1017,7 @@ fn test_user_trunk_absent_or_conflicted() {
 
     // "main" is conflicted
     let output = work_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  qpvuntsm test.user@example.com 2001-02-03 08:05:07 e8849ae1
     │  (empty) (no description set)
     │ ○  kkmpptxz test.user@example.com 2001-02-03 08:05:09 main?? e3ebbfd5

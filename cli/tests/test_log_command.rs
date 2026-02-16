@@ -243,7 +243,7 @@ fn test_log_with_or_without_diff() {
 
     // `--stat` is short format, which should be printed first
     let output = work_dir.run_jj(["log", "-T", "description", "--git", "--stat"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  a new commit
     │  file1 | 1 +
     │  1 file changed, 1 insertion(+), 0 deletions(-)
@@ -576,7 +576,7 @@ fn test_log_bad_short_prefixes() {
     // Error on bad config of short prefixes
     test_env.add_config(r#"revsets.short-prefixes = "!nval!d""#);
     let output = work_dir.run_jj(["status"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Config error: Invalid `revsets.short-prefixes`
     Caused by:  --> 1:1

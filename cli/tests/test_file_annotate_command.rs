@@ -60,7 +60,7 @@ fn test_annotate_non_file() {
     let work_dir = test_env.work_dir("repo");
 
     let output = work_dir.run_jj(["file", "annotate", "non-existent.txt"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: No such path: non-existent.txt
     [EOF]
@@ -79,7 +79,7 @@ fn test_annotate_non_file() {
     if check_symlink_support().unwrap() {
         symlink_file("target", work_dir.root().join("symlink")).unwrap();
         let output = work_dir.run_jj(["file", "annotate", "symlink"]);
-        insta::assert_snapshot!(output, @"
+        insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Error: Path exists but is not a regular file: symlink
         [EOF]

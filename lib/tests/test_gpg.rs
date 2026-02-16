@@ -434,20 +434,20 @@ fn gpgsm_unknown_key() {
     xiNbRmGtEonl9d8JS/IAAAAAAAA=
     -----END SIGNED MESSAGE-----
     ";
-    assert_debug_snapshot!(backend.verify(b"hello world", signature).unwrap(), @r#"
+    assert_debug_snapshot!(backend.verify(b"hello world", signature).unwrap(), @r"
     Verification {
         status: Unknown,
         key: None,
         display: None,
     }
-    "#);
-    assert_debug_snapshot!(backend.verify(b"so bad", signature).unwrap(), @r#"
+    ");
+    assert_debug_snapshot!(backend.verify(b"so bad", signature).unwrap(), @r"
     Verification {
         status: Unknown,
         key: None,
         display: None,
     }
-    "#);
+    ");
 }
 
 #[test]

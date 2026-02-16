@@ -1396,7 +1396,7 @@ mod tests {
             format_colored(
                 |formatter| write_indented(formatter, &recorder, |fmt| write_prefix(fmt))
             ),
-            @"
+            @r"
         >>a
         >>b
         >>c
@@ -1425,7 +1425,7 @@ mod tests {
             format_colored(
                 |formatter| write_indented(formatter, &recorder, |fmt| write_prefix(fmt))
             ),
-            @"
+            @r"
         [38;5;1m>>foo[39m
         [38;5;6m>>bar[39m
         [38;5;6m>>baz[39m

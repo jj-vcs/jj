@@ -1040,7 +1040,7 @@ fn test_git_colocated_undo_head_move() {
 
     // HEAD should be moved back
     let output = work_dir.run_jj(["undo"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Undid operation: 65d1097d37a5 (2001-02-03 08:05:15) new empty commit
     Restored to operation: b528a8c9176f (2001-02-03 08:05:14) new empty commit

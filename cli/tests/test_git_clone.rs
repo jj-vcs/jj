@@ -214,7 +214,7 @@ fn test_git_clone_choose_dest_path() {
     // Windows drive letters prevent this case from triggering
     if cfg!(unix) {
         let output = root_dir.run_jj(["git", "clone", "/"]);
-        insta::assert_snapshot!(output, @"
+        insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Error: No destination specified and wasn't able to guess it
         [EOF]
@@ -222,7 +222,7 @@ fn test_git_clone_choose_dest_path() {
         ");
 
         let output = root_dir.run_jj(["git", "clone", "/.git"]);
-        insta::assert_snapshot!(output, @"
+        insta::assert_snapshot!(output, @r"
         ------- stderr -------
         Error: No destination specified and wasn't able to guess it
         [EOF]
@@ -934,7 +934,7 @@ fn test_git_clone_trunk_deleted() {
     "#);
 
     let output = clone_dir.run_jj(["bookmark", "forget", "--include-remotes", "main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Forgot 1 local bookmarks.
     Forgot 1 remote bookmarks.
@@ -947,7 +947,7 @@ fn test_git_clone_trunk_deleted() {
     ");
 
     let output = clone_dir.run_jj(["log"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  sqpuoqvx test.user@example.com 2001-02-03 08:05:07 1ca44815
     │  (empty) (no description set)
     ○  qomsplrm someone@example.org 1970-01-01 11:00:00 ebeb70d8

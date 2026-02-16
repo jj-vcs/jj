@@ -71,7 +71,7 @@ fn test_duplicate() {
     ");
 
     let output = work_dir.run_jj(["undo"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Undid operation: 76386e059136 (2001-02-03 08:05:17) duplicate 1 commit(s)
     Restored to operation: 9fdb56d75a27 (2001-02-03 08:05:13) create bookmark c pointing to commit 387b928721d9f2efff819ccce81868f32537d71f
@@ -2346,7 +2346,7 @@ fn test_undo_after_duplicate() {
     ");
 
     let output = work_dir.run_jj(["undo"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Undid operation: 87bf87a7f06f (2001-02-03 08:05:11) duplicate 1 commit(s)
     Restored to operation: 73a36404358e (2001-02-03 08:05:09) create bookmark a pointing to commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
@@ -2449,7 +2449,7 @@ fn test_duplicate_description_template() {
     // Test duplicate_commits()
     test_env.add_config(r#"templates.duplicate_description = "concat(description, '\n(cherry picked from commit ', commit_id, ')')""#);
     let output = work_dir.run_jj(["duplicate", "a"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Duplicated 7d980be7a1d4 as yostqsxw f73017d9 a
     [EOF]
@@ -2457,7 +2457,7 @@ fn test_duplicate_description_template() {
 
     // Test duplicate_commits_onto_parents()
     let output = work_dir.run_jj(["duplicate", "a", "-B", "b"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Duplicating commit 7d980be7a1d4 as a descendant of itself
     Duplicated 7d980be7a1d4 as znkkpsqq fdd77a5e (empty) a
@@ -2470,7 +2470,7 @@ fn test_duplicate_description_template() {
     // Test empty template
     test_env.add_config("templates.duplicate_description = ''");
     let output = work_dir.run_jj(["duplicate", "b", "-o", "root()"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Duplicated cb58e31ed5d4 as kpqxywon 33044659 (no description set)
     [EOF]
@@ -2488,7 +2488,7 @@ fn test_duplicate_description_template() {
         "--config",
         "template-aliases.description='\"alias\"'",
     ]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Duplicated 5679a60ab86b as kmkuslsw e36bebd2 alias
     [EOF]
@@ -2496,7 +2496,7 @@ fn test_duplicate_description_template() {
 
     let template = r#"commit_id.short() ++ "\n" ++ description ++ "[END]\n""#;
     let output = work_dir.run_jj(["log", "-T", template]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  5679a60ab86b
     │  c
     │  [END]

@@ -327,7 +327,7 @@ fn test_diff_basic() {
     [exit status: 2]
     ");
     let output = work_dir.run_jj(["diff", "-T''", "--summary"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the argument '--template <TEMPLATE>' cannot be used with:
       --summary
@@ -342,7 +342,7 @@ fn test_diff_basic() {
     [exit status: 2]
     ");
     let output = work_dir.run_jj(["diff", "-T''", "--git"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the argument '--template <TEMPLATE>' cannot be used with:
       --git
@@ -3322,7 +3322,7 @@ fn test_diff_external_available_width() {
         cmd.args(["log", "--tool=fake-echo", "-T''"])
             .env("COLUMNS", "50")
     });
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  47
     │ ○  45
     ├─╯

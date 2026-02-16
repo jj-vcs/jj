@@ -85,7 +85,7 @@ fn test_rewrite_immutable_generic() {
     // Suppress warning in the commit summary template
     test_env.add_config("template-aliases.'format_short_id(id)' = 'id.short(8)'");
     let output = work_dir.run_jj(["new", "main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Failed to check mutability of the new working-copy revision.
     Caused by:
@@ -100,7 +100,7 @@ fn test_rewrite_immutable_generic() {
     // Can use --ignore-immutable to override
     test_env.add_config(r#"revset-aliases."immutable_heads()" = "main""#);
     let output = work_dir.run_jj(["--ignore-immutable", "edit", "main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: kkmpptxz 9d190342 main | b
     Parent commit (@-)      : qpvuntsm c8c8515a a

@@ -42,7 +42,7 @@ fn test_file_list() {
 
     // Lists all files in the current revision by default
     let output = work_dir.run_jj(["file", "list"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @"
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     conflict-exec-file
     conflict-file
     dir/file
@@ -70,7 +70,7 @@ fn test_file_list() {
 
     // Can list files in another revision
     let output = work_dir.run_jj(["file", "list", "-r=first_parent(@)"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @"
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     conflict-exec-file
     conflict-file
     [EOF]
@@ -78,14 +78,14 @@ fn test_file_list() {
 
     // Can filter by path
     let output = work_dir.run_jj(["file", "list", "dir"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @"
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     dir/file
     [EOF]
     ");
 
     // Warning if path doesn't exist
     let output = work_dir.run_jj(["file", "list", "dir", "file3"]);
-    insta::assert_snapshot!(output.normalize_backslash(), @"
+    insta::assert_snapshot!(output.normalize_backslash(), @r"
     dir/file
     [EOF]
     ------- stderr -------

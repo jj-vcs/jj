@@ -743,7 +743,7 @@ fn test_evolog_template_predecessors_and_inter_diff() {
             r#"-T=builtin_evolog_compact ++ self.inter_diff("file1").git()"#,
         ])
         .success();
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  kkmpptxz test.user@example.com 2001-02-03 08:05:10 c6106cde
     │  d
     │  -- operation 744c65238a20 snapshot working copy
@@ -787,7 +787,7 @@ fn test_evolog_template_predecessors_and_inter_diff() {
             r#"-T=builtin_evolog_compact ++ separate("\n", "predecessors: " ++ predecessors.map(|c| c.commit_id().shortest(8)).join(","), inter_diff.summary())"#,
         ])
         .success();
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ○      qpvuntsm test.user@example.com 2001-02-03 08:05:12 92850c35
     ├─┬─╮  c+d+e
     │ │ │  -- operation ab5c35eec35c squash commits into e3ce68f48b53d16111a1310c7f417a39c2934931

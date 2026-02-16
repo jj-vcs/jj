@@ -298,11 +298,11 @@ fn test_tag_list() {
     ");
 
     // Filter by revset
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-rsubject(commit1)"]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-rsubject(commit1)"]), @r"
     test_tag: rlvkpnrz 893e67dc (empty) commit1
     [EOF]
     ");
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-rsubject(commit2)"]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-rsubject(commit2)"]), @r"
     conflicted_tag (conflicted):
       - rlvkpnrz 893e67dc (empty) commit1
       + zsuskuln 76abdd20 (empty) commit2
@@ -311,7 +311,7 @@ fn test_tag_list() {
     [EOF]
     ");
     // Filter by revset and name, which aren't intersected
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-rsubject(commit1)", "test_tag2"]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "-rsubject(commit1)", "test_tag2"]), @r"
     test_tag: rlvkpnrz 893e67dc (empty) commit1
     test_tag2: zsuskuln 76abdd20 (empty) commit2
     [EOF]
@@ -328,7 +328,7 @@ fn test_tag_list() {
     [EOF]
     ");
 
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--conflicted"]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--conflicted"]), @r"
     conflicted_tag (conflicted):
       - rlvkpnrz 893e67dc (empty) commit1
       + zsuskuln 76abdd20 (empty) commit2
@@ -369,7 +369,7 @@ fn test_tag_list() {
     ");
 
     // Sort by command argument
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--sort=committer-date-,name"]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--sort=committer-date-,name"]), @r"
     conflicted_tag (conflicted):
       - rlvkpnrz 893e67dc (empty) commit1
       + zsuskuln 76abdd20 (empty) commit2
@@ -381,7 +381,7 @@ fn test_tag_list() {
 
     // Default sort keys in config
     let config = "--config=ui.tag-list-sort-keys=['committer-date', 'name-']";
-    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", config]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", config]), @r"
     test_tag: rlvkpnrz 893e67dc (empty) commit1
     test_tag2: zsuskuln 76abdd20 (empty) commit2
     conflicted_tag (conflicted):
@@ -409,7 +409,7 @@ fn test_tag_list_remotes() {
     local_dir.run_jj(["tag", "set", "local-only"]).success();
 
     let output = local_dir.run_jj(["tag", "list", "--all-remotes"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     local-only: rlvkpnrz d3e8d245 (empty) local-only
       @git: rlvkpnrz d3e8d245 (empty) local-only
     [EOF]
@@ -421,7 +421,7 @@ fn test_tag_list_remotes() {
     insta::assert_snapshot!(output, @"");
 
     let output = local_dir.run_jj(["tag", "list", "--tracked", "--remote=git"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     local-only: rlvkpnrz d3e8d245 (empty) local-only
       @git: rlvkpnrz d3e8d245 (empty) local-only
     [EOF]
@@ -431,7 +431,7 @@ fn test_tag_list_remotes() {
     insta::assert_snapshot!(output, @"");
 
     let output = local_dir.run_jj(["tag", "list", "--remote=git"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     local-only: rlvkpnrz d3e8d245 (empty) local-only
       @git: rlvkpnrz d3e8d245 (empty) local-only
     [EOF]

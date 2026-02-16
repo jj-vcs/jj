@@ -196,7 +196,7 @@ fn test_bisect_run_missing_bisector() {
 
     let output = work_dir.run_jj(["bisect", "run", "--range=..", "nonexistent"]);
     if cfg!(unix) {
-        insta::assert_snapshot!(output, @"
+        insta::assert_snapshot!(output, @r"
         Now evaluating: royxmykx dffaa0d4 c | c
         [EOF]
         ------- stderr -------
@@ -299,7 +299,7 @@ fn test_bisect_run_crash() {
 
     // bisector crash is equivalent to a failure
     std::fs::write(&bisection_script, ["crash"].join("\0")).unwrap();
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
     Now evaluating: royxmykx dffaa0d4 c | c
     fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
     The revision is bad.

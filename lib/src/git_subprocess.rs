@@ -1244,7 +1244,7 @@ Done";
             ]
         );
         assert_eq!(output, b"fatal: some error message\ncontinues\n");
-        insta::assert_debug_snapshot!(callback.progress, @"
+        insta::assert_debug_snapshot!(callback.progress, @r"
         [
             GitProgress {
                 deltas: (

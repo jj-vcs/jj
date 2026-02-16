@@ -565,7 +565,7 @@ fn test_git_fetch_from_remote_named_git() {
     // colocated workspace. That should be fine since "jj git import" wouldn't
     // be used in colocated environment. Warnings should be printed with
     // --quiet, but hints shouldn't.
-    insta::assert_snapshot!(work_dir.run_jj(["git", "import", "--quiet"]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["git", "import", "--quiet"]), @r"
     ------- stderr -------
     Warning: Failed to import some Git refs:
       refs/remotes/git/git
@@ -743,7 +743,7 @@ fn test_git_fetch_tags_by_name() {
 
     // --tag disables default refspecs
     let output = work_dir.run_jj(["git", "fetch", "--tag=~*"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Nothing changed.
     [EOF]
@@ -751,7 +751,7 @@ fn test_git_fetch_tags_by_name() {
 
     // Fetch branches but no tags
     let output = work_dir.run_jj(["git", "fetch", "--branch=*", "--tag=~*"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     bookmark: origin@origin [new] untracked
     [EOF]
@@ -759,7 +759,7 @@ fn test_git_fetch_tags_by_name() {
 
     // Fetch tag1
     let output = work_dir.run_jj(["git", "fetch", "--tag=tag1"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     tag: tag1@origin [new] 
     [EOF]
@@ -767,14 +767,14 @@ fn test_git_fetch_tags_by_name() {
 
     // Fetch other tags
     let output = work_dir.run_jj(["git", "fetch", "--tag=*"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     tag: tag2@origin [new] 
     tag: tag3@origin [new] 
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    insta::assert_snapshot!(get_tag_output(&work_dir), @r"
     tag1: qmyrypzk ab8b299e message
       @origin: qmyrypzk ab8b299e message
     tag2: qmyrypzk ab8b299e message
@@ -798,14 +798,14 @@ fn test_git_fetch_tags_by_name() {
 
     // Fetch tag changes
     let output = work_dir.run_jj(["git", "fetch", "--tag=*"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     tag: tag1@origin [updated] 
     tag: tag2@origin [deleted] 
     [EOF]
     ");
 
-    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    insta::assert_snapshot!(get_tag_output(&work_dir), @r"
     tag1: vqswlzks a439bb0e (empty) commit 2
       @origin: vqswlzks a439bb0e (empty) commit 2
     tag3: qmyrypzk ab8b299e message
@@ -1432,7 +1432,7 @@ fn test_git_fetch_undo() {
     [EOF]
     "#);
     let output = target_dir.run_jj(["undo"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Undid operation: c726c5873ddf (2001-02-03 08:05:20) fetch from git remote(s) origin
     Restored to operation: 8aeac520a856 (2001-02-03 08:05:07) add git remote origin
@@ -2049,7 +2049,7 @@ fn test_git_fetch_tracked() {
       @origin: kmpysrkw 0130f303 message
     [EOF]
     ");
-    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    insta::assert_snapshot!(get_tag_output(&work_dir), @r"
     tag1: oowrowvw a73b55d1 tag1a
       @origin: oowrowvw a73b55d1 tag1a
     [EOF]
@@ -2103,7 +2103,7 @@ fn test_git_fetch_tracked() {
       @origin: kmktnoqm 381bf13c (empty) message
     [EOF]
     ");
-    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    insta::assert_snapshot!(get_tag_output(&work_dir), @r"
     tag1: yvqukpxx 8afb06e3 (empty) tag1b
       @origin: yvqukpxx 8afb06e3 (empty) tag1b
     [EOF]
@@ -2126,7 +2126,7 @@ fn test_git_fetch_tracked() {
       @origin: kmktnoqm 381bf13c (empty) message
     [EOF]
     ");
-    insta::assert_snapshot!(get_tag_output(&work_dir), @"
+    insta::assert_snapshot!(get_tag_output(&work_dir), @r"
     tag1: yvqukpxx 8afb06e3 (empty) tag1b
       @origin: yvqukpxx 8afb06e3 (empty) tag1b
     tag2: zunvlltl 3889281c (empty) tag2b

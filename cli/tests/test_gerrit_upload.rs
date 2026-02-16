@@ -106,7 +106,7 @@ fn test_gerrit_upload_failure() {
     create_commit(&local_dir, "d", &["a@origin"]);
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "none()", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No revisions to upload.
     [EOF]
@@ -114,7 +114,7 @@ fn test_gerrit_upload_failure() {
 
     // empty revisions are not allowed
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "b", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Refusing to upload revision mzvwutvlkqwt because it is empty
     Hint: Perhaps you squashed then ran upload? Maybe you meant to upload the parent commit instead (eg. @-)
@@ -124,7 +124,7 @@ fn test_gerrit_upload_failure() {
 
     // empty descriptions are not allowed
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Refusing to upload revision yqosqzytrlsw because it is has no description
     Hint: Maybe you meant to upload the parent commit instead (eg. @-)
@@ -137,7 +137,7 @@ fn test_gerrit_upload_failure() {
         .run_jj(["git", "remote", "set-url", "origin", "nonexistent"])
         .success();
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "d", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
     Pushing znkkpsqq 47f1f88c d | d
@@ -177,7 +177,7 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     // The output should only mention commit IDs from the log output above (no
     // temporary commits)
     let output = local_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c f6e97ced
     │  c
     ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
@@ -189,7 +189,7 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
     Pushing yqosqzyt f6e97ced c | c
@@ -199,7 +199,7 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     // The output should be unchanged because we only add Change-Id trailers
     // transiently
     let output = local_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c f6e97ced
     │  c
     ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
@@ -213,7 +213,7 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     // There's no particular reason to run this with jj util exec, it's just that
     // the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     commit 68b986d2eb820643b767ae219fb48128dcc2fc03
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:13 2001 +0700
@@ -262,12 +262,12 @@ fn test_gerrit_upload_local_explicit_change_ids() {
         "-m",
         "b\n\nChange-Id: Id39b308212fe7e0b746d16c13355f3a90712d7f9\n",
     ]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl 887a7016 b | b
     Parent commit (@-)      : rlvkpnrz 7d980be7 a@origin | a
     [EOF]
-    "###);
+    ");
 
     create_commit(&local_dir, "c", &["b"]);
 
@@ -278,17 +278,17 @@ fn test_gerrit_upload_local_explicit_change_ids() {
         "-m",
         "c\n\nChange-Id: Idfac1e8c149efddf5c7a286f787b43886a6a6964\n",
     ]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 27c0bdd0 c | c
     Parent commit (@-)      : mzvwutvl 887a7016 b | b
     [EOF]
-    "###);
+    ");
 
     // The output should only mention commit IDs from the log output above (no
     // temporary commits)
     let output = local_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     @  vruxwmqv test.user@example.com 2001-02-03 08:05:16 c 27c0bdd0
     │  c
     ○  mzvwutvl test.user@example.com 2001-02-03 08:05:13 b 887a7016
@@ -297,7 +297,7 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
-    "###);
+    ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @r"
@@ -310,7 +310,7 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     // The output should be unchanged because no temporary commits should have
     // been created
     let output = local_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     @  vruxwmqv test.user@example.com 2001-02-03 08:05:16 c 27c0bdd0
     │  c
     ○  mzvwutvl test.user@example.com 2001-02-03 08:05:13 b 887a7016
@@ -319,12 +319,12 @@ fn test_gerrit_upload_local_explicit_change_ids() {
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
-    "###);
+    ");
 
     // There's no particular reason to run this with jj util exec, it's just that
     // the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     commit 27c0bdd070a0dd4aec5a22bd3ea454cd2502f430
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:14 2001 +0700
@@ -347,7 +347,7 @@ fn test_gerrit_upload_local_explicit_change_ids() {
 
         a
     [EOF]
-    "###);
+    ");
 }
 
 #[test]
@@ -373,17 +373,17 @@ fn test_gerrit_upload_local_mixed_change_ids() {
         "-m",
         "c\n\nChange-Id: Id39b308212fe7e0b746d16c13355f3a90712d7f9\n",
     ]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: yqosqzyt 8d46d915 c | c
     Parent commit (@-)      : mzvwutvl 3bcb28c4 b | b
     [EOF]
-    "###);
+    ");
 
     // The output should only mention commit IDs from the log output above (no
     // temporary commits)
     let output = local_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c 8d46d915
     │  c
     ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
@@ -392,7 +392,7 @@ fn test_gerrit_upload_local_mixed_change_ids() {
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
-    "###);
+    ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "c", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @r"
@@ -405,7 +405,7 @@ fn test_gerrit_upload_local_mixed_change_ids() {
     // The output should be unchanged because commits created within 'upload'
     // should all be temporary
     let output = local_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c 8d46d915
     │  c
     ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
@@ -414,12 +414,12 @@ fn test_gerrit_upload_local_mixed_change_ids() {
     │  a
     ◆  zzzzzzzz root() 00000000
     [EOF]
-    "###);
+    ");
 
     // There's no particular reason to run this with jj util exec, it's just that
     // the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     commit 015df2b1d38bdc71ae7ef24c2889100e39d34ef8
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:13 2001 +0700
@@ -442,7 +442,7 @@ fn test_gerrit_upload_local_mixed_change_ids() {
 
         a
     [EOF]
-    "###);
+    ");
 }
 
 #[test]
@@ -495,7 +495,7 @@ fn test_gerrit_upload_bad_change_ids() {
 
     // check both badly and slightly malformed Change-Id trailers
     let output = local_dir.run_jj(["gerrit", "upload", "-rbb", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Warning: Invalid Change-Id footer in revision mzvwutvlkqwt
     Warning: Invalid Change-Id footer in revision yostqsxwqrlt
@@ -543,12 +543,12 @@ fn test_gerrit_upload_rejected_by_remote() {
         "-m",
         "b\n\nChange-Id: Id39b308212fe7e0b746d16c13355f3a90712d7f9\n",
     ]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Working copy  (@) now at: mzvwutvl 887a7016 b | b
     Parent commit (@-)      : rlvkpnrz 7d980be7 a@origin | a
     [EOF]
-    "###);
+    ");
 
     let output = local_dir.run_jj(["gerrit", "upload", "-r", "b", "--remote-branch=main"]);
     insta::assert_snapshot!(output, @r"

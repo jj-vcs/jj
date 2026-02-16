@@ -386,7 +386,7 @@ fn test_new_insert_after() {
 
     // --after cannot be used with revisions
     let output = work_dir.run_jj(["new", "--after", "B", "D"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the argument '--insert-after <REVSETS>' cannot be used with:
       [REVSETS]...
@@ -495,7 +495,7 @@ fn test_new_insert_before() {
 
     // --before cannot be used with revisions
     let output = work_dir.run_jj(["new", "--before", "B", "D"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the argument '--insert-before <REVSETS>' cannot be used with:
       [REVSETS]...

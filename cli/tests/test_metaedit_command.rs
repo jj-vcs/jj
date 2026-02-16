@@ -274,7 +274,7 @@ fn test_metaedit() {
     // invalid date gives an error
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     let output = work_dir.run_jj(["metaedit", "--author-timestamp", "aaaaaa"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: invalid value 'aaaaaa' for '--author-timestamp <AUTHOR_TIMESTAMP>': premature end of input
 

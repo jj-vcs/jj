@@ -109,7 +109,7 @@ fn test_templater_parse_error() {
     ");
 
     // Unexpanded identifier in string pattern
-    insta::assert_snapshot!(render(r#"''.match(exact:foo)"#), @"
+    insta::assert_snapshot!(render(r#"''.match(exact:foo)"#), @r"
     ------- stderr -------
     Error: Failed to parse template: Expected string literal
     Caused by:  --> 1:16
@@ -166,7 +166,7 @@ fn test_templater_parse_warning() {
         )
     "#};
     let output = work_dir.run_jj(["log", "-r@", "-T", template]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r"
     @  false
     │
     ~
@@ -187,7 +187,7 @@ fn test_templater_parse_warning() {
       |
       = commit.git_refs() is deprecated; use .remote_bookmarks()/tags() instead
     [EOF]
-    "###);
+    ");
 }
 
 #[test]
@@ -416,7 +416,7 @@ fn test_templater_alias() {
     ");
 
     let output = work_dir.run_jj(["log", "-r@", "-Tdeprecated()"]);
-    insta::assert_snapshot!(output, @r###"
+    insta::assert_snapshot!(output, @r#"
     #  false
     │
     ~
@@ -449,7 +449,7 @@ fn test_templater_alias() {
       |
       = commit.git_refs() is deprecated; use .remote_bookmarks()/tags() instead
     [EOF]
-    "###);
+    "#);
 }
 
 #[test]
