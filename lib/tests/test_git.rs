@@ -4053,6 +4053,7 @@ fn test_fetch_export_annotated_tags() {
     // Create tags at remote
     let commit1 = empty_git_commit(&test_data.origin_repo, "refs/tags/tag1", &[]);
     let commit2 = empty_git_commit(&test_data.origin_repo, "refs/heads/main", &[]);
+    let commit3 = empty_git_commit(&test_data.origin_repo, "refs/tags/tag3.4", &[]);
     let kind = gix::object::Kind::Commit;
     let constraint = gix::refs::transaction::PreviousValue::MustNotExist;
     let tag2_oid = test_data
@@ -4062,6 +4063,7 @@ fn test_fetch_export_annotated_tags() {
         .id();
     let target1 = RefTarget::normal(jj_id(commit1));
     let target2 = RefTarget::normal(jj_id(commit2));
+    let target3 = RefTarget::normal(jj_id(commit3));
     let remote_ref1 = RemoteRef {
         target: target1.clone(),
         state: RemoteRefState::Tracked,
@@ -4070,10 +4072,23 @@ fn test_fetch_export_annotated_tags() {
         target: target2.clone(),
         state: RemoteRefState::Tracked,
     };
+    let remote_ref3 = RemoteRef {
+        target: target3.clone(),
+        state: RemoteRefState::Tracked,
+    };
 
-    // Fetch tags, merge remote tags, and export merged local tags to Git
+    // Fetch tags, merge remote tags, update one of merged local tags, and
+    // export local tags to Git
     let mut tx = test_data.repo.start_transaction();
     fetch_import(tx.repo_mut());
+    let commit4 = write_random_commit(tx.repo_mut());
+    let target4 = RefTarget::normal(commit4.id().clone());
+    let remote_ref4 = RemoteRef {
+        target: target4.clone(),
+        state: RemoteRefState::Tracked,
+    };
+    tx.repo_mut()
+        .set_local_tag_target("tag3.4".as_ref(), target4.clone());
     git::export_refs(tx.repo_mut()).unwrap();
     let repo = tx.commit("test").block_on().unwrap();
 
@@ -4095,6 +4110,16 @@ fn test_fetch_export_annotated_tags() {
         repo.view().get_remote_tag(remote_symbol("tag2", "origin")),
         &remote_ref2
     );
+    assert_eq!(repo.view().get_local_tag("tag3.4".as_ref()), &target4);
+    assert_eq!(
+        repo.view().get_remote_tag(remote_symbol("tag3.4", "git")),
+        &remote_ref4
+    );
+    assert_eq!(
+        repo.view()
+            .get_remote_tag(remote_symbol("tag3.4", "origin")),
+        &remote_ref3
+    );
 
     assert_eq!(
         test_data
@@ -4104,22 +4129,23 @@ fn test_fetch_export_annotated_tags() {
             .id(),
         commit1
     );
-    // TODO: somehow export the original annotated tag as local Git tag.
+    // Exported local tag should point to the original annotated tag
     assert_eq!(
         test_data
             .git_repo
             .find_reference("refs/tags/tag2")
             .unwrap()
             .id(),
-        commit2
+        tag2_oid
     );
-    assert_ne!(
+    // Locally-moved tag shouldn't point to the original remote tag target
+    assert_eq!(
         test_data
             .git_repo
-            .find_reference("refs/tags/tag2")
+            .find_reference("refs/tags/tag3.4")
             .unwrap()
             .id(),
-        tag2_oid
+        git_id(&commit4)
     );
 }
 
