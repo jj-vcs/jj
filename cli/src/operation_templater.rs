@@ -294,6 +294,10 @@ impl CoreTemplatePropertyVar<'static> for OperationTemplateLanguagePropertyKind 
         Self::Core(CoreTemplatePropertyKind::wrap_template(template))
     }
 
+    fn wrap_any(property: BoxedAnyProperty<'static>) -> Self {
+        Self::Core(CoreTemplatePropertyKind::wrap_any(property))
+    }
+
     fn wrap_any_list(property: BoxedAnyProperty<'static>) -> Self {
         Self::Core(CoreTemplatePropertyKind::wrap_any_list(property))
     }

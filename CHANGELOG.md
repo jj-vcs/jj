@@ -79,8 +79,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   diff in the commit description editor, making it easier to review changes
   while writing commit messages.
 
-* Templates now support `Serialize` operations on the result of `map()`, when
-  supported by the underlying type.
+* Templates now support `Serialize` operations on the result of `map()` and
+  `if()`, when supported by the underlying type.
 
 ### Fixed bugs
 

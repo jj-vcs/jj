@@ -713,6 +713,74 @@ where
     }
 }
 
+/// AnyTemplateProperty which selects an output based on a boolean condition.
+pub struct ConditionalProperty<'a, P> {
+    pub condition: P,
+    pub on_true: BoxedAnyProperty<'a>,
+    pub on_false: Option<BoxedAnyProperty<'a>>,
+}
+
+impl<'a, P> ConditionalProperty<'a, P> {
+    pub fn new(
+        condition: P,
+        on_true: BoxedAnyProperty<'a>,
+        on_false: Option<BoxedAnyProperty<'a>>,
+    ) -> Self
+    where
+        P: TemplateProperty<Output = bool> + 'a,
+    {
+        Self {
+            condition,
+            on_true,
+            on_false,
+        }
+    }
+}
+
+impl<'a, P> AnyTemplateProperty<'a> for ConditionalProperty<'a, P>
+where
+    P: TemplateProperty<Output = bool> + 'a,
+{
+    fn try_into_serialize(self: Box<Self>) -> Option<BoxedSerializeProperty<'a>> {
+        Some(
+            (
+                self.condition,
+                self.on_true.try_into_serialize()?,
+                self.on_false?.try_into_serialize()?,
+            )
+                .map(
+                    move |(condition, on_true, on_false)| {
+                        if condition { on_true } else { on_false }
+                    },
+                )
+                .into_serialize(),
+        )
+    }
+
+    fn try_into_template(self: Box<Self>) -> Option<Box<dyn Template + 'a>> {
+        Some(Box::new(ConditionalTemplate::new(
+            self.condition,
+            self.on_true.try_into_template()?,
+            // NOTE: We need to propagate out the inner `None` (or else we would
+            // allow a non-template `else` property), but not the outer one, so
+            // we cannot use `and_then` here.
+            if let Some(on_false) = self.on_false {
+                Some(on_false.try_into_template()?)
+            } else {
+                None
+            },
+        )))
+    }
+
+    fn try_join(
+        self: Box<Self>,
+        _separator: Box<dyn Template + 'a>,
+    ) -> Option<Box<dyn Template + 'a>> {
+        // NOTE: This is implementable, but currently cannot be called.
+        None
+    }
+}
+
 /// Template which selects an output based on a boolean condition.
 ///
 /// When `None` is specified for the false template and the condition is false,

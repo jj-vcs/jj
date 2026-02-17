@@ -105,8 +105,8 @@ The following functions are defined.
 * `stringify(content: Stringify) -> String`: Format `content` to string. This
   effectively removes color labels.
 * `json(value: Serialize) -> String`: Serialize `value` in JSON format.
-* `if(condition: Boolean, then: Template, [else: Template]) -> Template`:
-  Conditionally evaluate `then`/`else` template content.
+* `if(condition: Boolean, then: Any, [else: Any]) -> Any`:
+  Conditionally evaluates to `then`/`else` content.
 * `coalesce(content: Template...) -> Template`: Returns the first **non-empty**
   content.
 * `concat(content: Template...) -> Template`:
@@ -137,6 +137,12 @@ The following methods are defined.
 * `.original_line_number() -> Integer`: 1-based line number in the original commit.
 * `.first_line_in_hunk() -> Boolean`: False when the directly preceding line
   references the same commit.
+
+### `Any` type
+
+_Conversion: `Boolean`: no, `Serialize`: maybe, `Template`: maybe_
+
+All types can be implicitly converted to `Any`. No methods are defined.
 
 ### `AnyList` type
 
