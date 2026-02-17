@@ -87,8 +87,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `revsets.bookmark-advance-from` and `revsets.bookmark-advance-to`.
   The command is heavily inspired by the longstanding community alias `jj tug`.
 
-* Templates now support `Serialize` operations on the result of `map()`, when
-  supported by the underlying type.
+* Templates now support `Serialize` operations on the result of `map()` and
+  `if()`, when supported by the underlying type.
 
 ### Fixed bugs
 

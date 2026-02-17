@@ -52,7 +52,7 @@ use crate::templater::BoxedSerializeProperty;
 use crate::templater::BoxedTemplateProperty;
 use crate::templater::CoalesceTemplate;
 use crate::templater::ConcatTemplate;
-use crate::templater::ConditionalTemplate;
+use crate::templater::ConditionalProperty;
 use crate::templater::Email;
 use crate::templater::HyperlinkTemplate;
 use crate::templater::JoinTemplate;
@@ -177,6 +177,7 @@ where
     Self: WrapTemplateProperty<'a, TimestampRange>,
 {
     fn wrap_template(template: Box<dyn Template + 'a>) -> Self;
+    fn wrap_any(property: BoxedAnyProperty<'a>) -> Self;
     fn wrap_any_list(property: BoxedAnyProperty<'a>) -> Self;
 
     /// Type name of the property output.
@@ -223,6 +224,7 @@ pub enum CoreTemplatePropertyKind<'a> {
     // wrapped in a TemplateProperty. Another reason is that the outermost
     // caller expects a Template, not a TemplateProperty of Template output.
     Template(Box<dyn Template + 'a>),
+    Any(BoxedAnyProperty<'a>),
     AnyList(BoxedAnyProperty<'a>),
 }
 
@@ -258,6 +260,10 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
         Self::Template(template)
     }
 
+    fn wrap_any(property: BoxedAnyProperty<'a>) -> Self {
+        Self::Any(property)
+    }
+
     fn wrap_any_list(property: BoxedAnyProperty<'a>) -> Self {
         Self::AnyList(property)
     }
@@ -277,6 +283,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Timestamp(_) => "Timestamp",
             Self::TimestampRange(_) => "TimestampRange",
             Self::Template(_) => "Template",
+            Self::Any(_) => "Any",
             Self::AnyList(_) => "AnyList",
         }
     }
@@ -299,6 +306,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             // but it's less likely to apply label() or .map() and use the
             // result as conditional.
             Self::Template(_) => None,
+            Self::Any(_) => None,
             Self::AnyList(_) => None,
         }
     }
@@ -349,6 +357,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Timestamp(property) => Some(property.into_serialize()),
             Self::TimestampRange(property) => Some(property.into_serialize()),
             Self::Template(_) => None,
+            Self::Any(property) => property.try_into_serialize(),
             Self::AnyList(property) => property.try_into_serialize(),
         }
     }
@@ -368,6 +377,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Timestamp(property) => Some(property.into_template()),
             Self::TimestampRange(property) => Some(property.into_template()),
             Self::Template(template) => Some(template),
+            Self::Any(property) => property.try_into_template(),
             Self::AnyList(property) => property.try_into_template(),
         }
     }
@@ -414,6 +424,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Timestamp(_), _) => None,
             (Self::TimestampRange(_), _) => None,
             (Self::Template(_), _) => None,
+            (Self::Any(_), _) => None,
             (Self::AnyList(_), _) => None,
         }
     }
@@ -445,6 +456,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Timestamp(_), _) => None,
             (Self::TimestampRange(_), _) => None,
             (Self::Template(_), _) => None,
+            (Self::Any(_), _) => None,
             (Self::AnyList(_), _) => None,
         }
     }
@@ -506,6 +518,7 @@ pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a
     pub timestamp_methods: TemplateBuildMethodFnMap<'a, L, Timestamp, P>,
     pub timestamp_range_methods: TemplateBuildMethodFnMap<'a, L, TimestampRange, P>,
     pub template_methods: BuildTemplateMethodFnMap<'a, L, P>,
+    pub any_methods: BuildAnyMethodFnMap<'a, L, P>,
     pub any_list_methods: BuildAnyMethodFnMap<'a, L, P>,
 }
 
@@ -532,6 +545,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             timestamp_methods: HashMap::new(),
             timestamp_range_methods: HashMap::new(),
             template_methods: HashMap::new(),
+            any_methods: HashMap::new(),
             any_list_methods: HashMap::new(),
         }
     }
@@ -550,6 +564,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             timestamp_methods,
             timestamp_range_methods,
             template_methods,
+            any_methods,
             any_list_methods,
         } = other;
 
@@ -565,6 +580,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         merge_fn_map(&mut self.timestamp_methods, timestamp_methods);
         merge_fn_map(&mut self.timestamp_range_methods, timestamp_range_methods);
         merge_fn_map(&mut self.template_methods, template_methods);
+        merge_fn_map(&mut self.any_methods, any_methods);
         merge_fn_map(&mut self.any_list_methods, any_list_methods);
     }
 }
@@ -588,6 +604,7 @@ where
             timestamp_methods: builtin_timestamp_methods(),
             timestamp_range_methods: builtin_timestamp_range_methods(),
             template_methods: HashMap::new(),
+            any_methods: HashMap::new(),
             any_list_methods: builtin_any_list_methods(),
         }
     }
@@ -685,6 +702,11 @@ where
                 let table = &self.template_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, template, function)
+            }
+            CoreTemplatePropertyKind::Any(property) => {
+                let table = &self.any_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
             }
             CoreTemplatePropertyKind::AnyList(property) => {
                 let table = &self.any_list_methods;
@@ -2015,13 +2037,12 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         let ([condition_node, true_node], [false_node]) = function.expect_arguments()?;
         let condition =
             expect_boolean_expression(language, diagnostics, build_ctx, condition_node)?;
-        let true_template =
-            expect_template_expression(language, diagnostics, build_ctx, true_node)?;
-        let false_template = false_node
-            .map(|node| expect_template_expression(language, diagnostics, build_ctx, node))
+        let true_any = expect_any_expression(language, diagnostics, build_ctx, true_node)?;
+        let false_any = false_node
+            .map(|node| expect_any_expression(language, diagnostics, build_ctx, node))
             .transpose()?;
-        let template = ConditionalTemplate::new(condition, true_template, false_template);
-        Ok(L::Property::wrap_template(Box::new(template)))
+        let property = ConditionalProperty::new(condition, true_any, false_any);
+        Ok(L::Property::wrap_any(Box::new(property)))
     });
     map.insert("coalesce", |language, diagnostics, build_ctx, function| {
         let ([], content_nodes) = function.expect_some_arguments()?;
@@ -4444,6 +4465,29 @@ mod tests {
         // AnyList is serializable if the inner type is.
         insta::assert_snapshot!(env.render_ok(r#"json(string_list.map(|s| s))"#), @r#"["foo","bar"]"#);
         insta::assert_snapshot!(env.render_ok(r#"json(string_list.map(|s| size_hint))"#), @"[[5,null],[5,null]]");
+
+        // Any is serializable if the inner types are.
+        insta::assert_snapshot!(env.render_ok(r#"json(if(true, email, timestamp))"#), @r#""foo@bar""#);
+        insta::assert_snapshot!(env.render_ok(r#"json(if(true, size_hint, config_value_table))"#), @"[5,null]");
+
+        // The else case missing does prevents the resulting Any expression
+        // from being serializable.
+        insta::assert_snapshot!(env.parse_err(r#"json(if(true, email))"#), @r###"
+         --> 1:6
+          |
+        1 | json(if(true, email))
+          |      ^-------------^
+          |
+          = Expected expression of type `Serialize`, but actual type is `Any`
+        "###);
+        insta::assert_snapshot!(env.parse_err(r#"json(if(false, email))"#), @r###"
+         --> 1:6
+          |
+        1 | json(if(false, email))
+          |      ^--------------^
+          |
+          = Expected expression of type `Serialize`, but actual type is `Any`
+        "###);
     }
 
     #[test]
@@ -4760,6 +4804,52 @@ mod tests {
           |     ^
         invalid unquoted key, expected letters, numbers, `-`, `_`
         ");
+    }
+
+    #[test]
+    fn test_any_type() {
+        let mut env = TestTemplateEnv::new();
+        env.add_keyword("size_hint", || literal((5, None)));
+        env.add_keyword("size_hint_2", || literal((10, None)));
+        env.add_keyword("words", || {
+            literal(vec!["foo".to_owned(), "bar".to_owned()])
+        });
+        env.add_color("red", crossterm::style::Color::Red);
+
+        // If requires both halves of the statement to support the trait.
+        insta::assert_snapshot!(env.render_ok(r#"if(true, label("red", "a"), "b")"#), @"[38;5;9ma[39m");
+        insta::assert_snapshot!(env.render_ok(r#"if(false, label("red", "a"), "b")"#), @"b");
+        insta::assert_snapshot!(env.render_ok(r#"json(if(true, size_hint, size_hint_2))"#), @"[5,null]");
+        insta::assert_snapshot!(env.render_ok(r#"json(if(false, size_hint, size_hint_2))"#), @"[10,null]");
+
+        // If one of the cases does not support Template/Serialize, fail even if
+        // that case isn't selected.
+        insta::assert_snapshot!(env.parse_err(r#"if(true, label("red", "a"), size_hint)"#), @r#"
+         --> 1:1
+          |
+        1 | if(true, label("red", "a"), size_hint)
+          | ^------------------------------------^
+          |
+          = Expected expression of type `Template`, but actual type is `Any`
+        "#);
+        insta::assert_snapshot!(env.parse_err(r#"json(if(true, size_hint, label("red", "a")))"#), @r#"
+         --> 1:6
+          |
+        1 | json(if(true, size_hint, label("red", "a")))
+          |      ^------------------------------------^
+          |
+          = Expected expression of type `Serialize`, but actual type is `Any`
+        "#);
+
+        // The `join` method should not be available on `Any`.
+        insta::assert_snapshot!(env.parse_err(r#"if(true,words,words).join(", ")"#), @r#"
+         --> 1:22
+          |
+        1 | if(true,words,words).join(", ")
+          |                      ^--^
+          |
+          = Method `join` doesn't exist for type `Any`
+        "#);
     }
 
     #[test]
