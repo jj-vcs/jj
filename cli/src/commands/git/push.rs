@@ -201,6 +201,10 @@ pub struct GitPushArgs {
     /// Only display what will change on the remote
     #[arg(long)]
     dry_run: bool,
+
+    /// Push all changes atomically
+    #[arg(long)]
+    atomic: bool,
 }
 
 fn make_bookmark_term(bookmark_names: &[impl fmt::Display]) -> String {
@@ -475,6 +479,7 @@ pub fn cmd_git_push(
         remote,
         &targets,
         &mut GitSubprocessUi::new(ui),
+        args.atomic,
     )?;
     print_push_stats(ui, &push_stats)?;
     // TODO: On partial success, locally-created --change/--named bookmarks will

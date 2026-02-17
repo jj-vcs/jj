@@ -263,6 +263,7 @@ impl GitSubprocessContext {
         remote_name: &RemoteName,
         references: &[RefToPush],
         callback: &mut dyn GitSubprocessCallback,
+        atomic: bool,
     ) -> Result<GitPushStats, GitSubprocessError> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
@@ -274,6 +275,9 @@ impl GitSubprocessContext {
         command.args(["push", "--porcelain", "--no-verify"]);
         if callback.needs_progress() {
             command.arg("--progress");
+        }
+        if atomic {
+            command.arg("--atomic");
         }
         command.args(
             references
