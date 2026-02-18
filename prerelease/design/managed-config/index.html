@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.jj-vcs.dev/latest/technical/architecture/">
+        <link rel="canonical" href="https://docs.jj-vcs.dev/latest/design/managed-config/">
       
       
-        <link rel="prev" href="../../core_tenets/">
+        <link rel="prev" href="../secure-config/">
       
       
-        <link rel="next" href="../concurrency/">
+        <link rel="next" href="../jj-converge-command/">
       
       
       <link rel="icon" href="../../images/favicon-96x96.png">
@@ -22,7 +22,7 @@
     
     
       
-        <title>Architecture - Jujutsu docs (prerelease)</title>
+        <title>Managed config - Jujutsu docs (prerelease)</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#architecture" class="md-skip">
+        <a href="#repo-managed-jj-configuration" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Architecture
+              Managed config
             
           </span>
         </div>
@@ -1131,20 +1131,18 @@
       
   
   
-    
   
   
-  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
         
           
           <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
@@ -1160,7 +1158,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_11">
             <span class="md-nav__icon md-icon"></span>
             Technical details
@@ -1194,32 +1192,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Architecture
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../technical/architecture/" class="md-nav__link">
         
   
   
@@ -1230,236 +1206,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#data-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      Data model
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#separation-of-library-from-ui" class="md-nav__link">
-    <span class="md-ellipsis">
-      Separation of library from UI
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#storage-independent-apis" class="md-nav__link">
-    <span class="md-ellipsis">
-      Storage-independent APIs
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#design-of-the-library-crate" class="md-nav__link">
-    <span class="md-ellipsis">
-      Design of the library crate
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Design of the library crate">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      Overview
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#backend" class="md-nav__link">
-    <span class="md-ellipsis">
-      Backend
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#gitbackend" class="md-nav__link">
-    <span class="md-ellipsis">
-      GitBackend
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#simplebackend" class="md-nav__link">
-    <span class="md-ellipsis">
-      SimpleBackend
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#store" class="md-nav__link">
-    <span class="md-ellipsis">
-      Store
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#readonlyrepo" class="md-nav__link">
-    <span class="md-ellipsis">
-      ReadonlyRepo
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mutablerepo" class="md-nav__link">
-    <span class="md-ellipsis">
-      MutableRepo
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#transaction" class="md-nav__link">
-    <span class="md-ellipsis">
-      Transaction
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#repoloader" class="md-nav__link">
-    <span class="md-ellipsis">
-      RepoLoader
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#treestate" class="md-nav__link">
-    <span class="md-ellipsis">
-      TreeState
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#workingcopy" class="md-nav__link">
-    <span class="md-ellipsis">
-      WorkingCopy
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#workspace" class="md-nav__link">
-    <span class="md-ellipsis">
-      Workspace
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#git" class="md-nav__link">
-    <span class="md-ellipsis">
-      Git
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#revsets" class="md-nav__link">
-    <span class="md-ellipsis">
-      Revsets
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#stackedtable" class="md-nav__link">
-    <span class="md-ellipsis">
-      StackedTable
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#design-of-the-cli-crate" class="md-nav__link">
-    <span class="md-ellipsis">
-      Design of the CLI crate
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Design of the CLI crate">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#templates" class="md-nav__link">
-    <span class="md-ellipsis">
-      Templates
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#diff-editing" class="md-nav__link">
-    <span class="md-ellipsis">
-      Diff-editing
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1472,7 +1218,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../concurrency/" class="md-nav__link">
+      <a href="../../technical/concurrency/" class="md-nav__link">
         
   
   
@@ -1495,7 +1241,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../conflicts/" class="md-nav__link">
+      <a href="../../technical/conflicts/" class="md-nav__link">
         
   
   
@@ -1751,18 +1497,20 @@
       
   
   
+    
   
   
+  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" checked>
         
           
           <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
@@ -1778,7 +1526,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_13">
             <span class="md-nav__icon md-icon"></span>
             Design docs
@@ -1792,7 +1540,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/git-submodules/" class="md-nav__link">
+      <a href="../git-submodules/" class="md-nav__link">
         
   
   
@@ -1815,7 +1563,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/git-submodule-storage/" class="md-nav__link">
+      <a href="../git-submodule-storage/" class="md-nav__link">
         
   
   
@@ -1838,7 +1586,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/run/" class="md-nav__link">
+      <a href="../run/" class="md-nav__link">
         
   
   
@@ -1861,7 +1609,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/sparse-v2/" class="md-nav__link">
+      <a href="../sparse-v2/" class="md-nav__link">
         
   
   
@@ -1884,7 +1632,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/tracking-branches/" class="md-nav__link">
+      <a href="../tracking-branches/" class="md-nav__link">
         
   
   
@@ -1907,7 +1655,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/copy-tracking/" class="md-nav__link">
+      <a href="../copy-tracking/" class="md-nav__link">
         
   
   
@@ -1930,7 +1678,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/secure-config/" class="md-nav__link">
+      <a href="../secure-config/" class="md-nav__link">
         
   
   
@@ -1950,10 +1698,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../design/managed-config/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Managed config
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1964,6 +1734,278 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#background" class="md-nav__link">
+    <span class="md-ellipsis">
+      Background
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      Objective
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      Detailed Design
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      Security
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#trust-levels" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trust levels
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#user-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      User interface
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="User interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unset-trust" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unset trust
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ignored" class="md-nav__link">
+    <span class="md-ellipsis">
+      Ignored
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trusted" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trusted
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#notify" class="md-nav__link">
+    <span class="md-ellipsis">
+      Notify
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#review" class="md-nav__link">
+    <span class="md-ellipsis">
+      Review
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Review">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#user-is-working-on-config-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      User is working on config file.
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disabling-config-messes-with-the-repo" class="md-nav__link">
+    <span class="md-ellipsis">
+      Disabling config messes with the repo
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#best-effort-messes-with-the-user" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best-effort messes with the user
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      Conclusion
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manually-changing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Manually changing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#where-to-read-from" class="md-nav__link">
+    <span class="md-ellipsis">
+      Where to read from
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Where to read from">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#problematic-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Problematic examples
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Problematic examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#solution-1-formatter-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      Solution 1: formatter config
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#solution-2-more-general-but-convoluted-wrapper-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      Solution 2 (more general but convoluted): Wrapper script
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#solution-3-for-scripts-that-need-to-run-at-trunk" class="md-nav__link">
+    <span class="md-ellipsis">
+      Solution 3 (for scripts that need to run at trunk)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decision-trunk-vs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Decision: Trunk vs @
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#read-from-filesystem-or-from-repo-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Read from filesystem or from repo objects?
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1976,7 +2018,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/jj-converge-command/" class="md-nav__link">
+      <a href="../jj-converge-command/" class="md-nav__link">
         
   
   
@@ -2070,43 +2112,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#data-model" class="md-nav__link">
+  <a href="#background" class="md-nav__link">
     <span class="md-ellipsis">
-      Data model
+      Background
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#separation-of-library-from-ui" class="md-nav__link">
-    <span class="md-ellipsis">
-      Separation of library from UI
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#storage-independent-apis" class="md-nav__link">
-    <span class="md-ellipsis">
-      Storage-independent APIs
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#design-of-the-library-crate" class="md-nav__link">
-    <span class="md-ellipsis">
-      Design of the library crate
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Design of the library crate">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
   <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
       Overview
@@ -2114,128 +2128,132 @@
   </a>
   
 </li>
+      
+        <li class="md-nav__item">
+  <a href="#objective" class="md-nav__link">
+    <span class="md-ellipsis">
+      Objective
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      Detailed Design
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Design">
+      <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#backend" class="md-nav__link">
+  <a href="#security" class="md-nav__link">
     <span class="md-ellipsis">
-      Backend
+      Security
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#trust-levels" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trust levels
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#gitbackend" class="md-nav__link">
+  <a href="#user-interface" class="md-nav__link">
     <span class="md-ellipsis">
-      GitBackend
+      User interface
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="User interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unset-trust" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unset trust
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#simplebackend" class="md-nav__link">
+  <a href="#ignored" class="md-nav__link">
     <span class="md-ellipsis">
-      SimpleBackend
+      Ignored
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#store" class="md-nav__link">
+  <a href="#trusted" class="md-nav__link">
     <span class="md-ellipsis">
-      Store
+      Trusted
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#readonlyrepo" class="md-nav__link">
+  <a href="#notify" class="md-nav__link">
     <span class="md-ellipsis">
-      ReadonlyRepo
+      Notify
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#mutablerepo" class="md-nav__link">
+  <a href="#review" class="md-nav__link">
     <span class="md-ellipsis">
-      MutableRepo
+      Review
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Review">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#user-is-working-on-config-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      User is working on config file.
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#transaction" class="md-nav__link">
+  <a href="#disabling-config-messes-with-the-repo" class="md-nav__link">
     <span class="md-ellipsis">
-      Transaction
+      Disabling config messes with the repo
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#repoloader" class="md-nav__link">
+  <a href="#best-effort-messes-with-the-user" class="md-nav__link">
     <span class="md-ellipsis">
-      RepoLoader
+      Best-effort messes with the user
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#treestate" class="md-nav__link">
+  <a href="#conclusion" class="md-nav__link">
     <span class="md-ellipsis">
-      TreeState
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#workingcopy" class="md-nav__link">
-    <span class="md-ellipsis">
-      WorkingCopy
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#workspace" class="md-nav__link">
-    <span class="md-ellipsis">
-      Workspace
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#git" class="md-nav__link">
-    <span class="md-ellipsis">
-      Git
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#revsets" class="md-nav__link">
-    <span class="md-ellipsis">
-      Revsets
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#stackedtable" class="md-nav__link">
-    <span class="md-ellipsis">
-      StackedTable
+      Conclusion
     </span>
   </a>
   
@@ -2245,32 +2263,98 @@
     </nav>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#design-of-the-cli-crate" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#manually-changing" class="md-nav__link">
     <span class="md-ellipsis">
-      Design of the CLI crate
+      Manually changing
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Design of the CLI crate">
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#where-to-read-from" class="md-nav__link">
+    <span class="md-ellipsis">
+      Where to read from
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Where to read from">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#templates" class="md-nav__link">
+  <a href="#problematic-examples" class="md-nav__link">
     <span class="md-ellipsis">
-      Templates
+      Problematic examples
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Problematic examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#solution-1-formatter-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      Solution 1: formatter config
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#diff-editing" class="md-nav__link">
+  <a href="#solution-2-more-general-but-convoluted-wrapper-script" class="md-nav__link">
     <span class="md-ellipsis">
-      Diff-editing
+      Solution 2 (more general but convoluted): Wrapper script
     </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#solution-3-for-scripts-that-need-to-run-at-trunk" class="md-nav__link">
+    <span class="md-ellipsis">
+      Solution 3 (for scripts that need to run at trunk)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decision-trunk-vs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Decision: Trunk vs @
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#read-from-filesystem-or-from-repo-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      Read from filesystem or from repo objects?
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -2295,7 +2379,7 @@
 
 
   
-    <a href="https://github.com/jj-vcs/jj/edit/main/docs/technical/architecture.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/jj-vcs/jj/edit/main/docs/design/managed-config.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75z"/></svg>
     </a>
@@ -2303,182 +2387,351 @@
   
 
 
-<h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
-<h2 id="data-model">Data model<a class="headerlink" href="#data-model" title="Permanent link">&para;</a></h2>
-<p>The commit data model is similar
-to <a href="https://git-scm.com/book/en/v2/Git-Internals-Git-Objects">Git's object model</a>
-, but with some differences.</p>
-<h2 id="separation-of-library-from-ui">Separation of library from UI<a class="headerlink" href="#separation-of-library-from-ui" title="Permanent link">&para;</a></h2>
-<p>The <code>jj</code> binary consists of two Rust crates: the library crate (<code>jj-lib</code>) and
-the CLI crate (<code>jj-cli</code>). The library crate is currently only used by the CLI
-crate, but it is meant to also be usable from a GUI or TUI, or in a server
-serving requests from multiple users. As a result, the library should avoid
-interacting directly with the user via the terminal or by other means; all
-input/output is handled by the CLI crate <sup id="fnref:1"><a class="footnote-ref" href="#fn:1">1</a></sup>. Since the library crate is meant
-to usable in a server, it also cannot read configuration from the user's home
-directory, or from user-specific environment variables.</p>
-<p>A lot of thought has gone into making the library crate's API easy to use, but
-not much has gone into "details" such as which collection types are used, or
-which symbols are exposed in the API.</p>
-<h2 id="storage-independent-apis">Storage-independent APIs<a class="headerlink" href="#storage-independent-apis" title="Permanent link">&para;</a></h2>
-<p>One overarching principle in the design is that it should be easy to change
-where data is stored. The goal was to be able to put storage on local-disk by
-default but also be able to move storage to the cloud at Google
-(and for anyone). To that end, commits (and trees, files, etc.) are stored by
-the commit backend, operations (and views) are stored by the operation backend,
-the heads of the operation log are stored by the "op heads" backend, the commit
-index is stored by the index backend, and the working copy is stored by the
-working copy backend. The interfaces are defined in terms of plain Rust data
-types, not tied to a specific format. The working copy doesn't have its own
-trait defined yet, but its interface is small and easy to create traits for when
-needed.</p>
-<p>The commit backend to use when loading a repo is specified in
-the <code>.jj/repo/store/type</code> file. There are similar files for the other backends
-(<code>.jj/repo/index/type</code>, <code>.jj/repo/op_store/type</code>, <code>.jj/repo/op_heads/type</code>).</p>
-<h2 id="design-of-the-library-crate">Design of the library crate<a class="headerlink" href="#design-of-the-library-crate" title="Permanent link">&para;</a></h2>
-<h3 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h3>
-<p>Here's a diagram showing some important types in the library crate, and how they
-relate. For example, given a <code>Workspace</code>, you can use it to get a <code>WorkingCopy</code>
-or a <code>RepoLoader</code>. A <code>Transaction</code> is required to acquire a <code>MutableRepo</code>, etc.
-The following sections describe each component.</p>
-<p><img alt="Type diagram" src="../types.svg" /></p>
-<p><em>This diagram was created with <a href="https://excalidraw.com/">Excalidraw</a>. You can get a copy of it <a href="https://excalidraw.com/#json=X081PJVRW2h4iW12qZxc1,H2Yg3qnycVG0Vpq5Z90Miw">at this
-location</a>, and Right Click &gt; "Copy to Clipboard as SVG".</em></p>
-<h3 id="backend">Backend<a class="headerlink" href="#backend" title="Permanent link">&para;</a></h3>
-<p>The <code>Backend</code> trait defines the interface each
-commit backend needs to implement. The current in-tree commit backends
-are <code>GitBackend</code>
-and <code>SimpleBackend</code>.</p>
-<p>Since there are non-commit backends, the <code>Backend</code> trait should probably be
-renamed to <code>CommitBackend</code>.</p>
-<h3 id="gitbackend">GitBackend<a class="headerlink" href="#gitbackend" title="Permanent link">&para;</a></h3>
-<p>The <code>GitBackend</code> stores commits in a Git repository. It uses
-<a href="https://github.com/GitoxideLabs/gitoxide"><code>gitoxide</code></a> to read and write commits
-and refs.</p>
-<p>To prevent GC from deleting commits that are still reachable from the operation
-log, the <code>GitBackend</code> stores a ref for each commit in the operation log in
-the <code>refs/jj/keep/</code> namespace.</p>
-<p>Commit data that is available in Jujutsu's model but not in Git's model is
-stored in a <code>StackedTable</code> in <code>.jj/repo/store/extra/</code>. That is currently the
-change ID and the list of predecessors. For commits that don't have any data in
-that table, which is any commit created by <code>git</code>, we use an empty list as
-predecessors, and the bit-reversed commit ID as change ID.</p>
-<p>Because we use the Git Object ID as commit ID, two commits that differ only in
-their change ID, for example, will get the same commit ID, so we error out when
-trying to write the second one of them.</p>
-<h3 id="simplebackend">SimpleBackend<a class="headerlink" href="#simplebackend" title="Permanent link">&para;</a></h3>
-<p>The <code>SimpleBackend</code> is just a proof of concept. It stores objects addressed by
-their hash, with one file per object.</p>
-<h3 id="store">Store<a class="headerlink" href="#store" title="Permanent link">&para;</a></h3>
-<p>The <code>Store</code> type wraps the <code>Backend</code> and returns wrapped types for commits and
-trees to make them easier to use. The wrapped objects have a reference to
-the <code>Store</code> itself, so you can do e.g. <code>commit.parents()</code> without having to
-provide the <code>Store</code> as an argument.</p>
-<p>The <code>Store</code> type also provides caching of commits and trees.</p>
-<h3 id="readonlyrepo">ReadonlyRepo<a class="headerlink" href="#readonlyrepo" title="Permanent link">&para;</a></h3>
-<p>A <code>ReadonlyRepo</code> represents the state of a repo at a specific operation. It
-keeps the view object associated with that operation.</p>
-<p>The repository doesn't know where on disk any working copies live. It knows, via
-the view object, which commit is supposed to be the current working-copy commit
-in each workspace.</p>
-<h3 id="mutablerepo">MutableRepo<a class="headerlink" href="#mutablerepo" title="Permanent link">&para;</a></h3>
-<p>A <code>MutableRepo</code> is a mutable version of <code>ReadonlyRepo</code>. It has a reference to
-its base <code>ReadonlyRepo</code>, but it has its own copy of the view object and lets the
-caller modify it.</p>
-<h3 id="transaction">Transaction<a class="headerlink" href="#transaction" title="Permanent link">&para;</a></h3>
-<p>The <code>Transaction</code> object has a <code>MutableRepo</code> and metadata that will go into the
-operation log. When the transaction commits, the <code>MutableRepo</code> becomes a view
-object in the operation log on disk, and the <code>Transaction</code> object becomes an
-operation object. In memory, <code>Transaction::commit()</code> returns a
-new <code>ReadonlyRepo</code>.</p>
-<h3 id="repoloader">RepoLoader<a class="headerlink" href="#repoloader" title="Permanent link">&para;</a></h3>
-<p>The <code>RepoLoader</code> represents a repository at an unspecified operation. You can
-think of as a pointer to the <code>.jj/repo/</code> directory. It can create
-a <code>ReadonlyRepo</code> given an operation ID.</p>
-<h3 id="treestate">TreeState<a class="headerlink" href="#treestate" title="Permanent link">&para;</a></h3>
-<p>The <code>TreeState</code> type represents the state of the files in a working copy. It
-keep track of the mtime and size for each tracked file. It knows the <code>TreeId</code>
-that the working copy represents. It has a <code>snapshot()</code> method that will use the
-recorded mtimes and sizes and detect changes in the working copy. If anything
-changed, it will return a new <code>TreeId</code>. It also has <code>checkout()</code> for updating
-the files on disk to match a requested <code>TreeId</code>.</p>
-<p>The <code>TreeState</code> type supports sparse checkouts. In fact, all working copies are
-sparse; they simply track the full repo in most cases.</p>
-<h3 id="workingcopy">WorkingCopy<a class="headerlink" href="#workingcopy" title="Permanent link">&para;</a></h3>
-<p>The <code>WorkingCopy</code> type has a <code>TreeState</code> but also knows which <code>WorkspaceName</code> it
-has and at which operation it was most recently updated.</p>
-<h3 id="workspace">Workspace<a class="headerlink" href="#workspace" title="Permanent link">&para;</a></h3>
-<p>The <code>Workspace</code> type represents the combination of a repo and a working copy (
-like Git's 'worktree' concept).</p>
-<p>The repo view at the current operation determines the desired working-copy
-commit in each workspace. The <code>WorkingCopy</code> determines what is actually in the
-working copy. The working copy can become stale if the working-copy commit was
-changed from another workspace (or if the process updating the working copy
-crashed, for example).</p>
-<h3 id="git">Git<a class="headerlink" href="#git" title="Permanent link">&para;</a></h3>
-<p>The <code>git</code> module contains functionality for interoperating with a Git repo, at a
-higher level than the <code>GitBackend</code>. The <code>GitBackend</code> is restricted by
-the <code>Backend</code> trait; the <code>git</code> module is specifically for Git-backed repos. It
-has functionality for importing refs from the Git repo and for exporting to refs
-in the Git repo. It also has functionality for pushing and pulling to/from Git
-remotes.</p>
-<h3 id="revsets">Revsets<a class="headerlink" href="#revsets" title="Permanent link">&para;</a></h3>
-<p>A user-provided revset expression string goes through a few different stages to
-be evaluated:</p>
-<ol>
-<li>Parse the expression into a <code>RevsetExpression</code>, which is close to an AST</li>
-<li>Resolve symbols and functions like <code>tags()</code> into specific commits. After
-   this stage, the expression is still a <code>RevsetExpression</code>, but it won't have
-   any <code>CommitRef</code> variants in it.</li>
-<li>Resolve visibility. This stage resolves <code>visible_heads()</code> and <code>all()</code> and
-   produces a <code>ResolvedExpression</code>.</li>
-<li>Evaluate the <code>ResolvedExpression</code> into a <code>Revset</code>.</li>
-</ol>
-<p>This evaluation step is performed by <code>Index::evaluate_revset()</code>, allowing
-the <code>Revset</code> implementation to leverage the specifics of a custom index
-implementation. The first three steps are independent of the index
-implementation.</p>
-<h3 id="stackedtable">StackedTable<a class="headerlink" href="#stackedtable" title="Permanent link">&para;</a></h3>
-<p><code>StackedTable</code> (actually <code>ReadonlyTable</code> and <code>MutableTable</code>) is a simple disk
-format for storing key-value pairs sorted by key. The keys have to have the same
-size but the values can have different sizes. We use our own format because we
-want <a href="../concurrency/">lock-free concurrency</a> and there doesn't seem to be an
-existing key-value store we could use.</p>
-<p>The file format contains a lookup table followed by concatenated values. The
-lookup table is a sorted list of keys, where each key is followed by the
-associated value's offset in the concatenated values.</p>
-<p>A table can have a parent table. When looking up a key, if it's not found in the
-current table, the parent table is searched. We never update a table in place.
-If the number of new entries to write is less than half the number of entries in
-the parent table, we create a new table with the new entries and a pointer to
-the parent. Otherwise, we copy the entries from the parent table and the new
-entries into a new table with the grandparent as the parent. We do that
-recursively so parent tables are at least 2 times as large as child tables. This
-results in O(log N) amortized insertion time and lookup time.</p>
-<p>There's no garbage collection of unreachable tables yet.</p>
-<p>The tables are named by their hash. We keep a separate directory of pointers to
-the current leaf tables, in the same way as we
-do <a href="../concurrency/#storage">for the operation log</a>.</p>
-<h2 id="design-of-the-cli-crate">Design of the CLI crate<a class="headerlink" href="#design-of-the-cli-crate" title="Permanent link">&para;</a></h2>
-<h3 id="templates">Templates<a class="headerlink" href="#templates" title="Permanent link">&para;</a></h3>
-<p>The concept is copied from Mercurial, but the syntax is different. The main
-difference is that the top-level expression is a template expression, not a
-string like in Mercurial. There is also no string interpolation (e.g.
-<code>"Commit ID: {node}"</code> in Mercurial).</p>
-<h3 id="diff-editing">Diff-editing<a class="headerlink" href="#diff-editing" title="Permanent link">&para;</a></h3>
-<p>Diff-editing works by creating two very sparse working copies, containing only
-the files we want the user to edit. We then let the user edit the right-hand
-side of the diff. Then we simply snapshot that working copy to create the new
-tree.</p>
-<div class="footnote">
-<hr />
-<ol>
-<li id="fn:1">
-<p>There are a few exceptions, such as for messages printed during automatic
-upgrades of the repo format&#160;<a class="footnote-backref" href="#fnref:1" title="Jump back to footnote 1 in the text">&#8617;</a></p>
+<h1 id="repo-managed-jj-configuration">Repo-managed JJ configuration<a class="headerlink" href="#repo-managed-jj-configuration" title="Permanent link">&para;</a></h1>
+<p>Author: <a href="mailto:msta@google.com">Matt Stark</a></p>
+<p>Status: Pending implementation</p>
+<h2 id="background">Background<a class="headerlink" href="#background" title="Permanent link">&para;</a></h2>
+<p>The design doc <a href="../secure-config/">Secure JJ Config</a> introduces a mechanism,
+<code>metadata.binpb</code>, through which information about a repository / workspace can
+be stored. It also discusses how allowing an external user to have control over
+your config is a security risk.</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>There is a need for a repository to impose requirements upon users. Examples of
+these things include, but are not limited to:</p>
+<ul>
+<li>Formatter configuration (eg. <a href="https://source.chromium.org/chromium/chromium/src/+/main:tools/jj/config.toml;l=47-96;drc=080c978973f87ff2a1cfa514a13285baeaf3eedc">Chromium Formatter Config</a>)</li>
+<li>Pre-upload checks (eg. <a href="https://source.chromium.org/chromium/chromium/src/+/main:tools/jj/upload.py;drc=96f39fbbb720ca391d43cbb199a85af7d3309dd3">Chromium Pre-upload Checks</a>)</li>
+<li>Syncing scripts (eg. <a href="https://source.chromium.org/chromium/chromium/src/+/main:tools/jj/sync.py;drc=6ff08dcdd1fdeb1654a4d3da81d8adaeae4bbbf7">Chromium Syncing Scripts</a>)</li>
+<li>Custom aliases / revsets documented by some kind of “getting started with
+    <project>” document</li>
+</ul>
+<p>It should be fairly obvious that there is a strong benefit to doing so. However,
+controlling a user’s config is sufficient to get root access to their machine,
+so we require a mechanism more complex than just blindly loading the config
+file.</p>
+<p>This is currently achieved by projects such as chromium by instructing the user
+to symlink <code>.jj/repo/config.toml</code> to a file in the repository. This has several
+drawbacks:</p>
+<ul>
+<li>It doesn’t work out-of-the-box. I need to manually symlink it</li>
+<li>It has no security guarantees. If I update the file in the repo, the user has no
+    opportunity to review it.</li>
+<li>This prevents a user from having their own repo configuration on top of it.</li>
+</ul>
+<h2 id="objective">Objective<a class="headerlink" href="#objective" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Create a new layer of configuration between user configuration and repo
+    configuration.
+    *   This configuration will be stored in version control and henceforth be
+        referred to as “managed” configuration.</li>
+<li>Implement it in a secure manner so that an attacker cannot take control over
+    the managed config.</li>
+</ul>
+<h2 id="detailed-design">Detailed Design<a class="headerlink" href="#detailed-design" title="Permanent link">&para;</a></h2>
+<p>The managed configuration will be read from <code>$REPO/.config/jj/config.toml</code>. This
+is intentionally designed to be very similar to <code>$HOME/.config/jj/config.toml</code>
+for the user configuration.</p>
+<p>Any data stored here will be added to the <code>metadata.binpb</code> that was created
+in <a href="../secure-config/">secure config</a> (that is, we will add additional fields to
+the <code>Metadata</code> struct). This will ensure that we don't suffer from the "zip file
+problem".</p>
+<h3 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h3>
+<h4 id="trust-levels">Trust levels<a class="headerlink" href="#trust-levels" title="Permanent link">&para;</a></h4>
+<p>We will add the following fields to metadata:
+<div class="highlight"><pre><span></span><code>enum TrustLevel {
+    // There&#39;s no &quot;optional&quot; in protos. It just returns the zero value.
+    UNSET = 0;
+    // The user wishes to completely ignore the managed config file.
+    IGNORED = 1;
+    // In trusted mode, we directly read from the managed config file.
+    // This presents a security risk, so the user is expected to only do this
+    // for a repo they trust.
+    TRUSTED = 2;
+    // In notify mode, the user is expected to manually replicate any changes
+    // they want from the managed config to the repo config.
+    NOTIFY = 3;
+    // In review mode, the user has to review every config individually.
+    REVIEW = 4;
+}
+
+message Metadata {
+    // previous fields
+
+    // The trust level associated with this repo.
+    TrustLevel trust_level = 2;
+
+    // When trust_level is review, the following fields are used.
+    set&lt;Hash&gt; approved_configs = 3;
+    set&lt;Hash&gt; rejected_configs = 4;
+    // This is a can of worms and thus out of scope of the MVP.
+    // There&#39;s no one correct way to choose the last approved.
+    // Sometimes, the user wants be the last appproved config in the workspace.
+    // At other times, the user wants be the last appproved config in the repo.
+    string last_approved_config = 5;
+}
+</code></pre></div></p>
+<p>Note that although the <code>Metadata</code> struct is stored for both the repo and the
+workspace, this will only be used for the repository, not the workspace.</p>
+<p>This is because trust is associated with repositories, not workspaces. If I
+were to add an approved config in one workspace, for example, there is no
+reason I wouldn't trust it in another.</p>
+<h4 id="user-interface">User interface<a class="headerlink" href="#user-interface" title="Permanent link">&para;</a></h4>
+<p>Everything here only becomes relevant when a repo has a managed config. If it
+does not have a managed config, we skip everything here.</p>
+<h5 id="unset-trust">Unset trust<a class="headerlink" href="#unset-trust" title="Permanent link">&para;</a></h5>
+<p>If a repository has a managed config and unset trust, we first use
+<code>ui.can_prompt()</code> to determine whether we are in a TUI.</p>
+<ul>
+<li>If we are in a TUI, we ask the user what trust level they would like.</li>
+<li>If we are not in a TUI, we warn them that we are ignoring the repo config (we
+    return <code>IGNORE</code>), and that they can run <code>jj config managed --ignore/notify/trust</code> in a terminal to configure this.</li>
+</ul>
+<h5 id="ignored">Ignored<a class="headerlink" href="#ignored" title="Permanent link">&para;</a></h5>
+<p>Nice and easy. We just completely ignore the managed config file.</p>
+<h5 id="trusted">Trusted<a class="headerlink" href="#trusted" title="Permanent link">&para;</a></h5>
+<p>Nice and easy. We just read the managed config file.</p>
+<h5 id="notify">Notify<a class="headerlink" href="#notify" title="Permanent link">&para;</a></h5>
+<p>Roughly speaking, if <code>mtime(repo_config_file) &gt; mtime(managed_config)</code>, then
+the config is up to date.</p>
+<p>If it isn't up to date, we print a warning. The user is then expected to update
+their repo config with any options they want from the managed config, which
+will stop the warning from printing as the mtime has changed.</p>
+<p>This notify option has a rather painful UX when it comes to keeping it in sync
+(particularly for a user who constantly switches between different branches
+synced to different versions), but I choose it for several reasons. The first is
+that the vast majority of users will simply select to blindly trust the repo.
+The only people who will choose this option are the very security conscious, and
+this is by far the most secure mechanism. Secondly, it is so much simpler than
+an approval based mechanism, as we don’t need to worry about things such as
+workspaces being synced to different places. It provides far fewer edge cases.</p>
+<p>In the future we may consider improving on the UX, doing things such as printing
+a diff since the last seen config (per <code>last_approved_config</code>), but that isn't
+a part of the MVP.</p>
+<h5 id="review">Review<a class="headerlink" href="#review" title="Permanent link">&para;</a></h5>
+<p>This is, by far, the most difficult option. There is no doubt that this
+provides value to some users, but the precise details of how this should behave
+is unclear (and much harder to implement than the other options).</p>
+<p>The biggest problem with this is that there is not a clear "correct" set of
+semantics. If a config is not approved / rejected, we have 3 options:</p>
+<ul>
+<li>Fail the command. This seems like a bad idea since users have an assumption
+  that most jj commands will not fail.</li>
+<li>Use no config. This can potentially have quite bad effects on the repo.</li>
+<li>Use best-effort to use an approved config (probably most recently approved).</li>
+<li>Force the user to make a selection before running a command<ul>
+<li>This is impossible in general due to <code>ui.can_prompt()</code> returning false<ul>
+<li>We would need to fall back to another option if we can't prompt.</li>
+</ul>
 </li>
-</ol>
-</div>
+<li>But <code>ui.can_prompt()</code> does not mean that we <em>should</em> prompt<ul>
+<li>Eg. A script that runs jj to do a bisection probably doesn't want
+  you to prompt every time the config changes.</li>
+<li>This probably isn't too bad if it only happens once (eg. setting trust
+  level), but if it happens many times, it could be very annoying.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>Consider the following examples</p>
+<h6 id="user-is-working-on-config-file">User is working on config file.<a class="headerlink" href="#user-is-working-on-config-file" title="Permanent link">&para;</a></h6>
+<p>1) User runs <code>vim .config/jj/config.toml</code>
+2) User tries to test out the config, but needs to manually approve their own
+   local change to the config every single time (this can at least be
+   mitigated via setting it to trust temporarily)</p>
+<h6 id="disabling-config-messes-with-the-repo">Disabling config messes with the repo<a class="headerlink" href="#disabling-config-messes-with-the-repo" title="Permanent link">&para;</a></h6>
+<p>1) User approves a config.
+2) User runs <code>jj git fetch</code>. There has been an update to the managed config.
+3) User runs <code>jj rebase -b @ -d trunk()</code>. The managed config is now not
+   approved, and thus the next jj command will have the config disabled.</p>
+<p>Depending on what has changed, a variety of things could happen:</p>
+<ul>
+<li>A user in a repo that defines <code>trunk()</code> could run
+  <code>jj rebase -b &lt;revset&gt; -d trunk()</code><ul>
+<li>This would result in it going to the wrong trunk</li>
+</ul>
+</li>
+<li>A user in a repo that defines <code>immutable_heads() = ...</code> could run something
+  like <code>jj rebase -b mutable() -d trunk()</code><ul>
+<li>This would rebase a bunch of immutable commits</li>
+</ul>
+</li>
+<li>A user in a repo that defines <code>pre-upload</code> hooks (which don't yet exist,
+  but are being planned) runs <code>jj gerrit upload</code> and bypasses them entirely. </li>
+</ul>
+<p>Thanks to the magic of <code>jj undo</code>, everything except the upload is recoverable.
+What makes them a problem, however, is the fact that a user would see the
+message "please approve /reject the config" and not suspect that the command
+has failed.</p>
+<h6 id="best-effort-messes-with-the-user">Best-effort messes with the user<a class="headerlink" href="#best-effort-messes-with-the-user" title="Permanent link">&para;</a></h6>
+<p>If we use best-effort instead, we are likely to run into a different set of
+issues.</p>
+<p>The first is that it's no longer clear which config is being used. If I:
+1) Have two workspaces A and B with the same state, both approved.
+2) Sync workspace B and approve the config
+3) Check out an old version of workspace A</p>
+<p>Now which config is used?</p>
+<ul>
+<li>The most recently approved globally?</li>
+<li>The most recently approved for this workspace?</li>
+<li>Some algorithm which determines that the config for A was at a closer commit
+  than B?</li>
+</ul>
+<p>The second issue is that things may be incorrect. If <code>foo.py</code> was renamed to
+<code>bar.py</code> and the reference was changed in <code>config.toml</code>, for example, the
+config is going to break. This is not as large an issue as disabling config,
+IMO, as changes will usually result in an obvious error.</p>
+<h6 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h6>
+<p>The vast majority of users will not use this option, as very few users are
+security-conscious, working on a repo they don't trust, and working on a repo
+with managed config.</p>
+<p>Due to:</p>
+<ul>
+<li>Significant implementation complexity<ul>
+<li>My prototype without this feature is only ~200 lines of code and ~100 lines
+  of tests. This feature would likely double that for the most hacky simple
+  implementation, and add significantly more if we wanted a proper nice UX.</li>
+</ul>
+</li>
+<li>The lack of a single "correct" solution</li>
+<li>The fact that most users just want the "trust" option</li>
+<li>The fact that it is no more difficult to add other options, then add the
+  review option after the fact</li>
+<li>The time that would be required to get consensus on the various decisions
+  that would need to be made in terms of how this would work.<ul>
+<li>There was already a lot of
+  <a href="https://github.com/jj-vcs/jj/pull/7761#discussion_r2476135221">discussion</a>
+  on this topic, but no clear conclusion was reached.</li>
+<li>Technical (eg. disable vs best-effort)</li>
+<li>UX<ul>
+<li>When reviewing, do we review diffs or full config files?</li>
+<li>Do we prompt the user to review before running the command?</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>I propose that the "review" option not be put in the MVP, and and instead be
+added in later.</p>
+<h5 id="manually-changing">Manually changing<a class="headerlink" href="#manually-changing" title="Permanent link">&para;</a></h5>
+<p>These options will also be able to be manually set via <code>jj config managed
+--ignore/notify/trust</code>.</p>
+<h3 id="where-to-read-from">Where to read from<a class="headerlink" href="#where-to-read-from" title="Permanent link">&para;</a></h3>
+<p>This is the trickiest part of the proposal. Consider the following workflow:</p>
+<div class="highlight"><pre><span></span><code>jj new main@origin
+jj ...
+jj new stable-branch@origin
+</code></pre></div>
+<p>There are some edge cases we need to consider:</p>
+<ul>
+<li><code>stable-branch</code> may have existed before the config was added</li>
+<li><code>stable-branch</code> may have a different copy of the managed config</li>
+</ul>
+<p>The naive assumption would be that you want to read the config from <code>@</code>, as the
+config will always match the version of the code you're using. However, it turns
+out that some things want to refer to <code>@</code>, while others want to read the config
+from <code>trunk()</code>.</p>
+<p>Consider several different use cases:</p>
+<ul>
+<li>My formatter was previously <code>clang-format --foo</code>, but the option <code>--foo</code> was
+    deprecated in the latest version of <code>clang-format</code>
+    *   Here, you want to read from <code>trunk()</code></li>
+<li>My formatter was previously <code>$repo/formatter --foo</code>, but the option <code>--foo</code>
+    was deprecated in the latest version of <code>formatter</code>
+    *   Here, you want to read from <code>@</code></li>
+<li>We decide to split long lines and add a new formatter (or pre-upload hook)
+    config <code>formatter --line-length=80</code>
+    *   Here, you probably want to read from <code>@</code></li>
+<li>We decide to add a pre-upload check that validates that all commit
+    descriptions contain a reference to a bug
+    *   This should be applied to old branches as well, so you want <code>trunk()</code></li>
+<li>We add a new helpful alias / revset
+    *   This should be applied to old branches as well, so you want <code>trunk()</code></li>
+<li>We move our formatter
+    *   If it’s external, you want to read from <code>trunk()</code>
+    *   If it’s internal, you want to read from <code>@</code></li>
+</ul>
+<p>All in all, you can see a general pattern.</p>
+<ul>
+<li>If something refers to an in-repo tool, you <strong>probably</strong> want the config to
+    be read from <code>@</code></li>
+<li>Otherwise, you <strong>probably</strong> want to read from <code>trunk()</code></li>
+<li>I say probably, because the split long lines example doesn’t conform to this
+    rule.</li>
+</ul>
+<h4 id="problematic-examples">Problematic examples<a class="headerlink" href="#problematic-examples" title="Permanent link">&para;</a></h4>
+<p>This is problematic with <code>trunk()</code> because if you add the <code>--reorder-hooks</code> and
+then checkout <code>stable-branch</code> it will incorrectly attempt to reorder imports</p>
+<div class="highlight"><pre><span></span><code>[fix.tools.rustfmt]
+command = [&quot;rustfmt&quot;, &quot;--reorder-imports&quot;]
+</code></pre></div>
+<h5 id="solution-1-formatter-config">Solution 1: formatter config<a class="headerlink" href="#solution-1-formatter-config" title="Permanent link">&para;</a></h5>
+<p>In practice, it is highly unlikely that a formatter config would be written that
+way. Far more likely, you would see an entry in <code>config.toml</code> like:</p>
+<div class="highlight"><pre><span></span><code>[fix.tools.rustfmt]
+command = [&quot;rustfmt&quot;]
+</code></pre></div>
+<p><code>.rustfmt.toml</code>:
+<div class="highlight"><pre><span></span><code>reorder_imports = true
+</code></pre></div></p>
+<p>This simply works out of the box, since the formatter is reading the config from
+<code>@</code>'s <code>.rustfmt.toml</code></p>
+<h5 id="solution-2-more-general-but-convoluted-wrapper-script">Solution 2 (more general but convoluted): Wrapper script<a class="headerlink" href="#solution-2-more-general-but-convoluted-wrapper-script" title="Permanent link">&para;</a></h5>
+<p>As long as the formatter is in-repo, we can just write a wrapper script which
+does this for us.</p>
+<div class="highlight"><pre><span></span><code>[fix.tools.rustfmt]
+command = [&quot;rustfmt.py&quot;]
+</code></pre></div>
+<p><code>rustfmt.py</code>:
+<div class="highlight"><pre><span></span><code>os.execv([&quot;rustfmt&quot;, &quot;--reorder-imports&quot;])
+</code></pre></div></p>
+<h4 id="solution-3-for-scripts-that-need-to-run-at-trunk">Solution 3 (for scripts that need to run at trunk)<a class="headerlink" href="#solution-3-for-scripts-that-need-to-run-at-trunk" title="Permanent link">&para;</a></h4>
+<p>If you write a script for which the API keeps changing, eg. you add / remove
+flags to it, you can do something like this:</p>
+<div class="highlight"><pre><span></span><code>[aliases]
+upload = [&quot;util&quot;, &quot;exec&quot;, &quot;--&quot;, &quot;bash&quot;, &quot;-c&quot;, &quot;python3&quot;, &quot;-c&quot;, &quot;$(jj file show -r &#39;trunk()&#39; upload.py)&quot;]
+</code></pre></div>
+<h4 id="decision-trunk-vs">Decision: Trunk vs @<a class="headerlink" href="#decision-trunk-vs" title="Permanent link">&para;</a></h4>
+<p><code>@</code> and <code>trunk()</code> are the only two reasonable candidates as places to read from,
+IMO. I personally believe that if only one option is available, <code>trunk()</code> would
+be much more appropriate, for the reasons specified above.</p>
+<p>However, @pmetzger has pointed out that in a future world where Git isn’t the
+backend, this decision may come back to bite us (as build tools may be checked
+in to the build).</p>
+<p>For now, we will only support reading from the working copy (<code>@</code>), but in the
+future, we may consider supporting other revisions.</p>
+<p>To achieve this, there are several methods. I'll list some of them, but they
+don't need review, as they are out of scope of this proposal.</p>
+<p>The simplest that comes to mind is a <code>--managed-config-from-revision</code> flag or
+config option.</p>
+<p>Alternatively, a more general approach could be to create some kind of include
+directive in <code>config.toml</code> files, like so (this has already been discussed and
+rejected before, so it may not be viable).
+<div class="highlight"><pre><span></span><code>includes = [
+    {
+        path = &quot;other_config.toml&quot;,
+        revision = &quot;trunk()&quot;,
+    },
+]
+</code></pre></div></p>
+<h4 id="read-from-filesystem-or-from-repo-objects">Read from filesystem or from repo objects?<a class="headerlink" href="#read-from-filesystem-or-from-repo-objects" title="Permanent link">&para;</a></h4>
+<p>The tradeoffs are:</p>
+<ul>
+<li>If we read it from the filesystem, then it will not be read if the path is
+  not tracked, e.g. because you have done <code>jj sparse --clear --add lib</code> or
+  because the file matches .gitignore and is not yet tracked.<ul>
+<li>This could be mitigated by always including <code>.config/jj</code> in <code>jj sparse</code></li>
+</ul>
+</li>
+<li>If we read it from the repo objects, then changes will not apply to the next
+  command unless we load this config after snapshotting</li>
+<li>Reading from the filesystem is faster</li>
+<li>mtime is only available when reading from the filesystem</li>
+</ul>
+<p>Reading from the filesystem seems strictly superior, given the mitigation
+strategy available, so we will go ahead with that for now. If we ever decide to
+support reading from <code>trunk()</code>, however, we will need to support reading from
+the repo.</p>
 
 
 
