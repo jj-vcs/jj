@@ -50,7 +50,7 @@ fn test_revert() {
     error: the following required arguments were not provided:
       <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
-    Usage: jj revert <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>> <REVSETS|--revisions <REVSETS>>
+    Usage: jj revert --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>> [FILESETS]...
 
     For more information, try '--help'.
     [EOF]
@@ -236,8 +236,8 @@ fn test_revert_multiple() {
     [EOF]
     ");
 
-    // Revert multiple commits (mix of positional and named revision args)
-    let output = work_dir.run_jj(["revert", "b", "-rc", "e", "-d@"]);
+    // Revert multiple commits
+    let output = work_dir.run_jj(["revert", "-rb", "-rc", "-re", "-d@"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
     Reverted 3 commits as follows:
@@ -313,6 +313,114 @@ fn test_revert_multiple() {
        2     : b
     [EOF]
     "#);
+}
+
+#[test]
+fn test_revert_partial() {
+    let mut test_env = TestEnvironment::default();
+    let diff_editor = test_env.set_up_fake_diff_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    create_commit_with_files(
+        &work_dir,
+        "a",
+        &[],
+        &[("file1", "1a\n1b\n1c\n"), ("file2", "a2\n")],
+    );
+    create_commit_with_files(
+        &work_dir,
+        "b",
+        &["a"],
+        &[("file1", "1A\n1B\n1C\n"), ("file2", "b2\n")],
+    );
+    let setup_opid = work_dir.current_operation_id();
+
+    let output = work_dir.run_jj(["revert", "-rb", "-db", "file1"]);
+    assert!(
+        output
+            .stderr
+            .to_string()
+            .contains("Reverted 1 commits as follows:"),
+        "{output}"
+    );
+
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=@+", "file1"]), @r"
+    1a
+    1b
+    1c
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=@+", "file2"]), @r"
+    b2
+    [EOF]
+    ");
+
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    let diff_script = [
+        "files-before file1",
+        "files-after JJ-INSTRUCTIONS file1",
+        "write file1\n1a\n1B\n1c\n",
+        "dump JJ-INSTRUCTIONS instrs",
+    ]
+    .join("\0");
+    std::fs::write(diff_editor, diff_script).unwrap();
+
+    let output = work_dir
+        .run_jj(["revert", "-r@", "-d@", "-i", "file1"])
+        .success();
+    assert!(
+        output
+            .stderr
+            .to_string()
+            .contains("Reverted 1 commits as follows:"),
+        "{output}"
+    );
+
+    let instructions = std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap();
+    assert!(
+        instructions.contains("You are selecting changes to revert from commit:"),
+        "{instructions}"
+    );
+    assert!(
+        instructions.contains("The diff initially shows all changes selected for revert."),
+        "{instructions}"
+    );
+
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=@+", "file1"]), @r"
+    1a
+    1B
+    1c
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=@+", "file2"]), @r"
+    b2
+    [EOF]
+    ");
+
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+    let output = work_dir
+        .run_jj(["revert", "-r@", "-d@", "--tool=fake-diff-editor", "file1"])
+        .success();
+    assert!(
+        output
+            .stderr
+            .to_string()
+            .contains("Reverted 1 commits as follows:"),
+        "{output}"
+    );
+
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=@+", "file1"]), @r"
+    1a
+    1B
+    1c
+    [EOF]
+    ");
+    insta::assert_snapshot!(work_dir.run_jj(["file", "show", "-r=@+", "file2"]), @r"
+    b2
+    [EOF]
+    ");
 }
 
 #[test]

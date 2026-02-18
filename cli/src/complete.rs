@@ -1002,6 +1002,11 @@ pub fn modified_revision_files(current: &std::ffi::OsStr) -> Vec<CompletionCandi
     modified_files_from_rev((parse::revision_or_wc(), None), current)
 }
 
+pub fn modified_revert_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let rev = parse::revert_revisions().unwrap_or_else(|| "@".into());
+    modified_files_from_rev((rev, None), current)
+}
+
 pub fn modified_range_files(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     match parse::range() {
         Some((from, to)) => modified_files_from_rev((from, Some(to)), current),
@@ -1313,6 +1318,12 @@ mod parse {
     pub fn log_revisions() -> Vec<String> {
         let candidates = &["-r", "--revisions"];
         parse_flag(candidates, std::env::args()).collect()
+    }
+
+    pub fn revert_revisions() -> Option<String> {
+        let candidates = &["-r", "--revisions"];
+        let revisions: Vec<_> = parse_flag(candidates, std::env::args()).collect();
+        (!revisions.is_empty()).then(|| revisions.join(" | "))
     }
 
     fn strip_shell_quotes(s: &str) -> &str {

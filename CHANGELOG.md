@@ -63,6 +63,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Changed background snapshotting to suppress stdout and stderr to avoid long
   hangs.
 
+* `jj revert` now accepts filesets and supports `-i`/`--interactive` selection.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04
