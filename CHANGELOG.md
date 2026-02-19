@@ -79,6 +79,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   diff in the commit description editor, making it easier to review changes
   while writing commit messages.
 
+* `jj gerrit upload` no longer requires the `-r` flag, and will default to
+  uploading what you're currently working on.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04

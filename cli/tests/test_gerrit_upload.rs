@@ -86,6 +86,58 @@ fn test_gerrit_upload_dryrun() {
 }
 
 #[test]
+fn test_gerrit_upload_default_revision() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir
+        .run_jj([
+            "git",
+            "remote",
+            "add",
+            "origin",
+            "http://example.com/repo/foo",
+        ])
+        .success();
+    test_env.add_config(r#"gerrit.default-remote="origin""#);
+    test_env.add_config(r#"gerrit.default-remote-branch="main""#);
+
+    work_dir
+        .run_jj(["new", "--message", "parent", "root()"])
+        .success();
+    work_dir.write_file("parent", "parent");
+    let output = work_dir.run_jj(["gerrit", "upload", "--dry-run"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    No revision provided. Defaulting to @
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Dry-run: Would push kkmpptxz a41ea4e9 parent
+    [EOF]
+    ");
+
+    work_dir.run_jj(["new"]).success();
+    let output = work_dir.run_jj(["gerrit", "upload", "--dry-run"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    No revision provided and @ has no description. Defaulting to @-
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Dry-run: Would push kkmpptxz a41ea4e9 parent
+    [EOF]
+    ");
+
+    work_dir.run_jj(["new", "@", "@-"]).success();
+    let output = work_dir.run_jj(["gerrit", "upload", "--dry-run"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Error: No revision provided, and @ is a merge commit with no description. Unable to determine a suitable default commit to upload.
+    Hint: Explicitly specify a revision to upload with `-r`
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_gerrit_upload_option_failure() {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -365,7 +417,7 @@ review-url = "https://gerrit.example.com/"
     // There's no particular reason to run this with jj util exec, it's just that
     // the infra makes it easier to run this way.
     let output = remote_dir.run_jj(["util", "exec", "--", "git", "log", "refs/for/main"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     commit b2731737e530be944c12679a86dacca2a3d3c6ad
     Author: Test User <test.user@example.com>
     Date:   Sat Feb 3 04:05:13 2001 +0700
