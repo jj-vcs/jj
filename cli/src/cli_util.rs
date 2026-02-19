@@ -66,6 +66,7 @@ use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
 use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fileset;
+use jj_lib::fileset::FilesetAliasesMap;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
 use jj_lib::fileset::FilesetParseContext;
@@ -807,6 +808,7 @@ fn load_advance_bookmarks_matcher(
 pub struct WorkspaceCommandEnvironment {
     command: CommandHelper,
     settings: UserSettings,
+    fileset_aliases_map: FilesetAliasesMap,
     revset_aliases_map: RevsetAliasesMap,
     template_aliases_map: TemplateAliasesMap,
     default_ignored_remote: Option<&'static RemoteName>,
@@ -822,6 +824,7 @@ impl WorkspaceCommandEnvironment {
     #[instrument(skip_all)]
     fn new(ui: &Ui, command: &CommandHelper, workspace: &Workspace) -> Result<Self, CommandError> {
         let settings = workspace.settings();
+        let fileset_aliases_map = load_fileset_aliases(ui, settings.config())?;
         let revset_aliases_map = load_revset_aliases(ui, settings.config())?;
         let template_aliases_map = load_template_aliases(ui, settings.config())?;
         let default_ignored_remote = default_ignored_remote_name(workspace.repo_loader().store());
@@ -832,6 +835,7 @@ impl WorkspaceCommandEnvironment {
         let mut env = Self {
             command: command.clone(),
             settings: settings.clone(),
+            fileset_aliases_map,
             revset_aliases_map,
             template_aliases_map,
             default_ignored_remote,
@@ -857,6 +861,7 @@ impl WorkspaceCommandEnvironment {
     /// Parsing context for fileset expressions specified by command arguments.
     pub(crate) fn fileset_parse_context(&self) -> FilesetParseContext<'_> {
         FilesetParseContext {
+            aliases_map: &self.fileset_aliases_map,
             path_converter: &self.path_converter,
         }
     }
@@ -870,6 +875,7 @@ impl WorkspaceCommandEnvironment {
                 base: PathBuf::new(),
             });
         FilesetParseContext {
+            aliases_map: &self.fileset_aliases_map,
             path_converter: &ROOT_PATH_CONVERTER,
         }
     }
@@ -892,6 +898,7 @@ impl WorkspaceCommandEnvironment {
             user_email: self.settings.user_email(),
             date_pattern_context: now.into(),
             default_ignored_remote: self.default_ignored_remote,
+            fileset_aliases_map: &self.fileset_aliases_map,
             use_glob_by_default: self.revsets_use_glob_by_default,
             extensions: self.command.revset_extensions(),
             workspace: Some(workspace_context),
@@ -3113,6 +3120,14 @@ pub fn has_tracked_remote_bookmarks(repo: &dyn Repo, bookmark: &RefName) -> bool
     repo.view()
         .remote_bookmarks_matching(&StringMatcher::exact(bookmark), &remote_matcher)
         .any(|(_, remote_ref)| remote_ref.is_tracked())
+}
+
+pub fn load_fileset_aliases(
+    ui: &Ui,
+    config: &StackedConfig,
+) -> Result<FilesetAliasesMap, CommandError> {
+    let table_name = ConfigNamePathBuf::from_iter(["fileset-aliases"]);
+    load_aliases_map(ui, config, &table_name)
 }
 
 pub fn load_revset_aliases(

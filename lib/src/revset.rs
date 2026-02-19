@@ -35,6 +35,7 @@ use crate::commit::Commit;
 use crate::dsl_util;
 use crate::dsl_util::collect_similar;
 use crate::fileset;
+use crate::fileset::FilesetAliasesMap;
 use crate::fileset::FilesetDiagnostics;
 use crate::fileset::FilesetExpression;
 use crate::fileset::FilesetParseContext;
@@ -3496,6 +3497,7 @@ pub struct RevsetParseContext<'a> {
     pub date_pattern_context: DatePatternContext,
     /// Special remote that should be ignored by default. (e.g. "git")
     pub default_ignored_remote: Option<&'a RemoteName>,
+    pub fileset_aliases_map: &'a FilesetAliasesMap,
     pub use_glob_by_default: bool,
     pub extensions: &'a RevsetExtensions,
     pub workspace: Option<RevsetWorkspaceContext<'a>>,
@@ -3509,6 +3511,7 @@ impl<'a> RevsetParseContext<'a> {
             user_email,
             date_pattern_context,
             default_ignored_remote,
+            fileset_aliases_map,
             use_glob_by_default,
             extensions,
             workspace,
@@ -3517,6 +3520,7 @@ impl<'a> RevsetParseContext<'a> {
             user_email,
             date_pattern_context,
             default_ignored_remote,
+            fileset_aliases_map,
             use_glob_by_default,
             extensions,
             workspace,
@@ -3530,6 +3534,7 @@ pub struct LoweringContext<'a> {
     user_email: &'a str,
     date_pattern_context: DatePatternContext,
     default_ignored_remote: Option<&'a RemoteName>,
+    fileset_aliases_map: &'a FilesetAliasesMap,
     use_glob_by_default: bool,
     extensions: &'a RevsetExtensions,
     workspace: Option<RevsetWorkspaceContext<'a>>,
@@ -3546,6 +3551,7 @@ impl<'a> LoweringContext<'a> {
 
     pub fn fileset_parse_context(&self) -> Option<FilesetParseContext<'_>> {
         Some(FilesetParseContext {
+            aliases_map: self.fileset_aliases_map,
             path_converter: self.workspace?.path_converter,
         })
     }
@@ -3624,6 +3630,7 @@ mod tests {
             user_email: "test.user@example.com",
             date_pattern_context: chrono::Utc::now().fixed_offset().into(),
             default_ignored_remote: Some("ignored".as_ref()),
+            fileset_aliases_map: &FilesetAliasesMap::new(),
             use_glob_by_default: true,
             extensions: &RevsetExtensions::default(),
             workspace: None,
@@ -3655,6 +3662,7 @@ mod tests {
             user_email: "test.user@example.com",
             date_pattern_context: chrono::Utc::now().fixed_offset().into(),
             default_ignored_remote: Some("ignored".as_ref()),
+            fileset_aliases_map: &FilesetAliasesMap::new(),
             use_glob_by_default: true,
             extensions: &RevsetExtensions::default(),
             workspace: Some(workspace_ctx),

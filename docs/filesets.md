@@ -76,6 +76,23 @@ You can also specify patterns by using functions.
 * `all()`: Matches everything.
 * `none()`: Matches nothing.
 
+## Aliases
+
+New symbols, functions, and `<name>:<value>` patterns can be defined in the
+config file, by using any combination of the predefined symbols/functions and
+other aliases.
+
+Alias functions can be overloaded by the number of parameters. However, builtin
+function will be shadowed by name, and can't co-exist with aliases.
+
+For example:
+
+```toml
+[fileset-aliases]
+'LOCK' = '**/Cargo.lock | **/package-lock.json | **/uv.lock'
+'not:x' = '~x'
+```
+
 ## Examples
 
 Show diff excluding `Cargo.lock`.

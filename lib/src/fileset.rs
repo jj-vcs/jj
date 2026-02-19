@@ -600,6 +600,8 @@ fn resolve_expression(
 /// Information needed to parse fileset expression.
 #[derive(Clone, Debug)]
 pub struct FilesetParseContext<'a> {
+    /// Aliases to be expanded.
+    pub aliases_map: &'a FilesetAliasesMap,
     /// Context to resolve cwd-relative paths.
     pub path_converter: &'a RepoPathUiConverter,
 }
@@ -611,6 +613,7 @@ pub fn parse(
     context: &FilesetParseContext,
 ) -> FilesetParseResult<FilesetExpression> {
     let node = fileset_parser::parse_program(text)?;
+    let node = fileset_parser::expand_aliases(node, context.aliases_map)?;
     // TODO: add basic tree substitution pass to eliminate redundant expressions
     resolve_expression(diagnostics, context.path_converter, &node)
 }
@@ -625,6 +628,7 @@ pub fn parse_maybe_bare(
     context: &FilesetParseContext,
 ) -> FilesetParseResult<FilesetExpression> {
     let node = fileset_parser::parse_program_or_bare_string(text)?;
+    let node = fileset_parser::expand_aliases(node, context.aliases_map)?;
     // TODO: add basic tree substitution pass to eliminate redundant expressions
     resolve_expression(diagnostics, context.path_converter, &node)
 }
@@ -669,6 +673,7 @@ mod tests {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let context = FilesetParseContext {
+            aliases_map: &FilesetAliasesMap::new(),
             path_converter: &RepoPathUiConverter::Fs {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
@@ -730,6 +735,7 @@ mod tests {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let context = FilesetParseContext {
+            aliases_map: &FilesetAliasesMap::new(),
             path_converter: &RepoPathUiConverter::Fs {
                 // meta character in cwd path shouldn't be expanded
                 cwd: PathBuf::from("/ws/cur*"),
@@ -951,6 +957,7 @@ mod tests {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let context = FilesetParseContext {
+            aliases_map: &FilesetAliasesMap::new(),
             path_converter: &RepoPathUiConverter::Fs {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
@@ -1076,6 +1083,7 @@ mod tests {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let context = FilesetParseContext {
+            aliases_map: &FilesetAliasesMap::new(),
             path_converter: &RepoPathUiConverter::Fs {
                 // meta character in cwd path shouldn't be expanded
                 cwd: PathBuf::from("/ws/cur*"),
@@ -1176,6 +1184,7 @@ mod tests {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let context = FilesetParseContext {
+            aliases_map: &FilesetAliasesMap::new(),
             path_converter: &RepoPathUiConverter::Fs {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),
@@ -1206,6 +1215,7 @@ mod tests {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let context = FilesetParseContext {
+            aliases_map: &FilesetAliasesMap::new(),
             path_converter: &RepoPathUiConverter::Fs {
                 cwd: PathBuf::from("/ws/cur"),
                 base: PathBuf::from("/ws"),

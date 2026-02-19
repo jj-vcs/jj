@@ -30,6 +30,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Revsets and templates now support `name:x` pattern aliases such as `'grep:x' =
   'description(regex:x)'`.
 
+* Filesets now support [user aliases](docs/filesets.md#aliases).
+
 * `jj workspace add` now links with relative paths. This enables workspaces to work
   inside containers or when moved together. Existing workspaces with absolute paths
   will continue to work as before.

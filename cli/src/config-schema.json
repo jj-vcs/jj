@@ -446,6 +446,13 @@
                 }
             }
         },
+        "fileset-aliases": {
+            "type": "object",
+            "description": "Custom symbols/function aliases that can be used in fileset expressions",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
         "git": {
             "type": "object",
             "description": "Settings for git behavior (when using git backend)",

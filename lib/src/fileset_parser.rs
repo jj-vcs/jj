@@ -514,7 +514,6 @@ impl AliasDefinitionParser for FilesetAliasParser {
     }
 }
 
-#[cfg_attr(not(test), expect(dead_code))] // TODO
 pub fn expand_aliases<'i>(
     node: ExpressionNode<'i>,
     aliases_map: &'i FilesetAliasesMap,

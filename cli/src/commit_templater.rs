@@ -138,8 +138,10 @@ pub struct CommitTemplateLanguage<'repo> {
     // RevsetParseContext doesn't borrow a repo, but we'll need 'repo lifetime
     // anyway to capture it to evaluate dynamically-constructed user expression
     // such as `revset("ancestors(" ++ commit_id ++ ")")`.
-    // TODO: Maybe refactor context structs? RepoPathUiConverter and
-    // WorkspaceName are contained in RevsetParseContext for example.
+    // TODO: Maybe refactor context structs in a way that
+    // Revset/FilesetParseContext are constructed from a common resource?
+    // RepoPathUiConverter and WorkspaceName are contained in RevsetParseContext
+    // for example.
     revset_parse_context: RevsetParseContext<'repo>,
     id_prefix_context: &'repo IdPrefixContext,
     immutable_expression: Arc<UserRevsetExpression>,
@@ -189,6 +191,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
 
     fn fileset_parse_context(&self) -> FilesetParseContext<'repo> {
         FilesetParseContext {
+            aliases_map: self.revset_parse_context.fileset_aliases_map,
             path_converter: self.path_converter,
         }
     }
@@ -2992,6 +2995,7 @@ mod tests {
 
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;
+    use jj_lib::fileset::FilesetAliasesMap;
     use jj_lib::revset::RevsetAliasesMap;
     use jj_lib::revset::RevsetExpression;
     use jj_lib::revset::RevsetExtensions;
@@ -3018,6 +3022,7 @@ mod tests {
         path_converter: RepoPathUiConverter,
         revset_extensions: Arc<RevsetExtensions>,
         id_prefix_context: IdPrefixContext,
+        fileset_aliases_map: FilesetAliasesMap,
         revset_aliases_map: RevsetAliasesMap,
         template_aliases_map: TemplateAliasesMap,
         immutable_expression: Arc<UserRevsetExpression>,
@@ -3041,6 +3046,7 @@ mod tests {
                 path_converter,
                 revset_extensions,
                 id_prefix_context,
+                fileset_aliases_map: FilesetAliasesMap::new(),
                 revset_aliases_map: RevsetAliasesMap::new(),
                 template_aliases_map: TemplateAliasesMap::new(),
                 immutable_expression: RevsetExpression::none(),
@@ -3066,6 +3072,7 @@ mod tests {
                 user_email: "test.user@example.com",
                 date_pattern_context: chrono::DateTime::UNIX_EPOCH.fixed_offset().into(),
                 default_ignored_remote: None,
+                fileset_aliases_map: &self.fileset_aliases_map,
                 use_glob_by_default: true,
                 extensions: &self.revset_extensions,
                 workspace: Some(RevsetWorkspaceContext {

@@ -20,6 +20,9 @@ context = 3
 enabled-branches = []
 disabled-branches = []
 
+[fileset-aliases]
+# no builtin aliases
+
 [git]
 colocate = true
 private-commits = "none()"
