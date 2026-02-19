@@ -75,7 +75,7 @@ impl Rule {
             Self::function_name => None,
             Self::function_arguments => None,
             Self::formal_parameters => None,
-            Self::string_pattern => None,
+            Self::pattern => None,
             Self::bare_string_pattern => None,
             Self::primary => None,
             Self::expression => None,
@@ -351,21 +351,14 @@ fn parse_primary_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
             let function = Box::new(parse_function_call_node(first)?);
             ExpressionKind::FunctionCall(function)
         }
-        Rule::string_pattern => {
+        Rule::pattern => {
             let [lhs, op, rhs] = first.into_inner().collect_array().unwrap();
             assert_eq!(lhs.as_rule(), Rule::strict_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
-            let name_span = lhs.as_span();
-            let value_span = rhs.as_span();
-            let name = lhs.as_str();
-            let value_expr = match rhs.as_rule() {
-                Rule::identifier => ExpressionKind::Identifier(rhs.as_str()),
-                _ => ExpressionKind::String(parse_as_string_literal(rhs)),
-            };
             let pattern = Box::new(PatternNode {
-                name,
-                name_span,
-                value: ExpressionNode::new(value_expr, value_span),
+                name: lhs.as_str(),
+                name_span: lhs.as_span(),
+                value: parse_primary_node(rhs)?,
             });
             ExpressionKind::Pattern(pattern)
         }
@@ -805,7 +798,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_string_pattern() {
+    fn test_parse_pattern() {
         fn unwrap_pattern(kind: ExpressionKind<'_>) -> (&str, ExpressionKind<'_>) {
             match kind {
                 ExpressionKind::Pattern(pattern) => (pattern.name, pattern.value.kind),
@@ -837,6 +830,8 @@ mod tests {
             parse_into_kind(r#" foo: "#),
             Err(FilesetParseErrorKind::SyntaxError)
         );
+
+        // Whitespace isn't allowed in between
         assert_eq!(
             parse_into_kind(r#" foo: "" "#),
             Err(FilesetParseErrorKind::SyntaxError)
@@ -845,6 +840,23 @@ mod tests {
             parse_into_kind(r#" foo :"" "#),
             Err(FilesetParseErrorKind::SyntaxError)
         );
+        // Whitespace is allowed in parenthesized value expression
+        assert_eq!(
+            parse_normalized("foo:( 'bar' )"),
+            parse_normalized("foo:'bar'")
+        );
+
+        // Functions are allowed
+        assert_eq!(parse_normalized("x:f(y)"), parse_normalized("x:(f(y))"));
+        // Logical operators have lower binding strength
+        assert_eq!(parse_normalized("x:y&z"), parse_normalized("(x:y)&(z)"));
+        assert_matches!(
+            parse_into_kind("x:~y"), // (x:) ~ (y)
+            Err(FilesetParseErrorKind::SyntaxError)
+        );
+
+        // Pattern prefix is like (type)x cast, so is evaluated from right
+        assert_eq!(parse_normalized("x:y:z"), parse_normalized("x:(y:z)"));
     }
 
     #[test]
@@ -985,7 +997,7 @@ mod tests {
             ("foo", ExpressionKind::String("glob * [chars]?".to_owned()))
         );
         assert_eq!(
-            parse_maybe_bare_into_kind("foo:bar:baz"),
+            parse_maybe_bare_into_kind("foo: bar:baz"),
             Err(FilesetParseErrorKind::SyntaxError)
         );
         assert_eq!(
