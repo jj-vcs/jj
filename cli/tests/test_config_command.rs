@@ -581,14 +581,14 @@ fn test_config_layer_workspace() {
 fn test_config_set_bad_opts() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["config", "set"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--user|--repo|--workspace|--file <PATH>>
+      <--user|--repo|--workspace|--managed|--file <PATH>>
       <NAME>
       <VALUE>
 
-    Usage: jj config set <--user|--repo|--workspace|--file <PATH>> <NAME> <VALUE>
+    Usage: jj config set <--user|--repo|--workspace|--managed|--file <PATH>> <NAME> <VALUE>
 
     For more information, try '--help'.
     [EOF]
@@ -853,6 +853,46 @@ fn test_config_set_file_with_existing_scopes() -> TestResult {
     );
 
     Ok(())
+}
+
+#[test]
+fn test_config_set_for_managed() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["config", "path", "--managed"]);
+    insta::assert_snapshot!(output, @"
+    $TEST_ENV/repo/.config/jj/config.toml
+    [EOF]
+    ");
+
+    work_dir.run_jj(["config", "managed", "--trust"]).success();
+
+    work_dir
+        .run_jj(["config", "set", "--managed", "test-key", "test-val"])
+        .success();
+    work_dir
+        .run_jj(["config", "set", "--managed", "test-table.foo", "true"])
+        .success();
+
+    // Ensure test-key successfully written to user config.
+    let repo_config_toml = work_dir.read_file(".config/jj/config.toml");
+    insta::assert_snapshot!(repo_config_toml, @r#"
+    #:schema https://docs.jj-vcs.dev/latest/config-schema.json
+
+    test-key = "test-val"
+
+    [test-table]
+    foo = true
+    "#);
+
+    let output = work_dir.run_jj(["config", "list", "--managed"]);
+    insta::assert_snapshot!(output, @r#"
+    test-key = "test-val"
+    test-table.foo = true
+    [EOF]
+    "#);
 }
 
 #[test]
@@ -1140,12 +1180,12 @@ fn test_config_unset_for_file() -> TestResult {
 fn test_config_edit_missing_opt() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["config", "edit"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--user|--repo|--workspace|--file <PATH>>
+      <--user|--repo|--workspace|--managed|--file <PATH>>
 
-    Usage: jj config edit <--user|--repo|--workspace|--file <PATH>>
+    Usage: jj config edit <--user|--repo|--workspace|--managed|--file <PATH>>
 
     For more information, try '--help'.
     [EOF]
@@ -2329,7 +2369,10 @@ fn test_config_managed_review() {
     let mut managed_content = vec![];
     let mut add_line = |line| {
         managed_content.push(line);
-        work_dir.write_file(MANAGED_CONFIG_PATH, format!("{}\n", managed_content.join("\n")));
+        work_dir.write_file(
+            MANAGED_CONFIG_PATH,
+            format!("{}\n", managed_content.join("\n")),
+        );
     };
 
     add_line(r#"aliases.managed = ["log", "--no-graph", "-r", "@", "-T", "'managed'"]"#);
