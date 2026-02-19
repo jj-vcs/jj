@@ -69,6 +69,10 @@ pub struct UploadArgs {
     /// commit at the head of a stack, all ancestors are pushed too. This means
     /// that `jj gerrit upload -r foo` is equivalent to `jj gerrit upload -r
     /// 'mutable()::foo`.
+    ///
+    /// If this is not provided, it will check whether @ has a description.
+    /// * If it does, it will upload @
+    /// * Otherwise, it will upload @-
     #[arg(long, short = 'r')]
     revisions: Vec<RevisionArg>,
 
@@ -378,14 +382,48 @@ pub fn cmd_gerrit_upload(
 
     let mut workspace_command = command.workspace_helper(ui)?;
 
-    let target_expr = workspace_command
-        .parse_union_revsets(ui, &args.revisions)?
-        .resolve()?;
-    workspace_command.check_rewritable_expr(&target_expr)?;
-    let revisions: Vec<_> = target_expr
-        .evaluate(workspace_command.repo().as_ref())?
-        .iter()
-        .try_collect()?;
+    let revisions: Vec<_> = if args.revisions.is_empty() {
+        match workspace_command
+            .get_wc_commit_id()
+            .map(|id| workspace_command.repo().store().get_commit(id))
+            .transpose()?
+        {
+            None => {
+                return Err(user_error("No revision provided")
+                    .hinted("Explicitly specify a revision to upload with `-r`"));
+            }
+            // This distinguishes between the "squash workflow" and "edit workflow".
+            Some(commit) => {
+                if commit.description().is_empty() {
+                    let parents = commit.parent_ids();
+                    if parents.len() != 1 {
+                        return Err(user_error(
+                            "No revision provided, and @ is a merge commit with no description. \
+                             Unable to determine a suitable default commit to upload.",
+                        )
+                        .hinted("Explicitly specify a revision to upload with `-r`"));
+                    }
+                    writeln!(
+                        ui.status(),
+                        "No revision provided and @ has no description. Defaulting to @-"
+                    )?;
+                    parents.to_vec()
+                } else {
+                    writeln!(ui.status(), "No revision provided. Defaulting to @")?;
+                    vec![commit.id().clone()]
+                }
+            }
+        }
+    } else {
+        let target_expr = workspace_command
+            .parse_union_revsets(ui, &args.revisions)?
+            .resolve()?;
+        workspace_command.check_rewritable_expr(&target_expr)?;
+        target_expr
+            .evaluate(workspace_command.repo().as_ref())?
+            .iter()
+            .try_collect()?
+    };
     if revisions.is_empty() {
         writeln!(ui.status(), "No revisions to upload.")?;
         return Ok(());

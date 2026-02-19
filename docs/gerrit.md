@@ -53,9 +53,11 @@ commit description in JJ.
 > set.
 
 ### Upload a single change
-
 ```shell
-# upload the previous commit (@-) for review to main
+# Upload @ if it has a description, otherwise uploads @-
+$ jj gerrit upload
+
+# Or explicitly specify a revision to upload.
 $ jj gerrit upload -r @-
 ```
 
