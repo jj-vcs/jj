@@ -59,15 +59,23 @@ name. For example, `glob-i:"*.TXT"` will match both `file.txt` and `FILE.TXT`.
 The following operators are supported. `x` and `y` below can be any fileset
 expressions.
 
-* `~x`: Matches everything but `x`.
-* `x & y`: Matches both `x` and `y`.
-* `x ~ y`: Matches `x` but not `y`.
-* `x | y`: Matches either `x` or `y` (or both).
+Operators are listed in order of binding power from strongest to weakest, e.g.
+`x | y & z` is interpreted as `x | (y & z)` since `&` has stronger binding power
+than `|`. Infix operators of the same binding power are parsed from left to
+right, e.g. `x ~ y & z` is interpreted as `(x ~ y) & z` rather than `x ~ (y &
+z)`.
 
-(listed in order of binding strengths)
+As seen above, parentheses can be used to control evaluation order, e.g. `(x &
+y) | z` or `x & (y | z)`.
 
-You can use parentheses to control evaluation order, such as `(x & y) | z` or
-`x & (y | z)`.
+1. * `f(x)`: Function call.
+
+2. * `~x`: Matches everything but `x`.
+
+3. * `x & y`: Matches both `x` and `y`.
+   * `x ~ y`: Matches `x` but not `y`.
+
+4. * `x | y`: Matches either `x` or `y` (or both).
 
 ## Functions
 
