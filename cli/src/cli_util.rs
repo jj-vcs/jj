@@ -164,6 +164,7 @@ use crate::config::ConfigArgKind;
 use crate::config::ConfigEnv;
 use crate::config::RawConfig;
 use crate::config::config_from_environment;
+use crate::config::load_aliases_map;
 use crate::config::parse_config_args;
 use crate::description_util::TextEditor;
 use crate::diff_util;
@@ -818,7 +819,7 @@ impl WorkspaceCommandEnvironment {
     #[instrument(skip_all)]
     fn new(ui: &Ui, command: &CommandHelper, workspace: &Workspace) -> Result<Self, CommandError> {
         let settings = workspace.settings();
-        let revset_aliases_map = revset_util::load_revset_aliases(ui, settings.config())?;
+        let revset_aliases_map = load_revset_aliases(ui, settings.config())?;
         let template_aliases_map = load_template_aliases(ui, settings.config())?;
         let default_ignored_remote = default_ignored_remote_name(workspace.repo_loader().store());
         let path_converter = RepoPathUiConverter::Fs {
@@ -3085,41 +3086,22 @@ pub fn has_tracked_remote_bookmarks(repo: &dyn Repo, bookmark: &RefName) -> bool
         .any(|(_, remote_ref)| remote_ref.is_tracked())
 }
 
+pub fn load_revset_aliases(
+    ui: &Ui,
+    config: &StackedConfig,
+) -> Result<RevsetAliasesMap, CommandError> {
+    let table_name = ConfigNamePathBuf::from_iter(["revset-aliases"]);
+    let aliases_map = load_aliases_map(ui, config, &table_name)?;
+    revset_util::warn_user_redefined_builtin(ui, config, &table_name)?;
+    Ok(aliases_map)
+}
+
 pub fn load_template_aliases(
     ui: &Ui,
-    stacked_config: &StackedConfig,
+    config: &StackedConfig,
 ) -> Result<TemplateAliasesMap, CommandError> {
     let table_name = ConfigNamePathBuf::from_iter(["template-aliases"]);
-    let mut aliases_map = TemplateAliasesMap::new();
-    // Load from all config layers in order. 'f(x)' in default layer should be
-    // overridden by 'f(a)' in user.
-    for layer in stacked_config.layers() {
-        let table = match layer.look_up_table(&table_name) {
-            Ok(Some(table)) => table,
-            Ok(None) => continue,
-            Err(item) => {
-                return Err(ConfigGetError::Type {
-                    name: table_name.to_string(),
-                    error: format!("Expected a table, but is {}", item.type_name()).into(),
-                    source_path: layer.path.clone(),
-                }
-                .into());
-            }
-        };
-        for (decl, item) in table.iter() {
-            let r = item
-                .as_str()
-                .ok_or_else(|| format!("Expected a string, but is {}", item.type_name()))
-                .and_then(|v| aliases_map.insert(decl, v).map_err(|e| e.to_string()));
-            if let Err(s) = r {
-                writeln!(
-                    ui.warning_default(),
-                    "Failed to load `{table_name}.{decl}`: {s}"
-                )?;
-            }
-        }
-    }
-    Ok(aliases_map)
+    load_aliases_map(ui, config, &table_name)
 }
 
 /// Helper to reformat content of log-like commands.

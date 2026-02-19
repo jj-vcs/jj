@@ -21,7 +21,6 @@ use std::sync::Arc;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
-use jj_lib::config::ConfigGetError;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
@@ -33,7 +32,6 @@ use jj_lib::repo::Repo;
 use jj_lib::revset;
 use jj_lib::revset::ResolvedRevsetExpression;
 use jj_lib::revset::Revset;
-use jj_lib::revset::RevsetAliasesMap;
 use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
@@ -145,7 +143,7 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     }
 }
 
-fn warn_user_redefined_builtin(
+pub(super) fn warn_user_redefined_builtin(
     ui: &Ui,
     config: &StackedConfig,
     table_name: &ConfigNamePathBuf,
@@ -171,44 +169,6 @@ fn warn_user_redefined_builtin(
         }
     }
     Ok(())
-}
-
-pub fn load_revset_aliases(
-    ui: &Ui,
-    stacked_config: &StackedConfig,
-) -> Result<RevsetAliasesMap, CommandError> {
-    let table_name = ConfigNamePathBuf::from_iter(["revset-aliases"]);
-    let mut aliases_map = RevsetAliasesMap::new();
-    // Load from all config layers in order. 'f(x)' in default layer should be
-    // overridden by 'f(a)' in user.
-    for layer in stacked_config.layers() {
-        let table = match layer.look_up_table(&table_name) {
-            Ok(Some(table)) => table,
-            Ok(None) => continue,
-            Err(item) => {
-                return Err(ConfigGetError::Type {
-                    name: table_name.to_string(),
-                    error: format!("Expected a table, but is {}", item.type_name()).into(),
-                    source_path: layer.path.clone(),
-                }
-                .into());
-            }
-        };
-        for (decl, item) in table.iter() {
-            let r = item
-                .as_str()
-                .ok_or_else(|| format!("Expected a string, but is {}", item.type_name()))
-                .and_then(|v| aliases_map.insert(decl, v).map_err(|e| e.to_string()));
-            if let Err(s) = r {
-                writeln!(
-                    ui.warning_default(),
-                    "Failed to load `{table_name}.{decl}`: {s}"
-                )?;
-            }
-        }
-    }
-    warn_user_redefined_builtin(ui, stacked_config, &table_name)?;
-    Ok(aliases_map)
 }
 
 /// Wraps the given `IdPrefixContext` in `SymbolResolver` to be passed in to

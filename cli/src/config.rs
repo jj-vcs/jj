@@ -37,6 +37,8 @@ use jj_lib::config::ConfigResolutionContext;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::ConfigValue;
 use jj_lib::config::StackedConfig;
+use jj_lib::dsl_util::AliasDeclarationParser;
+use jj_lib::dsl_util::AliasesMap;
 use jj_lib::secure_config::LoadedSecureConfig;
 use jj_lib::secure_config::SecureConfig;
 use rand::SeedableRng as _;
@@ -938,6 +940,47 @@ impl fmt::Display for CommandNameAndArgs {
             }
         }
     }
+}
+
+pub fn load_aliases_map<P>(
+    ui: &Ui,
+    config: &StackedConfig,
+    table_name: &ConfigNamePathBuf,
+) -> Result<AliasesMap<P, String>, CommandError>
+where
+    P: AliasDeclarationParser + Default,
+    P::Error: fmt::Display,
+{
+    let mut aliases_map = AliasesMap::new();
+    // Load from all config layers in order. 'f(x)' in default layer should be
+    // overridden by 'f(a)' in user.
+    for layer in config.layers() {
+        let table = match layer.look_up_table(table_name) {
+            Ok(Some(table)) => table,
+            Ok(None) => continue,
+            Err(item) => {
+                return Err(ConfigGetError::Type {
+                    name: table_name.to_string(),
+                    error: format!("Expected a table, but is {}", item.type_name()).into(),
+                    source_path: layer.path.clone(),
+                }
+                .into());
+            }
+        };
+        for (decl, item) in table.iter() {
+            let r = item
+                .as_str()
+                .ok_or_else(|| format!("Expected a string, but is {}", item.type_name()))
+                .and_then(|v| aliases_map.insert(decl, v).map_err(|e| format!("{e}")));
+            if let Err(s) = r {
+                writeln!(
+                    ui.warning_default(),
+                    "Failed to load `{table_name}.{decl}`: {s}"
+                )?;
+            }
+        }
+    }
+    Ok(aliases_map)
 }
 
 // Not interested in $UPPER_CASE_VARIABLES

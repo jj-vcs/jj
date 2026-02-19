@@ -31,6 +31,7 @@ use jj_lib::workspace::WorkspaceLoaderFactory as _;
 use crate::cli_util::GlobalArgs;
 use crate::cli_util::expand_args;
 use crate::cli_util::find_workspace_dir;
+use crate::cli_util::load_revset_aliases;
 use crate::cli_util::load_template_aliases;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
@@ -42,7 +43,6 @@ use crate::config::default_config_layers;
 use crate::merge_tools::ExternalMergeTool;
 use crate::merge_tools::configured_merge_tools;
 use crate::merge_tools::get_external_tool_config;
-use crate::revset_util::load_revset_aliases;
 use crate::ui::Ui;
 
 const BOOKMARK_HELP_TEMPLATE: &str = r#"template-aliases.'bookmark_help()'='''
