@@ -1324,7 +1324,7 @@ configuration.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="jj-gerrit-upload"><code dir="auto">jj gerrit upload</code></h2><a class="sl-anchor-link" href="#jj-gerrit-upload"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “jj gerrit upload”</span></a></div>
 <p>Upload changes to Gerrit for code review, or update existing changes.</p>
 <p>Uploading in a set of revisions to Gerrit creates a single "change" for each revision included in the revset. These changes are then available for review on your Gerrit instance.</p>
-<p>Note: The gerrit commit Id may not match that of your local commit Id, since we add a <code dir="auto">Change-Id</code> footer to the commit message if one does not already exist. This ID is based off the jj Change-Id, but is not the same.</p>
+<p>Note: The Gerrit commit Id may not match that of your local commit Id, since we add a <code dir="auto">Change-Id</code> footer to the commit message if one does not already exist. This ID is based off the jj Change-Id, but is not the same.</p>
 <p>If a change already exists for a given revision (i.e. it contains the same <code dir="auto">Change-Id</code>), this command will update the contents of the existing change to match.</p>
 <p>Note: this command takes 1-or-more revsets arguments, each of which can resolve to multiple revisions; so you may post trees or ranges of commits to Gerrit for review all at once.</p>
 <p><strong>Usage:</strong> <code dir="auto">jj gerrit upload [OPTIONS]</code></p>
@@ -1344,6 +1344,79 @@ configuration.</p>
 </li>
 <li>
 <p><code dir="auto">-n</code>, <code dir="auto">--dry-run</code> — Do not actually push the changes to Gerrit</p>
+</li>
+<li>
+<p><code dir="auto">--reviewer &#x3C;REVIEWER></code> — Add these emails as a reviewer (can be repeated)</p>
+</li>
+<li>
+<p><code dir="auto">--cc &#x3C;CC></code> — CC these emails on the change (can be repeated)</p>
+</li>
+<li>
+<p><code dir="auto">-l</code>, <code dir="auto">--label &#x3C;LABEL></code> — Add the following labels configured by Gerrit (can be repeated)</p>
+<p>Gerrit silently ignores labels not present on your gerrit host. Defaults to +1 if no value is set. Eg. --label=Commit-Queue will set the Commit-Queue label to +1. Eg. --label=Commit-Queue+2 will set it to +2.</p>
+</li>
+<li>
+<p><code dir="auto">--topic &#x3C;TOPIC></code> — Applies a topic to the change</p>
+<p>See <a href="https://gerrit-review.googlesource.com/Documentation/intro-user.html#topics">https://gerrit-review.googlesource.com/Documentation/intro-user.html#topics</a>. Changes can be grouped by topic, and Gerrit can be configured to submit all changes in a topic together in a single click.</p>
+</li>
+<li>
+<p><code dir="auto">--hashtag &#x3C;HASHTAG></code> — Applies a hashtag to the change</p>
+<p>See <a href="https://gerrit-review.googlesource.com/Documentation/intro-user.html#hashtags">https://gerrit-review.googlesource.com/Documentation/intro-user.html#hashtags</a>. Hashtags are freeform strings associated with a change, like on social media platforms. Similar to topics, hashtags can be used to group related changes together, and to search using the hashtag: operator. Unlike topics, a change can have multiple hashtags, and they are only used for informational grouping. Changes with the same hashtags are not necessarily submitted together.</p>
+</li>
+<li>
+<p><code dir="auto">--wip</code> — Marks the change as WIP (work in progress)</p>
+<p>See <a href="https://gerrit-review.googlesource.com/Documentation/intro-user.html#wip">https://gerrit-review.googlesource.com/Documentation/intro-user.html#wip</a>.</p>
+</li>
+<li>
+<p><code dir="auto">--ready</code> — Unmarks the change as WIP (work in progress)</p>
+</li>
+<li>
+<p><code dir="auto">--private</code> — Marks the change as private</p>
+<p>See <a href="https://gerrit-review.googlesource.com/Documentation/intro-user.html#private-changes">https://gerrit-review.googlesource.com/Documentation/intro-user.html#private-changes</a>.</p>
+</li>
+<li>
+<p><code dir="auto">--remove-private</code> — Unmarks the change as private</p>
+</li>
+<li>
+<p><code dir="auto">--publish-comments</code> — Publishes any draft comments for the given change</p>
+</li>
+<li>
+<p><code dir="auto">--no-publish-comments</code> — Disables publishing of any draft comments for the given change</p>
+<p>This is only useful if the user has configured Gerrit to publish comments by default.</p>
+</li>
+<li>
+<p><code dir="auto">--notify &#x3C;NOTIFY></code> — Who to email notifications to (defaults to all)</p>
+<p>Possible values:</p>
+<ul>
+<li><code dir="auto">none</code>:
+No emails</li>
+<li><code dir="auto">owner</code>:
+Only the change owner is notified</li>
+<li><code dir="auto">owner-reviewers</code>:
+Only the change owner and reviewers will be notified</li>
+<li><code dir="auto">all</code>:
+All relevant users, including owner, reviewers, cc'd, users that have starred the change, and users who have configured a watch on files in the change</li>
+</ul>
+</li>
+<li>
+<p><code dir="auto">--submit</code> — Directly submit the changes, bypassing code review</p>
+</li>
+<li>
+<p><code dir="auto">--skip-validation</code> — When --submit is provided, skip performing validations</p>
+</li>
+<li>
+<p><code dir="auto">--ignore-attention-set</code> — Do not modify the attention set upon uploading</p>
+</li>
+<li>
+<p><code dir="auto">--deadline &#x3C;DEADLINE></code> — The deadline after which the push should be aborted</p>
+</li>
+<li>
+<p><code dir="auto">--custom &#x3C;CUSTOM></code> — Send the following custom keyed values to Gerrit (can be repeated)</p>
+<p>See <a href="https://gerrit-review.googlesource.com/Documentation/user-upload.html#custom_keyed_values">https://gerrit-review.googlesource.com/Documentation/user-upload.html#custom_keyed_values</a></p>
+</li>
+<li>
+<p><code dir="auto">--trace &#x3C;TRACE></code> — For debugging Gerrit</p>
+<p>See <a href="https://gerrit-review.googlesource.com/Documentation/user-upload.html#trace">https://gerrit-review.googlesource.com/Documentation/user-upload.html#trace</a></p>
 </li>
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="jj-git"><code dir="auto">jj git</code></h2><a class="sl-anchor-link" href="#jj-git"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “jj git”</span></a></div>
