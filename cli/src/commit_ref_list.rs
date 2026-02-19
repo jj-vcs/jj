@@ -50,6 +50,14 @@ pub struct RefFilterPredicates {
     pub remote_matcher: StringMatcher,
     /// Matches any of the local targets.
     pub matched_local_targets: HashSet<CommitId>,
+    /// If `Some`, only include refs whose local target is in this set.
+    /// `Some(empty set)` means the filter is active but nothing matches.
+    /// `None` means no `--contains` filter was specified.
+    pub contains_targets: Option<HashSet<CommitId>>,
+    /// If `Some`, exclude refs whose local target is in this set.
+    /// `Some(empty set)` means the filter is active but nothing is excluded.
+    /// `None` means no `--no-contains` filter was specified.
+    pub no_contains_targets: Option<HashSet<CommitId>>,
     /// Selects local refs having conflicted targets.
     pub conflicted: bool,
     /// Includes local-only refs.
@@ -74,6 +82,14 @@ pub fn collect_items<'a>(
                     .local_target
                     .added_ids()
                     .any(|id| predicates.matched_local_targets.contains(id))
+        })
+        .filter(|(_, targets)| match &predicates.contains_targets {
+            None => true,
+            Some(set) => targets.local_target.added_ids().any(|id| set.contains(id)),
+        })
+        .filter(|(_, targets)| match &predicates.no_contains_targets {
+            None => true,
+            Some(set) => !targets.local_target.added_ids().any(|id| set.contains(id)),
         })
         .filter(|(_, targets)| !predicates.conflicted || targets.local_target.has_conflict());
     for (name, targets) in refs_to_list {

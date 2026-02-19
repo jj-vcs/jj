@@ -393,6 +393,137 @@ fn test_tag_list() {
 }
 
 #[test]
+fn test_tag_list_contains() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a linear chain: root -> commit1 -> commit2 -> commit3
+    work_dir.run_jj(["new", "root()", "-mcommit1"]).success();
+    let commit1_id = work_dir
+        .run_jj(["log", "-r@", "--no-graph", "-T", "commit_id"])
+        .success()
+        .stdout
+        .raw()
+        .trim()
+        .to_owned();
+    work_dir.run_jj(["tag", "set", "-r@", "tag1"]).success();
+
+    work_dir.run_jj(["new", "@", "-mcommit2"]).success();
+    work_dir.run_jj(["tag", "set", "-r@", "tag2"]).success();
+
+    work_dir.run_jj(["new", "@", "-mcommit3"]).success();
+    work_dir.run_jj(["tag", "set", "-r@", "tag3"]).success();
+
+    // A commit that has no tagged descendants returns nothing (not all tags).
+    // The working copy "@" is a child of tag3 and has no tags pointing to it.
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--contains", "@"]), @"");
+
+    // --contains commit1 should return all three tags (tag1, tag2, tag3 are all
+    // descendants of commit1, or are commit1 itself)
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--contains", "tag1"]), @r"
+    tag1: rlvkpnrz 893e67dc (empty) commit1
+    tag2: mzvwutvl 27800d29 (empty) commit2
+    tag3: yqosqzyt a6026705 (empty) commit3
+    [EOF]
+    ");
+
+    // --contains commit2 should return tag2 and tag3 (descendants of commit2),
+    // but not tag1 (which is an ancestor of commit2)
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--contains", "tag2"]), @r"
+    tag2: mzvwutvl 27800d29 (empty) commit2
+    tag3: yqosqzyt a6026705 (empty) commit3
+    [EOF]
+    ");
+
+    // --contains commit3 should return only tag3 (the tip)
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--contains", "tag3"]), @r"
+    tag3: yqosqzyt a6026705 (empty) commit3
+    [EOF]
+    ");
+
+    // --contains with a commit hash prefix
+    insta::assert_snapshot!(
+        work_dir.run_jj(["tag", "list", "--contains", &commit1_id[..12]]),
+        @r"
+    tag1: rlvkpnrz 893e67dc (empty) commit1
+    tag2: mzvwutvl 27800d29 (empty) commit2
+    tag3: yqosqzyt a6026705 (empty) commit3
+    [EOF]
+    "
+    );
+
+    // --contains with no matching descendants should return nothing
+    work_dir.run_jj(["new", "root()", "-munrelated"]).success();
+    work_dir
+        .run_jj(["tag", "set", "-r@", "tag_unrelated"])
+        .success();
+    insta::assert_snapshot!(
+        work_dir.run_jj(["tag", "list", "--contains", "tag_unrelated"]),
+        @r"
+    tag_unrelated: lylxulpl 27b56eef (empty) unrelated
+    [EOF]
+    "
+    );
+
+    // --contains combined with --names uses AND semantics:
+    // the name filter selects tag1, but --contains tag2 restricts to tags
+    // whose target is a descendant of tag2's commit (tag2, tag3). Since tag1
+    // points to an ancestor of tag2, the result is empty.
+    insta::assert_snapshot!(
+        work_dir.run_jj(["tag", "list", "--contains", "tag2", "tag1"]),
+        @""
+    );
+}
+
+#[test]
+fn test_tag_list_no_contains() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a linear chain: root -> commit1 -> commit2 -> commit3
+    work_dir.run_jj(["new", "root()", "-mcommit1"]).success();
+    work_dir.run_jj(["tag", "set", "-r@", "tag1"]).success();
+
+    work_dir.run_jj(["new", "@", "-mcommit2"]).success();
+    work_dir.run_jj(["tag", "set", "-r@", "tag2"]).success();
+
+    work_dir.run_jj(["new", "@", "-mcommit3"]).success();
+    work_dir.run_jj(["tag", "set", "-r@", "tag3"]).success();
+
+    // --no-contains tag3 should return tag1 and tag2 (tags that do not contain
+    // tag3's commit as an ancestor-or-equal of their target)
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--no-contains", "tag3"]), @r"
+    tag1: rlvkpnrz 893e67dc (empty) commit1
+    tag2: zsuskuln 2b18dbb0 (empty) commit2
+    [EOF]
+    ");
+
+    // --no-contains tag1 should return nothing (tag1, tag2, tag3 all have tag1
+    // as an ancestor-or-equal of their target)
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--no-contains", "tag1"]), @"");
+
+    // --no-contains tag2 should return only tag1
+    insta::assert_snapshot!(work_dir.run_jj(["tag", "list", "--no-contains", "tag2"]), @r"
+    tag1: rlvkpnrz 893e67dc (empty) commit1
+    [EOF]
+    ");
+
+    // --contains and --no-contains can be combined (AND semantics):
+    // tags containing tag1 (tag1, tag2, tag3) minus those containing tag3
+    // (tag3) = tag1 and tag2
+    insta::assert_snapshot!(
+        work_dir.run_jj(["tag", "list", "--contains", "tag1", "--no-contains", "tag3"]),
+        @r"
+    tag1: rlvkpnrz 893e67dc (empty) commit1
+    tag2: zsuskuln 2b18dbb0 (empty) commit2
+    [EOF]
+    "
+    );
+}
+
+#[test]
 fn test_tag_list_remotes() {
     let test_env = TestEnvironment::default();
 
