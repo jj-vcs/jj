@@ -616,6 +616,7 @@ mod tests {
                 cc: vec!["bar@example.com".to_string(), "baz@example.com".to_string()],
                 wip: true,
                 private: true,
+                publish_comments: true,
                 ..Default::default()
             })
             .unwrap(),
@@ -633,7 +634,61 @@ mod tests {
                 "-o",
                 "wip",
                 "-o",
-                "private"
+                "private",
+                "-o",
+                "publish-comments",
+            ]
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
+        );
+
+        assert_eq!(
+            push_options(&UploadArgs {
+                notify: Some(EmailNotification::All),
+                trace: Some("my-trace".to_string()),
+                hashtag: Some("my-hashtag".to_string()),
+                deadline: Some("yesterday".to_string()),
+                label: vec!["Auto-Submit".to_string(), "Commit-Queue+2".to_string()],
+                custom: vec!["foo:bar".to_string(), "baz:quux".to_string()],
+                ready: true,
+                remove_private: true,
+                no_publish_comments: true,
+                skip_validation: true,
+                ignore_attention_set: true,
+                submit: true,
+                ..Default::default()
+            })
+            .unwrap(),
+            [
+                "-o",
+                "notify=ALL",
+                "-o",
+                "trace=my-trace",
+                "-o",
+                "hashtag=my-hashtag",
+                "-o",
+                "deadline=yesterday",
+                "-o",
+                "label=Auto-Submit",
+                "-o",
+                "label=Commit-Queue+2",
+                "-o",
+                "custom-keyed-value=foo:bar",
+                "-o",
+                "custom-keyed-value=baz:quux",
+                "-o",
+                "ready",
+                "-o",
+                "remove-private",
+                "-o",
+                "no-publish-comments",
+                "-o",
+                "skip-validation",
+                "-o",
+                "ignore-attention-set",
+                "-o",
+                "submit",
             ]
             .into_iter()
             .map(|s| s.to_string())
