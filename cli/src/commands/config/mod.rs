@@ -25,6 +25,7 @@ use std::path::PathBuf;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
+use jj_lib::file_util::IoResultExt as _;
 use tracing::instrument;
 
 use self::edit::ConfigEditArgs;
@@ -61,6 +62,10 @@ pub(crate) struct ConfigLevelArgs {
     /// Target the workspace-level config
     #[arg(long)]
     workspace: bool,
+
+    /// Target the managed config
+    #[arg(long)]
+    managed: bool,
 }
 
 impl ConfigLevelArgs {
@@ -71,6 +76,8 @@ impl ConfigLevelArgs {
             Some(ConfigSource::Repo)
         } else if self.workspace {
             Some(ConfigSource::Workspace)
+        } else if self.managed {
+            Some(ConfigSource::Managed)
         } else {
             None
         }
@@ -96,6 +103,13 @@ impl ConfigLevelArgs {
                 .workspace_config_path(ui)?
                 .map(|p| vec![p])
                 .ok_or_else(|| user_error("No workspace config path found"))
+        } else if self.managed {
+            config_env
+                .managed_config_path()
+                .map(|p| vec![p])
+                .ok_or_else(|| {
+                    user_error("No managed config path found - you need to be in a repo")
+                })
         } else {
             panic!("No config_level provided")
         }
@@ -138,6 +152,14 @@ impl ConfigLevelArgs {
                 config_env.workspace_config_files(ui, config)?,
                 "No workspace config path found to edit",
             )
+        } else if self.managed {
+            let config_file = pick_one(
+                config_env.managed_config_files(config)?,
+                "No managed config path found to edit - you need to be in a repo",
+            )?;
+            let config_dir = config_file.path().parent().unwrap();
+            std::fs::create_dir_all(config_dir).context(config_dir)?;
+            Ok(config_file)
         } else {
             panic!("No config_level provided")
         }
