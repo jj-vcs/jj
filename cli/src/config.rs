@@ -717,6 +717,24 @@ impl ConfigEnv {
         Ok(())
     }
 
+    pub fn managed_config_path(&self) -> Option<PathBuf> {
+        self.workspace_path
+            .as_deref()
+            .map(|p| p.join(MANAGED_CONFIG_PATH))
+    }
+
+    pub fn managed_config_files(
+        &self,
+        config: &RawConfig,
+    ) -> Result<Vec<ConfigFile>, CommandError> {
+        config_files_for(config, ConfigSource::Managed, || {
+            Ok(self
+                .managed_config_path()
+                .map(|p| ConfigFile::load_or_empty(ConfigSource::Managed, p))
+                .transpose()?)
+        })
+    }
+
     pub fn update_repo_metadata(
         &self,
         ui: &Ui,
