@@ -26,6 +26,7 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use maplit::btreemap;
 use maplit::hashset;
+use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
@@ -175,7 +176,10 @@ fn test_merge_views_checkout() {
     tx1.repo_mut()
         .set_wc_commit(ws2_name.clone(), commit2.id().clone())
         .unwrap();
-    tx1.repo_mut().remove_wc_commit(&ws4_name).unwrap();
+    tx1.repo_mut()
+        .remove_wc_commit(&ws4_name)
+        .block_on()
+        .unwrap();
     tx1.repo_mut()
         .set_wc_commit(ws5_name.clone(), commit2.id().clone())
         .unwrap();
@@ -193,7 +197,10 @@ fn test_merge_views_checkout() {
     tx2.repo_mut()
         .set_wc_commit(ws4_name.clone(), commit3.id().clone())
         .unwrap();
-    tx2.repo_mut().remove_wc_commit(&ws5_name).unwrap();
+    tx2.repo_mut()
+        .remove_wc_commit(&ws5_name)
+        .block_on()
+        .unwrap();
     tx2.repo_mut()
         .set_wc_commit(ws7_name.clone(), commit3.id().clone())
         .unwrap();
@@ -558,7 +565,7 @@ fn test_merge_views_divergent() {
         .rewrite_commit(&commit_a)
         .set_description("A2")
         .write_unwrap();
-    tx1.repo_mut().rebase_descendants().unwrap();
+    tx1.repo_mut().rebase_descendants().block_on().unwrap();
 
     let mut tx2 = repo.start_transaction();
     let commit_a3 = tx2
@@ -566,7 +573,7 @@ fn test_merge_views_divergent() {
         .rewrite_commit(&commit_a)
         .set_description("A3")
         .write_unwrap();
-    tx2.repo_mut().rebase_descendants().unwrap();
+    tx2.repo_mut().rebase_descendants().block_on().unwrap();
 
     let repo = commit_transactions(vec![tx1, tx2]);
 
@@ -597,7 +604,7 @@ fn test_merge_views_child_on_rewritten(child_first: bool) {
         .rewrite_commit(&commit_a)
         .set_description("A2")
         .write_unwrap();
-    tx2.repo_mut().rebase_descendants().unwrap();
+    tx2.repo_mut().rebase_descendants().block_on().unwrap();
 
     let repo = if child_first {
         commit_transactions(vec![tx1, tx2])
@@ -642,7 +649,7 @@ fn test_merge_views_child_on_rewritten_divergent(on_rewritten: bool, child_first
         .rewrite_commit(&commit_a2)
         .set_description("A4")
         .write_unwrap();
-    tx2.repo_mut().rebase_descendants().unwrap();
+    tx2.repo_mut().rebase_descendants().block_on().unwrap();
 
     let repo = if child_first {
         commit_transactions(vec![tx1, tx2])
@@ -685,7 +692,7 @@ fn test_merge_views_child_on_abandoned(child_first: bool) {
 
     let mut tx2 = repo.start_transaction();
     tx2.repo_mut().record_abandoned_commit(&commit_b);
-    tx2.repo_mut().rebase_descendants().unwrap();
+    tx2.repo_mut().rebase_descendants().block_on().unwrap();
 
     let repo = if child_first {
         commit_transactions(vec![tx1, tx2])

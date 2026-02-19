@@ -49,6 +49,7 @@ use jj_lib::revset::RevsetExpression;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringExpression;
 use jj_lib::view::View;
+use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -599,9 +600,8 @@ fn sign_commits_before_push(
     let mut num_rebased_descendants = 0;
     let progress = progress::git_signing_progress(ui);
 
-    tx.repo_mut().transform_descendants(
-        commit_ids.iter().cloned().collect_vec(),
-        async |rewriter| {
+    tx.repo_mut()
+        .transform_descendants(commit_ids.iter().cloned().collect_vec(), async |rewriter| {
             let old_commit = rewriter.old_commit();
             let old_commit_id = old_commit.id().clone();
             progress(old_commit);
@@ -618,8 +618,8 @@ fn sign_commits_before_push(
                 old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
             }
             Ok(())
-        },
-    )?;
+        })
+        .block_on()?;
 
     let bookmark_updates = bookmark_updates
         .into_iter()

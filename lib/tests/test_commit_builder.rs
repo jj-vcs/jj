@@ -195,7 +195,7 @@ fn test_rewrite(backend: TestRepoBackend) {
         .rewrite_commit(&initial_commit)
         .set_tree(rewritten_tree)
         .write_unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").unwrap();
     let parents: Vec<_> = rewritten_commit.parents().try_collect().unwrap();
     assert_eq!(parents, vec![store.root_commit()]);
@@ -322,7 +322,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
         .rewrite_commit(&initial_commit)
         .set_description("No longer discardable")
         .write_unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     tx.commit("test").unwrap();
 
     let new_timestamp_1 =
@@ -345,7 +345,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
         .rewrite_commit(&rewritten_commit_1)
         .set_description("New description")
         .write_unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     tx.commit("test").unwrap();
 
     let new_timestamp_2 =
@@ -386,7 +386,7 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
     // predecessors/parent mappings
     let result = builder.write(tx.repo_mut()).block_on();
     assert_matches!(result, Err(BackendError::Other(_)));
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     tx.commit("test").unwrap();
 
     // Create two rewritten commits of the same content and metadata
@@ -402,7 +402,7 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
         .write()
         .block_on();
     assert_matches!(result, Err(BackendError::Other(_)));
-    tx.repo_mut().rebase_descendants().unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
     tx.commit("test").unwrap();
 }
 

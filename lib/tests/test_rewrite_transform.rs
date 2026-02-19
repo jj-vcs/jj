@@ -19,6 +19,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::RewriteRefsOptions;
 use maplit::hashmap;
 use maplit::hashset;
+use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
@@ -61,6 +62,7 @@ fn test_transform_descendants_sync() {
             }
             Ok(())
         })
+        .block_on()
         .unwrap();
     assert_eq!(rebased.len(), 4);
     let new_commit_b = rebased.get(commit_b.id()).unwrap();
@@ -109,6 +111,7 @@ fn test_transform_descendants_sync_linearize_merge() {
             rebased.insert(old_commit_id, new_commit);
             Ok(())
         })
+        .block_on()
         .unwrap();
     assert_eq!(rebased.len(), 1);
     let new_commit_c = rebased.get(commit_c.id()).unwrap();
@@ -172,6 +175,7 @@ fn test_transform_descendants_new_parents_map() {
                 Ok(())
             },
         )
+        .block_on()
         .unwrap();
     assert_eq!(rebased.len(), 5);
     let new_commit_b = rebased.get(commit_b.id()).unwrap();

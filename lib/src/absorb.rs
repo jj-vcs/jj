@@ -23,6 +23,7 @@ use std::sync::Arc;
 use bstr::BString;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::annotate::FileAnnotator;
@@ -351,7 +352,8 @@ pub fn absorb_hunks(
             .await?;
         rewritten_destinations.push(new_commit);
         Ok(())
-    })?;
+    })
+    .block_on()?;
     Ok(AbsorbStats {
         rewritten_source,
         rewritten_destinations,

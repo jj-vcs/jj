@@ -724,6 +724,7 @@ pub fn rebase_descendants_with_options_return_map(
         };
         rebased.insert(old_commit_id, new_commit_id);
     })
+    .block_on()
     .unwrap();
     rebased
 }

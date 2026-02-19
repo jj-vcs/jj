@@ -231,7 +231,7 @@ new working-copy commit.
         tx.advance_bookmarks(advanceable_bookmarks, new_commit.id())?;
 
         for name in workspace_names {
-            tx.repo_mut().edit(name, &new_wc_commit).unwrap();
+            tx.repo_mut().edit(name, &new_wc_commit).block_on().unwrap();
         }
     }
     tx.finish(ui, format!("commit {}", commit.id().hex()))?;

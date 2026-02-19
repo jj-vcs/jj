@@ -63,7 +63,7 @@ pub fn cmd_op_integrate(
             let mut tx = start_repo_transaction(&base_repo, command.string_args());
             for other_op_head in op_heads.into_iter().skip(1) {
                 tx.merge_operation(other_op_head)?;
-                let num_rebased = tx.repo_mut().rebase_descendants()?;
+                let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
                 if num_rebased > 0 {
                     writeln!(
                         ui.status(),

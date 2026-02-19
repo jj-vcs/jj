@@ -17,6 +17,7 @@ use itertools::Itertools as _;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::workspace_store::SimpleWorkspaceStore;
 use jj_lib::workspace_store::WorkspaceStore as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -79,7 +80,7 @@ pub fn cmd_workspace_forget(
     let mut tx = workspace_command.start_transaction();
 
     for ws in &forget_ws {
-        tx.repo_mut().remove_wc_commit(ws)?;
+        tx.repo_mut().remove_wc_commit(ws).block_on()?;
     }
 
     workspace_store.forget(&forget_ws.iter().map(|x| x.as_ref()).collect::<Vec<_>>())?;

@@ -24,6 +24,7 @@ use futures::try_join;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::backend::BackendError;
@@ -895,40 +896,42 @@ fn apply_move_commits(
     };
 
     let mut rebased_commits: HashMap<CommitId, RebasedCommit> = HashMap::new();
-    mut_repo.transform_commits(
-        commits.descendants,
-        &commits.commit_new_parents_map,
-        &options.rewrite_refs,
-        async |rewriter| {
-            let old_commit_id = rewriter.old_commit().id().clone();
-            if commits.to_abandon.contains(&old_commit_id) {
-                rewriter.abandon();
-            } else if rewriter.parents_changed() {
-                let is_target_commit = commits.target_commit_ids.contains(&old_commit_id);
-                let rebased_commit = rebase_commit_with_options(
-                    rewriter,
-                    if is_target_commit {
-                        options
+    mut_repo
+        .transform_commits(
+            commits.descendants,
+            &commits.commit_new_parents_map,
+            &options.rewrite_refs,
+            async |rewriter| {
+                let old_commit_id = rewriter.old_commit().id().clone();
+                if commits.to_abandon.contains(&old_commit_id) {
+                    rewriter.abandon();
+                } else if rewriter.parents_changed() {
+                    let is_target_commit = commits.target_commit_ids.contains(&old_commit_id);
+                    let rebased_commit = rebase_commit_with_options(
+                        rewriter,
+                        if is_target_commit {
+                            options
+                        } else {
+                            rebase_descendant_options
+                        },
+                    )
+                    .await?;
+                    if let RebasedCommit::Abandoned { .. } = rebased_commit {
+                        num_abandoned_empty += 1;
+                    } else if is_target_commit {
+                        num_rebased_targets += 1;
                     } else {
-                        rebase_descendant_options
-                    },
-                )
-                .await?;
-                if let RebasedCommit::Abandoned { .. } = rebased_commit {
-                    num_abandoned_empty += 1;
-                } else if is_target_commit {
-                    num_rebased_targets += 1;
+                        num_rebased_descendants += 1;
+                    }
+                    rebased_commits.insert(old_commit_id, rebased_commit);
                 } else {
-                    num_rebased_descendants += 1;
+                    num_skipped_rebases += 1;
                 }
-                rebased_commits.insert(old_commit_id, rebased_commit);
-            } else {
-                num_skipped_rebases += 1;
-            }
 
-            Ok(())
-        },
-    )?;
+                Ok(())
+            },
+        )
+        .block_on()?;
 
     Ok(MoveCommitsStats {
         num_rebased_targets,
@@ -1069,29 +1072,31 @@ pub async fn duplicate_commits(
 
     // Rebase new children onto the target heads.
     let children_commit_ids_set: HashSet<CommitId> = children_commit_ids.iter().cloned().collect();
-    mut_repo.transform_descendants(children_commit_ids.to_vec(), async |mut rewriter| {
-        if children_commit_ids_set.contains(rewriter.old_commit().id()) {
-            let mut child_new_parent_ids = IndexSet::new();
-            for old_parent_id in rewriter.old_commit().parent_ids() {
-                // If the original parents of the new children are the new parents of
-                // `target_head_ids`, replace them with `target_head_ids` since we are
-                // "inserting" the target commits in between the new parents and the new
-                // children.
-                if parent_commit_ids.contains(old_parent_id) {
-                    child_new_parent_ids.extend(target_head_ids.clone());
-                } else {
-                    child_new_parent_ids.insert(old_parent_id.clone());
+    mut_repo
+        .transform_descendants(children_commit_ids.to_vec(), async |mut rewriter| {
+            if children_commit_ids_set.contains(rewriter.old_commit().id()) {
+                let mut child_new_parent_ids = IndexSet::new();
+                for old_parent_id in rewriter.old_commit().parent_ids() {
+                    // If the original parents of the new children are the new parents of
+                    // `target_head_ids`, replace them with `target_head_ids` since we are
+                    // "inserting" the target commits in between the new parents and the new
+                    // children.
+                    if parent_commit_ids.contains(old_parent_id) {
+                        child_new_parent_ids.extend(target_head_ids.clone());
+                    } else {
+                        child_new_parent_ids.insert(old_parent_id.clone());
+                    }
                 }
+                // If not already present, add `target_head_ids` as parents of the new child
+                // commit.
+                child_new_parent_ids.extend(target_head_ids.clone());
+                rewriter.set_new_parents(child_new_parent_ids.into_iter().collect());
             }
-            // If not already present, add `target_head_ids` as parents of the new child
-            // commit.
-            child_new_parent_ids.extend(target_head_ids.clone());
-            rewriter.set_new_parents(child_new_parent_ids.into_iter().collect());
-        }
-        num_rebased += 1;
-        rewriter.rebase().await?.write().await?;
-        Ok(())
-    })?;
+            num_rebased += 1;
+            rewriter.rebase().await?.write().await?;
+            Ok(())
+        })
+        .await?;
 
     Ok(DuplicateCommitsStats {
         duplicated_commits: duplicated_old_to_new,
@@ -1348,7 +1353,8 @@ pub async fn squash_commits<'repo>(
                 RebasedCommit::Rewritten(commit) => commit,
                 RebasedCommit::Abandoned { .. } => panic!("all commits should be kept"),
             };
-        })?;
+        })
+        .await?;
     }
     let mut predecessors = vec![destination.id().clone()];
     predecessors.extend(

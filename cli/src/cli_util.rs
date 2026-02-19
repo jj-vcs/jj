@@ -702,7 +702,7 @@ impl CommandHelper {
                     let mut tx = start_repo_transaction(&base_repo, &self.data.string_args);
                     for other_op_head in op_heads.into_iter().skip(1) {
                         tx.merge_operation(other_op_head)?;
-                        let num_rebased = tx.repo_mut().rebase_descendants()?;
+                        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
                         if num_rebased > 0 {
                             writeln!(
                                 ui.status(),
@@ -1239,13 +1239,14 @@ impl WorkspaceCommandHelper {
             let new_git_head_commit = tx.repo().store().get_commit(new_git_head_id)?;
             let wc_commit = tx
                 .repo_mut()
-                .check_out(workspace_name, &new_git_head_commit)?;
+                .check_out(workspace_name, &new_git_head_commit)
+                .block_on()?;
             let mut locked_ws = self.workspace.start_working_copy_mutation()?;
             // The working copy was presumably updated by the git command that updated
             // HEAD, so we just need to reset our working copy
             // state to it without updating working copy files.
             locked_ws.locked_wc().reset(&wc_commit).block_on()?;
-            tx.repo_mut().rebase_descendants()?;
+            tx.repo_mut().rebase_descendants().block_on()?;
             self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head")?);
             locked_ws.finish(self.user_repo.repo.op_id().clone())?;
             if old_git_head.is_present() {
@@ -1292,7 +1293,7 @@ impl WorkspaceCommandHelper {
 
         let mut tx = tx.into_inner();
         // Rebase here to show slightly different status message.
-        let num_rebased = tx.repo_mut().rebase_descendants()?;
+        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
         if num_rebased > 0 {
             writeln!(
                 ui.status(),
@@ -1959,6 +1960,7 @@ to the current parents may contain changes from multiple commits.
             // Rebase descendants
             let num_rebased = mut_repo
                 .rebase_descendants()
+                .block_on()
                 .map_err(snapshot_command_error)?;
             if num_rebased > 0 {
                 writeln!(
@@ -2087,7 +2089,7 @@ to the current parents may contain changes from multiple commits.
         description: impl Into<String>,
         _git_import_export_lock: &GitImportExportLock,
     ) -> Result<(), CommandError> {
-        let num_rebased = tx.repo_mut().rebase_descendants()?;
+        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
         if num_rebased > 0 {
             writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
         }
@@ -2111,7 +2113,9 @@ to the current parents may contain changes from multiple commits.
             };
             if is_immutable {
                 let wc_commit = tx.repo().store().get_commit(wc_commit_id)?;
-                tx.repo_mut().check_out(name.clone(), &wc_commit)?;
+                tx.repo_mut()
+                    .check_out(name.clone(), &wc_commit)
+                    .block_on()?;
                 writeln!(
                     ui.warning_default(),
                     "The working-copy commit in workspace '{name}' became immutable, so a new \
@@ -2495,13 +2499,13 @@ impl WorkspaceCommandTransaction<'_> {
     pub fn check_out(&mut self, commit: &Commit) -> Result<Commit, CheckOutCommitError> {
         let name = self.helper.workspace_name().to_owned();
         self.id_prefix_context.take(); // invalidate
-        self.tx.repo_mut().check_out(name, commit)
+        self.tx.repo_mut().check_out(name, commit).block_on()
     }
 
     pub fn edit(&mut self, commit: &Commit) -> Result<(), EditCommitError> {
         let name = self.helper.workspace_name().to_owned();
         self.id_prefix_context.take(); // invalidate
-        self.tx.repo_mut().edit(name, commit)
+        self.tx.repo_mut().edit(name, commit).block_on()
     }
 
     pub fn format_commit_summary(&self, commit: &Commit) -> String {

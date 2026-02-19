@@ -143,7 +143,8 @@ fn init_working_copy(
 
     let mut tx = repo.start_transaction();
     tx.repo_mut()
-        .check_out(workspace_name.clone(), &repo.store().root_commit())?;
+        .check_out(workspace_name.clone(), &repo.store().root_commit())
+        .block_on()?;
     let repo = tx.commit(format!("add workspace '{}'", workspace_name.as_symbol()))?;
 
     let working_copy = working_copy_factory.init_working_copy(
