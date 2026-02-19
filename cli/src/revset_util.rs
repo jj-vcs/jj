@@ -15,6 +15,7 @@
 //! Utility for parsing and evaluating user-provided revset expressions.
 
 use std::collections::HashMap;
+use std::io;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
@@ -146,30 +147,29 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
 
 fn warn_user_redefined_builtin(
     ui: &Ui,
-    source: ConfigSource,
-    name: &str,
-) -> Result<(), CommandError> {
-    match source {
-        ConfigSource::Default => (),
-        ConfigSource::EnvBase
-        | ConfigSource::User
-        | ConfigSource::Repo
-        | ConfigSource::Workspace
-        | ConfigSource::EnvOverrides
-        | ConfigSource::CommandArg => {
-            let checked_mutability_builtins =
-                ["mutable()", "immutable()", "builtin_immutable_heads()"];
-
-            if checked_mutability_builtins.contains(&name) {
-                writeln!(
-                    ui.warning_default(),
-                    "Redefining `revset-aliases.{name}` is not recommended; redefine \
-                     `immutable_heads()` instead",
-                )?;
-            }
+    config: &StackedConfig,
+    table_name: &ConfigNamePathBuf,
+) -> io::Result<()> {
+    let checked_mutability_builtins = ["mutable()", "immutable()", "builtin_immutable_heads()"];
+    for layer in config
+        .layers()
+        .iter()
+        .skip_while(|layer| layer.source == ConfigSource::Default)
+    {
+        let Ok(Some(table)) = layer.look_up_table(table_name) else {
+            continue;
+        };
+        for decl in checked_mutability_builtins
+            .iter()
+            .filter(|decl| table.contains_key(decl))
+        {
+            writeln!(
+                ui.warning_default(),
+                "Redefining `{table_name}.{decl}` is not recommended; redefine \
+                 `immutable_heads()` instead",
+            )?;
         }
     }
-
     Ok(())
 }
 
@@ -195,8 +195,6 @@ pub fn load_revset_aliases(
             }
         };
         for (decl, item) in table.iter() {
-            warn_user_redefined_builtin(ui, layer.source, decl)?;
-
             let r = item
                 .as_str()
                 .ok_or_else(|| format!("Expected a string, but is {}", item.type_name()))
@@ -209,6 +207,7 @@ pub fn load_revset_aliases(
             }
         }
     }
+    warn_user_redefined_builtin(ui, stacked_config, &table_name)?;
     Ok(aliases_map)
 }
 
