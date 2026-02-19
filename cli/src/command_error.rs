@@ -849,9 +849,9 @@ fn fileset_parse_error_hint(err: &FilesetParseError) -> Option<String> {
             name: _,
             candidates,
         } => format_similarity_hint(candidates),
-        FilesetParseErrorKind::InvalidArguments { .. } | FilesetParseErrorKind::Expression(_) => {
-            find_source_parse_error_hint(&err)
-        }
+        FilesetParseErrorKind::InvalidArguments { .. } => find_source_parse_error_hint(&err),
+        FilesetParseErrorKind::RedefinedFunctionParameter => None,
+        FilesetParseErrorKind::Expression(_) => find_source_parse_error_hint(&err),
     }
 }
 

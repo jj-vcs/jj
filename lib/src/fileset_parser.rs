@@ -27,6 +27,10 @@ use pest_derive::Parser;
 use thiserror::Error;
 
 use crate::dsl_util;
+use crate::dsl_util::AliasDeclaration;
+use crate::dsl_util::AliasDeclarationParser;
+use crate::dsl_util::AliasDefinitionParser;
+use crate::dsl_util::AliasesMap;
 use crate::dsl_util::Diagnostics;
 use crate::dsl_util::InvalidArguments;
 use crate::dsl_util::StringLiteralParser;
@@ -65,12 +69,16 @@ impl Rule {
             Self::function => None,
             Self::function_name => None,
             Self::function_arguments => None,
+            Self::formal_parameters => None,
             Self::string_pattern => None,
             Self::bare_string_pattern => None,
             Self::primary => None,
             Self::expression => None,
             Self::program => None,
             Self::program_or_bare_string => None,
+            Self::function_alias_declaration => None,
+            Self::pattern_alias_declaration => None,
+            Self::alias_declaration => None,
         }
     }
 }
@@ -104,6 +112,8 @@ pub enum FilesetParseErrorKind {
     },
     #[error("Function `{name}`: {message}")]
     InvalidArguments { name: String, message: String },
+    #[error("Redefinition of function parameter")]
+    RedefinedFunctionParameter,
     #[error("{0}")]
     Expression(String),
 }
@@ -363,6 +373,65 @@ pub fn parse_program_or_bare_string(text: &str) -> FilesetParseResult<Expression
     Ok(ExpressionNode::new(expr, span))
 }
 
+/// Map of fileset aliases.
+pub type FilesetAliasesMap = AliasesMap<FilesetAliasParser, String>;
+
+#[derive(Clone, Debug, Default)]
+pub struct FilesetAliasParser;
+
+impl AliasDeclarationParser for FilesetAliasParser {
+    type Error = FilesetParseError;
+
+    fn parse_declaration(&self, source: &str) -> Result<AliasDeclaration, Self::Error> {
+        let mut pairs = FilesetParser::parse(Rule::alias_declaration, source)?;
+        let first = pairs.next().unwrap();
+        match first.as_rule() {
+            Rule::strict_identifier => Ok(AliasDeclaration::Symbol(first.as_str().to_owned())),
+            Rule::pattern_alias_declaration => {
+                let [name_pair, op, param_pair] = first.into_inner().collect_array().unwrap();
+                assert_eq!(name_pair.as_rule(), Rule::strict_identifier);
+                assert_eq!(op.as_rule(), Rule::pattern_kind_op);
+                assert_eq!(param_pair.as_rule(), Rule::strict_identifier);
+                let name = name_pair.as_str().to_owned();
+                let param = param_pair.as_str().to_owned();
+                Ok(AliasDeclaration::Pattern(name, param))
+            }
+            Rule::function_alias_declaration => {
+                let [name_pair, params_pair] = first.into_inner().collect_array().unwrap();
+                assert_eq!(name_pair.as_rule(), Rule::function_name);
+                assert_eq!(params_pair.as_rule(), Rule::formal_parameters);
+                let name = name_pair.as_str().to_owned();
+                let params_span = params_pair.as_span();
+                let params = params_pair
+                    .into_inner()
+                    .map(|pair| match pair.as_rule() {
+                        Rule::strict_identifier => pair.as_str().to_owned(),
+                        r => panic!("unexpected formal parameter rule {r:?}"),
+                    })
+                    .collect_vec();
+                if params.iter().all_unique() {
+                    Ok(AliasDeclaration::Function(name, params))
+                } else {
+                    Err(FilesetParseError::new(
+                        FilesetParseErrorKind::RedefinedFunctionParameter,
+                        params_span,
+                    ))
+                }
+            }
+            r => panic!("unexpected alias declaration rule {r:?}"),
+        }
+    }
+}
+
+impl AliasDefinitionParser for FilesetAliasParser {
+    type Output<'i> = ExpressionKind<'i>;
+    type Error = FilesetParseError;
+
+    fn parse_definition<'i>(&self, source: &'i str) -> Result<ExpressionNode<'i>, Self::Error> {
+        parse_program(source)
+    }
+}
+
 pub(super) fn expect_string_literal<'a>(
     type_name: &str,
     node: &'a ExpressionNode<'_>,
@@ -382,6 +451,7 @@ mod tests {
     use assert_matches::assert_matches;
 
     use super::*;
+    use crate::dsl_util::AliasId;
     use crate::dsl_util::KeywordArgument;
 
     fn parse_into_kind(text: &str) -> Result<ExpressionKind<'_>, FilesetParseErrorKind> {
@@ -784,5 +854,88 @@ mod tests {
           |
           = expected `~` or <primary>
         ");
+    }
+
+    #[test]
+    fn test_parse_alias_symbol_decl() {
+        let mut aliases_map = FilesetAliasesMap::new();
+        aliases_map.insert("sym", "symbol").unwrap();
+        assert_eq!(aliases_map.symbol_names().count(), 1);
+        let (id, defn) = aliases_map.get_symbol("sym").unwrap();
+        assert_eq!(id, AliasId::Symbol("sym"));
+        assert_eq!(defn, "symbol");
+
+        // Non-ASCII character isn't allowed in alias symbol. This rule can be
+        // relaxed if needed.
+        assert!(aliases_map.insert("柔術", "none()").is_err());
+    }
+
+    #[test]
+    fn test_parse_alias_pattern_decl() {
+        let mut aliases_map = FilesetAliasesMap::new();
+        assert!(aliases_map.insert("pat:", "bad_pattern").is_err());
+        aliases_map.insert("pat:a", "pattern_a").unwrap();
+        aliases_map.insert("pat:b", "pattern_b").unwrap();
+        assert_eq!(aliases_map.pattern_names().count(), 1);
+        let (id, param, defn) = aliases_map.get_pattern("pat").unwrap();
+        assert_eq!(id, AliasId::Pattern("pat", "b"));
+        assert_eq!(param, "b");
+        assert_eq!(defn, "pattern_b");
+
+        // Non-ASCII character isn't allowed. This rule can be relaxed if
+        // needed.
+        assert!(aliases_map.insert("柔術:x", "none()").is_err());
+        assert!(aliases_map.insert("x:柔術", "none()").is_err());
+    }
+
+    #[test]
+    fn test_parse_alias_func_decl() {
+        let mut aliases_map = FilesetAliasesMap::new();
+        assert!(aliases_map.insert("5func()", "bad_function").is_err());
+        aliases_map.insert("func()", "function_0").unwrap();
+        aliases_map.insert("func(a)", "function_1a").unwrap();
+        aliases_map.insert("func(b)", "function_1b").unwrap();
+        aliases_map.insert("func(a, b)", "function_2").unwrap();
+        assert_eq!(aliases_map.function_names().count(), 1);
+
+        let (id, params, defn) = aliases_map.get_function("func", 0).unwrap();
+        assert_eq!(id, AliasId::Function("func", &[]));
+        assert!(params.is_empty());
+        assert_eq!(defn, "function_0");
+
+        let (id, params, defn) = aliases_map.get_function("func", 1).unwrap();
+        assert_eq!(id, AliasId::Function("func", &["b".to_owned()]));
+        assert_eq!(params, ["b"]);
+        assert_eq!(defn, "function_1b");
+
+        let (id, params, defn) = aliases_map.get_function("func", 2).unwrap();
+        assert_eq!(
+            id,
+            AliasId::Function("func", &["a".to_owned(), "b".to_owned()])
+        );
+        assert_eq!(params, ["a", "b"]);
+        assert_eq!(defn, "function_2");
+
+        assert!(aliases_map.get_function("func", 3).is_none());
+    }
+
+    #[test]
+    fn test_parse_alias_formal_parameter() {
+        let mut aliases_map = FilesetAliasesMap::new();
+        // Formal parameter 'a' can't be redefined
+        assert_eq!(
+            aliases_map.insert("f(a, a)", "bad").unwrap_err().kind,
+            FilesetParseErrorKind::RedefinedFunctionParameter
+        );
+        // Trailing comma isn't allowed for empty parameter
+        assert!(aliases_map.insert("f(,)", "bad").is_err());
+        // Trailing comma is allowed for the last parameter
+        assert!(aliases_map.insert("g(a,)", "bad").is_ok());
+        assert!(aliases_map.insert("h(a ,  )", "bad").is_ok());
+        assert!(aliases_map.insert("i(,a)", "bad").is_err());
+        assert!(aliases_map.insert("j(a,,)", "bad").is_err());
+        assert!(aliases_map.insert("k(a  , , )", "bad").is_err());
+        assert!(aliases_map.insert("l(a,b,)", "bad").is_ok());
+        assert!(aliases_map.insert("m(a,,b)", "bad").is_err());
     }
 }

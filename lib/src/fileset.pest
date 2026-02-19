@@ -60,6 +60,10 @@ function_arguments = {
   expression ~ (whitespace* ~ "," ~ whitespace* ~ expression)* ~ (whitespace* ~ ",")?
   | ""
 }
+formal_parameters = {
+  strict_identifier ~ (whitespace* ~ "," ~ whitespace* ~ strict_identifier)* ~ (whitespace* ~ ",")?
+  | ""
+}
 
 string_pattern = {
   strict_identifier
@@ -87,4 +91,16 @@ program_or_bare_string = _{
   SOI ~ ( whitespace* ~ expression ~ whitespace* ~ EOI
         | bare_string_pattern ~ EOI
         | bare_string ~ EOI )
+}
+
+function_alias_declaration = {
+  function_name ~ "(" ~ whitespace* ~ formal_parameters ~ whitespace* ~ ")"
+}
+pattern_alias_declaration = {
+  strict_identifier ~ pattern_kind_op ~ strict_identifier
+}
+alias_declaration = _{
+  SOI ~ (function_alias_declaration
+        | pattern_alias_declaration
+        | strict_identifier) ~ EOI
 }

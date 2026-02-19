@@ -30,6 +30,7 @@ use crate::fileset_parser;
 use crate::fileset_parser::BinaryOp;
 use crate::fileset_parser::ExpressionKind;
 use crate::fileset_parser::ExpressionNode;
+pub use crate::fileset_parser::FilesetAliasesMap;
 pub use crate::fileset_parser::FilesetDiagnostics;
 pub use crate::fileset_parser::FilesetParseError;
 pub use crate::fileset_parser::FilesetParseErrorKind;
