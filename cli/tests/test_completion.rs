@@ -715,7 +715,7 @@ fn test_command_completion_short_name() {
     edit	Start an editor on a jj config file
     get	Get the value of a given config option.
     list	List variables set in config files, along with their values
-    managed	Sets the trust level of jj's managed in-repo configuration
+    managed	Set the trust level of jj's managed in-repo configuration
     path	Print the paths to the config files
     set	Update a config file to set the given option to a given value
     unset	Update a config file to unset the given option

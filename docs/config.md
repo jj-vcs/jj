@@ -13,6 +13,11 @@ These are the config settings available to jj/Jujutsu.
 settings are located in [the user config files], which can be found with `jj
 config path --user`.
 
+- The managed settings. These can be edited with `jj config edit --managed`,
+  or found with `jj config path --managed`. They are stored in version control
+  at `$REPO/.config/jj/config.toml` within the repository. See
+  [Managed Configuration](#managed-configuration) for details.
+
 - The repo settings. These can be edited with `jj config edit --repo`, or found
   with `jj config path --repo`. For security reasons, they are not located inside
   the repo.

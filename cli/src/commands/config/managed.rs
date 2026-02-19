@@ -23,7 +23,7 @@ use crate::config::MANAGED_CONFIG_PATH;
 use crate::config::review_managed_config_approval;
 use crate::ui::Ui;
 
-/// Sets the trust level of jj's managed in-repo configuration.
+/// Set the trust level of jj's managed in-repo configuration.
 ///
 /// When no arguments are provided, will take you through the
 /// review process for the current managed config.
