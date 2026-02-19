@@ -579,14 +579,14 @@ fn test_config_layer_workspace() {
 fn test_config_set_bad_opts() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["config", "set"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--user|--repo|--workspace>
+      <--user|--repo|--workspace|--managed>
       <NAME>
       <VALUE>
 
-    Usage: jj config set <--user|--repo|--workspace> <NAME> <VALUE>
+    Usage: jj config set <--user|--repo|--workspace|--managed> <NAME> <VALUE>
 
     For more information, try '--help'.
     [EOF]
@@ -772,6 +772,46 @@ fn test_config_set_for_workspace() {
     #:schema https://docs.jj-vcs.dev/latest/config-schema.json
 
     test-key = "ws-val"
+    "#);
+}
+
+#[test]
+fn test_config_set_for_managed() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    let output = work_dir.run_jj(["config", "path", "--managed"]);
+    insta::assert_snapshot!(output, @"
+    $TEST_ENV/repo/.config/jj/config.toml
+    [EOF]
+    ");
+
+    work_dir.run_jj(["config", "managed", "--trust"]).success();
+
+    work_dir
+        .run_jj(["config", "set", "--managed", "test-key", "test-val"])
+        .success();
+    work_dir
+        .run_jj(["config", "set", "--managed", "test-table.foo", "true"])
+        .success();
+
+    // Ensure test-key successfully written to user config.
+    let repo_config_toml = work_dir.read_file(".config/jj/config.toml");
+    insta::assert_snapshot!(repo_config_toml, @r#"
+    #:schema https://docs.jj-vcs.dev/latest/config-schema.json
+
+    test-key = "test-val"
+
+    [test-table]
+    foo = true
+    "#);
+
+    let output = work_dir.run_jj(["config", "list", "--managed"]);
+    insta::assert_snapshot!(output, @r#"
+    test-key = "test-val"
+    test-table.foo = true
+    [EOF]
     "#);
 }
 
@@ -1018,12 +1058,12 @@ fn test_config_unset_for_workspace() {
 fn test_config_edit_missing_opt() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["config", "edit"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--user|--repo|--workspace>
+      <--user|--repo|--workspace|--managed>
 
-    Usage: jj config edit <--user|--repo|--workspace>
+    Usage: jj config edit <--user|--repo|--workspace|--managed>
 
     For more information, try '--help'.
     [EOF]
