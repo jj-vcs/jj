@@ -8908,7 +8908,7 @@ configuration.</p>
 <h2 id="jj-gerrit-upload"><code>jj gerrit upload</code><a class="headerlink" href="#jj-gerrit-upload" title="Permanent link">&para;</a></h2>
 <p>Upload changes to Gerrit for code review, or update existing changes.</p>
 <p>Uploading in a set of revisions to Gerrit creates a single "change" for each revision included in the revset. These changes are then available for review on your Gerrit instance.</p>
-<p>Note: The gerrit commit Id may not match that of your local commit Id, since we add a <code>Change-Id</code> footer to the commit message if one does not already exist. This ID is based off the jj Change-Id, but is not the same.</p>
+<p>Note: The Gerrit commit Id may not match that of your local commit Id, since we add a <code>Change-Id</code> footer to the commit message if one does not already exist. This ID is based off the jj Change-Id, but is not the same.</p>
 <p>If a change already exists for a given revision (i.e. it contains the same <code>Change-Id</code>), this command will update the contents of the existing change to match.</p>
 <p>Note: this command takes 1-or-more revsets arguments, each of which can resolve to multiple revisions; so you may post trees or ranges of commits to Gerrit for review all at once.</p>
 <p><strong>Usage:</strong> <code>jj gerrit upload [OPTIONS]</code></p>
@@ -8928,6 +8928,67 @@ configuration.</p>
 </li>
 <li>
 <p><code>-n</code>, <code>--dry-run</code> — Do not actually push the changes to Gerrit</p>
+</li>
+<li><code>--reviewer &lt;REVIEWER&gt;</code> — Add these emails as a reviewer (can be repeated)</li>
+<li><code>--cc &lt;CC&gt;</code> — CC these emails on the change (can be repeated)</li>
+<li>
+<p><code>-l</code>, <code>--label &lt;LABEL&gt;</code> — Add the following labels configured by Gerrit (can be repeated)</p>
+<p>Gerrit silently ignores labels not present on your gerrit host. Defaults to +1 if no value is set. Eg. --label=Commit-Queue will set the Commit-Queue label to +1. Eg. --label=Commit-Queue+2 will set it to +2.</p>
+</li>
+<li>
+<p><code>--topic &lt;TOPIC&gt;</code> — Applies a topic to the change</p>
+<p>See https://gerrit-review.googlesource.com/Documentation/intro-user.html#topics. Changes can be grouped by topic, and Gerrit can be configured to submit all changes in a topic together in a single click.</p>
+</li>
+<li>
+<p><code>--hashtag &lt;HASHTAG&gt;</code> — Applies a hashtag to the change</p>
+<p>See https://gerrit-review.googlesource.com/Documentation/intro-user.html#hashtags. Hashtags are freeform strings associated with a change, like on social media platforms. Similar to topics, hashtags can be used to group related changes together, and to search using the hashtag: operator. Unlike topics, a change can have multiple hashtags, and they are only used for informational grouping. Changes with the same hashtags are not necessarily submitted together.</p>
+</li>
+<li>
+<p><code>--wip</code> — Marks the change as WIP (work in progress)</p>
+<p>See https://gerrit-review.googlesource.com/Documentation/intro-user.html#wip.</p>
+</li>
+<li>
+<p><code>--ready</code> — Unmarks the change as WIP (work in progress)</p>
+</li>
+<li>
+<p><code>--private</code> — Marks the change as private</p>
+<p>See https://gerrit-review.googlesource.com/Documentation/intro-user.html#private-changes.</p>
+</li>
+<li>
+<p><code>--remove-private</code> — Unmarks the change as private</p>
+</li>
+<li><code>--publish-comments</code> — Publishes any draft comments for the given change</li>
+<li>
+<p><code>--no-publish-comments</code> — Disables publishing of any draft comments for the given change</p>
+<p>This is only useful if the user has configured Gerrit to publish comments by default.</p>
+</li>
+<li>
+<p><code>--notify &lt;NOTIFY&gt;</code> — Who to email notifications to (defaults to all)</p>
+<p>Possible values:</p>
+<ul>
+<li><code>none</code>:
+  No emails</li>
+<li><code>owner</code>:
+  Only the change owner is notified</li>
+<li><code>owner-reviewers</code>:
+  Only the change owner and reviewers will be notified</li>
+<li><code>all</code>:
+  All relevant users, including owner, reviewers, cc'd, users that have starred the change, and users who have configured a watch on files in the change</li>
+</ul>
+</li>
+<li>
+<p><code>--submit</code> — Directly submit the changes, bypassing code review</p>
+</li>
+<li><code>--skip-validation</code> — When --submit is provided, skip performing validations</li>
+<li><code>--ignore-attention-set</code> — Do not modify the attention set upon uploading</li>
+<li><code>--deadline &lt;DEADLINE&gt;</code> — The deadline after which the push should be aborted</li>
+<li>
+<p><code>--custom &lt;CUSTOM&gt;</code> — Send the following custom keyed values to Gerrit (can be repeated)</p>
+<p>See https://gerrit-review.googlesource.com/Documentation/user-upload.html#custom_keyed_values</p>
+</li>
+<li>
+<p><code>--trace &lt;TRACE&gt;</code> — For debugging Gerrit</p>
+<p>See https://gerrit-review.googlesource.com/Documentation/user-upload.html#trace</p>
 </li>
 </ul>
 <h2 id="jj-git"><code>jj git</code><a class="headerlink" href="#jj-git" title="Permanent link">&para;</a></h2>
