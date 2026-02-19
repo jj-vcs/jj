@@ -992,6 +992,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#new-commit-description" class="md-nav__link">
+    <span class="md-ellipsis">
+      New commit description
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#bookmarktag-listing-order" class="md-nav__link">
     <span class="md-ellipsis">
       Bookmark/tag listing order
@@ -2905,6 +2914,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#new-commit-description" class="md-nav__link">
+    <span class="md-ellipsis">
+      New commit description
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#bookmarktag-listing-order" class="md-nav__link">
     <span class="md-ellipsis">
       Bookmark/tag listing order
@@ -3971,6 +3989,26 @@ original commit.</p>
 </code></pre></div>
 <p>Note that <code>description</code> usually ends with a <code>\n</code> if it is not blank. Use
 <code>.trim_end()</code> to remove the <code>\n</code>.</p>
+<h3 id="new-commit-description">New commit description<a class="headerlink" href="#new-commit-description" title="Permanent link">&para;</a></h3>
+<p>When <code>jj new</code> creates a commit without an explicit <code>-m</code> message, it evaluates
+the <code>new_description</code> template to populate the description. By default, this
+template is empty.</p>
+<p>You can customize this to automatically generate descriptions for new commits.
+For example, to auto-generate merge commit messages:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
+<span class="n">new_description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">if(parents.len() &gt; 1,</span>
+<span class="s1">  &quot;Merge &quot; ++ parents.skip(1).map(|p| coalesce(</span>
+<span class="s1">    p.bookmarks().first().name(),</span>
+<span class="s1">    p.change_id().shortest(8)</span>
+<span class="s1">  )).join(&quot;, &quot;) ++ &quot; into &quot; ++ coalesce(</span>
+<span class="s1">    parents.first().bookmarks().first().name(),</span>
+<span class="s1">    parents.first().change_id().shortest(8)</span>
+<span class="s1">  ) ++ &quot;\n&quot;,</span>
+<span class="s1">  &quot;&quot;</span>
+<span class="s1">)</span>
+<span class="s1">&#39;&#39;&#39;</span>
+</code></pre></div>
 <h3 id="bookmarktag-listing-order">Bookmark/tag listing order<a class="headerlink" href="#bookmarktag-listing-order" title="Permanent link">&para;</a></h3>
 <p>By default, <code>jj bookmark list</code> and <code>jj tag list</code> display bookmarks and tags
 sorted alphabetically by name. You can customize this sorting behavior by
