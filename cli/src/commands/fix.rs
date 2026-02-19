@@ -24,6 +24,7 @@ use jj_lib::commit::Commit;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
+use jj_lib::fileset::FilesetParseContext;
 use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
 use jj_lib::fix::ParallelFileFixer;
@@ -180,7 +181,11 @@ pub(crate) fn cmd_fix(
     let mut workspace_command = command.workspace_helper(ui)?;
     let workspace_root = workspace_command.workspace_root().to_owned();
     let path_converter = workspace_command.path_converter().to_owned();
-    let tools_config = get_tools_config(ui, workspace_command.settings())?;
+    let tools_config = get_tools_config(
+        ui,
+        workspace_command.settings(),
+        &workspace_command.env().fileset_parse_context_for_config(),
+    )?;
     let target_expr = if args.source.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.fix")?;
         workspace_command.parse_revset(ui, &RevisionArg::from(revs))?
@@ -417,7 +422,11 @@ fn default_tool_enabled() -> bool {
 /// Fails if any of the commands or patterns are obviously unusable, but does
 /// not check for issues that might still occur later like missing executables.
 /// This is a place where we could fail earlier in some cases, though.
-fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig, CommandError> {
+fn get_tools_config(
+    ui: &mut Ui,
+    settings: &UserSettings,
+    fileset_context: &FilesetParseContext,
+) -> Result<ToolsConfig, CommandError> {
     let mut tools: Vec<ToolConfig> = settings
         .table_keys("fix.tools")
         // Sort keys early so errors are deterministic.
@@ -428,16 +437,7 @@ fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig,
             let expression = FilesetExpression::union_all(
                 tool.patterns
                     .iter()
-                    .map(|arg| {
-                        fileset::parse(
-                            &mut diagnostics,
-                            arg,
-                            &RepoPathUiConverter::Fs {
-                                cwd: "".into(),
-                                base: "".into(),
-                            },
-                        )
-                    })
+                    .map(|arg| fileset::parse(&mut diagnostics, arg, fileset_context))
                     .try_collect()?,
             );
             print_parse_diagnostics(ui, &format!("In `fix.tools.{name}`"), &diagnostics)?;

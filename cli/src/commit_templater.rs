@@ -46,6 +46,7 @@ use jj_lib::extensions_map::ExtensionsMap;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
+use jj_lib::fileset::FilesetParseContext;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::id_prefix::IdPrefixIndex;
 use jj_lib::index::IndexResult;
@@ -183,6 +184,12 @@ impl<'repo> CommitTemplateLanguage<'repo> {
             build_fn_table,
             keyword_cache: CommitKeywordCache::default(),
             cache_extensions,
+        }
+    }
+
+    fn fileset_parse_context(&self) -> FilesetParseContext<'repo> {
+        FilesetParseContext {
+            path_converter: self.path_converter,
         }
     }
 }
@@ -1320,7 +1327,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |language, diagnostics, _build_ctx, self_property, function| {
             let ([], [files_node]) = function.expect_arguments()?;
             let files = if let Some(node) = files_node {
-                expect_fileset_literal(diagnostics, node, language.path_converter)?
+                expect_fileset_literal(diagnostics, node, &language.fileset_parse_context())?
             } else {
                 // TODO: defaults to CLI path arguments?
                 // https://github.com/jj-vcs/jj/issues/2933#issuecomment-1925870731
@@ -1338,7 +1345,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |language, diagnostics, _build_ctx, self_property, function| {
             let ([], [files_node]) = function.expect_arguments()?;
             let files = if let Some(node) = files_node {
-                expect_fileset_literal(diagnostics, node, language.path_converter)?
+                expect_fileset_literal(diagnostics, node, &language.fileset_parse_context())?
             } else {
                 // TODO: defaults to CLI path arguments?
                 // https://github.com/jj-vcs/jj/issues/2933#issuecomment-1925870731
@@ -1403,15 +1410,14 @@ fn extract_working_copies(repo: &dyn Repo, commit: &Commit) -> Vec<WorkspaceRef>
 fn expect_fileset_literal(
     diagnostics: &mut TemplateDiagnostics,
     node: &ExpressionNode,
-    path_converter: &RepoPathUiConverter,
+    context: &FilesetParseContext,
 ) -> Result<FilesetExpression, TemplateParseError> {
     template_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
         let text = template_parser::expect_string_literal(node)?;
         let mut inner_diagnostics = FilesetDiagnostics::new();
-        let expression =
-            fileset::parse(&mut inner_diagnostics, text, path_converter).map_err(|err| {
-                TemplateParseError::expression("In fileset expression", node.span).with_source(err)
-            })?;
+        let expression = fileset::parse(&mut inner_diagnostics, text, context).map_err(|err| {
+            TemplateParseError::expression("In fileset expression", node.span).with_source(err)
+        })?;
         diagnostics.extend_with(inner_diagnostics, |diag| {
             TemplateParseError::expression("In fileset expression", node.span).with_source(diag)
         });
@@ -1495,7 +1501,7 @@ fn builtin_commit_evolution_entry_methods<'repo>()
         |language, diagnostics, _build_ctx, self_property, function| {
             let ([], [files_node]) = function.expect_arguments()?;
             let files = if let Some(node) = files_node {
-                expect_fileset_literal(diagnostics, node, language.path_converter)?
+                expect_fileset_literal(diagnostics, node, &language.fileset_parse_context())?
             } else {
                 FilesetExpression::all()
             };

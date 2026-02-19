@@ -597,15 +597,22 @@ fn resolve_expression(
     })
 }
 
+/// Information needed to parse fileset expression.
+#[derive(Clone, Debug)]
+pub struct FilesetParseContext<'a> {
+    /// Context to resolve cwd-relative paths.
+    pub path_converter: &'a RepoPathUiConverter,
+}
+
 /// Parses text into `FilesetExpression` without bare string fallback.
 pub fn parse(
     diagnostics: &mut FilesetDiagnostics,
     text: &str,
-    path_converter: &RepoPathUiConverter,
+    context: &FilesetParseContext,
 ) -> FilesetParseResult<FilesetExpression> {
     let node = fileset_parser::parse_program(text)?;
     // TODO: add basic tree substitution pass to eliminate redundant expressions
-    resolve_expression(diagnostics, path_converter, &node)
+    resolve_expression(diagnostics, context.path_converter, &node)
 }
 
 /// Parses text into `FilesetExpression` with bare string fallback.
@@ -615,11 +622,11 @@ pub fn parse(
 pub fn parse_maybe_bare(
     diagnostics: &mut FilesetDiagnostics,
     text: &str,
-    path_converter: &RepoPathUiConverter,
+    context: &FilesetParseContext,
 ) -> FilesetParseResult<FilesetExpression> {
     let node = fileset_parser::parse_program_or_bare_string(text)?;
     // TODO: add basic tree substitution pass to eliminate redundant expressions
-    resolve_expression(diagnostics, path_converter, &node)
+    resolve_expression(diagnostics, context.path_converter, &node)
 }
 
 #[cfg(test)]
@@ -661,11 +668,13 @@ mod tests {
     fn test_parse_file_pattern() {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
-        let path_converter = RepoPathUiConverter::Fs {
-            cwd: PathBuf::from("/ws/cur"),
-            base: PathBuf::from("/ws"),
+        let context = FilesetParseContext {
+            path_converter: &RepoPathUiConverter::Fs {
+                cwd: PathBuf::from("/ws/cur"),
+                base: PathBuf::from("/ws"),
+            },
         };
-        let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &path_converter);
+        let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
         // cwd-relative patterns
         insta::assert_debug_snapshot!(
@@ -720,12 +729,14 @@ mod tests {
     fn test_parse_glob_pattern() {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
-        let path_converter = RepoPathUiConverter::Fs {
-            // meta character in cwd path shouldn't be expanded
-            cwd: PathBuf::from("/ws/cur*"),
-            base: PathBuf::from("/ws"),
+        let context = FilesetParseContext {
+            path_converter: &RepoPathUiConverter::Fs {
+                // meta character in cwd path shouldn't be expanded
+                cwd: PathBuf::from("/ws/cur*"),
+                base: PathBuf::from("/ws"),
+            },
         };
-        let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &path_converter);
+        let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
         // cwd-relative, without meta characters
         insta::assert_debug_snapshot!(
@@ -939,11 +950,13 @@ mod tests {
     fn test_parse_glob_pattern_case_insensitive() {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
-        let path_converter = RepoPathUiConverter::Fs {
-            cwd: PathBuf::from("/ws/cur"),
-            base: PathBuf::from("/ws"),
+        let context = FilesetParseContext {
+            path_converter: &RepoPathUiConverter::Fs {
+                cwd: PathBuf::from("/ws/cur"),
+                base: PathBuf::from("/ws"),
+            },
         };
-        let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &path_converter);
+        let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
         // cwd-relative case-insensitive glob
         insta::assert_debug_snapshot!(
@@ -1062,12 +1075,14 @@ mod tests {
     fn test_parse_prefix_glob_pattern() {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
-        let path_converter = RepoPathUiConverter::Fs {
-            // meta character in cwd path shouldn't be expanded
-            cwd: PathBuf::from("/ws/cur*"),
-            base: PathBuf::from("/ws"),
+        let context = FilesetParseContext {
+            path_converter: &RepoPathUiConverter::Fs {
+                // meta character in cwd path shouldn't be expanded
+                cwd: PathBuf::from("/ws/cur*"),
+                base: PathBuf::from("/ws"),
+            },
         };
-        let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &path_converter);
+        let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
         // cwd-relative, without meta/case-insensitive characters
         insta::assert_debug_snapshot!(
@@ -1160,11 +1175,13 @@ mod tests {
     fn test_parse_function() {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
-        let path_converter = RepoPathUiConverter::Fs {
-            cwd: PathBuf::from("/ws/cur"),
-            base: PathBuf::from("/ws"),
+        let context = FilesetParseContext {
+            path_converter: &RepoPathUiConverter::Fs {
+                cwd: PathBuf::from("/ws/cur"),
+                base: PathBuf::from("/ws"),
+            },
         };
-        let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &path_converter);
+        let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
         insta::assert_debug_snapshot!(parse("all()").unwrap(), @"All");
         insta::assert_debug_snapshot!(parse("none()").unwrap(), @"None");
@@ -1188,11 +1205,13 @@ mod tests {
     fn test_parse_compound_expression() {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
-        let path_converter = RepoPathUiConverter::Fs {
-            cwd: PathBuf::from("/ws/cur"),
-            base: PathBuf::from("/ws"),
+        let context = FilesetParseContext {
+            path_converter: &RepoPathUiConverter::Fs {
+                cwd: PathBuf::from("/ws/cur"),
+                base: PathBuf::from("/ws"),
+            },
         };
-        let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &path_converter);
+        let parse = |text| parse_maybe_bare(&mut FilesetDiagnostics::new(), text, &context);
 
         insta::assert_debug_snapshot!(parse("~x").unwrap(), @r#"
         Difference(

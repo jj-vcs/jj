@@ -29,6 +29,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::time::SystemTime;
 
 use bstr::ByteVec as _;
@@ -67,6 +68,7 @@ use jj_lib::conflicts::ConflictMarkerStyle;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
+use jj_lib::fileset::FilesetParseContext;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::gitignore::GitIgnoreFile;
 use jj_lib::id_prefix::IdPrefixContext;
@@ -852,6 +854,26 @@ impl WorkspaceCommandEnvironment {
         &self.workspace_name
     }
 
+    /// Parsing context for fileset expressions specified by command arguments.
+    pub(crate) fn fileset_parse_context(&self) -> FilesetParseContext<'_> {
+        FilesetParseContext {
+            path_converter: &self.path_converter,
+        }
+    }
+
+    /// Parsing context for fileset expressions loaded from config files.
+    pub(crate) fn fileset_parse_context_for_config(&self) -> FilesetParseContext<'_> {
+        // TODO: bump MSRV to 1.91.0 to leverage const PathBuf::new()
+        static ROOT_PATH_CONVERTER: LazyLock<RepoPathUiConverter> =
+            LazyLock::new(|| RepoPathUiConverter::Fs {
+                cwd: PathBuf::new(),
+                base: PathBuf::new(),
+            });
+        FilesetParseContext {
+            path_converter: &ROOT_PATH_CONVERTER,
+        }
+    }
+
     pub(crate) fn revset_parse_context(&self) -> RevsetParseContext<'_> {
         let workspace_context = RevsetWorkspaceContext {
             path_converter: &self.path_converter,
@@ -1443,9 +1465,10 @@ to the current parents may contain changes from multiple commits.
         file_args: &[String], // TODO: introduce FileArg newtype?
     ) -> Result<FilesetExpression, CommandError> {
         let mut diagnostics = FilesetDiagnostics::new();
+        let context = self.env.fileset_parse_context();
         let expressions: Vec<_> = file_args
             .iter()
-            .map(|arg| fileset::parse_maybe_bare(&mut diagnostics, arg, self.path_converter()))
+            .map(|arg| fileset::parse_maybe_bare(&mut diagnostics, arg, &context))
             .try_collect()?;
         print_parse_diagnostics(ui, "In fileset expression", &diagnostics)?;
         Ok(FilesetExpression::union_all(expressions))
@@ -1454,14 +1477,8 @@ to the current parents may contain changes from multiple commits.
     pub fn auto_tracking_matcher(&self, ui: &Ui) -> Result<Box<dyn Matcher>, CommandError> {
         let mut diagnostics = FilesetDiagnostics::new();
         let pattern = self.settings().get_string("snapshot.auto-track")?;
-        let expression = fileset::parse(
-            &mut diagnostics,
-            &pattern,
-            &RepoPathUiConverter::Fs {
-                cwd: "".into(),
-                base: "".into(),
-            },
-        )?;
+        let context = self.env.fileset_parse_context_for_config();
+        let expression = fileset::parse(&mut diagnostics, &pattern, &context)?;
         print_parse_diagnostics(ui, "In `snapshot.auto-track`", &diagnostics)?;
         Ok(expression.to_matcher())
     }

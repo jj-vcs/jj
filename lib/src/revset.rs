@@ -37,6 +37,7 @@ use crate::dsl_util::collect_similar;
 use crate::fileset;
 use crate::fileset::FilesetDiagnostics;
 use crate::fileset::FilesetExpression;
+use crate::fileset::FilesetParseContext;
 use crate::graph::GraphNode;
 use crate::id_prefix::IdPrefixContext;
 use crate::id_prefix::IdPrefixIndex;
@@ -1100,14 +1101,14 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         Ok(RevsetExpression::is_empty())
     });
     map.insert("files", |diagnostics, function, context| {
-        let ctx = context.workspace.as_ref().ok_or_else(|| {
+        let fileset_context = context.fileset_parse_context().ok_or_else(|| {
             RevsetParseError::with_span(
                 RevsetParseErrorKind::FsPathWithoutWorkspace,
                 function.args_span, // TODO: better to use name_span?
             )
         })?;
         let [arg] = function.expect_exact_arguments()?;
-        let expr = expect_fileset_expression(diagnostics, arg, ctx.path_converter)?;
+        let expr = expect_fileset_expression(diagnostics, arg, &fileset_context)?;
         Ok(RevsetExpression::filter(RevsetFilterPredicate::File(expr)))
     });
     map.insert("diff_lines", |diagnostics, function, context| {
@@ -1121,13 +1122,13 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
         let ([text_arg], [files_opt_arg]) = function.expect_arguments()?;
         let text = expect_string_expression(diagnostics, text_arg, context)?;
         let files = if let Some(files_arg) = files_opt_arg {
-            let ctx = context.workspace.as_ref().ok_or_else(|| {
+            let fileset_context = context.fileset_parse_context().ok_or_else(|| {
                 RevsetParseError::with_span(
                     RevsetParseErrorKind::FsPathWithoutWorkspace,
                     files_arg.span,
                 )
             })?;
-            expect_fileset_expression(diagnostics, files_arg, ctx.path_converter)?
+            expect_fileset_expression(diagnostics, files_arg, &fileset_context)?
         } else {
             // TODO: defaults to CLI path arguments?
             // https://github.com/jj-vcs/jj/issues/2933#issuecomment-1925870731
@@ -1178,14 +1179,14 @@ static BUILTIN_FUNCTION_MAP: LazyLock<HashMap<&str, RevsetFunction>> = LazyLock:
 pub fn expect_fileset_expression(
     diagnostics: &mut RevsetDiagnostics,
     node: &ExpressionNode,
-    path_converter: &RepoPathUiConverter,
+    context: &FilesetParseContext,
 ) -> Result<FilesetExpression, RevsetParseError> {
     // Alias handling is a bit tricky. The outermost expression `alias` is
     // substituted, but inner expressions `x & alias` aren't. If this seemed
     // weird, we can either transform AST or turn off revset aliases completely.
     revset_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
         let mut inner_diagnostics = FilesetDiagnostics::new();
-        let expression = fileset::parse(&mut inner_diagnostics, node.span.as_str(), path_converter)
+        let expression = fileset::parse(&mut inner_diagnostics, node.span.as_str(), context)
             .map_err(|err| {
                 RevsetParseError::expression("In fileset expression", node.span).with_source(err)
             })?;
@@ -3541,6 +3542,12 @@ impl<'a> LoweringContext<'a> {
 
     pub fn date_pattern_context(&self) -> &DatePatternContext {
         &self.date_pattern_context
+    }
+
+    pub fn fileset_parse_context(&self) -> Option<FilesetParseContext<'_>> {
+        Some(FilesetParseContext {
+            path_converter: self.workspace?.path_converter,
+        })
     }
 
     pub fn symbol_resolvers(&self) -> &'a [impl AsRef<dyn SymbolResolverExtension> + use<>] {
