@@ -852,6 +852,9 @@ fn fileset_parse_error_hint(err: &FilesetParseError) -> Option<String> {
         FilesetParseErrorKind::InvalidArguments { .. } => find_source_parse_error_hint(&err),
         FilesetParseErrorKind::RedefinedFunctionParameter => None,
         FilesetParseErrorKind::Expression(_) => find_source_parse_error_hint(&err),
+        FilesetParseErrorKind::InAliasExpansion(_)
+        | FilesetParseErrorKind::InParameterExpansion(_)
+        | FilesetParseErrorKind::RecursiveAlias(_) => None,
     }
 }
 

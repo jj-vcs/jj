@@ -30,8 +30,13 @@ use crate::dsl_util;
 use crate::dsl_util::AliasDeclaration;
 use crate::dsl_util::AliasDeclarationParser;
 use crate::dsl_util::AliasDefinitionParser;
+use crate::dsl_util::AliasExpandError;
+use crate::dsl_util::AliasExpandableExpression;
+use crate::dsl_util::AliasId;
 use crate::dsl_util::AliasesMap;
 use crate::dsl_util::Diagnostics;
+use crate::dsl_util::ExpressionFolder;
+use crate::dsl_util::FoldableExpression;
 use crate::dsl_util::InvalidArguments;
 use crate::dsl_util::StringLiteralParser;
 
@@ -116,6 +121,12 @@ pub enum FilesetParseErrorKind {
     RedefinedFunctionParameter,
     #[error("{0}")]
     Expression(String),
+    #[error("In alias `{0}`")]
+    InAliasExpansion(String),
+    #[error("In function parameter `{0}`")]
+    InParameterExpansion(String),
+    #[error("Alias `{0}` expanded recursively")]
+    RecursiveAlias(String),
 }
 
 impl FilesetParseError {
@@ -151,6 +162,26 @@ impl FilesetParseError {
     }
 }
 
+impl AliasExpandError for FilesetParseError {
+    fn invalid_arguments(err: InvalidArguments<'_>) -> Self {
+        err.into()
+    }
+
+    fn recursive_expansion(id: AliasId<'_>, span: pest::Span<'_>) -> Self {
+        Self::new(FilesetParseErrorKind::RecursiveAlias(id.to_string()), span)
+    }
+
+    fn within_alias_expansion(self, id: AliasId<'_>, span: pest::Span<'_>) -> Self {
+        let kind = match id {
+            AliasId::Symbol(_) | AliasId::Pattern(..) | AliasId::Function(..) => {
+                FilesetParseErrorKind::InAliasExpansion(id.to_string())
+            }
+            AliasId::Parameter(_) => FilesetParseErrorKind::InParameterExpansion(id.to_string()),
+        };
+        Self::new(kind, span).with_source(self)
+    }
+}
+
 impl From<pest::error::Error<Rule>> for FilesetParseError {
     fn from(err: pest::error::Error<Rule>) -> Self {
         Self {
@@ -183,13 +214,64 @@ fn rename_rules_in_pest_error(err: pest::error::Error<Rule>) -> pest::error::Err
 pub enum ExpressionKind<'i> {
     Identifier(&'i str),
     String(String),
-    /// `<name>:<value>` where `<value>` should be `Identifier` or `String`.
+    /// `<name>:<value>` where `<value>` is usually `Identifier` or `String`.
     Pattern(Box<PatternNode<'i>>),
     Unary(UnaryOp, Box<ExpressionNode<'i>>),
     Binary(BinaryOp, Box<ExpressionNode<'i>>, Box<ExpressionNode<'i>>),
     /// `x | y | ..`
     UnionAll(Vec<ExpressionNode<'i>>),
     FunctionCall(Box<FunctionCallNode<'i>>),
+    /// Identity node to preserve the span in the source text.
+    AliasExpanded(AliasId<'i>, Box<ExpressionNode<'i>>),
+}
+
+impl<'i> FoldableExpression<'i> for ExpressionKind<'i> {
+    fn fold<F>(self, folder: &mut F, span: pest::Span<'i>) -> Result<Self, F::Error>
+    where
+        F: ExpressionFolder<'i, Self> + ?Sized,
+    {
+        match self {
+            Self::Identifier(name) => folder.fold_identifier(name, span),
+            Self::String(_) => Ok(self),
+            Self::Pattern(pattern) => folder.fold_pattern(pattern, span),
+            Self::Unary(op, arg) => {
+                let arg = Box::new(folder.fold_expression(*arg)?);
+                Ok(Self::Unary(op, arg))
+            }
+            Self::Binary(op, lhs, rhs) => {
+                let lhs = Box::new(folder.fold_expression(*lhs)?);
+                let rhs = Box::new(folder.fold_expression(*rhs)?);
+                Ok(Self::Binary(op, lhs, rhs))
+            }
+            Self::UnionAll(nodes) => {
+                let nodes = dsl_util::fold_expression_nodes(folder, nodes)?;
+                Ok(Self::UnionAll(nodes))
+            }
+            Self::FunctionCall(function) => folder.fold_function_call(function, span),
+            Self::AliasExpanded(id, subst) => {
+                let subst = Box::new(folder.fold_expression(*subst)?);
+                Ok(Self::AliasExpanded(id, subst))
+            }
+        }
+    }
+}
+
+impl<'i> AliasExpandableExpression<'i> for ExpressionKind<'i> {
+    fn identifier(name: &'i str) -> Self {
+        Self::Identifier(name)
+    }
+
+    fn pattern(pattern: Box<PatternNode<'i>>) -> Self {
+        Self::Pattern(pattern)
+    }
+
+    fn function_call(function: Box<FunctionCallNode<'i>>) -> Self {
+        Self::FunctionCall(function)
+    }
+
+    fn alias_expanded(id: AliasId<'i>, subst: Box<ExpressionNode<'i>>) -> Self {
+        Self::AliasExpanded(id, subst)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -432,18 +514,72 @@ impl AliasDefinitionParser for FilesetAliasParser {
     }
 }
 
+#[cfg_attr(not(test), expect(dead_code))] // TODO
+pub fn expand_aliases<'i>(
+    node: ExpressionNode<'i>,
+    aliases_map: &'i FilesetAliasesMap,
+) -> FilesetParseResult<ExpressionNode<'i>> {
+    dsl_util::expand_aliases(node, aliases_map)
+}
+
 pub(super) fn expect_string_literal<'a>(
     type_name: &str,
     node: &'a ExpressionNode<'_>,
 ) -> FilesetParseResult<&'a str> {
-    match &node.kind {
+    catch_aliases_no_diagnostics(node, |node| match &node.kind {
         ExpressionKind::Identifier(name) => Ok(*name),
         ExpressionKind::String(name) => Ok(name),
         _ => Err(FilesetParseError::expression(
             format!("Expected {type_name}"),
             node.span,
         )),
+    })
+}
+
+/// Applies the given function to the innermost `node` by unwrapping alias
+/// expansion nodes. Appends alias expansion stack to error and diagnostics.
+pub(super) fn catch_aliases<'a, 'i, T>(
+    diagnostics: &mut FilesetDiagnostics,
+    node: &'a ExpressionNode<'i>,
+    f: impl FnOnce(&mut FilesetDiagnostics, &'a ExpressionNode<'i>) -> Result<T, FilesetParseError>,
+) -> Result<T, FilesetParseError> {
+    let (node, stack) = skip_aliases(node);
+    if stack.is_empty() {
+        f(diagnostics, node)
+    } else {
+        let mut inner_diagnostics = FilesetDiagnostics::new();
+        let result = f(&mut inner_diagnostics, node);
+        diagnostics.extend_with(inner_diagnostics, |diag| attach_aliases_err(diag, &stack));
+        result.map_err(|err| attach_aliases_err(err, &stack))
     }
+}
+
+fn catch_aliases_no_diagnostics<'a, 'i, T>(
+    node: &'a ExpressionNode<'i>,
+    f: impl FnOnce(&'a ExpressionNode<'i>) -> Result<T, FilesetParseError>,
+) -> Result<T, FilesetParseError> {
+    let (node, stack) = skip_aliases(node);
+    f(node).map_err(|err| attach_aliases_err(err, &stack))
+}
+
+fn skip_aliases<'a, 'i>(
+    mut node: &'a ExpressionNode<'i>,
+) -> (&'a ExpressionNode<'i>, Vec<(AliasId<'i>, pest::Span<'i>)>) {
+    let mut stack = Vec::new();
+    while let ExpressionKind::AliasExpanded(id, subst) = &node.kind {
+        stack.push((*id, node.span));
+        node = subst;
+    }
+    (node, stack)
+}
+
+fn attach_aliases_err(
+    err: FilesetParseError,
+    stack: &[(AliasId<'_>, pest::Span<'_>)],
+) -> FilesetParseError {
+    stack
+        .iter()
+        .rfold(err, |err, &(id, span)| err.within_alias_expansion(id, span))
 }
 
 #[cfg(test)]
@@ -451,8 +587,33 @@ mod tests {
     use assert_matches::assert_matches;
 
     use super::*;
-    use crate::dsl_util::AliasId;
     use crate::dsl_util::KeywordArgument;
+
+    #[derive(Debug)]
+    struct WithFilesetAliasesMap {
+        aliases_map: FilesetAliasesMap,
+    }
+
+    impl WithFilesetAliasesMap {
+        fn parse<'i>(&'i self, text: &'i str) -> FilesetParseResult<ExpressionNode<'i>> {
+            let node = parse_program(text)?;
+            expand_aliases(node, &self.aliases_map)
+        }
+
+        fn parse_normalized<'i>(&'i self, text: &'i str) -> ExpressionNode<'i> {
+            normalize_tree(self.parse(text).unwrap())
+        }
+    }
+
+    fn with_aliases(
+        aliases: impl IntoIterator<Item = (impl AsRef<str>, impl Into<String>)>,
+    ) -> WithFilesetAliasesMap {
+        let mut aliases_map = FilesetAliasesMap::new();
+        for (decl, defn) in aliases {
+            aliases_map.insert(decl, defn).unwrap();
+        }
+        WithFilesetAliasesMap { aliases_map }
+    }
 
     fn parse_into_kind(text: &str) -> Result<ExpressionKind<'_>, FilesetParseErrorKind> {
         parse_program(text)
@@ -529,6 +690,7 @@ mod tests {
                 let function = Box::new(normalize_function_call(*function));
                 ExpressionKind::FunctionCall(function)
             }
+            ExpressionKind::AliasExpanded(_, subst) => normalize_tree(*subst).kind,
         };
         ExpressionNode {
             kind: normalized_kind,
@@ -937,5 +1099,247 @@ mod tests {
         assert!(aliases_map.insert("k(a  , , )", "bad").is_err());
         assert!(aliases_map.insert("l(a,b,)", "bad").is_ok());
         assert!(aliases_map.insert("m(a,,b)", "bad").is_err());
+    }
+
+    #[test]
+    fn test_expand_symbol_alias() {
+        assert_eq!(
+            with_aliases([("AB", "a&b")]).parse_normalized("AB|c"),
+            parse_normalized("(a&b)|c")
+        );
+        assert_eq!(
+            with_aliases([("AB", "a|b")]).parse_normalized("AB~f(AB)"),
+            parse_normalized("(a|b)~f(a|b)")
+        );
+
+        // Not string substitution 'a&b|c', but tree substitution.
+        assert_eq!(
+            with_aliases([("BC", "b|c")]).parse_normalized("a&BC"),
+            parse_normalized("a&(b|c)")
+        );
+
+        // String literal should not be substituted with alias.
+        assert_eq!(
+            with_aliases([("A", "a")]).parse_normalized(r#"A|"A"|'A'"#),
+            parse_normalized("a|'A'|'A'")
+        );
+
+        // Kind of string pattern should not be substituted, which is similar to
+        // function name.
+        assert_eq!(
+            with_aliases([("A", "a")]).parse_normalized("A:b"),
+            parse_normalized("A:b")
+        );
+
+        // Value of string pattern can be substituted if it's an identifier.
+        assert_eq!(
+            with_aliases([("A", "a")]).parse_normalized("p:A"),
+            parse_normalized("p:a")
+        );
+        assert_eq!(
+            with_aliases([("A", "a")]).parse_normalized("p:'A'"),
+            parse_normalized("p:'A'")
+        );
+
+        // Multi-level substitution.
+        assert_eq!(
+            with_aliases([("A", "BC"), ("BC", "b|C"), ("C", "c")]).parse_normalized("A"),
+            parse_normalized("b|c")
+        );
+
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        assert_eq!(
+            with_aliases([("A", "A")]).parse("A").unwrap_err().kind,
+            FilesetParseErrorKind::InAliasExpansion("A".to_owned())
+        );
+        assert_eq!(
+            with_aliases([("A", "B"), ("B", "b|C"), ("C", "c|B")])
+                .parse("A")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InAliasExpansion("A".to_owned())
+        );
+
+        // Error in alias definition.
+        assert_eq!(
+            with_aliases([("A", "a(")]).parse("A").unwrap_err().kind,
+            FilesetParseErrorKind::InAliasExpansion("A".to_owned())
+        );
+    }
+
+    #[test]
+    fn test_expand_pattern_alias() {
+        assert_eq!(
+            with_aliases([("P:x", "x")]).parse_normalized("P:a"),
+            parse_normalized("a")
+        );
+
+        // Argument should be resolved in the current scope.
+        assert_eq!(
+            with_aliases([("P:x", "x|a")]).parse_normalized("P:x"),
+            parse_normalized("x|a")
+        );
+        // P:a -> (Q:a)&y -> (x|a)&y
+        assert_eq!(
+            with_aliases([("P:x", "(Q:x)&y"), ("Q:y", "x|y")]).parse_normalized("P:a"),
+            parse_normalized("(x|a)&y")
+        );
+
+        // Pattern parameter should precede the symbol alias.
+        assert_eq!(
+            with_aliases([("P:X", "X"), ("X", "x")]).parse_normalized("(P:a)|X"),
+            parse_normalized("a|x")
+        );
+
+        // Pattern parameter shouldn't be expanded in symbol alias.
+        assert_eq!(
+            with_aliases([("P:x", "x|A"), ("A", "x")]).parse_normalized("P:a"),
+            parse_normalized("a|x")
+        );
+
+        // String literal should not be substituted with pattern parameter.
+        assert_eq!(
+            with_aliases([("P:x", "x|'x'")]).parse_normalized("P:a"),
+            parse_normalized("a|'x'")
+        );
+
+        // Pattern and symbol aliases reside in separate namespaces.
+        assert_eq!(
+            with_aliases([("A:x", "A"), ("A", "a")]).parse_normalized("A:x"),
+            parse_normalized("a")
+        );
+
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        assert_eq!(
+            with_aliases([("P:x", "Q:x"), ("Q:x", "R:x"), ("R:x", "P:x")])
+                .parse("P:a")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InAliasExpansion("P:x".to_owned())
+        );
+    }
+
+    #[test]
+    fn test_expand_function_alias() {
+        assert_eq!(
+            with_aliases([("F(  )", "a")]).parse_normalized("F()"),
+            parse_normalized("a")
+        );
+        assert_eq!(
+            with_aliases([("F( x  )", "x")]).parse_normalized("F(a)"),
+            parse_normalized("a")
+        );
+        assert_eq!(
+            with_aliases([("F( x,  y )", "x|y")]).parse_normalized("F(a, b)"),
+            parse_normalized("a|b")
+        );
+
+        // Not recursion because functions are overloaded by arity.
+        assert_eq!(
+            with_aliases([("F(x)", "F(x,b)"), ("F(x,y)", "x|y")]).parse_normalized("F(a)"),
+            parse_normalized("a|b")
+        );
+
+        // Arguments should be resolved in the current scope.
+        assert_eq!(
+            with_aliases([("F(x,y)", "x|y")]).parse_normalized("F(a~y,b~x)"),
+            parse_normalized("(a~y)|(b~x)")
+        );
+        // F(a) -> G(a)&y -> (x|a)&y
+        assert_eq!(
+            with_aliases([("F(x)", "G(x)&y"), ("G(y)", "x|y")]).parse_normalized("F(a)"),
+            parse_normalized("(x|a)&y")
+        );
+        // F(G(a)) -> F(x|a) -> G(x|a)&y -> (x|(x|a))&y
+        assert_eq!(
+            with_aliases([("F(x)", "G(x)&y"), ("G(y)", "x|y")]).parse_normalized("F(G(a))"),
+            parse_normalized("(x|(x|a))&y")
+        );
+
+        // Function parameter should precede the symbol alias.
+        assert_eq!(
+            with_aliases([("F(X)", "X"), ("X", "x")]).parse_normalized("F(a)|X"),
+            parse_normalized("a|x")
+        );
+
+        // Function parameter shouldn't be expanded in symbol alias.
+        assert_eq!(
+            with_aliases([("F(x)", "x|A"), ("A", "x")]).parse_normalized("F(a)"),
+            parse_normalized("a|x")
+        );
+
+        // String literal should not be substituted with function parameter.
+        assert_eq!(
+            with_aliases([("F(x)", "x|'x'")]).parse_normalized("F(a)"),
+            parse_normalized("a|'x'")
+        );
+
+        // Function and symbol aliases reside in separate namespaces.
+        assert_eq!(
+            with_aliases([("A()", "A"), ("A", "a")]).parse_normalized("A()"),
+            parse_normalized("a")
+        );
+
+        // Invalid number of arguments.
+        assert_eq!(
+            with_aliases([("F()", "x")]).parse("F(a)").unwrap_err().kind,
+            FilesetParseErrorKind::InvalidArguments {
+                name: "F".to_owned(),
+                message: "Expected 0 arguments".to_owned()
+            }
+        );
+        assert_eq!(
+            with_aliases([("F(x)", "x")]).parse("F()").unwrap_err().kind,
+            FilesetParseErrorKind::InvalidArguments {
+                name: "F".to_owned(),
+                message: "Expected 1 arguments".to_owned()
+            }
+        );
+        assert_eq!(
+            with_aliases([("F(x,y)", "x|y")])
+                .parse("F(a,b,c)")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InvalidArguments {
+                name: "F".to_owned(),
+                message: "Expected 2 arguments".to_owned()
+            }
+        );
+        assert_eq!(
+            with_aliases([("F(x)", "x"), ("F(x,y)", "x|y")])
+                .parse("F()")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InvalidArguments {
+                name: "F".to_owned(),
+                message: "Expected 1 to 2 arguments".to_owned()
+            }
+        );
+        assert_eq!(
+            with_aliases([("F()", "x"), ("F(x,y)", "x|y")])
+                .parse("F(a)")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InvalidArguments {
+                name: "F".to_owned(),
+                message: "Expected 0, 2 arguments".to_owned()
+            }
+        );
+
+        // Infinite recursion, where the top-level error isn't of RecursiveAlias kind.
+        assert_eq!(
+            with_aliases([("F(x)", "G(x)"), ("G(x)", "H(x)"), ("H(x)", "F(x)")])
+                .parse("F(a)")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InAliasExpansion("F(x)".to_owned())
+        );
+        assert_eq!(
+            with_aliases([("F(x)", "F(x,b)"), ("F(x,y)", "F(x|y)")])
+                .parse("F(a)")
+                .unwrap_err()
+                .kind,
+            FilesetParseErrorKind::InAliasExpansion("F(x)".to_owned())
+        );
     }
 }

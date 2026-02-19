@@ -548,50 +548,53 @@ fn resolve_expression(
     path_converter: &RepoPathUiConverter,
     node: &ExpressionNode,
 ) -> FilesetParseResult<FilesetExpression> {
-    let wrap_pattern_error =
-        |err| FilesetParseError::expression("Invalid file pattern", node.span).with_source(err);
-    match &node.kind {
-        ExpressionKind::Identifier(name) => {
-            let pattern =
-                FilePattern::cwd_prefix_glob(path_converter, name).map_err(wrap_pattern_error)?;
-            Ok(FilesetExpression::pattern(pattern))
-        }
-        ExpressionKind::String(name) => {
-            let pattern =
-                FilePattern::cwd_prefix_glob(path_converter, name).map_err(wrap_pattern_error)?;
-            Ok(FilesetExpression::pattern(pattern))
-        }
-        ExpressionKind::Pattern(pattern) => {
-            let value = fileset_parser::expect_string_literal("string", &pattern.value)?;
-            let pattern = FilePattern::from_str_kind(path_converter, value, pattern.name)
-                .map_err(wrap_pattern_error)?;
-            Ok(FilesetExpression::pattern(pattern))
-        }
-        ExpressionKind::Unary(op, arg_node) => {
-            let arg = resolve_expression(diagnostics, path_converter, arg_node)?;
-            match op {
-                UnaryOp::Negate => Ok(FilesetExpression::all().difference(arg)),
+    fileset_parser::catch_aliases(diagnostics, node, |diagnostics, node| {
+        let wrap_pattern_error =
+            |err| FilesetParseError::expression("Invalid file pattern", node.span).with_source(err);
+        match &node.kind {
+            ExpressionKind::Identifier(name) => {
+                let pattern = FilePattern::cwd_prefix_glob(path_converter, name)
+                    .map_err(wrap_pattern_error)?;
+                Ok(FilesetExpression::pattern(pattern))
             }
-        }
-        ExpressionKind::Binary(op, lhs_node, rhs_node) => {
-            let lhs = resolve_expression(diagnostics, path_converter, lhs_node)?;
-            let rhs = resolve_expression(diagnostics, path_converter, rhs_node)?;
-            match op {
-                BinaryOp::Intersection => Ok(lhs.intersection(rhs)),
-                BinaryOp::Difference => Ok(lhs.difference(rhs)),
+            ExpressionKind::String(name) => {
+                let pattern = FilePattern::cwd_prefix_glob(path_converter, name)
+                    .map_err(wrap_pattern_error)?;
+                Ok(FilesetExpression::pattern(pattern))
             }
+            ExpressionKind::Pattern(pattern) => {
+                let value = fileset_parser::expect_string_literal("string", &pattern.value)?;
+                let pattern = FilePattern::from_str_kind(path_converter, value, pattern.name)
+                    .map_err(wrap_pattern_error)?;
+                Ok(FilesetExpression::pattern(pattern))
+            }
+            ExpressionKind::Unary(op, arg_node) => {
+                let arg = resolve_expression(diagnostics, path_converter, arg_node)?;
+                match op {
+                    UnaryOp::Negate => Ok(FilesetExpression::all().difference(arg)),
+                }
+            }
+            ExpressionKind::Binary(op, lhs_node, rhs_node) => {
+                let lhs = resolve_expression(diagnostics, path_converter, lhs_node)?;
+                let rhs = resolve_expression(diagnostics, path_converter, rhs_node)?;
+                match op {
+                    BinaryOp::Intersection => Ok(lhs.intersection(rhs)),
+                    BinaryOp::Difference => Ok(lhs.difference(rhs)),
+                }
+            }
+            ExpressionKind::UnionAll(nodes) => {
+                let expressions = nodes
+                    .iter()
+                    .map(|node| resolve_expression(diagnostics, path_converter, node))
+                    .try_collect()?;
+                Ok(FilesetExpression::union_all(expressions))
+            }
+            ExpressionKind::FunctionCall(function) => {
+                resolve_function(diagnostics, path_converter, function)
+            }
+            ExpressionKind::AliasExpanded(..) => unreachable!(),
         }
-        ExpressionKind::UnionAll(nodes) => {
-            let expressions = nodes
-                .iter()
-                .map(|node| resolve_expression(diagnostics, path_converter, node))
-                .try_collect()?;
-            Ok(FilesetExpression::union_all(expressions))
-        }
-        ExpressionKind::FunctionCall(function) => {
-            resolve_function(diagnostics, path_converter, function)
-        }
-    }
+    })
 }
 
 /// Parses text into `FilesetExpression` without bare string fallback.
