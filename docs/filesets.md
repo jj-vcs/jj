@@ -70,12 +70,14 @@ y) | z` or `x & (y | z)`.
 
 1. * `f(x)`: Function call.
 
-2. * `~x`: Matches everything but `x`.
+2. * `p:x`: File pattern or pattern alias named `p`.
 
-3. * `x & y`: Matches both `x` and `y`.
+3. * `~x`: Matches everything but `x`.
+
+4. * `x & y`: Matches both `x` and `y`.
    * `x ~ y`: Matches `x` but not `y`.
 
-4. * `x | y`: Matches either `x` or `y` (or both).
+5. * `x | y`: Matches either `x` or `y` (or both).
 
 ## Functions
 

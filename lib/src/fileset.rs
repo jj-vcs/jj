@@ -728,6 +728,10 @@ mod tests {
         insta::assert_debug_snapshot!(
             parse("root-file:bar").unwrap(),
             @r#"Pattern(FilePath("bar"))"#);
+
+        insta::assert_debug_snapshot!(
+            parse("file:(foo|bar)").unwrap_err().kind(),
+            @r#"Expression("Expected string")"#);
     }
 
     #[test]

@@ -65,17 +65,13 @@ formal_parameters = {
   | ""
 }
 
-string_pattern = {
-  strict_identifier
-  ~ pattern_kind_op
-  ~ (identifier | string_literal | raw_string_literal)
-}
+pattern = { strict_identifier ~ pattern_kind_op ~ primary }
 bare_string_pattern = { strict_identifier ~ pattern_kind_op ~ bare_string }
 
 primary = {
   "(" ~ whitespace* ~ expression ~ whitespace* ~ ")"
   | function
-  | string_pattern
+  | pattern
   | identifier
   | string_literal
   | raw_string_literal

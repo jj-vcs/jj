@@ -216,7 +216,7 @@ fn test_bad_function_call() {
     1 | not::a-fileset
       |     ^---
       |
-      = expected <identifier>, <string_literal>, or <raw_string_literal>
+      = expected <primary>
     Hint: See https://docs.jj-vcs.dev/latest/filesets/ or use `jj help -k filesets` for filesets syntax and how to match file paths.
     [EOF]
     [exit status: 1]
