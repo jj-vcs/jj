@@ -86,6 +86,60 @@ fn test_gerrit_upload_dryrun() {
 }
 
 #[test]
+fn test_gerrit_upload_option_failure() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    // upload options are validated before anything else
+    // malformed custom option
+    let output = work_dir.run_jj(["gerrit", "upload", "--custom", "foo"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Custom values must be of the form 'key:value'. Got foo
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // mutually exclusive flags
+    let output = work_dir.run_jj(["gerrit", "upload", "--wip", "--ready"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: --wip and --ready are mutually exclusive
+    [EOF]
+    [exit status: 1]
+    ");
+    let output = work_dir.run_jj(["gerrit", "upload", "--private", "--remove-private"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: --private and --remove-private are mutually exclusive
+    [EOF]
+    [exit status: 1]
+    ");
+    let output = work_dir.run_jj([
+        "gerrit",
+        "upload",
+        "--publish-comments",
+        "--no-publish-comments",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: --publish-comments and --no-publish-comments are mutually exclusive
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // cannot skip validation without submitting
+    let output = work_dir.run_jj(["gerrit", "upload", "--skip-validation"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: --skip-validation is only supported for --submit
+    [EOF]
+    [exit status: 1]
+    ");
+}
+
+#[test]
 fn test_gerrit_upload_failure() {
     let test_env = TestEnvironment::default();
     test_env
