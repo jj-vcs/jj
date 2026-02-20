@@ -6710,6 +6710,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   This includes, for example, <code>--reviewer=foo@example.com</code> and
   <code>--label=Auto-Submit</code>.</p>
 </li>
+<li>
+<p><code>jj gerrit upload</code> now recognizes Change-Id explicitly set via the alternative
+  trailer <code>Link</code>, and will generate a <code>Link: &lt;review-url&gt;/id/&lt;change-id&gt;</code> trailer
+  if <code>gerrit.review-url</code> option is set.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <h2 id="0380-2026-02-04"><a href="https://github.com/jj-vcs/jj/compare/v0.37.0...v0.38.0">0.38.0</a> - 2026-02-04<a class="headerlink" href="#0380-2026-02-04" title="Permanent link">&para;</a></h2>

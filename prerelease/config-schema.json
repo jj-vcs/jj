@@ -537,6 +537,10 @@
                 "default-remote-branch": {
                     "type": "string",
                     "description": "The default branch to propose changes for"
+                },
+                "review-url": {
+                    "type": "string",
+                    "description": "Generate Link trailers with this URL instead of Change-Id trailers in `jj gerrit upload`"
                 }
             }
         },

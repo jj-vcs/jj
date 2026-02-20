@@ -511,6 +511,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#alternative-link-trailer" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alternative Link trailer
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2027,6 +2036,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#alternative-link-trailer" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alternative Link trailer
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2168,6 +2186,11 @@ footers associated with the desired changes. Be sure not to duplicate the same
 <code>Change-Id</code> across different changes. Gerrit will reject pushes that contain
 duplicate <code>Change-Id</code>s, but if the uploads are done separately, you may
 unintentionally overwrite an existing change.</p>
+<h2 id="alternative-link-trailer">Alternative <code>Link</code> trailer<a class="headerlink" href="#alternative-link-trailer" title="Permanent link">&para;</a></h2>
+<p>Since version 3.3.1 Gerrit supports an alternative to the <code>Change-Id</code> trailer,
+using a <code>Link</code> trailer in the format of <code>&lt;reviewUrl&gt;/id/I&lt;changeid&gt;</code>. It is only
+documented in the <a href="https://gerrit-documentation.storage.googleapis.com/Documentation/3.3.1/cmd-hook-commit-msg.html">commig-msg hook documentation</a>. Jujutsu's <code>jj gerrit upload</code>
+will do the same if you set <code>jj config set --repo gerrit.review-url &lt;reviewUrl&gt;</code>.</p>
 
 
 
