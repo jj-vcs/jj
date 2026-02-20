@@ -15,6 +15,7 @@
 mod builtin;
 mod diff_working_copies;
 mod external;
+mod select_term;
 
 use std::sync::Arc;
 
@@ -56,9 +57,12 @@ use self::external::edit_diff_external;
 pub use self::external::generate_diff;
 pub use self::external::invoke_external_diff;
 use crate::config::CommandNameAndArgs;
+use crate::merge_tools::select_term::SelectToolError;
+use crate::merge_tools::select_term::select_term;
 use crate::ui::Ui;
 
 const BUILTIN_EDITOR_NAME: &str = ":builtin";
+const SELECT_TOOL_NAME: &str = ":select";
 const OURS_TOOL_NAME: &str = ":ours";
 const THEIRS_TOOL_NAME: &str = ":theirs";
 
@@ -87,7 +91,9 @@ pub enum DiffGenerateError {
 #[derive(Debug, Error)]
 pub enum ConflictResolveError {
     #[error(transparent)]
-    InternalTool(#[from] Box<BuiltinToolError>),
+    BuiltinTool(#[from] Box<BuiltinToolError>),
+    #[error(transparent)]
+    SelectTool(#[from] Box<SelectToolError>),
     #[error(transparent)]
     ExternalTool(#[from] ExternalToolError),
     #[error(transparent)]
@@ -137,6 +143,7 @@ pub enum MergeToolConfigError {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum MergeTool {
     Builtin,
+    Select,
     Ours,
     Theirs,
     // Boxed because ExternalMergeTool is big compared to the Builtin variant.
@@ -156,6 +163,7 @@ impl MergeTool {
     ) -> Result<Option<Self>, MergeToolConfigError> {
         match name {
             BUILTIN_EDITOR_NAME => Ok(Some(Self::Builtin)),
+            SELECT_TOOL_NAME => Ok(Some(Self::Select)),
             OURS_TOOL_NAME => Ok(Some(Self::Ours)),
             THEIRS_TOOL_NAME => Ok(Some(Self::Theirs)),
             _ => Ok(get_external_tool_config(settings, name)?.map(Self::external)),
@@ -432,22 +440,28 @@ impl MergeEditor {
         tree: &MergedTree,
         repo_paths: &[&RepoPath],
     ) -> Result<(MergedTree, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
-        let merge_tool_files: Vec<MergeToolFile> = repo_paths
-            .iter()
-            .map(|&repo_path| MergeToolFile::from_tree_and_path(tree, repo_path))
-            .try_collect()?;
+        let get_merge_tool_files = || -> Result<Vec<MergeToolFile>, ConflictResolveError> {
+            repo_paths
+                .iter()
+                .map(|&repo_path| MergeToolFile::from_tree_and_path(tree, repo_path))
+                .try_collect()
+        };
 
         match &self.tool {
             MergeTool::Builtin => {
-                let tree = edit_merge_builtin(tree, &merge_tool_files).map_err(Box::new)?;
+                let tree = edit_merge_builtin(tree, &get_merge_tool_files()?).map_err(Box::new)?;
+                Ok((tree, None))
+            }
+            MergeTool::Select => {
+                let tree = select_term(ui, tree, repo_paths).map_err(Box::new)?;
                 Ok((tree, None))
             }
             MergeTool::Ours => {
-                let tree = pick_conflict_side(tree, &merge_tool_files, 0)?;
+                let tree = pick_conflict_side(tree, &get_merge_tool_files()?, 0)?;
                 Ok((tree, None))
             }
             MergeTool::Theirs => {
-                let tree = pick_conflict_side(tree, &merge_tool_files, 1)?;
+                let tree = pick_conflict_side(tree, &get_merge_tool_files()?, 1)?;
                 Ok((tree, None))
             }
             MergeTool::External(editor) => external::run_mergetool_external(
@@ -455,7 +469,7 @@ impl MergeEditor {
                 &self.path_converter,
                 editor,
                 tree,
-                &merge_tool_files,
+                &get_merge_tool_files()?,
                 self.conflict_marker_style,
             ),
         }

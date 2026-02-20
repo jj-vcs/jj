@@ -71,6 +71,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   This includes, for example, `--reviewer=foo@example.com` and
   `--label=Auto-Submit`.
 
+* `jj resolve --tool :select` can be used to interactively select a single
+  side of a conflict to keep, discarding all other sides.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04
