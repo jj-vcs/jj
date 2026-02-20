@@ -15,6 +15,7 @@ join(" ",
 config_list = 'builtin_config_list'
 
 draft_commit_description = 'builtin_draft_commit_description'
+draft_commit_description_verbose = 'builtin_draft_commit_description_verbose'
 
 duplicate_description = 'description'
 new_description = ''
@@ -109,6 +110,14 @@ concat(
     "JJ: This commit contains the following changes:\n", "",
     indent("JJ:     ", diff.summary()),
   ),
+)
+'''
+
+builtin_draft_commit_description_verbose = '''
+concat(
+  builtin_draft_commit_description,
+  "JJ: ignore-rest\n",
+  diff.git(),
 )
 '''
 

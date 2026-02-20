@@ -348,7 +348,7 @@ pub(crate) fn cmd_squash(
                     commit_builder.set_description(&description_with_trailers);
                     let temp_commit = commit_builder.write_hidden().block_on()?;
                     let intro = "";
-                    let template = description_template(ui, &tx, intro, &temp_commit)?;
+                    let template = description_template(ui, &tx, intro, &temp_commit, false)?;
                     edit_description(&text_editor, &template)?
                 } else {
                     description_with_trailers
@@ -368,7 +368,7 @@ pub(crate) fn cmd_squash(
             commit_builder.set_description(combined);
             let temp_commit = commit_builder.write_hidden().block_on()?;
             let intro = "Enter a description for the combined commit.";
-            let template = description_template(ui, &tx, intro, &temp_commit)?;
+            let template = description_template(ui, &tx, intro, &temp_commit, false)?;
             edit_description(&text_editor, &template)?
         };
         commit_builder.set_description(description);

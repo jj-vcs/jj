@@ -694,6 +694,23 @@ fn test_describe_default_description() {
 }
 
 #[test]
+fn test_describe_default_description_verbose_diff() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    work_dir.run_jj(["describe", "-v"]).success();
+
+    let editor = std::fs::read_to_string(test_env.env_root().join("editor")).unwrap();
+    assert!(editor.contains("JJ: ignore-rest"));
+    assert!(editor.contains("diff --git a/file1 b/file1"));
+    assert!(editor.contains("+foo"));
+}
+
+#[test]
 fn test_describe_author() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();

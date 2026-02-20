@@ -76,6 +76,10 @@ pub(crate) struct CommitArgs {
     #[arg(long)]
     editor: bool,
 
+    /// Include a commented full diff in the editor
+    #[arg(short, long)]
+    verbose: bool,
+
     /// Put these paths in the current commit
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     #[arg(add = ArgValueCompleter::new(complete::modified_files))]
@@ -200,7 +204,7 @@ new working-copy commit.
         commit_builder.set_description(description);
         let temp_commit = commit_builder.write_hidden().block_on()?;
         let intro = "";
-        let description = description_template(ui, &tx, intro, &temp_commit)?;
+        let description = description_template(ui, &tx, intro, &temp_commit, args.verbose)?;
         let description = edit_description(&text_editor, &description)?;
         if description.is_empty() {
             writedoc!(
