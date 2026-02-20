@@ -630,6 +630,34 @@ fn test_bookmark_rename() {
     [exit status: 1]
     ");
 
+    // Rename to the same name is an error (bookmark already exists)
+    let output = work_dir.run_jj(["bookmark", "rename", "blocal1", "blocal1"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Bookmark already exists: blocal1
+    [EOF]
+    [exit status: 1]
+    ");
+
+    // Rename to the same name with --overwrite-existing is a noop
+    let output = work_dir.run_jj([
+        "bookmark",
+        "rename",
+        "--overwrite-existing",
+        "blocal1",
+        "blocal1",
+    ]);
+    insta::assert_snapshot!(output, @"");
+
+    let output = work_dir.run_jj([
+        "bookmark",
+        "rename",
+        "--overwrite-existing",
+        "blocal1",
+        "bexist",
+    ]);
+    insta::assert_snapshot!(output, @"");
+
     work_dir.run_jj(["new"]).success();
     work_dir.run_jj(["describe", "-m=commit-2"]).success();
     work_dir
@@ -661,7 +689,7 @@ fn test_bookmark_rename() {
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Changes to push to origin:
-      Add bookmark bremote2 to a9d7418c1c3f
+      Add bookmark bremote2 to 79b00f5a00d0
     [EOF]
     ");
     work_dir
@@ -680,7 +708,80 @@ fn test_bookmark_rename() {
     [EOF]
     ");
 
+    // overwrite-existing where the overwritten bookmark has a present+tracked
+    // remote: the tracked state should be dropped and local should move.
+    work_dir
+        .run_jj(["op", "restore", &op_id_after_rename])
+        .success();
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["describe", "-m=commit-3"]).success();
+    work_dir
+        .run_jj(["bookmark", "create", "boverwrite"])
+        .success();
+    work_dir
+        .run_jj(["git", "push", "--allow-new", "-b=boverwrite"])
+        .success();
+    // Now rename bremote2 -> boverwrite with --overwrite-existing.
+    // boverwrite@origin was tracked; after overwrite it should be untracked
+    // and the local should point to bremote2's target (commit-2).
+    let output = work_dir.run_jj([
+        "bookmark",
+        "rename",
+        "--overwrite-existing",
+        "bremote2",
+        "boverwrite",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: The renamed bookmark already exists on the remote 'origin', tracking state was dropped.
+    Hint: To track the existing remote bookmark, run `jj bookmark track boverwrite --remote=origin`
+    Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
+    Working copy  (@) now at: qwyusntz f5374493 (empty) (no description set)
+    Parent commit (@-)      : uuuvxpvw 95cd2f9e boverwrite@origin | (empty) commit-3
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["bookmark", "list", "--all", "boverwrite"]);
+    insta::assert_snapshot!(output, @"
+    boverwrite: lylxulpl 79b00f5a (empty) commit-2
+    boverwrite@origin: uuuvxpvw 95cd2f9e (empty) commit-3
+    [EOF]
+    ");
+
+    // overwrite-existing where old bookmark has no tracked remote on the same
+    // remote as the overwritten bookmark: should warn about dropped tracking.
+    work_dir
+        .run_jj(["op", "restore", &op_id_after_rename])
+        .success();
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["describe", "-m=commit-3"]).success();
+    work_dir.run_jj(["bookmark", "create", "bpushed"]).success();
+    work_dir
+        .run_jj(["git", "push", "--allow-new", "-b=bpushed"])
+        .success();
+    // blocal1 was renamed from blocal and has no tracked remotes.
+    // Renaming blocal1 -> bpushed should warn that bpushed@origin tracking was
+    // dropped since blocal1 wasn't tracked on origin.
+    let output = work_dir.run_jj([
+        "bookmark",
+        "rename",
+        "--overwrite-existing",
+        "bexist",
+        "bpushed",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Tracking of remote bookmark bpushed@origin was dropped.
+    Hint: Use `jj bookmark track` to re-track if needed.
+    Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
+    Working copy  (@) now at: zkyosouw b7492c1d (empty) (no description set)
+    Parent commit (@-)      : soqnvnyz 0e52e7ce bpushed@origin | (empty) commit-3
+    [EOF]
+    ");
+
     // rename an untracked bookmark
+    work_dir
+        .run_jj(["op", "restore", &op_id_after_rename])
+        .success();
     work_dir
         .run_jj(["bookmark", "untrack", "buntracked"])
         .success();
@@ -702,6 +803,46 @@ fn test_bookmark_rename_colocated() {
     // Make sure that git tracking bookmarks don't cause a warning
     let output = work_dir.run_jj(["bookmark", "rename", "blocal", "blocal1"]);
     insta::assert_snapshot!(output, @"");
+
+    // overwrite-existing in a colocated repo with a real remote:
+    // @git is filtered out by remote_matcher, but @origin should be handled.
+    let git_repo_path = test_env.env_root().join("git-repo");
+    git::init_bare(git_repo_path);
+    work_dir
+        .run_jj(["git", "remote", "add", "origin", "../git-repo"])
+        .success();
+
+    work_dir.run_jj(["new"]).success();
+    work_dir.run_jj(["describe", "-m=commit-1"]).success();
+    work_dir.run_jj(["bookmark", "create", "bpushed"]).success();
+    work_dir
+        .run_jj(["git", "push", "--allow-new", "-b=bpushed"])
+        .success();
+    // blocal1 is local-only (no tracked @origin). Overwriting bpushed should
+    // warn about bpushed@origin tracking being dropped, while @git stays quiet.
+    let output = work_dir.run_jj([
+        "bookmark",
+        "rename",
+        "--overwrite-existing",
+        "blocal1",
+        "bpushed",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Tracking of remote bookmark bpushed@origin was dropped.
+    Hint: Use `jj bookmark track` to re-track if needed.
+    Warning: The working-copy commit in workspace 'default' became immutable, so a new commit has been created on top of it.
+    Working copy  (@) now at: znkkpsqq cf8db4ba (empty) (no description set)
+    Parent commit (@-)      : royxmykx b6e46c10 bpushed@origin | (empty) commit-1
+    [EOF]
+    ");
+    let output = work_dir.run_jj(["bookmark", "list", "--all", "bpushed"]);
+    insta::assert_snapshot!(output, @"
+    bpushed: qpvuntsm f18f73f2 (empty) commit-0
+      @git: qpvuntsm f18f73f2 (empty) commit-0
+    bpushed@origin: royxmykx b6e46c10 (empty) commit-1
+    [EOF]
+    ");
 }
 
 #[test]
