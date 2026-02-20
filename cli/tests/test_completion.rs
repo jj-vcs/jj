@@ -224,6 +224,8 @@ fn test_bookmark_names() {
     aaa-tracked	x
     bbb-local	x
     bbb-tracked	x
+    --overwrite-existing	Allow renaming even if the new bookmark name already exists
+    --help	Print help (see more with '--help')
     --repository	Path to repository to operate on
     --ignore-working-copy	Don't snapshot the working copy, and don't update it
     --ignore-immutable	Allow rewriting immutable commits
@@ -234,7 +236,6 @@ fn test_bookmark_names() {
     --no-pager	Disable the pager
     --config	Additional configuration options (can be repeated)
     --config-file	Additional configuration files (can be repeated)
-    --help	Print help (see more with '--help')
     [EOF]
     ");
 
