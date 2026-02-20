@@ -112,6 +112,14 @@ concat(
 )
 '''
 
+builtin_draft_commit_description_with_diff = '''
+concat(
+  builtin_draft_commit_description,
+  "\nJJ: ignore-rest\n",
+  diff.git(),
+)
+'''
+
 builtin_evolog_compact = '''
 concat(
   builtin_log_compact(commit),

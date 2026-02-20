@@ -75,6 +75,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   trailer `Link`, and will generate a `Link: <review-url>/id/<change-id>` trailer
   if `gerrit.review-url` option is set.
 
+* New `builtin_draft_commit_description_with_diff` template that includes the
+  diff in the commit description editor, making it easier to review changes
+  while writing commit messages.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04
