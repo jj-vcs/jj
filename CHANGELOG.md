@@ -10,6 +10,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Release highlights
 
+* jj configuration can now be stored in version control. This is known as
+  "managed" configuration.
+  * The config file is stored at `$REPO/.config/jj/config.toml`
+  * Existing `jj config` subcommands now have the flag `--managed`
+  * For security reasons, jj will prompt you when managed config is available
+    to ask you whether you trust it.
+
 ### Breaking changes
 
 ### Deprecations

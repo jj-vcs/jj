@@ -31,6 +31,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj config edit`↴](#jj-config-edit)
 * [`jj config get`↴](#jj-config-get)
 * [`jj config list`↴](#jj-config-list)
+* [`jj config managed`↴](#jj-config-managed)
 * [`jj config path`↴](#jj-config-path)
 * [`jj config set`↴](#jj-config-set)
 * [`jj config unset`↴](#jj-config-unset)
@@ -670,6 +671,7 @@ See [`jj help -k config`] to know more about file locations, supported config op
 * `edit` — Start an editor on a jj config file
 * `get` — Get the value of a given config option.
 * `list` — List variables set in config files, along with their values
+* `managed` — Sets the trust level of jj's managed config stored in version control
 * `path` — Print the paths to the config files
 * `set` — Update a config file to set the given option to a given value
 * `unset` — Update a config file to unset the given option
@@ -682,7 +684,7 @@ Start an editor on a jj config file.
 
 Creates the file if it doesn't already exist regardless of what the editor does.
 
-**Usage:** `jj config edit <--user|--repo|--workspace>`
+**Usage:** `jj config edit <--user|--repo|--workspace|--managed>`
 
 **Command Alias:** `e`
 
@@ -691,6 +693,7 @@ Creates the file if it doesn't already exist regardless of what the editor does.
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--managed` — Target the managed config
 
 
 
@@ -735,6 +738,7 @@ List variables set in config files, along with their values
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--managed` — Target the managed config
 * `-T`, `--template <TEMPLATE>` — Render each variable using the given template
 
    The following keywords are available in the template expression:
@@ -758,6 +762,22 @@ List variables set in config files, along with their values
 
 
 
+## `jj config managed`
+
+Sets the trust level of jj's managed config stored in version control
+
+**Usage:** `jj config managed [OPTIONS]`
+
+**Command Alias:** `m`
+
+###### **Options:**
+
+* `--ignore` — Ignore the managed config for this repo. Use this if you don't trust the managed config and don't want to go through the process of reviewing it
+* `--notify` — Notify the user when the managed config has been updated more recently than the repo config. Use this if you want the managed config but don't trust that the repo won't have malicious changes added to it down the line
+* `--trust` — Trust the managed config. Use this only if you trust that the authors of the repo will ensure that the managed config is safe
+
+
+
 ## `jj config path`
 
 Print the paths to the config files
@@ -768,7 +788,7 @@ If `--repo` or `--workspace` is specified and the config file does not exist, jj
 
 See `jj config edit` if you'd like to immediately edit a file.
 
-**Usage:** `jj config path <--user|--repo|--workspace>`
+**Usage:** `jj config path <--user|--repo|--workspace|--managed>`
 
 **Command Alias:** `p`
 
@@ -777,6 +797,7 @@ See `jj config edit` if you'd like to immediately edit a file.
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--managed` — Target the managed config
 
 
 
@@ -784,7 +805,7 @@ See `jj config edit` if you'd like to immediately edit a file.
 
 Update a config file to set the given option to a given value
 
-**Usage:** `jj config set <--user|--repo|--workspace> <NAME> <VALUE>`
+**Usage:** `jj config set <--user|--repo|--workspace|--managed> <NAME> <VALUE>`
 
 **Command Alias:** `s`
 
@@ -802,6 +823,7 @@ Update a config file to set the given option to a given value
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--managed` — Target the managed config
 
 
 
@@ -809,7 +831,7 @@ Update a config file to set the given option to a given value
 
 Update a config file to unset the given option
 
-**Usage:** `jj config unset <--user|--repo|--workspace> <NAME>`
+**Usage:** `jj config unset <--user|--repo|--workspace|--managed> <NAME>`
 
 **Command Alias:** `u`
 
@@ -822,6 +844,7 @@ Update a config file to unset the given option
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+* `--managed` — Target the managed config
 
 
 

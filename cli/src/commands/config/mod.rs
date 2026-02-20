@@ -15,6 +15,7 @@
 mod edit;
 mod get;
 mod list;
+mod managed;
 mod path;
 mod set;
 mod unset;
@@ -24,6 +25,7 @@ use std::path::PathBuf;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigFile;
 use jj_lib::config::ConfigSource;
+use jj_lib::file_util::IoResultExt as _;
 use tracing::instrument;
 
 use self::edit::ConfigEditArgs;
@@ -32,6 +34,8 @@ use self::get::ConfigGetArgs;
 use self::get::cmd_config_get;
 use self::list::ConfigListArgs;
 use self::list::cmd_config_list;
+use self::managed::ConfigManagedArgs;
+use self::managed::cmd_config_managed;
 use self::path::ConfigPathArgs;
 use self::path::cmd_config_path;
 use self::set::ConfigSetArgs;
@@ -58,6 +62,10 @@ pub(crate) struct ConfigLevelArgs {
     /// Target the workspace-level config
     #[arg(long)]
     workspace: bool,
+
+    /// Target the managed config
+    #[arg(long)]
+    managed: bool,
 }
 
 impl ConfigLevelArgs {
@@ -68,6 +76,8 @@ impl ConfigLevelArgs {
             Some(ConfigSource::Repo)
         } else if self.workspace {
             Some(ConfigSource::Workspace)
+        } else if self.managed {
+            Some(ConfigSource::Managed)
         } else {
             None
         }
@@ -93,6 +103,13 @@ impl ConfigLevelArgs {
                 .workspace_config_path(ui)?
                 .map(|p| vec![p])
                 .ok_or_else(|| user_error("No workspace config path found"))
+        } else if self.managed {
+            config_env
+                .managed_config_path()
+                .map(|p| vec![p])
+                .ok_or_else(|| {
+                    user_error("No managed config path found - you need to be in a repo")
+                })
         } else {
             panic!("No config_level provided")
         }
@@ -135,6 +152,14 @@ impl ConfigLevelArgs {
                 config_env.workspace_config_files(ui, config)?,
                 "No workspace config path found to edit",
             )
+        } else if self.managed {
+            let config_file = pick_one(
+                config_env.managed_config_files(config)?,
+                "No managed config path found to edit - you need to be in a repo",
+            )?;
+            let config_dir = config_file.path().parent().unwrap();
+            std::fs::create_dir_all(config_dir).context(config_dir)?;
+            Ok(config_file)
         } else {
             panic!("No config_level provided")
         }
@@ -159,6 +184,8 @@ pub(crate) enum ConfigCommand {
     Get(ConfigGetArgs),
     #[command(visible_alias("l"))]
     List(ConfigListArgs),
+    #[command(visible_alias("m"))]
+    Managed(ConfigManagedArgs),
     #[command(visible_alias("p"))]
     Path(ConfigPathArgs),
     #[command(visible_alias("s"))]
@@ -177,6 +204,7 @@ pub(crate) fn cmd_config(
         ConfigCommand::Edit(args) => cmd_config_edit(ui, command, args),
         ConfigCommand::Get(args) => cmd_config_get(ui, command, args),
         ConfigCommand::List(args) => cmd_config_list(ui, command, args),
+        ConfigCommand::Managed(args) => cmd_config_managed(ui, command, args),
         ConfigCommand::Path(args) => cmd_config_path(ui, command, args),
         ConfigCommand::Set(args) => cmd_config_set(ui, command, args),
         ConfigCommand::Unset(args) => cmd_config_unset(ui, command, args),
