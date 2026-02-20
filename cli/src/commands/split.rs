@@ -324,7 +324,7 @@ pub(crate) fn cmd_split(
             commit_builder.set_description(description);
             let temp_commit = commit_builder.write_hidden().block_on()?;
             let intro = "Enter a description for the selected changes.";
-            let template = description_template(ui, &tx, intro, &temp_commit)?;
+            let template = description_template(ui, &tx, intro, &temp_commit, false)?;
             edit_description(&text_editor, &template)?
         } else {
             description
@@ -385,7 +385,7 @@ pub(crate) fn cmd_split(
             commit_builder.set_description(new_description);
             let temp_commit = commit_builder.write_hidden().block_on()?;
             let intro = "Enter a description for the remaining changes.";
-            let template = description_template(ui, &tx, intro, &temp_commit)?;
+            let template = description_template(ui, &tx, intro, &temp_commit, false)?;
             edit_description(&text_editor, &template)?
         } else {
             description

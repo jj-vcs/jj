@@ -90,6 +90,10 @@ pub(crate) struct DescribeArgs {
     #[arg(long)]
     editor: bool,
 
+    /// Include a commented full diff in the editor
+    #[arg(short, long)]
+    verbose: bool,
+
     // TODO: Delete in jj 0.42.0+
     /// Open an editor to edit the change description
     ///
@@ -251,7 +255,7 @@ pub(crate) fn cmd_describe(
 
         if let [(_, temp_commit)] = &*temp_commits {
             let intro = "";
-            let template = description_template(ui, &tx, intro, temp_commit)?;
+            let template = description_template(ui, &tx, intro, temp_commit, args.verbose)?;
             let description = edit_description(&text_editor, &template)?;
             commit_builders[0].set_description(description);
         } else {
@@ -260,7 +264,7 @@ pub(crate) fn cmd_describe(
                 missing,
                 duplicates,
                 unexpected,
-            } = edit_multiple_descriptions(ui, &text_editor, &tx, &temp_commits)?;
+            } = edit_multiple_descriptions(ui, &text_editor, &tx, &temp_commits, args.verbose)?;
             if !missing.is_empty() {
                 return Err(user_error(format!(
                     "The description for the following commits were not found in the edited \

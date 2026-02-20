@@ -81,6 +81,24 @@ fn test_commit_with_editor() {
 }
 
 #[test]
+fn test_commit_with_editor_verbose_diff() {
+    let mut test_env = TestEnvironment::default();
+    let edit_script = test_env.set_up_fake_editor();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file1", "foo\n");
+    work_dir.run_jj(["describe", "-m=add file"]).success();
+    std::fs::write(edit_script, "dump editor").unwrap();
+    work_dir.run_jj(["commit", "-v"]).success();
+
+    let editor = std::fs::read_to_string(test_env.env_root().join("editor")).unwrap();
+    assert!(editor.contains("JJ: ignore-rest"));
+    assert!(editor.contains("diff --git a/file1 b/file1"));
+    assert!(editor.contains("+foo"));
+}
+
+#[test]
 fn test_commit_with_editor_avoids_unc() {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
