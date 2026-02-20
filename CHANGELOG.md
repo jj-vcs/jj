@@ -102,6 +102,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Templates now support `Serialize` operations on the result of `map()` and
   `if()`, when supported by the underlying type.
 
+* `jj bookmark rename` now supports `--overwrite-existing` to allow renaming a
+  bookmark even if the new name already exists, effectively replacing the
+  existing bookmark.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04

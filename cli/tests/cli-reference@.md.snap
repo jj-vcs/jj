@@ -576,7 +576,7 @@ Rename `old` bookmark name to `new` bookmark name
 
 The new bookmark name points at the same commit as the old bookmark name.
 
-**Usage:** `jj bookmark rename <OLD> <NEW>`
+**Usage:** `jj bookmark rename [OPTIONS] <OLD> <NEW>`
 
 **Command Alias:** `r`
 
@@ -584,6 +584,10 @@ The new bookmark name points at the same commit as the old bookmark name.
 
 * `<OLD>` — The old name of the bookmark
 * `<NEW>` — The new name of the bookmark
+
+###### **Options:**
+
+* `--overwrite-existing` — Allow renaming even if the new bookmark name already exists
 
 
 
