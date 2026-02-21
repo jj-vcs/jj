@@ -220,8 +220,9 @@ fn do_init(
                 &config_env,
             )?;
             if !workspace_command.working_copy_shared_with_git() {
+                let workspace_name = workspace_command.workspace_name().to_owned();
                 let mut tx = workspace_command.start_transaction();
-                jj_lib::git::import_head(tx.repo_mut())?;
+                jj_lib::git::import_head(tx.repo_mut(), &workspace_name)?;
                 if let Some(git_head_id) = tx.repo().view().git_head().as_normal().cloned() {
                     let git_head_commit = tx.repo().store().get_commit(&git_head_id)?;
                     tx.check_out(&git_head_commit)?;

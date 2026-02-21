@@ -1434,8 +1434,8 @@ fn test_git_fetch_undo() {
     let output = target_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: c726c5873ddf (2001-02-03 08:05:20) fetch from git remote(s) origin
-    Restored to operation: 8aeac520a856 (2001-02-03 08:05:07) add git remote origin
+    Undid operation: 4e3fc3dff0d5 (2001-02-03 08:05:20) fetch from git remote(s) origin
+    Restored to operation: f44f86360348 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
     // The undo works as expected
@@ -1525,7 +1525,7 @@ fn test_fetch_undo_what() {
     let output = work_dir.run_jj(["op", "restore", "--what", "repo", &base_operation_id]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: 8aeac520a856 (2001-02-03 08:05:07) add git remote origin
+    Restored to operation: f44f86360348 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"
@@ -1557,7 +1557,7 @@ fn test_fetch_undo_what() {
     ]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: 8aeac520a856 (2001-02-03 08:05:07) add git remote origin
+    Restored to operation: f44f86360348 (2001-02-03 08:05:07) add git remote origin
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"

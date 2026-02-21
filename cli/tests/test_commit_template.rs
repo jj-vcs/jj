@@ -581,13 +581,13 @@ fn test_log_evolog_divergence() {
     insta::assert_snapshot!(output, @"
     @  qpvuntsm/1 test.user@example.com 2001-02-03 08:05:08 556daeb7 (divergent)
     │  description 1
-    │  -- operation fec5a045b947 describe commit d0c049cd993a8d3a2e69ba6df98788e264ea9fa1
+    │  -- operation bb07e4e2dbe1 describe commit d0c049cd993a8d3a2e69ba6df98788e264ea9fa1
     ○  qpvuntsm/2 test.user@example.com 2001-02-03 08:05:08 d0c049cd (hidden)
     │  (no description set)
-    │  -- operation 911e64a1b666 snapshot working copy
+    │  -- operation b898a5adb714 snapshot working copy
     ○  qpvuntsm/3 test.user@example.com 2001-02-03 08:05:07 e8849ae1 (hidden)
        (empty) (no description set)
-       -- operation 8f47435a3990 add workspace 'default'
+       -- operation 92406f686752 add workspace 'default'
     [EOF]
     ");
 
@@ -596,13 +596,13 @@ fn test_log_evolog_divergence() {
     insta::assert_snapshot!(output, @"
     [1m[38;5;2m@[0m  [1m[38;5;9mq[38;5;8mpvuntsm[38;5;9m/1[39m [38;5;3mtest.user@example.com[39m [38;5;14m2001-02-03 08:05:08[39m [38;5;12m55[38;5;8m6daeb7[39m [38;5;9m(divergent)[39m[0m
     │  [1mdescription 1[0m
-    │  [38;5;8m--[39m operation [38;5;4mfec5a045b947[39m describe commit d0c049cd993a8d3a2e69ba6df98788e264ea9fa1
+    │  [38;5;8m--[39m operation [38;5;4mbb07e4e2dbe1[39m describe commit d0c049cd993a8d3a2e69ba6df98788e264ea9fa1
     ○  [1m[39mq[0m[38;5;8mpvuntsm[1m[39m/2[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:08[39m [1m[38;5;4md[0m[38;5;8m0c049cd[39m (hidden)
     │  [38;5;3m(no description set)[39m
-    │  [38;5;8m--[39m operation [38;5;4m911e64a1b666[39m snapshot working copy
+    │  [38;5;8m--[39m operation [38;5;4mb898a5adb714[39m snapshot working copy
     ○  [1m[39mq[0m[38;5;8mpvuntsm[1m[39m/3[0m [38;5;3mtest.user@example.com[39m [38;5;6m2001-02-03 08:05:07[39m [1m[38;5;4me[0m[38;5;8m8849ae1[39m (hidden)
        [38;5;2m(empty)[39m [38;5;2m(no description set)[39m
-       [38;5;8m--[39m operation [38;5;4m8f47435a3990[39m add workspace 'default'
+       [38;5;8m--[39m operation [38;5;4m92406f686752[39m add workspace 'default'
     [EOF]
     ");
 }
