@@ -350,7 +350,7 @@ fn run_tui<B: ratatui::backend::Backend>(
     let mut help_spans = Vec::new();
     for (i, (key, desc)) in help_items.iter().enumerate() {
         if i > 0 {
-            help_spans.push(Span::raw(" "));
+            help_spans.push(Span::raw(" • "));
         }
         help_spans.push(Span::styled(*key, Style::default().fg(Color::Magenta)));
         help_spans.push(Span::raw(format!(" {desc}")));
