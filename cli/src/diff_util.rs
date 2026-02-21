@@ -164,6 +164,7 @@ pub enum DiffFormat {
     // Non-trivial parameters are boxed in order to keep the variants small
     Summary,
     Stat(Box<DiffStatOptions>),
+    StatSummary(Box<DiffStatOptions>),
     Types,
     NameOnly,
     Git(Box<UnifiedDiffOptions>),
@@ -175,6 +176,7 @@ pub enum DiffFormat {
 enum BuiltinFormatKind {
     Summary,
     Stat,
+    StatSummary,
     Types,
     NameOnly,
     Git,
@@ -188,6 +190,7 @@ impl BuiltinFormatKind {
     const ALL_VARIANTS: &[Self] = &[
         Self::Summary,
         Self::Stat,
+        Self::StatSummary,
         Self::Types,
         Self::NameOnly,
         Self::Git,
@@ -198,6 +201,7 @@ impl BuiltinFormatKind {
         match name {
             "summary" => Ok(Self::Summary),
             "stat" => Ok(Self::Stat),
+            "stat-summary" => Ok(Self::StatSummary),
             "types" => Ok(Self::Types),
             "name-only" => Ok(Self::NameOnly),
             "git" => Ok(Self::Git),
@@ -232,7 +236,7 @@ impl BuiltinFormatKind {
 
     fn is_short(self) -> bool {
         match self {
-            Self::Summary | Self::Stat | Self::Types | Self::NameOnly => true,
+            Self::Summary | Self::Stat | Self::StatSummary | Self::Types | Self::NameOnly => true,
             Self::Git | Self::ColorWords => false,
         }
     }
@@ -241,6 +245,7 @@ impl BuiltinFormatKind {
         match self {
             Self::Summary => "summary",
             Self::Stat => "stat",
+            Self::StatSummary => "stat-summary",
             Self::Types => "types",
             Self::NameOnly => "name-only",
             Self::Git => "git",
@@ -259,6 +264,11 @@ impl BuiltinFormatKind {
                 let mut options = DiffStatOptions::default();
                 options.merge_args(args);
                 Ok(DiffFormat::Stat(Box::new(options)))
+            }
+            Self::StatSummary => {
+                let mut options = DiffStatOptions::default();
+                options.merge_args(args);
+                Ok(DiffFormat::StatSummary(Box::new(options)))
             }
             Self::Types => Ok(DiffFormat::Types),
             Self::NameOnly => Ok(DiffFormat::NameOnly),
@@ -491,6 +501,13 @@ impl<'a> DiffRenderer<'a> {
                             .block_on()?;
                     show_diff_stats(formatter, &stats, path_converter, width)?;
                 }
+                DiffFormat::StatSummary(options) => {
+                    let tree_diff = diff_stream();
+                    let stats =
+                        DiffStats::calculate(store, tree_diff, options, self.conflict_marker_style)
+                            .block_on()?;
+                    show_diff_stat_summary(formatter, &stats)?;
+                }
                 DiffFormat::Types => {
                     let tree_diff = diff_stream();
                     show_types(formatter, tree_diff, path_converter).await?;
@@ -581,6 +598,7 @@ impl<'a> DiffRenderer<'a> {
                 // wouldn't be useful.
                 DiffFormat::Summary
                 | DiffFormat::Stat(_)
+                | DiffFormat::StatSummary(_)
                 | DiffFormat::Types
                 | DiffFormat::NameOnly => {}
                 DiffFormat::Git(options) => {
@@ -2146,7 +2164,10 @@ pub fn show_diff_stats(
             writeln!(formatter)?;
         }
     }
+    show_diff_stat_summary(formatter, stats)
+}
 
+pub fn show_diff_stat_summary(formatter: &mut dyn Formatter, stats: &DiffStats) -> io::Result<()> {
     let total_added = stats.count_total_added();
     let total_removed = stats.count_total_removed();
     let total_files = stats.entries().len();
