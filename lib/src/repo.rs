@@ -28,7 +28,6 @@ use std::sync::Arc;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
-use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -337,8 +336,8 @@ impl ReadonlyRepo {
     }
 
     #[instrument]
-    pub fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at(operation)
+    pub async fn reload_at(&self, operation: &Operation) -> Result<Arc<Self>, RepoLoaderError> {
+        self.loader().load_at(operation).await
     }
 }
 
@@ -769,8 +768,8 @@ impl RepoLoader {
     }
 
     #[instrument(skip(self))]
-    pub fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
-        let view = op.view().block_on()?;
+    pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
+        let view = op.view().await?;
         self.finish_load(op.clone(), view)
     }
 
@@ -819,7 +818,7 @@ impl RepoLoader {
             return Ok(self.root_operation().await);
         };
         let final_op = if num_operations > 1 {
-            let base_repo = self.load_at(&base_op)?;
+            let base_repo = self.load_at(&base_op).await?;
             let mut tx = base_repo.start_transaction();
             for other_op in operations {
                 tx.merge_operation(other_op)?;

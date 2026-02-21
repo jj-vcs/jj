@@ -472,7 +472,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
 
     let repo_at = |id: &OperationId| {
         let op = loader.load_operation(id).block_on().unwrap();
-        loader.load_at(&op).unwrap()
+        loader.load_at(&op).block_on().unwrap()
     };
     let head_commits = |repo: &dyn Repo| {
         repo.view()

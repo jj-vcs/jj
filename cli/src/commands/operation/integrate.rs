@@ -58,7 +58,7 @@ pub fn cmd_op_integrate(
         repo_loader.op_heads_store().as_ref(),
         repo_loader.op_store(),
         async |op_heads| -> Result<Operation, CommandError> {
-            let base_repo = repo_loader.load_at(&op_heads[0])?;
+            let base_repo = repo_loader.load_at(&op_heads[0]).block_on()?;
             // TODO: It may be helpful to print each operation we're merging here
             let mut tx = start_repo_transaction(&base_repo, command.string_args());
             for other_op_head in op_heads.into_iter().skip(1) {

@@ -50,6 +50,6 @@ fn test_load_at_operation() {
         &test_repo.env.default_store_factories(),
     )
     .unwrap();
-    let old_repo = loader.load_at(repo.operation()).unwrap();
+    let old_repo = loader.load_at(repo.operation()).block_on().unwrap();
     assert!(old_repo.view().heads().contains(commit.id()));
 }

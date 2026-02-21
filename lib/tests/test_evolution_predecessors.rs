@@ -111,7 +111,7 @@ fn test_walk_predecessors_basic_legacy_op() {
         data.commit_predecessors = None;
         let op_id = loader.op_store().write_operation(&data).block_on().unwrap();
         let op = loader.load_operation(&op_id).block_on().unwrap();
-        loader.load_at(&op).unwrap()
+        loader.load_at(&op).block_on().unwrap()
     };
 
     let entries = collect_predecessors(&repo2, commit2.id());
@@ -438,7 +438,7 @@ fn test_walk_predecessors_direct_cycle_within_op() {
         });
         let op_id = loader.op_store().write_operation(&data).block_on().unwrap();
         let op = loader.load_operation(&op_id).block_on().unwrap();
-        loader.load_at(&op).unwrap()
+        loader.load_at(&op).block_on().unwrap()
     };
     assert_matches!(
         walk_predecessors(&repo1, slice::from_ref(commit1.id())).next(),
@@ -467,7 +467,7 @@ fn test_walk_predecessors_indirect_cycle_within_op() {
         });
         let op_id = loader.op_store().write_operation(&data).block_on().unwrap();
         let op = loader.load_operation(&op_id).block_on().unwrap();
-        loader.load_at(&op).unwrap()
+        loader.load_at(&op).block_on().unwrap()
     };
     assert_matches!(
         walk_predecessors(&repo1, slice::from_ref(commit3.id())).next(),
