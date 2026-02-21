@@ -79,6 +79,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   diff in the commit description editor, making it easier to review changes
   while writing commit messages.
 
+* New command `jj bookmark advance` automatically moves bookmarks forward to a
+  target revision (defaults to `@`). With customization points
+  `revsets.advance-default-from` and `revsets.advance-default-to`.
+  The command is heavily inspired by the longstanding community alias `jj tug`.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04
