@@ -94,7 +94,6 @@ const STYLES: Styles = Styles::styled()
 enum Command {
     Abandon(abandon::AbandonArgs),
     Absorb(absorb::AbsorbArgs),
-    #[command(hide = true)]
     Arrange(arrange::ArrangeArgs),
     #[cfg(feature = "bench")]
     #[command(subcommand)]

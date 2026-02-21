@@ -280,6 +280,13 @@
     `jj rebase -r C --before B`
   Notes: ''
 
+- Use case: Reorder multiple commits at once
+  Git command: >
+    `git rebase -i`
+  Jujutsu command: >
+    `jj arrange`
+  Notes: ''
+
 - Use case: Move the diff in the current change into the parent change
   Git command: >
     `git commit --amend -a`
