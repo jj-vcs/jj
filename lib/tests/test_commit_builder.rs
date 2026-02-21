@@ -118,7 +118,7 @@ fn test_initial(backend: TestRepoBackend) {
     assert_eq!(builder.author(), &author_signature);
     assert_eq!(builder.committer(), &committer_signature);
     let commit = builder.write_unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let parents: Vec<_> = commit.parents().try_collect().unwrap();
     assert_eq!(parents, vec![store.root_commit()]);
@@ -160,7 +160,7 @@ fn test_rewrite(backend: TestRepoBackend) {
         .repo_mut()
         .new_commit(vec![store.root_commit_id().clone()], initial_tree)
         .write_unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let rewritten_tree = create_tree(
         &repo,
@@ -196,7 +196,7 @@ fn test_rewrite(backend: TestRepoBackend) {
         .set_tree(rewritten_tree)
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let parents: Vec<_> = rewritten_commit.parents().try_collect().unwrap();
     assert_eq!(parents, vec![store.root_commit()]);
     assert_eq!(
@@ -253,7 +253,7 @@ fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
     assert_eq!(initial_commit.author().email, "");
     assert_eq!(initial_commit.committer().name, "");
     assert_eq!(initial_commit.committer().email, "");
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 
     let mut config = StackedConfig::with_defaults();
     config.add_layer(
@@ -303,7 +303,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
             repo.store().empty_merged_tree(),
         )
         .write_unwrap();
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 
     let initial_timestamp =
         Timestamp::from_datetime(chrono::DateTime::parse_from_rfc3339(initial_timestamp).unwrap());
@@ -323,7 +323,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
         .set_description("No longer discardable")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 
     let new_timestamp_1 =
         Timestamp::from_datetime(chrono::DateTime::parse_from_rfc3339(new_timestamp_1).unwrap());
@@ -346,7 +346,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
         .set_description("New description")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 
     let new_timestamp_2 =
         Timestamp::from_datetime(chrono::DateTime::parse_from_rfc3339(new_timestamp_2).unwrap());
@@ -373,7 +373,7 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
             store.empty_merged_tree(),
         )
         .write_unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Create commit identical to the original
     let mut tx = repo.start_transaction();
@@ -387,7 +387,7 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
     let result = builder.write(tx.repo_mut()).block_on();
     assert_matches!(result, Err(BackendError::Other(_)));
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 
     // Create two rewritten commits of the same content and metadata
     let mut tx = repo.start_transaction();
@@ -403,7 +403,7 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
         .block_on();
     assert_matches!(result, Err(BackendError::Other(_)));
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 }
 
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
@@ -417,7 +417,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
     let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Test with for_new_commit()
     let mut tx = repo.start_transaction();

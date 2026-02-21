@@ -241,7 +241,7 @@ fn test_import_refs() {
     git::import_head(tx.repo_mut()).unwrap();
     let stats = git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let view = repo.view();
 
     assert!(stats.abandoned_commits.is_empty());
@@ -383,7 +383,7 @@ fn test_import_refs_reimport() {
     let mut tx = repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     assert!(stats.abandoned_commits.is_empty());
     let expected_heads = hashset! {
@@ -405,12 +405,12 @@ fn test_import_refs_reimport() {
         .write_unwrap();
     tx.repo_mut()
         .set_local_bookmark_target("feature2".as_ref(), RefTarget::normal(commit6.id().clone()));
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     assert_eq!(
         // The order is unstable just because we import heads from Git repo.
@@ -653,7 +653,7 @@ fn test_import_refs_reimport_with_deleted_remote_ref() {
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let expected_heads = hashset! {
             jj_id(commit_main),
@@ -710,7 +710,7 @@ fn test_import_refs_reimport_with_deleted_remote_ref() {
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let view = repo.view();
     // The local bookmarks were indeed deleted
@@ -778,7 +778,7 @@ fn test_import_refs_reimport_with_moved_remote_ref() {
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let expected_heads = hashset! {
             jj_id(commit_main),
@@ -845,7 +845,7 @@ fn test_import_refs_reimport_with_moved_remote_ref() {
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let view = repo.view();
     assert_eq!(view.bookmarks().count(), 3);
@@ -909,7 +909,7 @@ fn test_import_refs_reimport_with_moved_untracked_remote_ref() {
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let view = repo.view();
 
     assert_eq!(*view.heads(), hashset! { jj_id(commit_remote_t0) });
@@ -929,7 +929,7 @@ fn test_import_refs_reimport_with_moved_untracked_remote_ref() {
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let view = repo.view();
 
     // commit_remote_t0 should be abandoned, but commit_base shouldn't because
@@ -963,7 +963,7 @@ fn test_import_refs_reimport_with_deleted_untracked_intermediate_remote_ref() {
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let view = repo.view();
 
     assert_eq!(*view.heads(), hashset! { jj_id(commit_remote_b) });
@@ -989,7 +989,7 @@ fn test_import_refs_reimport_with_deleted_untracked_intermediate_remote_ref() {
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let view = repo.view();
 
     // No commits should be abandoned because feature-a is pinned by feature-b.
@@ -1024,7 +1024,7 @@ fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() {
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let view = repo.view();
 
     assert_eq!(*view.heads(), hashset! { jj_id(commit_remote_b) });
@@ -1056,7 +1056,7 @@ fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() {
         .unwrap();
     tx.repo_mut().record_abandoned_commit(&jj_commit_remote_b);
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let view = repo.view();
     assert_eq!(*view.heads(), hashset! { jj_id(commit_remote_a) });
     assert_eq!(view.local_bookmarks().count(), 0);
@@ -1067,7 +1067,7 @@ fn test_import_refs_reimport_with_deleted_abandoned_untracked_remote_ref() {
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let view = repo.view();
 
     // The feature-a commit should be abandoned. Since feature-b has already
@@ -1108,12 +1108,12 @@ fn test_import_refs_reimport_absent_tracked_remote_bookmarks() {
         .set_remote_bookmark(remote_symbol("foo", "origin"), absent_tracked_ref.clone());
     tx.repo_mut()
         .set_remote_bookmark(remote_symbol("foo", "upstream"), absent_tracked_ref.clone());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Import with no change.
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Absent tracked remote refs shouldn't be deleted.
     assert_eq!(
@@ -1136,7 +1136,7 @@ fn test_import_refs_reimport_absent_tracked_remote_bookmarks() {
         .unwrap();
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Tracked refs should be merged and their state should be preserved.
     assert_eq!(
@@ -1182,12 +1182,12 @@ fn test_import_refs_reimport_absent_tracked_remote_tags() {
         .set_remote_tag(remote_symbol("bar", "git"), absent_tracked_ref.clone());
     tx.repo_mut()
         .set_remote_tag(remote_symbol("foo", "git"), absent_tracked_ref.clone());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Import with no change.
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Absent tracked remote refs shouldn't be deleted.
     assert_eq!(
@@ -1210,7 +1210,7 @@ fn test_import_refs_reimport_absent_tracked_remote_tags() {
         .unwrap();
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Tracked refs should be merged and their state should be preserved.
     assert_eq!(
@@ -1254,13 +1254,13 @@ fn test_import_refs_reimport_remote_tags_deleted() {
         .set_remote_tag(remote_symbol("tag1", "git"), remote_ref1.clone());
     tx.repo_mut()
         .set_remote_tag(remote_symbol("tag1", "origin"), remote_ref1.clone());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Import "deleted" tags from Git repo.
     let mut tx = repo.start_transaction();
     let stats = git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     assert_eq!(stats.changed_remote_tags.len(), 1);
     assert_eq!(stats.changed_remote_tags[0].0, remote_symbol("tag1", "git"));
 
@@ -1410,7 +1410,7 @@ fn test_import_refs_reimport_conflicted_remote_bookmark() {
     // The conflict can be resolved by importing the current Git state
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     assert_eq!(
         repo.view().get_git_ref("refs/remotes/origin/main".as_ref()),
         &RefTarget::normal(jj_id(commit2)),
@@ -1474,7 +1474,7 @@ fn test_import_some_refs() {
     })
     .unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // There are two heads, feature2 and feature4.
     let view = repo.view();
@@ -1567,7 +1567,7 @@ fn test_import_some_refs() {
     })
     .unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // feature2 and feature4 will still be heads, and all four bookmarks should be
     // present.
@@ -1584,7 +1584,7 @@ fn test_import_some_refs() {
     .unwrap();
     // No descendant should be rewritten.
     assert_eq!(tx.repo_mut().rebase_descendants().block_on().unwrap(), 0);
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // feature2 and feature4 should still be the heads, and all three bookmarks
     // feature2, feature3, and feature3 should exist.
@@ -1601,7 +1601,7 @@ fn test_import_some_refs() {
     .unwrap();
     // No descendant should be rewritten
     assert_eq!(tx.repo_mut().rebase_descendants().block_on().unwrap(), 0);
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // feature2 and feature4 should still be the heads, and both bookmarks
     // should exist.
@@ -1617,7 +1617,7 @@ fn test_import_some_refs() {
     .unwrap();
     // No descendant should be rewritten
     assert_eq!(tx.repo_mut().rebase_descendants().block_on().unwrap(), 0);
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // feature2 should now be the only head and only bookmark.
     let view = repo.view();
@@ -1691,7 +1691,7 @@ fn test_import_refs_empty_git_repo() {
     let mut tx = test_data.repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     assert_eq!(*repo.view().heads(), heads_before);
     assert_eq!(repo.view().bookmarks().count(), 0);
     assert_eq!(repo.view().local_tags().count(), 0);
@@ -1796,7 +1796,7 @@ fn test_import_refs_detached_head() {
     git::import_head(tx.repo_mut()).unwrap();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let expected_heads = hashset! { jj_id(commit1) };
     assert_eq!(*repo.view().heads(), expected_heads);
@@ -3274,7 +3274,7 @@ fn test_fetch_initial_commit_head_is_not_set() {
     // No default bookmark because the origin repo's HEAD wasn't set
     assert_eq!(default_branch, None);
     assert!(stats.abandoned_commits.is_empty());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     // The initial commit is visible after git_fetch().
     let view = repo.view();
     assert!(view.heads().contains(&jj_id(initial_git_commit)));
@@ -3348,7 +3348,7 @@ fn test_fetch_success() {
         GitFetch::new(tx.repo_mut(), subprocess_options.clone(), &import_options).unwrap();
     fetch_all_with(&mut fetcher, "origin".as_ref()).unwrap();
     fetcher.import_refs().unwrap();
-    test_data.repo = tx.commit("test").unwrap();
+    test_data.repo = tx.commit("test").block_on().unwrap();
 
     testutils::git::set_symbolic_reference(&test_data.origin_repo, "HEAD", "refs/heads/main");
     let new_git_commit = empty_git_commit(
@@ -3374,7 +3374,7 @@ fn test_fetch_success() {
     // The default bookmark is "main"
     assert_eq!(default_branch, Some("main".into()));
     assert!(stats.abandoned_commits.is_empty());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     // The new commit is visible after we fetch again
     let view = repo.view();
     assert!(view.heads().contains(&jj_id(new_git_commit)));
@@ -3848,7 +3848,7 @@ fn test_fetch_local_remote_conflicts() {
 
     // Fetch and track bookmark and tag.
     let stats = fetch_import(tx.repo_mut());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     assert_eq!(stats.changed_remote_bookmarks.len(), 1);
     assert_eq!(stats.changed_remote_tags.len(), 1);
 
@@ -3899,13 +3899,13 @@ fn test_fetch_with_tag_changes() {
         .set_remote_tag(remote_symbol("tag2", "git"), remote_ref2.clone());
     tx.repo_mut()
         .set_remote_tag(remote_symbol("tag2", "origin"), remote_ref2.clone());
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Fetch and import refs.
     let mut tx = repo.start_transaction();
     let stats = fetch_import_all(tx.repo_mut(), "origin".as_ref());
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     assert_eq!(stats.changed_remote_tags.len(), 2);
     assert_eq!(stats.changed_remote_tags[0].0, remote_symbol("tag1", "git"));
     assert_eq!(stats.changed_remote_tags[1].0, remote_symbol("tag2", "git"));
@@ -3975,7 +3975,7 @@ fn test_fetch_with_explicit_tag_patterns() {
     // Fetch "tag2". "tag1" shouldn't be fetched implicitly.
     let mut tx = test_data.repo.start_transaction();
     let stats = fetch_import(tx.repo_mut(), StringExpression::exact("tag2"));
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     assert_eq!(stats.changed_remote_tags.len(), 1);
     assert_eq!(
         stats.changed_remote_tags[0].0,
@@ -3997,7 +3997,7 @@ fn test_fetch_with_explicit_tag_patterns() {
     // Fetch "tag1". "tag2" should be unchanged.
     let mut tx = repo.start_transaction();
     let stats = fetch_import(tx.repo_mut(), StringExpression::exact("tag1"));
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     assert_eq!(stats.changed_remote_tags.len(), 1);
     assert_eq!(
         stats.changed_remote_tags[0].0,
@@ -4069,7 +4069,7 @@ fn test_fetch_export_annotated_tags() {
     let mut tx = test_data.repo.start_transaction();
     fetch_import(tx.repo_mut());
     git::export_refs(tx.repo_mut()).unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     assert_eq!(repo.view().get_local_tag("tag1".as_ref()), &target1);
     assert_eq!(
@@ -4184,7 +4184,7 @@ fn test_fetch_with_fetch_tags_override() {
         &StringExpression::all(),
     )
     .unwrap();
-    let _repo = tx.commit("test").unwrap();
+    let _repo = tx.commit("test").block_on().unwrap();
     // Reload after Git configuration change.
     let repo = &test_repo
         .env
@@ -4215,7 +4215,7 @@ fn test_fetch_with_fetch_tags_override() {
         &StringExpression::all(),
     )
     .unwrap();
-    let _repo = tx.commit("test").unwrap();
+    let _repo = tx.commit("test").block_on().unwrap();
     // Reload after Git configuration change.
     let repo = &test_repo
         .env
@@ -4254,7 +4254,7 @@ fn test_fetch_rejected_tag_updates() {
     tx.repo_mut()
         .set_local_tag_target("tag".as_ref(), target2.clone());
     git::export_refs(tx.repo_mut()).unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Tags shouldn't be "force" updated. (#7528)
     let mut tx = repo.start_transaction();
@@ -4355,7 +4355,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
             state: RemoteRefState::Tracked,
         },
     );
-    let jj_repo = tx.commit("test").unwrap();
+    let jj_repo = tx.commit("test").block_on().unwrap();
     PushTestSetup {
         source_repo_dir,
         jj_repo,
@@ -4435,7 +4435,7 @@ fn test_push_bookmarks_success() {
     );
 
     // Check that the repo view reflects the changes in the Git repo
-    setup.jj_repo = tx.commit("test").unwrap();
+    setup.jj_repo = tx.commit("test").block_on().unwrap();
     let mut tx = setup.jj_repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     assert!(!tx.repo().has_changes());
@@ -4509,7 +4509,7 @@ fn test_push_bookmarks_deletion() {
     );
 
     // Check that the repo view reflects the changes in the Git repo
-    setup.jj_repo = tx.commit("test").unwrap();
+    setup.jj_repo = tx.commit("test").block_on().unwrap();
     let mut tx = setup.jj_repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     assert!(!tx.repo().has_changes());
@@ -4600,7 +4600,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
     );
 
     // Check that the repo view reflects the changes in the Git repo
-    setup.jj_repo = tx.commit("test").unwrap();
+    setup.jj_repo = tx.commit("test").block_on().unwrap();
     let mut tx = setup.jj_repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     assert!(!tx.repo().has_changes());
@@ -4747,7 +4747,7 @@ fn test_push_bookmarks_unmapped_refs() {
         &StringExpression::exact("dummy"),
     )
     .unwrap();
-    let repo = tx.commit("set up remote").unwrap();
+    let repo = tx.commit("set up remote").block_on().unwrap();
     // Reload after Git configuration change.
     let repo = test_repo
         .env
@@ -5202,7 +5202,7 @@ fn test_bulk_update_extra_on_import_refs() {
         let mut tx = repo.start_transaction();
         git::import_refs(tx.repo_mut(), &import_options).unwrap();
         tx.repo_mut().rebase_descendants().block_on().unwrap();
-        tx.commit("test").unwrap()
+        tx.commit("test").block_on().unwrap()
     };
 
     // Extra metadata table shouldn't be created per read_commit() call. The number
@@ -5243,7 +5243,7 @@ fn test_rewrite_imported_commit() {
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let imported_commit = repo.store().get_commit(&jj_id(git_commit)).unwrap();
 
     // Try to create identical commit with different change id.
@@ -5258,7 +5258,7 @@ fn test_rewrite_imported_commit() {
         .set_committer(imported_commit.committer().clone())
         .set_description(imported_commit.description())
         .write_unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Imported commit shouldn't be reused, and the timestamp of the authored
     // commit should be adjusted to create new commit.
@@ -5306,7 +5306,7 @@ fn test_concurrent_write_commit() {
                 let commit = create_rooted_commit(tx.repo_mut())
                     .set_description("racy commit")
                     .write_unwrap();
-                tx.commit(format!("writer {i}")).unwrap();
+                tx.commit(format!("writer {i}")).block_on().unwrap();
                 sender
                     .send((commit.id().clone(), commit.change_id().clone()))
                     .unwrap();
@@ -5395,7 +5395,7 @@ fn test_concurrent_read_write_commit() {
                 let commit = create_rooted_commit(tx.repo_mut())
                     .set_description(format!("commit {i}"))
                     .write_unwrap();
-                tx.commit(format!("writer {i}")).unwrap();
+                tx.commit(format!("writer {i}")).block_on().unwrap();
                 assert_eq!(commit.id(), commit_id);
             });
         }
@@ -5443,7 +5443,7 @@ fn test_concurrent_read_write_commit() {
                         })
                         .collect_vec();
                     if tx.repo().has_changes() {
-                        tx.commit(format!("reader {i}")).unwrap();
+                        tx.commit(format!("reader {i}")).block_on().unwrap();
                     }
                     thread::yield_now();
                 }
@@ -5536,7 +5536,7 @@ fn test_shallow_commits_lack_parents() {
 
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    let repo = tx.commit("import").unwrap();
+    let repo = tx.commit("import").block_on().unwrap();
     let store = repo.store();
     let root = store.root_commit_id();
 
@@ -5567,7 +5567,7 @@ fn test_shallow_commits_lack_parents() {
 
     let mut tx = repo.start_transaction();
     git::import_refs(tx.repo_mut(), &import_options).unwrap();
-    let repo = tx.commit("import").unwrap();
+    let repo = tx.commit("import").block_on().unwrap();
     let store = repo.store();
     let root = store.root_commit_id();
 
@@ -5604,7 +5604,7 @@ fn test_remote_remove_refs() {
         &StringExpression::all(),
     )
     .unwrap();
-    let _repo = tx.commit("test").unwrap();
+    let _repo = tx.commit("test").block_on().unwrap();
     // Reload after Git configuration change.
     let repo = &test_repo
         .env
@@ -5619,7 +5619,7 @@ fn test_remote_remove_refs() {
 
     let mut tx = repo.start_transaction();
     git::remove_remote(tx.repo_mut(), "foo".as_ref()).unwrap();
-    let repo = &tx.commit("remove").unwrap();
+    let repo = &tx.commit("remove").block_on().unwrap();
 
     let git_repo = get_git_repo(repo);
     // remote bookmarks
@@ -5673,7 +5673,7 @@ fn test_remote_rename_refs() {
         &StringExpression::all(),
     )
     .unwrap();
-    let _repo = tx.commit("test").unwrap();
+    let _repo = tx.commit("test").block_on().unwrap();
     // Reload after Git configuration change.
     let repo = &test_repo
         .env
@@ -5688,7 +5688,7 @@ fn test_remote_rename_refs() {
 
     let mut tx = repo.start_transaction();
     git::rename_remote(tx.repo_mut(), "foo".as_ref(), "bar".as_ref()).unwrap();
-    let repo = &tx.commit("rename").unwrap();
+    let repo = &tx.commit("rename").block_on().unwrap();
 
     let git_repo = get_git_repo(repo);
     // remote bookmarks
@@ -5773,7 +5773,7 @@ fn test_remote_add_with_tags_specification(fetch_tags: gix::remote::fetch::Tags)
         &StringExpression::all(),
     )
     .unwrap();
-    let _repo = tx.commit("test").unwrap();
+    let _repo = tx.commit("test").block_on().unwrap();
 
     // Reload after Git configuration change.
     let repo = &test_repo
@@ -5809,7 +5809,7 @@ fn test_remote_add_with_refspecs() {
         &bookmark_expr,
     )
     .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Reload after Git configuration change.
     let repo = &test_repo

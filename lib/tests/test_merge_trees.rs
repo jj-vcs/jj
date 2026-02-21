@@ -92,7 +92,7 @@ fn test_simplify_conflict_after_resolving_parent() {
         .block_on()
         .unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // The conflict should now be resolved.
     let tree_c2 = commit_c3.tree();

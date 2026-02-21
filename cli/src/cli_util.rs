@@ -701,7 +701,7 @@ impl CommandHelper {
                     // TODO: It may be helpful to print each operation we're merging here
                     let mut tx = start_repo_transaction(&base_repo, &self.data.string_args);
                     for other_op_head in op_heads.into_iter().skip(1) {
-                        tx.merge_operation(other_op_head)?;
+                        tx.merge_operation(other_op_head).await?;
                         let num_rebased = tx.repo_mut().rebase_descendants().await?;
                         if num_rebased > 0 {
                             writeln!(
@@ -712,7 +712,8 @@ impl CommandHelper {
                         }
                     }
                     Ok(tx
-                        .write("reconcile divergent operations")?
+                        .write("reconcile divergent operations")
+                        .await?
                         .leave_unpublished()
                         .operation()
                         .clone())
@@ -1251,7 +1252,7 @@ impl WorkspaceCommandHelper {
             // state to it without updating working copy files.
             locked_ws.locked_wc().reset(&wc_commit).block_on()?;
             tx.repo_mut().rebase_descendants().block_on()?;
-            self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head")?);
+            self.user_repo = ReadonlyUserRepo::new(tx.commit("import git head").block_on()?);
             locked_ws.finish(self.user_repo.repo.op_id().clone())?;
             if old_git_head.is_present() {
                 writeln!(
@@ -1984,6 +1985,7 @@ to the current parents may contain changes from multiple commits.
 
             let repo = tx
                 .commit("snapshot working copy")
+                .await
                 .map_err(snapshot_command_error)?;
             self.user_repo = ReadonlyUserRepo::new(repo);
         }
@@ -2181,7 +2183,7 @@ to the current parents may contain changes from multiple commits.
             crate::git_util::print_git_export_stats(ui, &stats)?;
         }
 
-        self.user_repo = ReadonlyUserRepo::new(tx.commit(description)?);
+        self.user_repo = ReadonlyUserRepo::new(tx.commit(description).block_on()?);
 
         // Update working copy before reporting repo changes, so that
         // potential errors while reporting changes (broken pipe, etc)

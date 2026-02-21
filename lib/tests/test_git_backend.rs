@@ -142,7 +142,7 @@ fn test_gc() {
         .set_parents(vec![commit_f.id().clone()])
         .set_predecessors(vec![commit_d.id().clone()])
         .write_unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     assert_eq!(
         *repo.view().heads(),
         hashset! {
@@ -289,7 +289,7 @@ fn test_gc_extra_table() {
     for _ in 0..4 {
         write_random_commit(tx.repo_mut());
     }
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
     // The first 3 will be squashed into one table segment
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 5 + 1);

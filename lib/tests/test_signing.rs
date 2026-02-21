@@ -10,6 +10,7 @@ use jj_lib::signing::SignBehavior;
 use jj_lib::signing::Signer;
 use jj_lib::signing::Verification;
 use jj_lib::test_signing_backend::TestSigningBackend;
+use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepoBackend;
@@ -78,7 +79,7 @@ fn manual(backend: TestRepoBackend) {
         .set_sign_behavior(SignBehavior::Own)
         .set_author(someone_else())
         .write_unwrap();
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 
     let commit1 = repo.store().get_commit(commit1.id()).unwrap();
     assert_eq!(commit1.verification().unwrap(), good_verification());
@@ -101,7 +102,7 @@ fn keep_on_rewrite(backend: TestRepoBackend) {
     let commit = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
         .write_unwrap();
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -125,7 +126,7 @@ fn manual_drop_on_rewrite(backend: TestRepoBackend) {
     let commit = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
         .write_unwrap();
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -152,7 +153,7 @@ fn forced(backend: TestRepoBackend) {
     let commit = create_random_commit(tx.repo_mut())
         .set_author(someone_else())
         .write_unwrap();
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 
     let commit = repo.store().get_commit(commit.id()).unwrap();
     assert_eq!(commit.verification().unwrap(), good_verification());
@@ -170,7 +171,7 @@ fn configured(backend: TestRepoBackend) {
     let repo = repo.clone();
     let mut tx = repo.start_transaction();
     let commit = write_random_commit(tx.repo_mut());
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 
     let commit = repo.store().get_commit(commit.id()).unwrap();
     assert_eq!(commit.verification().unwrap(), good_verification());
@@ -190,7 +191,7 @@ fn drop_behavior(backend: TestRepoBackend) {
     let commit = create_random_commit(tx.repo_mut())
         .set_sign_behavior(SignBehavior::Own)
         .write_unwrap();
-    tx.commit("test").unwrap();
+    tx.commit("test").block_on().unwrap();
 
     let original_commit = repo.store().get_commit(commit.id()).unwrap();
     assert_eq!(original_commit.verification().unwrap(), good_verification());

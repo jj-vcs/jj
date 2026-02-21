@@ -67,7 +67,7 @@ fn test_duplicate_linear_contents() {
         .repo_mut()
         .new_commit(vec![commit_d.id().clone()], tree_2.clone())
         .write_unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let duplicate_in_between = |tx: &mut Transaction,
                                 target_commits: &[&CommitId],

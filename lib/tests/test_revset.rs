@@ -181,7 +181,7 @@ fn test_resolve_symbol_commit_id() {
             .write_unwrap();
         commits.push(commit);
     }
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Test the test setup
     insta::assert_snapshot!(commits.iter().map(|c| c.id().hex()).join("\n"), @"
@@ -337,7 +337,7 @@ fn test_resolve_symbol_change_id(readonly: bool) {
 
     let _readonly_repo;
     let repo: &dyn Repo = if readonly {
-        _readonly_repo = tx.commit("test").unwrap();
+        _readonly_repo = tx.commit("test").block_on().unwrap();
         _readonly_repo.as_ref()
     } else {
         tx.repo_mut()
@@ -465,7 +465,7 @@ fn test_resolve_symbol_hidden_change_id() {
         .set_description("updated commit")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("rewrite commit").unwrap();
+    let repo = tx.commit("rewrite commit").block_on().unwrap();
 
     let change_id = commit1.change_id();
     assert_eq!(
@@ -493,7 +493,7 @@ fn test_resolve_symbol_hidden_change_id() {
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit2);
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("abandon commit").unwrap();
+    let repo = tx.commit("abandon commit").block_on().unwrap();
 
     assert_matches!(
         resolve_symbol(repo.as_ref(), &format!("{change_id}")),
@@ -529,12 +529,12 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
     for _ in 0..50 {
         write_random_commit(tx.repo_mut());
     }
-    let repo1 = tx.commit("test").unwrap();
+    let repo1 = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo1.start_transaction();
     let commit2 = tx.repo_mut().rewrite_commit(&commit1).write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo2 = tx.commit("test").unwrap();
+    let repo2 = tx.commit("test").block_on().unwrap();
 
     // Set up disambiguation index which only contains the commit2.id().
     let id_prefix_context = IdPrefixContext::new(Arc::new(RevsetExtensions::default()))
@@ -1265,12 +1265,12 @@ fn test_evaluate_expression_with_hidden_revisions() {
     let commit2 = write_random_commit(mut_repo);
     let commit3 = write_random_commit_with_parents(mut_repo, &[&commit1]);
     let commit4 = write_random_commit_with_parents(mut_repo, &[&commit3]);
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit3);
     tx.repo_mut().record_abandoned_commit(&commit4);
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Sanity check
     assert_eq!(
@@ -4108,7 +4108,7 @@ fn test_evaluate_expression_at_operation() {
         "commit1_ref".as_ref(),
         RefTarget::normal(commit1_op1.id().clone()),
     );
-    let repo1 = tx.commit("test").unwrap();
+    let repo1 = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo1.start_transaction();
     let commit1_op2 = tx
@@ -4120,7 +4120,7 @@ fn test_evaluate_expression_at_operation() {
         .set_description("commit3@op2")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo2 = tx.commit("test").unwrap();
+    let repo2 = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo2.start_transaction();
     let _commit4_op3 = create_random_commit(tx.repo_mut())
@@ -5009,7 +5009,7 @@ fn test_evaluate_expression_divergent() {
 
     let change_id = commit1.change_id();
 
-    let repo = tx.commit("Divergent commits").unwrap();
+    let repo = tx.commit("Divergent commits").block_on().unwrap();
 
     assert_matches!(
         resolve_symbol(repo.as_ref(), &format!("{change_id}")),
@@ -5025,7 +5025,7 @@ fn test_evaluate_expression_divergent() {
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit1);
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("abandon commit").unwrap();
+    let repo = tx.commit("abandon commit").block_on().unwrap();
 
     assert_eq!(resolve_commit_ids(repo.as_ref(), "divergent()"), vec![]);
 
@@ -5069,7 +5069,7 @@ fn test_reverse_graph() {
     let commit_d = write_random_commit_with_parents(mut_repo, &[&commit_c]);
     let commit_e = write_random_commit_with_parents(mut_repo, &[&commit_c]);
     let commit_f = write_random_commit_with_parents(mut_repo, &[&commit_d, &commit_e]);
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let revset = revset_for_commits(
         repo.as_ref(),
@@ -5133,7 +5133,7 @@ fn test_revset_containing_fn() {
     let commit_b = write_random_commit(mut_repo);
     let commit_c = write_random_commit(mut_repo);
     let commit_d = write_random_commit(mut_repo);
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let revset = revset_for_commits(repo.as_ref(), &[&commit_b, &commit_d]);
 

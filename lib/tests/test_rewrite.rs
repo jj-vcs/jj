@@ -1184,7 +1184,7 @@ fn test_rebase_descendants_hidden() {
     tx.repo_mut().record_abandoned_commit(&commit_b);
     tx.repo_mut().record_abandoned_commit(&commit_c);
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
     let mut tx = repo.start_transaction();
 
     let commit_d = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
@@ -1348,7 +1348,7 @@ fn test_rebase_descendants_basic_bookmark_update() {
     let commit_b = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a]);
     tx.repo_mut()
         .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write_unwrap();
@@ -1382,7 +1382,7 @@ fn test_rebase_descendants_bookmark_move_two_steps() {
     let commit_c = write_random_commit_with_parents(tx.repo_mut(), &[&commit_b]);
     tx.repo_mut()
         .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_c.id().clone()));
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let commit_b2 = tx
@@ -1434,7 +1434,7 @@ fn test_rebase_descendants_basic_bookmark_update_with_non_local_bookmark() {
         .set_remote_bookmark(remote_symbol("main", "origin"), commit_b_remote_ref.clone());
     tx.repo_mut()
         .set_local_tag_target("v1".as_ref(), RefTarget::normal(commit_b.id().clone()));
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write_unwrap();
@@ -1487,7 +1487,7 @@ fn test_rebase_descendants_update_bookmark_after_abandon(delete_abandoned_bookma
         .set_remote_bookmark(remote_symbol("main", "origin"), commit_b_remote_ref.clone());
     tx.repo_mut()
         .set_local_bookmark_target("other".as_ref(), RefTarget::normal(commit_c.id().clone()));
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
@@ -1547,7 +1547,7 @@ fn test_rebase_descendants_update_bookmarks_after_divergent_rewrite() {
         .set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit_b.id().clone()));
     tx.repo_mut()
         .set_local_bookmark_target("other".as_ref(), RefTarget::normal(commit_c.id().clone()));
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let commit_b2 = tx.repo_mut().rewrite_commit(&commit_b).write_unwrap();
@@ -1636,7 +1636,7 @@ fn test_rebase_descendants_rewrite_updates_bookmark_conflict() {
             [commit_b.id().clone(), commit_c.id().clone()],
         ),
     );
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let commit_a2 = tx.repo_mut().rewrite_commit(&commit_a).write_unwrap();
@@ -1713,7 +1713,7 @@ fn test_rebase_descendants_rewrite_resolves_bookmark_conflict() {
             [commit_b.id().clone(), commit_c.id().clone()],
         ),
     );
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let commit_b2 = tx
@@ -1756,7 +1756,7 @@ fn test_rebase_descendants_bookmark_delete_modify_abandon(delete_abandoned_bookm
         "main".as_ref(),
         RefTarget::from_legacy_form([commit_a.id().clone()], [commit_b.id().clone()]),
     );
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
@@ -1799,7 +1799,7 @@ fn test_rebase_descendants_bookmark_move_forward_abandon(delete_abandoned_bookma
             Some(commit_c.id().clone()),
         ])),
     );
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
@@ -1850,7 +1850,7 @@ fn test_rebase_descendants_bookmark_move_sideways_abandon(delete_abandoned_bookm
             Some(commit_c.id().clone()),
         ])),
     );
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
@@ -1905,7 +1905,7 @@ fn test_rebase_descendants_update_checkout() {
     tx.repo_mut()
         .set_wc_commit(ws3_name.clone(), commit_a.id().clone())
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     let commit_c = tx
@@ -1914,7 +1914,7 @@ fn test_rebase_descendants_update_checkout() {
         .set_description("C")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Workspaces 1 and 2 had B checked out, so they get updated to C. Workspace 3
     // had A checked out, so it doesn't get updated.
@@ -1949,12 +1949,12 @@ fn test_rebase_descendants_update_checkout_abandoned() {
     tx.repo_mut()
         .set_wc_commit(ws3_name.clone(), commit_a.id().clone())
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b);
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Workspaces 1 and 2 had B checked out, so they get updated to the same new
     // commit on top of C. Workspace 3 had A checked out, so it doesn't get updated.
@@ -1992,12 +1992,12 @@ fn test_rebase_descendants_update_checkout_abandoned_merge() {
     tx.repo_mut()
         .set_wc_commit(ws_name.clone(), commit_d.id().clone())
         .unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_d);
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let new_checkout_id = repo.view().get_wc_commit_id(&ws_name).unwrap();
     let checkout = repo.store().get_commit(new_checkout_id).unwrap();

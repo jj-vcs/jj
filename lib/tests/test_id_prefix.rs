@@ -75,7 +75,7 @@ fn test_id_prefix() {
     for _ in 0..25 {
         commits.push(create_commit(commits.last().unwrap().id()));
     }
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Print the commit IDs and change IDs for reference
     let commit_prefixes = commits
@@ -290,7 +290,7 @@ fn test_id_prefix_divergent() {
         second_commit.clone(),
         third_commit_divergent_with_second.clone(),
     ];
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     // Print the commit IDs and change IDs for reference
     let change_prefixes = commits
@@ -462,7 +462,7 @@ fn test_id_prefix_hidden() {
     let hidden_commit = &commits[8];
     tx.repo_mut().record_abandoned_commit(hidden_commit);
     tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
 
     let prefix = |x: &str| HexPrefix::try_from_hex(x).unwrap();
     let shortest_commit_prefix_len = |index: &IdPrefixIndex, commit_id| {

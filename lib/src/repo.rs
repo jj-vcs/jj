@@ -823,14 +823,14 @@ impl RepoLoader {
             let base_repo = self.load_at(&base_op).await?;
             let mut tx = base_repo.start_transaction();
             for other_op in operations {
-                tx.merge_operation(other_op)?;
+                tx.merge_operation(other_op).await?;
                 tx.repo_mut().rebase_descendants().await?;
             }
             let tx_description = tx_description.map_or_else(
                 || format!("merge {num_operations} operations"),
                 |tx_description| tx_description.to_string(),
             );
-            let merged_repo = tx.write(tx_description)?.leave_unpublished();
+            let merged_repo = tx.write(tx_description).await?.leave_unpublished();
             merged_repo.operation().clone()
         } else {
             base_op
