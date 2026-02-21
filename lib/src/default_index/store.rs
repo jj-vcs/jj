@@ -24,8 +24,8 @@ use std::path::PathBuf;
 use std::slice;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -552,12 +552,13 @@ impl DefaultIndexStore {
     }
 }
 
+#[async_trait]
 impl IndexStore for DefaultIndexStore {
     fn name(&self) -> &str {
         Self::name()
     }
 
-    fn get_index_at_op(
+    async fn get_index_at_op(
         &self,
         op: &Operation,
         store: &Arc<Store>,
@@ -570,7 +571,7 @@ impl IndexStore for DefaultIndexStore {
             Err(DefaultIndexStoreError::LoadAssociation(PathError { source: error, .. }))
                 if error.kind() == io::ErrorKind::NotFound =>
             {
-                self.build_index_at_operation(op, store).block_on()
+                self.build_index_at_operation(op, store).await
             }
             Err(DefaultIndexStoreError::LoadIndex(err)) if err.is_corrupt_or_not_found() => {
                 // If the index was corrupt (maybe it was written in a different format),
@@ -592,7 +593,7 @@ impl IndexStore for DefaultIndexStore {
                 }
                 self.reinit()
                     .map_err(|err| IndexStoreError::Read(err.into()))?;
-                self.build_index_at_operation(op, store).block_on()
+                self.build_index_at_operation(op, store).await
             }
             result => result,
         }

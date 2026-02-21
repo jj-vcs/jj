@@ -18,6 +18,7 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use itertools::Itertools as _;
 use thiserror::Error;
 
@@ -64,6 +65,7 @@ pub type IndexResult<T> = Result<T, IndexError>;
 
 /// Defines the interface for types that provide persistent storage for an
 /// index.
+#[async_trait]
 pub trait IndexStore: Any + Send + Sync + Debug {
     /// Returns a name representing the type of index that the `IndexStore` is
     /// compatible with. For example, the `IndexStore` for the default index
@@ -71,7 +73,7 @@ pub trait IndexStore: Any + Send + Sync + Debug {
     fn name(&self) -> &str;
 
     /// Returns the index at the specified operation.
-    fn get_index_at_op(
+    async fn get_index_at_op(
         &self,
         op: &Operation,
         store: &Arc<Store>,

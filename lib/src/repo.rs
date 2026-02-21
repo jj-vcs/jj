@@ -273,6 +273,7 @@ impl ReadonlyRepo {
         let index = loader
             .index_store
             .get_index_at_op(&root_operation, &loader.store)
+            .await
             // If the root op index couldn't be read, the index backend wouldn't
             // be initialized properly.
             .map_err(|err| BackendInitError(err.into()))?;
@@ -764,13 +765,13 @@ impl RepoLoader {
         )
         .await?;
         let view = op.view().await?;
-        self.finish_load(op, view)
+        self.finish_load(op, view).await
     }
 
     #[instrument(skip(self))]
     pub async fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
         let view = op.view().await?;
-        self.finish_load(op.clone(), view)
+        self.finish_load(op.clone(), view).await
     }
 
     pub fn create_from(
@@ -846,12 +847,15 @@ impl RepoLoader {
             .await
     }
 
-    fn finish_load(
+    async fn finish_load(
         &self,
         operation: Operation,
         view: View,
     ) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
-        let index = self.index_store.get_index_at_op(&operation, &self.store)?;
+        let index = self
+            .index_store
+            .get_index_at_op(&operation, &self.store)
+            .await?;
         let repo = ReadonlyRepo {
             loader: self.clone(),
             operation,
