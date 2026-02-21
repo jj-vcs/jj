@@ -2619,6 +2619,7 @@ fn reload_repo_at_operation(
     // to the outer repo.
     let base_repo = repo.base_repo();
     let operation = op_walk::resolve_op_with_repo(base_repo, op_str)
+        .block_on()
         .map_err(|err| RevsetResolutionError::Other(err.into()))?;
     base_repo
         .reload_at(&operation)
