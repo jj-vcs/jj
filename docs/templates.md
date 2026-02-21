@@ -105,8 +105,8 @@ The following functions are defined.
 * `stringify(content: Stringify) -> String`: Format `content` to string. This
   effectively removes color labels.
 * `json(value: Serialize) -> String`: Serialize `value` in JSON format.
-* `if(condition: Boolean, then: Template, [else: Template]) -> Template`:
-  Conditionally evaluate `then`/`else` template content.
+* `if(condition: Boolean, then: Any, [else: Any]) -> Any`:
+  Conditionally evaluates to `then`/`else` content.
 * `coalesce(content: Template...) -> Template`: Returns the first **non-empty**
   content.
 * `concat(content: Template...) -> Template`:
@@ -137,6 +137,21 @@ The following methods are defined.
 * `.original_line_number() -> Integer`: 1-based line number in the original commit.
 * `.first_line_in_hunk() -> Boolean`: False when the directly preceding line
   references the same commit.
+
+### `Any` type
+
+_Conversion: `Boolean`: no, `Serialize`: maybe, `Template`: maybe_
+
+All types can be implicitly converted to `Any`. No methods are defined.
+
+### `AnyList` type
+
+_Conversion: `Boolean`: no, `Serialize`: maybe, `Template`: maybe_
+
+The following methods are defined.
+
+* `.join(separator: Template) -> Template`: Concatenate elements with
+  the given `separator`.
 
 ### `Boolean` type
 
@@ -363,7 +378,7 @@ defined.
   the given `separator`.
 * `.filter(|item| expression) -> List`: Filter list elements by predicate
   `expression`. Example: `description.lines().filter(|s| s.contains("#"))`
-* `.map(|item| expression) -> ListTemplate`: Apply template `expression`
+* `.map(|item| expression) -> AnyList`: Apply template `expression`
   to each element. Example: `parents.map(|c| c.commit_id().short())`
 * `.any(|item| expression) -> Boolean`: Returns true if any element satisfies
   the predicate `expression`. Example: `parents.any(|c| c.description().contains("fix"))`
@@ -384,15 +399,6 @@ The following methods are defined. See also the `List` type.
 
 * `.contains_key(key: Stringify) -> Boolean`: True if the commit description
   contains at least one trailer with the key `key`.
-
-### `ListTemplate` type
-
-_Conversion: `Boolean`: no, `Serialize`: no, `Template`: yes_
-
-The following methods are defined.
-
-* `.join(separator: Template) -> Template`: Concatenate elements with
-  the given `separator`.
 
 ### `Operation` type
 

@@ -47,14 +47,6 @@ pub trait Template {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()>;
 }
 
-/// Template that supports list-like behavior.
-pub trait ListTemplate: Template {
-    /// Concatenates items with the given separator.
-    fn join<'a>(self: Box<Self>, separator: Box<dyn Template + 'a>) -> Box<dyn Template + 'a>
-    where
-        Self: 'a;
-}
-
 impl<T: Template + ?Sized> Template for &T {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
         <T as Template>::format(self, formatter)
@@ -534,6 +526,21 @@ pub trait WrapTemplateProperty<'a, O>: Sized {
     fn wrap_property(property: BoxedTemplateProperty<'a, O>) -> Self;
 }
 
+/// Abstraction trait for a type-erased TemplateProperty
+pub trait AnyTemplateProperty<'a> {
+    fn try_into_serialize(self: Box<Self>) -> Option<BoxedSerializeProperty<'a>>;
+
+    fn try_into_template(self: Box<Self>) -> Option<Box<dyn Template + 'a>>;
+
+    /// If this is a list whose elements convert to `Template`, concatenate with
+    /// the given separator.
+    fn try_join(
+        self: Box<Self>,
+        separator: Box<dyn Template + 'a>,
+    ) -> Option<Box<dyn Template + 'a>>;
+}
+pub type BoxedAnyProperty<'a> = Box<dyn AnyTemplateProperty<'a> + 'a>;
+
 /// Adapter that wraps literal value in `TemplateProperty`.
 pub struct Literal<O>(pub O);
 
@@ -643,24 +650,134 @@ where
     }
 }
 
-impl<O, P, S, F> ListTemplate for ListPropertyTemplate<P, S, F>
+/// Result of a `map()` operation.
+///
+/// The operations supported on MappedProperty are dependent on the "true" type
+/// of `mapped`.
+pub struct ListMapProperty<'a, P, O> {
+    property: P,
+    placeholder: PropertyPlaceholder<O>,
+    mapped: BoxedAnyProperty<'a>,
+}
+
+impl<'a, P, O> ListMapProperty<'a, P, O> {
+    pub fn new(
+        property: P,
+        placeholder: PropertyPlaceholder<O>,
+        mapped: BoxedAnyProperty<'a>,
+    ) -> Self {
+        Self {
+            property,
+            placeholder,
+            mapped,
+        }
+    }
+}
+
+impl<'a, P, O> AnyTemplateProperty<'a> for ListMapProperty<'a, P, O>
 where
-    P: TemplateProperty,
+    P: TemplateProperty + 'a,
     P::Output: IntoIterator<Item = O>,
-    S: Template,
-    F: Fn(&mut TemplateFormatter, O) -> io::Result<()>,
+    O: Clone + 'a,
 {
-    fn join<'a>(self: Box<Self>, separator: Box<dyn Template + 'a>) -> Box<dyn Template + 'a>
-    where
-        Self: 'a,
-    {
-        // Once join()-ed, list-like API should be dropped. This is guaranteed by
-        // the return type.
-        Box::new(ListPropertyTemplate::new(
+    fn try_into_serialize(self: Box<Self>) -> Option<BoxedSerializeProperty<'a>> {
+        let placeholder = self.placeholder;
+        let mapped = self.mapped.try_into_serialize()?;
+        Some(
+            self.property
+                .and_then(move |property| {
+                    property
+                        .into_iter()
+                        .map(|i| placeholder.with_value(i, || mapped.extract()))
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .into_serialize(),
+        )
+    }
+
+    fn try_into_template(self: Box<Self>) -> Option<Box<dyn Template + 'a>> {
+        self.try_join(Box::new(Literal(" ")))
+    }
+
+    fn try_join(
+        self: Box<Self>,
+        separator: Box<dyn Template + 'a>,
+    ) -> Option<Box<dyn Template + 'a>> {
+        let placeholder = self.placeholder;
+        let mapped = self.mapped.try_into_template()?;
+        Some(Box::new(ListPropertyTemplate::new(
             self.property,
             separator,
-            self.format_item,
-        ))
+            move |formatter, value| placeholder.with_value(value, || mapped.format(formatter)),
+        )))
+    }
+}
+
+/// AnyTemplateProperty which selects an output based on a boolean condition.
+pub struct ConditionalProperty<'a, P> {
+    pub condition: P,
+    pub on_true: BoxedAnyProperty<'a>,
+    pub on_false: Option<BoxedAnyProperty<'a>>,
+}
+
+impl<'a, P> ConditionalProperty<'a, P> {
+    pub fn new(
+        condition: P,
+        on_true: BoxedAnyProperty<'a>,
+        on_false: Option<BoxedAnyProperty<'a>>,
+    ) -> Self
+    where
+        P: TemplateProperty<Output = bool> + 'a,
+    {
+        Self {
+            condition,
+            on_true,
+            on_false,
+        }
+    }
+}
+
+impl<'a, P> AnyTemplateProperty<'a> for ConditionalProperty<'a, P>
+where
+    P: TemplateProperty<Output = bool> + 'a,
+{
+    fn try_into_serialize(self: Box<Self>) -> Option<BoxedSerializeProperty<'a>> {
+        Some(
+            (
+                self.condition,
+                self.on_true.try_into_serialize()?,
+                self.on_false?.try_into_serialize()?,
+            )
+                .map(
+                    move |(condition, on_true, on_false)| {
+                        if condition { on_true } else { on_false }
+                    },
+                )
+                .into_serialize(),
+        )
+    }
+
+    fn try_into_template(self: Box<Self>) -> Option<Box<dyn Template + 'a>> {
+        Some(Box::new(ConditionalTemplate::new(
+            self.condition,
+            self.on_true.try_into_template()?,
+            // NOTE: We need to propagate out the inner `None` (or else we would
+            // allow a non-template `else` property), but not the outer one, so
+            // we cannot use `and_then` here.
+            if let Some(on_false) = self.on_false {
+                Some(on_false.try_into_template()?)
+            } else {
+                None
+            },
+        )))
+    }
+
+    fn try_join(
+        self: Box<Self>,
+        _separator: Box<dyn Template + 'a>,
+    ) -> Option<Box<dyn Template + 'a>> {
+        // NOTE: This is implementable, but currently cannot be called.
+        None
     }
 }
 
