@@ -246,10 +246,12 @@ For example, to auto-generate merge commit messages:
 [templates]
 new_description = '''
 if(parents.len() > 1,
-  "Merge " ++ parents.skip(1).map(|p| coalesce(
+  "Merge " ++ parents.skip(1).map(|p| if(
+    p.bookmarks(),
     p.bookmarks().first().name(),
     p.change_id().shortest(8)
-  )).join(", ") ++ " into " ++ coalesce(
+  )).join(", ") ++ " into " ++ if(
+    parents.first().bookmarks(),
     parents.first().bookmarks().first().name(),
     parents.first().change_id().shortest(8)
   ) ++ "\n",
