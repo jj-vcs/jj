@@ -313,6 +313,7 @@ impl Workspace {
                 index_store_initializer,
                 submodule_store_initializer,
             )
+            .block_on()
             .map_err(|repo_init_err| match repo_init_err {
                 RepoInitError::Backend(err) => WorkspaceInitError::Backend(err),
                 RepoInitError::OpHeadsStore(err) => WorkspaceInitError::OpHeadsStore(err),

@@ -281,6 +281,7 @@ impl TestRepo {
             ReadonlyRepo::default_index_store_initializer(),
             ReadonlyRepo::default_submodule_store_initializer(),
         )
+        .block_on()
         .unwrap();
 
         Self {

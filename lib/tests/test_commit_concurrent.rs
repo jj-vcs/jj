@@ -63,7 +63,7 @@ fn test_commit_parallel(backend: TestRepoBackend) {
             });
         }
     });
-    let repo = repo.reload_at_head().unwrap();
+    let repo = repo.reload_at_head().block_on().unwrap();
     // One commit per thread plus the commit from the initial working-copy on top of
     // the root commit
     assert_eq!(repo.view().heads().len(), num_threads + 1);

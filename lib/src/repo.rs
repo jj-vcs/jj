@@ -28,7 +28,6 @@ use std::sync::Arc;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
-use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -200,15 +199,15 @@ impl ReadonlyRepo {
     }
 
     #[expect(clippy::too_many_arguments)]
-    pub fn init(
+    pub async fn init(
         settings: &UserSettings,
         repo_path: &Path,
-        backend_initializer: &BackendInitializer,
+        backend_initializer: &BackendInitializer<'_>,
         signer: Signer,
-        op_store_initializer: &OpStoreInitializer,
-        op_heads_store_initializer: &OpHeadsStoreInitializer,
-        index_store_initializer: &IndexStoreInitializer,
-        submodule_store_initializer: &SubmoduleStoreInitializer,
+        op_store_initializer: &OpStoreInitializer<'_>,
+        op_heads_store_initializer: &OpHeadsStoreInitializer<'_>,
+        index_store_initializer: &IndexStoreInitializer<'_>,
+        submodule_store_initializer: &SubmoduleStoreInitializer<'_>,
     ) -> Result<Arc<Self>, RepoInitError> {
         let repo_path = dunce::canonicalize(repo_path).context(repo_path)?;
 
@@ -238,7 +237,7 @@ impl ReadonlyRepo {
         fs::write(&op_heads_type_path, op_heads_store.name()).context(&op_heads_type_path)?;
         op_heads_store
             .update_op_heads(&[], op_store.root_operation_id())
-            .block_on()?;
+            .await?;
         let op_heads_store: Arc<dyn OpHeadsStore> = Arc::from(op_heads_store);
 
         let index_path = repo_path.join("index");
@@ -265,7 +264,7 @@ impl ReadonlyRepo {
             submodule_store,
         };
 
-        let root_operation = loader.root_operation().block_on();
+        let root_operation = loader.root_operation().await;
         let root_view = root_operation.view().expect("failed to read root view");
         assert!(!root_view.heads().is_empty());
         let index = loader
@@ -329,8 +328,8 @@ impl ReadonlyRepo {
         Transaction::new(mut_repo, self.settings())
     }
 
-    pub fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
-        self.loader().load_at_head().block_on()
+    pub async fn reload_at_head(&self) -> Result<Arc<Self>, RepoLoaderError> {
+        self.loader().load_at_head().await
     }
 
     #[instrument]

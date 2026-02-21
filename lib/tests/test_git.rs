@@ -1672,6 +1672,7 @@ impl GitRepoData {
             ReadonlyRepo::default_index_store_initializer(),
             ReadonlyRepo::default_submodule_store_initializer(),
         )
+        .block_on()
         .unwrap();
         Self {
             _temp_dir: temp_dir,
@@ -3231,6 +3232,7 @@ fn test_init() {
         ReadonlyRepo::default_index_store_initializer(),
         ReadonlyRepo::default_submodule_store_initializer(),
     )
+    .block_on()
     .unwrap();
     // The refs were *not* imported -- it's the caller's responsibility to import
     // any refs they care about.
@@ -4324,6 +4326,7 @@ fn set_up_push_repos(settings: &UserSettings, temp_dir: &TempDir) -> PushTestSet
         ReadonlyRepo::default_index_store_initializer(),
         ReadonlyRepo::default_submodule_store_initializer(),
     )
+    .block_on()
     .unwrap();
     get_git_backend(&jj_repo)
         .import_head_commits(&[jj_id(initial_git_commit)])
@@ -5324,7 +5327,7 @@ fn test_concurrent_write_commit() {
     assert_eq!(commit_change_ids.len(), num_thread);
 
     // All unique commits should be preserved.
-    let repo = repo.reload_at_head().unwrap();
+    let repo = repo.reload_at_head().block_on().unwrap();
     for (commit_id, change_ids) in &commit_change_ids {
         let commit = repo.store().get_commit(commit_id).unwrap();
         assert_eq!(commit.id(), commit_id);
@@ -5411,7 +5414,7 @@ fn test_concurrent_read_write_commit() {
                     if pending_commit_ids.is_empty() {
                         break;
                     }
-                    repo = repo.reload_at_head().unwrap();
+                    repo = repo.reload_at_head().block_on().unwrap();
                     let git_backend = get_git_backend(&repo);
                     let mut tx = repo.start_transaction();
                     pending_commit_ids = pending_commit_ids
@@ -5458,7 +5461,7 @@ fn test_concurrent_read_write_commit() {
     });
 
     // The index should be consistent with the store.
-    let repo = repo.reload_at_head().unwrap();
+    let repo = repo.reload_at_head().block_on().unwrap();
     for commit_id in &commit_ids {
         assert!(repo.index().has_id(commit_id).unwrap());
         let commit = repo.store().get_commit(commit_id).unwrap();
