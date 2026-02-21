@@ -153,7 +153,7 @@ unintentionally overwrite an existing change.
 
 Since version 3.3.1 Gerrit supports an alternative to the `Change-Id` trailer,
 using a `Link` trailer in the format of `<reviewUrl>/id/I<changeid>`. It is only
-documented in the [commig-msg hook documentation]. Jujutsu's `jj gerrit upload`
+documented in the [commit-msg hook documentation]. Jujutsu's `jj gerrit upload`
 will do the same if you set `jj config set --repo gerrit.review-url <reviewUrl>`.
 
-[commig-msg hook documentation]: https://gerrit-documentation.storage.googleapis.com/Documentation/3.3.1/cmd-hook-commit-msg.html
+[commit-msg hook documentation]: https://gerrit-documentation.storage.googleapis.com/Documentation/3.3.1/cmd-hook-commit-msg.html
