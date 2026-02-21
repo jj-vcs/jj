@@ -174,6 +174,7 @@ impl dyn ReadonlyIndex {
 }
 
 #[expect(missing_docs)]
+#[async_trait]
 pub trait MutableIndex: Any {
     fn as_index(&self) -> &dyn Index;
 
@@ -182,7 +183,7 @@ pub trait MutableIndex: Any {
         heads: &mut dyn Iterator<Item = &CommitId>,
     ) -> Box<dyn ChangeIdIndex + '_>;
 
-    fn add_commit(&mut self, commit: &Commit) -> IndexResult<()>;
+    async fn add_commit(&mut self, commit: &Commit) -> IndexResult<()>;
 
     fn merge_in(&mut self, other: &dyn ReadonlyIndex) -> IndexResult<()>;
 }

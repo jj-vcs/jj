@@ -28,6 +28,7 @@ use std::sync::Arc;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
+use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -1646,6 +1647,7 @@ impl MutableRepo {
             {
                 self.index
                     .add_commit(head)
+                    .block_on()
                     // TODO: indexing error shouldn't be a "BackendError"
                     .map_err(|err| BackendError::Other(err.into()))?;
                 self.view.get_mut().add_head(head.id());
@@ -1680,6 +1682,7 @@ impl MutableRepo {
                 for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
                     self.index
                         .add_commit(missing_commit)
+                        .block_on()
                         // TODO: indexing error shouldn't be a "BackendError"
                         .map_err(|err| BackendError::Other(err.into()))?;
                 }
