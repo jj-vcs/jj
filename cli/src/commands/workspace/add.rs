@@ -132,7 +132,8 @@ pub fn cmd_workspace_add(
         repo,
         working_copy_factory,
         workspace_name.clone(),
-    )?;
+    )
+    .block_on()?;
     writeln!(
         ui.status(),
         "Created workspace in \"{}\"",

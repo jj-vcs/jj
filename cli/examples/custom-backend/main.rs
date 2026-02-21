@@ -46,6 +46,7 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceInitError;
+use pollster::FutureExt as _;
 use tokio::io::AsyncRead;
 
 #[derive(clap::Parser, Clone, Debug)]
@@ -80,7 +81,8 @@ fn run_custom_command(
                 wc_path,
                 &|settings, store_path| Ok(Box::new(JitBackend::init(settings, store_path)?)),
                 Signer::from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
-            )?;
+            )
+            .block_on()?;
             Ok(())
         }
     }

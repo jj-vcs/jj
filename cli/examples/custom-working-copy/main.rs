@@ -48,6 +48,7 @@ use jj_lib::working_copy::WorkingCopyStateError;
 use jj_lib::workspace::WorkingCopyFactories;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceInitError;
+use pollster::FutureExt as _;
 
 #[derive(clap::Parser, Clone, Debug)]
 enum CustomCommand {
@@ -80,7 +81,8 @@ fn run_custom_command(
                 &ReadonlyRepo::default_submodule_store_initializer(),
                 &ConflictsWorkingCopyFactory {},
                 WorkspaceName::DEFAULT.to_owned(),
-            )?;
+            )
+            .block_on()?;
             Ok(())
         }
     }

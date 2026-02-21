@@ -21,6 +21,7 @@ use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceLoadError;
 use jj_lib::workspace::default_working_copy_factories;
 use jj_lib::workspace::default_working_copy_factory;
+use pollster::FutureExt as _;
 use testutils::TestEnvironment;
 use testutils::TestWorkspace;
 
@@ -58,6 +59,7 @@ fn test_init_additional_workspace() {
         &*default_working_copy_factory(),
         ws2_name.clone(),
     )
+    .block_on()
     .unwrap();
     let wc_commit_id = repo.view().get_wc_commit_id(&ws2_name);
     assert_ne!(wc_commit_id, None);
@@ -114,6 +116,7 @@ fn test_init_additional_workspace_absolute_path_compat() {
         &*default_working_copy_factory(),
         ws2_name.clone(),
     )
+    .block_on()
     .unwrap();
 
     let repo_file_path = ws2_root.join(".jj").join("repo");
@@ -157,7 +160,9 @@ fn test_init_additional_workspace_non_utf8_path() {
 
     let ws1_root = test_env.root().join(OsStr::from_bytes(b"ws1_root\xe0"));
     std::fs::create_dir(&ws1_root).unwrap();
-    let (ws1, repo) = Workspace::init_simple(&settings, &ws1_root).unwrap();
+    let (ws1, repo) = Workspace::init_simple(&settings, &ws1_root)
+        .block_on()
+        .unwrap();
 
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws2_root = test_env.root().join(OsStr::from_bytes(b"ws2_root\xe0"));
@@ -169,6 +174,7 @@ fn test_init_additional_workspace_non_utf8_path() {
         &*default_working_copy_factory(),
         ws2_name.clone(),
     )
+    .block_on()
     .unwrap();
     assert_eq!(ws2.workspace_name(), &ws2_name);
     assert_eq!(

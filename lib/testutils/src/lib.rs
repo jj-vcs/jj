@@ -339,6 +339,7 @@ impl TestWorkspace {
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
             signer,
         )
+        .block_on()
         .unwrap();
 
         Self {

@@ -308,8 +308,10 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
 
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &left_commit)
+        .block_on()
         .unwrap();
     ws.check_out(repo.op_id().clone(), None, &right_commit)
+        .block_on()
         .unwrap();
 
     // Check that the working copy is clean.
@@ -404,7 +406,9 @@ fn test_checkout_no_op() {
     let commit2 = commit_with_tree(repo.store(), tree);
 
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit1)
+        .block_on()
+        .unwrap();
 
     // Test the setup: the file should exist on in the tree state.
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
@@ -412,7 +416,10 @@ fn test_checkout_no_op() {
 
     // Update to commit2 (same tree as commit1)
     let new_op_id = OperationId::from_bytes(b"whatever");
-    let stats = ws.check_out(new_op_id.clone(), None, &commit2).unwrap();
+    let stats = ws
+        .check_out(new_op_id.clone(), None, &commit2)
+        .block_on()
+        .unwrap();
     assert_eq!(stats, CheckoutStats::default());
 
     // The tree state is unchanged but the recorded operation id is updated.
@@ -442,8 +449,11 @@ fn test_conflict_subdirectory() {
     let merged_commit = commit_with_tree(repo.store(), merged_tree);
     let repo = &test_workspace.repo;
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit1)
+        .block_on()
+        .unwrap();
     ws.check_out(repo.op_id().clone(), None, &merged_commit)
+        .block_on()
         .unwrap();
 }
 
@@ -490,11 +500,17 @@ fn test_acl() {
     )
     .unwrap();
     // Reload commits from the store associated with the workspace
-    let repo = ws.repo_loader().load_at(repo.operation()).block_on().unwrap();
+    let repo = ws
+        .repo_loader()
+        .load_at(repo.operation())
+        .block_on()
+        .unwrap();
     let commit1 = repo.store().get_commit(commit1.id()).unwrap();
     let commit2 = repo.store().get_commit(commit2.id()).unwrap();
 
-    ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit1)
+        .block_on()
+        .unwrap();
     assert!(
         !secret_modified_path
             .to_fs_path_unchecked(&workspace_root)
@@ -520,7 +536,9 @@ fn test_acl() {
             .to_fs_path_unchecked(&workspace_root)
             .is_file()
     );
-    ws.check_out(repo.op_id().clone(), None, &commit2).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit2)
+        .block_on()
+        .unwrap();
     assert!(
         !secret_modified_path
             .to_fs_path_unchecked(&workspace_root)
@@ -561,7 +579,9 @@ fn test_tree_builder_file_directory_transition() {
             repo.store(),
             MergedTree::resolved(repo.store().clone(), tree.id().clone()),
         );
-        ws.check_out(repo.op_id().clone(), None, &commit).unwrap();
+        ws.check_out(repo.op_id().clone(), None, &commit)
+            .block_on()
+            .unwrap();
     };
 
     let parent_path = repo_path("foo/bar");
@@ -660,7 +680,10 @@ fn test_conflicting_changes_on_disk() {
     )
     .unwrap();
 
-    let stats = ws.check_out(repo.op_id().clone(), None, &commit).unwrap();
+    let stats = ws
+        .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()
+        .unwrap();
     assert_eq!(
         stats,
         CheckoutStats {
@@ -710,7 +733,9 @@ fn test_reset() {
 
     let ws = &mut test_workspace.workspace;
     let commit = commit_with_tree(repo.store(), tree_with_file.clone());
-    ws.check_out(repo.op_id().clone(), None, &commit).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit)
+        .block_on()
+        .unwrap();
 
     // Test the setup: the file should exist on disk and in the tree state.
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
@@ -769,7 +794,9 @@ fn test_checkout_discard() {
     let commit2 = commit_with_tree(repo.store(), tree2);
 
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit1)
+        .block_on()
+        .unwrap();
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     let state_path = wc.state_path().to_path_buf();
 
@@ -830,7 +857,9 @@ fn test_snapshot_file_directory_transition() {
     let commit2 = commit_with_tree(repo.store(), tree2.clone());
 
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit1)
+        .block_on()
+        .unwrap();
 
     // file -> directory
     std::fs::remove_file(to_ws_path(file1p_path)).unwrap();
@@ -843,7 +872,9 @@ fn test_snapshot_file_directory_transition() {
     assert_tree_eq!(new_tree, tree2);
 
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit2).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit2)
+        .block_on()
+        .unwrap();
 
     // directory -> file
     std::fs::remove_file(to_ws_path(file1_path)).unwrap();
@@ -885,7 +916,10 @@ fn test_materialize_snapshot_conflicted_files() {
     .unwrap();
     let commit = commit_with_tree(repo.store(), merged_tree.clone());
 
-    let stats = ws.check_out(repo.op_id().clone(), None, &commit).unwrap();
+    let stats = ws
+        .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()
+        .unwrap();
     assert_eq!(
         stats,
         CheckoutStats {
@@ -1022,6 +1056,7 @@ fn test_materialize_snapshot_unchanged_conflicts() {
     test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()
         .unwrap();
 
     // "line 5" should be deleted from the checked-out content.
@@ -1059,6 +1094,7 @@ fn test_materialize_snapshot_unchanged_conflicts() {
     let stats = test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit_with_labels)
+        .block_on()
         .unwrap();
     assert_eq!(
         stats,
@@ -1334,6 +1370,7 @@ fn test_snapshot_modified_materialized_conflict(
     test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &merge_commit)
+        .block_on()
         .unwrap();
     let contents = std::fs::read(&file_disk_path).unwrap();
     let hunks =
@@ -1548,7 +1585,9 @@ fn test_gitignores_in_ignored_dir() {
     let tree1 = create_tree(&test_workspace.repo, &[(gitignore_path, "ignored\n")]);
     let commit1 = commit_with_tree(test_workspace.repo.store(), tree1.clone());
     let ws = &mut test_workspace.workspace;
-    ws.check_out(op_id.clone(), None, &commit1).unwrap();
+    ws.check_out(op_id.clone(), None, &commit1)
+        .block_on()
+        .unwrap();
 
     testutils::write_working_copy_file(&workspace_root, nested_gitignore_path, "!file\n");
     testutils::write_working_copy_file(&workspace_root, ignored_path, "contents");
@@ -1599,7 +1638,11 @@ fn test_gitignores_checkout_never_overwrites_ignored() {
     // "contents". The exiting contents ("garbage") shouldn't be replaced in the
     // working copy.
     let ws = &mut test_workspace.workspace;
-    assert!(ws.check_out(repo.op_id().clone(), None, &commit,).is_ok());
+    assert!(
+        ws.check_out(repo.op_id().clone(), None, &commit)
+            .block_on()
+            .is_ok()
+    );
 
     // Check that the old contents are in the working copy
     let path = workspace_root.join("modified");
@@ -1648,7 +1691,9 @@ fn test_gitignores_ignored_directory_already_tracked() {
 
     // Check out the tree with the files in `ignored/`
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit)
+        .block_on()
+        .unwrap();
 
     // Make some changes inside the ignored directory and check that they are
     // detected when we snapshot. The files that are still there should not be
@@ -1780,7 +1825,9 @@ fn test_git_submodule(gitignore_content: &str) {
     let commit2 = commit_with_tree(repo.store(), tree_id2.clone());
 
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit1)
+        .block_on()
+        .unwrap();
 
     std::fs::create_dir(submodule_path.to_fs_path_unchecked(&workspace_root)).unwrap();
 
@@ -1807,7 +1854,9 @@ fn test_git_submodule(gitignore_content: &str) {
     // Check out new commit updating the submodule, which shouldn't fail because
     // of existing submodule files
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit2).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit2)
+        .block_on()
+        .unwrap();
 
     // Check that the files in the submodule are not deleted
     let file_in_submodule_path = added_submodule_path.to_fs_path_unchecked(&workspace_root);
@@ -1827,6 +1876,7 @@ fn test_git_submodule(gitignore_content: &str) {
     let ws = &mut test_workspace.workspace;
     let stats = ws
         .check_out(repo.op_id().clone(), None, &store.root_commit())
+        .block_on()
         .unwrap();
     assert_eq!(stats.skipped_files, 1);
 }
@@ -1844,7 +1894,9 @@ fn test_check_out_existing_file_cannot_be_removed() {
     let commit2 = commit_with_tree(repo.store(), tree2);
 
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit1)
+        .block_on()
+        .unwrap();
 
     // Make the parent directory readonly.
     let writable_dir_perm = workspace_root.symlink_metadata().unwrap().permissions();
@@ -1852,7 +1904,9 @@ fn test_check_out_existing_file_cannot_be_removed() {
     readonly_dir_perm.set_readonly(true);
 
     std::fs::set_permissions(&workspace_root, readonly_dir_perm).unwrap();
-    let result = ws.check_out(repo.op_id().clone(), None, &commit2);
+    let result = ws
+        .check_out(repo.op_id().clone(), None, &commit2)
+        .block_on();
     std::fs::set_permissions(&workspace_root, writable_dir_perm).unwrap();
 
     // TODO: find a way to trigger the error on Windows
@@ -1877,13 +1931,18 @@ fn test_check_out_existing_file_replaced_with_directory() {
     let commit2 = commit_with_tree(repo.store(), tree2);
 
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit1)
+        .block_on()
+        .unwrap();
 
     std::fs::remove_file(file_path.to_fs_path_unchecked(&workspace_root)).unwrap();
     std::fs::create_dir(file_path.to_fs_path_unchecked(&workspace_root)).unwrap();
 
     // Checkout doesn't fail, but the file should be skipped.
-    let stats = ws.check_out(repo.op_id().clone(), None, &commit2).unwrap();
+    let stats = ws
+        .check_out(repo.op_id().clone(), None, &commit2)
+        .block_on()
+        .unwrap();
     assert_eq!(stats.skipped_files, 1);
     assert!(file_path.to_fs_path_unchecked(&workspace_root).is_dir());
 }
@@ -1914,7 +1973,10 @@ fn test_check_out_existing_directory_symlink() {
 
     // Checkout doesn't fail, but the file should be skipped.
     let ws = &mut test_workspace.workspace;
-    let stats = ws.check_out(repo.op_id().clone(), None, &commit).unwrap();
+    let stats = ws
+        .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()
+        .unwrap();
     assert_eq!(stats.skipped_files, 2);
 
     // Therefore, "../escaped*" paths shouldn't be created.
@@ -1945,7 +2007,10 @@ fn test_check_out_existing_directory_symlink_icase_fs() {
 
     // Checkout doesn't fail, but the file should be skipped on icase fs.
     let ws = &mut test_workspace.workspace;
-    let stats = ws.check_out(repo.op_id().clone(), None, &commit).unwrap();
+    let stats = ws
+        .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()
+        .unwrap();
     if is_icase_fs {
         assert_eq!(stats.skipped_files, 2);
     } else {
@@ -1989,7 +2054,10 @@ fn test_check_out_existing_file_symlink_icase_fs(victim_exists: bool) {
 
     // Checkout doesn't fail, but the file should be skipped on icase fs.
     let ws = &mut test_workspace.workspace;
-    let stats = ws.check_out(repo.op_id().clone(), None, &commit).unwrap();
+    let stats = ws
+        .check_out(repo.op_id().clone(), None, &commit)
+        .block_on()
+        .unwrap();
     if is_icase_fs {
         assert_eq!(stats.skipped_files, 1);
     } else {
@@ -2023,7 +2091,9 @@ fn test_check_out_file_removal_over_existing_directory_symlink() {
 
     // Check out "parent/escaped".
     let ws = &mut test_workspace.workspace;
-    ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
+    ws.check_out(repo.op_id().clone(), None, &commit1)
+        .block_on()
+        .unwrap();
 
     // Pretend that "parent" was a symlink, which might be created by
     // e.g. checking out "PARENT" on case-insensitive fs. The file
@@ -2036,7 +2106,10 @@ fn test_check_out_file_removal_over_existing_directory_symlink() {
     assert!(file_path.to_fs_path_unchecked(&workspace_root).exists());
 
     // Check out empty tree, which tries to remove "parent/escaped".
-    let stats = ws.check_out(repo.op_id().clone(), None, &commit2).unwrap();
+    let stats = ws
+        .check_out(repo.op_id().clone(), None, &commit2)
+        .block_on()
+        .unwrap();
     assert_eq!(stats.skipped_files, 1);
 
     // "../escaped" shouldn't be removed.
@@ -2070,7 +2143,10 @@ fn test_check_out_symlink_unusual_target(link_target: &str) {
 
     // Check out tree containing symlink
     let ws = &mut test_workspace.workspace;
-    let stats = ws.check_out(repo.op_id().clone(), None, &commit1).unwrap();
+    let stats = ws
+        .check_out(repo.op_id().clone(), None, &commit1)
+        .block_on()
+        .unwrap();
     assert_eq!(stats.added_files, 1);
 
     // Symlink should be created
@@ -2080,7 +2156,10 @@ fn test_check_out_symlink_unusual_target(link_target: &str) {
     );
 
     // Check out empty tree
-    let stats = ws.check_out(repo.op_id().clone(), None, &commit2).unwrap();
+    let stats = ws
+        .check_out(repo.op_id().clone(), None, &commit2)
+        .block_on()
+        .unwrap();
     assert_eq!(stats.removed_files, 1);
 
     // Symlink should be deleted
@@ -2103,7 +2182,7 @@ fn test_check_out_malformed_file_path(file_path_str: &str) {
 
     // Checkout should fail
     let ws = &mut test_workspace.workspace;
-    let result = ws.check_out(repo.op_id().clone(), None, &commit);
+    let result = ws.check_out(repo.op_id().clone(), None, &commit).block_on();
     assert_matches!(result, Err(CheckoutError::InvalidRepoPath(_)));
 
     // Therefore, "pwned" file shouldn't be created.
@@ -2124,7 +2203,7 @@ fn test_check_out_malformed_file_path_windows(file_path_str: &str) {
 
     // Checkout should fail on Windows
     let ws = &mut test_workspace.workspace;
-    let result = ws.check_out(repo.op_id().clone(), None, &commit);
+    let result = ws.check_out(repo.op_id().clone(), None, &commit).block_on();
     if cfg!(windows) {
         assert_matches!(result, Err(CheckoutError::InvalidRepoPath(_)));
     } else {
@@ -2161,7 +2240,9 @@ fn test_check_out_reserved_file_path(file_path_str: &str) {
 
     // Checkout should fail.
     let ws = &mut test_workspace.workspace;
-    let result = ws.check_out(repo.op_id().clone(), None, &commit1);
+    let result = ws
+        .check_out(repo.op_id().clone(), None, &commit1)
+        .block_on();
     assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
 
     // Therefore, "pwned" file shouldn't be created.
@@ -2183,7 +2264,9 @@ fn test_check_out_reserved_file_path(file_path_str: &str) {
     }
 
     // Check out empty tree, which tries to remove the file.
-    let result = ws.check_out(repo.op_id().clone(), None, &commit2);
+    let result = ws
+        .check_out(repo.op_id().clone(), None, &commit2)
+        .block_on();
     assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
 
     // The existing file shouldn't be removed.
@@ -2212,7 +2295,9 @@ fn test_check_out_reserved_file_path_icase_fs(file_path_str: &str) {
 
     // Checkout should fail on icase fs.
     let ws = &mut test_workspace.workspace;
-    let result = ws.check_out(repo.op_id().clone(), None, &commit1);
+    let result = ws
+        .check_out(repo.op_id().clone(), None, &commit1)
+        .block_on();
     if is_icase_fs {
         assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
     } else {
@@ -2236,7 +2321,9 @@ fn test_check_out_reserved_file_path_icase_fs(file_path_str: &str) {
     std::fs::write(&disk_path, "").unwrap();
 
     // Check out empty tree, which tries to remove the file.
-    let result = ws.check_out(repo.op_id().clone(), None, &commit2);
+    let result = ws
+        .check_out(repo.op_id().clone(), None, &commit2)
+        .block_on();
     if is_icase_fs {
         assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
     } else {
@@ -2273,7 +2360,9 @@ fn test_check_out_reserved_file_path_hfs_plus(file_path_str: &str) {
 
     // Checkout should fail on HFS+-like fs.
     let ws = &mut test_workspace.workspace;
-    let result = ws.check_out(repo.op_id().clone(), None, &commit1);
+    let result = ws
+        .check_out(repo.op_id().clone(), None, &commit1)
+        .block_on();
     if is_hfs_plus {
         assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
     } else {
@@ -2297,7 +2386,9 @@ fn test_check_out_reserved_file_path_hfs_plus(file_path_str: &str) {
     std::fs::write(&disk_path, "").unwrap();
 
     // Check out empty tree, which tries to remove the file.
-    let result = ws.check_out(repo.op_id().clone(), None, &commit2);
+    let result = ws
+        .check_out(repo.op_id().clone(), None, &commit2)
+        .block_on();
     if is_hfs_plus {
         assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
     } else {
@@ -2339,7 +2430,9 @@ fn test_check_out_reserved_file_path_vfat(vfat_path_str: &str, file_path_strs: &
 
     // Checkout should fail on VFAT-like fs.
     let ws = &mut test_workspace.workspace;
-    let result = ws.check_out(repo.op_id().clone(), None, &commit1);
+    let result = ws
+        .check_out(repo.op_id().clone(), None, &commit1)
+        .block_on();
     if is_vfat {
         assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
     } else {
@@ -2365,7 +2458,9 @@ fn test_check_out_reserved_file_path_vfat(vfat_path_str: &str, file_path_strs: &
     }
 
     // Check out empty tree, which tries to remove the file.
-    let result = ws.check_out(repo.op_id().clone(), None, &commit2);
+    let result = ws
+        .check_out(repo.op_id().clone(), None, &commit2)
+        .block_on();
     if is_vfat {
         assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
     } else {
@@ -2406,7 +2501,9 @@ fn test_check_out_reserved_file_path_dot_git_symlink(file_path_str: &str) {
 
     // Checkout should fail.
     let ws = &mut test_workspace.workspace;
-    let result = ws.check_out(repo.op_id().clone(), None, &commit1);
+    let result = ws
+        .check_out(repo.op_id().clone(), None, &commit1)
+        .block_on();
     assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
 
     // Therefore, "pwned" file shouldn't be created.
@@ -2422,7 +2519,9 @@ fn test_check_out_reserved_file_path_dot_git_symlink(file_path_str: &str) {
     }
 
     // Check out empty tree, which tries to remove the file.
-    let result = ws.check_out(repo.op_id().clone(), None, &commit2);
+    let result = ws
+        .check_out(repo.op_id().clone(), None, &commit2)
+        .block_on();
     assert_matches!(result, Err(CheckoutError::ReservedPathComponent { .. }));
 
     // The existing file shouldn't be removed.

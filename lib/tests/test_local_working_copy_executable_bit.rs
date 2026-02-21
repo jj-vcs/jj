@@ -25,6 +25,7 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::store::Store;
+use pollster::FutureExt as _;
 use testutils::TestTreeBuilder;
 use testutils::TestWorkspace;
 use testutils::repo_path;
@@ -97,7 +98,10 @@ fn test_exec_bit_checkout() {
     let mut checkout_exec_commit = |executable| {
         let commit = if executable { &exec } else { &no_exec };
         let op_id = ws.repo.op_id().clone();
-        ws.workspace.check_out(op_id, None, commit).unwrap();
+        ws.workspace
+            .check_out(op_id, None, commit)
+            .block_on()
+            .unwrap();
     };
 
     // Checkout commits and ensure the filesystem is updated correctly.
