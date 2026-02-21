@@ -57,13 +57,13 @@ pub fn cmd_op_integrate(
     op_heads_store::resolve_op_heads(
         repo_loader.op_heads_store().as_ref(),
         repo_loader.op_store(),
-        |op_heads| -> Result<Operation, CommandError> {
+        async |op_heads| -> Result<Operation, CommandError> {
             let base_repo = repo_loader.load_at(&op_heads[0])?;
             // TODO: It may be helpful to print each operation we're merging here
             let mut tx = start_repo_transaction(&base_repo, command.string_args());
             for other_op_head in op_heads.into_iter().skip(1) {
                 tx.merge_operation(other_op_head)?;
-                let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
+                let num_rebased = tx.repo_mut().rebase_descendants().await?;
                 if num_rebased > 0 {
                     writeln!(
                         ui.status(),

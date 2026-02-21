@@ -758,7 +758,7 @@ impl RepoLoader {
         let op = op_heads_store::resolve_op_heads(
             self.op_heads_store.as_ref(),
             &self.op_store,
-            |op_heads| self.resolve_op_heads(op_heads),
+            async |op_heads| self.resolve_op_heads(op_heads).await,
         )
         .block_on()?;
         let view = op.view()?;

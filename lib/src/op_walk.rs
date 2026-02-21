@@ -93,7 +93,7 @@ pub fn resolve_op_for_load(
     let op_store = repo_loader.op_store();
     let op_heads_store = repo_loader.op_heads_store().as_ref();
     let get_current_op = || {
-        op_heads_store::resolve_op_heads(op_heads_store, op_store, |op_heads| {
+        op_heads_store::resolve_op_heads(op_heads_store, op_store, async |op_heads| {
             Err(OpsetResolutionError::MultipleOperations {
                 expr: "@".to_owned(),
                 candidates: op_heads.iter().map(|op| op.id().clone()).collect(),

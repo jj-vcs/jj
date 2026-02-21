@@ -692,7 +692,7 @@ impl CommandHelper {
             op_heads_store::resolve_op_heads(
                 repo_loader.op_heads_store().as_ref(),
                 repo_loader.op_store(),
-                |op_heads| {
+                async |op_heads| {
                     writeln!(
                         ui.status(),
                         "Concurrent modification detected, resolving automatically.",
@@ -702,7 +702,7 @@ impl CommandHelper {
                     let mut tx = start_repo_transaction(&base_repo, &self.data.string_args);
                     for other_op_head in op_heads.into_iter().skip(1) {
                         tx.merge_operation(other_op_head)?;
-                        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
+                        let num_rebased = tx.repo_mut().rebase_descendants().await?;
                         if num_rebased > 0 {
                             writeln!(
                                 ui.status(),
