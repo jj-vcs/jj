@@ -216,6 +216,7 @@ impl TestEnvironment {
         RepoLoader::init_from_file_system(settings, repo_path, &self.default_store_factories())
             .unwrap()
             .load_at_head()
+            .block_on()
             .unwrap()
     }
 }
@@ -382,7 +383,7 @@ pub fn commit_transactions(txs: Vec<Transaction>) -> Arc<ReadonlyRepo> {
         op_ids.push(tx.commit("test").unwrap().op_id().clone());
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
-    let repo = repo_loader.load_at_head().unwrap();
+    let repo = repo_loader.load_at_head().block_on().unwrap();
     // Test the setup. The assumption here is that the parent order matches the
     // order in which they were merged (which currently matches the transaction
     // commit order), so we want to know make sure they appear in a certain

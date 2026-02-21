@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use jj_lib::repo::RepoLoader;
+use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::write_random_commit;
 
@@ -38,7 +39,7 @@ fn test_load_at_operation() {
         &test_repo.env.default_store_factories(),
     )
     .unwrap();
-    let head_repo = loader.load_at_head().unwrap();
+    let head_repo = loader.load_at_head().block_on().unwrap();
     assert!(!head_repo.view().heads().contains(commit.id()));
 
     // If we load the repo at the previous operation, we should see the commit since

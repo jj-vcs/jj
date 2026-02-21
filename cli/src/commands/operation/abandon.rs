@@ -70,7 +70,7 @@ pub fn cmd_op_abandon(
     let (abandon_root_op, abandon_head_ops) =
         if let Some((root_op_str, head_op_str)) = args.operation.split_once("..") {
             let root_op = if root_op_str.is_empty() {
-                repo_loader.root_operation()
+                repo_loader.root_operation().block_on()
             } else {
                 resolve_op(root_op_str)?
             };

@@ -243,7 +243,7 @@ fn test_stored_commit_predecessors() {
     let repo = tx.commit("test").unwrap();
 
     // Reload operation from disk.
-    let op = loader.load_operation(repo.op_id()).unwrap();
+    let op = loader.load_operation(repo.op_id()).block_on().unwrap();
     assert!(op.stores_commit_predecessors());
     assert_matches!(op.predecessors_for_commit(commit1.id()), Some([]));
     assert_matches!(op.predecessors_for_commit(commit2.id()), Some([id]) if id == commit1.id());
@@ -253,7 +253,7 @@ fn test_stored_commit_predecessors() {
     data.commit_predecessors = None;
     let op_id = loader.op_store().write_operation(&data).block_on().unwrap();
     assert_ne!(&op_id, op.id());
-    let op = loader.load_operation(&op_id).unwrap();
+    let op = loader.load_operation(&op_id).block_on().unwrap();
     assert!(!op.stores_commit_predecessors());
 }
 
@@ -264,7 +264,7 @@ fn test_reparent_range_linear() {
     let loader = repo_0.loader();
     let op_store = repo_0.op_store();
 
-    let read_op = |id| loader.load_operation(id).unwrap();
+    let read_op = |id| loader.load_operation(id).block_on().unwrap();
 
     fn op_parents<const N: usize>(op: &Operation) -> [Operation; N] {
         let parents: Vec<_> = op.parents().try_collect().unwrap();
@@ -330,7 +330,7 @@ fn test_reparent_range_branchy() {
     let loader = repo_0.loader();
     let op_store = repo_0.op_store();
 
-    let read_op = |id| loader.load_operation(id).unwrap();
+    let read_op = |id| loader.load_operation(id).block_on().unwrap();
 
     fn op_parents<const N: usize>(op: &Operation) -> [Operation; N] {
         let parents: Vec<_> = op.parents().try_collect().unwrap();
@@ -471,7 +471,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
     let op_store = repo_0.op_store();
 
     let repo_at = |id: &OperationId| {
-        let op = loader.load_operation(id).unwrap();
+        let op = loader.load_operation(id).block_on().unwrap();
         loader.load_at(&op).unwrap()
     };
     let head_commits = |repo: &dyn Repo| {
@@ -714,7 +714,7 @@ fn test_resolve_op_id() {
         ))
     );
     // Virtual root id
-    let root_operation = loader.root_operation();
+    let root_operation = loader.root_operation().block_on();
     assert_eq!(resolve(&root_operation.id().hex()).unwrap(), root_operation);
     assert_eq!(resolve("00").unwrap(), root_operation);
     assert_eq!(resolve("0e").unwrap(), operations[4]);
@@ -902,7 +902,7 @@ fn test_walk_ancestors() {
             op_f.clone(),
             repo_c.operation().clone(),
             repo_a.operation().clone(),
-            loader.root_operation(),
+            loader.root_operation().block_on(),
         ]
     );
 
@@ -914,7 +914,7 @@ fn test_walk_ancestors() {
             repo_c.operation().clone(),
             repo_a.operation().clone(),
             repo_b.operation().clone(),
-            loader.root_operation(),
+            loader.root_operation().block_on(),
         ]
     );
 
