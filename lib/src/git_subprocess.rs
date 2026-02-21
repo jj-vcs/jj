@@ -16,6 +16,7 @@ use std::io;
 use std::io::BufReader;
 use std::io::Read;
 use std::num::NonZeroU32;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::Child;
 use std::process::Command;
@@ -226,6 +227,24 @@ impl GitSubprocessContext {
         let () = parse_git_branch_prune_output(output)?;
 
         Ok(())
+    }
+
+    pub(crate) fn spawn_worktree_add(
+        &self,
+        worktree_path: &Path,
+        commit_id_hex: &str,
+    ) -> Result<(), GitSubprocessError> {
+        let mut command = self.create_command();
+        command.stdout(Stdio::piped());
+        command.args(["worktree", "add", "--detach", "--no-checkout"]);
+        command.arg(worktree_path);
+        command.arg(commit_id_hex);
+        let output = wait_with_output(self.spawn_cmd(command)?)?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(external_git_error(&output.stderr))
+        }
     }
 
     /// How we retrieve the remote's default branch:

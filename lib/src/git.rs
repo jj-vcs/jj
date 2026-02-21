@@ -23,6 +23,7 @@ use std::ffi::OsString;
 use std::fs::File;
 use std::iter;
 use std::num::NonZeroU32;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -140,6 +141,14 @@ impl GitSubprocessOptions {
 }
 
 #[derive(Debug, Error)]
+pub enum GitWorktreeError {
+    #[error(transparent)]
+    Subprocess(#[from] GitSubprocessError),
+    #[error(transparent)]
+    UnexpectedBackend(#[from] UnexpectedGitBackendError),
+}
+
+#[derive(Debug, Error)]
 pub enum GitRemoteNameError {
     #[error(
         "Git remote named '{name}' is reserved for local Git repository",
@@ -148,6 +157,21 @@ pub enum GitRemoteNameError {
     ReservedForLocalGitRepo,
     #[error("Git remotes with slashes are incompatible with jj: {}", .0.as_symbol())]
     WithSlash(RemoteNameBuf),
+}
+
+pub fn add_worktree(
+    repo: &dyn Repo,
+    worktree_path: &Path,
+    head_commit_id: &CommitId,
+    subprocess_options: GitSubprocessOptions,
+) -> Result<(), GitWorktreeError> {
+    // Prefer gix for local Git operations, but it does not yet support
+    // worktree management. Use a git subprocess as a pragmatic fallback.
+    let git_backend = get_git_backend(repo.store())?;
+    let git_ctx = GitSubprocessContext::from_git_backend(git_backend, subprocess_options);
+    let commit_hex = head_commit_id.hex();
+    git_ctx.spawn_worktree_add(worktree_path, &commit_hex)?;
+    Ok(())
 }
 
 fn validate_remote_name(name: &RemoteName) -> Result<(), GitRemoteNameError> {
