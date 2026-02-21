@@ -79,6 +79,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   diff in the commit description editor, making it easier to review changes
   while writing commit messages.
 
+* A new global flag `--no-integrate-operation` lets you run a command without
+  impacting the repo state or the working copy.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04
