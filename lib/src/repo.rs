@@ -28,6 +28,7 @@ use std::sync::Arc;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
+use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -265,7 +266,10 @@ impl ReadonlyRepo {
         };
 
         let root_operation = loader.root_operation().await;
-        let root_view = root_operation.view().expect("failed to read root view");
+        let root_view = root_operation
+            .view()
+            .await
+            .expect("failed to read root view");
         assert!(!root_view.heads().is_empty());
         let index = loader
             .index_store
@@ -760,13 +764,13 @@ impl RepoLoader {
             async |op_heads| self.resolve_op_heads(op_heads).await,
         )
         .await?;
-        let view = op.view()?;
+        let view = op.view().await?;
         self.finish_load(op, view)
     }
 
     #[instrument(skip(self))]
     pub fn load_at(&self, op: &Operation) -> Result<Arc<ReadonlyRepo>, RepoLoaderError> {
-        let view = op.view()?;
+        let view = op.view().block_on()?;
         self.finish_load(op.clone(), view)
     }
 
