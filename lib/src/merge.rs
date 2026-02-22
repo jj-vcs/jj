@@ -17,6 +17,7 @@
 
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fmt::Write as _;
@@ -455,6 +456,37 @@ impl<T> Merge<T> {
         T: Eq + Hash,
     {
         trivial_merge(&self.values, same_change)
+    }
+
+    /// If this merge can be trivially resolved after deduplicating same diffs,
+    /// returns the value it resolves to.
+    ///
+    /// This can be useful to "converge" algorithms. A converge algorithm is an
+    /// algorithm that tries to solve a divergent change-id by replacing the
+    /// two-or-more divergent commits with a single commit for the given
+    /// change-id. See <https://github.com/jj-vcs/jj/blob/main/docs/design/jj-converge-command.md> for more details.
+    pub fn try_resolve_deduplicating_same_diffs(&self) -> Option<&T>
+    where
+        T: Eq + Hash,
+    {
+        let mut seen: HashSet<(&T, &T)> = HashSet::new();
+        assert!(
+            self.values.len() % 2 == 1,
+            "trivial_merge() requires an odd number of terms"
+        );
+        let mut dedupped_values = Vec::with_capacity(self.values.len());
+        dedupped_values.push(&self.values[0]);
+        for term in self.values[1..].chunks(2) {
+            let (add, remove) = (&term[0], &term[1]);
+            if seen.insert((add, remove)) {
+                dedupped_values.push(add);
+                dedupped_values.push(remove);
+            }
+        }
+        match trivial_merge(dedupped_values.iter().as_slice(), SameChange::Accept) {
+            Some(value) => Some(*value),
+            None => None,
+        }
     }
 
     /// Pads this merge with to the specified number of sides with the specified

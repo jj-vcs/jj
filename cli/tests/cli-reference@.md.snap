@@ -34,6 +34,7 @@ This document contains the help content for the `jj` command-line program.
 * [`jj config path`↴](#jj-config-path)
 * [`jj config set`↴](#jj-config-set)
 * [`jj config unset`↴](#jj-config-unset)
+* [`jj converge`↴](#jj-converge)
 * [`jj describe`↴](#jj-describe)
 * [`jj diff`↴](#jj-diff)
 * [`jj diffedit`↴](#jj-diffedit)
@@ -146,6 +147,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `bookmark` — Manage bookmarks [default alias: b]
 * `commit` — Update the description and create a new change on top [default alias: ci]
 * `config` — Manage config options
+* `converge` — Resolves divergent changes
 * `describe` — Update the change description or other metadata [default alias: desc]
 * `diff` — Compare file contents between two revisions
 * `diffedit` — Touch up the content changes in a revision with a diff editor
@@ -822,6 +824,16 @@ Update a config file to unset the given option
 * `--user` — Target the user-level config
 * `--repo` — Target the repo-level config
 * `--workspace` — Target the workspace-level config
+
+
+
+## `jj converge`
+
+Resolves divergent changes.
+
+Attempts to resolve divergence by replacing the visible commits for a given divergent change-id with a single commit.
+
+**Usage:** `jj converge`
 
 
 
