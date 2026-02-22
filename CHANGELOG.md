@@ -79,6 +79,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   diff in the commit description editor, making it easier to review changes
   while writing commit messages.
 
+* New `diff_lines_added()` and `diff_lines_removed()` revset functions for
+  matching content on only one side of a diff.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04
