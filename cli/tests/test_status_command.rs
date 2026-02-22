@@ -606,3 +606,90 @@ fn test_status_no_working_copy() {
     [EOF]
     ");
 }
+
+#[test]
+fn test_status_revision_working_copy() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "base");
+    work_dir.run_jj(["new"]).success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["status", "-r", "@"]), @"
+    Commit has no changes.
+    Commit       : rlvkpnrz 585955fe (empty) (no description set)
+    Parent commit: qpvuntsm f99015d7 (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_status_revision_previous_commit() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "base");
+    work_dir.run_jj(["new"]).success();
+
+    work_dir.write_file("file", "change");
+    work_dir.run_jj(["new"]).success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["status", "-r", "@-"]), @"
+    Commit changes:
+    M file
+    Commit       : rlvkpnrz c18c7685 (no description set)
+    Parent commit: qpvuntsm f99015d7 (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_status_revision_arbitrary_commit() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "base");
+    work_dir.run_jj(["new"]).success();
+
+    work_dir.write_file("file", "change");
+    work_dir.run_jj(["new"]).success();
+
+    work_dir.write_file("file", "change");
+    work_dir.run_jj(["new"]).success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["status", "-r", "root()+"]), @"
+    Commit changes:
+    A file
+    Commit       : qpvuntsm f99015d7 (no description set)
+    Parent commit: zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_status_revision_more_than_one_commit() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+
+    work_dir.write_file("file", "base");
+    work_dir.run_jj(["new"]).success();
+
+    work_dir.write_file("file", "change");
+    work_dir.run_jj(["new"]).success();
+
+    insta::assert_snapshot!(work_dir.run_jj(["status", "-r", "root()::"]), @"
+    ------- stderr -------
+    Error: Revset `root()::` resolved to more than one revision
+    Hint: The revset `root()::` resolved to these revisions:
+      kkmpptxz d0a1b514 (empty) (no description set)
+      rlvkpnrz c18c7685 (no description set)
+      qpvuntsm f99015d7 (no description set)
+      zzzzzzzz 00000000 (empty) (no description set)
+    [EOF]
+    [exit status: 1]
+    ");
+}
