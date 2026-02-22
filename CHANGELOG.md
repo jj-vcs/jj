@@ -79,6 +79,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   diff in the commit description editor, making it easier to review changes
   while writing commit messages.
 
+* `jj prev` and `jj next` have gained a `--keep` flag to keep the current changes
+  while moving to the previous or next revision.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04

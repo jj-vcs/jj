@@ -432,6 +432,24 @@ fn test_rewrite_immutable_commands() {
     [EOF]
     [exit status: 1]
     "#);
+    // next
+    work_dir
+        .run_jj(["edit", "--ignore-immutable", "mzvwutvl"])
+        .success(); // move to an immutable commit
+    let output = work_dir.run_jj(["next", "--keep"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Error: Commit 1ca17106e94f is immutable
+    Hint: Could not modify commit: mzvwutvl 1ca17106 main | (conflict) merge
+    Hint: Immutable commits are used to protect shared history.
+    Hint: For more information, see:
+          - https://docs.jj-vcs.dev/latest/config/#set-of-immutable-commits
+          - `jj help -k config`, "Set of immutable commits"
+    Hint: This operation would rewrite 1 immutable commits.
+    [EOF]
+    [exit status: 1]
+    "#);
+    work_dir.run_jj(["undo"]).success(); // go back to the pre-edit state
     // parallelize
     let output = work_dir.run_jj(["parallelize", "subject(b)", "main"]);
     insta::assert_snapshot!(output, @r#"
