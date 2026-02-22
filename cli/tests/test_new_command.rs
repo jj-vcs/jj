@@ -403,12 +403,14 @@ fn test_new_insert_after() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["new", "-m", "H", "--insert-after", "D"]);
+    // TODO: Inserting a new commit should not change the order of its child
+    // commits' parents (i.e. G should have the parents H and D).
+    let output = work_dir.run_jj(["new", "-m", "H", "--insert-after", "B"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
     Rebased 3 descendant commits
-    Working copy  (@) now at: uyznsvlq fd3f1413 (empty) H
-    Parent commit (@-)      : vruxwmqv 521674f5 D | (empty) D
+    Working copy  (@) now at: uyznsvlq ec395e2e (empty) H
+    Parent commit (@-)      : kkmpptxz bb98b010 B | (empty) B
     [EOF]
     ");
     insta::assert_snapshot!(get_short_log_output(&work_dir), @"
@@ -418,9 +420,9 @@ fn test_new_insert_after() {
     ○ │    G
     ├───╮
     │ │ @  H
-    │ │ ○  D
-    ○ │ │  B
-    ○ │ │  A
+    │ │ ○  B
+    │ │ ○  A
+    ○ │ │  D
     ├───╯
     │ ○  E
     ├─╯
