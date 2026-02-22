@@ -79,6 +79,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   diff in the commit description editor, making it easier to review changes
   while writing commit messages.
 
+* `jj split` assigns the change id and the bookmarks of the source revision
+  to the revision with the non-selected changes.
+  You can opt out of this change by setting `split.legacy-bookmark-behavior = true`,
+  but this will likely be removed in a future release.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04
@@ -361,6 +366,7 @@ Thanks to the people who made this release happen!
 
 * `jj workspace forget` now warns about unknown workspaces instead of failing.
 
+>>>>>>> Side #2 (Conflict 1 of 1 ends)
 ### Fixed bugs
 
 * Broken symlink on Windows. [#6934](https://github.com/jj-vcs/jj/issues/6934).
