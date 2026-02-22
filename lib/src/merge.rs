@@ -830,9 +830,27 @@ where
     /// Creates a new merge with the file ids from the given merge. In other
     /// words, the executable bits and copy IDs from `self` will be preserved.
     ///
-    /// The given `file_ids` should have the same shape as `self`. Only the
-    /// `FileId` values may differ.
-    pub fn with_new_file_ids(&self, file_ids: &Merge<Option<FileId>>) -> Merge<Option<TreeValue>> {
+    /// * `file_ids`: The new file ids that replace the existing file ids.
+    ///   Should have the same shape as `self`.
+    /// * `default_executable`: The value of [`TreeValue::File::executable`]
+    ///   when promoted from an absent side.
+    /// * `default_copy_id`: The value of [`TreeValue::File::copy_id`] when
+    ///   promoted from an absent side.
+    ///
+    /// It's possible to promote an absent side to a present side. See
+    /// <https://github.com/jj-vcs/jj/issues/7156>.
+    ///
+    /// # Panics
+    ///
+    /// Panics if one term presents(i.e., is [`Some`]) in `self`, but is
+    /// absent(i.e., is [`None`]) in `filed_ids` or the numbers of sides of
+    /// `file_ids` and `self` don't match.
+    pub fn with_new_file_ids(
+        &self,
+        file_ids: &Merge<Option<FileId>>,
+        default_executable: bool,
+        default_copy_id: CopyId,
+    ) -> Merge<Option<TreeValue>> {
         assert_eq!(self.values.len(), file_ids.values.len());
         let values = zip(self, file_ids.iter().cloned())
             .map(
@@ -850,13 +868,10 @@ where
                         copy_id: copy_id.clone(),
                     }),
                     (None, None) => None,
-                    // New files are populated to preserve the materialized conflict. The file won't
-                    // be checked out to the disk. So the metadata is not important, and we will
-                    // just use the default values.
                     (None, Some(id)) => Some(TreeValue::File {
                         id,
-                        executable: false,
-                        copy_id: CopyId::placeholder(),
+                        executable: default_executable,
+                        copy_id: default_copy_id.clone(),
                     }),
                     (old, new) => panic!("incompatible update: {old:?} to {new:?}"),
                 },
