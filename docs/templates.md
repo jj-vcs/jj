@@ -102,6 +102,18 @@ The following functions are defined.
   Note: This function is intended for escape sequences and as such, its output
   is expected to be invisible / of no display width. Outputting content with
   nonzero display width may break wrapping, indentation etc.
+* `replace(pattern: StringPattern, content: Template, replacement: |RegexCaptures| -> Template) -> Template`:
+  Replace every match of `pattern` in `content` by formatting the `replacement`
+  lambda for each match.
+
+  This is similar to [`String.replace()`](#string-type), but operates on
+  `Template` content and preserves formatting of the parts of `content` that are
+  not replaced. The replacement itself is newly formatted template content.
+
+  The lambda argument is a [`RegexCaptures`](#regexcaptures-type) value for the
+  current match. Use `.get(index)` to access capture groups by index, `.name(name)`
+  to access named capture groups, and `.len()` to get the number of captures
+  including capture group 0 for the full match.
 * `stringify(content: Stringify) -> String`: Format `content` to string. This
   effectively removes color labels.
 * `json(value: Serialize) -> String`: Serialize `value` in JSON format.
@@ -445,6 +457,22 @@ _Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
 [A `String` type](#string-type), but is formatted as revset symbol by quoting
 and escaping if necessary. Unlike strings, this cannot be implicitly converted
 to `Boolean`.
+
+### `RegexCaptures` type
+
+_Conversion: `Boolean`: no, `Serialize`: no, `Template`: no_
+
+This type is passed to the replacement lambda of the global
+[`replace()`](#global-functions) function.
+
+The following methods are defined.
+
+* `.len() -> Integer`: Number of capture groups, including capture group 0 for
+  the full match.
+* `.get(index: Integer) -> String`: Returns the capture group at `index`.
+  Capture group 0 is the full match. Errors if the index is out of bounds.
+* `.name(name: Stringify) -> String`: Returns the named capture group `name`.
+  Errors if there is no such named capture group.
 
 ### `RepoPath` type
 

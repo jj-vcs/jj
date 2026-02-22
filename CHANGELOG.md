@@ -34,6 +34,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lines and fine-grained control over when the tool is run. If you have set the `line-range-arg`
   config, use `--all-lines` to match the previous behavior of formatting the entire file.
 
+* A new `replace(pattern, content, replacement)` template function is added
+  which supports replacement of content in templates, using a lambda to format
+  replacement text. It supports all string patterns, including regexes with
+  capture groups (e.g. `replace(regex:'(\w+) (\w+)', "hello world", |c| c.get(1) ++ " " ++ c.get(2))`).
+
 ### Fixed bugs
 
 * Improving consistency with `git` handling of `.gitignore`, including `/`

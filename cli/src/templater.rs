@@ -16,12 +16,15 @@
 //! manner.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::error;
 use std::fmt;
 use std::io;
 use std::io::Write;
 use std::iter;
+use std::ops::Range;
 use std::rc::Rc;
+use std::str::Utf8Error;
 
 use bstr::BStr;
 use bstr::BString;
@@ -121,6 +124,47 @@ impl Template for Email {
 // usize here because it's more convenient to guarantee that the lower value is
 // bounded to 0.
 pub type SizeHint = (usize, Option<usize>);
+
+/// Captures from a regex match, accessible by index or name.
+#[derive(Clone, Debug)]
+pub struct RegexCaptures {
+    /// String that matches were found in.
+    haystack: Vec<u8>,
+    /// List of byte ranges in `haystack` for capture groups by index (with 0
+    /// being the full match).
+    capture_ranges: Vec<Range<usize>>,
+    /// Mapping from capture group names to their index.
+    names: HashMap<String, usize>,
+}
+
+impl RegexCaptures {
+    pub fn new(
+        haystack: Vec<u8>,
+        capture_ranges: Vec<Range<usize>>,
+        names: HashMap<String, usize>,
+    ) -> Self {
+        Self {
+            haystack,
+            capture_ranges,
+            names,
+        }
+    }
+
+    #[expect(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.capture_ranges.len()
+    }
+
+    pub fn get(&self, index: usize) -> Option<Result<String, Utf8Error>> {
+        self.capture_ranges.get(index).map(|range| {
+            str::from_utf8(&self.haystack[range.start..range.end]).map(|s| s.to_owned())
+        })
+    }
+
+    pub fn name(&self, name: &str) -> Option<Result<String, Utf8Error>> {
+        self.names.get(name).and_then(|&i| self.get(i))
+    }
+}
 
 impl Template for String {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {

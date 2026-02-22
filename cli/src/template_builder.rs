@@ -64,15 +64,18 @@ use crate::templater::PlainTextFormattedProperty;
 use crate::templater::PropertyPlaceholder;
 use crate::templater::RawEscapeSequenceTemplate;
 use crate::templater::ReformatTemplate;
+use crate::templater::RegexCaptures;
 use crate::templater::SeparateTemplate;
 use crate::templater::SizeHint;
 use crate::templater::Template;
+use crate::templater::TemplateFormatter;
 use crate::templater::TemplateProperty;
 use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
 use crate::templater::TemplateRenderer;
 use crate::templater::WrapTemplateProperty;
 use crate::text_util;
+use crate::text_util::write_replaced;
 use crate::time_util;
 
 /// Callbacks to build usage-context-specific evaluation objects from AST nodes.
@@ -173,6 +176,7 @@ where
     Self: WrapTemplateProperty<'a, Signature>,
     Self: WrapTemplateProperty<'a, Email>,
     Self: WrapTemplateProperty<'a, SizeHint>,
+    Self: WrapTemplateProperty<'a, RegexCaptures>,
     Self: WrapTemplateProperty<'a, Timestamp>,
     Self: WrapTemplateProperty<'a, TimestampRange>,
 {
@@ -210,6 +214,7 @@ pub enum CoreTemplatePropertyKind<'a> {
     Signature(BoxedTemplateProperty<'a, Signature>),
     Email(BoxedTemplateProperty<'a, Email>),
     SizeHint(BoxedTemplateProperty<'a, SizeHint>),
+    RegexCaptures(BoxedTemplateProperty<'a, RegexCaptures>),
     Timestamp(BoxedTemplateProperty<'a, Timestamp>),
     TimestampRange(BoxedTemplateProperty<'a, TimestampRange>),
 
@@ -245,6 +250,7 @@ macro_rules! impl_core_property_wrappers {
             Signature(jj_lib::backend::Signature),
             Email($crate::templater::Email),
             SizeHint($crate::templater::SizeHint),
+            RegexCaptures($crate::templater::RegexCaptures),
             Timestamp(jj_lib::backend::Timestamp),
             TimestampRange(jj_lib::op_store::TimestampRange),
         });
@@ -280,6 +286,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Signature(_) => "Signature",
             Self::Email(_) => "Email",
             Self::SizeHint(_) => "SizeHint",
+            Self::RegexCaptures(_) => "RegexCaptures",
             Self::Timestamp(_) => "Timestamp",
             Self::TimestampRange(_) => "TimestampRange",
             Self::Template(_) => "Template",
@@ -300,6 +307,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Signature(_) => None,
             Self::Email(property) => Some(property.map(|e| !e.0.is_empty()).into_dyn()),
             Self::SizeHint(_) => None,
+            Self::RegexCaptures(_) => None,
             Self::Timestamp(_) => None,
             Self::TimestampRange(_) => None,
             // Template and AnyList types could also be evaluated to boolean,
@@ -354,6 +362,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Signature(property) => Some(property.into_serialize()),
             Self::Email(property) => Some(property.into_serialize()),
             Self::SizeHint(property) => Some(property.into_serialize()),
+            Self::RegexCaptures(_) => None,
             Self::Timestamp(property) => Some(property.into_serialize()),
             Self::TimestampRange(property) => Some(property.into_serialize()),
             Self::Template(_) => None,
@@ -374,6 +383,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             Self::Signature(property) => Some(property.into_template()),
             Self::Email(property) => Some(property.into_template()),
             Self::SizeHint(_) => None,
+            Self::RegexCaptures(_) => None,
             Self::Timestamp(property) => Some(property.into_template()),
             Self::TimestampRange(property) => Some(property.into_template()),
             Self::Template(template) => Some(template),
@@ -421,6 +431,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
+            (Self::RegexCaptures(_), _) => None,
             (Self::Timestamp(_), _) => None,
             (Self::TimestampRange(_), _) => None,
             (Self::Template(_), _) => None,
@@ -453,6 +464,7 @@ impl<'a> CoreTemplatePropertyVar<'a> for CoreTemplatePropertyKind<'a> {
             (Self::Signature(_), _) => None,
             (Self::Email(_), _) => None,
             (Self::SizeHint(_), _) => None,
+            (Self::RegexCaptures(_), _) => None,
             (Self::Timestamp(_), _) => None,
             (Self::TimestampRange(_), _) => None,
             (Self::Template(_), _) => None,
@@ -515,6 +527,7 @@ pub struct CoreTemplateBuildFnTable<'a, L: ?Sized, P = <L as TemplateLanguage<'a
     pub email_methods: TemplateBuildMethodFnMap<'a, L, Email, P>,
     pub signature_methods: TemplateBuildMethodFnMap<'a, L, Signature, P>,
     pub size_hint_methods: TemplateBuildMethodFnMap<'a, L, SizeHint, P>,
+    pub regex_captures_methods: TemplateBuildMethodFnMap<'a, L, RegexCaptures, P>,
     pub timestamp_methods: TemplateBuildMethodFnMap<'a, L, Timestamp, P>,
     pub timestamp_range_methods: TemplateBuildMethodFnMap<'a, L, TimestampRange, P>,
     pub template_methods: BuildTemplateMethodFnMap<'a, L, P>,
@@ -542,6 +555,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             signature_methods: HashMap::new(),
             email_methods: HashMap::new(),
             size_hint_methods: HashMap::new(),
+            regex_captures_methods: HashMap::new(),
             timestamp_methods: HashMap::new(),
             timestamp_range_methods: HashMap::new(),
             template_methods: HashMap::new(),
@@ -561,6 +575,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
             signature_methods,
             email_methods,
             size_hint_methods,
+            regex_captures_methods,
             timestamp_methods,
             timestamp_range_methods,
             template_methods,
@@ -577,6 +592,7 @@ impl<L: ?Sized, P> CoreTemplateBuildFnTable<'_, L, P> {
         merge_fn_map(&mut self.signature_methods, signature_methods);
         merge_fn_map(&mut self.email_methods, email_methods);
         merge_fn_map(&mut self.size_hint_methods, size_hint_methods);
+        merge_fn_map(&mut self.regex_captures_methods, regex_captures_methods);
         merge_fn_map(&mut self.timestamp_methods, timestamp_methods);
         merge_fn_map(&mut self.timestamp_range_methods, timestamp_range_methods);
         merge_fn_map(&mut self.template_methods, template_methods);
@@ -601,6 +617,7 @@ where
             signature_methods: builtin_signature_methods(),
             email_methods: builtin_email_methods(),
             size_hint_methods: builtin_size_hint_methods(),
+            regex_captures_methods: builtin_regex_captures_methods(),
             timestamp_methods: builtin_timestamp_methods(),
             timestamp_range_methods: builtin_timestamp_range_methods(),
             template_methods: HashMap::new(),
@@ -685,6 +702,11 @@ where
             }
             CoreTemplatePropertyKind::SizeHint(property) => {
                 let table = &self.size_hint_methods;
+                let build = template_parser::lookup_method(type_name, table, function)?;
+                build(language, diagnostics, build_ctx, property, function)
+            }
+            CoreTemplatePropertyKind::RegexCaptures(property) => {
+                let table = &self.regex_captures_methods;
                 let build = template_parser::lookup_method(type_name, table, function)?;
                 build(language, diagnostics, build_ctx, property, function)
             }
@@ -1400,6 +1422,53 @@ fn builtin_size_hint_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     map
 }
 
+fn builtin_regex_captures_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
+-> TemplateBuildMethodFnMap<'a, L, RegexCaptures> {
+    // Not using maplit::hashmap!{} or custom declarative macro here because
+    // code completion inside macro is quite restricted.
+    let mut map = TemplateBuildMethodFnMap::<L, RegexCaptures>::new();
+    map.insert(
+        "len",
+        |_language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let out_property =
+                self_property.and_then(|captures| Ok(i64::try_from(captures.len())?));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "get",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [index_node] = function.expect_exact_arguments()?;
+            let index = expect_usize_expression(language, diagnostics, build_ctx, index_node)?;
+            let out_property = (self_property, index).and_then(|(captures, index)| {
+                captures.get(index).transpose()?.ok_or_else(|| {
+                    TemplatePropertyError(
+                        format!("Could not get capture group with index {index}").into(),
+                    )
+                })
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map.insert(
+        "name",
+        |language, diagnostics, build_ctx, self_property, function| {
+            let [name_node] = function.expect_exact_arguments()?;
+            let name = expect_stringify_expression(language, diagnostics, build_ctx, name_node)?;
+            let out_property = (self_property, name).and_then(move |(c, name)| {
+                c.name(&name).transpose()?.ok_or_else(|| {
+                    TemplatePropertyError(
+                        format!("Could not get capture group with name {name}").into(),
+                    )
+                })
+            });
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    map
+}
+
 fn builtin_timestamp_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
 -> TemplateBuildMethodFnMap<'a, L, Timestamp> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
@@ -2031,6 +2100,39 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
             HyperlinkTemplate::new(url, text, fallback),
         )))
     });
+    map.insert("replace", |language, diagnostics, build_ctx, function| {
+        let ([pattern_node, content_node, replacement_lambda_node], []) =
+            function.expect_arguments()?;
+        let content = expect_template_expression(language, diagnostics, build_ctx, content_node)?;
+        let pattern = template_parser::expect_string_pattern(pattern_node)?;
+
+        let regex = pattern.to_regex();
+
+        let captures_placeholder = PropertyPlaceholder::new();
+        let replacement_template = template_parser::catch_aliases(
+            diagnostics,
+            replacement_lambda_node,
+            |diagnostics, node| {
+                let lambda = template_parser::expect_lambda(node)?;
+                build_lambda_expression(
+                    build_ctx,
+                    lambda,
+                    &[&|| captures_placeholder.clone().into_dyn_wrapped()],
+                    |build_ctx, body| {
+                        expect_template_expression(language, diagnostics, build_ctx, body)
+                    },
+                )
+            },
+        )?;
+
+        let template = new_replace_template(
+            content,
+            regex.clone(),
+            captures_placeholder.clone(),
+            move |formatter| replacement_template.format(formatter),
+        );
+        Ok(L::Property::wrap_template(template))
+    });
     map.insert("stringify", |language, diagnostics, build_ctx, function| {
         let [content_node] = function.expect_exact_arguments()?;
         let content = expect_stringify_expression(language, diagnostics, build_ctx, content_node)?;
@@ -2204,6 +2306,60 @@ where
         write_truncated(formatter.as_mut(), recorded, recorded_ellipsis, width)?;
         Ok(())
     });
+    Box::new(template)
+}
+
+fn new_replace_template<'a, W>(
+    content: Box<dyn Template + 'a>,
+    regex: regex::bytes::Regex,
+    captures_placeholder: PropertyPlaceholder<RegexCaptures>,
+    write_replacement_content: W,
+) -> Box<dyn Template + 'a>
+where
+    W: Fn(&mut TemplateFormatter) -> io::Result<()> + 'a,
+{
+    // Build named capture group map once from the regex.
+    let names_map: HashMap<String, usize> = regex
+        .capture_names()
+        .enumerate()
+        .filter_map(|(i, name)| name.map(|n| (n.to_string(), i)))
+        .collect();
+
+    let template = ReformatTemplate::new(content, move |formatter, recorded| {
+        let data = recorded.data();
+
+        let mut recorded_replacements = vec![];
+        let mut content_ranges = vec![];
+
+        for captures in regex.captures_iter(data) {
+            let full_match = captures.get(0).expect("capture group 0 is always present");
+            content_ranges.push(full_match.range());
+
+            let capture_ranges = captures
+                .iter()
+                .map(|m| m.map(|m| m.range()).unwrap_or_default())
+                .collect_vec();
+
+            captures_placeholder.with_value(
+                RegexCaptures::new(data.to_vec(), capture_ranges, names_map.clone()),
+                || -> io::Result<()> {
+                    let mut recorder = FormatRecorder::new(formatter.maybe_color());
+                    let rewrap = formatter.rewrap_fn();
+                    write_replacement_content(&mut rewrap(&mut recorder))?;
+                    recorded_replacements.push(recorder);
+                    Ok(())
+                },
+            )?;
+        }
+
+        write_replaced(
+            formatter.as_mut(),
+            recorded,
+            &content_ranges,
+            |formatter, index| recorded_replacements[index].replay(formatter),
+        )
+    });
+
     Box::new(template)
 }
 
@@ -4156,6 +4312,79 @@ mod tests {
         jumps over the [38;5;1mlazy[39m
         dog
         ");
+    }
+
+    #[test]
+    fn test_replace_function() {
+        let mut env = TestTemplateEnv::new();
+        env.add_color("error", crossterm::style::Color::DarkRed);
+        env.add_color("warning", crossterm::style::Color::DarkYellow);
+
+        // Can replace a single match.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace("Hi", label("error", "Hi world"), |_| "Hello")"#),
+            @"[38;5;1mHello world[39m");
+
+        // Can replace multiple matches.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace("Hi", label("error", "Hi Hi world"), |_| "Hello")"#),
+            @"[38;5;1mHello Hello world[39m");
+
+        // Text passed to the replacement function does not have its formatting
+        // preserved.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace("ello w",
+                                     label("error", "Hello") ++ " " ++ label("warning", "world"),
+                                     |c| c.get(0).upper())"#),
+            @"[38;5;1mHELLO W[38;5;3morld[39m");
+
+        // Access capture groups by index.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace(regex-i:"(ello) (w)",
+                                     label("error", "HELLO") ++ " " ++ label("warning", "world"),
+                                     |c| c.get(1).lower() ++ " " ++ c.get(2).upper())"#),
+            @"[38;5;1mHello W[38;5;3morld[39m");
+
+        // Access capture groups by name.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace(regex-i:'(?P<h>ello) (?P<w>w)',
+                                     label("error", "HELLO") ++ " " ++ label("warning", "world"),
+                                     |c| c.name("h").lower() ++ " " ++ c.name("w").upper())"#),
+            @"[38;5;1mHello W[38;5;3morld[39m");
+
+        // Access optional capture groups by index.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace(regex-i:"(hello) (b)?",
+                                     label("error", "HELLO") ++ " " ++ label("warning", "world"),
+                                     |c| c.get(1).lower() ++ " " ++ c.get(2).upper())"#),
+            @"[38;5;1mhello [38;5;3mworld[39m");
+
+        // Access optional capture groups by name.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace(regex-i:'(?P<h>ello) (?P<b>b)',
+                                     label("error", "HELLO") ++ " " ++ label("warning", "world"),
+                                     |c| c.name("h").lower() ++ " " ++ c.name("b").upper())"#),
+            @"[38;5;1mHELLO[39m [38;5;3mworld[39m");
+
+        // .len() indicates number of capture groups (including full match).
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace(regex:"(a)(b)", "ab", |c| c.len())"#),
+            @"3");
+
+        // Out-of-bounds index throws an error.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace("Hi", "Hi world", |c| c.get(99))"#),
+            @"[38;5;1m<Error: Could not get capture group with index 99>[39m world");
+
+        // Unknown named group throws an error.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace("Hi", "Hi world", |c| c.name("no_such_group"))"#),
+            @"[38;5;1m<Error: Could not get capture group with name no_such_group>[39m world");
+
+        // Invalid UTF-8 in a capture group throws an error.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace(regex:'(?-u)^(.{3})(.)$', "🥺", |c| c.get(1))"#),
+            @"[38;5;1m<Error: incomplete utf-8 byte sequence from index 0>[39m");
     }
 
     #[test]
