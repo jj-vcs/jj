@@ -120,7 +120,7 @@ fn test_sparse_checkout() {
     );
 
     // Write the new state to disk
-    locked_ws.finish(repo.op_id().clone()).unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert_eq!(
         wc.file_states().unwrap().paths().collect_vec(),
@@ -238,7 +238,7 @@ fn test_sparse_commit() {
         .set_sparse_patterns(sparse_patterns)
         .block_on()
         .unwrap();
-    locked_ws.finish(repo.op_id().clone()).unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
 
     // Write modified version of all files, including files that are not in the
     // sparse patterns.
@@ -280,7 +280,7 @@ fn test_sparse_commit() {
         .set_sparse_patterns(sparse_patterns)
         .block_on()
         .unwrap();
-    locked_ws.finish(op_id).unwrap();
+    locked_ws.finish(op_id).block_on().unwrap();
 
     // Create a tree from the working copy. Only dir1/file1 and dir2/file1 should be
     // updated in the tree.
@@ -316,7 +316,7 @@ fn test_sparse_commit_gitignore() {
         .set_sparse_patterns(sparse_patterns)
         .block_on()
         .unwrap();
-    locked_ws.finish(repo.op_id().clone()).unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
 
     // Write dir1/file1 and dir1/file2 and a .gitignore saying to ignore dir1/file1
     std::fs::write(working_copy_path.join(".gitignore"), "dir1/file1").unwrap();

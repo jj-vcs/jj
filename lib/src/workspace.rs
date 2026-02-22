@@ -21,7 +21,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::BackendInitError;
@@ -470,6 +469,7 @@ impl Workspace {
         let stats = locked_ws.locked_wc().check_out(commit).await?;
         locked_ws
             .finish(operation_id)
+            .await
             .map_err(|err| CheckoutError::Other {
                 message: "Failed to save the working copy state".to_string(),
                 err: err.into(),
@@ -488,8 +488,8 @@ impl LockedWorkspace<'_> {
         self.locked_wc.as_mut()
     }
 
-    pub fn finish(self, operation_id: OperationId) -> Result<(), WorkingCopyStateError> {
-        let new_wc = self.locked_wc.finish(operation_id).block_on()?;
+    pub async fn finish(self, operation_id: OperationId) -> Result<(), WorkingCopyStateError> {
+        let new_wc = self.locked_wc.finish(operation_id).await?;
         self.base.working_copy = new_wc;
         Ok(())
     }

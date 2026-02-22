@@ -171,7 +171,7 @@ pub async fn cmd_workspace_add(
             .await
             .map_err(|err| internal_error_with_message("Failed to set sparse patterns", err))?;
         let operation_id = locked_ws.locked_wc().old_operation_id().clone();
-        locked_ws.finish(operation_id)?;
+        locked_ws.finish(operation_id).await?;
     }
 
     let mut tx = new_workspace_command.start_transaction();

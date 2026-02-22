@@ -79,7 +79,7 @@ pub async fn cmd_workspace_rename(
             new = new_name.as_symbol()
         ))
         .await?;
-    locked_ws.finish(repo.op_id().clone())?;
+    locked_ws.finish(repo.op_id().clone()).await?;
 
     Ok(())
 }

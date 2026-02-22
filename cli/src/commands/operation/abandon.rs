@@ -138,7 +138,7 @@ pub async fn cmd_op_abandon(
         let mut locked_ws = workspace.start_working_copy_mutation()?;
         let old_op_id = locked_ws.locked_wc().old_operation_id();
         if let Some((_, new_id)) = reparented_head_ops().find(|(old, _)| old.id() == old_op_id) {
-            locked_ws.finish(new_id.clone())?;
+            locked_ws.finish(new_id.clone()).await?;
         } else {
             writeln!(
                 ui.warning_default(),
