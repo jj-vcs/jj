@@ -17,3 +17,10 @@ If applicable:
 - [ ] I have updated the documentation (`README.md`, `docs/`, `demos/`)
 - [ ] I have updated the config schema (`cli/src/config-schema.json`)
 - [ ] I have added/updated tests to cover my changes
+- [ ] I fully understand the code that I am submitting (what it does,
+      how it works, how it's organized), including any code drafted by AI
+- [ ] I proof-read and copy-edited all prose that was originally
+      drafted by AI (if any) with an eye towards deleting anything that
+      is irrelevant, clarifying anything that is confusing, and adding
+      details that are relevant. This includes, for example, commit
+      descriptions, PR descriptions, and code comments.
