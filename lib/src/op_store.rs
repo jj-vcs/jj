@@ -485,7 +485,7 @@ pub trait OpStore: Any + Send + Sync + Debug {
     /// preserved. This mitigates a risk of deleting new heads created
     /// concurrently by another process.
     // TODO: return stats?
-    fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()>;
+    async fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()>;
 }
 
 impl dyn OpStore {

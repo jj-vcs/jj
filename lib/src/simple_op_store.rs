@@ -274,7 +274,7 @@ impl OpStore for SimpleOpStore {
     }
 
     #[tracing::instrument(skip(self))]
-    fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()> {
+    async fn gc(&self, head_ids: &[OperationId], keep_newer: SystemTime) -> OpStoreResult<()> {
         let to_op_id = |entry: &fs::DirEntry| -> Option<OperationId> {
             let name = entry.file_name().into_string().ok()?;
             OperationId::try_from_hex(name)

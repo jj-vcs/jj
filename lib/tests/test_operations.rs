@@ -1033,19 +1033,22 @@ fn test_gc() {
     assert_eq!(expected_view_entries.len(), 5);
 
     // No heads, but all kept by file modification time
-    op_store.gc(&[], SystemTime::UNIX_EPOCH).unwrap();
+    op_store.gc(&[], SystemTime::UNIX_EPOCH).block_on().unwrap();
     assert_eq!(list_dir(&op_dir), expected_op_entries);
     assert_eq!(list_dir(&view_dir), expected_view_entries);
 
     // All reachable from heads
     let now = SystemTime::now();
     let head_ids = [repo_d.op_id().clone(), repo_f.op_id().clone()];
-    op_store.gc(&head_ids, now).unwrap();
+    op_store.gc(&head_ids, now).block_on().unwrap();
     assert_eq!(list_dir(&op_dir), expected_op_entries);
     assert_eq!(list_dir(&view_dir), expected_view_entries);
 
     // E|F are no longer reachable, but E's view is still reachable
-    op_store.gc(slice::from_ref(repo_d.op_id()), now).unwrap();
+    op_store
+        .gc(slice::from_ref(repo_d.op_id()), now)
+        .block_on()
+        .unwrap();
     expected_op_entries
         .retain(|name| *name != repo_e.op_id().hex() && *name != repo_f.op_id().hex());
     expected_view_entries.retain(|name| *name != repo_f.operation().view_id().hex());
@@ -1053,7 +1056,10 @@ fn test_gc() {
     assert_eq!(list_dir(&view_dir), expected_view_entries);
 
     // B|C|D are no longer reachable
-    op_store.gc(slice::from_ref(repo_a.op_id()), now).unwrap();
+    op_store
+        .gc(slice::from_ref(repo_a.op_id()), now)
+        .block_on()
+        .unwrap();
     expected_op_entries.retain(|name| {
         *name != repo_b.op_id().hex()
             && *name != repo_c.op_id().hex()
