@@ -75,6 +75,7 @@ rustix = { workspace = true }
 [target.'cfg(windows)'.dependencies]
 same-file = { workspace = true }
 winreg = { workspace = true }
+windows-sys = { workspace = true, features = ["Win32_Storage_FileSystem", "Win32_System_IO"] }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

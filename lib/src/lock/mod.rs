@@ -14,19 +14,24 @@
 
 #![expect(missing_docs)]
 
+#[cfg(not(windows))]
 mod fallback;
 #[cfg(unix)]
 mod unix;
+#[cfg(windows)]
+mod windows;
 
 use std::io;
 use std::path::PathBuf;
 
 use thiserror::Error;
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 pub use self::fallback::FileLock;
 #[cfg(unix)]
 pub use self::unix::FileLock;
+#[cfg(windows)]
+pub use self::windows::FileLock;
 
 #[derive(Debug, Error)]
 #[error("{message}: {path}")]
