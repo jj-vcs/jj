@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::cmp;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io;
 use std::iter;
+use std::ops::Range;
 
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
@@ -65,6 +67,7 @@ use crate::templater::ReformatTemplate;
 use crate::templater::SeparateTemplate;
 use crate::templater::SizeHint;
 use crate::templater::Template;
+use crate::templater::TemplateFormatter;
 use crate::templater::TemplateProperty;
 use crate::templater::TemplatePropertyError;
 use crate::templater::TemplatePropertyExt as _;
@@ -1848,6 +1851,83 @@ fn build_lambda_expression<'i, P, T>(
     build_body(&inner_build_ctx, &lambda.body)
 }
 
+fn write_replaced(
+    formatter: &mut TemplateFormatter,
+    recorded_content: &FormatRecorder,
+    regex: regex::bytes::Regex,
+    capture_placeholders: Vec<PropertyPlaceholder<String>>,
+    mut write_replacement_content: impl FnMut(&mut TemplateFormatter) -> io::Result<()>,
+) -> io::Result<()> {
+    let data = recorded_content.data();
+    let mut last_end: usize = 0;
+
+    enum TemplateContent {
+        Original(Range<usize>),
+        Replacement(FormatRecorder),
+    }
+    let mut content_blocks = vec![];
+
+    for captures in regex.captures_iter(data) {
+        let full_match = captures.get(0).expect("capture group 0 is always present");
+        // Write the non-matching prefix.
+        content_blocks.push(TemplateContent::Original(last_end..full_match.start()));
+
+        let capture_strings = captures
+            .iter()
+            .map(|capture| {
+                capture
+                    .map(|m| String::from_utf8_lossy(m.as_bytes()).into_owned())
+                    .unwrap_or_default()
+            })
+            .collect_vec();
+
+        for (capture, capture_placeholder) in
+            capture_strings.into_iter().zip(capture_placeholders.iter())
+        {
+            capture_placeholder.set(capture);
+        }
+
+        let mut recorder = FormatRecorder::new(formatter.maybe_color());
+        let rewrap = formatter.rewrap_fn();
+        write_replacement_content(&mut rewrap(&mut recorder))?;
+        content_blocks.push(TemplateContent::Replacement(recorder));
+
+        last_end = full_match.end();
+    }
+    // Write the remaining suffix.
+    content_blocks.push(TemplateContent::Original(last_end..data.len()));
+
+    for capture_placeholder in &capture_placeholders {
+        capture_placeholder.take();
+    }
+
+    let mut content_blocks = content_blocks.into_iter().peekable();
+    // The recorded data ranges are contiguous, and the line ranges are increasing
+    // sequence (with some holes.) Both ranges should start from data[0].
+    recorded_content.replay_with(formatter.as_mut(), |formatter, data_range| {
+        while let Some(content) = content_blocks.peek() {
+            match content {
+                TemplateContent::Original(range) => {
+                    let start = cmp::max(data_range.start, range.start);
+                    let end = cmp::min(data_range.end, range.end);
+                    if start < end {
+                        formatter.write_all(&data[start..end])?;
+                    }
+                    if data_range.end <= range.end {
+                        break; // No more lines in this data range
+                    }
+                    content_blocks.next().unwrap();
+                }
+                TemplateContent::Replacement(recorder) => {
+                    recorder.replay(formatter)?;
+                    content_blocks.next().unwrap();
+                }
+            }
+        }
+        Ok(())
+    })
+}
+
 fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFunctionFnMap<'a, L> {
     // Not using maplit::hashmap!{} or custom declarative macro here because
     // code completion inside macro is quite restricted.
@@ -1983,6 +2063,55 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         Ok(L::Property::wrap_template(Box::new(
             HyperlinkTemplate::new(url, text, fallback),
         )))
+    });
+    map.insert("replace", |language, diagnostics, build_ctx, function| {
+        let ([pattern_node, content_node, replacement_lambda_node], []) =
+            function.expect_arguments()?;
+        let content = expect_template_expression(language, diagnostics, build_ctx, content_node)?;
+        let pattern = template_parser::expect_string_pattern(pattern_node)?;
+
+        let regex = pattern.to_regex();
+
+        // captures_len() includes the full match and all capture groups.
+        let arguments_count = regex.captures_len();
+        let mut capture_placeholders: Vec<PropertyPlaceholder<String>> =
+            Vec::with_capacity(arguments_count);
+        for _ in 0..arguments_count {
+            capture_placeholders.push(PropertyPlaceholder::new());
+        }
+
+        let arg_fns: Vec<Box<dyn Fn() -> L::Property + 'a>> = capture_placeholders
+            .iter()
+            .map(|placeholder| {
+                let placeholder = placeholder.clone();
+                Box::new(move || placeholder.clone().into_dyn_wrapped())
+                    as Box<dyn Fn() -> L::Property + 'a>
+            })
+            .collect();
+        let arg_fns_refs: Vec<&(dyn Fn() -> L::Property + 'a)> =
+            arg_fns.iter().map(|f| f.as_ref()).collect();
+
+        let replacement_template = template_parser::catch_aliases(
+            diagnostics,
+            replacement_lambda_node,
+            |diagnostics, node| {
+                let lambda = template_parser::expect_lambda(node)?;
+                build_lambda_expression(build_ctx, lambda, &arg_fns_refs, |build_ctx, body| {
+                    expect_template_expression(language, diagnostics, build_ctx, body)
+                })
+            },
+        )?;
+
+        let template = ReformatTemplate::new(content, move |formatter, recorded| {
+            write_replaced(
+                formatter,
+                recorded,
+                regex.clone(),
+                capture_placeholders.clone(),
+                |formatter| replacement_template.format(formatter),
+            )
+        });
+        Ok(L::Property::wrap_template(Box::new(template)))
     });
     map.insert("stringify", |language, diagnostics, build_ctx, function| {
         let [content_node] = function.expect_exact_arguments()?;
@@ -4046,6 +4175,25 @@ mod tests {
         jumps over the [38;5;1mlazy[39m
         dog
         ");
+    }
+
+    #[test]
+    fn test_replace_function() {
+        let mut env = TestTemplateEnv::new();
+        env.add_color("error", crossterm::style::Color::DarkRed);
+        env.add_color("warning", crossterm::style::Color::DarkYellow);
+
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace("Hi", label("error", "Hi world"), |_| "Hello")"#),
+            @"[38;5;1mHello world[39m");
+
+        // Text passed to the replacement function do not have their formatting
+        // preserved.
+        insta::assert_snapshot!(
+            env.render_ok(r#"replace(regex-i:"(ello) (w)",
+                                     label("error", "HELLO") ++ " " ++ label("warning", "world"),
+                                     |_, ello, w| ello.lower() ++ " " ++ w.upper())"#),
+            @"[38;5;1mHello W[38;5;3morld[39m");
     }
 
     #[test]
