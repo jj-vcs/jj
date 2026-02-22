@@ -17,14 +17,12 @@
 use std::collections::BTreeMap;
 use std::iter::zip;
 
-use itertools::Itertools as _;
-use pollster::FutureExt as _;
+use futures::future::try_join_all;
 
 use crate::backend::BackendResult;
 use crate::backend::TreeId;
 use crate::conflict_labels::ConflictLabels;
 use crate::merge::Merge;
-use crate::merge::MergeBuilder;
 use crate::merge::MergedTreeValue;
 use crate::merged_tree::MergedTree;
 use crate::repo_path::RepoPathBuf;
@@ -62,7 +60,7 @@ impl MergedTreeBuilder {
     pub async fn write_tree(self) -> BackendResult<MergedTree> {
         let store = self.base_tree.store().clone();
         let labels = self.base_tree.labels().clone();
-        let new_tree_ids = self.write_merged_trees()?;
+        let new_tree_ids = self.write_merged_trees().await?;
         let labels = if labels.num_sides() == Some(new_tree_ids.num_sides()) {
             labels
         } else {
@@ -82,7 +80,7 @@ impl MergedTreeBuilder {
         }
     }
 
-    fn write_merged_trees(self) -> BackendResult<Merge<TreeId>> {
+    async fn write_merged_trees(self) -> BackendResult<Merge<TreeId>> {
         let store = self.base_tree.store().clone();
         let mut base_tree_ids = self.base_tree.into_tree_ids();
         let num_sides = self
@@ -117,10 +115,13 @@ impl MergedTreeBuilder {
         // TODO: This can be made more efficient. If there's a single resolved conflict
         // in `dir/file`, we shouldn't have to write the `dir/` and root trees more than
         // once.
-        let merge_builder: MergeBuilder<TreeId> = tree_builders
-            .into_iter()
-            .map(|builder| builder.write_tree().block_on())
-            .try_collect()?;
-        Ok(merge_builder.build())
+        let tree_ids = try_join_all(
+            tree_builders
+                .into_iter()
+                .map(|builder| builder.write_tree()),
+        )
+        .await?;
+        let merge = Merge::from_vec(tree_ids);
+        Ok(merge)
     }
 }
