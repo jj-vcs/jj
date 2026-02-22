@@ -16,6 +16,7 @@
 //! manner.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::error;
 use std::fmt;
 use std::io;
@@ -121,6 +122,39 @@ impl Template for Email {
 // usize here because it's more convenient to guarantee that the lower value is
 // bounded to 0.
 pub type SizeHint = (usize, Option<usize>);
+
+/// Captures from a regex match, accessible by index or name.
+#[derive(Clone, Debug)]
+pub struct RegexCaptures {
+    /// List of captures by index (with 0 being the full match).
+    captures: Vec<String>,
+    /// Mapping from capture group names to their index.
+    names: HashMap<String, usize>,
+}
+
+impl RegexCaptures {
+    pub fn new(captures: Vec<String>, named: HashMap<String, usize>) -> Self {
+        Self {
+            captures,
+            names: named,
+        }
+    }
+
+    #[expect(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.captures.len()
+    }
+
+    pub fn get(&self, index: usize) -> Option<String> {
+        self.captures.get(index).cloned()
+    }
+
+    pub fn name(&self, name: &str) -> Option<String> {
+        self.names
+            .get(name)
+            .and_then(|&i| self.captures.get(i).cloned())
+    }
+}
 
 impl Template for String {
     fn format(&self, formatter: &mut TemplateFormatter) -> io::Result<()> {
