@@ -1333,6 +1333,7 @@ configuration.</p>
 <li>
 <p><code dir="auto">-r</code>, <code dir="auto">--revisions &#x3C;REVISIONS></code> — The revset, selecting which revisions are sent in to Gerrit</p>
 <p>This can be any arbitrary set of commits. Note that when you push a commit at the head of a stack, all ancestors are pushed too. This means that <code dir="auto">jj gerrit upload -r foo</code> is equivalent to <code dir="auto">jj gerrit upload -r 'mutable()::foo</code>.</p>
+<p>If this is not provided, it will check whether @ has a description. * If it does, it will upload @ * Otherwise, it will upload @-</p>
 </li>
 <li>
 <p><code dir="auto">-b</code>, <code dir="auto">--remote-branch &#x3C;REMOTE_BRANCH></code> — The location where your changes are intended to land</p>
