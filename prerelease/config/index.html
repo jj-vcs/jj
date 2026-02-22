@@ -3998,10 +3998,12 @@ For example, to auto-generate merge commit messages:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[templates]</span>
 <span class="n">new_description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
 <span class="s1">if(parents.len() &gt; 1,</span>
-<span class="s1">  &quot;Merge &quot; ++ parents.skip(1).map(|p| coalesce(</span>
+<span class="s1">  &quot;Merge &quot; ++ parents.skip(1).map(|p| if(</span>
+<span class="s1">    p.bookmarks(),</span>
 <span class="s1">    p.bookmarks().first().name(),</span>
 <span class="s1">    p.change_id().shortest(8)</span>
-<span class="s1">  )).join(&quot;, &quot;) ++ &quot; into &quot; ++ coalesce(</span>
+<span class="s1">  )).join(&quot;, &quot;) ++ &quot; into &quot; ++ if(</span>
+<span class="s1">    parents.first().bookmarks(),</span>
 <span class="s1">    parents.first().bookmarks().first().name(),</span>
 <span class="s1">    parents.first().change_id().shortest(8)</span>
 <span class="s1">  ) ++ &quot;\n&quot;,</span>
