@@ -1065,6 +1065,13 @@
                             "xous"
                         ]
                     }
+                },
+                "environments": {
+                    "type": "array",
+                    "description": "List of environment conditions in NAME=VALUE format, any of which must match",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
