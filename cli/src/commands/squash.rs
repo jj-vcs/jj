@@ -53,14 +53,16 @@ use crate::ui::Ui;
 /// Without any options, moves the changes from the working-copy revision to the
 /// parent revision.
 ///
-/// With the `-r` option, moves the changes from the specified revision to the
-/// parent revision. Fails if there are several parent revisions (i.e., the
-/// given revision is a merge).
+/// With the `-r` option, moves the changes from the specified revision(s) into
+/// a single revision. The destination revision is specified with the `--into`,
+/// `--destination`, `--insert-after` and/or `--insert-before` options.
+/// If none of these options is used, the changes are moved to the head of the
+/// squashed revisions.
 ///
 /// With the `--from` and/or `--into` options, moves changes from/to the given
 /// revisions. If either is left out, it defaults to the working-copy commit.
-/// For example, `jj squash --into @--` moves changes from the working-copy
-/// commit to the grandparent.
+/// For example, `jj squash --from xyz` moves changes from `xyz` to the
+/// working-copy.
 ///
 /// If, after moving changes out, the source revision is empty compared to its
 /// parent(s), and `--keep-emptied` is not set, it will be abandoned. Without
@@ -79,30 +81,25 @@ use crate::ui::Ui;
 /// EXPERIMENTAL FEATURES
 ///
 /// An alternative squashing UI is available via the `-o`, `-A`, and `-B`
-/// options. Using any of these options creates a new commit. They can be used
-/// together with one or more `--from` options (if no `--from` is specified,
-/// `--from @` is assumed).
+/// options. Using any of these options creates a new commit. They can be
+/// used together with one or more `-r` options (if no `-r` is specified,
+/// `-r @` is assumed).
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct SquashArgs {
-    /// Revision to squash into its parent (default: @). Incompatible with the
-    /// experimental `-o`/`-A`/`-B` options.
-    #[arg(long, short, value_name = "REVSET")]
+    /// Revisions to squash together. Without any of the `-t` option or the
+    /// experimental `-o`/`-A`/`-B` options, the revisions are squashed into
+    /// their head revision.
+    #[arg(long, short, value_name = "REVSETS")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
-    revision: Option<RevisionArg>,
+    revisions: Vec<RevisionArg>,
 
     /// Revision(s) to squash from (default: @)
-    #[arg(long, short, conflicts_with = "revision", value_name = "REVSETS")]
+    #[arg(long, short, conflicts_with = "revisions", value_name = "REVSETS")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     from: Vec<RevisionArg>,
 
-    /// Revision to squash into (default: @)
-    #[arg(
-        long,
-        short = 't',
-        conflicts_with = "revision",
-        visible_alias = "to",
-        value_name = "REVSET"
-    )]
+    /// Revision to squash into
+    #[arg(long, short = 't', visible_alias = "to", value_name = "REVSET")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     into: Option<RevisionArg>,
 
@@ -113,7 +110,7 @@ pub(crate) struct SquashArgs {
         visible_alias = "destination",
         short,
         visible_short_alias = 'd',
-        conflicts_with_all = ["into", "revision"],
+        conflicts_with = "into",
         value_name = "REVSETS"
     )]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
@@ -125,7 +122,7 @@ pub(crate) struct SquashArgs {
         long,
         short = 'A',
         visible_alias = "after",
-        conflicts_with_all = ["onto", "into", "revision"],
+        conflicts_with_all = ["onto", "into"],
         value_name = "REVSETS"
     )]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
@@ -137,7 +134,7 @@ pub(crate) struct SquashArgs {
         long,
         short = 'B',
         visible_alias = "before",
-        conflicts_with_all = ["onto", "into", "revision"],
+        conflicts_with_all = ["onto", "into"],
         value_name = "REVSETS"
     )]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
@@ -189,45 +186,79 @@ pub(crate) fn cmd_squash(
 
     let mut workspace_command = command.workspace_helper(ui)?;
 
-    let mut sources: Vec<Commit>;
-    let pre_existing_destination;
+    // set default input revisions, depending on the options used
+    let revisions = if !args.revisions.is_empty() {
+        args.revisions.clone()
+    } else if !args.from.is_empty() {
+        args.from.clone()
+    } else {
+        vec![RevisionArg::AT]
+    };
 
-    if !args.from.is_empty() || args.into.is_some() || insert_destination_commit {
-        sources = if args.from.is_empty() {
-            workspace_command.parse_revset(ui, &RevisionArg::AT)?
-        } else {
-            workspace_command.parse_union_revsets(ui, &args.from)?
-        }
+    let mut sources: Vec<_> = workspace_command
+        .parse_union_revsets(ui, &revisions)?
         .evaluate_to_commits()?
         .try_collect()?;
-        if insert_destination_commit {
-            pre_existing_destination = None;
-        } else {
-            let destination = workspace_command
-                .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))?;
-            // remove the destination from the sources
-            sources.retain(|source| source.id() != destination.id());
-            pre_existing_destination = Some(destination);
+    // Reverse the set so we apply the oldest commits first. It shouldn't affect the
+    // result, but it avoids creating transient conflicts and is therefore probably
+    // a little faster.
+    sources.reverse();
+
+    let pre_existing_destination = if insert_destination_commit {
+        None
+    } else if let Some(into) = &args.into {
+        Some(workspace_command.resolve_single_rev(ui, into)?)
+    } else if !args.from.is_empty() {
+        Some(workspace_command.resolve_single_rev(ui, &RevisionArg::AT)?)
+    } else if !args.revisions.is_empty() {
+        let revisions_evaluator = workspace_command.parse_union_revsets(ui, &revisions)?;
+        let heads: Vec<_> = workspace_command
+            .attach_revset_evaluator(revisions_evaluator.expression().heads())
+            .evaluate_to_commits()?
+            .try_collect()?;
+        match &heads[..] {
+            [head] => Some(head.clone()),
+            [] => return Ok(()),
+            [..] => {
+                return Err(user_error("Can't squash in multiple heads").hinted(
+                    "Use `--into`, `--destination`, `--insert-before` or `--insert-after` to \
+                     specify the destination commit",
+                ));
+            }
         }
-        // Reverse the set so we apply the oldest commits first. It shouldn't affect the
-        // result, but it avoids creating transient conflicts and is therefore probably
-        // a little faster.
-        sources.reverse();
     } else {
-        let source = workspace_command
-            .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
-        let mut parents: Vec<_> = source.parents().try_collect()?;
+        let parents: Vec<_> = workspace_command
+            .resolve_single_rev(ui, &RevisionArg::AT)?
+            .parents()
+            .try_collect()?;
         if parents.len() != 1 {
             return Err(
                 user_error("Cannot squash merge commits without a specified destination")
                     .hinted("Use `--into` to specify which parent to squash into"),
             );
         }
-        sources = vec![source];
-        pre_existing_destination = Some(parents.pop().unwrap());
+        parents.first().cloned()
+    };
+
+    if let Some(destination) = &pre_existing_destination {
+        // remove the destination from the sources
+        sources.retain(|source| source.id() != destination.id());
     }
 
     workspace_command.check_rewritable(sources.iter().chain(&pre_existing_destination).ids())?;
+
+    // Print a warning for the users of the previous -r option
+    if sources.is_empty()
+        && args.revisions.len() == 1
+        && args.from.is_empty()
+        && args.into.is_none()
+        && !insert_destination_commit
+    {
+        writeln!(
+            ui.warning_default(),
+            "Squashing a single revision is a no-op"
+        )?;
+    }
 
     // prepare the tx description before possibly rebasing the source commits
     let source_ids: Vec<_> = sources.iter().ids().collect();
@@ -413,7 +444,8 @@ pub(crate) fn cmd_squash(
         }
 
         if let [only_path] = &*args.paths {
-            let no_rev_arg = args.revision.is_none() && args.from.is_empty() && args.into.is_none();
+            let no_rev_arg =
+                args.revisions.is_empty() && args.from.is_empty() && args.into.is_none();
             if no_rev_arg
                 && tx
                     .base_workspace_helper()
