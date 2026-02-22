@@ -35,11 +35,14 @@ use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
 use crate::backend::BackendResult;
+use crate::backend::CopyId;
 use crate::backend::TreeId;
 use crate::backend::TreeValue;
 use crate::conflict_labels::ConflictLabels;
 use crate::copies::CopiesTreeDiffEntry;
 use crate::copies::CopiesTreeDiffStream;
+use crate::copies::CopyHistoryDiffStream;
+use crate::copies::CopyHistoryTreeDiffEntry;
 use crate::copies::CopyRecords;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
@@ -230,6 +233,17 @@ impl MergedTree {
         }
     }
 
+    /// Returns the `TreeValue` associated with `id` if it exists at the
+    /// expected path and is resolved.
+    pub async fn copy_value(&self, id: &CopyId) -> BackendResult<Option<TreeValue>> {
+        let copy = self.store().backend().read_copy(id).await?;
+        let merged_val = self.path_value_async(&copy.current_path).await?;
+        match merged_val.into_resolved() {
+            Ok(Some(val)) if val.copy_id() == Some(id) => Ok(Some(val)),
+            _ => Ok(None),
+        }
+    }
+
     fn to_merged_tree_value(&self) -> MergedTreeValue {
         self.tree_ids
             .map(|tree_id| Some(TreeValue::Tree(tree_id.clone())))
@@ -316,6 +330,16 @@ impl MergedTree {
             other.clone(),
             copy_records,
         ))
+    }
+
+    /// Like `diff_stream()` but takes CopyHistory into account.
+    pub fn diff_stream_with_copy_history<'a>(
+        &'a self,
+        other: &'a Self,
+        matcher: &'a dyn Matcher,
+    ) -> BoxStream<'a, CopyHistoryTreeDiffEntry> {
+        let stream = self.diff_stream(other, matcher);
+        Box::pin(CopyHistoryDiffStream::new(stream, self, other))
     }
 
     /// Merges the provided trees into a single `MergedTree`. Any conflicts will
