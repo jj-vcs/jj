@@ -464,12 +464,12 @@ impl TestTreeBuilder {
     }
 
     pub fn write_single_tree(self) -> Tree {
-        let id = self.tree_builder.write_tree().unwrap();
+        let id = self.tree_builder.write_tree().block_on().unwrap();
         self.store.get_tree(RepoPathBuf::root(), &id).unwrap()
     }
 
     pub fn write_merged_tree(self) -> MergedTree {
-        let id = self.tree_builder.write_tree().unwrap();
+        let id = self.tree_builder.write_tree().block_on().unwrap();
         MergedTree::resolved(self.store, id)
     }
 }

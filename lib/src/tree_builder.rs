@@ -17,8 +17,6 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use pollster::FutureExt as _;
-
 use crate::backend;
 use crate::backend::BackendResult;
 use crate::backend::TreeId;
@@ -75,12 +73,12 @@ impl TreeBuilder {
         }
     }
 
-    pub fn write_tree(self) -> BackendResult<TreeId> {
+    pub async fn write_tree(self) -> BackendResult<TreeId> {
         if self.overrides.is_empty() {
             return Ok(self.base_tree_id);
         }
 
-        let mut trees_to_write = self.get_base_trees()?;
+        let mut trees_to_write = self.get_base_trees().await?;
 
         // Update entries in parent trees for file overrides
         for (path, file_override) in self.overrides {
@@ -112,14 +110,14 @@ impl TreeBuilder {
                 } else {
                     let data =
                         backend::Tree::from_sorted_entries(cur_entries.into_iter().collect());
-                    let tree = store.write_tree(&dir, data).block_on()?;
+                    let tree = store.write_tree(&dir, data).await?;
                     parent_entries.insert(basename.to_owned(), TreeValue::Tree(tree.id().clone()));
                 }
             } else {
                 // We're writing the root tree. Write it even if empty. Return its id.
                 assert!(trees_to_write.is_empty());
                 let data = backend::Tree::from_sorted_entries(cur_entries.into_iter().collect());
-                let written_tree = store.write_tree(&dir, data).block_on()?;
+                let written_tree = store.write_tree(&dir, data).await?;
                 return Ok(written_tree.id().clone());
             }
         }
@@ -127,17 +125,19 @@ impl TreeBuilder {
         unreachable!("trees_to_write must contain the root tree");
     }
 
-    fn get_base_trees(
+    async fn get_base_trees(
         &self,
     ) -> BackendResult<BTreeMap<RepoPathBuf, BTreeMap<RepoPathComponentBuf, TreeValue>>> {
         let store = &self.store;
         let mut tree_cache = {
             let dir = RepoPathBuf::root();
-            let tree = store.get_tree(dir.clone(), &self.base_tree_id)?;
+            let tree = store
+                .get_tree_async(dir.clone(), &self.base_tree_id)
+                .await?;
             BTreeMap::from([(dir, tree)])
         };
 
-        fn populate_trees<'a>(
+        async fn populate_trees<'a>(
             tree_cache: &'a mut BTreeMap<RepoPathBuf, Tree>,
             store: &Arc<Store>,
             dir: &RepoPath,
@@ -147,16 +147,18 @@ impl TreeBuilder {
                 return Ok(tree_cache.get(dir).unwrap());
             }
             let (parent, basename) = dir.split().expect("root must be populated");
-            let tree = populate_trees(tree_cache, store, parent)?
+            let tree_fut = populate_trees(tree_cache, store, parent);
+            let tree = Box::pin(tree_fut)
+                .await?
                 .sub_tree(basename)
-                .block_on()?
+                .await?
                 .unwrap_or_else(|| Tree::empty(store.clone(), dir.to_owned()));
             Ok(tree_cache.entry(dir.to_owned()).or_insert(tree))
         }
 
         for path in self.overrides.keys() {
             let parent = path.parent().unwrap();
-            populate_trees(&mut tree_cache, store, parent)?;
+            populate_trees(&mut tree_cache, store, parent).await?;
         }
 
         Ok(tree_cache

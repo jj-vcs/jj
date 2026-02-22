@@ -597,7 +597,7 @@ fn test_tree_builder_file_directory_transition() {
             copy_id: CopyId::placeholder(),
         },
     );
-    let tree_id = tree_builder.write_tree().unwrap();
+    let tree_id = tree_builder.write_tree().block_on().unwrap();
     check_out_tree(&tree_id);
     assert!(parent_path.to_fs_path_unchecked(&workspace_root).is_file());
     assert!(!child_path.to_fs_path_unchecked(&workspace_root).exists());
@@ -613,7 +613,7 @@ fn test_tree_builder_file_directory_transition() {
             copy_id: CopyId::placeholder(),
         },
     );
-    let tree_id = tree_builder.write_tree().unwrap();
+    let tree_id = tree_builder.write_tree().block_on().unwrap();
     check_out_tree(&tree_id);
     assert!(parent_path.to_fs_path_unchecked(&workspace_root).is_dir());
     assert!(child_path.to_fs_path_unchecked(&workspace_root).is_file());
@@ -629,7 +629,7 @@ fn test_tree_builder_file_directory_transition() {
             copy_id: CopyId::placeholder(),
         },
     );
-    let tree_id = tree_builder.write_tree().unwrap();
+    let tree_id = tree_builder.write_tree().block_on().unwrap();
     check_out_tree(&tree_id);
     assert!(parent_path.to_fs_path_unchecked(&workspace_root).is_file());
     assert!(!child_path.to_fs_path_unchecked(&workspace_root).exists());
