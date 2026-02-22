@@ -170,7 +170,7 @@
   Git command: >
     `git grep foo`
   Jujutsu command: >
-    `grep foo $(jj file list)`
+    `jj file search --pattern foo`
     or `rg --no-require-git foo`
   Notes: ''
 
