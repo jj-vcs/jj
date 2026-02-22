@@ -17,6 +17,7 @@ use std::io::Write as _;
 
 use bstr::ByteVec as _;
 use clap_complete::ArgValueCompleter;
+use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::repo::Repo as _;
@@ -239,13 +240,19 @@ pub(crate) fn cmd_new(
         .try_collect()?;
     let mut num_rebased = 0;
     for child_commit in child_commits {
-        let new_parent_ids = child_commit
-            .parent_ids()
-            .iter()
-            .filter(|id| !parent_commit_ids_set.contains(id))
-            .cloned()
-            .chain(std::iter::once(new_commit.id().clone()))
-            .collect_vec();
+        let mut new_parent_ids = IndexSet::new();
+        // If the original parents of the children commits are the parents of the new
+        // commit, replace them with the new commit since we are "inserting" the new
+        // commit in between the parents and the children.
+        for old_parent_id in child_commit.parent_ids() {
+            if parent_commit_ids_set.contains(old_parent_id) {
+                new_parent_ids.insert(new_commit.id().clone());
+            } else {
+                new_parent_ids.insert(old_parent_id.clone());
+            }
+        }
+        new_parent_ids.insert(new_commit.id().clone());
+        let new_parent_ids = new_parent_ids.into_iter().collect_vec();
         rebase_commit(tx.repo_mut(), child_commit, new_parent_ids).block_on()?;
         num_rebased += 1;
     }

@@ -391,20 +391,20 @@ fn test_new_insert_after() {
     ○  C
     │ ○  F
     ╭─┤
+    │ ○  E
     @ │    G
     ├───╮
     │ │ ○  D
-    ○ │ │  B
-    ○ │ │  A
-    ├───╯
-    │ ○  E
+    │ ├─╯
+    ○ │  B
+    ○ │  A
     ├─╯
     ◆  root
     [EOF]
     ");
 
-    // TODO: Inserting a new commit should not change the order of its child
-    // commits' parents (i.e. G should have the parents H and D).
+    // Inserting a new commit should not change the order of its child commits'
+    // parents (i.e. G should have the parents H and D).
     let output = work_dir.run_jj(["new", "-m", "H", "--insert-after", "B"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -417,14 +417,14 @@ fn test_new_insert_after() {
     ○  C
     │ ○  F
     ╭─┤
+    │ ○  E
     ○ │    G
     ├───╮
-    │ │ @  H
-    │ │ ○  B
-    │ │ ○  A
-    ○ │ │  D
-    ├───╯
-    │ ○  E
+    │ │ ○  D
+    │ ├─╯
+    @ │  H
+    ○ │  B
+    ○ │  A
     ├─╯
     ◆  root
     [EOF]
