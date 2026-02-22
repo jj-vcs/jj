@@ -9,6 +9,7 @@ cargo_insta_version = "1.46.3"
 cargo_nextest_version = "0.9.113"
 rust_version = "1.89"
 uv_version = "0.8.13"
+node_version = "24"
 
 [settings]
 # the default cmd doesn't support shell expansion, use PowerShell instead
@@ -50,6 +51,12 @@ run = "cargo build"
 description = "Build documentation into rendered-docs/ for offline use"
 tools.uv = "{{vars.uv_version}}"
 run = "uv run mkdocs build"
+
+[tasks."build:web"]
+description = "Build the new astro-based documentation"
+tools.node = "{{vars.node_version}}"
+run = "npm install && npm run build"
+dir = "web/docs"
 
 [tasks."build:release"]
 description = "Build jj in release mode"
@@ -118,6 +125,12 @@ run = "cargo insta test --accept --workspace --test-runner nextest --"
 description = "Preview documentation with live reloading"
 tools.uv = "{{vars.uv_version}}"
 run = "uv run mkdocs serve"
+
+[tasks."serve:web"]
+description = "Preview the new astro-based documentation with live reloading"
+tools.node = "{{vars.node_version}}"
+run = "npm install && npm run dev"
+dir = "web/docs"
 
 
 [tasks."clippy:watch"]
