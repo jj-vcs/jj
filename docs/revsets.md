@@ -95,6 +95,8 @@ y) | z` or `x & (y | z)`.
       to `x:: & ::y`. This is what `git log` calls `--ancestry-path x..y`.
    * `x..y`: Ancestors of `y` that are not also ancestors of `x`. Equivalent to
      `::y ~ ::x`. This is what `git log` calls `x..y` (i.e. the same as we call it).
+     Note that this is *not* a "path" between `x` and `y` in the commit graph—`x`
+     and `y` do not need to be related by ancestry.
    * `::`: All visible commits in the repo. Equivalent to `all()`, and
      `root()::visible_heads()` if no hidden revisions are mentioned.
    * `..`: All visible commits in the repo, but excluding the root commit.
@@ -107,6 +109,13 @@ y) | z` or `x & (y | z)`.
    * `x ~ y`: Revisions that are in `x` but not in `y`.
 
 7. * `x | y`: Revisions that are in either `x` or `y` (or both).
+
+**Note:** The `..` operator does not distribute over union (`|`) on its left
+side. For example, `(A | B)..` is **not** equivalent to `A.. | B..`. The
+expression `(A | B)..` means "commits that are not ancestors of A *and* not
+ancestors of B", while `A.. | B..` means "commits that are not ancestors of A
+*or* not ancestors of B". In fact, `(A | B).. = A.. & B..`. See the examples
+*below for concrete illustrations.
 
 <!-- The following format will be understood by the web site generator, and will
  generate a folded section that can be unfolded at will. -->
@@ -201,6 +210,17 @@ y) | z` or `x & (y | z)`.
     * `none()..D` ⇒ `{D,C,B,A,root()}`
     * `D..B` ⇒ `{}` (empty set)
     * `(C|B)..(C|B)` ⇒ `{}` (empty set)
+
+    **Non-distributivity of `..` over union (left side)**
+
+    Using the same graph, observe that `(C|B)..` ⇒ `{D}`, but:
+    * `C..` ⇒ `{D,B}`
+    * `B..` ⇒ `{D,C}`
+    * `C.. | B..` ⇒ `{D,C,B}`
+    * `C.. & B..` ⇒ `{D}`
+
+    So `(C|B)..` ≠ `C.. | B..`, but `(C|B).. = C.. & B..`. The `..` operator
+    converts union to intersection on its left side.
 
 ## Functions
 
@@ -586,9 +606,11 @@ for a comprehensive list.
   `immutable_heads()` below. It is not recommended to redefine this
   alias. Prefer to redefine `immutable_heads()` instead.
 
-* `immutable_heads()`: Resolves to `trunk() | tags() |
+* `immutable_heads()`: The heads of the set of immutable commits (not "heads
+  that are immutable"). Resolves to `trunk() | tags() |
   untracked_remote_bookmarks()` by default. It is actually defined as
-  `builtin_immutable_heads()`, and can be overridden as required. See
+  `builtin_immutable_heads()`, and can be overridden as required. The full set
+  of immutable commits is `::immutable_heads()` (i.e., `immutable()`). See
   [here](config.md#set-of-immutable-commits) for details.
 
 * `immutable()`: The set of commits that `jj` treats as immutable. This is
@@ -597,7 +619,7 @@ for a comprehensive list.
   To do that, edit `immutable_heads()`.
 
 * `mutable()`: The set of commits that `jj` treats as mutable. This is
-  equivalent to `~immutable()`. It is not recommended to redefined this alias.
+  equivalent to `~immutable()`. It is not recommended to redefine this alias.
   Note that modifying this will *not* change whether a commit is immutable.
   To do that, edit `immutable_heads()`.
 
