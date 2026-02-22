@@ -8917,6 +8917,7 @@ configuration.</p>
 <li>
 <p><code>-r</code>, <code>--revisions &lt;REVISIONS&gt;</code> — The revset, selecting which revisions are sent in to Gerrit</p>
 <p>This can be any arbitrary set of commits. Note that when you push a commit at the head of a stack, all ancestors are pushed too. This means that <code>jj gerrit upload -r foo</code> is equivalent to <code>jj gerrit upload -r 'mutable()::foo</code>.</p>
+<p>If this is not provided, it will check whether @ has a description. * If it does, it will upload @ * Otherwise, it will upload @-</p>
 </li>
 <li>
 <p><code>-b</code>, <code>--remote-branch &lt;REMOTE_BRANCH&gt;</code> — The location where your changes are intended to land</p>

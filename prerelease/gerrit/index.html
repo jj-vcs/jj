@@ -2113,7 +2113,10 @@ you re-upload a commit with the same <code>Change-Id</code>, Gerrit creates a ne
 set.</p>
 </blockquote>
 <h3 id="upload-a-single-change">Upload a single change<a class="headerlink" href="#upload-a-single-change" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><span class="c1"># upload the previous commit (@-) for review to main</span>
+<div class="highlight"><pre><span></span><code><span class="c1"># Upload @ if it has a description, otherwise uploads @-</span>
+$<span class="w"> </span>jj<span class="w"> </span>gerrit<span class="w"> </span>upload
+
+<span class="c1"># Or explicitly specify a revision to upload.</span>
 $<span class="w"> </span>jj<span class="w"> </span>gerrit<span class="w"> </span>upload<span class="w"> </span>-r<span class="w"> </span>@-
 </code></pre></div>
 <h2 id="selecting-revisions-revsets">Selecting revisions (revsets)<a class="headerlink" href="#selecting-revisions-revsets" title="Permanent link">&para;</a></h2>
