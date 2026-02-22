@@ -52,10 +52,15 @@ a new commits. Unlike Git, Jujutsu will not do it automatically.
 
 ## Updating the repository
 
-As of October 2023, Jujutsu has no equivalent to a `git pull` command (see
-[issue #1039][sync-issue]). Until such a command is added, you need to use
-`jj git fetch` followed by a `jj rebase -o $main_bookmark` to update your
-changes.
+Jujutsu does not currently have a direct equivalent of `git pull`, though it may
+gain [a similar command someday][sync-issue].
+
+In the meantime, updating your branches is a two step process. The first is to
+`jj git fetch` to fetch everything that's happened on your remote. The second is
+to rebase all of your branches on top of your `main` branch with `jj rebase -o
+main`. This command's default is the same as passing `-b @`, so if you have more
+than one outstanding branch, you'll need to call `jj rebase` again with the `-b`
+flag for each of them, or pass multiple `-b` arguments, one for every branch.
 
 [sync-issue]: https://github.com/jj-vcs/jj/issues/1039
 
