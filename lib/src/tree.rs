@@ -22,6 +22,7 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 
 use crate::backend;
 use crate::backend::BackendResult;
@@ -117,23 +118,23 @@ impl Tree {
         self.data.value(basename)
     }
 
-    pub fn path_value(&self, path: &RepoPath) -> BackendResult<Option<TreeValue>> {
+    pub async fn path_value(&self, path: &RepoPath) -> BackendResult<Option<TreeValue>> {
         assert_eq!(self.dir(), RepoPath::root());
         match path.split() {
             Some((dir, basename)) => {
-                let tree = self.sub_tree_recursive(dir)?;
+                let tree = self.sub_tree_recursive(dir).await?;
                 Ok(tree.and_then(|tree| tree.data.value(basename).cloned()))
             }
             None => Ok(Some(TreeValue::Tree(self.id.clone()))),
         }
     }
 
-    pub fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Self>> {
+    pub async fn sub_tree(&self, name: &RepoPathComponent) -> BackendResult<Option<Self>> {
         if let Some(sub_tree) = self.data.value(name) {
             match sub_tree {
                 TreeValue::Tree(sub_tree_id) => {
                     let subdir = self.dir.join(name);
-                    let sub_tree = self.store.get_tree(subdir, sub_tree_id)?;
+                    let sub_tree = self.store.get_tree_async(subdir, sub_tree_id).await?;
                     Ok(Some(sub_tree))
                 }
                 _ => Ok(None),
@@ -143,15 +144,15 @@ impl Tree {
         }
     }
 
-    fn known_sub_tree(&self, subdir: RepoPathBuf, id: &TreeId) -> Self {
-        self.store.get_tree(subdir, id).unwrap()
+    async fn known_sub_tree(&self, subdir: RepoPathBuf, id: &TreeId) -> Self {
+        self.store.get_tree_async(subdir, id).await.unwrap()
     }
 
     /// Look up the tree at the given path.
-    pub fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Self>> {
+    pub async fn sub_tree_recursive(&self, path: &RepoPath) -> BackendResult<Option<Self>> {
         let mut current_tree = self.clone();
         for name in path.components() {
-            match current_tree.sub_tree(name)? {
+            match current_tree.sub_tree(name).await? {
                 None => {
                     return Ok(None);
                 }
@@ -210,7 +211,7 @@ impl Iterator for TreeEntriesIterator<'_> {
                         if self.matcher.visit(&path).is_nothing() {
                             continue;
                         }
-                        let subtree = top.tree.known_sub_tree(path, &id);
+                        let subtree = top.tree.known_sub_tree(path, &id).block_on();
                         self.stack.push(TreeEntriesDirItem::from(subtree));
                     }
                     value => {
