@@ -909,9 +909,15 @@ If no option is specified, it defaults to `-r @`.
 
 * `-r`, `--revisions <REVSETS>` — Show changes in these revisions
 
-   If there are multiple revisions, then the total diff for all of them will be shown. For example, if you have a linear chain of revisions A..D, then `jj diff -r B::D` equals `jj diff --from A --to D`. Multiple heads and/or roots are supported, but gaps in the revset are not supported (e.g. `jj diff -r 'A|C'` in a linear chain A..C).
+   If a single merge commit is given, this shows changes *from* the automatic merge of the contents of all of its parents *to* the contents of the revision itself.
 
-   If a revision is a merge commit, this shows changes *from* the automatic merge of the contents of all of its parents *to* the contents of the revision itself.
+   If there are multiple revisions, then the total diff for all of them will be shown. For example, if you have a linear chain of revisions `root -> A -> B -> C -> D`, then `jj diff -r B::D` equals `jj diff --from A --to D`.
+
+   Any revset with a single head and a single root will behave similarly; the diff of such a revset will be the diff between the head and the root. For the purpose of this command, we call any such revsets "linear chains of revisions".
+
+   Multiple heads and/or roots are also supported. You will see a warning in this case since a revset like `@-` can be non-linear unexpectedly.
+
+   Gaps in the revset are not supported (e.g. `jj diff -r 'A|C'` in a linear chain `root -> A -> B -> C`).
 
    If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
 * `-f`, `--from <REVSET>` — Show changes from this revision

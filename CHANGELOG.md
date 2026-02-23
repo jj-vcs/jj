@@ -1123,6 +1123,10 @@ Thanks to the people who made this release happen!
   [`Operation`](docs/templates.md#operation-type) type in the templating
   language.
 
+* `jj diff -r multiple_revisions` will warn if `multiple_revisions` do not form
+  a line in the ancestry graph. Such calls are often accidental, e.g. `jj diff
+  -r @-` where the user doesn't realize they are on a merge commit.
+
 * Merge tools config can now explicitly forbid using them as diff editors or
   diff formatters. Built-in tools that do not function well as diff editing
   tools or as diff formatters will now report an error when used as such.

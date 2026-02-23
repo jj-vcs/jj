@@ -54,15 +54,25 @@ use crate::ui::Ui;
 pub(crate) struct DiffArgs {
     /// Show changes in these revisions
     ///
-    /// If there are multiple revisions, then the total diff for all of them
-    /// will be shown. For example, if you have a linear chain of revisions
-    /// A..D, then `jj diff -r B::D` equals `jj diff --from A --to D`. Multiple
-    /// heads and/or roots are supported, but gaps in the revset are not
-    /// supported (e.g. `jj diff -r 'A|C'` in a linear chain A..C).
-    ///
-    /// If a revision is a merge commit, this shows changes *from* the
+    /// If a single merge commit is given, this shows changes *from* the
     /// automatic merge of the contents of all of its parents *to* the contents
     /// of the revision itself.
+    ///
+    /// If there are multiple revisions, then the total diff for all of them
+    /// will be shown. For example, if you have a linear chain of revisions
+    /// `root -> A -> B -> C -> D`, then `jj diff -r B::D` equals `jj diff
+    /// --from A --to D`.
+    ///
+    /// Any revset with a single head and a single root will behave similarly;
+    /// the diff of such a revset will be the diff between the head and the
+    /// root. For the purpose of this command, we call any such revsets "linear
+    /// chains of revisions".
+    ///
+    /// Multiple heads and/or roots are also supported. You will see a warning
+    /// in this case since a revset like `@-` can be non-linear unexpectedly.
+    ///
+    /// Gaps in the revset are not supported (e.g. `jj diff -r 'A|C'` in a
+    /// linear chain `root -> A -> B -> C`).
     ///
     /// If none of `-r`, `-f`, or `-t` is provided, then the default is `-r @`.
     #[arg(long, short, value_name = "REVSETS", alias = "revision")]
@@ -125,6 +135,7 @@ pub(crate) fn cmd_diff(
 
     let from_tree;
     let to_tree;
+    let mut show_nonlinear_revset_warning = false;
     let mut copy_records = CopyRecords::default();
     if args.from.is_some() || args.to.is_some() {
         let resolve_revision = |r: &Option<RevisionArg>| {
@@ -169,6 +180,10 @@ pub(crate) fn cmd_diff(
             .evaluate_to_commits()?
             .try_collect()?;
 
+        if heads.len() > 1 || roots.len() > 1 {
+            show_nonlinear_revset_warning = true;
+        }
+
         // Collect parents outside of revset to preserve parent order
         let parents: IndexSet<_> = roots.iter().flat_map(|c| c.parents()).try_collect()?;
         let parents = parents.into_iter().collect_vec();
@@ -201,6 +216,14 @@ pub(crate) fn cmd_diff(
     }
 
     ui.request_pager();
+    if show_nonlinear_revset_warning {
+        // The warning must be passed to the pager; otherwise it is very easy to miss
+        // when the pager is used.
+        writeln!(
+            ui.warning_default(),
+            "Showing combined diff of multiple revisions that do not form a linear chain"
+        )?;
+    }
     if let Some(template) = &maybe_template {
         let tree_diff = from_tree.diff_stream_with_copies(&to_tree, &matcher, &copy_records);
         show_templated(ui.stdout_formatter().as_mut(), tree_diff, template).block_on()?;
