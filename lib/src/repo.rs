@@ -1105,7 +1105,7 @@ impl MutableRepo {
         let sorted_ids = dag_walk::topo_order_forward(
             self.parent_mapping.keys(),
             |&id| id,
-            |&id| match self.parent_mapping.get(id).filter(|&v| predicate(v)) {
+            async |&id| match self.parent_mapping.get(id).filter(|&v| predicate(v)) {
                 None => &[],
                 Some(rewrite) => rewrite.new_parent_ids(),
             },
@@ -1114,7 +1114,8 @@ impl MutableRepo {
                     format!("Cycle between rewritten commits involving commit {id}").into(),
                 )
             },
-        )?;
+        )
+        .block_on()?;
         let mut new_mapping: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
         for old_id in sorted_ids {
             let Some(rewrite) = self.parent_mapping.get(old_id).filter(|&v| predicate(v)) else {
@@ -1293,14 +1294,14 @@ impl MutableRepo {
         dag_walk::topo_order_reverse_ok(
             to_visit.into_iter().map(Ok),
             |commit| commit.id().clone(),
-            |commit| -> Vec<BackendResult<Commit>> {
+            async |commit| -> Vec<BackendResult<Commit>> {
                 visited.insert(commit.id().clone());
                 let mut dependents = vec![];
                 let parent_ids = new_parents_map
                     .get(commit.id())
                     .map_or(commit.parent_ids(), |parent_ids| parent_ids);
                 for parent_id in parent_ids {
-                    let parent = store.get_commit(parent_id);
+                    let parent = store.get_commit_async(parent_id).await;
                     let Ok(parent) = parent else {
                         dependents.push(parent);
                         continue;
@@ -1308,7 +1309,7 @@ impl MutableRepo {
                     if let Some(rewrite) = self.parent_mapping.get(parent.id()) {
                         for target in rewrite.new_parent_ids() {
                             if to_visit_set.contains(target) && !visited.contains(target) {
-                                dependents.push(store.get_commit(target));
+                                dependents.push(store.get_commit_async(target).await);
                             }
                         }
                     }
@@ -1320,6 +1321,7 @@ impl MutableRepo {
             },
             |_| panic!("graph has cycle"),
         )
+        .block_on()
     }
 
     /// Rewrite descendants of the given roots.
@@ -1663,7 +1665,7 @@ impl MutableRepo {
                         .map(CommitByCommitterTimestamp)
                         .map(Ok),
                     |CommitByCommitterTimestamp(commit)| commit.id().clone(),
-                    |CommitByCommitterTimestamp(commit)| {
+                    async |CommitByCommitterTimestamp(commit)| {
                         commit
                             .parent_ids()
                             .iter()
@@ -1678,7 +1680,8 @@ impl MutableRepo {
                             .collect_vec()
                     },
                     |_| panic!("graph has cycle"),
-                )?;
+                )
+                .block_on()?;
                 for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
                     self.index
                         .add_commit(missing_commit)

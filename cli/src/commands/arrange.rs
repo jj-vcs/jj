@@ -33,6 +33,7 @@ use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::rewrite::CommitRewriter;
+use pollster::FutureExt as _;
 use ratatui::Terminal;
 use ratatui::layout::Constraint;
 use ratatui::layout::Direction;
@@ -233,7 +234,7 @@ impl State {
         let commit_ids: Vec<&CommitId> = dag_walk::topo_order_reverse(
             self.head_order.iter(),
             |id| *id,
-            |id| {
+            async |id| {
                 self.parents
                     .get(id)
                     .unwrap()
@@ -242,6 +243,7 @@ impl State {
             },
             |_| panic!("cycle detected"),
         )
+        .block_on()
         .unwrap();
         self.current_order = commit_ids.into_iter().cloned().collect();
     }
@@ -348,7 +350,7 @@ impl RewritePlan {
         let ordered_commit_ids = dag_walk::topo_order_forward(
             self.rewrites.keys().cloned(),
             |id| id.clone(),
-            |id| {
+            async |id| {
                 self.rewrites
                     .get(id)
                     .unwrap()
@@ -359,6 +361,7 @@ impl RewritePlan {
             },
             |_| panic!("cycle detected"),
         )
+        .await
         .unwrap();
         // Rewrite the commits in the order determined above
         let mut rewritten_commits: HashMap<CommitId, Commit> = HashMap::new();

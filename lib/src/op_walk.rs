@@ -27,6 +27,7 @@ use futures::future::ready;
 use futures::future::try_join_all;
 use futures::stream;
 use itertools::Itertools as _;
+use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::dag_walk;
@@ -273,12 +274,12 @@ pub fn walk_ancestors(
         .collect_vec();
     // Lazily load operations based on timestamp-based heuristic. This works so long
     // as the operation history is mostly linear.
-    stream::iter(dag_walk::topo_order_reverse_lazy_ok(
+    dag_walk::topo_order_reverse_lazy_ok(
         head_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),
-        |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        async |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
         |_| panic!("graph has cycle"),
-    ))
+    )
     .map_ok(|OperationByEndTime(op)| op)
 }
 
@@ -303,14 +304,14 @@ pub fn walk_ancestors_range(
 
     // Lazily load operations based on timestamp-based heuristic. This works so long
     // as the operation history is mostly linear.
-    let trailing_iter = dag_walk::topo_order_reverse_lazy_ok(
+    let trailing_stream = dag_walk::topo_order_reverse_lazy_ok(
         start_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),
-        |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        async |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
         |_| panic!("graph has cycle"),
     )
     .map_ok(|OperationByEndTime(op)| op);
-    stream::iter(leading_items).chain(stream::iter(trailing_iter))
+    stream::iter(leading_items).chain(trailing_stream)
 }
 
 fn collect_ancestors_until_roots(
@@ -320,9 +321,11 @@ fn collect_ancestors_until_roots(
     let sorted_ops = match dag_walk::topo_order_reverse_chunked(
         start_ops,
         |OperationByEndTime(op)| op.id().clone(),
-        |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
+        async |OperationByEndTime(op)| op.parents().map_ok(OperationByEndTime).collect_vec(),
         |_| panic!("graph has cycle"),
-    ) {
+    )
+    .block_on()
+    {
         Ok(sorted_ops) => sorted_ops,
         Err(err) => return vec![Err(err)],
     };
