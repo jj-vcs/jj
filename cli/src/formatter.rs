@@ -919,6 +919,43 @@ mod tests {
     }
 
     #[test]
+    fn test_color_for_hex() {
+        assert_eq!(
+            color_for_hex("#000000"),
+            Some(Color::Rgb { r: 0, g: 0, b: 0 })
+        );
+        assert_eq!(
+            color_for_hex("#fab123"),
+            Some(Color::Rgb {
+                r: 0xfa,
+                g: 0xb1,
+                b: 0x23
+            })
+        );
+        assert_eq!(
+            color_for_hex("#F00D13"),
+            Some(Color::Rgb {
+                r: 0xf0,
+                g: 0x0d,
+                b: 0x13
+            })
+        );
+        assert_eq!(
+            color_for_hex("#ffffff"),
+            Some(Color::Rgb {
+                r: 255,
+                g: 255,
+                b: 255
+            })
+        );
+
+        assert_eq!(color_for_hex("000000"), None);
+        assert_eq!(color_for_hex("0000000"), None);
+        assert_eq!(color_for_hex("#00000g"), None);
+        assert_eq!(color_for_hex("#á00000"), None);
+    }
+
+    #[test]
     fn test_color_formatter_ansi256() {
         let config = config_from_string(
             r#"
