@@ -401,7 +401,7 @@ pub(crate) async fn cmd_rebase(
     }
 
     let mut tx = workspace_command.start_transaction();
-    let mut computed_move = compute_move_commits(tx.repo(), &loc)?;
+    let mut computed_move = compute_move_commits(tx.repo(), &loc).await?;
     if !args.keep_divergent {
         let abandoned_divergent =
             find_duplicate_divergent_commits(tx.repo(), &loc.new_parent_ids, &loc.target).await?;
