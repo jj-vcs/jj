@@ -16,6 +16,8 @@
 
 use std::sync::Arc;
 
+use pollster::FutureExt as _;
+
 use crate::backend;
 use crate::backend::BackendError;
 use crate::backend::BackendResult;
@@ -245,7 +247,10 @@ impl DetachedCommitBuilder {
         // with no description in our repo, we'd like to be extra safe.
         if commit.author.name == commit.committer.name
             && commit.author.email == commit.committer.email
-            && predecessor.is_discardable(repo).unwrap_or_default()
+            && predecessor
+                .is_discardable(repo)
+                .block_on()
+                .unwrap_or_default()
         {
             commit.author.timestamp = commit.committer.timestamp;
         }
@@ -321,7 +326,7 @@ impl DetachedCommitBuilder {
 
     /// [`Commit::is_empty()`] for the new commit.
     pub fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool> {
-        is_backend_commit_empty(repo, &self.store, &self.commit)
+        is_backend_commit_empty(repo, &self.store, &self.commit).block_on()
     }
 
     pub fn change_id(&self) -> &ChangeId {

@@ -128,7 +128,7 @@ pub async fn cmd_bookmark_move(
         ))
         .hinted("Use --allow-backwards to allow it."));
     }
-    if target_commit.is_discardable(repo.as_ref())? {
+    if target_commit.is_discardable(repo.as_ref()).await? {
         writeln!(ui.warning_default(), "Target revision is empty.")?;
     }
 

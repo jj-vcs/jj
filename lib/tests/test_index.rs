@@ -1113,10 +1113,10 @@ fn test_commit_is_empty(indexed: bool) {
         assert_eq!(stats.changed_path_commits_range, None);
     }
 
-    assert!(commit1.is_empty(repo.as_ref()).unwrap());
-    assert!(!commit2.is_empty(repo.as_ref()).unwrap());
-    assert!(!commit3.is_empty(repo.as_ref()).unwrap());
-    assert!(commit4.is_empty(repo.as_ref()).unwrap());
+    assert!(commit1.is_empty(repo.as_ref()).block_on().unwrap());
+    assert!(!commit2.is_empty(repo.as_ref()).block_on().unwrap());
+    assert!(!commit3.is_empty(repo.as_ref()).block_on().unwrap());
+    assert!(commit4.is_empty(repo.as_ref()).block_on().unwrap());
 
     assert_tree_eq!(
         commit1.parent_tree(repo.as_ref()).block_on().unwrap(),

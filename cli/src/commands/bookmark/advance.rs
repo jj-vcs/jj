@@ -176,7 +176,7 @@ pub async fn cmd_bookmark_advance(
             name = name.as_symbol()
         )));
     }
-    if target_commit.is_discardable(repo.as_ref())? {
+    if target_commit.is_discardable(repo.as_ref()).await? {
         writeln!(ui.warning_default(), "Target revision is empty.")?;
     }
 

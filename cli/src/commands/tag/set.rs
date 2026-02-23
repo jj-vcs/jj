@@ -78,7 +78,7 @@ pub async fn cmd_tag_set(
             moved_count += 1;
         }
     }
-    if target_commit.is_discardable(repo)? {
+    if target_commit.is_discardable(repo).await? {
         writeln!(ui.warning_default(), "Target revision is empty.")?;
     }
 
