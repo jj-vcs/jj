@@ -25,10 +25,13 @@ use std::path::Path;
 use std::slice;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::future::try_join_all;
+use futures::stream;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
+use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -1300,14 +1303,14 @@ impl MutableRepo {
         dag_walk_async::topo_order_reverse(
             to_visit.into_iter().map(Ok),
             |commit| commit.id().clone(),
-            |commit| -> Vec<BackendResult<Commit>> {
+            async |commit| -> Vec<BackendResult<Commit>> {
                 visited.insert(commit.id().clone());
                 let mut dependents = vec![];
                 let parent_ids = new_parents_map
                     .get(commit.id())
                     .map_or(commit.parent_ids(), |parent_ids| parent_ids);
                 for parent_id in parent_ids {
-                    let parent = store.get_commit(parent_id);
+                    let parent = store.get_commit_async(parent_id).await;
                     let Ok(parent) = parent else {
                         dependents.push(parent);
                         continue;
@@ -1315,7 +1318,7 @@ impl MutableRepo {
                     if let Some(rewrite) = self.parent_mapping.get(parent.id()) {
                         for target in rewrite.new_parent_ids() {
                             if to_visit_set.contains(target) && !visited.contains(target) {
-                                dependents.push(store.get_commit(target));
+                                dependents.push(store.get_commit_async(target).await);
                             }
                         }
                     }
@@ -1327,6 +1330,7 @@ impl MutableRepo {
             },
             |_| panic!("graph has cycle"),
         )
+        .block_on()
     }
 
     /// Rewrite descendants of the given roots.
@@ -1671,22 +1675,25 @@ impl MutableRepo {
                         .map(CommitByCommitterTimestamp)
                         .map(Ok),
                     |CommitByCommitterTimestamp(commit)| commit.id().clone(),
-                    |CommitByCommitterTimestamp(commit)| {
-                        commit
-                            .parent_ids()
-                            .iter()
-                            .filter_map(|id| match self.index().has_id(id) {
+                    async |CommitByCommitterTimestamp(commit)| {
+                        stream::iter(commit.parent_ids())
+                            .filter_map(async |id| match self.index().has_id(id) {
                                 Ok(false) => Some(
-                                    self.store().get_commit(id).map(CommitByCommitterTimestamp),
+                                    self.store()
+                                        .get_commit_async(id)
+                                        .await
+                                        .map(CommitByCommitterTimestamp),
                                 ),
                                 Ok(true) => None,
                                 // TODO: indexing error shouldn't be a "BackendError"
                                 Err(err) => Some(Err(BackendError::Other(err.into()))),
                             })
-                            .collect_vec()
+                            .collect::<Vec<_>>()
+                            .await
                     },
                     |_| panic!("graph has cycle"),
-                )?;
+                )
+                .await?;
                 for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
                     self.index
                         .add_commit(missing_commit)

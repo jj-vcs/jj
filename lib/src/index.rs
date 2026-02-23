@@ -65,7 +65,7 @@ pub type IndexResult<T> = Result<T, IndexError>;
 
 /// Defines the interface for types that provide persistent storage for an
 /// index.
-#[async_trait]
+#[async_trait(?Send)]
 pub trait IndexStore: Any + Send + Sync + Debug {
     /// Returns a name representing the type of index that the `IndexStore` is
     /// compatible with. For example, the `IndexStore` for the default index

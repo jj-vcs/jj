@@ -18,7 +18,7 @@ use clap_complete::ArgValueCandidates;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
 use futures::stream;
-use futures::stream::BoxStream;
+use futures::stream::LocalBoxStream;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::reverse_graph;
 use jj_lib::op_walk;
@@ -235,7 +235,7 @@ async fn do_op_log(
             let edges = ids.iter().cloned().map(GraphEdge::direct).collect();
             (op, edges)
         });
-        let mut stream_nodes: BoxStream<'_, _> = if args.reversed {
+        let mut stream_nodes: LocalBoxStream<'_, _> = if args.reversed {
             stream::iter(
                 reverse_graph(stream.collect::<Vec<_>>().await.into_iter(), Operation::id)?
                     .into_iter()
@@ -243,7 +243,7 @@ async fn do_op_log(
             )
             .boxed()
         } else {
-            stream.boxed()
+            stream.boxed_local()
         };
         while let Some(node) = stream_nodes.next().await {
             let (op, edges) = node?;
@@ -265,10 +265,10 @@ async fn do_op_log(
             )?;
         }
     } else {
-        let mut stream: BoxStream<'_, _> = if args.reversed {
+        let mut stream: LocalBoxStream<'_, _> = if args.reversed {
             stream::iter(stream.collect::<Vec<_>>().await.into_iter().rev()).boxed()
         } else {
-            stream.boxed()
+            stream.boxed_local()
         };
         while let Some(op) = stream.try_next().await? {
             with_content_format.write(formatter, |formatter| template.format(&op, formatter))?;

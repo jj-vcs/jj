@@ -24,6 +24,7 @@ use std::slice;
 use futures::Stream;
 use futures::StreamExt as _;
 use futures::TryStreamExt as _;
+use futures::future::join_all;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use thiserror::Error;
@@ -90,7 +91,7 @@ pub fn walk_predecessors<'repo>(
     repo: &'repo ReadonlyRepo,
     start_commits: &[CommitId],
 ) -> impl Iterator<Item = Result<CommitEvolutionEntry, WalkPredecessorsError>> + use<'repo> {
-    let op_ancestors = op_walk::walk_ancestors(slice::from_ref(repo.operation())).boxed();
+    let op_ancestors = op_walk::walk_ancestors(slice::from_ref(repo.operation())).boxed_local();
     WalkPredecessors {
         repo,
         op_ancestors,
@@ -190,7 +191,7 @@ where
                     .map_err(WalkPredecessorsError::Backend)
             }),
             |commit: &Commit| commit.id().clone(),
-            |commit: &Commit| {
+            async |commit: &Commit| {
                 let ids = match commit_predecessors.entry(commit.id().clone()) {
                     Entry::Occupied(entry) => entry.into_mut(),
                     Entry::Vacant(entry) => {
@@ -212,12 +213,17 @@ where
                     }
                 };
 
-                ids.iter()
-                    .map(|id| store.get_commit(id).map_err(WalkPredecessorsError::Backend))
-                    .collect_vec()
+                join_all(ids.iter().map(async |id| {
+                    store
+                        .get_commit_async(id)
+                        .await
+                        .map_err(WalkPredecessorsError::Backend)
+                }))
+                .await
             },
             |_| panic!("graph has cycle"),
-        )?;
+        )
+        .block_on()?;
         self.queued.extend(commits.into_iter().map(|commit| {
             let predecessors = commit_predecessors
                 .remove(commit.id())

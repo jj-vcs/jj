@@ -274,10 +274,10 @@ pub fn walk_ancestors(
         .collect_vec();
     // Lazily load operations based on timestamp-based heuristic. This works so long
     // as the operation history is mostly linear.
-    stream::iter(dag_walk_async::topo_order_reverse_lazy(
+    dag_walk_async::topo_order_reverse_lazy(
         head_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),
-        |OperationByEndTime(op)| match op.parents().block_on() {
+        async |OperationByEndTime(op)| match op.parents().await {
             Ok(parents) => parents
                 .into_iter()
                 .map(|parent| Ok(OperationByEndTime(parent)))
@@ -285,7 +285,7 @@ pub fn walk_ancestors(
             Err(err) => vec![Err(err)],
         },
         |_| panic!("graph has cycle"),
-    ))
+    )
     .map_ok(|OperationByEndTime(op)| op)
 }
 
@@ -310,10 +310,10 @@ pub fn walk_ancestors_range(
 
     // Lazily load operations based on timestamp-based heuristic. This works so long
     // as the operation history is mostly linear.
-    let trailing_iter = dag_walk_async::topo_order_reverse_lazy(
+    let trailing_stream = dag_walk_async::topo_order_reverse_lazy(
         start_ops.into_iter().map(Ok),
         |OperationByEndTime(op)| op.id().clone(),
-        |OperationByEndTime(op)| match op.parents().block_on() {
+        async |OperationByEndTime(op)| match op.parents().await {
             Ok(parents) => parents
                 .into_iter()
                 .map(|op| Ok(OperationByEndTime(op)))
@@ -323,7 +323,7 @@ pub fn walk_ancestors_range(
         |_| panic!("graph has cycle"),
     )
     .map_ok(|OperationByEndTime(op)| op);
-    stream::iter(leading_items).chain(stream::iter(trailing_iter))
+    stream::iter(leading_items).chain(trailing_stream)
 }
 
 fn collect_ancestors_until_roots(
@@ -333,7 +333,7 @@ fn collect_ancestors_until_roots(
     let sorted_ops = match dag_walk_async::topo_order_reverse_chunked(
         start_ops,
         |OperationByEndTime(op)| op.id().clone(),
-        |OperationByEndTime(op)| match op.parents().block_on() {
+        async |OperationByEndTime(op)| match op.parents().await {
             Ok(parents) => parents
                 .into_iter()
                 .map(|op| Ok(OperationByEndTime(op)))
@@ -341,7 +341,9 @@ fn collect_ancestors_until_roots(
             Err(err) => vec![Err(err)],
         },
         |_| panic!("graph has cycle"),
-    ) {
+    )
+    .block_on()
+    {
         Ok(sorted_ops) => sorted_ops,
         Err(err) => return vec![Err(err)],
     };

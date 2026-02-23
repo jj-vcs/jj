@@ -339,7 +339,7 @@ impl DefaultIndexStore {
                 .filter(|&(commit_id, _)| !parent_index_has_id(commit_id))
                 .map(|(commit_id, op_id)| get_commit_with_op(commit_id, op_id)),
             |(CommitByCommitterTimestamp(commit), _)| commit.id().clone(),
-            |(CommitByCommitterTimestamp(commit), op_id)| {
+            async |(CommitByCommitterTimestamp(commit), op_id)| {
                 let keep_predecessors =
                     commits_to_keep_immediate_predecessors.contains(commit.id());
                 itertools::chain(
@@ -354,7 +354,8 @@ impl DefaultIndexStore {
                 .collect_vec()
             },
             |_| panic!("graph has cycle"),
-        )?;
+        )
+        .await?;
         for (CommitByCommitterTimestamp(commit), op_id) in commits.iter().rev() {
             mutable_index.add_commit(commit).await.map_err(|source| {
                 DefaultIndexStoreError::IndexCommits {
@@ -535,7 +536,7 @@ impl DefaultIndexStore {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl IndexStore for DefaultIndexStore {
     fn name(&self) -> &str {
         Self::name()
