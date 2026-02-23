@@ -891,20 +891,29 @@ impl CommitBuilderExt for CommitBuilder<'_> {
     }
 }
 
+pub struct PathAndParents<'a> {
+    pub path: &'a RepoPath,
+    pub parents: Vec<&'a RepoPath>,
+}
+
 // Creates a CopyHistory graph and writes it to the test repo, returning the
 // resulting IDs and Histories. Items in `paths_and_parents` can refer to parent
 // paths occurring earlier in the list
 pub fn write_copy_histories(
     repo: &Arc<ReadonlyRepo>,
-    paths_and_parents: &[(&RepoPath, Vec<&RepoPath>)],
+    paths_and_parents: &[PathAndParents],
 ) -> HashMap<RepoPathBuf, CopyHistory> {
     let mut ids = HashMap::<RepoPathBuf, CopyId>::new();
     let mut histories = HashMap::<RepoPathBuf, CopyHistory>::new();
 
-    for (path, parents) in paths_and_parents {
+    for path_and_parents in paths_and_parents {
         let history = CopyHistory {
-            current_path: (*path).to_owned(),
-            parents: parents.iter().map(|parent| ids[*parent].clone()).collect(),
+            current_path: path_and_parents.path.to_owned(),
+            parents: path_and_parents
+                .parents
+                .iter()
+                .map(|parent| ids[*parent].clone())
+                .collect(),
             salt: vec![],
         };
         let id = repo
@@ -913,8 +922,8 @@ pub fn write_copy_histories(
             .write_copy(&history)
             .block_on()
             .unwrap();
-        ids.insert((*path).to_owned(), id);
-        histories.insert((*path).to_owned(), history);
+        ids.insert(path_and_parents.path.to_owned(), id);
+        histories.insert(path_and_parents.path.to_owned(), history);
     }
 
     histories
