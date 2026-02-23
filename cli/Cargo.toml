@@ -100,6 +100,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 shlex = { workspace = true }
 slab = { workspace = true }
+strum_macros = { workspace = true }
 tempfile = { workspace = true }
 textwrap = { workspace = true }
 thiserror = { workspace = true }
