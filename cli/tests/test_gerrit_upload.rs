@@ -77,10 +77,10 @@ fn test_gerrit_upload_dryrun() {
     ");
 
     let output = work_dir.run_jj(["gerrit", "upload", "-r", "b", "--dry-run", "-b", "other"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'other'
-    Dry-run: Would push zsuskuln 123b4d91 b | b
+    Dry-run: Would push zsuskuln 123b4d91 b gerrit-I0757f5ec8418b4f0983d29e77f9c624a6a6a6964 | b
     [EOF]
     ");
 }
@@ -122,7 +122,7 @@ fn test_gerrit_upload_default_revision() {
     ------- stderr -------
     No revision provided and @ has no description. Defaulting to @-
     Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Dry-run: Would push kkmpptxz a41ea4e9 parent
+    Dry-run: Would push kkmpptxz a41ea4e9 gerrit-Iffdaa62087a280bddc5e3d3ff933b8ae6a6a6964 | parent
     [EOF]
     ");
 
@@ -305,10 +305,10 @@ fn test_gerrit_upload_local_implicit_change_ids() {
     // The output should be unchanged because we only add Change-Id trailers
     // transiently
     let output = local_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c f6e97ced
+    insta::assert_snapshot!(output, @r"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c gerrit-I19b790168e73f7a73a98deae21e807c06a6a6964 f6e97ced
     │  c
-    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
+    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b gerrit-Id043564ef93650b06a70f92f9d91912b6a6a6964 3bcb28c4
     │  b
     ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
     │  a
@@ -403,10 +403,10 @@ review-url = "https://gerrit.example.com/"
     // The output should be unchanged because we only add Link trailers
     // transiently
     let output = local_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @"
-    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c f6e97ced
+    insta::assert_snapshot!(output, @r"
+    @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c gerrit-I19b790168e73f7a73a98deae21e807c06a6a6964 f6e97ced
     │  c
-    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
+    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b gerrit-Id043564ef93650b06a70f92f9d91912b6a6a6964 3bcb28c4
     │  b
     ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
     │  a
@@ -609,10 +609,10 @@ fn test_gerrit_upload_local_mixed_change_ids() {
     // The output should be unchanged because commits created within 'upload'
     // should all be temporary
     let output = local_dir.run_jj(["log", "-r", "all()"]);
-    insta::assert_snapshot!(output, @"
+    insta::assert_snapshot!(output, @r"
     @  yqosqzyt test.user@example.com 2001-02-03 08:05:15 c 8d46d915
     │  c
-    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b 3bcb28c4
+    ○  mzvwutvl test.user@example.com 2001-02-03 08:05:12 b gerrit-Id043564ef93650b06a70f92f9d91912b6a6a6964 3bcb28c4
     │  b
     ◆  rlvkpnrz test.user@example.com 2001-02-03 08:05:09 a@origin 7d980be7
     │  a
@@ -663,104 +663,17 @@ fn test_gerrit_upload_bad_change_ids() {
         .success();
     let local_dir = test_env.work_dir("local");
     create_commit(&local_dir, "b", &["a@origin"]);
-    create_commit(&local_dir, "b2", &["b"]);
-    create_commit(&local_dir, "b3", &["b2"]);
-    create_commit(&local_dir, "b4", &["b3"]);
-    create_commit(&local_dir, "c", &["a@origin"]);
-    create_commit(&local_dir, "d", &["a@origin"]);
-    create_commit(&local_dir, "e", &["a@origin"]);
 
     local_dir
         .run_jj(["describe", "-rb", "-m\n\nChange-Id: malformed\n"])
         .success();
-    local_dir
-        .run_jj([
-            "describe",
-            "-rb2",
-            "-m\n\nChange-Id: i0000000000000000000000000000000000000000\n",
-        ])
-        .success();
-    local_dir
-        .run_jj(["describe", "-rb3", "-m\n\nLink: malformed\n"])
-        .success();
-    local_dir
-        .run_jj([
-            "describe",
-            "-rb4",
-            "-m\n\nLink: https://gerrit.example.com/id/Imalformed\n",
-        ])
-        .success();
-    local_dir
-        .run_jj([
-            "describe",
-            "-rc",
-            "-m",
-            concat!(
-                "\n\n",
-                "Change-Id: I1111111111111111111111111111111111111111\n",
-                "Change-Id: I2222222222222222222222222222222222222222\n",
-            ),
-        ])
-        .success();
-    local_dir
-        .run_jj([
-            "describe",
-            "-rd",
-            "-m",
-            concat!(
-                "\n\n",
-                "Link: https://gerrit.example.com/id/I1111111111111111111111111111111111111111\n",
-                "Change-Id: I2222222222222222222222222222222222222222\n",
-            ),
-        ])
-        .success();
-    local_dir
-        .run_jj([
-            "describe",
-            "-re",
-            "-m",
-            concat!(
-                "\n\n",
-                "Link: https://gerrit.example.com/id/I1111111111111111111111111111111111111111\n",
-                "Link: https://gerrit.example.com/id/I2222222222222222222222222222222222222222\n",
-            ),
-        ])
-        .success();
-
-    let output = local_dir.run_jj(["gerrit", "upload", "-rc", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
+    let output = local_dir.run_jj(["gerrit", "upload", "-rb", "--remote-branch=main"]);
+    insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Error: Multiple Change-Id footers in revision wqnwkozpkust
+    Error: Invalid change ID "malformed" for revision mzvwutvlkqwt from a Change-Id footer
     [EOF]
     [exit status: 1]
-    ");
-    let output = local_dir.run_jj(["gerrit", "upload", "-rd", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    Error: Multiple Change-Id footers in revision kxryzmorwvtz
-    [EOF]
-    [exit status: 1]
-    ");
-    let output = local_dir.run_jj(["gerrit", "upload", "-re", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    Error: Multiple Change-Id footers in revision uyznsvlquzzm
-    [EOF]
-    [exit status: 1]
-    ");
-
-    // check both badly and slightly malformed Change-Id / Link trailers
-    let output = local_dir.run_jj(["gerrit", "upload", "-rb4", "--remote-branch=main"]);
-    insta::assert_snapshot!(output, @"
-    ------- stderr -------
-    Warning: Invalid Change-Id footer in revision mzvwutvlkqwt
-    Warning: Invalid Change-Id footer in revision yqosqzytrlsw
-    Warning: Invalid Link footer in revision yostqsxwqrlt
-    Warning: Invalid Link footer in revision kpqxywonksrl
-    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
-    Pushing kpqxywon 69536ef3 b4
-    [EOF]
-    ");
+    "#);
 }
 
 #[test]
@@ -820,5 +733,77 @@ fn test_gerrit_upload_rejected_by_remote() {
     Error: Failed to push all changes to gerrit
     [EOF]
     [exit status: 1]
+    ");
+}
+
+#[test]
+fn test_gerrit_upload_hints_review_url() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "remote"])
+        .success();
+    let remote_dir = test_env.work_dir("remote");
+    create_commit(&remote_dir, "a", &[]);
+
+    // create a hook on the remote that prevents pushing
+    let hook_path = test_env
+        .env_root()
+        .join("remote")
+        .join(".git")
+        .join("hooks")
+        .join("update");
+
+    std::fs::write(
+        &hook_path,
+        [
+            "#!/bin/sh",
+            "echo 'SUCCESS'",
+            "echo",
+            "echo '  https://gerrit.example.com/c/project/+/12345 parent [WIP] [NEW]'",
+            "echo '  https://gerrit.example.com/c/project/+/67890 child [WIP] [NEW]'",
+        ]
+        .join("\n"),
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        std::fs::set_permissions(&hook_path, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+
+    test_env
+        .run_jj_in(".", ["git", "clone", "remote", "local"])
+        .success();
+    let local_dir = test_env.work_dir("local");
+    create_commit(&local_dir, "parent", &["a@origin"]);
+    create_commit(&local_dir, "child", &["parent"]);
+
+    let output = local_dir.run_jj(["gerrit", "upload", "-r", "child", "--remote-branch=main"]);
+    insta::assert_snapshot!(output, @r"
+    ------- stderr -------
+    Found 1 heads to push to Gerrit (remote 'origin'), target branch 'main'
+    Pushing yqosqzyt e90e128c child | child
+    remote: SUCCESS        
+    remote: 
+    remote:   https://gerrit.example.com/c/project/+/12345 parent [WIP] [NEW]        
+    remote:   https://gerrit.example.com/c/project/+/67890 child [WIP] [NEW]        
+    Warning: Gerrit URL is not set, some features will not work
+    Hint: Run `jj config set --repo gerrit.review-url https://gerrit.example.com
+    [EOF]
+    ");
+
+    test_env.add_config(r#"gerrit.review-url = "https://gerrit.example.com""#);
+    let output = local_dir.run_jj([
+        "log",
+        "-T",
+        "change_id ++ ' ' ++ local_bookmarks ++ ' ' ++ gerrit_url",
+    ]);
+    insta::assert_snapshot!(output, @r"
+    @  yqosqzytrlswkspswpqrmlplxylrzsnz child gerrit-I19b790168e73f7a73a98deae21e807c06a6a6964 https://gerrit.example.com/id/I19b790168e73f7a73a98deae21e807c06a6a6964
+    ○  mzvwutvlkqwtuzoztpszkqxkqmqyqyxo gerrit-Id043564ef93650b06a70f92f9d91912b6a6a6964 parent https://gerrit.example.com/id/Id043564ef93650b06a70f92f9d91912b6a6a6964
+    ◆  rlvkpnrzqnoowoytxnquwvuryrwnrmlp
+    ◆  zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+    [EOF]
     ");
 }

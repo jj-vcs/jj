@@ -2459,6 +2459,7 @@ dependencies = [
  "serde_json",
  "shlex",
  "slab",
+ "strum_macros",
  "tempfile",
  "test-case",
  "testutils",
