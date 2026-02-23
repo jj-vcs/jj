@@ -1171,7 +1171,7 @@ mod tests {
     }
 
     #[test]
-    fn test_color_formatter_reset_on_flush() {
+    fn test_formatter_reset_on_flush() {
         let config = config_from_string("colors.red = 'red'");
         let mut output: Vec<u8> = vec![];
         let mut formatter = ColorFormatter::for_config(&mut output, &config, false).unwrap();
@@ -1197,6 +1197,23 @@ mod tests {
         drop(formatter);
         insta::assert_snapshot!(
             to_snapshot_string(output), @"[38;5;1mfoo[39m[38;5;1mbar[39m[EOF]");
+
+        // plaintext and sanitizing formatters produce no special behavior
+        let mut output: Vec<u8> = vec![];
+        let mut formatter = PlainTextFormatter::new(&mut output);
+        formatter.push_label("red");
+        write!(formatter, "foo").unwrap();
+        formatter.pop_label();
+        formatter.flush().unwrap();
+        insta::assert_snapshot!(to_snapshot_string(formatter.output.clone()), @"foo[EOF]");
+
+        let mut output: Vec<u8> = vec![];
+        let mut formatter = SanitizingFormatter::new(&mut output);
+        formatter.push_label("red");
+        write!(formatter, "foo").unwrap();
+        formatter.pop_label();
+        formatter.flush().unwrap();
+        insta::assert_snapshot!(to_snapshot_string(formatter.output.clone()), @"foo[EOF]");
     }
 
     #[test]
