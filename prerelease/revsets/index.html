@@ -2173,7 +2173,9 @@ y) | z</code> or <code>x &amp; (y | z)</code>.</p>
 <li><code>x::y</code>: Descendants of <code>x</code> that are also ancestors of <code>y</code>. Equivalent
     to <code>x:: &amp; ::y</code>. This is what <code>git log</code> calls <code>--ancestry-path x..y</code>.</li>
 <li><code>x..y</code>: Ancestors of <code>y</code> that are not also ancestors of <code>x</code>. Equivalent to
-   <code>::y ~ ::x</code>. This is what <code>git log</code> calls <code>x..y</code> (i.e. the same as we call it).</li>
+   <code>::y ~ ::x</code>. This is what <code>git log</code> calls <code>x..y</code> (i.e. the same as we call it).
+   Note that this is <em>not</em> a "path" between <code>x</code> and <code>y</code> in the commit graph—<code>x</code>
+   and <code>y</code> do not need to be related by ancestry.</li>
 <li><code>::</code>: All visible commits in the repo. Equivalent to <code>all()</code>, and
    <code>root()::visible_heads()</code> if no hidden revisions are mentioned.</li>
 <li><code>..</code>: All visible commits in the repo, but excluding the root commit.
@@ -2198,6 +2200,12 @@ y) | z</code> or <code>x &amp; (y | z)</code>.</p>
 </ul>
 </li>
 </ol>
+<p><strong>Note:</strong> The <code>..</code> operator does not distribute over union (<code>|</code>) on its left
+side. For example, <code>(A | B)..</code> is <strong>not</strong> equivalent to <code>A.. | B..</code>. The
+expression <code>(A | B)..</code> means "commits that are not ancestors of A <em>and</em> not
+ancestors of B", while <code>A.. | B..</code> means "commits that are not ancestors of A
+<em>or</em> not ancestors of B". In fact, <code>(A | B).. = A.. &amp; B..</code>. See the examples
+*below for concrete illustrations.</p>
 <!-- The following format will be understood by the web site generator, and will
  generate a folded section that can be unfolded at will. -->
 
@@ -2290,6 +2298,16 @@ root()
 <li><code>D..B</code> ⇒ <code>{}</code> (empty set)</li>
 <li><code>(C|B)..(C|B)</code> ⇒ <code>{}</code> (empty set)</li>
 </ul>
+<p><strong>Non-distributivity of <code>..</code> over union (left side)</strong></p>
+<p>Using the same graph, observe that <code>(C|B)..</code> ⇒ <code>{D}</code>, but:</p>
+<ul>
+<li><code>C..</code> ⇒ <code>{D,B}</code></li>
+<li><code>B..</code> ⇒ <code>{D,C}</code></li>
+<li><code>C.. | B..</code> ⇒ <code>{D,C,B}</code></li>
+<li><code>C.. &amp; B..</code> ⇒ <code>{D}</code></li>
+</ul>
+<p>So <code>(C|B)..</code> ≠ <code>C.. | B..</code>, but <code>(C|B).. = C.. &amp; B..</code>. The <code>..</code> operator
+converts union to intersection on its left side.</p>
 </details>
 <h2 id="functions">Functions<a class="headerlink" href="#functions" title="Permanent link">&para;</a></h2>
 <p>You can also specify revisions by using functions. Some functions take other
@@ -2697,9 +2715,11 @@ always resolves to exactly one commit. For example:</p>
   alias. Prefer to redefine <code>immutable_heads()</code> instead.</p>
 </li>
 <li>
-<p><code>immutable_heads()</code>: Resolves to <code>trunk() | tags() |
+<p><code>immutable_heads()</code>: The heads of the set of immutable commits (not "heads
+  that are immutable"). Resolves to <code>trunk() | tags() |
   untracked_remote_bookmarks()</code> by default. It is actually defined as
-  <code>builtin_immutable_heads()</code>, and can be overridden as required. See
+  <code>builtin_immutable_heads()</code>, and can be overridden as required. The full set
+  of immutable commits is <code>::immutable_heads()</code> (i.e., <code>immutable()</code>). See
   <a href="../config/#set-of-immutable-commits">here</a> for details.</p>
 </li>
 <li>
@@ -2710,7 +2730,7 @@ always resolves to exactly one commit. For example:</p>
 </li>
 <li>
 <p><code>mutable()</code>: The set of commits that <code>jj</code> treats as mutable. This is
-  equivalent to <code>~immutable()</code>. It is not recommended to redefined this alias.
+  equivalent to <code>~immutable()</code>. It is not recommended to redefine this alias.
   Note that modifying this will <em>not</em> change whether a commit is immutable.
   To do that, edit <code>immutable_heads()</code>.</p>
 </li>
