@@ -47,7 +47,6 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use pollster::FutureExt as _;
 use pretty_assertions::assert_eq;
-use testutils::PathAndParents;
 use testutils::TestRepo;
 use testutils::TestTreeBuilder;
 use testutils::assert_tree_eq;
@@ -2102,19 +2101,7 @@ fn test_copy_diffstream_no_history_change() {
 
     let foo = repo_path("foo.txt");
     let bar = repo_path("bar.txt");
-    let histories = write_copy_histories(
-        repo,
-        &[
-            PathAndParents {
-                path: foo,
-                parents: vec![],
-            },
-            PathAndParents {
-                path: bar,
-                parents: vec![foo],
-            },
-        ],
-    );
+    let histories = write_copy_histories(repo, &[(foo, vec![]).into(), (bar, vec![foo]).into()]);
 
     let left = create_tree_with_copy_history(
         repo,
@@ -2142,19 +2129,7 @@ fn test_copy_diffstream_copy() {
 
     let foo = repo_path("foo.txt");
     let bar = repo_path("bar.txt");
-    let histories = write_copy_histories(
-        repo,
-        &[
-            PathAndParents {
-                path: foo,
-                parents: vec![],
-            },
-            PathAndParents {
-                path: bar,
-                parents: vec![foo],
-            },
-        ],
-    );
+    let histories = write_copy_histories(repo, &[(foo, vec![]).into(), (bar, vec![foo]).into()]);
 
     let left = create_tree_with_copy_history(repo, &histories, &[(foo, "foo or maybe bar")]);
     let foo_val = left.path_value(foo).unwrap();
@@ -2186,19 +2161,7 @@ fn test_copy_diffstream_rename() {
 
     let foo = repo_path("foo.txt");
     let bar = repo_path("bar.txt");
-    let histories = write_copy_histories(
-        repo,
-        &[
-            PathAndParents {
-                path: foo,
-                parents: vec![],
-            },
-            PathAndParents {
-                path: bar,
-                parents: vec![foo],
-            },
-        ],
-    );
+    let histories = write_copy_histories(repo, &[(foo, vec![]).into(), (bar, vec![foo]).into()]);
 
     let left = create_tree_with_copy_history(repo, &histories, &[(foo, "foo or maybe bar")]);
     let foo_val = left.path_value(foo).unwrap();
@@ -2233,14 +2196,8 @@ fn test_copy_diffstream_file_dir_mismatch() {
     let histories = write_copy_histories(
         repo,
         &[
-            PathAndParents {
-                path: file_dir_path,
-                parents: vec![],
-            },
-            PathAndParents {
-                path: file_dir_subpath,
-                parents: vec![],
-            },
+            (file_dir_path, vec![]).into(),
+            (file_dir_subpath, vec![]).into(),
         ],
     );
     let left =
@@ -2274,13 +2231,7 @@ fn test_copy_diffstream_symlink_mismatch() {
     let repo = &test_repo.repo;
 
     let path = repo_path("file_or_symlink");
-    let histories = write_copy_histories(
-        repo,
-        &[PathAndParents {
-            path,
-            parents: vec![],
-        }],
-    );
+    let histories = write_copy_histories(repo, &[(path, vec![]).into()]);
     let left = create_tree_with_copy_history(repo, &histories, &[(path, "a file for now")]);
     let file_val = left.path_value(path).unwrap();
 
@@ -2315,16 +2266,7 @@ fn test_copy_diffstream_symlink_with_history() {
     let other_path = repo_path("other_file");
     let histories = write_copy_histories(
         repo,
-        &[
-            PathAndParents {
-                path: other_path,
-                parents: vec![],
-            },
-            PathAndParents {
-                path,
-                parents: vec![other_path],
-            },
-        ],
+        &[(other_path, vec![]).into(), (path, vec![other_path]).into()],
     );
     let left = create_tree_with_copy_history(
         repo,
@@ -2406,19 +2348,7 @@ fn test_copy_diffstream_dest_conflict() {
 
     let foo = repo_path("foo.txt");
     let bar = repo_path("bar.txt");
-    let histories = write_copy_histories(
-        repo,
-        &[
-            PathAndParents {
-                path: foo,
-                parents: vec![],
-            },
-            PathAndParents {
-                path: bar,
-                parents: vec![foo],
-            },
-        ],
-    );
+    let histories = write_copy_histories(repo, &[(foo, vec![]).into(), (bar, vec![foo]).into()]);
 
     // CASE: skip rename detection when there are conflicts
     let left = create_tree_with_copy_history(repo, &histories, &[(foo, "foo or maybe bar")]);
@@ -2469,19 +2399,7 @@ fn test_copy_diffstream_source_conflict() {
 
     let foo = repo_path("foo.txt");
     let bar = repo_path("bar.txt");
-    let histories = write_copy_histories(
-        repo,
-        &[
-            PathAndParents {
-                path: foo,
-                parents: vec![],
-            },
-            PathAndParents {
-                path: bar,
-                parents: vec![foo],
-            },
-        ],
-    );
+    let histories = write_copy_histories(repo, &[(foo, vec![]).into(), (bar, vec![foo]).into()]);
 
     // CASE: conflict in source rather than target
     let base_tree = create_tree_with_copy_history(repo, &histories, &[(foo, "foo or maybe bar")]);
@@ -2529,19 +2447,7 @@ fn test_copy_diffstream_source_and_dest_conflicts() {
 
     let foo = repo_path("foo.txt");
     let bar = repo_path("bar.txt");
-    let histories = write_copy_histories(
-        repo,
-        &[
-            PathAndParents {
-                path: foo,
-                parents: vec![],
-            },
-            PathAndParents {
-                path: bar,
-                parents: vec![foo],
-            },
-        ],
-    );
+    let histories = write_copy_histories(repo, &[(foo, vec![]).into(), (bar, vec![foo]).into()]);
 
     // CASE: conflict in both source and target
     let base_tree = create_tree_with_copy_history(repo, &histories, &[(foo, "foo or maybe bar")]);
@@ -2620,22 +2526,10 @@ fn test_copy_diffstream_multiple_descendants() {
     let histories = write_copy_histories(
         repo,
         &[
-            PathAndParents {
-                path: foo,
-                parents: vec![],
-            },
-            PathAndParents {
-                path: bar,
-                parents: vec![foo],
-            },
-            PathAndParents {
-                path: qux,
-                parents: vec![bar],
-            },
-            PathAndParents {
-                path: gru,
-                parents: vec![foo],
-            },
+            (foo, vec![]).into(),
+            (bar, vec![foo]).into(),
+            (qux, vec![bar]).into(),
+            (gru, vec![foo]).into(),
         ],
     );
 

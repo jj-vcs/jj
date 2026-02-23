@@ -896,6 +896,15 @@ pub struct PathAndParents<'a> {
     pub parents: Vec<&'a RepoPath>,
 }
 
+impl<'a> From<(&'a RepoPath, Vec<&'a RepoPath>)> for PathAndParents<'a> {
+    fn from(item: (&'a RepoPath, Vec<&'a RepoPath>)) -> Self {
+        Self {
+            path: item.0,
+            parents: item.1,
+        }
+    }
+}
+
 // Creates a CopyHistory graph and writes it to the test repo, returning the
 // resulting IDs and Histories. Items in `paths_and_parents` can refer to parent
 // paths occurring earlier in the list
