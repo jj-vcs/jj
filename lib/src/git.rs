@@ -31,7 +31,6 @@ use bstr::BString;
 use futures::StreamExt as _;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::backend::BackendError;
@@ -540,18 +539,18 @@ struct RefsToImport {
 ///
 /// This function detects conflicts (if both Git and JJ modified a bookmark) and
 /// records them in JJ's view.
-pub fn import_refs(
+pub async fn import_refs(
     mut_repo: &mut MutableRepo,
     options: &GitImportOptions,
 ) -> Result<GitImportStats, GitImportError> {
-    import_some_refs(mut_repo, options, |_, _| true)
+    import_some_refs(mut_repo, options, |_, _| true).await
 }
 
 /// Reflect changes made in the underlying Git repo in the Jujutsu repo.
 ///
 /// Only bookmarks and tags whose remote symbol pass the filter will be
 /// considered for addition, update, or deletion.
-pub fn import_some_refs(
+pub async fn import_some_refs(
     mut_repo: &mut MutableRepo,
     options: &GitImportOptions,
     git_ref_filter: impl Fn(GitRefKind, RemoteRefSymbol<'_>) -> bool,
@@ -569,10 +568,10 @@ pub fn import_some_refs(
     let all_remote_tags = false;
     let refs_to_import =
         diff_refs_to_import(mut_repo.view(), &git_repo, all_remote_tags, git_ref_filter)?;
-    import_refs_inner(mut_repo, refs_to_import, options)
+    import_refs_inner(mut_repo, refs_to_import, options).await
 }
 
-fn import_refs_inner(
+async fn import_refs_inner(
     mut_repo: &mut MutableRepo,
     refs_to_import: RefsToImport,
     options: &GitImportOptions,
@@ -606,7 +605,7 @@ fn import_refs_inner(
 
     // Import new remote heads
     let mut head_commits = Vec::new();
-    let get_commit = |id: &CommitId, symbol: &RemoteRefSymbolBuf| {
+    let get_commit = async |id: &CommitId, symbol: &RemoteRefSymbolBuf| {
         let missing_ref_err = |err| GitImportError::MissingRefAncestor {
             symbol: symbol.clone(),
             err,
@@ -617,11 +616,11 @@ fn import_refs_inner(
                 .import_head_commits([id])
                 .map_err(missing_ref_err)?;
         }
-        store.get_commit(id).map_err(missing_ref_err)
+        store.get_commit_async(id).await.map_err(missing_ref_err)
     };
     for (symbol, (_, new_target)) in iter_changed_refs() {
         for id in new_target.added_ids() {
-            let commit = get_commit(id, symbol)?;
+            let commit = get_commit(id, symbol).await?;
             head_commits.push(commit);
         }
     }
@@ -674,6 +673,7 @@ fn import_refs_inner(
 
     let abandoned_commits = if options.abandon_unreachable_commits {
         abandon_unreachable_commits(mut_repo, &changed_remote_bookmarks, &changed_remote_tags)
+            .await
             .map_err(GitImportError::Backend)?
     } else {
         vec![]
@@ -689,7 +689,7 @@ fn import_refs_inner(
 
 /// Finds commits that used to be reachable in git that no longer are reachable.
 /// Those commits will be recorded as abandoned in the `MutableRepo`.
-fn abandon_unreachable_commits(
+async fn abandon_unreachable_commits(
     mut_repo: &mut MutableRepo,
     changed_remote_bookmarks: &[(RemoteRefSymbolBuf, (RemoteRef, RefTarget))],
     changed_remote_tags: &[(RemoteRefSymbolBuf, (RemoteRef, RefTarget))],
@@ -720,7 +720,7 @@ fn abandon_unreachable_commits(
         .try_collect()
         .map_err(|err| err.into_backend_error())?;
     for id in &abandoned_commit_ids {
-        let commit = mut_repo.store().get_commit(id)?;
+        let commit = mut_repo.store().get_commit_async(id).await?;
         mut_repo.record_abandoned_commit(&commit);
     }
     Ok(abandoned_commit_ids)
@@ -994,7 +994,7 @@ fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
 ///
 /// Unlike `reset_head()`, this function doesn't move the working-copy commit to
 /// the child of the new HEAD revision.
-pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
+pub async fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
     let store = mut_repo.store();
     let git_backend = get_git_backend(store)?;
     let git_repo = git_backend.git_repo();
@@ -1023,7 +1023,8 @@ pub fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
         // It's unlikely the imported commits were missing, but I/O-related
         // error can still occur.
         store
-            .get_commit(head_id)
+            .get_commit_async(head_id)
+            .await
             .and_then(|commit| mut_repo.add_head(&commit))
             .map_err(GitImportError::Backend)?;
     }
@@ -1620,7 +1621,10 @@ impl GitResetHeadError {
 
 /// Sets Git HEAD to the parent of the given working-copy commit and resets
 /// the Git index.
-pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), GitResetHeadError> {
+pub async fn reset_head(
+    mut_repo: &mut MutableRepo,
+    wc_commit: &Commit,
+) -> Result<(), GitResetHeadError> {
     let git_repo = get_git_repo(mut_repo.store())?;
 
     let first_parent_id = &wc_commit.parent_ids()[0];
@@ -1663,7 +1667,7 @@ pub fn reset_head(mut_repo: &mut MutableRepo, wc_commit: &Commit) -> Result<(), 
         clear_operation_state(&git_repo)?;
     }
 
-    reset_index(mut_repo, &git_repo, wc_commit)
+    reset_index(mut_repo, &git_repo, wc_commit).await
 }
 
 // TODO: Polish and upstream this to `gix`.
@@ -1699,12 +1703,12 @@ fn clear_operation_state(git_repo: &gix::Repository) -> Result<(), GitResetHeadE
     Ok(())
 }
 
-fn reset_index(
+async fn reset_index(
     repo: &dyn Repo,
     git_repo: &gix::Repository,
     wc_commit: &Commit,
 ) -> Result<(), GitResetHeadError> {
-    let parent_tree = wc_commit.parent_tree(repo).block_on()?;
+    let parent_tree = wc_commit.parent_tree(repo).await?;
     // Use the merged parent tree as the Git index, allowing `git diff` to show the
     // same changes as `jj diff`. If the merged parent tree has conflicts, then the
     // Git index will also be conflicted.
@@ -1729,7 +1733,7 @@ fn reset_index(
     };
 
     let wc_tree = wc_commit.tree();
-    update_intent_to_add_impl(git_repo, &mut index, &parent_tree, &wc_tree).block_on()?;
+    update_intent_to_add_impl(git_repo, &mut index, &parent_tree, &wc_tree).await?;
 
     // Match entries in the new index with entries in the old index, and copy stat
     // information if the entry didn't change.
@@ -1873,7 +1877,7 @@ fn build_index_from_merged_tree(
 ///
 /// Should be called when the diff between the working-copy commit and its
 /// parent(s) has changed.
-pub fn update_intent_to_add(
+pub async fn update_intent_to_add(
     repo: &dyn Repo,
     old_tree: &MergedTree,
     new_tree: &MergedTree,
@@ -1883,7 +1887,7 @@ pub fn update_intent_to_add(
         .index_or_empty()
         .map_err(GitResetHeadError::from_git)?;
     let mut_index = Arc::make_mut(&mut index);
-    update_intent_to_add_impl(&git_repo, mut_index, old_tree, new_tree).block_on()?;
+    update_intent_to_add_impl(&git_repo, mut_index, old_tree, new_tree).await?;
     debug_assert!(mut_index.verify_entries().is_ok());
     mut_index
         .write(gix::index::write::Options::default())
@@ -2990,7 +2994,7 @@ impl<'a> GitFetch<'a> {
     /// after the import. If `fetch()` has not been called since the last time
     /// `import_refs()` was called then this will be a no-op.
     #[tracing::instrument(skip(self))]
-    pub fn import_refs(&mut self) -> Result<GitImportStats, GitImportError> {
+    pub async fn import_refs(&mut self) -> Result<GitImportStats, GitImportError> {
         tracing::debug!("import_refs");
         let all_remote_tags = true;
         let refs_to_import = diff_refs_to_import(
@@ -3016,7 +3020,8 @@ impl<'a> GitFetch<'a> {
                 }
             },
         )?;
-        let import_stats = import_refs_inner(self.mut_repo, refs_to_import, self.import_options)?;
+        let import_stats =
+            import_refs_inner(self.mut_repo, refs_to_import, self.import_options).await?;
 
         self.fetched.clear();
 

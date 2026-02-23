@@ -222,7 +222,7 @@ async fn do_init(
             )?;
             if !workspace_command.working_copy_shared_with_git() {
                 let mut tx = workspace_command.start_transaction();
-                jj_lib::git::import_head(tx.repo_mut())?;
+                jj_lib::git::import_head(tx.repo_mut()).await?;
                 if let Some(git_head_id) = tx.repo().view().git_head().as_normal().cloned() {
                     let git_head_commit = tx.repo().store().get_commit(&git_head_id)?;
                     tx.check_out(&git_head_commit)?;
@@ -257,7 +257,7 @@ async fn init_git_refs(
     let mut tx = start_repo_transaction(&repo, string_args);
     // There should be no old refs to abandon, but enforce it.
     import_options.abandon_unreachable_commits = false;
-    let stats = git::import_refs(tx.repo_mut(), &import_options)?;
+    let stats = git::import_refs(tx.repo_mut(), &import_options).await?;
     print_git_import_stats_summary(ui, &stats)?;
     if !tx.repo().has_changes() {
         return Ok(repo);

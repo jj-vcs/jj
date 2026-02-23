@@ -216,7 +216,8 @@ pub async fn cmd_git_clone(
             &ref_expr,
             args.depth,
             args.fetch_tags,
-        )?;
+        )
+        .await?;
         Ok((workspace_command, default_branch, config_env))
     }
     .await;
@@ -329,7 +330,7 @@ async fn configure_remote(
     command.for_workable_repo(ui, workspace, repo)
 }
 
-fn fetch_new_remote(
+async fn fetch_new_remote(
     ui: &Ui,
     workspace_command: &mut WorkspaceCommandHelper,
     remote_name: &RemoteName,
@@ -375,7 +376,7 @@ fn fetch_new_remote(
             },
         )?;
 
-        let import_stats = git_fetch.import_refs()?;
+        let import_stats = git_fetch.import_refs().await?;
 
         let default_branch = git_fetch.get_default_branch(remote_name)?;
         (default_branch, import_stats)

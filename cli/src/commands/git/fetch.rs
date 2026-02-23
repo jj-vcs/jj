@@ -229,7 +229,7 @@ pub async fn cmd_git_fetch(
         git_fetch.fetch(remote, expanded, &mut callback, None, fetch_tags)?;
     }
 
-    let import_stats = git_fetch.import_refs()?;
+    let import_stats = git_fetch.import_refs().await?;
     print_git_import_stats(ui, &tx, &import_stats)?;
 
     if let Some(bookmark_expr) = &common_bookmark_expr {

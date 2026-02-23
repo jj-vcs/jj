@@ -1261,7 +1261,7 @@ impl WorkspaceCommandHelper {
     ) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
         let mut tx = self.start_transaction();
-        jj_lib::git::import_head(tx.repo_mut())?;
+        jj_lib::git::import_head(tx.repo_mut()).block_on()?;
         if !tx.repo().has_changes() {
             return Ok(());
         }
@@ -1322,7 +1322,7 @@ impl WorkspaceCommandHelper {
         let import_options =
             crate::git_util::load_git_import_options(ui, &git_settings, &remote_settings)?;
         let mut tx = self.start_transaction();
-        let stats = git::import_refs(tx.repo_mut(), &import_options)?;
+        let stats = git::import_refs(tx.repo_mut(), &import_options).block_on()?;
         crate::git_util::print_git_import_stats_summary(ui, &stats)?;
         if !tx.repo().has_changes() {
             return Ok(());
@@ -2197,7 +2197,7 @@ to the current parents may contain changes from multiple commits.
                 // This can still fail if HEAD was updated concurrently by another JJ process
                 // (overlapping transaction) or a non-JJ process (e.g., git checkout). In that
                 // case, the actual state will be imported on the next snapshot.
-                match jj_lib::git::reset_head(tx.repo_mut(), wc_commit) {
+                match jj_lib::git::reset_head(tx.repo_mut(), wc_commit).block_on() {
                     Ok(()) => {}
                     Err(err @ jj_lib::git::GitResetHeadError::UpdateHeadRef(_)) => {
                         writeln!(ui.warning_default(), "{err}")?;
@@ -2475,7 +2475,7 @@ pub fn export_working_copy_changes_to_git(
     new_tree: &MergedTree,
 ) -> Result<(), CommandError> {
     let repo = mut_repo.base_repo().as_ref();
-    jj_lib::git::update_intent_to_add(repo, old_tree, new_tree)?;
+    jj_lib::git::update_intent_to_add(repo, old_tree, new_tree).block_on()?;
     let stats = jj_lib::git::export_refs(mut_repo)?;
     crate::git_util::print_git_export_stats(ui, &stats)?;
     Ok(())
