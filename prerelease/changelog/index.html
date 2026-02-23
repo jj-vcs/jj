@@ -6724,6 +6724,12 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <p><code>jj gerrit upload</code> no longer requires the <code>-r</code> flag, and will default to
   uploading what you're currently working on.</p>
 </li>
+<li>
+<p>New command <code>jj bookmark advance</code> automatically moves bookmarks forward to a
+  target revision (defaults to <code>@</code>). With customization points
+  <code>revsets.bookmark-advance-from</code> and <code>revsets.bookmark-advance-to</code>.
+  The command is heavily inspired by the longstanding community alias <code>jj tug</code>.</p>
+</li>
 </ul>
 <h3 id="fixed-bugs">Fixed bugs<a class="headerlink" href="#fixed-bugs" title="Permanent link">&para;</a></h3>
 <h2 id="0380-2026-02-04"><a href="https://github.com/jj-vcs/jj/compare/v0.37.0...v0.38.0">0.38.0</a> - 2026-02-04<a class="headerlink" href="#0380-2026-02-04" title="Permanent link">&para;</a></h2>
