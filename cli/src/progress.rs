@@ -20,7 +20,6 @@ use std::time::Instant;
 
 use crossterm::terminal::Clear;
 use crossterm::terminal::ClearType;
-use jj_lib::commit::Commit;
 use jj_lib::repo_path::RepoPath;
 
 use crate::text_util;
@@ -110,18 +109,4 @@ pub fn snapshot_progress(ui: &Ui) -> Option<impl Fn(&RepoPath) + use<>> {
             .display(path.to_fs_path_unchecked(Path::new("")).to_str().unwrap())
             .ok();
     })
-}
-
-pub fn git_signing_progress(ui: &Ui) -> impl Fn(&Commit) {
-    let writer = ProgressWriter::new(ui, "Signing").map(Mutex::new);
-
-    move |commit: &Commit| {
-        if let Some(writer) = &writer {
-            writer
-                .lock()
-                .unwrap()
-                .display(&commit.change_id().reverse_hex())
-                .ok();
-        }
-    }
 }

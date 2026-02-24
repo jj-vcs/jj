@@ -67,7 +67,7 @@ use crate::complete;
 use crate::formatter::Formatter;
 use crate::git_util::GitSubprocessUi;
 use crate::git_util::print_push_stats;
-use crate::progress;
+use crate::progress::ProgressWriter;
 use crate::revset_util::parse_bookmark_name;
 use crate::revset_util::parse_union_name_patterns;
 use crate::ui::Ui;
@@ -598,13 +598,15 @@ fn sign_commits_before_push(
     let commit_ids: IndexSet<CommitId> = commits_to_sign.iter().ids().cloned().collect();
     let mut old_to_new_commits_map: HashMap<CommitId, CommitId> = HashMap::new();
     let mut num_rebased_descendants = 0;
-    let progress = progress::git_signing_progress(ui);
+    let mut progress_writer = ProgressWriter::new(ui, "Signing");
 
     tx.repo_mut()
         .transform_descendants(commit_ids.iter().cloned().collect_vec(), async |rewriter| {
             let old_commit = rewriter.old_commit();
             let old_commit_id = old_commit.id().clone();
-            progress(old_commit);
+            if let Some(writer) = &mut progress_writer {
+                writer.display(&old_commit.change_id().reverse_hex()).ok();
+            }
             if commit_ids.contains(&old_commit_id) {
                 let commit = rewriter
                     .reparent()
