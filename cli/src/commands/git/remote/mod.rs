@@ -39,8 +39,11 @@ use crate::ui::Ui;
 /// The Git repo will be a bare git repo stored inside the `.jj/` directory.
 #[derive(Subcommand, Clone, Debug)]
 pub enum RemoteCommand {
+    #[command(visible_alias("a"))]
     Add(GitRemoteAddArgs),
+    #[command(visible_alias("l"))]
     List(GitRemoteListArgs),
+    #[command(visible_alias("rm"))]
     Remove(GitRemoteRemoveArgs),
     Rename(GitRemoteRenameArgs),
     SetUrl(GitRemoteSetUrlArgs),
