@@ -41,10 +41,6 @@ use crate::ui::Ui;
 /// If `--from` options are given, bookmarks currently pointing to the
 /// specified revisions will be updated. The bookmarks can also be filtered by
 /// names.
-///
-/// Example: pull up the nearest bookmarks to the working-copy parent
-///
-/// $ jj bookmark move --from 'heads(::@- & bookmarks())' --to @-
 #[derive(clap::Args, Clone, Debug)]
 #[command(group(clap::ArgGroup::new("source").multiple(true).required(true)))]
 pub struct BookmarkMoveArgs {
