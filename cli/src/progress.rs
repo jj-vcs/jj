@@ -31,7 +31,7 @@ use crate::ui::Ui;
 pub const UPDATE_HZ: u32 = 30;
 pub const INITIAL_DELAY: Duration = Duration::from_millis(250);
 
-struct Progress<'a> {
+pub struct ProgressWriter<'a> {
     prefix: &'a str,
     guard: Option<OutputGuard>,
     output: ProgressOutput<io::Stderr>,
@@ -56,8 +56,8 @@ struct Progress<'a> {
 // enter its password to unlock the key used to sign, then the message would be
 // conflicting with that message from another process.
 
-impl<'a> Progress<'a> {
-    fn new(ui: &Ui, prefix: &'a str) -> Option<Self> {
+impl<'a> ProgressWriter<'a> {
+    pub fn new(ui: &Ui, prefix: &'a str) -> Option<Self> {
         let output = ui.progress_output()?;
 
         // Don't clutter the output during fast operations.
@@ -70,7 +70,7 @@ impl<'a> Progress<'a> {
         })
     }
 
-    fn display(&mut self, text: &str) -> io::Result<()> {
+    pub fn display(&mut self, text: &str) -> io::Result<()> {
         let now = Instant::now();
         if now < self.next_display_time {
             return Ok(());
@@ -101,10 +101,10 @@ impl<'a> Progress<'a> {
 }
 
 pub fn snapshot_progress(ui: &Ui) -> Option<impl Fn(&RepoPath) + use<>> {
-    let progress = Mutex::new(Progress::new(ui, "Snapshotting")?);
+    let writer = Mutex::new(ProgressWriter::new(ui, "Snapshotting")?);
 
     Some(move |path: &RepoPath| {
-        progress
+        writer
             .lock()
             .unwrap()
             .display(path.to_fs_path_unchecked(Path::new("")).to_str().unwrap())
@@ -113,11 +113,11 @@ pub fn snapshot_progress(ui: &Ui) -> Option<impl Fn(&RepoPath) + use<>> {
 }
 
 pub fn git_signing_progress(ui: &Ui) -> impl Fn(&Commit) {
-    let progress = Progress::new(ui, "Signing").map(Mutex::new);
+    let writer = ProgressWriter::new(ui, "Signing").map(Mutex::new);
 
     move |commit: &Commit| {
-        if let Some(progress) = &progress {
-            progress
+        if let Some(writer) = &writer {
+            writer
                 .lock()
                 .unwrap()
                 .display(&commit.change_id().reverse_hex())
