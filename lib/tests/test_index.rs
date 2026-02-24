@@ -69,7 +69,7 @@ where
 fn enable_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
     let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
     default_index_store
-        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 0)
+        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 0, |_| ())
         .block_on()
         .unwrap();
     repo.reload_at(repo.operation()).block_on().unwrap()
@@ -910,7 +910,7 @@ fn test_build_changed_path_segments() {
 
     // Index the last 4 commits
     default_index_store
-        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 4)
+        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 4, |_| ())
         .block_on()
         .unwrap();
     let repo = repo.reload_at(repo.operation()).block_on().unwrap();
@@ -923,7 +923,7 @@ fn test_build_changed_path_segments() {
 
     // Index remainders
     default_index_store
-        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), u32::MAX)
+        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), u32::MAX, |_| ())
         .block_on()
         .unwrap();
     let repo = repo.reload_at(repo.operation()).block_on().unwrap();
@@ -981,7 +981,7 @@ fn test_build_changed_path_segments_partially_enabled() {
 
     // Index later commits from the mid point
     default_index_store
-        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 2)
+        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 2, |_| ())
         .block_on()
         .unwrap();
     let repo = repo.reload_at(repo.operation()).block_on().unwrap();
@@ -994,7 +994,7 @@ fn test_build_changed_path_segments_partially_enabled() {
 
     // Index later and earlier commits from the mid point
     default_index_store
-        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 3)
+        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), 3, |_| ())
         .block_on()
         .unwrap();
     let repo = repo.reload_at(repo.operation()).block_on().unwrap();

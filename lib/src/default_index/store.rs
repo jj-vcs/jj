@@ -394,13 +394,13 @@ impl DefaultIndexStore {
     ///
     /// At most `max_commits` number of commits will be scanned from the latest
     /// unindexed commit.
-    #[tracing::instrument(skip(self, store))]
+    #[tracing::instrument(skip(self, store, progress_callback))]
     pub async fn build_changed_path_index_at_operation(
         &self,
         op_id: &OperationId,
         store: &Arc<Store>,
         max_commits: u32,
-        // TODO: add progress callback?
+        mut progress_callback: impl FnMut(&DefaultChangedPathIndexProgress),
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
         // Create directories in case the store was initialized by jj < 0.33.
         self.ensure_base_dirs()
@@ -432,6 +432,15 @@ impl DefaultIndexStore {
             post_end = pre_end;
         }
 
+        let mut progress = DefaultChangedPathIndexProgress {
+            current: 0,
+            total: (pre_end - pre_start) + (post_end - post_start),
+        };
+        let mut emit_progress = || {
+            progress_callback(&progress);
+            progress.current += 1;
+        };
+
         let to_index_err = |source| DefaultIndexStoreError::IndexCommits {
             op_id: op_id.clone(),
             source,
@@ -452,6 +461,7 @@ impl DefaultIndexStore {
         new_changed_paths.make_mutable();
         tracing::info!(?pre_start, ?pre_end, "indexing changed paths in commits");
         for pos in (pre_start..pre_end).map(GlobalCommitPosition) {
+            emit_progress();
             index_commit(&mut new_changed_paths, pos)
                 .await
                 .map_err(to_index_err)?;
@@ -467,6 +477,7 @@ impl DefaultIndexStore {
         new_changed_paths.make_mutable();
         tracing::info!(?post_start, ?post_end, "indexing changed paths in commits");
         for pos in (post_start..post_end).map(GlobalCommitPosition) {
+            emit_progress();
             index_commit(&mut new_changed_paths, pos)
                 .await
                 .map_err(to_index_err)?;
@@ -484,6 +495,7 @@ impl DefaultIndexStore {
                 op_id: op_id.to_owned(),
                 source,
             })?;
+        emit_progress();
         Ok(index)
     }
 
@@ -614,4 +626,11 @@ impl IndexStore for DefaultIndexStore {
             .map_err(|err| IndexStoreError::Write(err.into()))?;
         Ok(Box::new(index))
     }
+}
+
+/// Progress of [`DefaultIndexStore::build_changed_path_index_at_operation()`].
+#[derive(Clone, Debug)]
+pub struct DefaultChangedPathIndexProgress {
+    pub current: u32,
+    pub total: u32,
 }

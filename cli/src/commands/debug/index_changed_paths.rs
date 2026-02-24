@@ -20,6 +20,7 @@ use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
+use crate::progress::ProgressWriter;
 use crate::ui::Ui;
 
 /// Build changed-path index
@@ -45,10 +46,17 @@ pub fn cmd_debug_index_changed_paths(
             index_store.name()
         )));
     };
-    let index = default_index_store
-        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), args.limit)
-        .block_on()
-        .map_err(internal_error)?;
+    let index = {
+        let mut progress_writer = ProgressWriter::new(ui, "Indexing commits");
+        default_index_store
+            .build_changed_path_index_at_operation(repo.op_id(), repo.store(), args.limit, |p| {
+                if let Some(writer) = &mut progress_writer {
+                    writer.display(&format!("{}/{}", p.current, p.total)).ok();
+                }
+            })
+            .block_on()
+            .map_err(internal_error)?
+    };
     let stats = index.stats();
     writeln!(
         ui.status(),

@@ -131,7 +131,7 @@ fn revset_for_commits<'index>(
 fn build_changed_path_index(repo: &ReadonlyRepo) -> Arc<ReadonlyRepo> {
     let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
     default_index_store
-        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), u32::MAX)
+        .build_changed_path_index_at_operation(repo.op_id(), repo.store(), u32::MAX, |_| ())
         .block_on()
         .unwrap();
     repo.reload_at(repo.operation()).block_on().unwrap()
