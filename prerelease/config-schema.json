@@ -639,6 +639,11 @@
             "type": "object",
             "description": "Revset expressions used by various commands",
             "properties": {
+                "arrange": {
+                    "type": "string",
+                    "description": "Default set of revisions to open in the TUI when no explicit revset is given for jj arrange",
+                    "default": "reachable(@, mutable())"
+                },
                 "fix": {
                     "type": "string",
                     "description": "Default set of revisions to fix when no explicit revset is given for jj fix",
