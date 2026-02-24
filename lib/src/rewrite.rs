@@ -19,6 +19,7 @@ use std::collections::HashSet;
 use std::slice;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
 use futures::future::try_join_all;
 use futures::try_join;
 use indexmap::IndexMap;
@@ -39,6 +40,7 @@ use crate::index::Index;
 use crate::index::IndexResult;
 use crate::index::ResolvedChangeTargets;
 use crate::iter_util::fallible_any;
+use crate::matchers::FilesMatcher;
 use crate::matchers::Matcher;
 use crate::matchers::Visit;
 use crate::merge::Diff;
@@ -127,6 +129,14 @@ pub async fn restore_tree(
         // Optimization for a common case
         return Ok(source.clone());
     }
+    let mut diff_stream = source.diff_stream(destination, matcher);
+    let mut paths = Vec::new();
+    while let Some(entry) = diff_stream.next().await {
+        // TODO: We should be able to not traverse deeper in the diff if the matcher
+        // matches an entire subtree.
+        paths.push(entry.path);
+    }
+    let matcher = FilesMatcher::new(paths);
 
     let select_matching =
         async |tree: &MergedTree, labels: ConflictLabels| -> BackendResult<MergedTree> {
@@ -135,10 +145,8 @@ pub async fn restore_tree(
                 tree.tree_ids().num_sides(),
             );
             let labeled_empty_tree = MergedTree::new(tree.store().clone(), empty_tree_ids, labels);
-            // TODO: We should be able to not traverse deeper in the diff if the matcher
-            // matches an entire subtree.
             let mut builder = MergedTreeBuilder::new(labeled_empty_tree);
-            for (path, value) in tree.entries_matching(matcher) {
+            for (path, value) in tree.entries_matching(&matcher) {
                 // TODO: if https://github.com/jj-vcs/jj/issues/4152 is implemented, we will need
                 // to expand resolved conflicts into `Merge::repeated(value, num_sides)`.
                 builder.set_or_remove(path, value?);
