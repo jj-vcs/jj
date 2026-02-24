@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io;
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -33,7 +34,7 @@ pub const INITIAL_DELAY: Duration = Duration::from_millis(250);
 struct Progress<'a> {
     prefix: &'a str,
     guard: Option<OutputGuard>,
-    output: ProgressOutput<std::io::Stderr>,
+    output: ProgressOutput<io::Stderr>,
     next_display_time: Instant,
 }
 
@@ -69,10 +70,10 @@ impl<'a> Progress<'a> {
         })
     }
 
-    fn display(&mut self, text: &str) {
+    fn display(&mut self, text: &str) -> io::Result<()> {
         let now = Instant::now();
         if now < self.next_display_time {
-            return;
+            return Ok(());
         }
 
         self.next_display_time = now + Duration::from_secs(1) / UPDATE_HZ;
@@ -94,9 +95,8 @@ impl<'a> Progress<'a> {
             "\r{}{} {display_text}",
             Clear(ClearType::CurrentLine),
             self.prefix
-        )
-        .ok();
-        self.output.flush().ok();
+        )?;
+        self.output.flush()
     }
 }
 
@@ -107,7 +107,8 @@ pub fn snapshot_progress(ui: &Ui) -> Option<impl Fn(&RepoPath) + use<>> {
         progress
             .lock()
             .unwrap()
-            .display(path.to_fs_path_unchecked(Path::new("")).to_str().unwrap());
+            .display(path.to_fs_path_unchecked(Path::new("")).to_str().unwrap())
+            .ok();
     })
 }
 
@@ -119,7 +120,8 @@ pub fn git_signing_progress(ui: &Ui) -> impl Fn(&Commit) {
             progress
                 .lock()
                 .unwrap()
-                .display(&commit.change_id().reverse_hex());
+                .display(&commit.change_id().reverse_hex())
+                .ok();
         }
     }
 }
