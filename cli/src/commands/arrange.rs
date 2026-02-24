@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::io;
-use std::time::Duration;
 
 use crossterm::ExecutableCommand as _;
 use crossterm::event::Event;
@@ -94,10 +93,8 @@ fn run_tui<B: ratatui::backend::Backend>(
             })
             .map_err(|e| internal_error(format!("Failed to draw TUI: {e}")))?;
 
-        if event::poll(Duration::from_millis(100))
-            .map_err(|e| internal_error(format!("Failed to poll for TUI events: {e}")))?
-            && let Event::Key(event) = event::read()
-                .map_err(|e| internal_error(format!("Failed to read TUI events: {e}")))?
+        if let Event::Key(event) =
+            event::read().map_err(|e| internal_error(format!("Failed to read TUI events: {e}")))?
         {
             // On Windows, we get Press and Release (and maybe Repeat) events, but on Linux
             // we only get Press.
