@@ -2970,6 +2970,40 @@ fn test_bookmark_advance_default() {
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
+    // A -> empty default target.
+    work_dir.run_jj(["new"]).success();
+    let output = work_dir.run_jj(["bookmark", "advance", "A"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Warning: Target revision is empty.
+    Advanced 1 bookmarks to xznxytkn ced0e1e4 A | (empty) (no description set)
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // Multiple bookmarks by name.
+    let output = work_dir.run_jj(["bookmark", "advance", "A|B"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Advanced 2 bookmarks to vruxwmqv 7753a73e A B | e
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // Multiple bookmarks from config.
+    let output = work_dir.run_jj([
+        "--config=revsets.bookmark-advance-from=A|B",
+        "bookmark",
+        "advance",
+    ]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Advanced 2 bookmarks to vruxwmqv 7753a73e A B | e
+    Hint: Specify bookmark by name to update just one of the bookmarks.
+    [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
     // At a bookmark.
     work_dir.run_jj(["edit", "zsuskuln"]).success();
     let output = work_dir.run_jj(["bookmark", "advance"]);
@@ -2977,6 +3011,16 @@ fn test_bookmark_advance_default() {
     ------- stderr -------
     No bookmarks to update.
     [EOF]
+    ");
+    work_dir.run_jj(["op", "restore", &setup_opid]).success();
+
+    // Not fast-forward
+    let output = work_dir.run_jj(["bookmark", "advance", "B", "--to", "A"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: Refusing to advance bookmark backwards or sideways: B
+    [EOF]
+    [exit status: 1]
     ");
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
 
