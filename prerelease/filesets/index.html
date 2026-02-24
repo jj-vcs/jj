@@ -963,6 +963,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aliases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Aliases
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#examples" class="md-nav__link">
     <span class="md-ellipsis">
       Examples
@@ -1941,6 +1950,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aliases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Aliases
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#examples" class="md-nav__link">
     <span class="md-ellipsis">
       Examples
@@ -2037,6 +2055,17 @@ expressions.</p>
 <li><code>all()</code>: Matches everything.</li>
 <li><code>none()</code>: Matches nothing.</li>
 </ul>
+<h2 id="aliases">Aliases<a class="headerlink" href="#aliases" title="Permanent link">&para;</a></h2>
+<p>New symbols, functions, and <code>&lt;name&gt;:&lt;value&gt;</code> patterns can be defined in the
+config file, by using any combination of the predefined symbols/functions and
+other aliases.</p>
+<p>Alias functions can be overloaded by the number of parameters. However, builtin
+function will be shadowed by name, and can't co-exist with aliases.</p>
+<p>For example:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[fileset-aliases]</span>
+<span class="s1">&#39;LOCK&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;**/Cargo.lock | **/package-lock.json | **/uv.lock&#39;</span>
+<span class="s1">&#39;not:x&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;~x&#39;</span>
+</code></pre></div>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
 <p>Show diff excluding <code>Cargo.lock</code>.</p>
 <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>diff<span class="w"> </span><span class="s1">&#39;~Cargo.lock&#39;</span>
