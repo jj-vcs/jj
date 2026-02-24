@@ -135,6 +135,16 @@ fn test_gerrit_upload_default_revision() {
     [EOF]
     [exit status: 1]
     ");
+
+    work_dir.run_jj(["workspace", "forget"]).success();
+    let output = work_dir.run_jj(["gerrit", "upload", "--dry-run"]);
+    insta::assert_snapshot!(output, @"
+    ------- stderr -------
+    Error: No revision provided
+    Hint: Explicitly specify a revision to upload with `-r`
+    [EOF]
+    [exit status: 1]
+    ");
 }
 
 #[test]
