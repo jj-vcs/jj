@@ -54,6 +54,7 @@ mod test_git_remotes;
 mod test_git_root;
 mod test_gitignores;
 mod test_global_opts;
+mod test_graft_command;
 mod test_help_command;
 mod test_identical_commits;
 mod test_immutable_commits;
