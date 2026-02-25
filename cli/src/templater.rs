@@ -762,12 +762,10 @@ where
             self.condition,
             self.on_true.try_into_template()?,
             // NOTE: We need to propagate out the inner `None` (or else we would
-            // allow a non-template `else` property), but not the outer one, so
-            // we cannot use `and_then` here.
-            if let Some(on_false) = self.on_false {
-                Some(on_false.try_into_template()?)
-            } else {
-                None
+            // allow a non-template `else` property).
+            match self.on_false {
+                Some(on_false) => on_false.try_into_template()?,
+                None => Box::new(Literal("")),
             },
         )))
     }
@@ -782,17 +780,14 @@ where
 }
 
 /// Template which selects an output based on a boolean condition.
-///
-/// When `None` is specified for the false template and the condition is false,
-/// this writes nothing.
 pub struct ConditionalTemplate<P, T, U> {
     pub condition: P,
     pub true_template: T,
-    pub false_template: Option<U>,
+    pub false_template: U,
 }
 
 impl<P, T, U> ConditionalTemplate<P, T, U> {
-    pub fn new(condition: P, true_template: T, false_template: Option<U>) -> Self
+    pub fn new(condition: P, true_template: T, false_template: U) -> Self
     where
         P: TemplateProperty<Output = bool>,
         T: Template,
@@ -817,12 +812,10 @@ where
             Ok(condition) => condition,
             Err(err) => return formatter.handle_error(err),
         };
-        if condition {
-            self.true_template.format(formatter)?;
-        } else if let Some(false_template) = &self.false_template {
-            false_template.format(formatter)?;
+        match condition {
+            true => self.true_template.format(formatter),
+            false => self.false_template.format(formatter),
         }
-        Ok(())
     }
 }
 
