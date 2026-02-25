@@ -121,6 +121,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Templates now support `Serialize` operations on the result of `map()` and
   `if()`, when supported by the underlying type.
 
+* `jj log` now shows the exact number of elided revisions in the synthetic
+  "(N elided revisions)" graph nodes, instead of always showing a placeholder.
+  [#3099](https://github.com/jj-vcs/jj/issues/3099)
+
 * New `diff_lines_added()` and `diff_lines_removed()` revset functions for
   matching content on only one side of a diff.
 
