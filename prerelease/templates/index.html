@@ -1043,6 +1043,24 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#any-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Any type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anylist-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      AnyList type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#boolean-type" class="md-nav__link">
     <span class="md-ellipsis">
       Boolean type
@@ -1163,15 +1181,6 @@
   <a href="#listtrailer-type" class="md-nav__link">
     <span class="md-ellipsis">
       List&lt;Trailer&gt; type
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#listtemplate-type" class="md-nav__link">
-    <span class="md-ellipsis">
-      ListTemplate type
     </span>
   </a>
   
@@ -2356,6 +2365,24 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#any-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Any type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#anylist-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      AnyList type
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#boolean-type" class="md-nav__link">
     <span class="md-ellipsis">
       Boolean type
@@ -2476,15 +2503,6 @@
   <a href="#listtrailer-type" class="md-nav__link">
     <span class="md-ellipsis">
       List&lt;Trailer&gt; type
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#listtemplate-type" class="md-nav__link">
-    <span class="md-ellipsis">
-      ListTemplate type
     </span>
   </a>
   
@@ -2860,8 +2878,8 @@ y) * z</code>.</p>
 <li><code>stringify(content: Stringify) -&gt; String</code>: Format <code>content</code> to string. This
   effectively removes color labels.</li>
 <li><code>json(value: Serialize) -&gt; String</code>: Serialize <code>value</code> in JSON format.</li>
-<li><code>if(condition: Boolean, then: Template, [else: Template]) -&gt; Template</code>:
-  Conditionally evaluate <code>then</code>/<code>else</code> template content.</li>
+<li><code>if(condition: Boolean, then: Any, [else: Any]) -&gt; Any</code>:
+  Conditionally evaluates to <code>then</code>/<code>else</code> content.</li>
 <li><code>coalesce(content: Template...) -&gt; Template</code>: Returns the first <strong>non-empty</strong>
   content.</li>
 <li><code>concat(content: Template...) -&gt; Template</code>:
@@ -2889,6 +2907,16 @@ y) * z</code>.</p>
 <li><code>.original_line_number() -&gt; Integer</code>: 1-based line number in the original commit.</li>
 <li><code>.first_line_in_hunk() -&gt; Boolean</code>: False when the directly preceding line
   references the same commit.</li>
+</ul>
+<h3 id="any-type"><code>Any</code> type<a class="headerlink" href="#any-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: maybe, <code>Template</code>: maybe</em></p>
+<p>All types can be implicitly converted to <code>Any</code>. No methods are defined.</p>
+<h3 id="anylist-type"><code>AnyList</code> type<a class="headerlink" href="#anylist-type" title="Permanent link">&para;</a></h3>
+<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: maybe, <code>Template</code>: maybe</em></p>
+<p>The following methods are defined.</p>
+<ul>
+<li><code>.join(separator: Template) -&gt; Template</code>: Concatenate elements with
+  the given <code>separator</code>.</li>
 </ul>
 <h3 id="boolean-type"><code>Boolean</code> type<a class="headerlink" href="#boolean-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: yes, <code>Serialize</code>: yes, <code>Template</code>: yes</em></p>
@@ -3085,7 +3113,7 @@ defined.</p>
   the given <code>separator</code>.</li>
 <li><code>.filter(|item| expression) -&gt; List</code>: Filter list elements by predicate
   <code>expression</code>. Example: <code>description.lines().filter(|s| s.contains("#"))</code></li>
-<li><code>.map(|item| expression) -&gt; ListTemplate</code>: Apply template <code>expression</code>
+<li><code>.map(|item| expression) -&gt; AnyList</code>: Apply template <code>expression</code>
   to each element. Example: <code>parents.map(|c| c.commit_id().short())</code></li>
 <li><code>.any(|item| expression) -&gt; Boolean</code>: Returns true if any element satisfies
   the predicate <code>expression</code>. Example: <code>parents.any(|c| c.description().contains("fix"))</code></li>
@@ -3105,13 +3133,6 @@ defined.</p>
 <ul>
 <li><code>.contains_key(key: Stringify) -&gt; Boolean</code>: True if the commit description
   contains at least one trailer with the key <code>key</code>.</li>
-</ul>
-<h3 id="listtemplate-type"><code>ListTemplate</code> type<a class="headerlink" href="#listtemplate-type" title="Permanent link">&para;</a></h3>
-<p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: no, <code>Template</code>: yes</em></p>
-<p>The following methods are defined.</p>
-<ul>
-<li><code>.join(separator: Template) -&gt; Template</code>: Concatenate elements with
-  the given <code>separator</code>.</li>
 </ul>
 <h3 id="operation-type"><code>Operation</code> type<a class="headerlink" href="#operation-type" title="Permanent link">&para;</a></h3>
 <p><em>Conversion: <code>Boolean</code>: no, <code>Serialize</code>: yes, <code>Template</code>: no</em></p>
