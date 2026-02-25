@@ -119,7 +119,6 @@ enum Command {
     File(file::FileCommand),
     Fix(fix::FixArgs),
     #[command(subcommand)]
-    #[command(hide = true)]
     Graft(graft::GraftCommand),
     #[cfg(feature = "git")]
     #[command(subcommand)]
