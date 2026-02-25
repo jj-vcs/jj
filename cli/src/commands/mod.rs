@@ -34,6 +34,7 @@ mod fix;
 mod gerrit;
 #[cfg(feature = "git")]
 mod git;
+mod graft;
 mod help;
 mod interdiff;
 mod log;
@@ -117,6 +118,8 @@ enum Command {
     #[command(subcommand)]
     File(file::FileCommand),
     Fix(fix::FixArgs),
+    #[command(hide = true)]
+    Graft(graft::GraftArgs),
     #[cfg(feature = "git")]
     #[command(subcommand)]
     Gerrit(gerrit::GerritCommand),
@@ -187,6 +190,7 @@ pub async fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<
         Command::Evolog(args) => evolog::cmd_evolog(ui, command_helper, args).await,
         Command::File(args) => file::cmd_file(ui, command_helper, args).await,
         Command::Fix(args) => fix::cmd_fix(ui, command_helper, args).await,
+        Command::Graft(args) => graft::cmd_graft(ui, command_helper, args).await,
         #[cfg(feature = "git")]
         Command::Gerrit(sub_args) => gerrit::cmd_gerrit(ui, command_helper, sub_args).await,
         #[cfg(feature = "git")]
