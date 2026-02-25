@@ -1349,8 +1349,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 let tree = commit.tree();
                 let entries: Vec<_> = tree
                     .entries_matching(&*matcher)
-                    .map(|(path, value)| value.map(|value| (path, value)))
-                    .map_ok(|(path, value)| TreeEntry { path, value })
+                    .map(|(path, value)| value.map(|value| TreeEntry { path, value }))
                     .try_collect()?;
                 Ok(entries)
             });
@@ -1365,8 +1364,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
                 let tree = commit.tree();
                 let entries: Vec<_> = tree
                     .conflicts()
-                    .map(|(path, value)| value.map(|value| (path, value)))
-                    .map_ok(|(path, value)| TreeEntry { path, value })
+                    .map(|(path, value)| value.map(|value| TreeEntry { path, value }))
                     .try_collect()?;
                 Ok(entries)
             });
