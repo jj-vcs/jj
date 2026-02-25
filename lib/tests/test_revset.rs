@@ -31,6 +31,7 @@ use jj_lib::fileset::FilesetAliasesMap;
 use jj_lib::fileset::FilesetExpression;
 use jj_lib::git;
 use jj_lib::graph::GraphEdge;
+use jj_lib::graph::GraphEdgeType;
 use jj_lib::graph::reverse_graph;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::merge::Merge;
@@ -5089,7 +5090,10 @@ fn test_reverse_graph() {
     assert_eq!(commits[4].0, *commit_f.id());
     assert_eq!(
         commits[0].1,
-        vec![GraphEdge::indirect(commit_c.id().clone())]
+        vec![GraphEdge {
+            target: commit_c.id().clone(),
+            edge_type: GraphEdgeType::Indirect(1),
+        }]
     );
     assert_eq!(
         commits[1].1,
