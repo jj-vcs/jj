@@ -51,6 +51,8 @@ This document contains the help content for the `jj` command-line program.
 * [`jj file track`↴](#jj-file-track)
 * [`jj file untrack`↴](#jj-file-untrack)
 * [`jj fix`↴](#jj-fix)
+* [`jj graft`↴](#jj-graft)
+* [`jj graft tree`↴](#jj-graft-tree)
 * [`jj gerrit`↴](#jj-gerrit)
 * [`jj gerrit upload`↴](#jj-gerrit-upload)
 * [`jj git`↴](#jj-git)
@@ -157,6 +159,7 @@ To get started, see the tutorial [`jj help -k tutorial`].
 * `evolog` — Show how a change has evolved over time
 * `file` — File operations
 * `fix` — Update files with formatting fixes or other changes
+* `graft` — Graft revisions onto new locations with path translation
 * `gerrit` — Interact with Gerrit Code Review
 * `git` — Commands for working with Git remotes and the underlying Git repo
 * `help` — Print this message or the help of the given subcommand(s)
@@ -1395,6 +1398,37 @@ configuration.
 
 * `-s`, `--source <REVSETS>` — Fix files in the specified revision(s) and their descendants. If no revisions are specified, this defaults to the `revsets.fix` setting, or `reachable(@, mutable())` if it is not set
 * `--include-unchanged-files` — Fix unchanged files in addition to changed ones. If no paths are specified, all files in the repo will be fixed
+
+
+
+## `jj graft`
+
+Graft revisions onto new locations with path translation
+
+**Usage:** `jj graft <COMMAND>`
+
+###### **Subcommands:**
+
+* `tree` — Re-root commits by translating file paths
+
+
+
+## `jj graft tree`
+
+Re-root commits by translating file paths.
+
+Creates new commits where files under the source path prefix are moved to the destination path prefix. This enables vendoring workflows — e.g. importing commits from an upstream repo and grafting `src/foo` into `vendor/foo`.
+
+**Usage:** `jj graft tree [OPTIONS] --from <FROM> --path <PATH> --onto <ONTO>`
+
+###### **Options:**
+
+* `--from <FROM>` — The revision(s) to graft
+* `--path <PATH>` — Source path prefix to match files from
+* `--onto <ONTO>` — Destination path prefix to place files at
+* `--destination <DESTINATION>` — The revision to graft onto (default: @-)
+
+  Default value: `@-`
 
 
 
