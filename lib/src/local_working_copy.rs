@@ -1041,14 +1041,14 @@ impl TreeState {
         store: Arc<Store>,
         working_copy_path: PathBuf,
         state_path: PathBuf,
-        &TreeStateSettings {
+        TreeStateSettings {
             conflict_marker_style,
             eol_conversion_mode,
             exec_change_setting,
-            ref fsmonitor_settings,
+            fsmonitor_settings,
         }: &TreeStateSettings,
     ) -> Self {
-        let exec_policy = ExecChangePolicy::new(exec_change_setting, &state_path);
+        let exec_policy = ExecChangePolicy::new(*exec_change_setting, &state_path);
         Self {
             store: store.clone(),
             working_copy_path,
@@ -1059,10 +1059,10 @@ impl TreeState {
             own_mtime: MillisSinceEpoch(0),
             symlink_support: check_symlink_support().unwrap_or(false),
             watchman_clock: None,
-            conflict_marker_style,
+            conflict_marker_style: *conflict_marker_style,
             exec_policy,
             fsmonitor_settings: fsmonitor_settings.clone(),
-            target_eol_strategy: TargetEolStrategy::new(eol_conversion_mode),
+            target_eol_strategy: TargetEolStrategy::new(*eol_conversion_mode),
         }
     }
 
@@ -1074,7 +1074,7 @@ impl TreeState {
     ) -> Result<Self, TreeStateError> {
         let tree_state_path = state_path.join("tree_state");
         let file = match File::open(&tree_state_path) {
-            Err(ref err) if err.kind() == io::ErrorKind::NotFound => {
+            Err(err) if err.kind() == io::ErrorKind::NotFound => {
                 return Self::init(store, working_copy_path, state_path, tree_state_settings);
             }
             Err(err) => {
@@ -1258,8 +1258,8 @@ impl TreeState {
         &mut self,
         options: &SnapshotOptions<'_>,
     ) -> Result<(bool, SnapshotStats), SnapshotError> {
-        let &SnapshotOptions {
-            ref base_ignores,
+        let SnapshotOptions {
+            base_ignores,
             progress,
             start_tracking_matcher,
             force_tracking_matcher,
@@ -1309,8 +1309,8 @@ impl TreeState {
                 untracked_paths_tx,
                 deleted_files_tx,
                 error: OnceLock::new(),
-                progress,
-                max_new_file_size,
+                progress: *progress,
+                max_new_file_size: *max_new_file_size,
             };
             let directory_to_visit = DirectoryToVisit {
                 dir: RepoPathBuf::root(),

@@ -15,7 +15,7 @@ pub fn init() {
     // Safety: `` ensures at most one call
     static CALLED: Once = Once::new();
     CALLED.call_once(|| {
-        if let Err(ref e) = unsafe { platform::init() } {
+        if let Err(e) = unsafe { platform::init() } {
             eprintln!("couldn't register signal handler: {e}");
         }
     });

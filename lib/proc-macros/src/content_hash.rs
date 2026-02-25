@@ -15,7 +15,7 @@ use syn::spanned::Spanned as _;
 
 pub fn add_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
-        if let GenericParam::Type(ref mut type_param) = *param {
+        if let GenericParam::Type(type_param) = param {
             type_param
                 .bounds
                 .push(parse_quote!(::jj_lib::content_hash::ContentHash));
@@ -25,9 +25,9 @@ pub fn add_trait_bounds(mut generics: Generics) -> Generics {
 }
 
 pub fn generate_hash_impl(data: &Data) -> TokenStream {
-    match *data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(ref fields) => {
+    match data {
+        Data::Struct(data) => match &data.fields {
+            Fields::Named(fields) => {
                 let hash_statements = fields.named.iter().map(|f| {
                     let field_name = &f.ident;
                     let ty = &f.ty;
@@ -40,7 +40,7 @@ pub fn generate_hash_impl(data: &Data) -> TokenStream {
                     #(#hash_statements)*
                 }
             }
-            Fields::Unnamed(ref fields) => {
+            Fields::Unnamed(fields) => {
                 let hash_statements = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = Index::from(i);
                     let ty = &f.ty;
@@ -58,7 +58,7 @@ pub fn generate_hash_impl(data: &Data) -> TokenStream {
         },
         // Generates a match statement with a match arm and hash implementation
         // for each of the variants in the enum.
-        Data::Enum(ref data) => {
+        Data::Enum(data) => {
             let match_hash_statements = data.variants.iter().enumerate().map(|(i, v)| {
                 let variant_id = &v.ident;
                 match &v.fields {
