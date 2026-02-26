@@ -308,19 +308,14 @@ async fn fix_one_file(
             let mut extra_args = Vec::new();
 
             if let Some(line_range_arg) = &tool_config.line_range_arg {
-                let ranges = match compute_modified_line_ranges(
+                let ranges = compute_modified_line_ranges(
                     base_content.as_deref(),
                     &prev_content,
                     ComputeModifiedLineRangesArgs {
                         all_lines: all_lines_arg,
                         run_on_only_deletions: tool_config.run_on_only_deletions,
                     },
-                ) {
-                    RegionsToFormat::LineRanges(ranges) => ranges,
-                    RegionsToFormat::ByteRanges(_) => {
-                        unimplemented!("byte ranges not supported yet")
-                    }
-                };
+                );
 
                 if ranges.is_empty() {
                     return prev_content;
@@ -379,7 +374,7 @@ fn compute_modified_line_ranges(
     base_content: Option<&[u8]>,
     current_content: &[u8],
     args: ComputeModifiedLineRangesArgs,
-) -> RegionsToFormat {
+) -> Vec<LineRange> {
     if !args.all_lines {
         if let Some(base) = base_content {
             let changed_ranges = match compute_changed_ranges(base, current_content) {
@@ -395,7 +390,7 @@ fn compute_modified_line_ranges(
                 // Format all lines if there are only deletions and we were
                 // asked to run the tool when there are only deletions.
             } else {
-                return RegionsToFormat::LineRanges(changed_ranges);
+                return changed_ranges;
             }
         } else {
             // Format all lines if the file is new (not present in the base).
@@ -410,7 +405,7 @@ fn compute_modified_line_ranges(
         });
     }
 
-    RegionsToFormat::LineRanges(ranges)
+    ranges
 }
 
 /// Runs the `tool_command` to fix the given file content.
