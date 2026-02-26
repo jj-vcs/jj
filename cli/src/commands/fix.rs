@@ -313,7 +313,7 @@ async fn fix_one_file(
                     &prev_content,
                     ComputeModifiedLineRangesArgs {
                         all_lines: all_lines_arg,
-                        skip_unchanged_files: tool_config.skip_unchanged_files,
+                        run_on_only_deletions: tool_config.run_on_only_deletions,
                     },
                 ) {
                     RegionsToFormat::LineRanges(ranges) => ranges,
@@ -369,8 +369,9 @@ async fn fix_one_file(
 struct ComputeModifiedLineRangesArgs {
     /// Whether to compute the modified line ranges for all lines.
     pub all_lines: bool,
-    /// Whether to skip unchanged files.
-    pub skip_unchanged_files: bool,
+    /// Whether to run if there are only deletions. For example, some tools want
+    /// to sort imports even if there are no other lines to format.
+    pub run_on_only_deletions: bool,
 }
 
 /// Computes the modified line ranges between the base and current file.
@@ -390,12 +391,12 @@ fn compute_modified_line_ranges(
                 }
             };
             // If the tool is configured to skip unchanged files and there are no ranges to
-            // format, we can skip the tool invocation. If skip-unchanged-files
-            // is false, we want to format the entire file.
-            if changed_ranges.is_empty() && args.skip_unchanged_files {
-                return RegionsToFormat::LineRanges(vec![]);
-            } else if changed_ranges.is_empty() {
+            // format, we can skip the tool invocation. If run_on_only_deletions is true,
+            // we want to format the entire file.
+            if changed_ranges.is_empty() && args.run_on_only_deletions {
                 all_lines = true;
+            } else if changed_ranges.is_empty() {
+                return RegionsToFormat::LineRanges(vec![]);
             } else {
                 ranges = changed_ranges;
             }
@@ -520,7 +521,7 @@ struct ToolConfig {
     ///   tool should run regardless of diffs (e.g. to sort imports).
     /// - Preventing tools configured with `line-range-arg` from making overly
     ///   broad changes when no line ranges are available.
-    skip_unchanged_files: bool,
+    run_on_only_deletions: bool,
     // TODO: Store the `name` field here and print it with the command's stderr, to clearly
     // associate any errors/warnings with the tool and its configuration entry.
 }
@@ -542,15 +543,11 @@ struct RawToolConfig {
     enabled: bool,
     #[serde(default)]
     line_range_arg: Option<String>,
-    #[serde(default = "default_tool_skip_unchanged_files")]
-    skip_unchanged_files: bool,
+    #[serde(default)]
+    run_on_only_deletions: bool,
 }
 
 fn default_tool_enabled() -> bool {
-    true
-}
-
-fn default_tool_skip_unchanged_files() -> bool {
     true
 }
 
@@ -588,7 +585,7 @@ fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig,
                 matcher: expression.to_matcher(),
                 enabled: tool.enabled,
                 line_range_arg: tool.line_range_arg,
-                skip_unchanged_files: tool.skip_unchanged_files,
+                run_on_only_deletions: tool.run_on_only_deletions,
             })
         })
         .try_collect()?;
@@ -613,7 +610,7 @@ mod tests {
     fn test_compute_modified_line_ranges_default() {
         let compute_modified_line_ranges_arg = ComputeModifiedLineRangesArgs {
             all_lines: false,
-            skip_unchanged_files: true,
+            run_on_only_deletions: false,
         };
         // Base content None.
         assert_eq!(
@@ -668,7 +665,7 @@ mod tests {
     fn test_compute_modified_line_ranges_all_lines() {
         let compute_modified_line_ranges_arg = ComputeModifiedLineRangesArgs {
             all_lines: true,
-            skip_unchanged_files: true,
+            run_on_only_deletions: false,
         };
 
         // Empty base content.
@@ -708,7 +705,7 @@ mod tests {
     fn test_compute_modified_line_ranges_skip_unchanged_files() {
         let compute_modified_line_ranges_arg = ComputeModifiedLineRangesArgs {
             all_lines: false,
-            skip_unchanged_files: false,
+            run_on_only_deletions: true,
         };
 
         // Deleted base content.

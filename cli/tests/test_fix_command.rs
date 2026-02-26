@@ -1774,13 +1774,13 @@ fn test_fix_with_skip_unchanged_files() {
         command = [{formatter}, "--uppercase"]
         patterns = ["foo", "baz"]
         line-range-arg = "--line-ranges=$first-$last"
-        skip-unchanged-files = false
+        run-on-only-deletions = true
 
         [fix.tools.tool-2]
         command = [{formatter}, "--lowercase"]
         patterns = ["bar"]
         line-range-arg = "--line-ranges=$first-$last"
-        skip-unchanged-files = true
+        run-on-only-deletions = false
         "###,
     ));
 
