@@ -387,8 +387,9 @@ fn compute_modified_line_ranges(
             // format, we can skip the tool invocation. If run_on_only_deletions is true,
             // we want to format the entire file.
             if changed_ranges.is_empty() && args.run_on_only_deletions {
-                // Format all lines if there are only deletions and we were
+                // Format as little as possible if there are only deletions and we were
                 // asked to run the tool when there are only deletions.
+                return vec![LineRange { first: 1, last: 1 }];
             } else {
                 return changed_ranges;
             }
