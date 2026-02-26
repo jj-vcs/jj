@@ -609,33 +609,35 @@ async fn sign_commits_before_push(
     let commit_ids: IndexSet<CommitId> = commits_to_sign.iter().ids().cloned().collect();
     let mut old_to_new_commits_map: HashMap<CommitId, CommitId> = HashMap::new();
     let mut num_rebased_descendants = 0;
-    let mut progress_writer = ProgressWriter::new(ui, "Signing");
+    {
+        let mut progress_writer = ProgressWriter::new(ui, "Signing");
 
-    tx.repo_mut()
-        .transform_descendants(
-            commit_ids.iter().cloned().collect_vec(),
-            async |rewriter: CommitRewriter<'_>| {
-                let old_commit = rewriter.old_commit();
-                let old_commit_id = old_commit.id().clone();
-                if let Some(writer) = &mut progress_writer {
-                    writer.display(&old_commit.change_id().reverse_hex()).ok();
-                }
-                if commit_ids.contains(&old_commit_id) {
-                    let commit = rewriter
-                        .reparent()
-                        .set_sign_behavior(sign_behavior)
-                        .write()
-                        .await?;
-                    old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
-                } else {
-                    num_rebased_descendants += 1;
-                    let commit = rewriter.reparent().write().await?;
-                    old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
-                }
-                Ok(())
-            },
-        )
-        .await?;
+        tx.repo_mut()
+            .transform_descendants(
+                commit_ids.iter().cloned().collect_vec(),
+                async |rewriter: CommitRewriter<'_>| {
+                    let old_commit = rewriter.old_commit();
+                    let old_commit_id = old_commit.id().clone();
+                    if let Some(writer) = &mut progress_writer {
+                        writer.display(&old_commit.change_id().reverse_hex()).ok();
+                    }
+                    if commit_ids.contains(&old_commit_id) {
+                        let commit = rewriter
+                            .reparent()
+                            .set_sign_behavior(sign_behavior)
+                            .write()
+                            .await?;
+                        old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
+                    } else {
+                        num_rebased_descendants += 1;
+                        let commit = rewriter.reparent().write().await?;
+                        old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
+                    }
+                    Ok(())
+                },
+            )
+            .await?;
+    }
 
     let bookmark_updates = bookmark_updates
         .into_iter()
