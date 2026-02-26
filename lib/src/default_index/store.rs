@@ -127,7 +127,11 @@ impl DefaultIndexStore {
         self.ensure_base_dirs()?;
         // Remove all operation links to trigger rebuilding.
         file_util::remove_dir_contents(&self.op_links_dir())?;
-        file_util::remove_dir_contents(&self.legacy_operations_dir())?;
+        let legacy_operations_dir = self.dir.join("operations"); // jj < 0.33
+        if legacy_operations_dir.exists() {
+            file_util::remove_dir_contents(&legacy_operations_dir)?;
+            fs::remove_dir(&legacy_operations_dir).context(&legacy_operations_dir)?;
+        }
         // Remove index segments to save disk space. If raced, new segment file
         // will be created by the other process.
         file_util::remove_dir_contents(&self.commit_segments_dir())?;
@@ -148,7 +152,6 @@ impl DefaultIndexStore {
     fn ensure_base_dirs(&self) -> Result<(), PathError> {
         for dir in [
             self.op_links_dir(),
-            self.legacy_operations_dir(),
             self.commit_segments_dir(),
             self.changed_path_segments_dir(),
         ] {
@@ -160,11 +163,6 @@ impl DefaultIndexStore {
     /// Directory for mapping from operations to segments. (jj >= 0.33)
     fn op_links_dir(&self) -> PathBuf {
         self.dir.join("op_links")
-    }
-
-    /// Directory for mapping from operations to commit segments. (jj < 0.33)
-    fn legacy_operations_dir(&self) -> PathBuf {
-        self.dir.join("operations")
     }
 
     /// Directory for commit segment files.
@@ -182,43 +180,23 @@ impl DefaultIndexStore {
         op_id: &OperationId,
         lengths: FieldLengths,
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
-        let commit_segment_id;
-        let changed_path_start_commit_pos;
-        let changed_path_segment_ids;
         let op_link_file = self.op_links_dir().join(op_id.hex());
-        match fs::read(&op_link_file).context(&op_link_file) {
-            Ok(data) => {
-                let proto = crate::protos::default_index::SegmentControl::decode(&*data)
-                    .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
-                    .context(&op_link_file)
-                    .map_err(DefaultIndexStoreError::LoadAssociation)?;
-                commit_segment_id = CommitIndexSegmentId::new(proto.commit_segment_id);
-                changed_path_start_commit_pos = proto
-                    .changed_path_start_commit_pos
-                    .map(GlobalCommitPosition);
-                changed_path_segment_ids = proto
-                    .changed_path_segment_ids
-                    .into_iter()
-                    .map(ChangedPathIndexSegmentId::new)
-                    .collect_vec();
-            }
-            // TODO: drop support for legacy operation link file in jj 0.39 or so
-            Err(PathError { source: error, .. }) if error.kind() == io::ErrorKind::NotFound => {
-                let op_id_file = self.legacy_operations_dir().join(op_id.hex());
-                let data = fs::read(&op_id_file)
-                    .context(&op_id_file)
-                    .map_err(DefaultIndexStoreError::LoadAssociation)?;
-                commit_segment_id = CommitIndexSegmentId::try_from_hex(&data)
-                    .ok_or_else(|| {
-                        io::Error::new(io::ErrorKind::InvalidData, "file name is not valid hex")
-                    })
-                    .context(&op_id_file)
-                    .map_err(DefaultIndexStoreError::LoadAssociation)?;
-                changed_path_start_commit_pos = None;
-                changed_path_segment_ids = vec![];
-            }
-            Err(err) => return Err(DefaultIndexStoreError::LoadAssociation(err)),
-        }
+        let data = fs::read(&op_link_file)
+            .context(&op_link_file)
+            .map_err(DefaultIndexStoreError::LoadAssociation)?;
+        let proto = crate::protos::default_index::SegmentControl::decode(&*data)
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))
+            .context(&op_link_file)
+            .map_err(DefaultIndexStoreError::LoadAssociation)?;
+        let commit_segment_id = CommitIndexSegmentId::new(proto.commit_segment_id);
+        let changed_path_start_commit_pos = proto
+            .changed_path_start_commit_pos
+            .map(GlobalCommitPosition);
+        let changed_path_segment_ids = proto
+            .changed_path_segment_ids
+            .into_iter()
+            .map(ChangedPathIndexSegmentId::new)
+            .collect_vec();
 
         let commits = ReadonlyCommitIndexSegment::load(
             &self.commit_segments_dir(),
@@ -252,7 +230,6 @@ impl DefaultIndexStore {
     ) -> Result<DefaultReadonlyIndex, DefaultIndexStoreError> {
         tracing::info!("scanning operations to index");
         let op_links_dir = self.op_links_dir();
-        let legacy_operations_dir = self.legacy_operations_dir();
         let field_lengths = FieldLengths {
             commit_id: store.commit_id_length(),
             change_id: store.change_id_length(),
@@ -262,9 +239,7 @@ impl DefaultIndexStore {
         let mut parent_op = None;
         for op in op_walk::walk_ancestors(slice::from_ref(operation)) {
             let op = op?;
-            if op_links_dir.join(op.id().hex()).is_file()
-                || legacy_operations_dir.join(op.id().hex()).is_file()
-            {
+            if op_links_dir.join(op.id().hex()).is_file() {
                 parent_op = Some(op);
                 break;
             } else {
@@ -548,15 +523,6 @@ impl DefaultIndexStore {
         let mut temp_file = NamedTempFile::new_in(&dir).context(&dir)?;
         let file = temp_file.as_file_mut();
         file.write_all(&proto.encode_to_vec())
-            .context(temp_file.path())?;
-        let path = dir.join(op_id.hex());
-        persist_temp_file(temp_file, &path).context(&path)?;
-
-        // TODO: drop support for legacy operation link file in jj 0.39 or so
-        let dir = self.legacy_operations_dir();
-        let mut temp_file = NamedTempFile::new_in(&dir).context(&dir)?;
-        let file = temp_file.as_file_mut();
-        file.write_all(index.readonly_commits().id().hex().as_bytes())
             .context(temp_file.path())?;
         let path = dir.join(op_id.hex());
         persist_temp_file(temp_file, &path).context(&path)?;
