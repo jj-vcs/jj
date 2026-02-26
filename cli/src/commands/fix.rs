@@ -396,16 +396,15 @@ fn compute_modified_line_ranges(
             // Format all lines if the file is new (not present in the base).
         }
     }
-    let mut ranges = Vec::new();
     let line_count = compute_file_line_count(current_content);
     if line_count > 0 {
-        ranges.push(LineRange {
+        vec![LineRange {
             first: 1,
             last: line_count,
-        });
+        }]
+    } else {
+        vec![]
     }
-
-    ranges
 }
 
 /// Runs the `tool_command` to fix the given file content.
