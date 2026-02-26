@@ -32,6 +32,8 @@ use crate::command_error::CommandError;
 use crate::diff_util::DiffFormat;
 use crate::diff_util::get_copy_records;
 use crate::formatter::FormatterExt as _;
+use crate::status_util::RepoStatus;
+use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
 /// Show high-level repo status [default alias: st]
@@ -55,6 +57,9 @@ pub(crate) struct StatusArgs {
     /// Restrict the status display to these paths
     #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
     paths: Vec<String>,
+
+    #[arg(long)]
+    check_against_hardcoded: bool,
 }
 
 #[instrument(skip_all)]
@@ -80,154 +85,178 @@ pub(crate) fn cmd_status(
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
 
-    if let Some(wc_commit) = &maybe_wc_commit {
-        let parent_tree = wc_commit.parent_tree(repo.as_ref())?;
-        let tree = wc_commit.tree();
+    // let show_with_template = args.use_template;
+    // let show_hardcoded = !args.use_template;
+    let show_with_template = true;
+    let show_hardcoded = args.check_against_hardcoded;
 
-        print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
+    if show_with_template {
+        let template: TemplateRenderer<RepoStatus> = {
+            let language = workspace_command.commit_template_language();
+            let text = command.settings().get_string("templates.status")?;
+            command.parse_template(ui, &language, &text)?
+        };
 
-        let wc_has_changes = tree.tree_ids() != parent_tree.tree_ids();
-        let wc_has_untracked = !snapshot_stats.untracked_paths.is_empty();
-        if !wc_has_changes && !wc_has_untracked {
-            writeln!(formatter, "The working copy has no changes.")?;
-        } else {
-            if wc_has_changes {
-                writeln!(formatter, "Working copy changes:")?;
-                let mut copy_records = CopyRecords::default();
-                for parent in wc_commit.parent_ids() {
-                    let records = get_copy_records(repo.store(), parent, wc_commit.id(), &matcher)?;
-                    copy_records.add_records(records)?;
+        template.format(&RepoStatus {
+            working_copy: maybe_wc_commit.clone(),
+            untracked_paths: snapshot_stats.untracked_paths.keys().cloned().collect(),
+        }, formatter)?;
+    }
+
+    if show_with_template && show_hardcoded {
+        writeln!(formatter, "----------")?;
+    }
+
+    if show_hardcoded {
+        if let Some(wc_commit) = &maybe_wc_commit {
+            let parent_tree = wc_commit.parent_tree(repo.as_ref())?;
+            let tree = wc_commit.tree();
+
+            print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
+
+            let wc_has_changes = tree.tree_ids() != parent_tree.tree_ids();
+            let wc_has_untracked = !snapshot_stats.untracked_paths.is_empty();
+            if !wc_has_changes && !wc_has_untracked {
+                writeln!(formatter, "The working copy has no changes.")?;
+            } else {
+                if wc_has_changes {
+                    writeln!(formatter, "Working copy changes:")?;
+                    let mut copy_records = CopyRecords::default();
+                    for parent in wc_commit.parent_ids() {
+                        let records = get_copy_records(repo.store(), parent, wc_commit.id(), &matcher)?;
+                        copy_records.add_records(records)?;
+                    }
+                    let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
+                    let width = ui.term_width();
+                    diff_renderer
+                        .show_diff(
+                            ui,
+                            formatter,
+                            Diff::new(&parent_tree, &tree),
+                            &matcher,
+                            &copy_records,
+                            width,
+                        )
+                        .block_on()?;
                 }
-                let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
-                let width = ui.term_width();
-                diff_renderer
-                    .show_diff(
-                        ui,
-                        formatter,
-                        Diff::new(&parent_tree, &tree),
-                        &matcher,
-                        &copy_records,
-                        width,
+
+                if wc_has_untracked {
+                    writeln!(formatter, "Untracked paths:")?;
+                    visit_collapsed_untracked_files(
+                        snapshot_stats.untracked_paths.keys(),
+                        tree.clone(),
+                        |path, is_dir| {
+                            let ui_path = workspace_command.path_converter().format_file_path(path);
+                            writeln!(
+                                formatter.labeled("diff").labeled("untracked"),
+                                "? {ui_path}{}",
+                                if is_dir {
+                                    std::path::MAIN_SEPARATOR_STR
+                                } else {
+                                    ""
+                                }
+                            )?;
+                            Ok(())
+                        },
                     )
                     .block_on()?;
-            }
-
-            if wc_has_untracked {
-                writeln!(formatter, "Untracked paths:")?;
-                visit_collapsed_untracked_files(
-                    snapshot_stats.untracked_paths.keys(),
-                    tree.clone(),
-                    |path, is_dir| {
-                        let ui_path = workspace_command.path_converter().format_file_path(path);
-                        writeln!(
-                            formatter.labeled("diff").labeled("untracked"),
-                            "? {ui_path}{}",
-                            if is_dir {
-                                std::path::MAIN_SEPARATOR_STR
-                            } else {
-                                ""
-                            }
-                        )?;
-                        Ok(())
-                    },
-                )
-                .block_on()?;
-            }
-        }
-
-        let template = workspace_command.commit_summary_template();
-        write!(formatter, "Working copy  (@) : ")?;
-        template.format(wc_commit, formatter)?;
-        writeln!(formatter)?;
-        for parent in wc_commit.parents() {
-            let parent = parent?;
-            //                "Working copy  (@) : "
-            write!(formatter, "Parent commit (@-): ")?;
-            template.format(&parent, formatter)?;
-            writeln!(formatter)?;
-        }
-
-        if wc_commit.has_conflict() {
-            let conflicts = wc_commit.tree().conflicts_matching(&matcher).collect_vec();
-            writeln!(
-                formatter.labeled("warning").with_heading("Warning: "),
-                "There are unresolved conflicts at these paths:"
-            )?;
-            print_conflicted_paths(conflicts, formatter, &workspace_command)?;
-
-            let wc_revset = RevsetExpression::commit(wc_commit.id().clone());
-
-            // Ancestors with conflicts, excluding the current working copy commit.
-            let ancestors_conflicts: Vec<_> = workspace_command
-                .attach_revset_evaluator(
-                    wc_revset
-                        .parents()
-                        .ancestors()
-                        .filtered(RevsetFilterPredicate::HasConflict)
-                        .minus(&workspace_command.env().immutable_expression()),
-                )
-                .evaluate_to_commit_ids()?
-                .try_collect()?;
-
-            workspace_command.report_repo_conflicts(formatter, repo, ancestors_conflicts)?;
-        } else {
-            for parent in wc_commit.parents() {
-                let parent = parent?;
-                if parent.has_conflict() {
-                    writeln!(
-                        formatter.labeled("hint").with_heading("Hint: "),
-                        "Conflict in parent commit has been resolved in working copy"
-                    )?;
-                    break;
                 }
             }
-        }
-    } else {
-        writeln!(formatter, "No working copy")?;
-    }
 
-    let conflicted_local_bookmarks = repo
-        .view()
-        .local_bookmarks()
-        .filter(|(_, target)| target.has_conflict())
-        .map(|(bookmark_name, _)| bookmark_name)
-        .collect_vec();
-    let conflicted_remote_bookmarks = repo
-        .view()
-        .all_remote_bookmarks()
-        .filter(|(_, remote_ref)| remote_ref.target.has_conflict())
-        .map(|(symbol, _)| symbol)
-        .collect_vec();
-    if !conflicted_local_bookmarks.is_empty() {
-        writeln!(
-            formatter.labeled("warning").with_heading("Warning: "),
-            "These bookmarks have conflicts:"
-        )?;
-        for name in conflicted_local_bookmarks {
-            write!(formatter, "  ")?;
-            write!(formatter.labeled("bookmark"), "{}", name.as_symbol())?;
+            let template = workspace_command.commit_summary_template();
+            write!(formatter, "Working copy  (@) : ")?;
+            template.format(wc_commit, formatter)?;
             writeln!(formatter)?;
+            for parent in wc_commit.parents() {
+                let parent = parent?;
+                //                "Working copy  (@) : "
+                write!(formatter, "Parent commit (@-): ")?;
+                template.format(&parent, formatter)?;
+                writeln!(formatter)?;
+            }
+
+            if wc_commit.has_conflict() {
+                let conflicts = wc_commit.tree().conflicts_matching(&matcher).collect_vec();
+                writeln!(
+                    formatter.labeled("warning").with_heading("Warning: "),
+                    "There are unresolved conflicts at these paths:"
+                )?;
+                print_conflicted_paths(conflicts, formatter, &workspace_command)?;
+
+                let wc_revset = RevsetExpression::commit(wc_commit.id().clone());
+
+                // Ancestors with conflicts, excluding the current working copy commit.
+                let ancestors_conflicts: Vec<_> = workspace_command
+                    .attach_revset_evaluator(
+                        wc_revset
+                            .parents()
+                            .ancestors()
+                            .filtered(RevsetFilterPredicate::HasConflict)
+                            .minus(&workspace_command.env().immutable_expression()),
+                    )
+                    .evaluate_to_commit_ids()?
+                    .try_collect()?;
+
+                workspace_command.report_repo_conflicts(formatter, repo, ancestors_conflicts)?;
+            } else {
+                for parent in wc_commit.parents() {
+                    let parent = parent?;
+                    if parent.has_conflict() {
+                        writeln!(
+                            formatter.labeled("hint").with_heading("Hint: "),
+                            "Conflict in parent commit has been resolved in working copy"
+                        )?;
+                        break;
+                    }
+                }
+            }
+        } else {
+            writeln!(formatter, "No working copy")?;
         }
-        writeln!(
-            formatter.labeled("hint").with_heading("Hint: "),
-            "Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to \
-             resolve."
-        )?;
-    }
-    if !conflicted_remote_bookmarks.is_empty() {
-        writeln!(
-            formatter.labeled("warning").with_heading("Warning: "),
-            "These remote bookmarks have conflicts:"
-        )?;
-        for symbol in conflicted_remote_bookmarks {
-            write!(formatter, "  ")?;
-            write!(formatter.labeled("bookmark"), "{symbol}")?;
-            writeln!(formatter)?;
+
+        let conflicted_local_bookmarks = repo
+            .view()
+            .local_bookmarks()
+            .filter(|(_, target)| target.has_conflict())
+            .map(|(bookmark_name, _)| bookmark_name)
+            .collect_vec();
+        let conflicted_remote_bookmarks = repo
+            .view()
+            .all_remote_bookmarks()
+            .filter(|(_, remote_ref)| remote_ref.target.has_conflict())
+            .map(|(symbol, _)| symbol)
+            .collect_vec();
+        if !conflicted_local_bookmarks.is_empty() {
+            writeln!(
+                formatter.labeled("warning").with_heading("Warning: "),
+                "These bookmarks have conflicts:"
+            )?;
+            for name in conflicted_local_bookmarks {
+                write!(formatter, "  ")?;
+                write!(formatter.labeled("bookmark"), "{}", name.as_symbol())?;
+                writeln!(formatter)?;
+            }
+            writeln!(
+                formatter.labeled("hint").with_heading("Hint: "),
+                "Use `jj bookmark list` to see details. Use `jj bookmark set <name> -r <rev>` to \
+                resolve."
+            )?;
         }
-        writeln!(
-            formatter.labeled("hint").with_heading("Hint: "),
-            "Use `jj bookmark list` to see details. Use `jj git fetch` to resolve."
-        )?;
+        if !conflicted_remote_bookmarks.is_empty() {
+            writeln!(
+                formatter.labeled("warning").with_heading("Warning: "),
+                "These remote bookmarks have conflicts:"
+            )?;
+            for symbol in conflicted_remote_bookmarks {
+                write!(formatter, "  ")?;
+                write!(formatter.labeled("bookmark"), "{symbol}")?;
+                writeln!(formatter)?;
+            }
+            writeln!(
+                formatter.labeled("hint").with_heading("Hint: "),
+                "Use `jj bookmark list` to see details. Use `jj git fetch` to resolve."
+            )?;
+        }
     }
 
     Ok(())
