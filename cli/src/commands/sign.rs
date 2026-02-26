@@ -24,9 +24,11 @@ use jj_lib::signing::SignBehavior;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::print_updated_commits;
+use crate::cli_util::short_change_hash;
 use crate::command_error::CommandError;
 use crate::command_error::user_error;
 use crate::complete;
+use crate::progress::ProgressWriter;
 use crate::ui::Ui;
 
 /// Cryptographically sign a revision
@@ -94,33 +96,43 @@ pub async fn cmd_sign(
     let mut signed_commits = vec![];
     let mut num_reparented = 0;
 
-    tx.repo_mut()
-        .transform_descendants(
-            to_sign.iter().ids().cloned().collect_vec(),
-            async |rewriter| {
-                let old_commit = rewriter.old_commit().clone();
-                let mut commit_builder = rewriter.reparent();
+    {
+        let mut progress_writer = ProgressWriter::new(ui, "Signing");
 
-                if to_sign.contains(&old_commit) {
-                    if let Some(key) = &args.key {
-                        commit_builder = commit_builder.set_sign_key(key.clone());
+        tx.repo_mut()
+            .transform_descendants(
+                to_sign.iter().ids().cloned().collect_vec(),
+                async |rewriter| {
+                    let old_commit = rewriter.old_commit().clone();
+                    let mut commit_builder = rewriter.reparent();
+
+                    if let Some(writer) = &mut progress_writer {
+                        writer
+                            .display(&short_change_hash(old_commit.change_id()))
+                            .ok();
                     }
 
-                    let new_commit = commit_builder
-                        .set_sign_behavior(SignBehavior::Force)
-                        .write()
-                        .await?;
+                    if to_sign.contains(&old_commit) {
+                        if let Some(key) = &args.key {
+                            commit_builder = commit_builder.set_sign_key(key.clone());
+                        }
 
-                    signed_commits.push(new_commit);
-                } else {
-                    commit_builder.write().await?;
-                    num_reparented += 1;
-                }
+                        let new_commit = commit_builder
+                            .set_sign_behavior(SignBehavior::Force)
+                            .write()
+                            .await?;
 
-                Ok(())
-            },
-        )
-        .await?;
+                        signed_commits.push(new_commit);
+                    } else {
+                        commit_builder.write().await?;
+                        num_reparented += 1;
+                    }
+
+                    Ok(())
+                },
+            )
+            .await?;
+    }
 
     if let Some(mut formatter) = ui.status_formatter()
         && !signed_commits.is_empty()
