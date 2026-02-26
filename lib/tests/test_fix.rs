@@ -19,15 +19,12 @@ use indexmap::IndexSet;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
 use jj_lib::commit::Commit;
-use jj_lib::fix::ComputeModifiedLineRangesArgs;
 use jj_lib::fix::FileFixer;
 use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
 use jj_lib::fix::ParallelFileFixer;
 use jj_lib::fix::RegionsToFormat;
 use jj_lib::fix::compute_changed_ranges;
-use jj_lib::fix::compute_file_line_count;
-use jj_lib::fix::compute_modified_line_ranges;
 use jj_lib::fix::fix_files;
 use jj_lib::fix::get_base_commit_map;
 use jj_lib::matchers::EverythingMatcher;
@@ -82,11 +79,8 @@ impl TestFileFixer {
                 .as_ref()
                 .map(|base_file_id| read_file(store, &file_to_fix.repo_path, base_file_id));
 
-            let args = ComputeModifiedLineRangesArgs {
-                all_lines: false,
-                skip_unchanged_files: true,
-            };
-            let ranges = compute_modified_line_ranges(base_content.as_deref(), &old_content, args);
+            let ranges =
+                compute_changed_ranges(base_content.as_deref().unwrap_or_default(), &old_content);
 
             if let RegionsToFormat::LineRanges(ranges) = ranges {
                 if ranges.is_empty() {
@@ -856,134 +850,6 @@ fn test_compute_changed_line_ranges() {
     assert_eq!(
         compute_changed_ranges(b"a\nb\nc\nd\ne\nf\n", b"a\nB\nC\nd\ne\nF\n"),
         RegionsToFormat::LineRanges(vec![(2..4).into(), (6..7).into()])
-    );
-}
-
-#[test]
-fn test_compute_file_line_count() {
-    assert_eq!(compute_file_line_count(b""), 0);
-    assert_eq!(compute_file_line_count(b"a"), 1);
-    assert_eq!(compute_file_line_count(b"a\n"), 1);
-    assert_eq!(compute_file_line_count(b"a\nb"), 2);
-    assert_eq!(compute_file_line_count(b"a\nb\n"), 2);
-}
-
-#[test]
-fn test_compute_modified_line_ranges_default() {
-    let compute_modified_line_ranges_arg = ComputeModifiedLineRangesArgs {
-        all_lines: false,
-        skip_unchanged_files: true,
-    };
-    // Base content None.
-    assert_eq!(
-        compute_modified_line_ranges(None, b"a\nb\nc\n", compute_modified_line_ranges_arg),
-        RegionsToFormat::LineRanges(vec![(1..4).into()])
-    );
-
-    // Empty base content.
-    assert_eq!(
-        compute_modified_line_ranges(Some(b""), b"a\nb\nc\n", compute_modified_line_ranges_arg),
-        RegionsToFormat::LineRanges(vec![(1..4).into()])
-    );
-
-    // Modified base content.
-    assert_eq!(
-        compute_modified_line_ranges(
-            Some(b"a\nB\nc\n"),
-            b"a\nb\nc\n",
-            compute_modified_line_ranges_arg
-        ),
-        RegionsToFormat::LineRanges(vec![(2..3).into()])
-    );
-
-    // Deleted base content.
-    assert_eq!(
-        compute_modified_line_ranges(
-            Some(b"a\nb\nc\nd\n"),
-            b"a\nb\nc\n",
-            compute_modified_line_ranges_arg
-        ),
-        RegionsToFormat::LineRanges(vec![])
-    );
-
-    // Multiple line ranges.
-    assert_eq!(
-        compute_modified_line_ranges(
-            Some(b"A\nb\nC\n"),
-            b"a\nb\nc\n",
-            compute_modified_line_ranges_arg
-        ),
-        RegionsToFormat::LineRanges(vec![(1..2).into(), (3..4).into()])
-    );
-
-    // Deleted current content.
-    assert_eq!(
-        compute_modified_line_ranges(Some(b"a\nb\nc\n"), b"", compute_modified_line_ranges_arg),
-        RegionsToFormat::LineRanges(vec![])
-    );
-}
-
-#[test]
-fn test_compute_modified_line_ranges_all_lines() {
-    let compute_modified_line_ranges_arg = ComputeModifiedLineRangesArgs {
-        all_lines: true,
-        skip_unchanged_files: true,
-    };
-
-    // Empty base content.
-    assert_eq!(
-        compute_modified_line_ranges(Some(b""), b"a\nb\nc\n", compute_modified_line_ranges_arg),
-        RegionsToFormat::LineRanges(vec![(1..4).into()])
-    );
-
-    // Modified base content.
-    assert_eq!(
-        compute_modified_line_ranges(
-            Some(b"a\nB\nc\n"),
-            b"a\nb\nc\n",
-            compute_modified_line_ranges_arg
-        ),
-        RegionsToFormat::LineRanges(vec![(1..4).into()])
-    );
-
-    // Deleted base content.
-    assert_eq!(
-        compute_modified_line_ranges(
-            Some(b"a\nb\nc\nd\n"),
-            b"a\nb\nc\n",
-            compute_modified_line_ranges_arg
-        ),
-        RegionsToFormat::LineRanges(vec![(1..4).into()])
-    );
-
-    // Deleted current content.
-    assert_eq!(
-        compute_modified_line_ranges(Some(b"a\nb\nc\n"), b"", compute_modified_line_ranges_arg),
-        RegionsToFormat::LineRanges(vec![])
-    );
-}
-
-#[test]
-fn test_compute_modified_line_ranges_skip_unchanged_files() {
-    let compute_modified_line_ranges_arg = ComputeModifiedLineRangesArgs {
-        all_lines: false,
-        skip_unchanged_files: false,
-    };
-
-    // Deleted base content.
-    assert_eq!(
-        compute_modified_line_ranges(
-            Some(b"a\nb\nc\nd\n"),
-            b"a\nb\nc\n",
-            compute_modified_line_ranges_arg
-        ),
-        RegionsToFormat::LineRanges(vec![(1..4).into()])
-    );
-
-    // Deleted current content.
-    assert_eq!(
-        compute_modified_line_ranges(Some(b"a\nb\nc\n"), b"", compute_modified_line_ranges_arg),
-        RegionsToFormat::LineRanges(vec![])
     );
 }
 

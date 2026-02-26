@@ -464,60 +464,6 @@ pub fn compute_file_line_count(text: &[u8]) -> usize {
     line_count + extra
 }
 
-/// Additional arguments for computing the modified line ranges between the base
-/// and current file.
-#[derive(Debug, Clone, Copy)]
-pub struct ComputeModifiedLineRangesArgs {
-    /// Whether to compute the modified line ranges for all lines.
-    pub all_lines: bool,
-    /// Whether to skip unchanged files.
-    pub skip_unchanged_files: bool,
-}
-
-/// Computes the modified line ranges between the base and current file.
-pub fn compute_modified_line_ranges(
-    base_content: Option<&[u8]>,
-    current_content: &[u8],
-    args: ComputeModifiedLineRangesArgs,
-) -> RegionsToFormat {
-    let mut ranges = Vec::new();
-    let mut all_lines = args.all_lines;
-    if !all_lines {
-        if let Some(base) = base_content {
-            let changed_ranges = match compute_changed_ranges(base, current_content) {
-                RegionsToFormat::LineRanges(ranges) => ranges,
-                RegionsToFormat::ByteRanges(_) => {
-                    unimplemented!("byte ranges not supported yet")
-                }
-            };
-            // If the tool is configured to skip unchanged files and there are no ranges to
-            // format, we can skip the tool invocation. If skip-unchanged-files
-            // is false, we want to format the entire file.
-            if changed_ranges.is_empty() && args.skip_unchanged_files {
-                return RegionsToFormat::LineRanges(vec![]);
-            } else if changed_ranges.is_empty() {
-                all_lines = true;
-            } else {
-                ranges = changed_ranges;
-            }
-        } else {
-            // This occurs if the file was not present in the base commit.
-            all_lines = true;
-        }
-    }
-    if all_lines {
-        let line_count = compute_file_line_count(current_content);
-        if line_count > 0 {
-            ranges.push(LineRange {
-                first: 1,
-                last: line_count,
-            });
-        }
-    }
-
-    RegionsToFormat::LineRanges(ranges)
-}
-
 /// Given a vector of commits, determine the base commit(s) for each of the
 /// commits in the vector.
 ///
@@ -572,4 +518,18 @@ pub fn get_base_commit_map(
     }
 
     Ok(base_commit_map)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compute_file_line_count() {
+        assert_eq!(compute_file_line_count(b""), 0);
+        assert_eq!(compute_file_line_count(b"a"), 1);
+        assert_eq!(compute_file_line_count(b"a\n"), 1);
+        assert_eq!(compute_file_line_count(b"a\nb"), 2);
+        assert_eq!(compute_file_line_count(b"a\nb\n"), 2);
+    }
 }

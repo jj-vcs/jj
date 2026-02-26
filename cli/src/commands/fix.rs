@@ -24,12 +24,13 @@ use jj_lib::commit::Commit;
 use jj_lib::fileset;
 use jj_lib::fileset::FilesetDiagnostics;
 use jj_lib::fileset::FilesetExpression;
-use jj_lib::fix::ComputeModifiedLineRangesArgs;
 use jj_lib::fix::FileToFix;
 use jj_lib::fix::FixError;
+use jj_lib::fix::LineRange;
 use jj_lib::fix::ParallelFileFixer;
 use jj_lib::fix::RegionsToFormat;
-use jj_lib::fix::compute_modified_line_ranges;
+use jj_lib::fix::compute_changed_ranges;
+use jj_lib::fix::compute_file_line_count;
 use jj_lib::fix::fix_files;
 use jj_lib::matchers::Matcher;
 use jj_lib::repo::Repo as _;
@@ -362,6 +363,60 @@ async fn fix_one_file(
     Ok(None)
 }
 
+/// Additional arguments for computing the modified line ranges between the base
+/// and current file.
+#[derive(Debug, Clone, Copy)]
+struct ComputeModifiedLineRangesArgs {
+    /// Whether to compute the modified line ranges for all lines.
+    pub all_lines: bool,
+    /// Whether to skip unchanged files.
+    pub skip_unchanged_files: bool,
+}
+
+/// Computes the modified line ranges between the base and current file.
+fn compute_modified_line_ranges(
+    base_content: Option<&[u8]>,
+    current_content: &[u8],
+    args: ComputeModifiedLineRangesArgs,
+) -> RegionsToFormat {
+    let mut ranges = Vec::new();
+    let mut all_lines = args.all_lines;
+    if !all_lines {
+        if let Some(base) = base_content {
+            let changed_ranges = match compute_changed_ranges(base, current_content) {
+                RegionsToFormat::LineRanges(ranges) => ranges,
+                RegionsToFormat::ByteRanges(_) => {
+                    unimplemented!("byte ranges not supported yet")
+                }
+            };
+            // If the tool is configured to skip unchanged files and there are no ranges to
+            // format, we can skip the tool invocation. If skip-unchanged-files
+            // is false, we want to format the entire file.
+            if changed_ranges.is_empty() && args.skip_unchanged_files {
+                return RegionsToFormat::LineRanges(vec![]);
+            } else if changed_ranges.is_empty() {
+                all_lines = true;
+            } else {
+                ranges = changed_ranges;
+            }
+        } else {
+            // This occurs if the file was not present in the base commit.
+            all_lines = true;
+        }
+    }
+    if all_lines {
+        let line_count = compute_file_line_count(current_content);
+        if line_count > 0 {
+            ranges.push(LineRange {
+                first: 1,
+                last: line_count,
+            });
+        }
+    }
+
+    RegionsToFormat::LineRanges(ranges)
+}
+
 /// Runs the `tool_command` to fix the given file content.
 ///
 /// The `old_content` is assumed to be that of the `file_to_fix`'s `FileId`, but
@@ -547,5 +602,129 @@ fn get_tools_config(ui: &mut Ui, settings: &UserSettings) -> Result<ToolsConfig,
         ))
     } else {
         Ok(ToolsConfig { tools })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compute_modified_line_ranges_default() {
+        let compute_modified_line_ranges_arg = ComputeModifiedLineRangesArgs {
+            all_lines: false,
+            skip_unchanged_files: true,
+        };
+        // Base content None.
+        assert_eq!(
+            compute_modified_line_ranges(None, b"a\nb\nc\n", compute_modified_line_ranges_arg),
+            RegionsToFormat::LineRanges(vec![(1..4).into()])
+        );
+
+        // Empty base content.
+        assert_eq!(
+            compute_modified_line_ranges(Some(b""), b"a\nb\nc\n", compute_modified_line_ranges_arg),
+            RegionsToFormat::LineRanges(vec![(1..4).into()])
+        );
+
+        // Modified base content.
+        assert_eq!(
+            compute_modified_line_ranges(
+                Some(b"a\nB\nc\n"),
+                b"a\nb\nc\n",
+                compute_modified_line_ranges_arg
+            ),
+            RegionsToFormat::LineRanges(vec![(2..3).into()])
+        );
+
+        // Deleted base content.
+        assert_eq!(
+            compute_modified_line_ranges(
+                Some(b"a\nb\nc\nd\n"),
+                b"a\nb\nc\n",
+                compute_modified_line_ranges_arg
+            ),
+            RegionsToFormat::LineRanges(vec![])
+        );
+
+        // Multiple line ranges.
+        assert_eq!(
+            compute_modified_line_ranges(
+                Some(b"A\nb\nC\n"),
+                b"a\nb\nc\n",
+                compute_modified_line_ranges_arg
+            ),
+            RegionsToFormat::LineRanges(vec![(1..2).into(), (3..4).into()])
+        );
+
+        // Deleted current content.
+        assert_eq!(
+            compute_modified_line_ranges(Some(b"a\nb\nc\n"), b"", compute_modified_line_ranges_arg),
+            RegionsToFormat::LineRanges(vec![])
+        );
+    }
+
+    #[test]
+    fn test_compute_modified_line_ranges_all_lines() {
+        let compute_modified_line_ranges_arg = ComputeModifiedLineRangesArgs {
+            all_lines: true,
+            skip_unchanged_files: true,
+        };
+
+        // Empty base content.
+        assert_eq!(
+            compute_modified_line_ranges(Some(b""), b"a\nb\nc\n", compute_modified_line_ranges_arg),
+            RegionsToFormat::LineRanges(vec![(1..4).into()])
+        );
+
+        // Modified base content.
+        assert_eq!(
+            compute_modified_line_ranges(
+                Some(b"a\nB\nc\n"),
+                b"a\nb\nc\n",
+                compute_modified_line_ranges_arg
+            ),
+            RegionsToFormat::LineRanges(vec![(1..4).into()])
+        );
+
+        // Deleted base content.
+        assert_eq!(
+            compute_modified_line_ranges(
+                Some(b"a\nb\nc\nd\n"),
+                b"a\nb\nc\n",
+                compute_modified_line_ranges_arg
+            ),
+            RegionsToFormat::LineRanges(vec![(1..4).into()])
+        );
+
+        // Deleted current content.
+        assert_eq!(
+            compute_modified_line_ranges(Some(b"a\nb\nc\n"), b"", compute_modified_line_ranges_arg),
+            RegionsToFormat::LineRanges(vec![])
+        );
+    }
+
+    #[test]
+    fn test_compute_modified_line_ranges_skip_unchanged_files() {
+        let compute_modified_line_ranges_arg = ComputeModifiedLineRangesArgs {
+            all_lines: false,
+            skip_unchanged_files: false,
+        };
+
+        // Deleted base content.
+        assert_eq!(
+            compute_modified_line_ranges(
+                Some(b"a\nb\nc\nd\n"),
+                b"a\nb\nc\n",
+                compute_modified_line_ranges_arg
+            ),
+            RegionsToFormat::LineRanges(vec![(1..4).into()])
+        );
+
+        // Deleted current content.
+        assert_eq!(
+            compute_modified_line_ranges(Some(b"a\nb\nc\n"), b"", compute_modified_line_ranges_arg),
+            RegionsToFormat::LineRanges(vec![])
+        );
     }
 }
