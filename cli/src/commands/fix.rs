@@ -380,9 +380,7 @@ fn compute_modified_line_ranges(
     current_content: &[u8],
     args: ComputeModifiedLineRangesArgs,
 ) -> RegionsToFormat {
-    let mut ranges = Vec::new();
-    let mut all_lines = args.all_lines;
-    if !all_lines {
+    if !args.all_lines {
         if let Some(base) = base_content {
             let changed_ranges = match compute_changed_ranges(base, current_content) {
                 RegionsToFormat::LineRanges(ranges) => ranges,
@@ -394,25 +392,22 @@ fn compute_modified_line_ranges(
             // format, we can skip the tool invocation. If run_on_only_deletions is true,
             // we want to format the entire file.
             if changed_ranges.is_empty() && args.run_on_only_deletions {
-                all_lines = true;
-            } else if changed_ranges.is_empty() {
-                return RegionsToFormat::LineRanges(vec![]);
+                // Format all lines if there are only deletions and we were
+                // asked to run the tool when there are only deletions.
             } else {
-                ranges = changed_ranges;
+                return RegionsToFormat::LineRanges(changed_ranges);
             }
         } else {
-            // This occurs if the file was not present in the base commit.
-            all_lines = true;
+            // Format all lines if the file is new (not present in the base).
         }
     }
-    if all_lines {
-        let line_count = compute_file_line_count(current_content);
-        if line_count > 0 {
-            ranges.push(LineRange {
-                first: 1,
-                last: line_count,
-            });
-        }
+    let mut ranges = Vec::new();
+    let line_count = compute_file_line_count(current_content);
+    if line_count > 0 {
+        ranges.push(LineRange {
+            first: 1,
+            last: line_count,
+        });
     }
 
     RegionsToFormat::LineRanges(ranges)
