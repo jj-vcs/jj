@@ -42,7 +42,11 @@
         # dependency, so it's worth it
         #
         # relevant PR: https://github.com/rust-lang/rust/pull/129687
-        extensions = ["rust-src" "rust-analyzer"];
+        extensions = [
+          "rust-src"
+          "rust-analyzer"
+          "llvm-tools-preview"
+        ];
       };
 
       # But, whenever we are running CI builds or checks, we want to use a
@@ -85,6 +89,7 @@
           cargo-deny
           cargo-insta
           cargo-nextest
+          cargo-llvm-cov
 
           # Miscellaneous tools
           watchman
