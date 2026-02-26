@@ -15,6 +15,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Breaking changes
 
+* Dropped support for legacy index files written by jj < 0.33. New index files
+  will be created as needed.
+
 ### Deprecations
 
 * `jj debug snapshot` is deprecated in favor of `jj util snapshot`. Although
