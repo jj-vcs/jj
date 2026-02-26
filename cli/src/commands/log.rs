@@ -215,8 +215,8 @@ pub(crate) fn cmd_log(
         if !args.no_graph {
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-            let has_commit = revset.containing_fn();
             let iter: Box<dyn Iterator<Item = _>> = {
+                let has_commit = revset.containing_fn();
                 let mut forward_iter = TopoGroupedGraphIterator::new(revset.iter_graph(), |id| id);
 
                 for prio in prio_revset.evaluate_to_commit_ids()? {
@@ -253,9 +253,9 @@ pub(crate) fn cmd_log(
                         GraphEdgeType::Direct => {
                             graphlog_edges.push(GraphEdge::direct((edge.target, false)));
                         }
-                        GraphEdgeType::Indirect => {
+                        GraphEdgeType::Indirect(elided_count) => {
                             if use_elided_nodes {
-                                elided_targets.push(edge.target.clone());
+                                elided_targets.push((edge.target.clone(), elided_count));
                                 graphlog_edges.push(GraphEdge::direct((edge.target, true)));
                             } else {
                                 graphlog_edges.push(GraphEdge::indirect((edge.target, false)));
@@ -300,20 +300,13 @@ pub(crate) fn cmd_log(
                 // TODO: propagate errors
                 explicit_paths.retain(|&path| tree.path_value(path).unwrap().is_absent());
 
-                for elided_target in elided_targets {
+                for (elided_target, elided_count) in elided_targets {
                     let elided_key = (elided_target, true);
                     let real_key = (elided_key.0.clone(), false);
                     let edges = [GraphEdge::direct(real_key)];
                     let mut buffer = vec![];
                     let within_graph =
                         with_content_format.sub_width(graph.width(&elided_key, &edges));
-                    let elided_count = count_elided_revisions(
-                        store,
-                        repo.index(),
-                        &key.0,
-                        &elided_key.0,
-                        &has_commit,
-                    )?;
                     within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
                         if elided_count == 1 {
                             writeln!(formatter.labeled("elided"), "(1 elided revision)")
@@ -397,44 +390,4 @@ pub(crate) fn cmd_log(
     }
 
     Ok(())
-}
-
-fn count_elided_revisions(
-    store: &std::sync::Arc<jj_lib::store::Store>,
-    index: &dyn jj_lib::index::Index,
-    source_id: &CommitId,
-    target_id: &CommitId,
-    has_commit: &dyn Fn(&CommitId) -> Result<bool, RevsetEvaluationError>,
-) -> Result<usize, CommandError> {
-    let source = store.get_commit(source_id)?;
-    let mut visited = std::collections::HashSet::new();
-    let mut queue = std::collections::VecDeque::new();
-    let mut count = 0usize;
-
-    for parent_id in source.parent_ids() {
-        if parent_id == target_id {
-            continue;
-        }
-        if !has_commit(parent_id)? && visited.insert(parent_id.clone()) {
-            queue.push_back(parent_id.clone());
-        }
-    }
-
-    while let Some(commit_id) = queue.pop_front() {
-        if !index.is_ancestor(target_id, &commit_id)? {
-            continue;
-        }
-        count += 1;
-        let commit = store.get_commit(&commit_id)?;
-        for parent_id in commit.parent_ids() {
-            if parent_id == target_id {
-                continue;
-            }
-            if !has_commit(parent_id)? && visited.insert(parent_id.clone()) {
-                queue.push_back(parent_id.clone());
-            }
-        }
-    }
-
-    Ok(count)
 }

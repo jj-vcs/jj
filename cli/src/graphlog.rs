@@ -44,7 +44,7 @@ pub struct SaplingGraphLog<'writer, R> {
 fn convert_graph_edge_into_ancestor<K: Clone>(e: &GraphEdge<K>) -> Ancestor<K> {
     match e.edge_type {
         GraphEdgeType::Direct => Ancestor::Parent(e.target.clone()),
-        GraphEdgeType::Indirect => Ancestor::Ancestor(e.target.clone()),
+        GraphEdgeType::Indirect(_) => Ancestor::Ancestor(e.target.clone()),
         GraphEdgeType::Missing => Ancestor::Anonymous,
     }
 }
