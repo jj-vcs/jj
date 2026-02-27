@@ -588,6 +588,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#git-push-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Git push options
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2135,6 +2144,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#git-push-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Git push options
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2357,6 +2375,52 @@ keep your own bookmarks synchronized through your <code>origin</code> repository
 <span class="n">fetch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;upstream&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;origin&quot;</span><span class="p">]</span>
 <span class="n">push</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;origin&quot;</span>
 </code></pre></div>
+<h2 id="git-push-options">Git push options<a class="headerlink" href="#git-push-options" title="Permanent link">&para;</a></h2>
+<p><code>jj git push</code> supports passing Git “push options” to the server via
+<code>-o/--option</code>. These are forwarded to the remote and interpreted by the hosting
+platform, if it supports them. You can repeat <code>-o</code> to send multiple options.</p>
+<ul>
+<li>Syntax: <code>jj git push -o &lt;push_option&gt;</code> or <code>jj git push --option &lt;push_option&gt;</code></li>
+<li>Multiple options: <code>jj git push -o foo -o bar=val</code></li>
+<li>Quoting: If the option’s value has spaces, wrap it in double quotes.</li>
+</ul>
+<p>Support is server-dependent. GitLab supports push options for CI and merge
+requests; other platforms may not. Refer to your host’s documentation for the
+full list and behavior.</p>
+<p>Examples with GitLab push options (see GitLab docs for details):</p>
+<ul>
+<li>Skip CI for a push:
+  <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span>-o<span class="w"> </span>ci.skip
+</code></pre></div></li>
+<li>Pass CI variables to the created pipeline:
+  <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span>-o<span class="w"> </span><span class="s1">&#39;ci.variable=MAX_RETRIES=10&#39;</span><span class="w"> </span>-o<span class="w"> </span><span class="s1">&#39;ci.variable=MAX_TIME=600&#39;</span>
+</code></pre></div></li>
+<li>Create a merge request with metadata on push:
+  <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span>--allow-new<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span>merge_request.create<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span>merge_request.target<span class="o">=</span>main<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span><span class="s1">&#39;merge_request.title=Add feature X&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span><span class="s1">&#39;merge_request.description=Implements X with tests&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span>merge_request.draft
+</code></pre></div></li>
+<li>Auto-merge when pipeline succeeds and remove the source branch:
+  <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span>merge_request.merge_when_pipeline_succeeds<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span>merge_request.remove_source_branch
+</code></pre></div></li>
+<li>Add and remove labels:
+  <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span><span class="s1">&#39;merge_request.label=label1&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span><span class="s1">&#39;merge_request.label=label2&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span><span class="s1">&#39;merge_request.unlabel=label3&#39;</span>
+</code></pre></div></li>
+<li>Assign and unassign users:
+  <div class="highlight"><pre><span></span><code>jj<span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span><span class="s1">&#39;merge_request.assign=user1&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span><span class="s1">&#39;merge_request.assign=user2&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span><span class="s1">&#39;merge_request.unassign=user3&#39;</span>
+</code></pre></div></li>
+</ul>
 <div class="footnote">
 <hr />
 <ol>

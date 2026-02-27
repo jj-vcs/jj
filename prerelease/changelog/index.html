@@ -6659,6 +6659,11 @@ to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
   initial commit description when no <code>-m</code> message is provided.</p>
 </li>
 <li>
+<p>Add support for push options in <code>jj git push</code> with the <code>--option</code> flag.
+  This allows users to pass options to the remote server when pushing commits.
+  The short alias <code>-o</code> is also supported.</p>
+</li>
+<li>
 <p>Templates now support <code>first()</code>, <code>last()</code>, <code>get(index)</code>, <code>reverse()</code>,
   <code>skip(count)</code>, and <code>take(count)</code> methods on list types for more flexible
   list manipulation.</p>
