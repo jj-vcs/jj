@@ -2040,6 +2040,94 @@ fn test_export_refs_current_bookmark_changed() {
 }
 
 #[test]
+fn test_export_refs_worktree_head_changed() {
+    let test_data = GitRepoData::create();
+    let import_options = default_import_options();
+    let git_repo = test_data.git_repo;
+    let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
+    testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
+
+    let worktree_dir = test_data._temp_dir.path().join("git-wt");
+    let output = std::process::Command::new("git")
+        .args(["worktree", "add", "-b", "wt-branch"])
+        .arg(&worktree_dir)
+        .current_dir(git_repo.workdir().unwrap())
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "Failed to create worktree: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let mut tx = test_data.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    git::import_head(mut_repo).unwrap();
+    git::import_refs(mut_repo, &import_options).unwrap();
+    mut_repo.rebase_descendants().block_on().unwrap();
+
+    let new_commit = create_random_commit(mut_repo)
+        .set_parents(vec![jj_id(commit1)])
+        .write_unwrap();
+    mut_repo.set_local_bookmark_target(
+        "wt-branch".as_ref(),
+        RefTarget::normal(new_commit.id().clone()),
+    );
+    let stats = git::export_refs(mut_repo).unwrap();
+    assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
+
+    let git_repo_wt = gix::open(&worktree_dir).unwrap();
+    assert!(git_repo_wt.head().unwrap().is_detached());
+}
+
+#[test]
+fn test_export_refs_worktree_no_detach() {
+    let test_data = GitRepoData::create();
+    let import_options = default_import_options();
+    let git_repo = test_data.git_repo;
+    let commit1 = empty_git_commit(&git_repo, "refs/heads/main", &[]);
+    testutils::git::set_symbolic_reference(&git_repo, "HEAD", "refs/heads/main");
+
+    let worktree_dir = test_data._temp_dir.path().join("git-wt");
+    let output = std::process::Command::new("git")
+        .args(["worktree", "add", "-b", "wt-branch"])
+        .arg(&worktree_dir)
+        .current_dir(git_repo.workdir().unwrap())
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "Failed to create worktree: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let mut tx = test_data.repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    git::import_head(mut_repo).unwrap();
+    git::import_refs(mut_repo, &import_options).unwrap();
+    mut_repo.rebase_descendants().block_on().unwrap();
+
+    let new_commit = create_random_commit(mut_repo)
+        .set_parents(vec![jj_id(commit1)])
+        .write_unwrap();
+    mut_repo.set_local_bookmark_target(
+        "other-branch".as_ref(),
+        RefTarget::normal(new_commit.id().clone()),
+    );
+    let stats = git::export_refs(mut_repo).unwrap();
+    assert!(stats.failed_bookmarks.is_empty());
+    assert!(stats.failed_tags.is_empty());
+
+    let git_repo_wt = gix::open(&worktree_dir).unwrap();
+    assert!(!git_repo_wt.head().unwrap().is_detached());
+    assert_eq!(
+        git_repo_wt.head_name().unwrap().unwrap().as_bstr(),
+        b"refs/heads/wt-branch"
+    );
+}
+
+#[test]
 fn test_export_refs_current_tag_changed() {
     // If we update a tag that is checked out in the git repo, HEAD gets
     // detached
