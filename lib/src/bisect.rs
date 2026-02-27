@@ -177,27 +177,34 @@ impl<'repo> Bisector<'repo> {
         &self.skipped_commits
     }
 
+    fn candidates(&self) -> Arc<ResolvedRevsetExpression> {
+        let good_expr = RevsetExpression::commits(self.good_commits.iter().cloned().collect());
+        let bad_expr = RevsetExpression::commits(self.bad_commits.iter().cloned().collect());
+        let skipped_expr =
+            RevsetExpression::commits(self.skipped_commits.iter().cloned().collect());
+
+        self.input_range
+            .intersection(&good_expr.heads().range(&bad_expr.roots()))
+            .minus(&bad_expr)
+            .minus(&skipped_expr)
+    }
+
+    /// Returns the number of remaining candidate commits to evaluate.
+    pub fn remaining_count(&self) -> Result<usize, BisectionError> {
+        Ok(self.candidates().evaluate(self.repo)?.iter().count())
+    }
+
     /// Find the next commit to evaluate, or determine that there are no more
     /// steps.
     pub fn next_step(&mut self) -> Result<NextStep, BisectionError> {
         if self.aborted {
             return Ok(NextStep::Done(BisectionResult::Abort));
         }
-        let good_expr = RevsetExpression::commits(self.good_commits.iter().cloned().collect());
-        let bad_expr = RevsetExpression::commits(self.bad_commits.iter().cloned().collect());
-        let skipped_expr =
-            RevsetExpression::commits(self.skipped_commits.iter().cloned().collect());
         // Intersect the input range with the current bad range and then bisect it to
         // find the next commit to evaluate.
         // Skipped revisions are simply subtracted from the set.
         // TODO: Handle long ranges of skipped revisions better
-        let to_evaluate_expr = self
-            .input_range
-            .intersection(&good_expr.heads().range(&bad_expr.roots()))
-            .minus(&bad_expr)
-            .minus(&skipped_expr)
-            .bisect()
-            .latest(1);
+        let to_evaluate_expr = self.candidates().bisect().latest(1);
         let to_evaluate_set = to_evaluate_expr.evaluate(self.repo)?;
         if let Some(commit) = to_evaluate_set
             .iter()
@@ -207,6 +214,7 @@ impl<'repo> Bisector<'repo> {
         {
             Ok(NextStep::Evaluate(commit))
         } else {
+            let bad_expr = RevsetExpression::commits(self.bad_commits.iter().cloned().collect());
             let bad_roots = bad_expr.roots().evaluate(self.repo)?;
             let bad_commits: Vec<_> = bad_roots.iter().commits(self.repo.store()).try_collect()?;
             if bad_commits.is_empty() {
