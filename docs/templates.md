@@ -699,6 +699,7 @@ The following methods are defined.
 
 * `.name() -> RefSymbol`: Returns the workspace name as a symbol.
 * `.target() -> Commit`: Returns the working-copy commit of this workspace.
+* `.root() -> Template`: Returns the absolute path to the workspace root.
 
 ## Color labels
 

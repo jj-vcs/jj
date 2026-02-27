@@ -8,6 +8,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+* `WorkspaceRef` templates now provide a `.root()` method to show the absolute
+  path to each workspace root.
+
 ### Release highlights
 
 ### Breaking changes

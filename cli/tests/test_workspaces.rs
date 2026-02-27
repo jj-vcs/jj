@@ -1605,6 +1605,53 @@ fn test_list_workspaces_template() {
     ");
 }
 
+#[test]
+fn test_list_workspaces_template_root() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+
+    let template = r#"name ++ ": " ++ root ++ "\n""#;
+    let output = main_dir.run_jj(["workspace", "list", "-T", template]);
+    insta::assert_snapshot!(output.normalize_backslash(), @"
+    default: $TEST_ENV/main
+    second: $TEST_ENV/secondary
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_list_workspaces_template_root_unavailable() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+
+    main_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+    std::fs::remove_dir_all(test_env.env_root().join("secondary")).unwrap();
+
+    let template = r#"name ++ ": " ++ root ++ "\n""#;
+    let output = main_dir
+        .run_jj(["workspace", "list", "-T", template])
+        .normalize_backslash()
+        .normalize_stdout_with(|s| {
+            s.replace(
+                "The system cannot find the file specified.",
+                "No such file or directory",
+            )
+        });
+    insta::assert_snapshot!(output, @"
+    default: $TEST_ENV/main
+    second: <Error: Failed to resolve workspace root: second: $TEST_ENV/main/.jj/repo/../../../secondary: No such file or directory (os error 2)>
+    [EOF]
+    ");
+}
+
 /// Test getting the workspace root from primary and secondary workspaces
 #[test]
 fn test_workspaces_root() {
