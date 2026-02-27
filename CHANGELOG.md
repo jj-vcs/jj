@@ -98,6 +98,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Templates now support `Serialize` operations on the result of `map()` and
   `if()`, when supported by the underlying type.
 
+* `jj gerrit upload` now adds the gerrit URL to the change as a bookmark, making
+  it easy to reassociate changes with other changes
+
+* `jj gerrit upload` now hints at the review URL when it is not set.
+
+* Templates now support the method `commit.gerrit_url()` which returns the
+  review URL for the commit.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04

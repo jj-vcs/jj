@@ -226,6 +226,8 @@ This type cannot be printed. The following methods are defined.
   changed files.
 * `.conflicted_files() -> List<TreeEntry>`: Conflicted files in this commit.
 * `.root() -> Boolean`: True if the commit is the root commit.
+* `.gerrit_url() -> String` If the commit has been uploaded to gerrit, returns
+  the URL of the commit.
 
 ### `CommitEvolutionEntry` type
 

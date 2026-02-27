@@ -1402,19 +1402,17 @@ Interact with Gerrit Code Review
 
 ###### **Subcommands:**
 
-* `upload` — Upload changes to Gerrit for code review, or update existing changes
+* `upload` — Upload changes to Gerrit for code review. * If a change has no gerrit Change-Id, it will create a new change and a bookmark "gerrit-$CHANGE-ID". * Otherwise, it will create a new patchset for an existing change
 
 
 
 ## `jj gerrit upload`
 
-Upload changes to Gerrit for code review, or update existing changes.
+Upload changes to Gerrit for code review. * If a change has no gerrit Change-Id, it will create a new change and a bookmark "gerrit-$CHANGE-ID". * Otherwise, it will create a new patchset for an existing change.
 
-Uploading in a set of revisions to Gerrit creates a single "change" for each revision included in the revset. These changes are then available for review on your Gerrit instance.
+Uploading a set of revisions to Gerrit creates a single "change" for each revision included in the revset. These changes are then available for review on your Gerrit instance.
 
-Note: The Gerrit commit Id may not match that of your local commit Id, since we add a `Change-Id` footer to the commit message if one does not already exist. This ID is based off the jj Change-Id, but is not the same.
-
-If a change already exists for a given revision (i.e. it contains the same `Change-Id`), this command will update the contents of the existing change to match.
+Note: The Gerrit commit Id may not match that of your local commit Id, since we add a footer to the commit message if one does not already exist.
 
 Note: this command takes 1-or-more revsets arguments, each of which can resolve to multiple revisions; so you may post trees or ranges of commits to Gerrit for review all at once.
 

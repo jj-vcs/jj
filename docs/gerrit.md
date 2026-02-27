@@ -42,17 +42,25 @@ default-remote-branch = "main"  # target branch in Gerrit
 ## Basic workflow
 
 `jj gerrit upload` takes one or more revsets, and uploads the stack of commits
-ending in them to Gerrit. Each JJ change will map to a single Gerrit change
-based on the JJ change ID. This should be what you want most of the time, but if
-you want to associate a JJ change with a specific change already uploaded to
-Gerrit, you can copy the Change-Id footer from Gerrit to the bottom of the
-commit description in JJ.
+ending in them to Gerrit.
+* If a change has no `Change-Id`, jj will create a new change in gerrit and
+  create a bookmark `gerrit-$CHANGE_ID` attached to the change.
+* If a change has an existing `Change-Id`, jj will create a new patchset for
+  the existing change on gerrit.
 
-> Note: Gerrit identifies and updates changes by the `Change-Id` trailer. When
-> you re-upload a commit with the same `Change-Id`, Gerrit creates a new patch
-> set.
+This means that:
+* You can reassociate a gerrit CL with a different change by simply running
+  `jj bookmark move`. This may be useful after running `jj split`, for example.
+* A change can gain multiple `Change-Id`s if you squash an uploaded
+  change. If this happens, jj will refuse to upload, and you will need to run
+  `jj bookmark forget` to remove one of them.
+
+> Note: `Change-Id`s can also be set directly via the `Change-ID` and `Link` git
+> footers. This is not recommended, however, as multiple commits can easily end
+> up with the same `Change-Id` after a command such as `jj split`
 
 ### Upload a single change
+
 ```shell
 # Upload @ if it has a description, otherwise uploads @-
 $ jj gerrit upload
@@ -111,51 +119,3 @@ $ jj edit xcv  # position on the stack to edit
  --- Apply needed edits ---
 $ jj gerrit upload -r xcv
 ```
-
-## `Change-Id` management
-
-If you do not provide an explicit `Change-Id` footer in your commits,
-`jj gerrit upload` will generate a transient one for you based on your JJ
-change ID. This means that as long as the JJ change ID remains the same (and
-you don't add an explicit Change-Id footer), it will upload as a new patch set
-on the existing change.
-
-Keep this association in mind when splitting or squashing changes. For example,
-when splitting a change, the portion that you want associated with the
-original Gerrit change should remain in the original JJ change (the first half
-of the split). Similarly, when squashing new changes, you typically want to
-squash into the change that was previously uploaded to Gerrit.
-
-If your JJ changes no longer align with the desired mapping to Gerrit changes,
-you can manually copy a Gerrit `Change-Id` footer into your JJ change
-description to directly assign a JJ change to an exist Gerrit change.
-
-As an alternative to `jj gerrit upload`'s automatic `Change-Id` mapping, you
-can configure JJ to automatically add `Change-Id` footers to all change
-descriptions:
-
-```toml
-[templates]
-commit_trailers = '''
-if(
-  !trailers.contains_key("Change-Id"),
-  format_gerrit_change_id_trailer(self)
-)
-'''
-```
-
-In this case, the Gerrit change mapping is defined entirely by the `Change-Id`
-footers. When splitting or squashing changes, be sure to keep the `Change-Id`
-footers associated with the desired changes. Be sure not to duplicate the same
-`Change-Id` across different changes. Gerrit will reject pushes that contain
-duplicate `Change-Id`s, but if the uploads are done separately, you may
-unintentionally overwrite an existing change.
-
-## Alternative `Link` trailer
-
-Since version 3.3.1 Gerrit supports an alternative to the `Change-Id` trailer,
-using a `Link` trailer in the format of `<reviewUrl>/id/I<changeid>`. It is only
-documented in the [commit-msg hook documentation]. Jujutsu's `jj gerrit upload`
-will do the same if you set `jj config set --repo gerrit.review-url <reviewUrl>`.
-
-[commit-msg hook documentation]: https://gerrit-documentation.storage.googleapis.com/Documentation/3.3.1/cmd-hook-commit-msg.html

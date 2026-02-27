@@ -19,19 +19,21 @@ use std::sync::Arc;
 
 use bstr::BStr;
 use itertools::Itertools as _;
+use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::git;
 use jj_lib::git::GitRefUpdate;
+use jj_lib::git::GitSubprocessCallback;
 use jj_lib::git::GitSubprocessOptions;
-use jj_lib::object_id::ObjectId as _;
+use jj_lib::op_store::RefTarget;
+use jj_lib::ref_name::RefNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
-use jj_lib::trailer::Trailer;
-use jj_lib::trailer::parse_description_trailers;
 use pollster::FutureExt as _;
+use regex::Regex;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -40,23 +42,23 @@ use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
+use crate::gerrit_util;
 use crate::git_util::GitSubprocessUi;
 use crate::git_util::print_push_stats;
 use crate::ui::Ui;
 
-/// Upload changes to Gerrit for code review, or update existing changes.
+/// Upload changes to Gerrit for code review.
+/// * If a change has no gerrit Change-Id, it will create a new change and a
+///   bookmark "gerrit-$CHANGE-ID".
+/// * Otherwise, it will create a new patchset for an existing change.
 ///
-/// Uploading in a set of revisions to Gerrit creates a single "change" for
+/// Uploading a set of revisions to Gerrit creates a single "change" for
 /// each revision included in the revset. These changes are then available
 /// for review on your Gerrit instance.
 ///
 /// Note: The Gerrit commit Id may not match that of your local commit Id,
-/// since we add a `Change-Id` footer to the commit message if one does not
-/// already exist. This ID is based off the jj Change-Id, but is not the same.
-///
-/// If a change already exists for a given revision (i.e. it contains the
-/// same `Change-Id`), this command will update the contents of the existing
-/// change to match.
+/// since we add a footer to the commit message if one does not
+/// already exist.
 ///
 /// Note: this command takes 1-or-more revsets arguments, each of which can
 /// resolve to multiple revisions; so you may post trees or ranges of
@@ -372,6 +374,70 @@ fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
     .collect())
 }
 
+const GERRIT_HOST_REGEX: &str = r"^  (https?://[^ ]*)/c/[^+]+\+/\d+\b";
+
+fn calculate_gerrit_host(lines: &[Vec<u8>]) -> Option<String> {
+    // See https://gerrit-review.googlesource.com/Documentation/intro-gerrit-walkthrough.html#_creating_the_review
+    // It's unclear looking from the docs if the output format is standardized,
+    // so we just take a best-effort approach.
+    // Example output:
+    // remote: Processing changes: new: 1, done
+    // remote:
+    // remote: New Changes:
+    // remote:   http://gerrithost/#/c/RecipeBook/+/702 Change to a proper, yeast based pizza dough.
+    // remote:
+    let gerrit_host = Regex::new(GERRIT_HOST_REGEX).unwrap();
+    lines
+        .iter()
+        .filter_map(|line| std::str::from_utf8(line).ok())
+        .filter_map(|line| gerrit_host.captures(line))
+        .map(|captures| captures[1].to_string())
+        .next()
+}
+
+// TeeCallback acts like the "tee" command in unix.
+// It prints to the UI, but also captures the remote sideband output from git.
+struct TeeCallback<'a> {
+    ui: GitSubprocessUi<'a>,
+    lines: Vec<Vec<u8>>,
+}
+
+impl<'a> TeeCallback<'a> {
+    fn new(ui: &'a Ui) -> Self {
+        Self {
+            ui: GitSubprocessUi::new(ui),
+            lines: vec![],
+        }
+    }
+}
+
+impl GitSubprocessCallback for TeeCallback<'_> {
+    fn needs_progress(&self) -> bool {
+        self.ui.needs_progress()
+    }
+
+    fn progress(&mut self, progress: &git::GitProgress) -> std::io::Result<()> {
+        self.ui.progress(progress)
+    }
+
+    fn local_sideband(
+        &mut self,
+        message: &[u8],
+        term: Option<git::GitSidebandLineTerminator>,
+    ) -> std::io::Result<()> {
+        self.ui.local_sideband(message, term)
+    }
+
+    fn remote_sideband(
+        &mut self,
+        message: &[u8],
+        term: Option<git::GitSidebandLineTerminator>,
+    ) -> std::io::Result<()> {
+        self.lines.push(message.to_vec());
+        self.ui.remote_sideband(message, term)
+    }
+}
+
 pub fn cmd_gerrit_upload(
     ui: &mut Ui,
     command: &CommandHelper,
@@ -487,72 +553,40 @@ pub fn cmd_gerrit_upload(
         }
     }
 
+    let mut review_url = command.settings().get_string("gerrit.review-url").ok();
     let mut old_to_new: HashMap<CommitId, Commit> = HashMap::new();
+    let mut gerrit_changes: HashMap<String, (CommitId, ChangeId, gerrit_util::ChangeIdSource)> =
+        HashMap::new();
     for original_commit in to_upload.into_iter().rev() {
-        let trailers = parse_description_trailers(original_commit.description());
+        let (new_description, gerrit_change_id, source) = gerrit_util::generate_gerrit_change_id(
+            tx.repo(),
+            command.settings(),
+            &original_commit,
+        )?;
 
-        let change_id_trailers: Vec<&Trailer> = trailers
-            .iter()
-            .filter(|trailer| trailer.key == "Change-Id" || trailer.key == "Link")
-            .collect();
-
-        // There shouldn't be multiple change-ID fields. So just error out if
-        // there is.
-        if change_id_trailers.len() > 1 {
+        if let Some((_, old_change_id, old_change_source)) = gerrit_changes.insert(
+            gerrit_change_id.clone(),
+            (
+                original_commit.id().clone(),
+                original_commit.change_id().clone(),
+                source.clone(),
+            ),
+        ) {
+            let old_change_id = short_change_hash(&old_change_id);
+            let new_change_id = short_change_hash(original_commit.change_id());
+            // This should mostly only happen when the user puts footers in the
+            // commit description themselves.
             return Err(user_error(format!(
-                "Multiple Change-Id footers in revision {}",
-                short_change_hash(original_commit.change_id())
+                "Attempting to upload multiple commits {old_change_id} and {new_change_id} with \
+                 the same Gerrit Change-Id {gerrit_change_id}",
+            ))
+            .hinted(format!(
+                "{old_change_id} got the Gerrit Change-Id from {old_change_source}"
+            ))
+            .hinted(format!(
+                "{new_change_id} got the Gerrit Change-Id from {source}"
             )));
         }
-
-        // The user can choose to explicitly set their own change-ID to
-        // override the default change-ID based on the jj change-ID.
-        let new_description = if let Some(trailer) = change_id_trailers.first() {
-            // Check the change-id format is correct, intentionally leave the
-            // invalid change IDs as-is.
-            if trailer.key == "Change-Id"
-                && (trailer.value.len() != 41 || !trailer.value.starts_with('I'))
-            {
-                writeln!(
-                    ui.warning_default(),
-                    "Invalid Change-Id footer in revision {}",
-                    short_change_hash(original_commit.change_id()),
-                )?;
-            }
-            if trailer.key == "Link"
-                && !matches!(trailer.value.split_once("/id/I"), Some((_url, id)) if id.len() == 40)
-            {
-                writeln!(
-                    ui.warning_default(),
-                    "Invalid Link footer in revision {}",
-                    short_change_hash(original_commit.change_id()),
-                )?;
-            }
-
-            original_commit.description().to_owned()
-        } else {
-            // Gerrit change id is 40 chars, jj change id is 32, so we need padding.
-            // To be consistent with `format_gerrit_change_id_trailer``, we pad with
-            // 6a6a6964 (hex of "jjid").
-            let gerrit_change_id = format!("I{}6a6a6964", original_commit.change_id().hex());
-
-            let change_id_trailer =
-                if let Ok(review_url) = command.settings().get_string("gerrit.review-url") {
-                    format!(
-                        "Link: {}/id/{gerrit_change_id}",
-                        review_url.trim_end_matches('/'),
-                    )
-                } else {
-                    format!("Change-Id: {gerrit_change_id}")
-                };
-
-            format!(
-                "{}{}{}\n",
-                original_commit.description().trim(),
-                if trailers.is_empty() { "\n\n" } else { "\n" },
-                change_id_trailer,
-            )
-        };
 
         let new_parents = original_commit
             .parent_ids()
@@ -620,6 +654,8 @@ pub fn cmd_gerrit_upload(
 
         let new_commit = old_to_new.get(head).unwrap();
 
+        let mut callback = TeeCallback::new(ui);
+
         // how do we get better errors from the remote? 'git push' tells us
         // about rejected refs AND ALSO '(nothing changed)' when there are no
         // changes to push, but we don't get that here.
@@ -633,7 +669,7 @@ pub fn cmd_gerrit_upload(
                 new_target: Some(new_commit.id().clone()),
             }],
             &push_options.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
-            &mut GitSubprocessUi::new(ui),
+            &mut callback,
         )
         // Despite the fact that a manual git push will error out with 'no new
         // changes' if you're up to date, this git backend appears to silently
@@ -652,6 +688,39 @@ pub fn cmd_gerrit_upload(
         if !push_stats.all_ok() {
             return Err(user_error("Failed to push all changes to gerrit"));
         }
+
+        if review_url.is_none() {
+            // Ensure that on the next iteration of the loop, we don't re-output this.
+            review_url = calculate_gerrit_host(&callback.lines);
+            if let Some(review_url) = review_url.as_deref() {
+                writeln!(
+                    ui.warning_default(),
+                    "Gerrit URL is not set, some features will not work"
+                )?;
+                writeln!(
+                    ui.hint_default(),
+                    "Run `jj config set --repo gerrit.review-url {review_url}",
+                )?;
+            }
+        }
+    }
+
+    let mut tx = workspace_command.start_transaction();
+    let mut changes = false;
+    for (id, (commit, _, source)) in gerrit_changes {
+        if source == gerrit_util::ChangeIdSource::Generated {
+            let bookmark_name = RefNameBuf::from(format!("gerrit-{id}"));
+            let target = RefTarget::normal(commit.clone());
+            tx.repo_mut()
+                .set_local_bookmark_target(&bookmark_name, target);
+            changes = true;
+        }
+    }
+
+    // Prevent it from writing "Nothing changed" when the push succeeded but we
+    // didn't need to update bookmarks.
+    if changes {
+        tx.finish(ui, "Add bookmarks for uploaded gerrit URLs")?;
     }
     Ok(())
 }
@@ -752,6 +821,35 @@ mod tests {
             .into_iter()
             .map(|s| s.to_string())
             .collect::<Vec<_>>(),
+        );
+    }
+
+    #[test]
+    fn gerrit_host_regex_test() {
+        let re = Regex::new(GERRIT_HOST_REGEX).unwrap();
+        let parse = |x| re.captures(x).map(|c| c[1].to_string());
+        assert_eq!(
+            parse(
+                "  http://gerrithost/#/c/RecipeBook/+/702 Change to a proper, yeast based pizza \
+                 dough."
+            ),
+            Some("http://gerrithost/#".to_string())
+        );
+        assert_eq!(
+            parse(
+                "  http://gerrithost/#/RecipeBook/+/702 Change to a proper, yeast based pizza \
+                 dough."
+            ),
+            None
+        );
+        assert_eq!(
+            parse("  http://gerrithost/#/c/+/702 Change to a proper, yeast based pizza dough."),
+            None
+        );
+        // A real-world example.
+        assert_eq!(
+            parse("  https://chromium-review.googlesource.com/c/build/+/123456 hello [NEW]"),
+            Some("https://chromium-review.googlesource.com".to_string())
         );
     }
 }
