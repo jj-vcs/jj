@@ -50,6 +50,7 @@ use jj_lib::git::GitImportError;
 use jj_lib::git::GitImportOptions;
 use jj_lib::git::GitImportStats;
 use jj_lib::git::GitPushError;
+use jj_lib::git::GitPushOptions;
 use jj_lib::git::GitPushStats;
 use jj_lib::git::GitRefKind;
 use jj_lib::git::GitRefUpdate;
@@ -4423,7 +4424,7 @@ fn test_push_bookmarks_success() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
-        &[],
+        &GitPushOptions::default(),
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -4503,7 +4504,7 @@ fn test_push_bookmarks_deletion() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
-        &[],
+        &GitPushOptions::default(),
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -4582,7 +4583,7 @@ fn test_push_bookmarks_mixed_deletion_and_addition() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
-        &[],
+        &GitPushOptions::default(),
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -4664,7 +4665,7 @@ fn test_push_bookmarks_not_fast_forward() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
-        &[],
+        &GitPushOptions::default(),
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -4718,7 +4719,7 @@ fn test_push_bookmarks_partial_success() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
-        &[],
+        &GitPushOptions::default(),
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -4828,7 +4829,7 @@ fn test_push_bookmarks_unmapped_refs() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
-        &[],
+        &GitPushOptions::default(),
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -4925,9 +4926,8 @@ fn test_push_updates_unexpectedly_moved_sideways_on_remote() {
             subprocess_options,
             "origin".as_ref(),
             &targets,
-            &[],
             &mut NullCallback,
-            &[],
+            &GitPushOptions::default(),
         )
     };
 
@@ -5011,9 +5011,8 @@ fn test_push_updates_unexpectedly_moved_forward_on_remote() {
             subprocess_options,
             "origin".as_ref(),
             &targets,
-            &[],
             &mut NullCallback,
-            &[],
+            &GitPushOptions::default(),
         )
     };
 
@@ -5077,9 +5076,8 @@ fn test_push_updates_unexpectedly_exists_on_remote() {
             subprocess_options,
             "origin".as_ref(),
             &targets,
-            &[],
             &mut NullCallback,
-            &[],
+            &GitPushOptions::default(),
         )
     };
 
@@ -5115,9 +5113,8 @@ fn test_push_updates_success() {
             expected_current_target: Some(setup.main_commit.id().clone()),
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
-        &[],
         &mut NullCallback,
-        &[],
+        &GitPushOptions::default(),
     )
     .unwrap();
     insta::assert_debug_snapshot!(stats, @r#"
@@ -5163,9 +5160,8 @@ fn test_push_updates_no_such_remote() {
             expected_current_target: Some(setup.main_commit.id().clone()),
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
-        &[],
         &mut NullCallback,
-        &[],
+        &GitPushOptions::default(),
     );
     assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));
 }
@@ -5185,9 +5181,8 @@ fn test_push_updates_invalid_remote() {
             expected_current_target: Some(setup.main_commit.id().clone()),
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
-        &[],
         &mut NullCallback,
-        &[],
+        &GitPushOptions::default(),
     );
     assert!(matches!(result, Err(GitPushError::NoSuchRemote(_))));
 }
@@ -5221,7 +5216,7 @@ fn test_push_environment_options() {
         "origin".as_ref(),
         &targets,
         &mut NullCallback,
-        &[],
+        &GitPushOptions::default(),
     )
     .unwrap();
 
@@ -5913,9 +5908,14 @@ fn test_push_updates_with_options() {
             expected_current_target: Some(setup.main_commit.id().clone()),
             new_target: Some(setup.child_of_main_commit.id().clone()),
         }],
-        &[],
         &mut callback,
-        &["merge_request.create", "merge_request.draft"],
+        &GitPushOptions {
+            extra_args: vec![],
+            remote_push_options: vec![
+                "merge_request.create".to_owned(),
+                "merge_request.draft".to_owned(),
+            ],
+        },
     );
 
     let stats = result.unwrap();
