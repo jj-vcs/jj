@@ -177,6 +177,22 @@ impl<'repo> Bisector<'repo> {
         &self.skipped_commits
     }
 
+    /// Returns the number of remaining candidate commits to evaluate.
+    pub fn remaining_count(&self) -> Result<usize, BisectionError> {
+        let good_expr = RevsetExpression::commits(self.good_commits.iter().cloned().collect());
+        let bad_expr = RevsetExpression::commits(self.bad_commits.iter().cloned().collect());
+        let skipped_expr =
+            RevsetExpression::commits(self.skipped_commits.iter().cloned().collect());
+
+        let candidates = self
+            .input_range
+            .intersection(&good_expr.heads().range(&bad_expr.roots()))
+            .minus(&bad_expr)
+            .minus(&skipped_expr);
+
+        Ok(candidates.evaluate(self.repo)?.iter().count())
+    }
+
     /// Find the next commit to evaluate, or determine that there are no more
     /// steps.
     pub fn next_step(&mut self) -> Result<NextStep, BisectionError> {
