@@ -30,6 +30,7 @@ use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::config::ConfigGetResultExt as _;
 use jj_lib::git;
 use jj_lib::git::GitBranchPushTargets;
+use jj_lib::git::GitPushOptions;
 use jj_lib::git::GitSettings;
 use jj_lib::index::IndexResult;
 use jj_lib::op_store::RefTarget;
@@ -202,6 +203,7 @@ pub struct GitPushArgs {
     /// Only display what will change on the remote
     #[arg(long)]
     dry_run: bool,
+
     /// Git push options
     #[arg(long, short)]
     option: Vec<String>,
@@ -473,13 +475,17 @@ pub fn cmd_git_push(
         branch_updates: bookmark_updates,
     };
     let git_settings = GitSettings::from_settings(tx.settings())?;
+    let options = GitPushOptions {
+        extra_args: vec![],
+        remote_push_options: args.option.clone(),
+    };
     let push_stats = git::push_branches(
         tx.repo_mut(),
         git_settings.to_subprocess_options(),
         remote,
         &targets,
         &mut GitSubprocessUi::new(ui),
-        &args.option.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+        &options,
     )?;
     print_push_stats(ui, &push_stats)?;
     // TODO: On partial success, locally-created --change/--named bookmarks will

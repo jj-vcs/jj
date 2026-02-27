@@ -22,6 +22,7 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::git;
+use jj_lib::git::GitPushOptions;
 use jj_lib::git::GitRefUpdate;
 use jj_lib::git::GitSubprocessOptions;
 use jj_lib::object_id::ObjectId as _;
@@ -378,7 +379,11 @@ pub fn cmd_gerrit_upload(
     args: &UploadArgs,
 ) -> Result<(), CommandError> {
     // Do this first because the validation is cheap.
-    let push_options = push_options(args)?;
+    let push_options = GitPushOptions {
+        // TODO: migrate push_options() away from extra_args?
+        extra_args: push_options(args)?,
+        remote_push_options: vec![],
+    };
 
     let mut workspace_command = command.workspace_helper(ui)?;
 
@@ -632,9 +637,8 @@ pub fn cmd_gerrit_upload(
                 expected_current_target: None,
                 new_target: Some(new_commit.id().clone()),
             }],
-            &push_options.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
             &mut GitSubprocessUi::new(ui),
-            &[],
+            &push_options,
         )
         // Despite the fact that a manual git push will error out with 'no new
         // changes' if you're up to date, this git backend appears to silently

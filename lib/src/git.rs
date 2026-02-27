@@ -3041,6 +3041,15 @@ pub struct GitRefUpdate {
     pub new_target: Option<CommitId>,
 }
 
+/// Miscellaneous options for Git push command.
+#[derive(Clone, Debug, Default)]
+pub struct GitPushOptions {
+    /// Extra arguments passed in to `git push` command.
+    pub extra_args: Vec<String>,
+    /// `--push-option` arguments.
+    pub remote_push_options: Vec<String>,
+}
+
 /// Pushes the specified branches and updates the repo view accordingly.
 pub fn push_branches(
     mut_repo: &mut MutableRepo,
@@ -3048,7 +3057,7 @@ pub fn push_branches(
     remote: &RemoteName,
     targets: &GitBranchPushTargets,
     callback: &mut dyn GitSubprocessCallback,
-    remote_push_options: &[&str],
+    options: &GitPushOptions,
 ) -> Result<GitPushStats, GitPushError> {
     validate_remote_name(remote)?;
 
@@ -3067,9 +3076,8 @@ pub fn push_branches(
         subprocess_options,
         remote,
         &ref_updates,
-        &[],
         callback,
-        remote_push_options,
+        options,
     )?;
     tracing::debug!(?push_stats);
 
@@ -3122,9 +3130,8 @@ pub fn push_updates(
     subprocess_options: GitSubprocessOptions,
     remote_name: &RemoteName,
     updates: &[GitRefUpdate],
-    extra_args: &[&str],
     callback: &mut dyn GitSubprocessCallback,
-    remote_push_options: &[&str],
+    options: &GitPushOptions,
 ) -> Result<GitPushStats, GitPushError> {
     let mut qualified_remote_refs_expected_locations = HashMap::new();
     let mut refspecs = vec![];
@@ -3160,13 +3167,7 @@ pub fn push_updates(
         .map(|full_refspec| RefToPush::new(full_refspec, &qualified_remote_refs_expected_locations))
         .collect();
 
-    let mut push_stats = git_ctx.spawn_push(
-        remote_name,
-        &refs_to_push,
-        extra_args,
-        callback,
-        remote_push_options,
-    )?;
+    let mut push_stats = git_ctx.spawn_push(remote_name, &refs_to_push, callback, options)?;
     push_stats.pushed.sort();
     push_stats.rejected.sort();
     push_stats.remote_rejected.sort();

@@ -29,6 +29,7 @@ use itertools::Itertools as _;
 use thiserror::Error;
 
 use crate::git::FetchTagsOverride;
+use crate::git::GitPushOptions;
 use crate::git::GitPushStats;
 use crate::git::GitSubprocessOptions;
 use crate::git::NegativeRefSpec;
@@ -262,9 +263,8 @@ impl GitSubprocessContext {
         &self,
         remote_name: &RemoteName,
         references: &[RefToPush],
-        extra_args: &[&str],
         callback: &mut dyn GitSubprocessCallback,
-        remote_push_options: &[&str],
+        options: &GitPushOptions,
     ) -> Result<GitPushStats, GitSubprocessError> {
         let mut command = self.create_command();
         command.stdout(Stdio::piped());
@@ -278,16 +278,17 @@ impl GitSubprocessContext {
             command.arg("--progress");
         }
         command.args(
-            remote_push_options
+            options
+                .remote_push_options
                 .iter()
-                .map(|remote_push_option: &&str| format!("--push-option={remote_push_option}")),
+                .map(|option| format!("--push-option={option}")),
         );
         command.args(
             references
                 .iter()
                 .map(|reference| format!("--force-with-lease={}", reference.to_git_lease())),
         );
-        command.args(extra_args);
+        command.args(&options.extra_args);
         command.args(["--", remote_name.as_str()]);
         // with --force-with-lease we cannot have the forced refspec,
         // as it ignores the lease
