@@ -16,7 +16,6 @@ use std::slice;
 
 use clap::ArgGroup;
 use clap_complete::ArgValueCompleter;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -119,6 +118,6 @@ pub(crate) async fn cmd_interdiff(
             matcher.as_ref(),
             ui.term_width(),
         )
-        .block_on()?;
+        .await?;
     Ok(())
 }

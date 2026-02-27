@@ -21,7 +21,6 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -109,7 +108,7 @@ pub(crate) async fn cmd_status(
                         &copy_records,
                         width,
                     )
-                    .block_on()?;
+                    .await?;
             }
 
             if wc_has_untracked {
@@ -131,7 +130,7 @@ pub(crate) async fn cmd_status(
                         Ok(())
                     },
                 )
-                .block_on()?;
+                .await?;
             }
         }
 
@@ -295,6 +294,7 @@ async fn visit_collapsed_untracked_files(
 
 #[cfg(test)]
 mod test {
+    use pollster::FutureExt as _;
     use testutils::TestRepo;
     use testutils::TestTreeBuilder;
     use testutils::repo_path;

@@ -26,7 +26,6 @@ use jj_lib::op_store::OperationId;
 use jj_lib::op_store::ViewId;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
-use pollster::FutureExt as _;
 use tokio::io::AsyncReadExt as _;
 
 use crate::cli_util::CommandHelper;
@@ -136,15 +135,15 @@ pub async fn cmd_debug_object(
                 FileId::try_from_hex(file_id)
                     .ok_or_else(|| user_error(format!(r#"Invalid hex file id: "{file_id}""#)))?
             };
-            let mut contents = repo_loader.store().read_file(&path, &id).block_on()?;
+            let mut contents = repo_loader.store().read_file(&path, &id).await?;
             let mut buf = vec![];
-            contents.read_to_end(&mut buf).block_on()?;
+            contents.read_to_end(&mut buf).await?;
             ui.stdout().write_all(&buf)?;
         }
         DebugObjectArgs::Operation(args) => {
             let id = OperationId::try_from_hex(&args.id)
                 .ok_or_else(|| user_error(format!(r#"Invalid hex operation id: "{}""#, args.id)))?;
-            let operation = repo_loader.op_store().read_operation(&id).block_on()?;
+            let operation = repo_loader.op_store().read_operation(&id).await?;
             writeln!(ui.stdout(), "{operation:#?}")?;
         }
         DebugObjectArgs::Symlink(args) => {
@@ -163,7 +162,7 @@ pub async fn cmd_debug_object(
                     user_error(format!(r#"Invalid hex symlink id: "{symlink_id}""#))
                 })?
             };
-            let target = repo_loader.store().read_symlink(&path, &id).block_on()?;
+            let target = repo_loader.store().read_symlink(&path, &id).await?;
             writeln!(ui.stdout(), "{target}")?;
         }
         DebugObjectArgs::Tree(args) => {
@@ -194,7 +193,7 @@ pub async fn cmd_debug_object(
                 ViewId::try_from_hex(view_id)
                     .ok_or_else(|| user_error(format!(r#"Invalid hex view id: "{view_id}""#)))?
             };
-            let view = repo_loader.op_store().read_view(&id).block_on()?;
+            let view = repo_loader.op_store().read_view(&id).await?;
             writeln!(ui.stdout(), "{view:#?}")?;
         }
     }

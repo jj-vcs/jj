@@ -72,4 +72,5 @@ pub async fn cmd_sparse_set(
         }
         Ok(new_patterns.into_iter().sorted_unstable().collect())
     })
+    .await
 }

@@ -16,7 +16,6 @@ use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -117,7 +116,7 @@ pub(crate) async fn cmd_resolve(
         .rewrite_commit(&commit)
         .set_tree(new_tree)
         .write()
-        .block_on()?;
+        .await?;
     tx.finish(
         ui,
         format!("Resolve conflicts in commit {}", commit.id().hex()),

@@ -14,7 +14,6 @@
 
 use jj_lib::default_index::DefaultIndexStore;
 use jj_lib::repo::Repo as _;
-use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -54,7 +53,7 @@ pub async fn cmd_debug_index_changed_paths(
                     writer.display(&format!("{}/{}", p.current, p.total)).ok();
                 }
             })
-            .block_on()
+            .await
             .map_err(internal_error)?
     };
     let stats = index.stats();

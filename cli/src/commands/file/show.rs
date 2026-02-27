@@ -28,7 +28,6 @@ use jj_lib::fileset::FilesetExpression;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -112,7 +111,7 @@ pub(crate) async fn cmd_file_show(
                 path: path.to_owned(),
                 value,
             };
-            write_tree_entries(ui, &workspace_command, &template, &tree, [Ok(entry)])?;
+            write_tree_entries(ui, &workspace_command, &template, &tree, [Ok(entry)]).await?;
             return Ok(());
         }
     }
@@ -127,7 +126,8 @@ pub(crate) async fn cmd_file_show(
         tree.entries_matching(matcher.as_ref())
             .map(|(path, value)| Ok((path, value?)))
             .map_ok(|(path, value)| TreeEntry { path, value }),
-    )?;
+    )
+    .await?;
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&tree])?;
     Ok(())
 }
@@ -144,10 +144,10 @@ fn get_single_path(expression: &FilesetExpression) -> Option<&RepoPath> {
     }
 }
 
-fn write_tree_entries(
+async fn write_tree_entries(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
-    template: &TemplateRenderer<TreeEntry>,
+    template: &TemplateRenderer<'_, TreeEntry>,
     tree: &MergedTree,
     entries: impl IntoIterator<Item = BackendResult<TreeEntry>>,
 ) -> Result<(), CommandError> {
@@ -156,8 +156,7 @@ fn write_tree_entries(
         let entry = entry?;
         template.format(&entry, ui.stdout_formatter().as_mut())?;
         let materialized =
-            materialize_tree_value(repo.store(), &entry.path, entry.value, tree.labels())
-                .block_on()?;
+            materialize_tree_value(repo.store(), &entry.path, entry.value, tree.labels()).await?;
         match materialized {
             MaterializedTreeValue::Absent => panic!("absent values should be excluded"),
             MaterializedTreeValue::AccessDenied(err) => {
@@ -168,7 +167,7 @@ fn write_tree_entries(
                 )?;
             }
             MaterializedTreeValue::File(file) => {
-                copy_async_to_sync(file.reader, ui.stdout_formatter().as_mut()).block_on()?;
+                copy_async_to_sync(file.reader, ui.stdout_formatter().as_mut()).await?;
             }
             MaterializedTreeValue::FileConflict(file) => {
                 let options = ConflictMaterializeOptions {

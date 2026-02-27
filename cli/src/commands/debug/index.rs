@@ -16,7 +16,6 @@ use std::fmt::Debug;
 use std::io::Write as _;
 
 use jj_lib::default_index::DefaultReadonlyIndex;
-use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -41,7 +40,7 @@ pub async fn cmd_debug_index(
     let index_store = repo_loader.index_store();
     let index = index_store
         .get_index_at_op(&op, repo_loader.store())
-        .block_on()
+        .await
         .map_err(internal_error)?;
     if let Some(default_index) = index.downcast_ref::<DefaultReadonlyIndex>() {
         let stats = default_index.stats();

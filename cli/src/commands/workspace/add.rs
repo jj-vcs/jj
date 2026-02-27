@@ -22,7 +22,6 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::workspace::Workspace;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -133,7 +132,7 @@ pub async fn cmd_workspace_add(
         working_copy_factory,
         workspace_name.clone(),
     )
-    .block_on()?;
+    .await?;
     writeln!(
         ui.status(),
         "Created workspace in \"{}\"",
@@ -169,7 +168,7 @@ pub async fn cmd_workspace_add(
         locked_ws
             .locked_wc()
             .set_sparse_patterns(sparse_patterns)
-            .block_on()
+            .await
             .map_err(|err| internal_error_with_message("Failed to set sparse patterns", err))?;
         let operation_id = locked_ws.locked_wc().old_operation_id().clone();
         locked_ws.finish(operation_id)?;
@@ -203,7 +202,7 @@ pub async fn cmd_workspace_add(
             .try_collect()?
     };
 
-    let tree = merge_commit_trees(tx.repo(), &parents).block_on()?;
+    let tree = merge_commit_trees(tx.repo(), &parents).await?;
     let parent_ids = parents.iter().ids().cloned().collect_vec();
     let mut commit_builder = tx.repo_mut().new_commit(parent_ids, tree).detach();
     let mut description = join_message_paragraphs(&args.message_paragraphs);
@@ -216,7 +215,7 @@ pub async fn cmd_workspace_add(
         description = add_trailers(ui, &tx, &commit_builder)?;
     }
     commit_builder.set_description(&description);
-    let new_wc_commit = commit_builder.write(tx.repo_mut()).block_on()?;
+    let new_wc_commit = commit_builder.write(tx.repo_mut()).await?;
 
     tx.edit(&new_wc_commit)?;
     tx.finish(

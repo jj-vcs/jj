@@ -33,7 +33,6 @@ use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::rewrite::CommitRewriter;
-use pollster::FutureExt as _;
 use ratatui::Terminal;
 use ratatui::layout::Constraint;
 use ratatui::layout::Direction;
@@ -138,7 +137,7 @@ pub(crate) async fn cmd_arrange(
 
     if let Some(new_state) = result? {
         let mut tx = workspace_command.start_transaction();
-        new_state.apply_changes(tx.repo_mut()).block_on()?;
+        new_state.apply_changes(tx.repo_mut()).await?;
         tx.finish(ui, "arrange revisions")?;
         Ok(())
     } else {
@@ -505,6 +504,7 @@ fn render(
 #[cfg(test)]
 mod tests {
     use maplit::hashset;
+    use pollster::FutureExt as _;
     use testutils::CommitBuilderExt as _;
     use testutils::TestRepo;
 

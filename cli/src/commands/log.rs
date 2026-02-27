@@ -28,7 +28,6 @@ use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetFilterPredicate;
 use jj_lib::revset::RevsetIteratorExt as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -285,7 +284,7 @@ pub(crate) async fn cmd_log(
                             matcher.as_ref(),
                             within_graph.width(),
                         )
-                        .block_on()?;
+                        .await?;
                 }
 
                 let commit = Some(commit);
@@ -338,7 +337,7 @@ pub(crate) async fn cmd_log(
                     let width = ui.term_width();
                     renderer
                         .show_patch(ui, formatter, &commit, matcher.as_ref(), width)
-                        .block_on()?;
+                        .await?;
                 }
 
                 let tree = commit.tree();

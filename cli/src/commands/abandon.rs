@@ -22,7 +22,6 @@ use jj_lib::refs::diff_named_ref_targets;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::rewrite::RewriteRefsOptions;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -127,7 +126,7 @@ pub(crate) async fn cmd_abandon(
                 Ok(())
             },
         )
-        .block_on()?;
+        .await?;
 
     let deleted_bookmarks = diff_named_ref_targets(
         tx.base_repo().view().local_bookmarks(),

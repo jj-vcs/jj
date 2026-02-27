@@ -23,7 +23,6 @@ use jj_lib::backend::CommitId;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::rewrite::rebase_commit;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -204,7 +203,7 @@ pub(crate) async fn cmd_new(
     let parent_commit_ids_set: HashSet<CommitId> = parent_commit_ids.iter().cloned().collect();
 
     let mut tx = workspace_command.start_transaction();
-    let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).block_on()?;
+    let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).await?;
     let mut commit_builder = tx
         .repo_mut()
         .new_commit(parent_commit_ids, merged_tree)
@@ -217,7 +216,7 @@ pub(crate) async fn cmd_new(
             String::new()
         } else {
             let template = tx.parse_commit_template(ui, &template_text)?;
-            let temp_commit = commit_builder.write_hidden().block_on()?;
+            let temp_commit = commit_builder.write_hidden().await?;
             text_util::complete_newline(
                 template.format_plain_text(&temp_commit).into_string_lossy(),
             )
@@ -232,7 +231,7 @@ pub(crate) async fn cmd_new(
         let description = add_trailers(ui, &tx, &commit_builder)?;
         commit_builder.set_description(&description);
     }
-    let new_commit = commit_builder.write(tx.repo_mut()).block_on()?;
+    let new_commit = commit_builder.write(tx.repo_mut()).await?;
 
     let child_commits: Vec<_> = child_commit_ids
         .iter()
@@ -253,10 +252,10 @@ pub(crate) async fn cmd_new(
         }
         new_parent_ids.insert(new_commit.id().clone());
         let new_parent_ids = new_parent_ids.into_iter().collect_vec();
-        rebase_commit(tx.repo_mut(), child_commit, new_parent_ids).block_on()?;
+        rebase_commit(tx.repo_mut(), child_commit, new_parent_ids).await?;
         num_rebased += 1;
     }
-    num_rebased += tx.repo_mut().rebase_descendants().block_on()?;
+    num_rebased += tx.repo_mut().rebase_descendants().await?;
 
     if args.no_edit {
         if let Some(mut formatter) = ui.status_formatter() {

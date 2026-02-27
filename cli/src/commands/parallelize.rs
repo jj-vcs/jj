@@ -20,7 +20,6 @@ use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -148,7 +147,7 @@ pub(crate) async fn cmd_parallelize(
                 Ok(())
             },
         )
-        .block_on()?;
+        .await?;
 
     tx.finish(ui, format!("parallelize {} commits", target_commits.len()))
 }
