@@ -119,6 +119,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   creation, fixing issues with "pending delete" semantics leaving lock files
   stuck.
 
+* `jj` now safely detaches the `HEAD` of alternate Git worktrees if their
+  checked-out branch is moved or deleted during Git export.
+
 ## [0.38.0] - 2026-02-04
 
 ### Release highlights
