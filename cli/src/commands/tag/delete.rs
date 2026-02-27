@@ -40,7 +40,7 @@ pub struct TagDeleteArgs {
     names: Vec<String>,
 }
 
-pub fn cmd_tag_delete(
+pub async fn cmd_tag_delete(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &TagDeleteArgs,

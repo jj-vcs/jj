@@ -75,7 +75,7 @@ pub(crate) struct ResolveArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_resolve(
+pub(crate) async fn cmd_resolve(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &ResolveArgs,

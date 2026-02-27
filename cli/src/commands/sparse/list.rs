@@ -30,7 +30,7 @@ use crate::ui::Ui;
 pub struct SparseListArgs {}
 
 #[instrument(skip_all)]
-pub fn cmd_sparse_list(
+pub async fn cmd_sparse_list(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &SparseListArgs,

@@ -121,7 +121,7 @@ pub struct BookmarkListArgs {
     sort: Vec<SortKey>,
 }
 
-pub fn cmd_bookmark_list(
+pub async fn cmd_bookmark_list(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BookmarkListArgs,

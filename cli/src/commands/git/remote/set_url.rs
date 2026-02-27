@@ -51,7 +51,7 @@ pub struct GitRemoteSetUrlArgs {
     fetch: Option<String>,
 }
 
-pub fn cmd_git_remote_set_url(
+pub async fn cmd_git_remote_set_url(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &GitRemoteSetUrlArgs,

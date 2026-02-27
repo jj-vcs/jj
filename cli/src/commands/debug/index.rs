@@ -28,7 +28,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct DebugIndexArgs {}
 
-pub fn cmd_debug_index(
+pub async fn cmd_debug_index(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &DebugIndexArgs,

@@ -167,62 +167,62 @@ pub fn default_app() -> clap::Command {
 }
 
 #[instrument(skip_all)]
-pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), CommandError> {
+pub async fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), CommandError> {
     let subcommand = Command::from_arg_matches(command_helper.matches()).unwrap();
     match &subcommand {
-        Command::Abandon(args) => abandon::cmd_abandon(ui, command_helper, args),
-        Command::Absorb(args) => absorb::cmd_absorb(ui, command_helper, args),
+        Command::Abandon(args) => abandon::cmd_abandon(ui, command_helper, args).await,
+        Command::Absorb(args) => absorb::cmd_absorb(ui, command_helper, args).await,
         #[cfg(feature = "bench")]
-        Command::Bench(args) => bench::cmd_bench(ui, command_helper, args),
-        Command::Bisect(args) => bisect::cmd_bisect(ui, command_helper, args),
-        Command::Bookmark(args) => bookmark::cmd_bookmark(ui, command_helper, args),
-        Command::Commit(args) => commit::cmd_commit(ui, command_helper, args),
-        Command::Config(args) => config::cmd_config(ui, command_helper, args),
-        Command::Debug(args) => debug::cmd_debug(ui, command_helper, args),
-        Command::Describe(args) => describe::cmd_describe(ui, command_helper, args),
-        Command::Diff(args) => diff::cmd_diff(ui, command_helper, args),
-        Command::Diffedit(args) => diffedit::cmd_diffedit(ui, command_helper, args),
-        Command::Duplicate(args) => duplicate::cmd_duplicate(ui, command_helper, args),
-        Command::Edit(args) => edit::cmd_edit(ui, command_helper, args),
-        Command::Evolog(args) => evolog::cmd_evolog(ui, command_helper, args),
-        Command::File(args) => file::cmd_file(ui, command_helper, args),
-        Command::Fix(args) => fix::cmd_fix(ui, command_helper, args),
+        Command::Bench(args) => bench::cmd_bench(ui, command_helper, args).await,
+        Command::Bisect(args) => bisect::cmd_bisect(ui, command_helper, args).await,
+        Command::Bookmark(args) => bookmark::cmd_bookmark(ui, command_helper, args).await,
+        Command::Commit(args) => commit::cmd_commit(ui, command_helper, args).await,
+        Command::Config(args) => config::cmd_config(ui, command_helper, args).await,
+        Command::Debug(args) => debug::cmd_debug(ui, command_helper, args).await,
+        Command::Describe(args) => describe::cmd_describe(ui, command_helper, args).await,
+        Command::Diff(args) => diff::cmd_diff(ui, command_helper, args).await,
+        Command::Diffedit(args) => diffedit::cmd_diffedit(ui, command_helper, args).await,
+        Command::Duplicate(args) => duplicate::cmd_duplicate(ui, command_helper, args).await,
+        Command::Edit(args) => edit::cmd_edit(ui, command_helper, args).await,
+        Command::Evolog(args) => evolog::cmd_evolog(ui, command_helper, args).await,
+        Command::File(args) => file::cmd_file(ui, command_helper, args).await,
+        Command::Fix(args) => fix::cmd_fix(ui, command_helper, args).await,
         #[cfg(feature = "git")]
-        Command::Gerrit(sub_args) => gerrit::cmd_gerrit(ui, command_helper, sub_args),
+        Command::Gerrit(sub_args) => gerrit::cmd_gerrit(ui, command_helper, sub_args).await,
         #[cfg(feature = "git")]
-        Command::Git(args) => git::cmd_git(ui, command_helper, args),
-        Command::Help(args) => help::cmd_help(ui, command_helper, args),
-        Command::Arrange(args) => arrange::cmd_arrange(ui, command_helper, args),
-        Command::Interdiff(args) => interdiff::cmd_interdiff(ui, command_helper, args),
-        Command::Log(args) => log::cmd_log(ui, command_helper, args),
-        Command::Metaedit(args) => metaedit::cmd_metaedit(ui, command_helper, args),
-        Command::New(args) => new::cmd_new(ui, command_helper, args),
-        Command::Next(args) => next::cmd_next(ui, command_helper, args),
-        Command::Operation(args) => operation::cmd_operation(ui, command_helper, args),
-        Command::Parallelize(args) => parallelize::cmd_parallelize(ui, command_helper, args),
-        Command::Prev(args) => prev::cmd_prev(ui, command_helper, args),
-        Command::Rebase(args) => rebase::cmd_rebase(ui, command_helper, args),
-        Command::Redo(args) => redo::cmd_redo(ui, command_helper, args),
-        Command::Resolve(args) => resolve::cmd_resolve(ui, command_helper, args),
-        Command::Restore(args) => restore::cmd_restore(ui, command_helper, args),
-        Command::Revert(args) => revert::cmd_revert(ui, command_helper, args),
-        Command::Root(args) => root::cmd_root(ui, command_helper, args),
-        Command::Run(args) => run::cmd_run(ui, command_helper, args),
+        Command::Git(args) => git::cmd_git(ui, command_helper, args).await,
+        Command::Help(args) => help::cmd_help(ui, command_helper, args).await,
+        Command::Arrange(args) => arrange::cmd_arrange(ui, command_helper, args).await,
+        Command::Interdiff(args) => interdiff::cmd_interdiff(ui, command_helper, args).await,
+        Command::Log(args) => log::cmd_log(ui, command_helper, args).await,
+        Command::Metaedit(args) => metaedit::cmd_metaedit(ui, command_helper, args).await,
+        Command::New(args) => new::cmd_new(ui, command_helper, args).await,
+        Command::Next(args) => next::cmd_next(ui, command_helper, args).await,
+        Command::Operation(args) => operation::cmd_operation(ui, command_helper, args).await,
+        Command::Parallelize(args) => parallelize::cmd_parallelize(ui, command_helper, args).await,
+        Command::Prev(args) => prev::cmd_prev(ui, command_helper, args).await,
+        Command::Rebase(args) => rebase::cmd_rebase(ui, command_helper, args).await,
+        Command::Redo(args) => redo::cmd_redo(ui, command_helper, args).await,
+        Command::Resolve(args) => resolve::cmd_resolve(ui, command_helper, args).await,
+        Command::Restore(args) => restore::cmd_restore(ui, command_helper, args).await,
+        Command::Revert(args) => revert::cmd_revert(ui, command_helper, args).await,
+        Command::Root(args) => root::cmd_root(ui, command_helper, args).await,
+        Command::Run(args) => run::cmd_run(ui, command_helper, args).await,
         Command::SimplifyParents(args) => {
-            simplify_parents::cmd_simplify_parents(ui, command_helper, args)
+            simplify_parents::cmd_simplify_parents(ui, command_helper, args).await
         }
-        Command::Show(args) => show::cmd_show(ui, command_helper, args),
-        Command::Sign(args) => sign::cmd_sign(ui, command_helper, args),
-        Command::Sparse(args) => sparse::cmd_sparse(ui, command_helper, args),
-        Command::Split(args) => split::cmd_split(ui, command_helper, args),
-        Command::Squash(args) => squash::cmd_squash(ui, command_helper, args),
-        Command::Status(args) => status::cmd_status(ui, command_helper, args),
-        Command::Tag(args) => tag::cmd_tag(ui, command_helper, args),
-        Command::Undo(args) => undo::cmd_undo(ui, command_helper, args),
-        Command::Unsign(args) => unsign::cmd_unsign(ui, command_helper, args),
-        Command::Util(args) => util::cmd_util(ui, command_helper, args),
-        Command::Version(args) => version::cmd_version(ui, command_helper, args),
-        Command::Workspace(args) => workspace::cmd_workspace(ui, command_helper, args),
+        Command::Show(args) => show::cmd_show(ui, command_helper, args).await,
+        Command::Sign(args) => sign::cmd_sign(ui, command_helper, args).await,
+        Command::Sparse(args) => sparse::cmd_sparse(ui, command_helper, args).await,
+        Command::Split(args) => split::cmd_split(ui, command_helper, args).await,
+        Command::Squash(args) => squash::cmd_squash(ui, command_helper, args).await,
+        Command::Status(args) => status::cmd_status(ui, command_helper, args).await,
+        Command::Tag(args) => tag::cmd_tag(ui, command_helper, args).await,
+        Command::Undo(args) => undo::cmd_undo(ui, command_helper, args).await,
+        Command::Unsign(args) => unsign::cmd_unsign(ui, command_helper, args).await,
+        Command::Util(args) => util::cmd_util(ui, command_helper, args).await,
+        Command::Version(args) => version::cmd_version(ui, command_helper, args).await,
+        Command::Workspace(args) => workspace::cmd_workspace(ui, command_helper, args).await,
     }
 }
 
@@ -230,9 +230,9 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
 pub(crate) fn renamed_cmd<Args>(
     old_name: &'static str,
     new_name: &'static str,
-    cmd: impl Fn(&mut Ui, &CommandHelper, &Args) -> Result<(), CommandError>,
-) -> impl Fn(&mut Ui, &CommandHelper, &Args) -> Result<(), CommandError> {
-    move |ui: &mut Ui, command: &CommandHelper, args: &Args| -> Result<(), CommandError> {
+    cmd: impl AsyncFn(&mut Ui, &CommandHelper, &Args) -> Result<(), CommandError>,
+) -> impl AsyncFn(&mut Ui, &CommandHelper, &Args) -> Result<(), CommandError> {
+    async move |ui: &mut Ui, command: &CommandHelper, args: &Args| -> Result<(), CommandError> {
         writeln!(
             ui.warning_default(),
             "`jj {old_name}` is deprecated; use `jj {new_name}` instead, which is equivalent"
@@ -241,7 +241,7 @@ pub(crate) fn renamed_cmd<Args>(
             ui.warning_default(),
             "`jj {old_name}` will be removed in a future version, and this will be a hard error"
         )?;
-        cmd(ui, command, args)
+        cmd(ui, command, args).await
     }
 }
 

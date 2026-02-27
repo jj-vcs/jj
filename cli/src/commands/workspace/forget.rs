@@ -38,7 +38,7 @@ pub struct WorkspaceForgetArgs {
 }
 
 #[instrument(skip_all)]
-pub fn cmd_workspace_forget(
+pub async fn cmd_workspace_forget(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &WorkspaceForgetArgs,

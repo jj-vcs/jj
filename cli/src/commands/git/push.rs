@@ -227,7 +227,7 @@ enum BookmarkMoveDirection {
     Sideways,
 }
 
-pub fn cmd_git_push(
+pub async fn cmd_git_push(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &GitPushArgs,

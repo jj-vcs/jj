@@ -67,7 +67,7 @@ pub(crate) struct AbsorbArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_absorb(
+pub(crate) async fn cmd_absorb(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &AbsorbArgs,

@@ -373,7 +373,7 @@ fn push_options(args: &UploadArgs) -> Result<Vec<String>, CommandError> {
     .collect())
 }
 
-pub fn cmd_gerrit_upload(
+pub async fn cmd_gerrit_upload(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &UploadArgs,

@@ -46,16 +46,16 @@ pub enum RemoteCommand {
     SetUrl(GitRemoteSetUrlArgs),
 }
 
-pub fn cmd_git_remote(
+pub async fn cmd_git_remote(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &RemoteCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        RemoteCommand::Add(args) => cmd_git_remote_add(ui, command, args),
-        RemoteCommand::List(args) => cmd_git_remote_list(ui, command, args),
-        RemoteCommand::Remove(args) => cmd_git_remote_remove(ui, command, args),
-        RemoteCommand::Rename(args) => cmd_git_remote_rename(ui, command, args),
-        RemoteCommand::SetUrl(args) => cmd_git_remote_set_url(ui, command, args),
+        RemoteCommand::Add(args) => cmd_git_remote_add(ui, command, args).await,
+        RemoteCommand::List(args) => cmd_git_remote_list(ui, command, args).await,
+        RemoteCommand::Remove(args) => cmd_git_remote_remove(ui, command, args).await,
+        RemoteCommand::Rename(args) => cmd_git_remote_rename(ui, command, args).await,
+        RemoteCommand::SetUrl(args) => cmd_git_remote_set_url(ui, command, args).await,
     }
 }

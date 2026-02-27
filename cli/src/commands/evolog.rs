@@ -99,7 +99,7 @@ pub(crate) struct EvologArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_evolog(
+pub(crate) async fn cmd_evolog(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &EvologArgs,

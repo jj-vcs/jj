@@ -100,7 +100,7 @@ pub(crate) struct DuplicateArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_duplicate(
+pub(crate) async fn cmd_duplicate(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &DuplicateArgs,

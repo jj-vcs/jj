@@ -94,7 +94,7 @@ pub struct OperationLogArgs {
     diff_format: DiffFormatArgs,
 }
 
-pub fn cmd_op_log(
+pub async fn cmd_op_log(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &OperationLogArgs,

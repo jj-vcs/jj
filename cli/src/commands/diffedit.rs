@@ -91,7 +91,7 @@ pub(crate) struct DiffeditArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_diffedit(
+pub(crate) async fn cmd_diffedit(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &DiffeditArgs,

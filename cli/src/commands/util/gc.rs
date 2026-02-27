@@ -41,7 +41,7 @@ pub struct UtilGcArgs {
     expire: Option<String>,
 }
 
-pub fn cmd_util_gc(
+pub async fn cmd_util_gc(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &UtilGcArgs,

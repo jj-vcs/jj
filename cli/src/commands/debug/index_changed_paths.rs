@@ -31,7 +31,7 @@ pub struct DebugIndexChangedPathsArgs {
     limit: u32,
 }
 
-pub fn cmd_debug_index_changed_paths(
+pub async fn cmd_debug_index_changed_paths(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &DebugIndexChangedPathsArgs,

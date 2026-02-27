@@ -27,7 +27,7 @@ use crate::ui::Ui;
 pub(crate) struct RootArgs {}
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_root(
+pub(crate) async fn cmd_root(
     ui: &mut Ui,
     command: &CommandHelper,
     RootArgs {}: &RootArgs,

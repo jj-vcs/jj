@@ -72,7 +72,7 @@ pub struct BookmarkAdvanceArgs {
     to: Option<RevisionArg>,
 }
 
-pub fn cmd_bookmark_advance(
+pub async fn cmd_bookmark_advance(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BookmarkAdvanceArgs,

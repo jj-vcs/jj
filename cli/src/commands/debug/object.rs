@@ -104,7 +104,7 @@ pub struct DebugObjectViewArgs {
     op: Option<String>,
 }
 
-pub fn cmd_debug_object(
+pub async fn cmd_debug_object(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &DebugObjectArgs,

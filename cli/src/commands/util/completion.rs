@@ -51,7 +51,7 @@ pub struct UtilCompletionArgs {
     shell: ShellCompletion,
 }
 
-pub fn cmd_util_completion(
+pub async fn cmd_util_completion(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &UtilCompletionArgs,

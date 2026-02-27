@@ -45,7 +45,7 @@ pub struct BookmarkRenameArgs {
     new: RefNameBuf,
 }
 
-pub fn cmd_bookmark_rename(
+pub async fn cmd_bookmark_rename(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BookmarkRenameArgs,

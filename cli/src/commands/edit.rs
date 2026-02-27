@@ -45,7 +45,7 @@ pub(crate) struct EditArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_edit(
+pub(crate) async fn cmd_edit(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &EditArgs,

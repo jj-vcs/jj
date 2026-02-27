@@ -28,7 +28,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct DebugLocalWorkingCopyArgs {}
 
-pub fn cmd_debug_local_working_copy(
+pub async fn cmd_debug_local_working_copy(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &DebugLocalWorkingCopyArgs,

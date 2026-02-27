@@ -59,15 +59,15 @@ pub enum GitColocationCommand {
     Status(GitColocationStatusArgs),
 }
 
-pub fn cmd_git_colocation(
+pub async fn cmd_git_colocation(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &GitColocationCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        GitColocationCommand::Disable(args) => cmd_git_colocation_disable(ui, command, args),
-        GitColocationCommand::Enable(args) => cmd_git_colocation_enable(ui, command, args),
-        GitColocationCommand::Status(args) => cmd_git_colocation_status(ui, command, args),
+        GitColocationCommand::Disable(args) => cmd_git_colocation_disable(ui, command, args).await,
+        GitColocationCommand::Enable(args) => cmd_git_colocation_enable(ui, command, args).await,
+        GitColocationCommand::Status(args) => cmd_git_colocation_status(ui, command, args).await,
     }
 }
 
@@ -90,7 +90,7 @@ fn workspace_supports_git_colocation_commands(
     Ok(())
 }
 
-fn cmd_git_colocation_status(
+async fn cmd_git_colocation_status(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &GitColocationStatusArgs,
@@ -143,7 +143,7 @@ fn cmd_git_colocation_status(
     Ok(())
 }
 
-fn cmd_git_colocation_enable(
+async fn cmd_git_colocation_enable(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &GitColocationEnableArgs,
@@ -209,7 +209,7 @@ fn cmd_git_colocation_enable(
     Ok(())
 }
 
-fn cmd_git_colocation_disable(
+async fn cmd_git_colocation_disable(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &GitColocationDisableArgs,

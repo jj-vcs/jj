@@ -40,7 +40,11 @@ pub struct RedoArgs {}
 
 const REDO_OP_DESC_PREFIX: &str = "redo: restore to operation ";
 
-pub fn cmd_redo(ui: &mut Ui, command: &CommandHelper, _: &RedoArgs) -> Result<(), CommandError> {
+pub async fn cmd_redo(
+    ui: &mut Ui,
+    command: &CommandHelper,
+    _: &RedoArgs,
+) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
 
     let mut op_to_redo = workspace_command.repo().operation().clone();

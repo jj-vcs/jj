@@ -367,7 +367,7 @@ pub struct RebaseDestinationArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_rebase(
+pub(crate) async fn cmd_rebase(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &RebaseArgs,

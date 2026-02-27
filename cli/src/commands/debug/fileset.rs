@@ -30,7 +30,7 @@ pub struct DebugFilesetArgs {
     path: String,
 }
 
-pub fn cmd_debug_fileset(
+pub async fn cmd_debug_fileset(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &DebugFilesetArgs,

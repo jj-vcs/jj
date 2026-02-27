@@ -31,7 +31,7 @@ pub struct WorkspaceRenameArgs {
 }
 
 #[instrument(skip_all)]
-pub fn cmd_workspace_rename(
+pub async fn cmd_workspace_rename(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &WorkspaceRenameArgs,

@@ -84,21 +84,21 @@ pub enum GitCommand {
     Root(GitRootArgs),
 }
 
-pub fn cmd_git(
+pub async fn cmd_git(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &GitCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        GitCommand::Clone(args) => cmd_git_clone(ui, command, args),
-        GitCommand::Colocation(subcommand) => cmd_git_colocation(ui, command, subcommand),
-        GitCommand::Export(args) => cmd_git_export(ui, command, args),
-        GitCommand::Fetch(args) => cmd_git_fetch(ui, command, args),
-        GitCommand::Import(args) => cmd_git_import(ui, command, args),
-        GitCommand::Init(args) => cmd_git_init(ui, command, args),
-        GitCommand::Push(args) => cmd_git_push(ui, command, args),
-        GitCommand::Remote(args) => cmd_git_remote(ui, command, args),
-        GitCommand::Root(args) => cmd_git_root(ui, command, args),
+        GitCommand::Clone(args) => cmd_git_clone(ui, command, args).await,
+        GitCommand::Colocation(subcommand) => cmd_git_colocation(ui, command, subcommand).await,
+        GitCommand::Export(args) => cmd_git_export(ui, command, args).await,
+        GitCommand::Fetch(args) => cmd_git_fetch(ui, command, args).await,
+        GitCommand::Import(args) => cmd_git_import(ui, command, args).await,
+        GitCommand::Init(args) => cmd_git_init(ui, command, args).await,
+        GitCommand::Push(args) => cmd_git_push(ui, command, args).await,
+        GitCommand::Remote(args) => cmd_git_remote(ui, command, args).await,
+        GitCommand::Root(args) => cmd_git_root(ui, command, args).await,
     }
 }
 

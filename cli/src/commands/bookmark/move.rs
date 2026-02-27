@@ -70,7 +70,7 @@ pub struct BookmarkMoveArgs {
     allow_backwards: bool,
 }
 
-pub fn cmd_bookmark_move(
+pub async fn cmd_bookmark_move(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BookmarkMoveArgs,

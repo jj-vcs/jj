@@ -41,7 +41,7 @@ pub struct OperationIntegrateArgs {
     operation: String,
 }
 
-pub fn cmd_op_integrate(
+pub async fn cmd_op_integrate(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &OperationIntegrateArgs,

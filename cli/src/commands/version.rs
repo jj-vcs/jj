@@ -25,7 +25,7 @@ use crate::ui::Ui;
 pub(crate) struct VersionArgs {}
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_version(
+pub(crate) async fn cmd_version(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &VersionArgs,

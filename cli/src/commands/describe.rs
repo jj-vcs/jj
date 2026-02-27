@@ -126,7 +126,7 @@ pub(crate) struct DescribeArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_describe(
+pub(crate) async fn cmd_describe(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &DescribeArgs,

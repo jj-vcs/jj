@@ -65,7 +65,7 @@ pub(crate) struct AbandonArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_abandon(
+pub(crate) async fn cmd_abandon(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &AbandonArgs,

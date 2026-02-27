@@ -26,7 +26,7 @@ pub struct DebugTemplateArgs {
     template: String,
 }
 
-pub fn cmd_debug_template(
+pub async fn cmd_debug_template(
     ui: &mut Ui,
     _command: &CommandHelper,
     args: &DebugTemplateArgs,

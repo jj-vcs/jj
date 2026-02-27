@@ -95,22 +95,22 @@ pub enum BookmarkCommand {
     Untrack(BookmarkUntrackArgs),
 }
 
-pub fn cmd_bookmark(
+pub async fn cmd_bookmark(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &BookmarkCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        BookmarkCommand::Advance(args) => cmd_bookmark_advance(ui, command, args),
-        BookmarkCommand::Create(args) => cmd_bookmark_create(ui, command, args),
-        BookmarkCommand::Delete(args) => cmd_bookmark_delete(ui, command, args),
-        BookmarkCommand::Forget(args) => cmd_bookmark_forget(ui, command, args),
-        BookmarkCommand::List(args) => cmd_bookmark_list(ui, command, args),
-        BookmarkCommand::Move(args) => cmd_bookmark_move(ui, command, args),
-        BookmarkCommand::Rename(args) => cmd_bookmark_rename(ui, command, args),
-        BookmarkCommand::Set(args) => cmd_bookmark_set(ui, command, args),
-        BookmarkCommand::Track(args) => cmd_bookmark_track(ui, command, args),
-        BookmarkCommand::Untrack(args) => cmd_bookmark_untrack(ui, command, args),
+        BookmarkCommand::Advance(args) => cmd_bookmark_advance(ui, command, args).await,
+        BookmarkCommand::Create(args) => cmd_bookmark_create(ui, command, args).await,
+        BookmarkCommand::Delete(args) => cmd_bookmark_delete(ui, command, args).await,
+        BookmarkCommand::Forget(args) => cmd_bookmark_forget(ui, command, args).await,
+        BookmarkCommand::List(args) => cmd_bookmark_list(ui, command, args).await,
+        BookmarkCommand::Move(args) => cmd_bookmark_move(ui, command, args).await,
+        BookmarkCommand::Rename(args) => cmd_bookmark_rename(ui, command, args).await,
+        BookmarkCommand::Set(args) => cmd_bookmark_set(ui, command, args).await,
+        BookmarkCommand::Track(args) => cmd_bookmark_track(ui, command, args).await,
+        BookmarkCommand::Untrack(args) => cmd_bookmark_untrack(ui, command, args).await,
     }
 }
 

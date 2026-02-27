@@ -119,7 +119,7 @@ pub struct GitFetchArgs {
 }
 
 #[tracing::instrument(skip_all)]
-pub fn cmd_git_fetch(
+pub async fn cmd_git_fetch(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &GitFetchArgs,

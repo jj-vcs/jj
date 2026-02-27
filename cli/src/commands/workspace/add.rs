@@ -87,7 +87,7 @@ pub struct WorkspaceAddArgs {
 }
 
 #[instrument(skip_all)]
-pub fn cmd_workspace_add(
+pub async fn cmd_workspace_add(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &WorkspaceAddArgs,

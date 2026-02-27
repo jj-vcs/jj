@@ -87,7 +87,7 @@ impl From<&NextArgs> for MovementArgs {
     }
 }
 
-pub(crate) fn cmd_next(
+pub(crate) async fn cmd_next(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &NextArgs,

@@ -53,7 +53,11 @@ pub struct RunArgs {
     jobs: Option<usize>,
 }
 
-pub fn cmd_run(ui: &mut Ui, command: &CommandHelper, args: &RunArgs) -> Result<(), CommandError> {
+pub async fn cmd_run(
+    ui: &mut Ui,
+    command: &CommandHelper,
+    args: &RunArgs,
+) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
     let _resolved_commits: Vec<_> = workspace_command
         .parse_union_revsets(ui, &args.revisions)?

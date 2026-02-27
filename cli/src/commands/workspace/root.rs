@@ -37,7 +37,7 @@ pub struct WorkspaceRootArgs {
 }
 
 #[instrument(skip_all)]
-pub fn cmd_workspace_root(
+pub async fn cmd_workspace_root(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &WorkspaceRootArgs,

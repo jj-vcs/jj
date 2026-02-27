@@ -58,7 +58,7 @@ pub struct BookmarkForgetArgs {
     names: Vec<String>,
 }
 
-pub fn cmd_bookmark_forget(
+pub async fn cmd_bookmark_forget(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BookmarkForgetArgs,

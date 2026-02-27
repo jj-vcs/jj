@@ -27,7 +27,7 @@ pub struct UtilInstallManPagesArgs {
     path: PathBuf,
 }
 
-pub fn cmd_util_install_man_pages(
+pub async fn cmd_util_install_man_pages(
     _ui: &mut Ui,
     command: &CommandHelper,
     args: &UtilInstallManPagesArgs,

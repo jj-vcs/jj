@@ -43,7 +43,7 @@ pub struct WorkspaceListArgs {
 }
 
 #[instrument(skip_all)]
-pub fn cmd_workspace_list(
+pub async fn cmd_workspace_list(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &WorkspaceListArgs,

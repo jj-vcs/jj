@@ -265,7 +265,7 @@ struct ResolvedSplitArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_split(
+pub(crate) async fn cmd_split(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &SplitArgs,

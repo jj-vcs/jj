@@ -60,7 +60,11 @@ pub struct SignArgs {
     key: Option<String>,
 }
 
-pub fn cmd_sign(ui: &mut Ui, command: &CommandHelper, args: &SignArgs) -> Result<(), CommandError> {
+pub async fn cmd_sign(
+    ui: &mut Ui,
+    command: &CommandHelper,
+    args: &SignArgs,
+) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
 
     if !workspace_command.repo().store().signer().can_sign() {

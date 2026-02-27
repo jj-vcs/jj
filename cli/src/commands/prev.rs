@@ -83,7 +83,7 @@ impl From<&PrevArgs> for MovementArgs {
     }
 }
 
-pub(crate) fn cmd_prev(
+pub(crate) async fn cmd_prev(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &PrevArgs,

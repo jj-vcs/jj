@@ -49,7 +49,7 @@ pub struct OperationAbandonArgs {
     operation: String,
 }
 
-pub fn cmd_op_abandon(
+pub async fn cmd_op_abandon(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &OperationAbandonArgs,

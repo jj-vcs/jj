@@ -47,7 +47,7 @@ pub struct BookmarkDeleteArgs {
     names: Vec<String>,
 }
 
-pub fn cmd_bookmark_delete(
+pub async fn cmd_bookmark_delete(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BookmarkDeleteArgs,

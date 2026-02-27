@@ -58,7 +58,7 @@ pub struct BookmarkSetArgs {
     names: Vec<RefNameBuf>,
 }
 
-pub fn cmd_bookmark_set(
+pub async fn cmd_bookmark_set(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BookmarkSetArgs,

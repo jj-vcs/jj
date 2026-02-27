@@ -29,7 +29,7 @@ use crate::ui::Ui;
 pub struct WorkspaceUpdateStaleArgs {}
 
 #[instrument(skip_all)]
-pub fn cmd_workspace_update_stale(
+pub async fn cmd_workspace_update_stale(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &WorkspaceUpdateStaleArgs,

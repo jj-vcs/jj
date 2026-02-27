@@ -42,7 +42,7 @@ pub enum DebugWatchmanCommand {
 }
 
 #[cfg(feature = "watchman")]
-pub fn cmd_debug_watchman(
+pub async fn cmd_debug_watchman(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &DebugWatchmanCommand,
@@ -134,7 +134,7 @@ pub fn cmd_debug_watchman(
 }
 
 #[cfg(not(feature = "watchman"))]
-pub fn cmd_debug_watchman(
+pub async fn cmd_debug_watchman(
     _ui: &mut Ui,
     _command: &CommandHelper,
     _subcommand: &DebugWatchmanCommand,

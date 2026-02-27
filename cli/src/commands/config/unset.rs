@@ -36,7 +36,7 @@ pub struct ConfigUnsetArgs {
 }
 
 #[instrument(skip_all)]
-pub fn cmd_config_unset(
+pub async fn cmd_config_unset(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &ConfigUnsetArgs,

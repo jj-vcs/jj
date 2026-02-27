@@ -23,7 +23,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct UtilConfigSchemaArgs {}
 
-pub fn cmd_util_config_schema(
+pub async fn cmd_util_config_schema(
     ui: &mut Ui,
     _command: &CommandHelper,
     _args: &UtilConfigSchemaArgs,

@@ -28,7 +28,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct DebugReindexArgs {}
 
-pub fn cmd_debug_reindex(
+pub async fn cmd_debug_reindex(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &DebugReindexArgs,

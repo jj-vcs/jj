@@ -68,7 +68,7 @@ pub(crate) struct ParallelizeArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_parallelize(
+pub(crate) async fn cmd_parallelize(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &ParallelizeArgs,

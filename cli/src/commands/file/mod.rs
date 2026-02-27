@@ -36,18 +36,18 @@ pub enum FileCommand {
     Untrack(untrack::FileUntrackArgs),
 }
 
-pub fn cmd_file(
+pub async fn cmd_file(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &FileCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        FileCommand::Annotate(args) => annotate::cmd_file_annotate(ui, command, args),
-        FileCommand::Chmod(args) => chmod::cmd_file_chmod(ui, command, args),
-        FileCommand::List(args) => list::cmd_file_list(ui, command, args),
-        FileCommand::Search(args) => search::cmd_file_search(ui, command, args),
-        FileCommand::Show(args) => show::cmd_file_show(ui, command, args),
-        FileCommand::Track(args) => track::cmd_file_track(ui, command, args),
-        FileCommand::Untrack(args) => untrack::cmd_file_untrack(ui, command, args),
+        FileCommand::Annotate(args) => annotate::cmd_file_annotate(ui, command, args).await,
+        FileCommand::Chmod(args) => chmod::cmd_file_chmod(ui, command, args).await,
+        FileCommand::List(args) => list::cmd_file_list(ui, command, args).await,
+        FileCommand::Search(args) => search::cmd_file_search(ui, command, args).await,
+        FileCommand::Show(args) => show::cmd_file_show(ui, command, args).await,
+        FileCommand::Track(args) => track::cmd_file_track(ui, command, args).await,
+        FileCommand::Untrack(args) => untrack::cmd_file_untrack(ui, command, args).await,
     }
 }

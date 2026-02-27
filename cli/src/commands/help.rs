@@ -47,7 +47,7 @@ pub(crate) struct HelpArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_help(
+pub(crate) async fn cmd_help(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &HelpArgs,

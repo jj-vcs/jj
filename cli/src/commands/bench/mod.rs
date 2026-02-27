@@ -46,16 +46,16 @@ pub enum BenchCommand {
     Revset(BenchRevsetArgs),
 }
 
-pub(crate) fn cmd_bench(
+pub(crate) async fn cmd_bench(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &BenchCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        BenchCommand::CommonAncestors(args) => cmd_bench_common_ancestors(ui, command, args),
-        BenchCommand::IsAncestor(args) => cmd_bench_is_ancestor(ui, command, args),
-        BenchCommand::ResolvePrefix(args) => cmd_bench_resolve_prefix(ui, command, args),
-        BenchCommand::Revset(args) => cmd_bench_revset(ui, command, args),
+        BenchCommand::CommonAncestors(args) => cmd_bench_common_ancestors(ui, command, args).await,
+        BenchCommand::IsAncestor(args) => cmd_bench_is_ancestor(ui, command, args).await,
+        BenchCommand::ResolvePrefix(args) => cmd_bench_resolve_prefix(ui, command, args).await,
+        BenchCommand::Revset(args) => cmd_bench_revset(ui, command, args).await,
     }
 }
 

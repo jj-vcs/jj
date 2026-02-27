@@ -60,17 +60,17 @@ pub(crate) enum WorkspaceCommand {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_workspace(
+pub(crate) async fn cmd_workspace(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &WorkspaceCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        WorkspaceCommand::Add(args) => cmd_workspace_add(ui, command, args),
-        WorkspaceCommand::Forget(args) => cmd_workspace_forget(ui, command, args),
-        WorkspaceCommand::List(args) => cmd_workspace_list(ui, command, args),
-        WorkspaceCommand::Rename(args) => cmd_workspace_rename(ui, command, args),
-        WorkspaceCommand::Root(args) => cmd_workspace_root(ui, command, args),
-        WorkspaceCommand::UpdateStale(args) => cmd_workspace_update_stale(ui, command, args),
+        WorkspaceCommand::Add(args) => cmd_workspace_add(ui, command, args).await,
+        WorkspaceCommand::Forget(args) => cmd_workspace_forget(ui, command, args).await,
+        WorkspaceCommand::List(args) => cmd_workspace_list(ui, command, args).await,
+        WorkspaceCommand::Rename(args) => cmd_workspace_rename(ui, command, args).await,
+        WorkspaceCommand::Root(args) => cmd_workspace_root(ui, command, args).await,
+        WorkspaceCommand::UpdateStale(args) => cmd_workspace_update_stale(ui, command, args).await,
     }
 }

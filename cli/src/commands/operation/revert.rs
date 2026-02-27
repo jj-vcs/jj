@@ -52,7 +52,7 @@ fn tx_description(op: &Operation) -> String {
     format!("revert operation {}", op.id().hex())
 }
 
-pub fn cmd_op_revert(
+pub async fn cmd_op_revert(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &OperationRevertArgs,

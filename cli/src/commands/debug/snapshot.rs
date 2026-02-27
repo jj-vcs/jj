@@ -27,7 +27,7 @@ use crate::ui::Ui;
 #[command(hide = true)]
 pub struct DebugSnapshotArgs {}
 
-pub fn cmd_debug_snapshot(
+pub async fn cmd_debug_snapshot(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &DebugSnapshotArgs,
