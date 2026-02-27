@@ -236,7 +236,7 @@ pub(crate) async fn cmd_fix(
         tx.repo_mut(),
         &mut parallel_fixer,
     )
-    .block_on()?;
+    .await?;
     writeln!(
         ui.status(),
         "Fixed {} commits of {} checked.",

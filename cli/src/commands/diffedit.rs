@@ -20,7 +20,6 @@ use itertools::Itertools as _;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::rewrite::merge_commit_trees;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -134,7 +133,7 @@ don't make any changes, then the operation will be aborted.",
             tx.format_commit_summary(&target_commit),
         )
     };
-    let base_tree = merge_commit_trees(tx.repo(), base_commits.as_slice()).block_on()?;
+    let base_tree = merge_commit_trees(tx.repo(), base_commits.as_slice()).await?;
     let tree = target_commit.tree();
     let edited_tree =
         diff_editor.edit(Diff::new(&base_tree, &tree), &matcher, format_instructions)?;
@@ -145,16 +144,16 @@ don't make any changes, then the operation will be aborted.",
             .rewrite_commit(&target_commit)
             .set_tree(edited_tree)
             .write()
-            .block_on()?;
+            .await?;
         // rebase_descendants early; otherwise `new_commit` would always have
         // a conflicted change id at this point.
         let (num_rebased, extra_msg) = if args.restore_descendants {
             (
-                tx.repo_mut().reparent_descendants().block_on()?,
+                tx.repo_mut().reparent_descendants().await?,
                 " (while preserving their content)",
             )
         } else {
-            (tx.repo_mut().rebase_descendants().block_on()?, "")
+            (tx.repo_mut().rebase_descendants().await?, "")
         };
         if let Some(mut formatter) = ui.status_formatter()
             && num_rebased > 0

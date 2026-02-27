@@ -15,7 +15,6 @@
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::operation::Operation;
-use pollster::FutureExt as _;
 
 use super::diff::show_op_diff;
 use crate::cli_util::CommandHelper;
@@ -85,9 +84,9 @@ pub async fn cmd_op_show(
     let parent_ops: Vec<_> = op.parents().try_collect()?;
     let merged_parent_op = repo_loader
         .merge_operations(parent_ops.clone(), None)
-        .block_on()?;
-    let parent_repo = repo_loader.load_at(&merged_parent_op).block_on()?;
-    let repo = repo_loader.load_at(&op).block_on()?;
+        .await?;
+    let parent_repo = repo_loader.load_at(&merged_parent_op).await?;
+    let repo = repo_loader.load_at(&op).await?;
 
     let id_prefix_context = workspace_env.new_id_prefix_context();
     let commit_summary_template = {
@@ -144,7 +143,8 @@ pub async fn cmd_op_show(
             (!args.no_graph).then_some(graph_style),
             &with_content_format,
             diff_renderer.as_ref(),
-        )?;
+        )
+        .await?;
     }
     Ok(())
 }

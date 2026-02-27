@@ -15,7 +15,6 @@
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::workspace_store::SimpleWorkspaceStore;
 use jj_lib::workspace_store::WorkspaceStore as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -79,7 +78,7 @@ pub async fn cmd_workspace_rename(
             old = old_name.as_symbol(),
             new = new_name.as_symbol()
         ))
-        .block_on()?;
+        .await?;
     locked_ws.finish(repo.op_id().clone())?;
 
     Ok(())

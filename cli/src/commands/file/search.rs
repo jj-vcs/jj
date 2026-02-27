@@ -17,7 +17,6 @@ use jj_lib::conflicts::MaterializedTreeValue;
 use jj_lib::conflicts::materialize_tree_value;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringPattern;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -78,7 +77,7 @@ pub(crate) async fn cmd_file_search(
     for (path, value) in tree.entries_matching(file_matcher.as_ref()) {
         let value = value?;
         let materialized =
-            materialize_tree_value(store.as_ref(), &path, value, tree.labels()).block_on()?;
+            materialize_tree_value(store.as_ref(), &path, value, tree.labels()).await?;
         match materialized {
             MaterializedTreeValue::Absent => panic!("Entry for absent path in file listing"),
             MaterializedTreeValue::AccessDenied(error) => {
@@ -89,7 +88,7 @@ pub(crate) async fn cmd_file_search(
                 )?;
             }
             MaterializedTreeValue::File(mut materialized_file_value) => {
-                let content = materialized_file_value.read_all(&path).block_on()?;
+                let content = materialized_file_value.read_all(&path).await?;
                 // TODO: Make output templated
                 let ui_path = workspace_command.format_file_path(&path);
                 if let Some(_line) = pattern_matcher.match_lines(&content).next() {

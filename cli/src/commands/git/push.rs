@@ -47,10 +47,10 @@ use jj_lib::refs::classify_bookmark_push_action;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RemoteRefSymbolExpression;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::rewrite::CommitRewriter;
 use jj_lib::signing::SignBehavior;
 use jj_lib::str_util::StringExpression;
 use jj_lib::view::View;
-use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -442,7 +442,8 @@ pub async fn cmd_git_push(
             commits_to_sign,
             sign_behavior,
             bookmark_updates,
-        )?;
+        )
+        .await?;
         if let Some(mut formatter) = ui.status_formatter() {
             writeln!(
                 formatter,
@@ -598,9 +599,9 @@ fn validate_commits_ready_to_push(
 ///
 /// Returns the number of commits with rebased descendants and the updated list
 /// of bookmark names and corresponding [`BookmarkPushUpdate`]s.
-fn sign_commits_before_push(
+async fn sign_commits_before_push(
     ui: &Ui,
-    tx: &mut WorkspaceCommandTransaction,
+    tx: &mut WorkspaceCommandTransaction<'_>,
     commits_to_sign: Vec<Commit>,
     sign_behavior: SignBehavior,
     bookmark_updates: Vec<(RefNameBuf, BookmarkPushUpdate)>,
@@ -611,27 +612,30 @@ fn sign_commits_before_push(
     let mut progress_writer = ProgressWriter::new(ui, "Signing");
 
     tx.repo_mut()
-        .transform_descendants(commit_ids.iter().cloned().collect_vec(), async |rewriter| {
-            let old_commit = rewriter.old_commit();
-            let old_commit_id = old_commit.id().clone();
-            if let Some(writer) = &mut progress_writer {
-                writer.display(&old_commit.change_id().reverse_hex()).ok();
-            }
-            if commit_ids.contains(&old_commit_id) {
-                let commit = rewriter
-                    .reparent()
-                    .set_sign_behavior(sign_behavior)
-                    .write()
-                    .await?;
-                old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
-            } else {
-                num_rebased_descendants += 1;
-                let commit = rewriter.reparent().write().await?;
-                old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
-            }
-            Ok(())
-        })
-        .block_on()?;
+        .transform_descendants(
+            commit_ids.iter().cloned().collect_vec(),
+            async |rewriter: CommitRewriter<'_>| {
+                let old_commit = rewriter.old_commit();
+                let old_commit_id = old_commit.id().clone();
+                if let Some(writer) = &mut progress_writer {
+                    writer.display(&old_commit.change_id().reverse_hex()).ok();
+                }
+                if commit_ids.contains(&old_commit_id) {
+                    let commit = rewriter
+                        .reparent()
+                        .set_sign_behavior(sign_behavior)
+                        .write()
+                        .await?;
+                    old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
+                } else {
+                    num_rebased_descendants += 1;
+                    let commit = rewriter.reparent().write().await?;
+                    old_to_new_commits_map.insert(old_commit_id, commit.id().clone());
+                }
+                Ok(())
+            },
+        )
+        .await?;
 
     let bookmark_updates = bookmark_updates
         .into_iter()

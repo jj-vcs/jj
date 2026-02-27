@@ -18,7 +18,6 @@ use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -65,18 +64,18 @@ pub(crate) async fn cmd_file_untrack(
     for (path, _value) in wc_tree.entries_matching(matcher.as_ref()) {
         tree_builder.set_or_remove(path, Merge::absent());
     }
-    let new_tree = tree_builder.write_tree().block_on()?;
+    let new_tree = tree_builder.write_tree().await?;
     let new_commit = tx
         .repo_mut()
         .rewrite_commit(&wc_commit)
         .set_tree(new_tree)
         .write()
-        .block_on()?;
+        .await?;
     // Reset the working copy to the new commit
-    locked_ws.locked_wc().reset(&new_commit).block_on()?;
+    locked_ws.locked_wc().reset(&new_commit).await?;
     // Commit the working copy again so we can inform the user if paths couldn't be
     // untracked because they're not ignored.
-    let (new_wc_tree, stats) = locked_ws.locked_wc().snapshot(&options).block_on()?;
+    let (new_wc_tree, stats) = locked_ws.locked_wc().snapshot(&options).await?;
     if new_wc_tree.tree_ids() != new_commit.tree_ids() {
         let added_back = new_wc_tree.entries_matching(matcher.as_ref()).collect_vec();
         if !added_back.is_empty() {
@@ -99,17 +98,17 @@ Make sure they're ignored, then try again.",
         } else {
             // This means there were some concurrent changes made in the working copy. We
             // don't want to mix those in, so reset the working copy again.
-            locked_ws.locked_wc().reset(&new_commit).block_on()?;
+            locked_ws.locked_wc().reset(&new_commit).await?;
         }
     }
-    let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
+    let num_rebased = tx.repo_mut().rebase_descendants().await?;
     if num_rebased > 0 {
         writeln!(ui.status(), "Rebased {num_rebased} descendant commits")?;
     }
     if working_copy_shared_with_git {
         export_working_copy_changes_to_git(ui, tx.repo_mut(), &wc_tree, &new_commit.tree())?;
     }
-    let repo = tx.commit("untrack paths").block_on()?;
+    let repo = tx.commit("untrack paths").await?;
     locked_ws.finish(repo.op_id().clone())?;
     print_unmatched_explicit_paths(ui, &workspace_command, &fileset_expression, [&wc_tree])?;
     print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;

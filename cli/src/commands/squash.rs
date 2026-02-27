@@ -28,7 +28,6 @@ use jj_lib::repo::Repo as _;
 use jj_lib::rewrite;
 use jj_lib::rewrite::CommitWithSelection;
 use jj_lib::rewrite::merge_commit_trees;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -266,12 +265,12 @@ pub(crate) async fn cmd_squash(
                     .get_commit(commit_id)
             })
             .try_collect()?;
-        let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).block_on()?;
+        let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).await?;
         let commit = tx
             .repo_mut()
             .new_commit(parent_ids.clone(), merged_tree)
             .write()
-            .block_on()?;
+            .await?;
         let mut rewritten = HashMap::new();
         tx.repo_mut()
             .transform_descendants(child_ids.clone(), async |mut rewriter| {
@@ -294,7 +293,7 @@ pub(crate) async fn cmd_squash(
                 num_rebased += 1;
                 Ok(())
             })
-            .block_on()?;
+            .await?;
         for source in &mut *sources {
             if let Some(rewritten_source) = rewritten.remove(source.id()) {
                 *source = rewritten_source;
@@ -328,7 +327,7 @@ pub(crate) async fn cmd_squash(
         &destination,
         args.keep_emptied,
     )
-    .block_on()?
+    .await?
     {
         let mut commit_builder = squashed.commit_builder.detach();
         let single_description = match squashed_description {
@@ -347,7 +346,7 @@ pub(crate) async fn cmd_squash(
                 let description_with_trailers = add_trailers(ui, &tx, &commit_builder)?;
                 if args.editor {
                     commit_builder.set_description(&description_with_trailers);
-                    let temp_commit = commit_builder.write_hidden().block_on()?;
+                    let temp_commit = commit_builder.write_hidden().await?;
                     let intro = "";
                     let template = description_template(ui, &tx, intro, &temp_commit)?;
                     edit_description(&text_editor, &template)?
@@ -367,7 +366,7 @@ pub(crate) async fn cmd_squash(
             )?;
             // It's weird that commit.description() contains "JJ: " lines, but works.
             commit_builder.set_description(combined);
-            let temp_commit = commit_builder.write_hidden().block_on()?;
+            let temp_commit = commit_builder.write_hidden().await?;
             let intro = "Enter a description for the combined commit.";
             let template = description_template(ui, &tx, intro, &temp_commit)?;
             edit_description(&text_editor, &template)?
@@ -384,8 +383,8 @@ pub(crate) async fn cmd_squash(
                     .collect(),
             );
         }
-        let commit = commit_builder.write(tx.repo_mut()).block_on()?;
-        let num_rebased = tx.repo_mut().rebase_descendants().block_on()?;
+        let commit = commit_builder.write(tx.repo_mut()).await?;
+        let num_rebased = tx.repo_mut().rebase_descendants().await?;
         if let Some(mut formatter) = ui.status_formatter() {
             if insert_destination_commit {
                 write!(formatter, "Created new commit ")?;

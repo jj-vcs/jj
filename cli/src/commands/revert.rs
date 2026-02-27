@@ -26,7 +26,6 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::merge_commit_trees;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -146,7 +145,7 @@ pub(crate) async fn cmd_revert(
         .iter()
         .map(|id| tx.repo().store().get_commit(id))
         .try_collect()?;
-    let mut new_base_tree = merge_commit_trees(tx.repo(), &new_parents).block_on()?;
+    let mut new_base_tree = merge_commit_trees(tx.repo(), &new_parents).await?;
     let mut parent_ids = new_parent_ids;
     let mut parent_labels = conflict_label_for_commits(&new_parents);
 
@@ -174,13 +173,13 @@ pub(crate) async fn cmd_revert(
                 ),
             ),
         ]))
-        .block_on()?;
+        .await?;
         let new_commit = tx
             .repo_mut()
             .new_commit(parent_ids, new_tree.clone())
             .set_description(new_commit_description)
             .write()
-            .block_on()?;
+            .await?;
         parent_ids = vec![new_commit.id().clone()];
         parent_labels = new_commit.conflict_label();
         reverted_commits.push(new_commit);
@@ -215,7 +214,7 @@ pub(crate) async fn cmd_revert(
             rewriter.rebase().await?.write().await?;
             Ok(())
         })
-        .block_on()?;
+        .await?;
 
     if let Some(mut formatter) = ui.status_formatter() {
         writeln!(

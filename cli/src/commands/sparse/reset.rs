@@ -34,4 +34,5 @@ pub async fn cmd_sparse_reset(
     update_sparse_patterns_with(ui, &mut workspace_command, |_ui, _old_patterns| {
         Ok(vec![RepoPathBuf::root()])
     })
+    .await
 }

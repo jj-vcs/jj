@@ -17,7 +17,6 @@ use jj_lib::absorb::AbsorbSource;
 use jj_lib::absorb::absorb_hunks;
 use jj_lib::absorb::split_hunks_to_trees;
 use jj_lib::matchers::EverythingMatcher;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -84,7 +83,7 @@ pub(crate) async fn cmd_absorb(
 
     let repo = workspace_command.repo().as_ref();
     let source = AbsorbSource::from_commit(repo, source_commit.clone())?;
-    let selected_trees = split_hunks_to_trees(repo, &source, &destinations, &matcher).block_on()?;
+    let selected_trees = split_hunks_to_trees(repo, &source, &destinations, &matcher).await?;
 
     print_unmatched_explicit_paths(
         ui,
@@ -145,7 +144,7 @@ pub(crate) async fn cmd_absorb(
             let width = ui.term_width();
             diff_renderer
                 .show_patch(ui, formatter.as_mut(), commit, matcher, width)
-                .block_on()?;
+                .await?;
         }
     }
     Ok(())

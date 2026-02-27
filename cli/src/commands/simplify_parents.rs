@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use clap_complete::ArgValueCompleter;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
-use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -99,7 +98,7 @@ pub(crate) async fn cmd_simplify_parents(
             }
             Ok(())
         })
-        .block_on()?;
+        .await?;
 
     if let Some(mut formatter) = ui.status_formatter()
         && simplified_commits > 0

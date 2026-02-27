@@ -24,8 +24,6 @@ use jj_lib::fsmonitor::WatchmanConfig;
 use jj_lib::local_working_copy::LocalWorkingCopy;
 #[cfg(feature = "watchman")]
 use jj_lib::working_copy::WorkingCopy;
-#[cfg(feature = "watchman")]
-use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -91,7 +89,7 @@ pub async fn cmd_debug_watchman(
                 }
             };
             let wc = check_local_disk_wc(workspace_command.working_copy())?;
-            wc.query_watchman(&config).block_on()?;
+            wc.query_watchman(&config).await?;
             writeln!(
                 ui.stdout(),
                 "The watchman server seems to be installed and working correctly."
@@ -99,7 +97,7 @@ pub async fn cmd_debug_watchman(
             writeln!(
                 ui.stdout(),
                 "Background snapshotting is currently {}.",
-                if wc.is_watchman_trigger_registered(&config).block_on()? {
+                if wc.is_watchman_trigger_registered(&config).await? {
                     "active"
                 } else {
                     "inactive"
@@ -108,12 +106,12 @@ pub async fn cmd_debug_watchman(
         }
         DebugWatchmanCommand::QueryClock => {
             let wc = check_local_disk_wc(workspace_command.working_copy())?;
-            let (clock, _changed_files) = wc.query_watchman(&watchman_config).block_on()?;
+            let (clock, _changed_files) = wc.query_watchman(&watchman_config).await?;
             writeln!(ui.stdout(), "Clock: {clock:?}")?;
         }
         DebugWatchmanCommand::QueryChangedFiles => {
             let wc = check_local_disk_wc(workspace_command.working_copy())?;
-            let (_clock, changed_files) = wc.query_watchman(&watchman_config).block_on()?;
+            let (_clock, changed_files) = wc.query_watchman(&watchman_config).await?;
             writeln!(ui.stdout(), "Changed files: {changed_files:?}")?;
         }
         DebugWatchmanCommand::ResetClock => {

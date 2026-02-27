@@ -34,7 +34,6 @@ use jj_lib::refs::diff_named_remote_refs;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::revset::RevsetExpression;
-use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
@@ -106,11 +105,9 @@ pub async fn cmd_op_diff(
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;
 
-    let merged_from_op = repo_loader
-        .merge_operations(from_ops.clone(), None)
-        .block_on()?;
-    let from_repo = repo_loader.load_at(&merged_from_op).block_on()?;
-    let to_repo = repo_loader.load_at(&to_op).block_on()?;
+    let merged_from_op = repo_loader.merge_operations(from_ops.clone(), None).await?;
+    let from_repo = repo_loader.load_at(&merged_from_op).await?;
+    let to_repo = repo_loader.load_at(&to_op).await?;
 
     // Create a new transaction starting from `to_repo`.
     let mut tx = to_repo.start_transaction();
@@ -161,6 +158,7 @@ pub async fn cmd_op_diff(
         &with_content_format,
         diff_renderer.as_ref(),
     )
+    .await
 }
 
 /// Computes and shows the differences between two operations, using the given
@@ -168,16 +166,16 @@ pub async fn cmd_op_diff(
 /// `current_repo` should contain a `Repo` with the indices of both repos merged
 /// into it.
 #[expect(clippy::too_many_arguments)]
-pub fn show_op_diff(
+pub async fn show_op_diff(
     ui: &Ui,
     formatter: &mut dyn Formatter,
     current_repo: &dyn Repo,
     from_repo: &Arc<ReadonlyRepo>,
     to_repo: &Arc<ReadonlyRepo>,
-    commit_summary_template: &TemplateRenderer<Commit>,
+    commit_summary_template: &TemplateRenderer<'_, Commit>,
     graph_style: Option<GraphStyle>,
     with_content_format: &LogContentFormat,
-    diff_renderer: Option<&DiffRenderer>,
+    diff_renderer: Option<&DiffRenderer<'_>>,
 ) -> Result<(), CommandError> {
     let changes = compute_operation_commits_diff(current_repo, from_repo, to_repo)?;
     if !changes.is_empty() {
@@ -215,7 +213,7 @@ pub fn show_op_diff(
                         modified_change,
                         within_graph.width(),
                     )
-                    .block_on()?;
+                    .await?;
                 }
 
                 // TODO: customize node symbol?
@@ -240,8 +238,7 @@ pub fn show_op_diff(
                 })?;
                 if let Some(diff_renderer) = diff_renderer {
                     let width = with_content_format.width();
-                    show_change_diff(ui, formatter, diff_renderer, modified_change, width)
-                        .block_on()?;
+                    show_change_diff(ui, formatter, diff_renderer, modified_change, width).await?;
                 }
             }
         }

@@ -20,7 +20,6 @@ use jj_lib::backend::Timestamp;
 use jj_lib::commit::Commit;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::time_util::parse_datetime;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -258,7 +257,7 @@ pub(crate) async fn cmd_metaedit(
             }
             Ok(())
         })
-        .block_on()?;
+        .await?;
     if !modified.is_empty() {
         writeln!(ui.status(), "Modified {} commits:", modified.len())?;
         if let Some(mut formatter) = ui.status_formatter() {

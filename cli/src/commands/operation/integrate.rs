@@ -14,7 +14,6 @@
 
 use jj_lib::op_heads_store;
 use jj_lib::operation::Operation;
-use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::start_repo_transaction;
@@ -52,13 +51,13 @@ pub async fn cmd_op_integrate(
     repo_loader
         .op_heads_store()
         .update_op_heads(target_op.parent_ids(), target_op.id())
-        .block_on()?;
+        .await?;
 
     op_heads_store::resolve_op_heads(
         repo_loader.op_heads_store().as_ref(),
         repo_loader.op_store(),
         async |op_heads| -> Result<Operation, CommandError> {
-            let base_repo = repo_loader.load_at(&op_heads[0]).block_on()?;
+            let base_repo = repo_loader.load_at(&op_heads[0]).await?;
             // TODO: It may be helpful to print each operation we're merging here
             let mut tx = start_repo_transaction(&base_repo, command.string_args());
             for other_op_head in op_heads.into_iter().skip(1) {
@@ -84,7 +83,7 @@ pub async fn cmd_op_integrate(
                 .clone())
         },
     )
-    .block_on()?;
+    .await?;
 
     Ok(())
 }

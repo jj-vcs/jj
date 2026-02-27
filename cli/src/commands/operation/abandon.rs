@@ -19,7 +19,6 @@ use std::slice;
 use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::op_walk;
-use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::short_operation_hash;
@@ -70,7 +69,7 @@ pub async fn cmd_op_abandon(
     let (abandon_root_op, abandon_head_ops) =
         if let Some((root_op_str, head_op_str)) = args.operation.split_once("..") {
             let root_op = if root_op_str.is_empty() {
-                repo_loader.root_operation().block_on()
+                repo_loader.root_operation().await
             } else {
                 resolve_op(root_op_str)?
             };
@@ -131,7 +130,7 @@ pub async fn cmd_op_abandon(
     for (old, new_id) in reparented_head_ops().filter(|&(old, new_id)| old.id() != new_id) {
         op_heads_store
             .update_op_heads(slice::from_ref(old.id()), new_id)
-            .block_on()?;
+            .await?;
     }
     // Remap the operation id of the current workspace. If there were any
     // divergent operations, user will need to re-abandon their ancestors.

@@ -33,7 +33,6 @@ use jj_lib::ref_name::RemoteNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::str_util::StringExpression;
 use jj_lib::workspace::Workspace;
-use pollster::FutureExt as _;
 
 use super::write_repository_level_trunk_alias;
 use crate::cli_util::CommandHelper;
@@ -193,9 +192,9 @@ pub async fn cmd_git_clone(
     let canonical_wc_path = dunce::canonicalize(&wc_path)
         .map_err(|err| user_error_with_message(format!("Failed to create {wc_path_str}"), err))?;
 
-    let clone_result = (|| -> Result<_, CommandError> {
+    let clone_result: Result<_, CommandError> = async {
         let (workspace_command, config_env) =
-            init_workspace(ui, command, &canonical_wc_path, colocate)?;
+            init_workspace(ui, command, &canonical_wc_path, colocate).await?;
         let mut workspace_command = configure_remote(
             ui,
             command,
@@ -206,7 +205,8 @@ pub async fn cmd_git_clone(
             // included tags for future fetches.
             args.fetch_tags.unwrap_or(FetchTagsMode::Included),
             &ref_expr,
-        )?;
+        )
+        .await?;
         let default_branch = fetch_new_remote(
             ui,
             &mut workspace_command,
@@ -218,7 +218,8 @@ pub async fn cmd_git_clone(
             args.fetch_tags,
         )?;
         Ok((workspace_command, default_branch, config_env))
-    })();
+    }
+    .await;
     if clone_result.is_err() {
         let clean_up_dirs = || -> io::Result<()> {
             let sub_dirs = [Some(".jj"), colocate.then_some(".git")];
@@ -278,7 +279,7 @@ pub async fn cmd_git_clone(
     Ok(())
 }
 
-fn init_workspace(
+async fn init_workspace(
     ui: &Ui,
     command: &CommandHelper,
     wc_path: &Path,
@@ -286,16 +287,16 @@ fn init_workspace(
 ) -> Result<(WorkspaceCommandHelper, ConfigEnv), CommandError> {
     let (settings, config_env) = command.settings_for_new_workspace(ui, wc_path)?;
     let (workspace, repo) = if colocate {
-        Workspace::init_colocated_git(&settings, wc_path).block_on()?
+        Workspace::init_colocated_git(&settings, wc_path).await?
     } else {
-        Workspace::init_internal_git(&settings, wc_path).block_on()?
+        Workspace::init_internal_git(&settings, wc_path).await?
     };
     let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
     maybe_add_gitignore(&workspace_command)?;
     Ok((workspace_command, config_env))
 }
 
-fn configure_remote(
+async fn configure_remote(
     ui: &Ui,
     command: &CommandHelper,
     mut workspace_command: WorkspaceCommandHelper,
@@ -323,8 +324,8 @@ fn configure_remote(
     let op = workspace
         .repo_loader()
         .load_operation(workspace_command.repo().op_id())
-        .block_on()?;
-    let repo = workspace.repo_loader().load_at(&op).block_on()?;
+        .await?;
+    let repo = workspace.repo_loader().load_at(&op).await?;
     command.for_workable_repo(ui, workspace, repo)
 }
 

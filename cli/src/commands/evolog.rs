@@ -22,7 +22,6 @@ use jj_lib::graph::GraphEdge;
 use jj_lib::graph::TopoGroupedGraphIterator;
 use jj_lib::graph::reverse_graph;
 use jj_lib::matchers::EverythingMatcher;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -194,7 +193,7 @@ pub(crate) async fn cmd_evolog(
                         &EverythingMatcher,
                         within_graph.width(),
                     )
-                    .block_on()?;
+                    .await?;
             }
             let node_symbol = format_template(ui, &Some(entry.commit.clone()), &node_template);
             graph.add_node(
@@ -228,7 +227,7 @@ pub(crate) async fn cmd_evolog(
                         &EverythingMatcher,
                         width,
                     )
-                    .block_on()?;
+                    .await?;
             }
         }
     }

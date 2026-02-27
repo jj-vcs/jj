@@ -20,7 +20,6 @@ use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::signing::SignBehavior;
-use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
@@ -121,7 +120,7 @@ pub async fn cmd_sign(
                 Ok(())
             },
         )
-        .block_on()?;
+        .await?;
 
     if let Some(mut formatter) = ui.status_formatter()
         && !signed_commits.is_empty()

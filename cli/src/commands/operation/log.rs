@@ -22,7 +22,6 @@ use jj_lib::op_store::OpStoreError;
 use jj_lib::op_walk;
 use jj_lib::operation::Operation;
 use jj_lib::repo::RepoLoader;
-use pollster::FutureExt as _;
 
 use super::diff::show_op_diff;
 use crate::cli_util::CommandHelper;
@@ -103,7 +102,7 @@ pub async fn cmd_op_log(
         let workspace_command = command.workspace_helper(ui)?;
         let current_op = workspace_command.repo().operation();
         let repo_loader = workspace_command.workspace().repo_loader();
-        do_op_log(ui, workspace_command.env(), repo_loader, current_op, args)
+        do_op_log(ui, workspace_command.env(), repo_loader, current_op, args).await
     } else {
         // Don't load the repo so that the operation history can be inspected
         // even with a corrupted repo state. For example, you can find the first
@@ -112,11 +111,11 @@ pub async fn cmd_op_log(
         let workspace_env = command.workspace_environment(ui, &workspace)?;
         let repo_loader = workspace.repo_loader();
         let current_op = command.resolve_operation(ui, workspace.repo_loader())?;
-        do_op_log(ui, &workspace_env, repo_loader, &current_op, args)
+        do_op_log(ui, &workspace_env, repo_loader, &current_op, args).await
     }
 }
 
-fn do_op_log(
+async fn do_op_log(
     ui: &mut Ui,
     workspace_env: &WorkspaceCommandEnvironment,
     repo_loader: &RepoLoader,
@@ -154,16 +153,16 @@ fn do_op_log(
     let diff_formats = diff_formats_for_log(settings, &args.diff_format, args.patch)?;
     let maybe_show_op_diff = if args.op_diff || !diff_formats.is_empty() {
         let template_text = settings.get_string("templates.commit_summary")?;
-        let show = move |ui: &Ui,
-                         formatter: &mut dyn Formatter,
-                         op: &Operation,
-                         with_content_format: &LogContentFormat| {
+        let show = async move |ui: &Ui,
+                               formatter: &mut dyn Formatter,
+                               op: &Operation,
+                               with_content_format: &LogContentFormat| {
             let parent_ops: Vec<_> = op.parents().try_collect()?;
             let merged_parent_op = repo_loader
                 .merge_operations(parent_ops.clone(), None)
-                .block_on()?;
-            let parent_repo = repo_loader.load_at(&merged_parent_op).block_on()?;
-            let repo = repo_loader.load_at(op).block_on()?;
+                .await?;
+            let parent_repo = repo_loader.load_at(&merged_parent_op).await?;
+            let repo = repo_loader.load_at(op).await?;
 
             let id_prefix_context = workspace_env.new_id_prefix_context();
             let commit_summary_template = {
@@ -200,6 +199,7 @@ fn do_op_log(
                 with_content_format,
                 diff_renderer.as_ref(),
             )
+            .await
         };
         Some(show)
     } else {
@@ -235,7 +235,7 @@ fn do_op_log(
             })?;
             if let Some(show) = &maybe_show_op_diff {
                 let mut formatter = ui.new_formatter(&mut buffer);
-                show(ui, formatter.as_mut(), &op, &within_graph)?;
+                show(ui, formatter.as_mut(), &op, &within_graph).await?;
             }
             let node_symbol = format_template(ui, &op, &op_node_template);
             graph.add_node(
@@ -255,7 +255,7 @@ fn do_op_log(
             let op = op?;
             with_content_format.write(formatter, |formatter| template.format(&op, formatter))?;
             if let Some(show) = &maybe_show_op_diff {
-                show(ui, formatter, &op, &with_content_format)?;
+                show(ui, formatter, &op, &with_content_format).await?;
             }
         }
     }

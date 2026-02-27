@@ -230,7 +230,7 @@ pub(crate) async fn cmd_describe(
             // can be discarded as soon as it's no longer the working copy. Adding a
             // trailer to an empty description would break that logic.
             if use_editor || !commit_builder.description().is_empty() {
-                let temp_commit = commit_builder.write_hidden().block_on()?;
+                let temp_commit = commit_builder.write_hidden().await?;
                 let new_description = add_trailers_with_template(&trailer_template, &temp_commit)?;
                 commit_builder.set_description(new_description);
             }
@@ -333,7 +333,7 @@ pub(crate) async fn cmd_describe(
                 Ok(())
             },
         )
-        .block_on()?;
+        .await?;
     if num_described > 1 {
         writeln!(ui.status(), "Updated {num_described} commits")?;
     }

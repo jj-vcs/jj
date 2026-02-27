@@ -28,7 +28,6 @@ use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::view::View;
 use jj_lib::workspace::Workspace;
-use pollster::FutureExt as _;
 
 use super::write_repository_level_trunk_alias;
 use crate::cli_util::CommandHelper;
@@ -127,7 +126,7 @@ pub async fn cmd_git_init(
         args.colocate
     };
 
-    do_init(ui, command, &wc_path, colocate, args.git_repo.as_deref())?;
+    do_init(ui, command, &wc_path, colocate, args.git_repo.as_deref()).await?;
 
     let relative_wc_path = file_util::relative_path(cwd, &wc_path);
     writeln!(
@@ -145,7 +144,7 @@ pub async fn cmd_git_init(
     Ok(())
 }
 
-fn do_init(
+async fn do_init(
     ui: &mut Ui,
     command: &CommandHelper,
     workspace_root: &Path,
@@ -202,18 +201,17 @@ fn do_init(
     match &init_mode {
         GitInitMode::Colocate => {
             let (workspace, repo) =
-                Workspace::init_colocated_git(&settings, workspace_root).block_on()?;
+                Workspace::init_colocated_git(&settings, workspace_root).await?;
             let workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
         }
         GitInitMode::External(git_repo_path) => {
             let (workspace, repo) =
-                Workspace::init_external_git(&settings, workspace_root, git_repo_path)
-                    .block_on()?;
+                Workspace::init_external_git(&settings, workspace_root, git_repo_path).await?;
             // Import refs first so all the reachable commits are indexed in
             // chronological order.
             let colocated = is_colocated_git_workspace(&workspace, &repo);
-            let repo = init_git_refs(ui, repo, command.string_args(), colocated)?;
+            let repo = init_git_refs(ui, repo, command.string_args(), colocated).await?;
             let mut workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
             workspace_command.maybe_snapshot(ui)?;
@@ -236,7 +234,7 @@ fn do_init(
             print_trackable_remote_bookmarks(ui, workspace_command.repo().view())?;
         }
         GitInitMode::Internal => {
-            Workspace::init_internal_git(&settings, workspace_root).block_on()?;
+            Workspace::init_internal_git(&settings, workspace_root).await?;
         }
     }
     Ok(())
@@ -247,7 +245,7 @@ fn do_init(
 ///
 /// This is similar to `WorkspaceCommandHelper::import_git_refs()`, but never
 /// moves the Git HEAD to the working copy parent.
-fn init_git_refs(
+async fn init_git_refs(
     ui: &mut Ui,
     repo: Arc<ReadonlyRepo>,
     string_args: &[String],
@@ -271,7 +269,7 @@ fn init_git_refs(
         let stats = git::export_refs(tx.repo_mut())?;
         print_git_export_stats(ui, &stats)?;
     }
-    let repo = tx.commit("import git refs").block_on()?;
+    let repo = tx.commit("import git refs").await?;
     writeln!(
         ui.status(),
         "Done importing changes from the underlying Git repo."

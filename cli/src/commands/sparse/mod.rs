@@ -19,7 +19,6 @@ mod set;
 
 use clap::Subcommand;
 use jj_lib::repo_path::RepoPathBuf;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use self::edit::SparseEditArgs;
@@ -61,7 +60,7 @@ pub(crate) async fn cmd_sparse(
     }
 }
 
-fn update_sparse_patterns_with(
+async fn update_sparse_patterns_with(
     ui: &mut Ui,
     workspace_command: &mut WorkspaceCommandHelper,
     f: impl FnOnce(&mut Ui, &[RepoPathBuf]) -> Result<Vec<RepoPathBuf>, CommandError>,
@@ -71,7 +70,7 @@ fn update_sparse_patterns_with(
     let stats = locked_ws
         .locked_wc()
         .set_sparse_patterns(new_patterns)
-        .block_on()
+        .await
         .map_err(|err| internal_error_with_message("Failed to update working copy paths", err))?;
     let operation_id = locked_ws.locked_wc().old_operation_id().clone();
     locked_ws.finish(operation_id)?;

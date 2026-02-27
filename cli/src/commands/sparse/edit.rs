@@ -45,6 +45,7 @@ pub async fn cmd_sparse_edit(
         new_patterns.dedup();
         Ok(new_patterns)
     })
+    .await
 }
 
 fn edit_sparse(

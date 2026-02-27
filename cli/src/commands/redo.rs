@@ -15,7 +15,6 @@
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
-use pollster::FutureExt as _;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
@@ -110,7 +109,7 @@ pub async fn cmd_redo(
             .repo()
             .loader()
             .load_operation(&id_of_restored_op)
-            .block_on()?;
+            .await?;
     }
 
     if !op_to_redo
@@ -150,12 +149,12 @@ pub async fn cmd_redo(
             .repo()
             .loader()
             .load_operation(&id_of_original_op)
-            .block_on()?;
+            .await?;
     }
 
     let mut tx = workspace_command.start_transaction();
     let new_view = view_with_desired_portions_restored(
-        op_to_restore.view().block_on()?.store_view(),
+        op_to_restore.view().await?.store_view(),
         tx.base_repo().view().store_view(),
         &DEFAULT_REVERT_WHAT,
     );
