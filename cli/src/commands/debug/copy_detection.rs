@@ -15,7 +15,7 @@
 use std::fmt::Debug;
 use std::io::Write as _;
 
-use futures::executor::block_on_stream;
+use futures::StreamExt as _;
 use jj_lib::backend::CopyRecord;
 use jj_lib::repo::Repo as _;
 
@@ -43,16 +43,16 @@ pub async fn cmd_debug_copy_detection(
 
     let commit = ws.resolve_single_rev(ui, &args.revision)?;
     for parent_id in commit.parent_ids() {
-        for CopyRecord { target, source, .. } in
-            block_on_stream(store.get_copy_records(None, parent_id, commit.id())?)
-                .filter_map(|r| r.ok())
-        {
-            writeln!(
-                ui.stdout(),
-                "{} -> {}",
-                source.as_internal_file_string(),
-                target.as_internal_file_string()
-            )?;
+        let mut records = store.get_copy_records(None, parent_id, commit.id())?;
+        while let Some(result) = records.next().await {
+            if let Ok(CopyRecord { target, source, .. }) = result {
+                writeln!(
+                    ui.stdout(),
+                    "{} -> {}",
+                    source.as_internal_file_string(),
+                    target.as_internal_file_string()
+                )?;
+            }
         }
     }
     Ok(())
