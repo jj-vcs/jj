@@ -257,6 +257,11 @@ this was an undocumented command in the first place, it will be removed after
 initial commit description when no <code dir="auto">-m</code> message is provided.</p>
 </li>
 <li>
+<p>Add support for push options in <code dir="auto">jj git push</code> with the <code dir="auto">--option</code> flag.
+This allows users to pass options to the remote server when pushing commits.
+The short alias <code dir="auto">-o</code> is also supported.</p>
+</li>
+<li>
 <p>Templates now support <code dir="auto">first()</code>, <code dir="auto">last()</code>, <code dir="auto">get(index)</code>, <code dir="auto">reverse()</code>,
 <code dir="auto">skip(count)</code>, and <code dir="auto">take(count)</code> methods on list types for more flexible
 list manipulation.</p>
