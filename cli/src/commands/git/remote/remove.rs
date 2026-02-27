@@ -29,7 +29,7 @@ pub struct GitRemoteRemoveArgs {
     remote: RemoteNameBuf,
 }
 
-pub fn cmd_git_remote_remove(
+pub async fn cmd_git_remote_remove(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &GitRemoteRemoveArgs,

@@ -81,7 +81,7 @@ pub(crate) struct InterdiffArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_interdiff(
+pub(crate) async fn cmd_interdiff(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &InterdiffArgs,

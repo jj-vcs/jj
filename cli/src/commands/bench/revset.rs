@@ -46,7 +46,7 @@ pub struct BenchRevsetArgs {
     criterion: CriterionArgs,
 }
 
-pub fn cmd_bench_revset(
+pub async fn cmd_bench_revset(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BenchRevsetArgs,

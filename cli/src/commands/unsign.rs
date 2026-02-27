@@ -43,7 +43,7 @@ pub struct UnsignArgs {
     revisions: Vec<RevisionArg>,
 }
 
-pub fn cmd_unsign(
+pub async fn cmd_unsign(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &UnsignArgs,

@@ -59,7 +59,7 @@ pub(crate) struct FileChmodArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_file_chmod(
+pub(crate) async fn cmd_file_chmod(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &FileChmodArgs,

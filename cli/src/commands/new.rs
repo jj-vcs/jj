@@ -160,7 +160,7 @@ pub(crate) struct NewArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_new(
+pub(crate) async fn cmd_new(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &NewArgs,

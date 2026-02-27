@@ -168,17 +168,17 @@ pub(crate) enum ConfigCommand {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_config(
+pub(crate) async fn cmd_config(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &ConfigCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        ConfigCommand::Edit(args) => cmd_config_edit(ui, command, args),
-        ConfigCommand::Get(args) => cmd_config_get(ui, command, args),
-        ConfigCommand::List(args) => cmd_config_list(ui, command, args),
-        ConfigCommand::Path(args) => cmd_config_path(ui, command, args),
-        ConfigCommand::Set(args) => cmd_config_set(ui, command, args),
-        ConfigCommand::Unset(args) => cmd_config_unset(ui, command, args),
+        ConfigCommand::Edit(args) => cmd_config_edit(ui, command, args).await,
+        ConfigCommand::Get(args) => cmd_config_get(ui, command, args).await,
+        ConfigCommand::List(args) => cmd_config_list(ui, command, args).await,
+        ConfigCommand::Path(args) => cmd_config_path(ui, command, args).await,
+        ConfigCommand::Set(args) => cmd_config_set(ui, command, args).await,
+        ConfigCommand::Unset(args) => cmd_config_unset(ui, command, args).await,
     }
 }

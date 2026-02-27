@@ -179,7 +179,7 @@ pub(crate) struct SquashArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_squash(
+pub(crate) async fn cmd_squash(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &SquashArgs,

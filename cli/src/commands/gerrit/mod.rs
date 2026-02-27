@@ -27,13 +27,15 @@ pub enum GerritCommand {
     Upload(gerrit::upload::UploadArgs),
 }
 
-pub fn cmd_gerrit(
+pub async fn cmd_gerrit(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &GerritCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        GerritCommand::Upload(review) => gerrit::upload::cmd_gerrit_upload(ui, command, review),
+        GerritCommand::Upload(review) => {
+            gerrit::upload::cmd_gerrit_upload(ui, command, review).await
+        }
     }
 }
 

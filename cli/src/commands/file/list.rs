@@ -55,7 +55,7 @@ pub(crate) struct FileListArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_file_list(
+pub(crate) async fn cmd_file_list(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &FileListArgs,

@@ -42,7 +42,7 @@ pub struct ConfigGetArgs {
 }
 
 #[instrument(skip_all)]
-pub fn cmd_config_get(
+pub async fn cmd_config_get(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &ConfigGetArgs,

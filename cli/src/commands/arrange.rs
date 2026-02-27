@@ -74,7 +74,7 @@ pub(crate) struct ArrangeArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_arrange(
+pub(crate) async fn cmd_arrange(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &ArrangeArgs,

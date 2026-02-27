@@ -54,18 +54,18 @@ pub(crate) enum UtilCommand {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_util(
+pub(crate) async fn cmd_util(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &UtilCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        UtilCommand::Completion(args) => cmd_util_completion(ui, command, args),
-        UtilCommand::ConfigSchema(args) => cmd_util_config_schema(ui, command, args),
-        UtilCommand::Exec(args) => cmd_util_exec(ui, command, args),
-        UtilCommand::Gc(args) => cmd_util_gc(ui, command, args),
-        UtilCommand::InstallManPages(args) => cmd_util_install_man_pages(ui, command, args),
-        UtilCommand::MarkdownHelp(args) => cmd_util_markdown_help(ui, command, args),
-        UtilCommand::Snapshot(args) => cmd_util_snapshot(ui, command, args),
+        UtilCommand::Completion(args) => cmd_util_completion(ui, command, args).await,
+        UtilCommand::ConfigSchema(args) => cmd_util_config_schema(ui, command, args).await,
+        UtilCommand::Exec(args) => cmd_util_exec(ui, command, args).await,
+        UtilCommand::Gc(args) => cmd_util_gc(ui, command, args).await,
+        UtilCommand::InstallManPages(args) => cmd_util_install_man_pages(ui, command, args).await,
+        UtilCommand::MarkdownHelp(args) => cmd_util_markdown_help(ui, command, args).await,
+        UtilCommand::Snapshot(args) => cmd_util_snapshot(ui, command, args).await,
     }
 }

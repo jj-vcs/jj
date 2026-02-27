@@ -28,7 +28,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct GitRemoteListArgs {}
 
-pub fn cmd_git_remote_list(
+pub async fn cmd_git_remote_list(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &GitRemoteListArgs,

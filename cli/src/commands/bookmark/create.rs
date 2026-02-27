@@ -46,7 +46,7 @@ pub struct BookmarkCreateArgs {
     names: Vec<RefNameBuf>,
 }
 
-pub fn cmd_bookmark_create(
+pub async fn cmd_bookmark_create(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BookmarkCreateArgs,

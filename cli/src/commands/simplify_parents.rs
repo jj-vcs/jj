@@ -38,7 +38,7 @@ pub(crate) struct SimplifyParentsArgs {
     revisions: Vec<RevisionArg>,
 }
 
-pub(crate) fn cmd_simplify_parents(
+pub(crate) async fn cmd_simplify_parents(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &SimplifyParentsArgs,

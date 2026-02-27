@@ -108,7 +108,7 @@ pub(crate) struct CommitArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_commit(
+pub(crate) async fn cmd_commit(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &CommitArgs,

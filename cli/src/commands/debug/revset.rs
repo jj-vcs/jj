@@ -39,7 +39,7 @@ pub struct DebugRevsetArgs {
     no_optimize: bool,
 }
 
-pub fn cmd_debug_revset(
+pub async fn cmd_debug_revset(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &DebugRevsetArgs,

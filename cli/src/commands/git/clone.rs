@@ -143,7 +143,7 @@ fn clone_destination_for_source(source: &str) -> Option<&str> {
         .map(|(_, name)| name)
 }
 
-pub fn cmd_git_clone(
+pub async fn cmd_git_clone(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &GitCloneArgs,

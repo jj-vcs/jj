@@ -173,7 +173,7 @@ pub(crate) struct FixArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_fix(
+pub(crate) async fn cmd_fix(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &FixArgs,

@@ -45,7 +45,7 @@ pub struct DebugTreeArgs {
     // TODO: Add an option to include trees that are ancestors of the matched paths
 }
 
-pub fn cmd_debug_tree(
+pub async fn cmd_debug_tree(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &DebugTreeArgs,

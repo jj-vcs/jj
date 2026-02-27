@@ -53,7 +53,7 @@ pub struct SparseSetArgs {
 }
 
 #[instrument(skip_all)]
-pub fn cmd_sparse_set(
+pub async fn cmd_sparse_set(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &SparseSetArgs,

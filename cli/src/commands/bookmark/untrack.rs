@@ -66,7 +66,7 @@ pub struct BookmarkUntrackArgs {
     remotes: Option<Vec<String>>,
 }
 
-pub fn cmd_bookmark_untrack(
+pub async fn cmd_bookmark_untrack(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BookmarkUntrackArgs,

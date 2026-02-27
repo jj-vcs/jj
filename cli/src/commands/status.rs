@@ -58,7 +58,7 @@ pub(crate) struct StatusArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_status(
+pub(crate) async fn cmd_status(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &StatusArgs,

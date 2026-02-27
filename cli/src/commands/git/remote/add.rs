@@ -45,7 +45,7 @@ pub struct GitRemoteAddArgs {
     push_url: Option<String>,
 }
 
-pub fn cmd_git_remote_add(
+pub async fn cmd_git_remote_add(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &GitRemoteAddArgs,

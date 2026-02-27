@@ -31,7 +31,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct GitImportArgs {}
 
-pub fn cmd_git_import(
+pub async fn cmd_git_import(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &GitImportArgs,

@@ -68,7 +68,11 @@ pub struct UndoArgs {
 
 pub(crate) const UNDO_OP_DESC_PREFIX: &str = "undo: restore to operation ";
 
-pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result<(), CommandError> {
+pub async fn cmd_undo(
+    ui: &mut Ui,
+    command: &CommandHelper,
+    args: &UndoArgs,
+) -> Result<(), CommandError> {
     if args.operation != "@" {
         writeln!(
             ui.warning_default(),
@@ -78,7 +82,7 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
             operation: args.operation.clone(),
             what: args.what.clone(),
         };
-        return cmd_op_revert(ui, command, &args);
+        return cmd_op_revert(ui, command, &args).await;
     }
     if args.what != DEFAULT_REVERT_WHAT {
         writeln!(
@@ -89,7 +93,7 @@ pub fn cmd_undo(ui: &mut Ui, command: &CommandHelper, args: &UndoArgs) -> Result
             operation: args.operation.clone(),
             what: args.what.clone(),
         };
-        return cmd_op_revert(ui, command, &args);
+        return cmd_op_revert(ui, command, &args).await;
     }
 
     let mut workspace_command = command.workspace_helper(ui)?;

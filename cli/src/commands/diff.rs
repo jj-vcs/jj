@@ -113,7 +113,7 @@ pub(crate) struct DiffArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_diff(
+pub(crate) async fn cmd_diff(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &DiffArgs,

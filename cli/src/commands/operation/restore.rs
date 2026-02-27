@@ -45,7 +45,7 @@ pub struct OperationRestoreArgs {
     what: Vec<RevertWhatToRestore>,
 }
 
-pub fn cmd_op_restore(
+pub async fn cmd_op_restore(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &OperationRestoreArgs,

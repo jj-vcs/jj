@@ -32,7 +32,7 @@ pub struct GitRemoteRenameArgs {
     new: RemoteNameBuf,
 }
 
-pub fn cmd_git_remote_rename(
+pub async fn cmd_git_remote_rename(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &GitRemoteRenameArgs,

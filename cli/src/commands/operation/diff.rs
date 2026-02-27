@@ -85,7 +85,7 @@ pub struct OperationDiffArgs {
     diff_format: DiffFormatArgs,
 }
 
-pub fn cmd_op_diff(
+pub async fn cmd_op_diff(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &OperationDiffArgs,

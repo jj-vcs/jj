@@ -63,7 +63,7 @@ enum AuthorChange {
 }
 
 #[instrument(skip_all)]
-pub fn cmd_config_set(
+pub async fn cmd_config_set(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &ConfigSetArgs,

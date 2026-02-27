@@ -75,7 +75,7 @@ pub struct ConfigListArgs {
 }
 
 #[instrument(skip_all)]
-pub fn cmd_config_list(
+pub async fn cmd_config_list(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &ConfigListArgs,

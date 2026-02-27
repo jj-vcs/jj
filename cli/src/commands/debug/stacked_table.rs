@@ -36,7 +36,7 @@ pub struct DebugStackedTableArgs {
     key_size: usize,
 }
 
-pub fn cmd_debug_stacked_table(
+pub async fn cmd_debug_stacked_table(
     ui: &mut Ui,
     _command: &CommandHelper,
     args: &DebugStackedTableArgs,

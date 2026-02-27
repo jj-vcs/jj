@@ -50,7 +50,7 @@ pub struct TagSetArgs {
     names: Vec<RefNameBuf>,
 }
 
-pub fn cmd_tag_set(
+pub async fn cmd_tag_set(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &TagSetArgs,

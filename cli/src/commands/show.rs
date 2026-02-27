@@ -64,7 +64,7 @@ pub(crate) struct ShowArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_show(
+pub(crate) async fn cmd_show(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &ShowArgs,

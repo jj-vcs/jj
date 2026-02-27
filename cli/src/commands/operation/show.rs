@@ -72,7 +72,7 @@ pub struct OperationShowArgs {
     diff_format: DiffFormatArgs,
 }
 
-pub fn cmd_op_show(
+pub async fn cmd_op_show(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &OperationShowArgs,

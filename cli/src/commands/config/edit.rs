@@ -32,7 +32,7 @@ pub struct ConfigEditArgs {
 }
 
 #[instrument(skip_all)]
-pub fn cmd_config_edit(
+pub async fn cmd_config_edit(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &ConfigEditArgs,

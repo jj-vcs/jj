@@ -33,7 +33,7 @@ pub struct CopyDetectionArgs {
     revision: RevisionArg,
 }
 
-pub fn cmd_debug_copy_detection(
+pub async fn cmd_debug_copy_detection(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &CopyDetectionArgs,

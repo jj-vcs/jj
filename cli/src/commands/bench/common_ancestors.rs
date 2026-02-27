@@ -34,7 +34,7 @@ pub struct BenchCommonAncestorsArgs {
     criterion: CriterionArgs,
 }
 
-pub fn cmd_bench_common_ancestors(
+pub async fn cmd_bench_common_ancestors(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BenchCommonAncestorsArgs,

@@ -44,15 +44,15 @@ pub enum TagCommand {
     Set(TagSetArgs),
 }
 
-pub fn cmd_tag(
+pub async fn cmd_tag(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &TagCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        TagCommand::Delete(args) => cmd_tag_delete(ui, command, args),
-        TagCommand::List(args) => cmd_tag_list(ui, command, args),
-        TagCommand::Set(args) => cmd_tag_set(ui, command, args),
+        TagCommand::Delete(args) => cmd_tag_delete(ui, command, args).await,
+        TagCommand::List(args) => cmd_tag_list(ui, command, args).await,
+        TagCommand::Set(args) => cmd_tag_set(ui, command, args).await,
     }
 }
 

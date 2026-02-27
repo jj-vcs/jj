@@ -116,7 +116,7 @@ pub struct TagListArgs {
     sort: Vec<SortKey>,
 }
 
-pub fn cmd_tag_list(
+pub async fn cmd_tag_list(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &TagListArgs,

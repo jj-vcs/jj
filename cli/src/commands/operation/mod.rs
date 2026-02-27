@@ -61,22 +61,22 @@ pub enum OperationCommand {
     Undo(OperationRevertArgs),
 }
 
-pub fn cmd_operation(
+pub async fn cmd_operation(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &OperationCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        OperationCommand::Abandon(args) => cmd_op_abandon(ui, command, args),
-        OperationCommand::Diff(args) => cmd_op_diff(ui, command, args),
-        OperationCommand::Integrate(args) => cmd_op_integrate(ui, command, args),
-        OperationCommand::Log(args) => cmd_op_log(ui, command, args),
-        OperationCommand::Restore(args) => cmd_op_restore(ui, command, args),
-        OperationCommand::Revert(args) => cmd_op_revert(ui, command, args),
-        OperationCommand::Show(args) => cmd_op_show(ui, command, args),
+        OperationCommand::Abandon(args) => cmd_op_abandon(ui, command, args).await,
+        OperationCommand::Diff(args) => cmd_op_diff(ui, command, args).await,
+        OperationCommand::Integrate(args) => cmd_op_integrate(ui, command, args).await,
+        OperationCommand::Log(args) => cmd_op_log(ui, command, args).await,
+        OperationCommand::Restore(args) => cmd_op_restore(ui, command, args).await,
+        OperationCommand::Revert(args) => cmd_op_revert(ui, command, args).await,
+        OperationCommand::Show(args) => cmd_op_show(ui, command, args).await,
         OperationCommand::Undo(args) => {
             let cmd = renamed_cmd("op undo", "op revert", cmd_op_revert);
-            cmd(ui, command, args)
+            cmd(ui, command, args).await
         }
     }
 }

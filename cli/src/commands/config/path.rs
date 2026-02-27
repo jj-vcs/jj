@@ -39,7 +39,7 @@ pub struct ConfigPathArgs {
 }
 
 #[instrument(skip_all)]
-pub fn cmd_config_path(
+pub async fn cmd_config_path(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &ConfigPathArgs,

@@ -56,7 +56,7 @@ pub(crate) struct FileSearchArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_file_search(
+pub(crate) async fn cmd_file_search(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &FileSearchArgs,

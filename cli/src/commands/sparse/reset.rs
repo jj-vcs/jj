@@ -25,7 +25,7 @@ use crate::ui::Ui;
 pub struct SparseResetArgs {}
 
 #[instrument(skip_all)]
-pub fn cmd_sparse_reset(
+pub async fn cmd_sparse_reset(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &SparseResetArgs,

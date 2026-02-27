@@ -128,7 +128,7 @@ pub(crate) struct LogArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_log(
+pub(crate) async fn cmd_log(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &LogArgs,

@@ -95,7 +95,7 @@ pub(crate) struct RevertArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_revert(
+pub(crate) async fn cmd_revert(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &RevertArgs,

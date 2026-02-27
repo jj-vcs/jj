@@ -32,7 +32,7 @@ use crate::ui::Ui;
 pub struct SparseEditArgs {}
 
 #[instrument(skip_all)]
-pub fn cmd_sparse_edit(
+pub async fn cmd_sparse_edit(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &SparseEditArgs,

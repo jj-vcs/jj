@@ -102,7 +102,7 @@ pub(crate) struct BisectRunArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_bisect_run(
+pub(crate) async fn cmd_bisect_run(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BisectRunArgs,

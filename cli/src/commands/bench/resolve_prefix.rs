@@ -30,7 +30,7 @@ pub struct BenchResolvePrefixArgs {
     criterion: CriterionArgs,
 }
 
-pub fn cmd_bench_resolve_prefix(
+pub async fn cmd_bench_resolve_prefix(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BenchResolvePrefixArgs,

@@ -26,7 +26,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct GitExportArgs {}
 
-pub fn cmd_git_export(
+pub async fn cmd_git_export(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &GitExportArgs,

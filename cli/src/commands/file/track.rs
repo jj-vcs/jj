@@ -53,7 +53,7 @@ pub(crate) struct FileTrackArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_file_track(
+pub(crate) async fn cmd_file_track(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &FileTrackArgs,

@@ -74,7 +74,7 @@ pub(crate) struct UtilExecArgs {
     args: Vec<String>,
 }
 
-pub fn cmd_util_exec(
+pub async fn cmd_util_exec(
     _: &mut Ui,
     command: &CommandHelper,
     args: &UtilExecArgs,

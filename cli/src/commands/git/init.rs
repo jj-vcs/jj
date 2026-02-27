@@ -104,7 +104,7 @@ pub struct GitInitArgs {
     git_repo: Option<String>,
 }
 
-pub fn cmd_git_init(
+pub async fn cmd_git_init(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &GitInitArgs,

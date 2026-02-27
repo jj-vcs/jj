@@ -69,7 +69,7 @@ pub struct BookmarkTrackArgs {
     remotes: Option<Vec<String>>,
 }
 
-pub fn cmd_bookmark_track(
+pub async fn cmd_bookmark_track(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BookmarkTrackArgs,

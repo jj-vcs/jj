@@ -48,16 +48,16 @@ pub(crate) enum SparseCommand {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_sparse(
+pub(crate) async fn cmd_sparse(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &SparseCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        SparseCommand::Edit(args) => cmd_sparse_edit(ui, command, args),
-        SparseCommand::List(args) => cmd_sparse_list(ui, command, args),
-        SparseCommand::Reset(args) => cmd_sparse_reset(ui, command, args),
-        SparseCommand::Set(args) => cmd_sparse_set(ui, command, args),
+        SparseCommand::Edit(args) => cmd_sparse_edit(ui, command, args).await,
+        SparseCommand::List(args) => cmd_sparse_list(ui, command, args).await,
+        SparseCommand::Reset(args) => cmd_sparse_reset(ui, command, args).await,
+        SparseCommand::Set(args) => cmd_sparse_set(ui, command, args).await,
     }
 }
 

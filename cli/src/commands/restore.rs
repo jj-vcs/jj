@@ -102,7 +102,7 @@ pub(crate) struct RestoreArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_restore(
+pub(crate) async fn cmd_restore(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &RestoreArgs,

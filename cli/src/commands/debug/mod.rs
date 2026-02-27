@@ -90,27 +90,31 @@ pub enum DebugCommand {
     WorkingCopy(DebugWorkingCopyArgs),
 }
 
-pub fn cmd_debug(
+pub async fn cmd_debug(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &DebugCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        DebugCommand::CopyDetection(args) => cmd_debug_copy_detection(ui, command, args),
-        DebugCommand::Fileset(args) => cmd_debug_fileset(ui, command, args),
-        DebugCommand::Index(args) => cmd_debug_index(ui, command, args),
-        DebugCommand::IndexChangedPaths(args) => cmd_debug_index_changed_paths(ui, command, args),
-        DebugCommand::InitSimple(args) => cmd_debug_init_simple(ui, command, args),
-        DebugCommand::LocalWorkingCopy(args) => cmd_debug_local_working_copy(ui, command, args),
-        DebugCommand::Object(args) => cmd_debug_object(ui, command, args),
-        DebugCommand::Reindex(args) => cmd_debug_reindex(ui, command, args),
-        DebugCommand::Revset(args) => cmd_debug_revset(ui, command, args),
-        DebugCommand::Snapshot(args) => cmd_debug_snapshot(ui, command, args),
-        DebugCommand::StackedTable(args) => cmd_debug_stacked_table(ui, command, args),
-        DebugCommand::Template(args) => cmd_debug_template(ui, command, args),
-        DebugCommand::Tree(args) => cmd_debug_tree(ui, command, args),
-        DebugCommand::Watchman(args) => cmd_debug_watchman(ui, command, args),
-        DebugCommand::WorkingCopy(args) => cmd_debug_working_copy(ui, command, args),
+        DebugCommand::CopyDetection(args) => cmd_debug_copy_detection(ui, command, args).await,
+        DebugCommand::Fileset(args) => cmd_debug_fileset(ui, command, args).await,
+        DebugCommand::Index(args) => cmd_debug_index(ui, command, args).await,
+        DebugCommand::IndexChangedPaths(args) => {
+            cmd_debug_index_changed_paths(ui, command, args).await
+        }
+        DebugCommand::InitSimple(args) => cmd_debug_init_simple(ui, command, args).await,
+        DebugCommand::LocalWorkingCopy(args) => {
+            cmd_debug_local_working_copy(ui, command, args).await
+        }
+        DebugCommand::Object(args) => cmd_debug_object(ui, command, args).await,
+        DebugCommand::Reindex(args) => cmd_debug_reindex(ui, command, args).await,
+        DebugCommand::Revset(args) => cmd_debug_revset(ui, command, args).await,
+        DebugCommand::Snapshot(args) => cmd_debug_snapshot(ui, command, args).await,
+        DebugCommand::StackedTable(args) => cmd_debug_stacked_table(ui, command, args).await,
+        DebugCommand::Template(args) => cmd_debug_template(ui, command, args).await,
+        DebugCommand::Tree(args) => cmd_debug_tree(ui, command, args).await,
+        DebugCommand::Watchman(args) => cmd_debug_watchman(ui, command, args).await,
+        DebugCommand::WorkingCopy(args) => cmd_debug_working_copy(ui, command, args).await,
     }
 }
 

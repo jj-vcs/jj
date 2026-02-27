@@ -29,7 +29,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct UtilSnapshotArgs {}
 
-pub fn cmd_util_snapshot(
+pub async fn cmd_util_snapshot(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &UtilSnapshotArgs,

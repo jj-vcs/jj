@@ -28,7 +28,7 @@ use crate::ui::Ui;
 pub struct GitRootArgs {}
 
 #[instrument(skip_all)]
-pub fn cmd_git_root(
+pub async fn cmd_git_root(
     ui: &mut Ui,
     command: &CommandHelper,
     _args: &GitRootArgs,

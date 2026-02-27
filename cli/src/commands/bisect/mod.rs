@@ -24,12 +24,12 @@ pub enum BisectCommand {
     Run(run::BisectRunArgs),
 }
 
-pub fn cmd_bisect(
+pub async fn cmd_bisect(
     ui: &mut Ui,
     command: &CommandHelper,
     subcommand: &BisectCommand,
 ) -> Result<(), CommandError> {
     match subcommand {
-        BisectCommand::Run(args) => run::cmd_bisect_run(ui, command, args),
+        BisectCommand::Run(args) => run::cmd_bisect_run(ui, command, args).await,
     }
 }

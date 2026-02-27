@@ -41,7 +41,7 @@ pub(crate) struct DebugInitSimpleArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_debug_init_simple(
+pub(crate) async fn cmd_debug_init_simple(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &DebugInitSimpleArgs,

@@ -46,7 +46,7 @@ pub struct BookmarkRenameArgs {
     overwrite_existing: bool,
 }
 
-pub fn cmd_bookmark_rename(
+pub async fn cmd_bookmark_rename(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BookmarkRenameArgs,

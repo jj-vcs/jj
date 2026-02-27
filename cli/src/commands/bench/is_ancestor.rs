@@ -32,7 +32,7 @@ pub struct BenchIsAncestorArgs {
     criterion: CriterionArgs,
 }
 
-pub fn cmd_bench_is_ancestor(
+pub async fn cmd_bench_is_ancestor(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &BenchIsAncestorArgs,

@@ -142,7 +142,7 @@ pub(crate) struct MetaeditArgs {
 }
 
 #[instrument(skip_all)]
-pub(crate) fn cmd_metaedit(
+pub(crate) async fn cmd_metaedit(
     ui: &mut Ui,
     command: &CommandHelper,
     args: &MetaeditArgs,
