@@ -434,7 +434,8 @@ pub trait Backend: Any + Send + Sync + Debug {
     /// 100 or so.
     ///
     /// It is not guaranteed that at most this number of concurrent requests are
-    /// sent.
+    /// sent. It is the backend's responsibility to make sure it doesn't put
+    /// too much load on its storage, e.g. by queueing requests if necessary.
     fn concurrency(&self) -> usize;
 
     async fn read_file(
