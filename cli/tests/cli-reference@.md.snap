@@ -1587,7 +1587,7 @@ Convert into a non-colocated Jujutsu/Git repository
 
 This moves the Git repository that is at the root of the Jujutsu workspace into the .jj directory. Once this is done you will no longer be able to use Git commands directly in the Jujutsu workspace.
 
-If there are secondary colocated workspaces (created with `jj workspace add --colocate`), this command will fail unless --force is specified. Without --force, you should first forget those workspaces with `jj workspace forget`.
+If there are secondary colocated workspaces (created with `jj workspace add`), this command will fail unless --force is specified. Without --force, you should first forget those workspaces with `jj workspace forget`.
 
 **Usage:** `jj git colocation disable [OPTIONS]`
 
@@ -3582,6 +3582,9 @@ By default, the new workspace inherits the sparse patterns of the current worksp
   - `empty`:
     Clear all files from the workspace (it will be empty)
 
+* `--no-colocate` — Do not create a Git worktree for the new workspace
+
+   By default, the new workspace will be colocated if and only if the parent workspace is colocated. Use this flag to create a non-colocated workspace regardless of the parent's status.
 
 
 
@@ -3589,13 +3592,24 @@ By default, the new workspace inherits the sparse patterns of the current worksp
 
 Stop tracking a workspace's working-copy commit in the repo
 
-The workspace will not be touched on disk. It can be deleted from disk before or after running this command.
+The workspace directory is not touched on disk. It can be deleted from disk before or after running this command.
 
-**Usage:** `jj workspace forget [WORKSPACES]...`
+For colocated workspaces, use --cleanup to also remove the associated Git worktree.
+
+**Usage:** `jj workspace forget [OPTIONS] [WORKSPACES]...`
 
 ###### **Arguments:**
 
 * `<WORKSPACES>` — Names of the workspaces to forget. By default, forgets only the current workspace
+
+###### **Options:**
+
+* `--cleanup` — Also remove the Git worktree for colocated workspaces
+
+   This runs `git worktree remove` to clean up the Git worktree directory. By default, removal will fail if the worktree has uncommitted changes. Use --force together with --cleanup to remove it anyway.
+* `--force` — Force removal of Git worktrees even if they have uncommitted changes
+
+   Only has effect when used with --cleanup.
 
 
 

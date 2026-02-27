@@ -570,6 +570,13 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
 
     let git_head = ref_target_to_proto(&view.git_head);
 
+    let workspace_git_heads = view
+        .workspace_git_heads
+        .iter()
+        .filter(|(_, target)| target.is_present())
+        .map(|(name, target)| (name.into(), ref_target_to_proto(target).unwrap_or_default()))
+        .collect();
+
     #[expect(deprecated)]
     crate::protos::simple_op_store::View {
         head_ids,
@@ -581,6 +588,7 @@ fn view_to_proto(view: &View) -> crate::protos::simple_op_store::View {
         git_refs,
         git_head_legacy: Default::default(),
         git_head,
+        workspace_git_heads,
         // New/loaded view should have been migrated to the latest format
         has_git_refs_migrated_to_remote_tags: true,
     }
@@ -669,6 +677,17 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
         RefTarget::absent()
     };
 
+    let workspace_git_heads = proto
+        .workspace_git_heads
+        .into_iter()
+        .map(|(name, target_proto)| {
+            let name = WorkspaceNameBuf::from(name);
+            let target = ref_target_from_proto(Some(target_proto));
+            (name, target)
+        })
+        .filter(|(_, target)| target.is_present())
+        .collect();
+
     Ok(View {
         head_ids,
         local_bookmarks,
@@ -676,6 +695,7 @@ fn view_from_proto(proto: crate::protos::simple_op_store::View) -> Result<View, 
         remote_views,
         git_refs,
         git_head,
+        workspace_git_heads,
         wc_commit_ids,
     })
 }
@@ -996,6 +1016,10 @@ mod tests {
                 "refs/heads/feature".into() => git_refs_feature_target,
             },
             git_head: RefTarget::normal(CommitId::from_hex("fff111")),
+            workspace_git_heads: btreemap! {
+                WorkspaceName::DEFAULT.to_owned() => RefTarget::normal(CommitId::from_hex("fff111")),
+                "test".into() => RefTarget::normal(CommitId::from_hex("fff222")),
+            },
             wc_commit_ids: btreemap! {
                 WorkspaceName::DEFAULT.to_owned() => default_wc_commit_id,
                 "test".into() => test_wc_commit_id,
@@ -1050,7 +1074,7 @@ mod tests {
         // Test exact output so we detect regressions in compatibility
         assert_snapshot!(
             ViewId::new(blake2b_hash(&create_view()).to_vec()).hex(),
-            @"2c0b174d117ca85e7faa96f6d997362403105e8eb31e7f82ac9abd3dc48ae62683e9a76ef5d117ebc8a743d17e1945236df9ccefd7574f7e4b5336a63796b967"
+            @"53792bb94ddf46689d833410ef094d1db76e320c0b36136eb855469884f80ccb58b3e8ec63e0fc77376c2a70dc879242c9e09b5c5b5fb611a7e07886e461fc10"
         );
     }
 

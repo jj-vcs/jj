@@ -43,7 +43,7 @@ fn test_bisect_run_empty_revset() {
     std::fs::write(&bisection_script, ["fail"].join("\0")).unwrap();
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=none()", &bisector_path]), @"
     Search complete. To discard any revisions created during search, run:
-      jj op restore 8f47435a3990
+      jj op restore 92406f686752
     [EOF]
     ------- stderr -------
     Error: Could not find the first bad revision. Was the input range empty?
@@ -78,7 +78,7 @@ fn test_bisect_run() {
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 9152b6b19cce
+      jj op restore f721c06b5289
     The first bad revision is: rlvkpnrz 7d980be7 a | a
     [EOF]
     ------- stderr -------
@@ -155,7 +155,7 @@ fn test_bisect_run_find_first_good() {
     The revision is good.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 9152b6b19cce
+      jj op restore f721c06b5289
     The first good revision is: rlvkpnrz 7d980be7 a | a
     [EOF]
     ------- stderr -------
@@ -253,7 +253,7 @@ fn test_bisect_run_with_args() {
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 9152b6b19cce
+      jj op restore f721c06b5289
     The first good revision is: royxmykx dffaa0d4 c | c
     [EOF]
     ------- stderr -------
@@ -309,7 +309,7 @@ fn test_bisect_run_crash() {
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 9152b6b19cce
+      jj op restore f721c06b5289
     The first bad revision is: rlvkpnrz 7d980be7 a | a
     [EOF]
     ------- stderr -------
@@ -343,7 +343,7 @@ fn test_bisect_run_abort() {
     Evaluation command returned 127 (command not found) - aborting bisection.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 3b48f5aca4df
+      jj op restore 3396c42ebf3c
     [EOF]
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 538d9e7f (empty) (no description set)
@@ -374,7 +374,7 @@ fn test_bisect_run_skip() {
     It could not be determined if the revision is good or bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 9cc40e5398a9
+      jj op restore 88f294aef87f
     The first bad revision is: zsuskuln 123b4d91 b | b
     [EOF]
     ------- stderr -------
@@ -409,7 +409,7 @@ fn test_bisect_run_multiple_results() {
     The revision is good.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore d750de12e02a
+      jj op restore 6d1fe9c4ee86
     The first bad revisions are:
     vruxwmqv a2dbb1aa d | d
     zsuskuln 123b4d91 b | b
@@ -454,7 +454,7 @@ fn test_bisect_run_write_file() {
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 156d8a1abcb8
+      jj op restore 3d4c970bc3d3
     The first bad revision is: rlvkpnrz 7d980be7 a | a
     [EOF]
     ------- stderr -------
@@ -517,7 +517,7 @@ fn test_bisect_run_jj_command() {
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 156d8a1abcb8
+      jj op restore 3d4c970bc3d3
     The first bad revision is: rlvkpnrz 7d980be7 a | a
     [EOF]
     ------- stderr -------
