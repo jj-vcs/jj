@@ -18,12 +18,12 @@ use std::io::Read as _;
 use std::iter;
 
 use clap_complete::ArgValueCompleter;
+use futures::future::try_join_all;
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetIteratorExt as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -238,16 +238,18 @@ pub(crate) async fn cmd_describe(
     }
 
     if use_editor {
-        let temp_commits: Vec<_> = iter::zip(&commits, &commit_builders)
-            // Edit descriptions in topological order
-            .rev()
-            .map(|(commit, commit_builder)| {
-                commit_builder
-                    .write_hidden()
-                    .block_on()
-                    .map(|temp_commit| (commit.id(), temp_commit))
-            })
-            .try_collect()?;
+        let temp_commits: Vec<_> = try_join_all(
+            iter::zip(&commits, &commit_builders)
+                // Edit descriptions in topological order
+                .rev()
+                .map(async |(commit, commit_builder)| {
+                    commit_builder
+                        .write_hidden()
+                        .await
+                        .map(|temp_commit| (commit.id(), temp_commit))
+                }),
+        )
+        .await?;
 
         if let [(_, temp_commit)] = &*temp_commits {
             let intro = "";
