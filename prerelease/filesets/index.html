@@ -2040,15 +2040,41 @@ name. For example, <code>glob-i:"*.TXT"</code> will match both <code>file.txt</c
 <h2 id="operators">Operators<a class="headerlink" href="#operators" title="Permanent link">&para;</a></h2>
 <p>The following operators are supported. <code>x</code> and <code>y</code> below can be any fileset
 expressions.</p>
+<p>Operators are listed in order of binding power from strongest to weakest, e.g.
+<code>x | y &amp; z</code> is interpreted as <code>x | (y &amp; z)</code> since <code>&amp;</code> has stronger binding power
+than <code>|</code>. Infix operators of the same binding power are parsed from left to
+right, e.g. <code>x ~ y &amp; z</code> is interpreted as <code>(x ~ y) &amp; z</code> rather than <code>x ~ (y &amp;
+z)</code>.</p>
+<p>As seen above, parentheses can be used to control evaluation order, e.g. <code>(x &amp;
+y) | z</code> or <code>x &amp; (y | z)</code>.</p>
+<ol>
+<li>
+<ul>
+<li><code>f(x)</code>: Function call.</li>
+</ul>
+</li>
+<li>
+<ul>
+<li><code>p:x</code>: File pattern or pattern alias named <code>p</code>.</li>
+</ul>
+</li>
+<li>
 <ul>
 <li><code>~x</code>: Matches everything but <code>x</code>.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>x &amp; y</code>: Matches both <code>x</code> and <code>y</code>.</li>
 <li><code>x ~ y</code>: Matches <code>x</code> but not <code>y</code>.</li>
+</ul>
+</li>
+<li>
+<ul>
 <li><code>x | y</code>: Matches either <code>x</code> or <code>y</code> (or both).</li>
 </ul>
-<p>(listed in order of binding strengths)</p>
-<p>You can use parentheses to control evaluation order, such as <code>(x &amp; y) | z</code> or
-<code>x &amp; (y | z)</code>.</p>
+</li>
+</ol>
 <h2 id="functions">Functions<a class="headerlink" href="#functions" title="Permanent link">&para;</a></h2>
 <p>You can also specify patterns by using functions.</p>
 <ul>
