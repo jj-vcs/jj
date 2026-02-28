@@ -248,59 +248,7 @@ pub(crate) fn cmd_squash(
     let destination = if let Some(commit) = pre_existing_destination {
         commit
     } else {
-        // create the new destination commit
-        let (parent_ids, child_ids) = compute_commit_location(
-            ui,
-            tx.base_workspace_helper(),
-            args.onto.as_deref(),
-            args.insert_after.as_deref(),
-            args.insert_before.as_deref(),
-            "squashed commit",
-        )?;
-        let parent_commits: Vec<_> = parent_ids
-            .iter()
-            .map(|commit_id| {
-                tx.base_workspace_helper()
-                    .repo()
-                    .store()
-                    .get_commit(commit_id)
-            })
-            .try_collect()?;
-        let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).block_on()?;
-        let commit = tx
-            .repo_mut()
-            .new_commit(parent_ids.clone(), merged_tree)
-            .write()
-            .block_on()?;
-        let mut rewritten = HashMap::new();
-        tx.repo_mut()
-            .transform_descendants(child_ids.clone(), async |mut rewriter| {
-                let old_commit_id = rewriter.old_commit().id().clone();
-                for parent_id in &parent_ids {
-                    rewriter.replace_parent(parent_id, [commit.id()]);
-                }
-                let new_parents = rewriter.new_parents();
-                if child_ids.contains(&old_commit_id) && !new_parents.contains(commit.id()) {
-                    rewriter.set_new_parents(
-                        new_parents
-                            .iter()
-                            .cloned()
-                            .chain(once(commit.id().clone()))
-                            .collect(),
-                    );
-                }
-                let new_commit = rewriter.rebase().await?.write().await?;
-                rewritten.insert(old_commit_id, new_commit);
-                num_rebased += 1;
-                Ok(())
-            })
-            .block_on()?;
-        for source in &mut *sources {
-            if let Some(rewritten_source) = rewritten.remove(source.id()) {
-                *source = rewritten_source;
-            }
-        }
-        commit
+        create_destination_commit(ui, &mut tx, args, &mut sources, &mut num_rebased)?
     };
 
     let fileset_expression = tx
@@ -500,4 +448,65 @@ fn select_diff(
         });
     }
     Ok(source_commits)
+}
+
+fn create_destination_commit(
+    ui: &Ui,
+    tx: &mut WorkspaceCommandTransaction,
+    args: &SquashArgs,
+    sources: &mut [Commit],
+    num_rebased: &mut usize,
+) -> Result<Commit, CommandError> {
+    let (parent_ids, child_ids) = compute_commit_location(
+        ui,
+        tx.base_workspace_helper(),
+        args.onto.as_deref(),
+        args.insert_after.as_deref(),
+        args.insert_before.as_deref(),
+        "squashed commit",
+    )?;
+    let parent_commits: Vec<_> = parent_ids
+        .iter()
+        .map(|commit_id| {
+            tx.base_workspace_helper()
+                .repo()
+                .store()
+                .get_commit(commit_id)
+        })
+        .try_collect()?;
+    let merged_tree = merge_commit_trees(tx.repo(), &parent_commits).block_on()?;
+    let commit = tx
+        .repo_mut()
+        .new_commit(parent_ids.clone(), merged_tree)
+        .write()
+        .block_on()?;
+    let mut rewritten = HashMap::new();
+    tx.repo_mut()
+        .transform_descendants(child_ids.clone(), async |mut rewriter| {
+            let old_commit_id = rewriter.old_commit().id().clone();
+            for parent_id in &parent_ids {
+                rewriter.replace_parent(parent_id, [commit.id()]);
+            }
+            let new_parents = rewriter.new_parents();
+            if child_ids.contains(&old_commit_id) && !new_parents.contains(commit.id()) {
+                rewriter.set_new_parents(
+                    new_parents
+                        .iter()
+                        .cloned()
+                        .chain(once(commit.id().clone()))
+                        .collect(),
+                );
+            }
+            let new_commit = rewriter.rebase().await?.write().await?;
+            rewritten.insert(old_commit_id, new_commit);
+            *num_rebased += 1;
+            Ok(())
+        })
+        .block_on()?;
+    for source in &mut *sources {
+        if let Some(rewritten_source) = rewritten.remove(source.id()) {
+            *source = rewritten_source;
+        }
+    }
+    Ok(commit)
 }

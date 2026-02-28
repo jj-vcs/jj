@@ -125,6 +125,23 @@ pub async fn restore_tree(
     destination_label: String,
     matcher: &dyn Matcher,
 ) -> BackendResult<MergedTree> {
+    Box::pin(restore_tree_impl(
+        source,
+        destination,
+        source_label,
+        destination_label,
+        matcher,
+    ))
+    .await
+}
+
+async fn restore_tree_impl(
+    source: &MergedTree,
+    destination: &MergedTree,
+    source_label: String,
+    destination_label: String,
+    matcher: &dyn Matcher,
+) -> BackendResult<MergedTree> {
     if matcher.visit(RepoPath::root()) == Visit::AllRecursively {
         // Optimization for a common case
         return Ok(source.clone());
@@ -138,7 +155,7 @@ pub async fn restore_tree(
     }
     let matcher = FilesMatcher::new(paths);
 
-    let select_matching =
+    let select_matching = Box::pin(
         async |tree: &MergedTree, labels: ConflictLabels| -> BackendResult<MergedTree> {
             let empty_tree_ids = Merge::repeated(
                 tree.store().empty_tree_id().clone(),
@@ -152,7 +169,8 @@ pub async fn restore_tree(
                 builder.set_or_remove(path, value?);
             }
             builder.write_tree().await
-        };
+        },
+    );
 
     const RESTORE_BASE_LABEL: &str = "base files for restore";
 
@@ -298,6 +316,13 @@ impl<'repo> CommitRewriter<'repo> {
     /// Rebase the old commit onto the new parents. Returns a `CommitBuilder`
     /// for the new commit. Returns `None` if the commit was abandoned.
     pub async fn rebase_with_empty_behavior(
+        self,
+        empty: EmptyBehavior,
+    ) -> BackendResult<Option<CommitBuilder<'repo>>> {
+        Box::pin(self.rebase_with_empty_behavior_impl(empty)).await
+    }
+
+    async fn rebase_with_empty_behavior_impl(
         self,
         empty: EmptyBehavior,
     ) -> BackendResult<Option<CommitBuilder<'repo>>> {

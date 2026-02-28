@@ -3286,6 +3286,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::large_stack_frames)]
     fn test_list_method() {
         let mut env = TestTemplateEnv::new();
         env.add_keyword("empty", || literal(true));
@@ -3529,6 +3530,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::large_stack_frames)]
     fn test_string_method() {
         let mut env = TestTemplateEnv::new();
         env.add_keyword("description", || literal("description 1".to_owned()));

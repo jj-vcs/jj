@@ -1,3 +1,5 @@
+#![allow(clippy::large_stack_frames)]
+
 use std::path::PathBuf;
 
 mod common;

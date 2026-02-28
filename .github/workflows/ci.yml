@@ -183,6 +183,23 @@ jobs:
           components: clippy
       - run: cargo +stable clippy --all-features --workspace --all-targets -- -D warnings
 
+  # TODO: Enable the large-stack-frames lint in Cargo.toml and remove this job
+  # once https://github.com/rust-lang/rust-clippy/pull/16347 is in stable.
+  check-clippy-large-stack-frames:
+    name: check (clippy large stack frames)
+    permissions:
+      checks: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: nightly
+          components: clippy
+      - run: cargo +nightly clippy --all-features --workspace --all-targets -- -D clippy::large_stack_frames
+
   check-cargo-deny:
     runs-on: ubuntu-24.04
     strategy:

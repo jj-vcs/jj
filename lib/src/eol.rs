@@ -200,6 +200,8 @@ mod tests {
 
     use super::*;
 
+    const LONG_BINARY_CONTENT: &[u8] = &[0; 20 << 10];
+
     #[tokio::main(flavor = "current_thread")]
     #[test_case(b"a\n", TargetEol::PassThrough, b"a\n"; "LF text with no EOL conversion")]
     #[test_case(b"a\r\n", TargetEol::PassThrough, b"a\r\n"; "CRLF text with no EOL conversion")]
@@ -313,7 +315,7 @@ mod tests {
       }, b"\r\r\n", b"\r\r\n"; "input output settings binary input with lone CR")]
     #[test_case(TargetEolStrategy {
           eol_conversion_mode: EolConversionMode::Input,
-      }, &[0; 20 << 10], &[0; 20 << 10]; "input settings long binary input")]
+      }, LONG_BINARY_CONTENT, LONG_BINARY_CONTENT; "input settings long binary input")]
     #[test_case(TargetEolStrategy {
           eol_conversion_mode: EolConversionMode::Input,
       }, &test_probe_limit_input_crlf(), &test_probe_limit_input_lf(); "input settings with CRLF on probe boundary")]
@@ -348,7 +350,7 @@ mod tests {
       }, b"\0\n", b"\0\n"; "input output settings binary input")]
     #[test_case(TargetEolStrategy {
           eol_conversion_mode: EolConversionMode::Input,
-      }, &[0; 20 << 10], &[0; 20 << 10]; "input output settings long binary input")]
+      }, LONG_BINARY_CONTENT, LONG_BINARY_CONTENT; "input output settings long binary input")]
     async fn test_eol_strategy_convert_eol_for_update(
         strategy: TargetEolStrategy,
         contents: &[u8],

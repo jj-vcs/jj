@@ -390,7 +390,11 @@ impl DetachedCommitBuilder {
     }
 
     /// Writes new commit and makes it visible in the `mut_repo`.
-    pub async fn write(mut self, mut_repo: &mut MutableRepo) -> BackendResult<Commit> {
+    pub async fn write(self, mut_repo: &mut MutableRepo) -> BackendResult<Commit> {
+        Box::pin(self.write_impl(mut_repo)).await
+    }
+
+    async fn write_impl(mut self, mut_repo: &mut MutableRepo) -> BackendResult<Commit> {
         if self.record_predecessors_in_commit {
             self.commit.predecessors = self.predecessors.clone();
         }
