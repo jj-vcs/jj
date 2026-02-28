@@ -226,25 +226,6 @@ pub async fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<
     }
 }
 
-/// Wraps deprecated command of `old_name` which has been renamed to `new_name`.
-pub(crate) fn renamed_cmd<Args>(
-    old_name: &'static str,
-    new_name: &'static str,
-    cmd: impl AsyncFn(&mut Ui, &CommandHelper, &Args) -> Result<(), CommandError>,
-) -> impl AsyncFn(&mut Ui, &CommandHelper, &Args) -> Result<(), CommandError> {
-    async move |ui: &mut Ui, command: &CommandHelper, args: &Args| -> Result<(), CommandError> {
-        writeln!(
-            ui.warning_default(),
-            "`jj {old_name}` is deprecated; use `jj {new_name}` instead, which is equivalent"
-        )?;
-        writeln!(
-            ui.warning_default(),
-            "`jj {old_name}` will be removed in a future version, and this will be a hard error"
-        )?;
-        cmd(ui, command, args).await
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

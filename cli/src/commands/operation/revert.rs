@@ -38,13 +38,13 @@ pub struct OperationRevertArgs {
     /// Use `jj op log` to find an operation to revert.
     #[arg(default_value = "@")]
     #[arg(add = ArgValueCandidates::new(complete::operations))]
-    pub(crate) operation: String, // pub for `jj undo`
+    operation: String,
 
     /// What portions of the local state to restore (can be repeated)
     ///
     /// This option is EXPERIMENTAL.
     #[arg(long, value_enum, default_values_t = DEFAULT_REVERT_WHAT)]
-    pub(crate) what: Vec<RevertWhatToRestore>, // pub for `jj undo`
+    what: Vec<RevertWhatToRestore>,
 }
 
 fn tx_description(op: &Operation) -> String {

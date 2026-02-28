@@ -3315,17 +3315,7 @@ There is also a complementary `jj redo` command that would instead move in the d
 
 Use `jj op log` to visualize the log of past operations, including a detailed description of any past undo/redo operations. See also `jj op restore` to explicitly restore an older operation by its id (available in the operation log).
 
-**Usage:** `jj undo [OPERATION]`
-
-###### **Arguments:**
-
-* `<OPERATION>` — (deprecated, use `jj op revert <operation>`)
-
-   The operation to undo
-
-   Use `jj op log` to find an operation to undo.
-
-  Default value: `@`
+**Usage:** `jj undo`
 
 
 

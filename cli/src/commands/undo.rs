@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use clap_complete::ArgValueCandidates;
 use itertools::Itertools as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::op_store::OperationId;
@@ -24,11 +23,7 @@ use crate::command_error::user_error;
 #[cfg(feature = "git")]
 use crate::commands::git::is_push_operation;
 use crate::commands::operation::DEFAULT_REVERT_WHAT;
-use crate::commands::operation::RevertWhatToRestore;
-use crate::commands::operation::revert::OperationRevertArgs;
-use crate::commands::operation::revert::cmd_op_revert;
 use crate::commands::operation::view_with_desired_portions_restored;
-use crate::complete;
 use crate::ui::Ui;
 
 /// Undo the last operation
@@ -45,59 +40,18 @@ use crate::ui::Ui;
 /// restore` to explicitly restore an older operation by its id (available in
 /// the operation log).
 #[derive(clap::Args, Clone, Debug)]
-pub struct UndoArgs {
-    /// (deprecated, use `jj op revert <operation>`)
-    ///
-    /// The operation to undo
-    ///
-    /// Use `jj op log` to find an operation to undo.
-    // TODO: Delete in jj 0.39+
-    #[arg(default_value = "@")]
-    #[arg(add = ArgValueCandidates::new(complete::operations))]
-    operation: String,
-
-    /// (deprecated, use `jj op revert --what`)
-    ///
-    /// What portions of the local state to restore (can be repeated)
-    ///
-    /// This option is EXPERIMENTAL.
-    #[arg(long, value_enum, hide = true, default_values_t = DEFAULT_REVERT_WHAT)]
-    what: Vec<RevertWhatToRestore>,
-}
+pub struct UndoArgs {}
 
 pub(crate) const UNDO_OP_DESC_PREFIX: &str = "undo: restore to operation ";
 
 pub async fn cmd_undo(
     ui: &mut Ui,
     command: &CommandHelper,
-    args: &UndoArgs,
+    _: &UndoArgs,
 ) -> Result<(), CommandError> {
-    if args.operation != "@" {
-        writeln!(
-            ui.warning_default(),
-            "`jj undo <operation>` is deprecated; use `jj op revert <operation>` instead"
-        )?;
-        let args = OperationRevertArgs {
-            operation: args.operation.clone(),
-            what: args.what.clone(),
-        };
-        return cmd_op_revert(ui, command, &args).await;
-    }
-    if args.what != DEFAULT_REVERT_WHAT {
-        writeln!(
-            ui.warning_default(),
-            "`jj undo --what` is deprecated; use `jj op revert --what` instead"
-        )?;
-        let args = OperationRevertArgs {
-            operation: args.operation.clone(),
-            what: args.what.clone(),
-        };
-        return cmd_op_revert(ui, command, &args).await;
-    }
-
     let mut workspace_command = command.workspace_helper(ui)?;
 
-    let mut op_to_undo = workspace_command.resolve_single_op(&args.operation)?;
+    let mut op_to_undo = workspace_command.repo().operation().clone();
 
     // Growing the "undo-stack" works as follows. See also the
     // [redo-stack](./redo.rs), which works in a similar way.

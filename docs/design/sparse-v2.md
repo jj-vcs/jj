@@ -258,8 +258,8 @@ This gives the user the ability to update the active `WorkingCopyPatterns`
 whilst not interacting with the local working copy, which is useful for custom
 integrations which may not be _able_ to check out particular working copy
 patterns due to problems with the backend (encoding, permission errors, etc.). A
-bad `jj sparse set --add oops` command can thus be undone, even via `jj op undo`
-if desired.
+bad `jj sparse set --add oops` command can thus be undone, even via `jj undo` if
+desired.
 
 #### View Updates
 
