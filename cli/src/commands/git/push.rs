@@ -57,6 +57,7 @@ use crate::cli_util::RevisionArg;
 use crate::cli_util::WorkspaceCommandHelper;
 use crate::cli_util::WorkspaceCommandTransaction;
 use crate::cli_util::has_tracked_remote_bookmarks;
+use crate::cli_util::short_change_hash;
 use crate::cli_util::short_commit_hash;
 use crate::command_error::CommandError;
 use crate::command_error::cli_error;
@@ -619,7 +620,9 @@ async fn sign_commits_before_push(
                     let old_commit = rewriter.old_commit();
                     let old_commit_id = old_commit.id().clone();
                     if let Some(writer) = &mut progress_writer {
-                        writer.display(&old_commit.change_id().reverse_hex()).ok();
+                        writer
+                            .display(&short_change_hash(old_commit.change_id()))
+                            .ok();
                     }
                     if commit_ids.contains(&old_commit_id) {
                         let commit = rewriter
