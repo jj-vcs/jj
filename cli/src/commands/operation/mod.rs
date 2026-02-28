@@ -17,7 +17,7 @@ mod diff;
 mod integrate;
 mod log;
 mod restore;
-pub mod revert;
+mod revert;
 mod show;
 
 use abandon::OperationAbandonArgs;
@@ -38,7 +38,6 @@ use show::cmd_op_show;
 
 use crate::cli_util::CommandHelper;
 use crate::command_error::CommandError;
-use crate::commands::renamed_cmd;
 use crate::ui::Ui;
 
 /// Commands for working with the operation log
@@ -56,9 +55,6 @@ pub enum OperationCommand {
     Restore(OperationRestoreArgs),
     Revert(OperationRevertArgs),
     Show(OperationShowArgs),
-    // TODO: Delete in jj 0.39.0+
-    #[command(hide = true)]
-    Undo(OperationRevertArgs),
 }
 
 pub async fn cmd_operation(
@@ -74,10 +70,6 @@ pub async fn cmd_operation(
         OperationCommand::Restore(args) => cmd_op_restore(ui, command, args).await,
         OperationCommand::Revert(args) => cmd_op_revert(ui, command, args).await,
         OperationCommand::Show(args) => cmd_op_show(ui, command, args).await,
-        OperationCommand::Undo(args) => {
-            let cmd = renamed_cmd("op undo", "op revert", cmd_op_revert);
-            cmd(ui, command, args).await
-        }
     }
 }
 

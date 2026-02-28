@@ -22,6 +22,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `core.fsmonitor`
   - `core.watchman.register-snapshot-trigger`
 
+* The deprecated command `jj op undo` has been removed. Use `jj op revert` or
+  `jj undo`/`redo` instead.
+
 ### Deprecations
 
 * `jj debug snapshot` is deprecated in favor of `jj util snapshot`. Although
