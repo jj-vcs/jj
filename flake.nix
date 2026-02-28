@@ -83,6 +83,7 @@
       devShells.default = let
         packages = with pkgs; [
           rustShellToolchain
+          llvmPackages.llvm # for e.g. llvm-symbolizer
 
           # Additional tools recommended by contributing.md
           bacon
