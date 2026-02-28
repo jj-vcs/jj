@@ -172,16 +172,12 @@ redundant_imports = "warn"
 # Opt-level 0 tends to run out of stack on Windows when running async code
 opt-level = 1
 
-[profile.dev.package]
-# Insta suggests compiling these packages in opt mode for faster testing.
-# See https://docs.rs/insta/latest/insta/#optional-faster-runs.
-insta.opt-level = 3
-similar.opt-level = 3
-# Proptest suggests compiling itself and its RNG in opt mode as well.
-# See https://proptest-rs.github.io/proptest/proptest/tips-and-best-practices.html#setting-opt-level
-proptest.opt-level = 3
-proptest-state-machine.opt-level = 3
-rand_chacha.opt-level = 3
+[profile.dev.package."*"]
+# Compile all dependencies with opt-level=3 to help speed up tests and
+# debug builds
+codegen-units = 1
+debug = "line-tables-only"
+opt-level = 3
 
 [profile.release]
 strip = "debuginfo"
