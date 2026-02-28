@@ -932,6 +932,39 @@ fn test_conditional_config() {
     ");
 }
 
+#[test]
+fn test_conditional_config_environments() {
+    let mut test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(test_env.home_dir(), ["git", "init", "repo"])
+        .success();
+    let repo_dir = test_env.home_dir().join("repo");
+    test_env.add_config(indoc! {"
+        ui.pager = 'base'
+        [[--scope]]
+        --when.environments = ['MY_JJ_ENV=on']
+        ui.pager = 'kv-match'
+        [[--scope]]
+        --when.environments = ['MY_JJ_ENV']
+        ui.pager = 'key-exists'
+        [[--scope]]
+        --when.environments = ['ABSENT_VAR']
+        ui.pager = 'absent'
+    "});
+
+    test_env.add_env_var("MY_JJ_ENV", "on");
+    let output = test_env.run_jj_in(
+        &repo_dir,
+        ["config", "list", "--include-overridden", "ui.pager"],
+    );
+    insta::assert_snapshot!(output, @r"
+    # ui.pager = 'base'
+    # ui.pager = 'kv-match'
+    ui.pager = 'key-exists'
+    [EOF]
+    ");
+}
+
 /// Test that `jj` command works with the default configuration.
 #[test]
 fn test_default_config() {

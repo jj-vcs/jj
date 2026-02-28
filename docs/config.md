@@ -2136,3 +2136,14 @@ wip = ["log", "-r", "work"]
   --when.platforms = ["linux", "freebsd"]   # matches Linux or and FreeBSD, but not macOS
   --when.platforms = ["unix"]               # matches anything in the Unix family (Linux, FreeBSD, macOS, etc.)
   ```
+
+* `--when.environments`: List of environment variable conditions in
+  `"NAME=VALUE"` format (check if the variable has the value), or `NAME` to
+  check if the variable is set.
+
+  ```toml
+  --when.environments = ["CI=true"]                     # matches when CI is set to "true"
+  --when.environments = ["CI"]                          # matches when CI is set to anything
+  --when.environments = ["CI=true", "CI=1"]             # matches when CI is "true" or "1"
+  --when.environments = ["CI=true", "GITHUB_ACTIONS=1"] # matches when EITHER condition holds
+  ```
