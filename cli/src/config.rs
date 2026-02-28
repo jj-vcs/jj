@@ -799,13 +799,6 @@ fn parse_config_arg_item(item_str: &str) -> Result<(ConfigNamePathBuf, ConfigVal
 /// List of rules to migrate deprecated config variables.
 pub fn default_config_migrations() -> Vec<ConfigMigrationRule> {
     vec![
-        // TODO: Delete in jj 0.38.0+
-        ConfigMigrationRule::rename_value("core.fsmonitor", "fsmonitor.backend"),
-        // TODO: Delete in jj 0.38.0+
-        ConfigMigrationRule::rename_value(
-            "core.watchman.register-snapshot-trigger",
-            "fsmonitor.watchman.register-snapshot-trigger",
-        ),
         // TODO: Delete in jj 0.42.0+
         ConfigMigrationRule::custom(
             |layer| {
