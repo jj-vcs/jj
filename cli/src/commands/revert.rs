@@ -16,11 +16,14 @@ use std::collections::HashSet;
 
 use bstr::ByteVec as _;
 use clap::ArgGroup;
+use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
 use indexmap::IndexSet;
+use indoc::formatdoc;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::conflict_label_for_commits;
+use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::object_id::ObjectId as _;
@@ -32,6 +35,7 @@ use tracing::instrument;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RevisionArg;
 use crate::cli_util::compute_commit_location;
+use crate::cli_util::print_unmatched_explicit_paths;
 use crate::cli_util::print_updated_commits;
 use crate::command_error::CommandError;
 use crate::complete;
@@ -45,18 +49,17 @@ use crate::ui::Ui;
 /// The description of the new revisions can be customized with the
 /// `templates.revert_description` config variable.
 #[derive(clap::Args, Clone, Debug)]
-#[command(group(ArgGroup::new("location").args(&["onto", "insert_after", "insert_before"]).multiple(true).required(true)))]
-#[command(group(clap::ArgGroup::new("revisions").multiple(true).required(true)))]
+#[command(group(ArgGroup::new("location").args(&["onto", "insert_after", "insert_before"]).required(true).multiple(true)))]
 pub(crate) struct RevertArgs {
     /// The revision(s) to apply the reverse of
-    #[arg(group = "revisions", value_name = "REVSETS")]
+    #[arg(long, short, required = true, value_name = "REVSETS")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
-    revisions_pos: Vec<RevisionArg>,
+    revisions: Vec<RevisionArg>,
 
-    /// The revision(s) to apply the reverse of
-    #[arg(long = "revisions", short, group = "revisions", value_name = "REVSETS")]
-    #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
-    revisions_opt: Vec<RevisionArg>,
+    /// Revert only changes to these paths (instead of all paths)
+    #[arg(value_name = "FILESETS", value_hint = clap::ValueHint::AnyPath)]
+    #[arg(add = ArgValueCompleter::new(complete::modified_revert_files))]
+    paths: Vec<String>,
 
     /// The revision(s) to apply the reverse changes on top of
     #[arg(
@@ -92,6 +95,15 @@ pub(crate) struct RevertArgs {
     )]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     insert_before: Option<Vec<RevisionArg>>,
+
+    /// Interactively choose which parts to revert
+    #[arg(long, short)]
+    interactive: bool,
+
+    /// Specify diff editor to be used (implies --interactive)
+    #[arg(long, value_name = "NAME")]
+    #[arg(add = ArgValueCandidates::new(complete::diff_editors))]
+    tool: Option<String>,
 }
 
 #[instrument(skip_all)]
@@ -101,14 +113,30 @@ pub(crate) fn cmd_revert(
     args: &RevertArgs,
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
+
+    let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
+    let matcher = fileset_expression.to_matcher();
+
     let to_revert: Vec<_> = workspace_command
-        .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
+        .parse_union_revsets(ui, &args.revisions)?
         .evaluate_to_commits()?
         .try_collect()?; // in reverse topological order
     if to_revert.is_empty() {
         writeln!(ui.status(), "No revisions to revert.")?;
         return Ok(());
     }
+
+    let mut paths_trees = Vec::with_capacity(to_revert.len() * 2);
+    for commit in &to_revert {
+        paths_trees.push(commit.tree());
+        paths_trees.push(commit.parent_tree(workspace_command.repo().as_ref())?);
+    }
+    print_unmatched_explicit_paths(
+        ui,
+        &workspace_command,
+        &fileset_expression,
+        paths_trees.iter(),
+    )?;
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
         &workspace_command,
@@ -140,6 +168,8 @@ pub(crate) fn cmd_revert(
             })
             .collect_vec()
     };
+    let diff_selector =
+        workspace_command.diff_selector(ui, args.tool.as_deref(), args.interactive)?;
     let mut tx = workspace_command.start_transaction();
     let original_parent_commit_ids: HashSet<_> = new_parent_ids.iter().cloned().collect();
     let new_parents: Vec<_> = new_parent_ids
@@ -157,6 +187,28 @@ pub(crate) fn cmd_revert(
         let old_parents: Vec<_> = commit_to_revert.parents().try_collect()?;
         let old_base_tree = commit_to_revert.parent_tree(tx.repo())?;
         let old_tree = commit_to_revert.tree();
+        let reverted_commit_id = commit_to_revert.id().hex();
+        let format_instructions = || {
+            formatdoc! {
+                "
+                You are selecting changes to revert from commit: {reverted_commit_id}
+
+                The diff initially shows all changes selected for revert. Adjust the right side
+                until it contains only the changes you want to keep after reverting.
+                ",
+                reverted_commit_id = reverted_commit_id,
+            }
+        };
+        let selected_tree = diff_selector.select(
+            ui,
+            Diff::new(&old_tree, &old_base_tree),
+            Diff::new(
+                commit_to_revert.conflict_label(),
+                commit_to_revert.parents_conflict_label()?,
+            ),
+            matcher.as_ref(),
+            format_instructions,
+        )?;
         let new_tree = MergedTree::merge(Merge::from_vec(vec![
             (
                 new_base_tree,
@@ -167,7 +219,7 @@ pub(crate) fn cmd_revert(
                 format!("{} (reverted revision)", commit_to_revert.conflict_label()),
             ),
             (
-                old_base_tree,
+                selected_tree,
                 format!(
                     "{} (parents of reverted revision)",
                     conflict_label_for_commits(&old_parents)

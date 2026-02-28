@@ -102,6 +102,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Templates now support `Serialize` operations on the result of `map()` and
   `if()`, when supported by the underlying type.
 
+* `jj revert` now accepts filesets and supports `-i`/`--interactive` selection.
+
 ### Fixed bugs
 
 ## [0.38.0] - 2026-02-04
