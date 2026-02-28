@@ -11,11 +11,13 @@ Contributions to this project must be accompanied by a Contributor License
 Agreement. You (or your employer) retain the copyright to your contribution;
 this simply gives us permission to use and redistribute your contributions as
 part of the project. Head over to <https://cla.developers.google.com/> to see
-your current agreements on file or to sign a new one.
+whether you have already signed the CLA or to sign it.
 
 You generally only need to submit a CLA once, so if you've already submitted one
 (even if it was for a different project), you probably don't need to do it
-again.
+again. In other words, the Google CLA is not scoped to a specific project. If
+you sign the Google CLA, it applies to other Google open-source projects as
+well (including future projects).
 
 ### Commit guidelines
 
