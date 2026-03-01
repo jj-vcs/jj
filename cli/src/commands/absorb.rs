@@ -82,7 +82,7 @@ pub(crate) async fn cmd_absorb(
     let matcher = fileset_expression.to_matcher();
 
     let repo = workspace_command.repo().as_ref();
-    let source = AbsorbSource::from_commit(repo, source_commit.clone())?;
+    let source = AbsorbSource::from_commit(repo, source_commit.clone()).await?;
     let selected_trees = split_hunks_to_trees(repo, &source, &destinations, &matcher).await?;
 
     print_unmatched_explicit_paths(
@@ -101,7 +101,7 @@ pub(crate) async fn cmd_absorb(
     workspace_command.check_rewritable(selected_trees.target_commits.keys())?;
 
     let mut tx = workspace_command.start_transaction();
-    let stats = absorb_hunks(tx.repo_mut(), &source, selected_trees.target_commits)?;
+    let stats = absorb_hunks(tx.repo_mut(), &source, selected_trees.target_commits).await?;
 
     if let Some(mut formatter) = ui.status_formatter() {
         if !stats.rewritten_destinations.is_empty() {

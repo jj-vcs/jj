@@ -23,7 +23,6 @@ use std::sync::Arc;
 use bstr::BString;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::annotate::FileAnnotator;
@@ -60,9 +59,9 @@ pub struct AbsorbSource {
 
 impl AbsorbSource {
     /// Create an absorb source from a single commit.
-    pub fn from_commit(repo: &dyn Repo, commit: Commit) -> BackendResult<Self> {
-        let parents = commit.parents().try_collect()?;
-        let parent_tree = commit.parent_tree(repo)?;
+    pub async fn from_commit(repo: &dyn Repo, commit: Commit) -> BackendResult<Self> {
+        let parents = commit.parents_async().await?;
+        let parent_tree = commit.parent_tree_async(repo).await?;
         Ok(Self {
             commit,
             parents,
@@ -294,7 +293,7 @@ pub struct AbsorbStats {
 
 /// Merges selected trees into the specified commits. Abandons the source commit
 /// if it becomes discardable.
-pub fn absorb_hunks(
+pub async fn absorb_hunks(
     repo: &mut MutableRepo,
     source: &AbsorbSource,
     mut selected_trees: HashMap<CommitId, MergedTreeBuilder>,
@@ -353,7 +352,7 @@ pub fn absorb_hunks(
         rewritten_destinations.push(new_commit);
         Ok(())
     })
-    .block_on()?;
+    .await?;
     Ok(AbsorbStats {
         rewritten_source,
         rewritten_destinations,
