@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::process::Command;
+
 use test_case::test_case;
 use testutils::git;
 
@@ -120,6 +122,38 @@ fn test_workspaces_add_second_and_third_workspace() {
     [exit status: 1]
     ");
     assert!(!test_env.env_root().join("tertiary").exists());
+}
+
+#[test]
+fn test_workspace_add_registers_git_worktree_in_colocated_repo() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "main"])
+        .success();
+    let main_dir = test_env.work_dir("main");
+    let secondary_dir = test_env.work_dir("secondary");
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    main_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+
+    let dot_git_path = secondary_dir.root().join(".git");
+    assert!(dot_git_path.is_file());
+    let dot_git_contents = std::fs::read_to_string(&dot_git_path).unwrap();
+    assert!(dot_git_contents.starts_with("gitdir: "));
+
+    let output = Command::new("git")
+        .current_dir(main_dir.root())
+        .args(["worktree", "list", "--porcelain"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let secondary_path = secondary_dir.root().to_string_lossy();
+    assert!(stdout.contains(&format!("worktree {secondary_path}")));
 }
 
 #[test]
