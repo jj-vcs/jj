@@ -1397,6 +1397,10 @@ Thanks to the people who made this release happen!
 * Evolution history is now stored in the operation log. `jj evolog` can show
   associated operations for commits created by new jj versions.
 
+* A minimal version of `jj run` was implemented.
+  Follow [#1869](https://github.com/jj-vcs/jj/issues/1869) for further
+  improvements.
+
 ### Fixed bugs
 
 * Work around a git issue that could cause subprocess operations to hang if the
