@@ -21,6 +21,7 @@ mod bisect;
 mod bookmark;
 mod commit;
 mod config;
+mod converge;
 mod debug;
 mod describe;
 mod diff;
@@ -105,6 +106,7 @@ enum Command {
     Commit(commit::CommitArgs),
     #[command(subcommand)]
     Config(config::ConfigCommand),
+    Converge(converge::ConvergeArgs),
     #[command(subcommand)]
     Debug(debug::DebugCommand),
     Describe(describe::DescribeArgs),
@@ -178,6 +180,7 @@ pub fn run_command(ui: &mut Ui, command_helper: &CommandHelper) -> Result<(), Co
         Command::Bookmark(args) => bookmark::cmd_bookmark(ui, command_helper, args),
         Command::Commit(args) => commit::cmd_commit(ui, command_helper, args),
         Command::Config(args) => config::cmd_config(ui, command_helper, args),
+        Command::Converge(args) => converge::cmd_converge(ui, command_helper, args),
         Command::Debug(args) => debug::cmd_debug(ui, command_helper, args),
         Command::Describe(args) => describe::cmd_describe(ui, command_helper, args),
         Command::Diff(args) => diff::cmd_diff(ui, command_helper, args),
