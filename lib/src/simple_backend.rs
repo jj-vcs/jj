@@ -47,6 +47,7 @@ use crate::backend::CopyId;
 use crate::backend::CopyRecord;
 use crate::backend::FileId;
 use crate::backend::MillisSinceEpoch;
+use crate::backend::RelatedCopy;
 use crate::backend::SecureSig;
 use crate::backend::Signature;
 use crate::backend::SigningFn;
@@ -255,7 +256,7 @@ impl Backend for SimpleBackend {
         ))
     }
 
-    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>> {
+    async fn get_related_copies(&self, _copy_id: &CopyId) -> BackendResult<Vec<RelatedCopy>> {
         Err(BackendError::Unsupported(
             "The simple backend doesn't support copies".to_string(),
         ))

@@ -217,6 +217,12 @@ pub struct CopyHistory {
     pub salt: Vec<u8>,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct RelatedCopy {
+    pub id: CopyId,
+    pub history: CopyHistory,
+}
+
 /// Error that may occur during backend initialization.
 #[derive(Debug, Error)]
 #[error(transparent)]
@@ -309,6 +315,13 @@ impl TreeValue {
             Self::Symlink(id) => id.hex(),
             Self::Tree(id) => id.hex(),
             Self::GitSubmodule(id) => id.hex(),
+        }
+    }
+
+    pub fn copy_id(&self) -> Option<&CopyId> {
+        match self {
+            Self::File { copy_id, .. } => Some(copy_id),
+            _ => None,
         }
     }
 }
@@ -468,14 +481,15 @@ pub trait Backend: Any + Send + Sync + Debug {
 
     /// Find all copy histories that are related to the specified one. This is
     /// defined as those that are ancestors of the given specified one, plus
-    /// their descendants. Children must be returned before parents.
+    /// all descendants of those ancestors. Children must be returned before
+    /// parents.
     ///
     /// It is valid (but wasteful) to include other copy histories, such as
     /// siblings, or even completely unrelated copy histories.
     ///
     /// Backends that don't support copy tracking may return
     /// `BackendError::Unsupported`.
-    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<CopyHistory>>;
+    async fn get_related_copies(&self, copy_id: &CopyId) -> BackendResult<Vec<RelatedCopy>>;
 
     async fn read_tree(&self, path: &RepoPath, id: &TreeId) -> BackendResult<Tree>;
 

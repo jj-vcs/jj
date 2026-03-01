@@ -31,6 +31,7 @@ use jj_lib::backend::Backend;
 use jj_lib::backend::BackendInitError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
+use jj_lib::backend::CopyHistory;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::FileId;
 use jj_lib::backend::MillisSinceEpoch;
@@ -445,6 +446,7 @@ impl TestTreeBuilder {
             path: path.to_owned(),
             contents: contents.as_ref().to_vec(),
             executable: false,
+            copy_history: None,
             copy_id: CopyId::placeholder(),
         }
     }
@@ -476,6 +478,7 @@ pub struct TestTreeFileEntryBuilder<'a> {
     path: RepoPathBuf,
     contents: Vec<u8>,
     executable: bool,
+    copy_history: Option<CopyHistory>,
     copy_id: CopyId,
 }
 
@@ -485,8 +488,14 @@ impl TestTreeFileEntryBuilder<'_> {
         self
     }
 
+    pub fn copy_history(mut self, copy_history: &CopyHistory) -> Self {
+        self.copy_history = Some(copy_history.clone());
+        self
+    }
+
     pub fn copy_id(mut self, copy_id: CopyId) -> Self {
         self.copy_id = copy_id;
+        self.copy_history = None;
         self
     }
 }
@@ -500,12 +509,22 @@ impl Drop for TestTreeFileEntryBuilder<'_> {
             .block_on()
             .unwrap();
         let path = std::mem::replace(&mut self.path, RepoPathBuf::root());
+        let copy_id = if let Some(copy_history) = self.copy_history.as_ref() {
+            self.tree_builder
+                .store()
+                .backend()
+                .write_copy(copy_history)
+                .block_on()
+                .unwrap()
+        } else {
+            self.copy_id.clone()
+        };
         self.tree_builder.set(
             path,
             TreeValue::File {
                 id,
                 executable: self.executable,
-                copy_id: self.copy_id.clone(),
+                copy_id,
             },
         );
     }
@@ -585,6 +604,29 @@ pub fn create_tree(repo: &Arc<ReadonlyRepo>, path_contents: &[(&RepoPath, &str)]
     create_tree_with(repo, |builder| {
         for (path, contents) in path_contents {
             builder.file(path, contents);
+        }
+    })
+}
+
+pub fn create_tree_with_copy_history(
+    repo: &Arc<ReadonlyRepo>,
+    histories: &HashMap<RepoPathBuf, CopyHistory>,
+    path_contents: &[(&RepoPath, &str)],
+) -> MergedTree {
+    create_tree_with(repo, |builder| {
+        for (path, contents) in path_contents {
+            builder.file(path, contents).copy_history(&histories[*path]);
+        }
+    })
+}
+
+pub fn create_tree_with_copy_id(
+    repo: &Arc<ReadonlyRepo>,
+    path_contents_id: &[(&RepoPath, &str, &CopyId)],
+) -> MergedTree {
+    create_tree_with(repo, |builder| {
+        for (path, contents, id) in path_contents_id {
+            builder.file(path, contents).copy_id((*id).clone());
         }
     })
 }
@@ -851,6 +893,53 @@ impl CommitBuilderExt for CommitBuilder<'_> {
     fn write_unwrap(self) -> Commit {
         self.write().block_on().unwrap()
     }
+}
+
+pub struct PathAndParents<'a> {
+    pub path: &'a RepoPath,
+    pub parents: Vec<&'a RepoPath>,
+}
+
+impl<'a> From<(&'a RepoPath, Vec<&'a RepoPath>)> for PathAndParents<'a> {
+    fn from(item: (&'a RepoPath, Vec<&'a RepoPath>)) -> Self {
+        Self {
+            path: item.0,
+            parents: item.1,
+        }
+    }
+}
+
+// Creates a CopyHistory graph and writes it to the test repo, returning the
+// resulting IDs and Histories. Items in `paths_and_parents` can refer to parent
+// paths occurring earlier in the list
+pub fn write_copy_histories(
+    repo: &Arc<ReadonlyRepo>,
+    paths_and_parents: &[PathAndParents],
+) -> HashMap<RepoPathBuf, CopyHistory> {
+    let mut ids = HashMap::<RepoPathBuf, CopyId>::new();
+    let mut histories = HashMap::<RepoPathBuf, CopyHistory>::new();
+
+    for path_and_parents in paths_and_parents {
+        let history = CopyHistory {
+            current_path: path_and_parents.path.to_owned(),
+            parents: path_and_parents
+                .parents
+                .iter()
+                .map(|parent| ids[*parent].clone())
+                .collect(),
+            salt: vec![],
+        };
+        let id = repo
+            .store()
+            .backend()
+            .write_copy(&history)
+            .block_on()
+            .unwrap();
+        ids.insert(path_and_parents.path.to_owned(), id);
+        histories.insert(path_and_parents.path.to_owned(), history);
+    }
+
+    histories
 }
 
 /// Returns true if the directory appears to be on a filesystem with strict
