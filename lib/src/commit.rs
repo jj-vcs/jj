@@ -133,13 +133,9 @@ impl Commit {
         &self.data.root_tree
     }
 
-    pub fn parent_tree(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
-        self.parent_tree_async(repo).block_on()
-    }
-
     /// Return the parent tree, merging the parent trees if there are multiple
     /// parents.
-    pub async fn parent_tree_async(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
+    pub async fn parent_tree(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
         // Avoid merging parent trees if known to be empty. The index could be
         // queried only when parents.len() > 1, but index query would be cheaper
         // than extracting parent commit from the store.

@@ -1342,8 +1342,9 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             };
             let repo = language.repo;
             let matcher: Rc<dyn Matcher> = files.to_matcher().into();
-            let out_property = self_property
-                .and_then(move |commit| Ok(TreeDiff::from_commit(repo, &commit, matcher.clone())?));
+            let out_property = self_property.and_then(move |commit| {
+                Ok(TreeDiff::from_commit(repo, &commit, matcher.clone()).block_on()?)
+            });
             Ok(out_property.into_dyn_wrapped())
         },
     );
@@ -2283,7 +2284,7 @@ pub struct TreeDiff {
 }
 
 impl TreeDiff {
-    fn from_commit(
+    async fn from_commit(
         repo: &dyn Repo,
         commit: &Commit,
         matcher: Rc<dyn Matcher>,
@@ -2295,7 +2296,7 @@ impl TreeDiff {
             copy_records.add_records(records)?;
         }
         Ok(Self {
-            from_tree: commit.parent_tree(repo)?,
+            from_tree: commit.parent_tree(repo).await?,
             to_tree: commit.tree(),
             matcher,
             copy_records,

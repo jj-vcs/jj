@@ -312,7 +312,8 @@ pub(crate) async fn cmd_squash(
     let text_editor = tx.base_workspace_helper().text_editor()?;
     let squashed_description = SquashedDescription::from_args(args);
 
-    let source_commits = select_diff(ui, &tx, &sources, &destination, &matcher, &diff_selector)?;
+    let source_commits =
+        select_diff(ui, &tx, &sources, &destination, &matcher, &diff_selector).await?;
 
     print_unmatched_explicit_paths(
         ui,
@@ -456,9 +457,9 @@ impl SquashedDescription {
     }
 }
 
-fn select_diff(
+async fn select_diff(
     ui: &Ui,
-    tx: &WorkspaceCommandTransaction,
+    tx: &WorkspaceCommandTransaction<'_>,
     sources: &[Commit],
     destination: &Commit,
     matcher: &dyn Matcher,
@@ -466,7 +467,7 @@ fn select_diff(
 ) -> Result<Vec<CommitWithSelection>, CommandError> {
     let mut source_commits = vec![];
     for source in sources {
-        let parent_tree = source.parent_tree(tx.repo())?;
+        let parent_tree = source.parent_tree(tx.repo()).await?;
         let source_tree = source.tree();
         let format_instructions = || {
             formatdoc! {"

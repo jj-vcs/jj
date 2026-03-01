@@ -444,24 +444,22 @@ pub async fn rebase_to_dest_parent(
         return Ok(source.tree());
     }
 
-    let diffs: Vec<_> = sources
-        .iter()
-        .map(|source| -> BackendResult<_> {
-            Ok(Diff::new(
-                (
-                    source.parent_tree(repo)?,
-                    format!("{} (original parents)", source.parents_conflict_label()?),
-                ),
-                (
-                    source.tree(),
-                    format!("{} (original revision)", source.conflict_label()),
-                ),
-            ))
-        })
-        .try_collect()?;
+    let diffs: Vec<_> = try_join_all(sources.iter().map(async |source| -> BackendResult<_> {
+        Ok(Diff::new(
+            (
+                source.parent_tree(repo).await?,
+                format!("{} (original parents)", source.parents_conflict_label()?),
+            ),
+            (
+                source.tree(),
+                format!("{} (original revision)", source.conflict_label()),
+            ),
+        ))
+    }))
+    .await?;
     MergedTree::merge(Merge::from_diffs(
         (
-            destination.parent_tree(repo)?,
+            destination.parent_tree(repo).await?,
             format!("{} (new parents)", destination.parents_conflict_label()?),
         ),
         diffs,
