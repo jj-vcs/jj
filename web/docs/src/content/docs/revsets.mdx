@@ -2,6 +2,8 @@
 title: Revsets
 ---
 
+import RevsetGallery from "../../components/RevsetGallery.astro";
+
 Jujutsu supports a functional language for selecting a set of revisions.
 Expressions in this language are called "revsets" (the idea comes from
 [Mercurial](https://www.mercurial-scm.org/repo/hg/help/revsets)). The language
@@ -96,105 +98,210 @@ only symbols.
 You can use parentheses to control evaluation order, such as `(x & y) | z` or
 `x & (y | z)`.
 
-<!-- The following format will be understood by the web site generator, and will
- generate a folded section that can be unfolded at will. -->
+<aside>
+  See how the above operators work using the interactive visualizer:
 
-<details>
-<summary>Examples</summary>
-
-Given this history:
-
-```
-o D
-|\
-| o C
-| |
-o | B
-|/
-o A
-|
-o root()
-```
-
-**Operator** `x-`
-
-* `D-` ⇒ `{C,B}`
-* `B-` ⇒ `{A}`
-* `A-` ⇒ `{root()}`
-* `root()-` ⇒ `{}` (empty set)
-* `none()-` ⇒ `{}` (empty set)
-* `(D|A)-` ⇒ `{C,B,root()}`
-* `(C|B)-` ⇒ `{A}`
-
-**Operator** `x+`
-
-* `D+` ⇒ `{}` (empty set)
-* `B+` ⇒ `{D}`
-* `A+` ⇒ `{B,C}`
-* `root()+` ⇒ `{A}`
-* `none()+` ⇒ `{}` (empty set)
-* `(C|B)+` ⇒ `{D}`
-* `(B|root())+` ⇒ `{D,A}`
-
-**Operator** `x::`
-
-* `D::` ⇒ `{D}`
-* `B::` ⇒ `{D,B}`
-* `A::` ⇒ `{D,C,B,A}`
-* `root()::` ⇒ `{D,C,B,A,root()}`
-* `none()::` ⇒ `{}` (empty set)
-* `(C|B)::` ⇒ `{D,C,B}`
-
-**Operator** `x..`
-
-* `D..` ⇒ `{}` (empty set)
-* `B..` ⇒ `{D,C}` (note that, unlike `B::`, this includes `C`)
-* `A..` ⇒ `{D,C,B}`
-* `root()..` ⇒ `{D,C,B,A}`
-* `none()..` ⇒ `{D,C,B,A,root()}`
-* `(C|B)..` ⇒ `{D}`
-
-**Operator** `::x`
-
-* `::D` ⇒ `{D,C,B,A,root()}`
-* `::B` ⇒ `{B,A,root()}`
-* `::A` ⇒ `{A,root()}`
-* `::root()` ⇒ `{root()}`
-* `::none()` ⇒ `{}` (empty set)
-* `::(C|B)` ⇒ `{C,B,A,root()}`
-
-**Operator** `..x`
-
-* `..D` ⇒ `{D,C,B,A}`
-* `..B` ⇒ `{B,A}`
-* `..A` ⇒ `{A}`
-* `..root()` ⇒ `{}` (empty set)
-* `..none()` ⇒ `{}` (empty set)
-* `..(C|B)` ⇒ `{C,B,A}`
-
-**Operator** `x::y`
-
-* `D::D` ⇒ `{D}`
-* `B::D` ⇒ `{D,B}` (note that, unlike `B..D`, this includes `B` and excludes `C`)
-* `B::C` ⇒ `{}` (empty set) (note that, unlike `B..C`, this excludes `C`)
-* `A::D` ⇒ `{D,C,B,A}`
-* `root()::D` ⇒ `{D,C,B,A,root()}`
-* `none()::D` ⇒ `{}` (empty set)
-* `D::B` ⇒ `{}` (empty set)
-* `(C|B)::(C|B)` ⇒ `{C,B}`
-
-**Operator** `x..y`
-
-* `D..D` ⇒ `{}` (empty set)
-* `B..D` ⇒ `{D,C}` (note that, unlike `B::D`, this includes `C` and excludes `B`)
-* `B..C` ⇒ `{C}` (note that, unlike `B::C`, this includes `C`)
-* `A..D` ⇒ `{D,C,B}`
-* `root()..D` ⇒ `{D,C,B,A}`
-* `none()..D` ⇒ `{D,C,B,A,root()}`
-* `D..B` ⇒ `{}` (empty set)
-* `(C|B)..(C|B)` ⇒ `{}` (empty set)
-
-</details>
+  <RevsetGallery
+    rows={[
+      [{ revisionId: "R", special: "trunk()" }],
+      ["N", "", { revisionId: "Q", bookmark: "feat-2" }],
+      ["M", "O", "P"],
+      ["L", { revisionId: "G", hidden: true }],
+      ["K"],
+      ["D", "F", { revisionId: "J", bookmark: "feat-1" }],
+      ["C", "", "I"],
+      ["B", "E", "H"],
+      ["A"],
+      [{ revisionId: "0", special: "root()", hideRevisionId: true }]
+    ]}
+    connections={[
+      "0ABCDKLMNR",
+      "AEFK",
+      "AHIJK",
+      "LON",
+      "LPQ",
+      "KG"
+    ]}
+    groups={[
+      {
+        title: "Operations",
+        items: [
+          {
+            label: "x",
+            examples: [
+              { revset: "K", select: "K" },
+              { revset: "N", select: "N" },
+              { revset: "trunk()", select: "R" },
+              { revset: "feat-1", select: "J" },
+              { revset: "root()", select: "0" },
+              { revset: "G", select: "G" },
+            ],
+          },
+          {
+            label: "x-",
+            examples: [
+              { revset: "K-", select: "DFJ" },
+              { revset: "N-", select: "MO" },
+              { revset: "trunk()-", select: "N" },
+              { revset: "P-", select: "L" },
+              { revset: "feat-2-", select: "P" },
+              { revset: "(D|F)-", select: "CE" },
+              { revset: "(O|P)-", select: "L" },
+              { revset: "K--", select: "CEI" },
+            ],
+          },
+          {
+            label: "x+",
+            examples: [
+              { revset: "A+", select: "BEH" },
+              { revset: "D+", select: "K" },
+              { revset: "feat-1+", select: "K" },
+              { revset: "root()+", select: "A" },
+              { revset: "(B|C)+", select: "CD" },
+              { revset: "(M|O)+", select: "N" },
+              { revset: "A++", select: "CFI"}
+            ],
+          },
+          {
+            label: "x::",
+            examples: [
+              { revset: "L::", select: "LMOPQNR" },
+              { revset: "C::", select: "CDKLMNROPQ" },
+              { revset: "root()::", select: "0ABCDEFHIJKLMNROPQ" },
+              { revset: "P::", select: "PQ" },
+              { revset: "feat-1::", select: "JKLMNROPQ" },
+              { revset: "(M|P)::", select: "MNRPQ" },
+              { revset: "(F|D|J)::", select: "DFJKLMNROPQ" }
+            ],
+          },
+          {
+            label: "x..",
+            examples: [
+              { revset: "P..", select: "MONRQ" },
+              { revset: "O..", select: "MNRPQ" },
+              { revset: "K..", select: "LMNROPQ" },
+              { revset: "trunk()..", select: "PQ" },
+              { revset: "root()..", select: "ABCDFEHIJKLMNROPQ" },
+              { revset: "(D|J)..", select: "EFKLMNROPQ" },
+            ],
+          },
+          {
+            label: "::x",
+            examples: [
+              { revset: "::K", select: "0ABCDEFHIJK" },
+              { revset: "::A", select: "0A" },
+              { revset: "::O", select: "0ABCDKLOEFHIJ" },
+              { revset: "::feat-1", select: "0AHIJ" },
+              { revset: "::trunk()", select: "0ABCDEFHIJKLMONR" },
+              { revset: "::(C|I)", select: "0ABCHI" },
+              { revset: "::G", select: "0ABCDEFHIJKG" },
+            ],
+          },
+          {
+            label: "..x",
+            examples: [
+              { revset: "..C", select: "ABC" },
+              { revset: "..L", select: "ABCDEFHIJKL" },
+              { revset: "..root()", select: "" },
+              { revset: "..K", select: "ABCDEFHIJK" },
+              { revset: "..(D|J)", select: "ABCDHIJ" },
+              { revset: "..(M|P|O)", select: "ABCDEFHIJKLMOP" },
+            ],
+          },
+          {
+            label: "x::y",
+            examples: [
+              { revset: "B::K", select: "BCDK" },
+              { revset: "F::O", select: "FKLO" },
+              { revset: "C::Q", select: "CDKLPQ" },
+              { revset: "feat-1::feat-2", select: "JKLPQ" },
+              { revset: "L::trunk()", select: "LMONR" },
+              { revset: "A::trunk()", select: "ABCDEFHIJKLMONR" },
+              { revset: "H::F", select: "" },
+              { revset: "A::(F|J)", select: "AEFHIJ" },
+              { revset: "(B|H)::(M|Q)", select: "BCDHIJKLMPQ" },
+              { revset: "I::G", select: "IJKG" },
+            ],
+          },
+          {
+            label: "x..y",
+            examples: [
+              { revset: "trunk()..Q", select: "QP" },
+              { revset: "Q..trunk()", select: "MONR" },
+              { revset: "D..F", select: "EF" },
+              { revset: "F..D", select: "BCD" },
+              { revset: "K..F", select: "" },
+              { revset: "F..K", select: "DCBJIHK" },
+              { revset: "D..(J|F)", select: "FEJIH" },
+              { revset: "(J|F)..D", select: "BCD" },
+            ],
+          },
+          {
+            label: "::",
+            examples: [
+              { revset: "::", select: "0ABCDEFHIJKLMNOPQR" },
+              { revset: ":: | G", select: "0ABCDEFHIJKLMNOPQRG" },
+            ],
+          },
+          {
+            label: "..",
+            examples: [
+              { revset: "..", select: "ABCDEFHIJKLMNOPQR" },
+              { revset: ".. | G", select: "ABCDEFHIJKLMNOPQRG" },
+            ],
+          },
+          {
+            label: "~x",
+            examples: [
+              { revset: "~K", select: "0ABCDEFHIJLMNOPQR" },
+              { revset: "~trunk()", select: "0ABCDEFHIJKLMNOPQ" },
+              { revset: "~(D|F|J)", select: "0ABCEHIKLMNOPQR" },
+              { revset: "~::K", select: "LMNOPQR" },
+              { revset: "~K::", select: "0ABCDEFHIJ" },
+              { revset: "~R..Q", select: "0ABCDEFHIJKLOMNR" },
+            ]
+          },
+          {
+            label: "x & y",
+            examples: [
+              { revset: "J & J", select: "J" },
+              { revset: "J & K", select: "" },
+              { revset: "J & feat-1", select: "J" },
+              { revset: "(L|O|A) & (P|O|A)", select: "OA" },
+              { revset: "::trunk() & ::Q", select: "0ABCDEFHIJKL" },
+              { revset: "::D & ::F & ::J", select: "0A" },
+              { revset: "::feat-1 & ::feat-2", select: "0AHIJ" },
+            ],
+          },
+          {
+            label: "x ~ y",
+            examples: [
+              { revset: "J ~ J", select: "" },
+              { revset: "J ~ K", select: "J" },
+              { revset: "(L|O|A) ~ (P|O|A)", select: "L" },
+              { revset: "::J ~ I", select: "0AHJ" },
+              { revset: "::trunk() ~ ::O", select: "RNM" },
+              { revset: "::K ~ ::F ~ I", select: "BCDKHJ" },
+              { revset: "::feat-2 ~ ::feat-1", select: "BCDEFKLPQ" },
+              { revset: "::feat-1 ~ ::feat-2", select: "" },
+            ],
+          },
+          {
+            label: "x | y",
+            examples: [
+              { revset: "K | N", select: "KN" },
+              { revset: "trunk() | feat-1", select: "RJ" },
+              { revset: "root() | (D|F)", select: "0DF" },
+              { revset: "M|O|L|P", select: "MOLP" },
+              { revset: "D|D", select: "D" },
+              { revset: "D|G", select: "DG" },
+            ],
+          },
+        ],
+      },
+    ]}
+  />
+</aside>
 
 ## Functions
 
