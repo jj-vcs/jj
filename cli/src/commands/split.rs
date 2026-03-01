@@ -459,7 +459,8 @@ async fn move_first_commit(
             },
             simplify_ancestor_merge: false,
         },
-    )?;
+    )
+    .await?;
 
     // 1 for the transformation of the original commit to the second commit
     // that was inserted in rewritten_commits
