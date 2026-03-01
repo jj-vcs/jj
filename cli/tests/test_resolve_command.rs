@@ -745,10 +745,9 @@ fn test_too_many_parents() {
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["resolve"]);
+    let output = work_dir.run_jj(["resolve", "--tool", ":ours"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Hint: Using default editor ':builtin'; run `jj config set --user ui.merge-editor :builtin` to disable this message.
     Error: Failed to resolve conflicts
     Caused by: The conflict at "file" has 3 sides. At most 2 sides are supported.
     Hint: Edit the conflict markers manually to resolve this.
@@ -951,10 +950,9 @@ fn test_file_vs_dir() {
     file    2-sided conflict including a directory
     [EOF]
     ");
-    let output = work_dir.run_jj(["resolve"]);
+    let output = work_dir.run_jj(["resolve", "--tool", ":ours"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Hint: Using default editor ':builtin'; run `jj config set --user ui.merge-editor :builtin` to disable this message.
     Error: Failed to resolve conflicts
     Caused by: Only conflicts that involve normal files (not symlinks, etc.) are supported. Conflict summary for "file":
     Conflict:
@@ -1004,10 +1002,9 @@ fn test_description_with_dir_and_deletion() {
     file    [38;5;1m3-sided[38;5;3m conflict including 1 deletion and [38;5;1ma directory[39m
     [EOF]
     ");
-    let output = work_dir.run_jj(["resolve"]);
+    let output = work_dir.run_jj(["resolve", "--tool", ":ours"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
-    Hint: Using default editor ':builtin'; run `jj config set --user ui.merge-editor :builtin` to disable this message.
     Error: Failed to resolve conflicts
     Caused by: Only conflicts that involve normal files (not symlinks, etc.) are supported. Conflict summary for "file":
     Conflict:

@@ -19,8 +19,6 @@ use jj_lib::copies::CopiesTreeDiffEntry;
 use jj_lib::copies::CopyRecords;
 use jj_lib::diff::ContentDiff;
 use jj_lib::diff::DiffHunkKind;
-use jj_lib::files;
-use jj_lib::files::MergeResult;
 use jj_lib::matchers::Matcher;
 use jj_lib::merge::Diff;
 use jj_lib::merge::Merge;
@@ -32,10 +30,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
-use jj_lib::tree_merge::MergeOptions;
 use thiserror::Error;
-
-use super::MergeToolFile;
 
 #[derive(Debug, Error)]
 pub enum BuiltinToolError {
@@ -590,184 +585,11 @@ pub async fn edit_diff_builtin(
     .map_err(BuiltinToolError::BackendError)
 }
 
-fn make_merge_sections(
-    merge_result: MergeResult,
-) -> Result<Vec<scm_record::Section<'static>>, BuiltinToolError> {
-    let mut sections = Vec::new();
-    match merge_result {
-        MergeResult::Resolved(buf) => {
-            let contents = buf_to_file_contents(None, buf.into());
-            let section = match contents {
-                FileContents::Absent => None,
-                FileContents::Text {
-                    contents,
-                    hash: _,
-                    num_bytes: _,
-                } => Some(scm_record::Section::Unchanged {
-                    lines: contents
-                        .split_inclusive('\n')
-                        .map(|line| Cow::Owned(line.to_owned()))
-                        .collect(),
-                }),
-                FileContents::Binary { .. } => Some(scm_record::Section::Binary {
-                    // TODO: Perhaps, this should be an "unchanged" section?
-                    is_checked: false,
-                    old_description: None,
-                    new_description: contents.describe().map(Cow::Owned),
-                }),
-            };
-            if let Some(section) = section {
-                sections.push(section);
-            }
-        }
-        MergeResult::Conflict(hunks) => {
-            for hunk in hunks {
-                let section = match hunk.into_resolved() {
-                    Ok(contents) => {
-                        let contents = str::from_utf8(&contents).map_err(|err| {
-                            BuiltinToolError::DecodeUtf8 {
-                                source: err,
-                                item: "unchanged hunk",
-                            }
-                        })?;
-                        scm_record::Section::Unchanged {
-                            lines: contents
-                                .split_inclusive('\n')
-                                .map(|line| Cow::Owned(line.to_owned()))
-                                .collect(),
-                        }
-                    }
-                    Err(merge) => {
-                        let lines: Vec<scm_record::SectionChangedLine> = merge
-                            .iter()
-                            .zip(
-                                [
-                                    scm_record::ChangeType::Added,
-                                    scm_record::ChangeType::Removed,
-                                ]
-                                .into_iter()
-                                .cycle(),
-                            )
-                            .map(|(contents, change_type)| -> Result<_, BuiltinToolError> {
-                                let contents = str::from_utf8(contents).map_err(|err| {
-                                    BuiltinToolError::DecodeUtf8 {
-                                        source: err,
-                                        item: "conflicting hunk",
-                                    }
-                                })?;
-                                let changed_lines =
-                                    make_section_changed_lines(contents, change_type);
-                                Ok(changed_lines)
-                            })
-                            .flatten_ok()
-                            .try_collect()?;
-                        scm_record::Section::Changed { lines }
-                    }
-                };
-                sections.push(section);
-            }
-        }
-    }
-    Ok(sections)
-}
-
-fn make_merge_file(
-    merge_tool_file: &MergeToolFile,
-    options: &MergeOptions,
-) -> Result<scm_record::File<'static>, BuiltinToolError> {
-    let file = &merge_tool_file.file;
-    let file_mode = if file.executable.expect("should have been resolved") {
-        mode::EXECUTABLE
-    } else {
-        mode::NORMAL
-    };
-    // TODO: Maybe we should test binary contents here, and generate per-file
-    // Binary section to select either "our" or "their" file.
-    let merge_result = files::merge_hunks(&file.contents, options);
-    let sections = make_merge_sections(merge_result)?;
-    Ok(scm_record::File {
-        old_path: None,
-        // Path for displaying purposes, not for file access.
-        path: Cow::Owned(
-            merge_tool_file
-                .repo_path
-                .to_fs_path_unchecked(Path::new("")),
-        ),
-        file_mode,
-        sections,
-    })
-}
-
-pub async fn edit_merge_builtin(
-    tree: &MergedTree,
-    merge_tool_files: &[MergeToolFile],
-) -> Result<MergedTree, BuiltinToolError> {
-    let store = tree.store();
-    let mut input = scm_record::helpers::CrosstermInput;
-    let recorder = scm_record::Recorder::new(
-        scm_record::RecordState {
-            is_read_only: false,
-            files: merge_tool_files
-                .iter()
-                .map(|f| make_merge_file(f, store.merge_options()))
-                .try_collect()?,
-            commits: Default::default(),
-        },
-        &mut input,
-    );
-    let state = recorder.run()?;
-    apply_merge_builtin(
-        store,
-        tree,
-        merge_tool_files
-            .iter()
-            .map(|file| file.repo_path.clone())
-            .collect_vec(),
-        &state.files,
-    )
-    .await
-    .map_err(BuiltinToolError::BackendError)
-}
-
-async fn apply_merge_builtin(
-    store: &Arc<Store>,
-    tree: &MergedTree,
-    changed_files: Vec<RepoPathBuf>,
-    files: &[scm_record::File<'_>],
-) -> BackendResult<MergedTree> {
-    let mut tree_builder = MergedTreeBuilder::new(tree.clone());
-    apply_changes(
-        &mut tree_builder,
-        changed_files,
-        files,
-        async |path| tree.path_value(path).await,
-        // FIXME: It doesn't make sense to select a new value from the source tree.
-        // Presently, `select_right` is never actually called, since it is used to select binary
-        // sections, but `make_merge_file` does not produce `Binary` sections for conflicted files.
-        // This needs to be revisited when the UI becomes capable of representing binary conflicts.
-        async |path| tree.path_value(path).await,
-        async |path, contents, executable| {
-            let id = store.write_file(path, &mut &contents[..]).await?;
-            let tree_value = tree.path_value(path).await?;
-            let copy_id = resolve_file_copy_id(&tree_value).unwrap_or_else(CopyId::placeholder);
-            Ok(Merge::normal(TreeValue::File {
-                id,
-                executable,
-                copy_id,
-            }))
-        },
-    )
-    .await?;
-    tree_builder.write_tree().await
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
 
-    use jj_lib::backend::FileId;
     use jj_lib::conflict_labels::ConflictLabels;
-    use jj_lib::conflicts::extract_as_single_hunk;
     use jj_lib::matchers::EverythingMatcher;
     use jj_lib::matchers::FilesMatcher;
     use jj_lib::repo::Repo as _;
@@ -1173,58 +995,6 @@ mod tests {
             actual_copy_ids.resolve_trivial(SameChange::Accept),
             Some(&copy_id),
             "Expect the copy id of the file to be resolved to {copy_id:?}, but got \
-             {actual_copy_ids:?}."
-        );
-    }
-
-    #[test]
-    fn test_edit_merge_builtin_should_preserve_copy_id() {
-        let test_repo = TestRepo::init();
-        let store = test_repo.repo.store();
-
-        let file_path = repo_path("test-file.txt");
-        // A random unique copy id that is unlikely to collide.
-        let new_copy_id = CopyId::from_bytes(b"\xa3\x2b\x24\x3b\xda\x42\x6b\xe3\x14\x33");
-        let mut tree_builder = testutils::TestThreeWayMergeTreeBuilder::new(Arc::clone(store));
-        tree_builder
-            .base()
-            .file(file_path, "")
-            // Another random unique copy id that is unlikely to collide.
-            .copy_id(CopyId::from_bytes(
-                b"\x10\xda\x3e\x78\x6f\x62\x83\x97\x0b\x0f",
-            ));
-        tree_builder
-            .parent1()
-            .file(file_path, "left parent1\n")
-            .copy_id(new_copy_id.clone());
-        tree_builder
-            .parent2()
-            .file(file_path, "left parent2\n")
-            .copy_id(new_copy_id.clone());
-        let tree = tree_builder.write_merged_tree();
-
-        let merge_tool_file = MergeToolFile::from_tree_and_path(&tree, file_path)
-            .block_on()
-            .unwrap();
-        let merge_file = make_merge_file(&merge_tool_file, store.merge_options()).unwrap();
-        let tree = apply_merge_builtin(store, &tree, vec![file_path.to_owned()], &[merge_file])
-            .block_on()
-            .unwrap();
-
-        let actual_copy_ids = tree
-            .path_value(file_path)
-            .block_on()
-            .unwrap()
-            .map(|tree_value| {
-                let Some(TreeValue::File { copy_id, .. }) = tree_value else {
-                    panic!("The path should point to an existing file.");
-                };
-                copy_id.clone()
-            });
-        assert_eq!(
-            actual_copy_ids.resolve_trivial(SameChange::Accept),
-            Some(&new_copy_id),
-            "Expect the copy id of the file to be resolved to {new_copy_id:?}, but got \
              {actual_copy_ids:?}."
         );
     }
@@ -2062,99 +1832,6 @@ mod tests {
             result_tree.path_value(unmatched_path).block_on().unwrap(),
             right_tree.path_value(unmatched_path).block_on().unwrap()
         );
-    }
-
-    #[test]
-    fn test_make_merge_sections() {
-        let test_repo = TestRepo::init();
-        let store = test_repo.repo.store();
-
-        let path = repo_path("file");
-        let base_tree = testutils::create_tree(
-            &test_repo.repo,
-            &[(path, "base 1\nbase 2\nbase 3\nbase 4\nbase 5\n")],
-        );
-        let left_tree = testutils::create_tree(
-            &test_repo.repo,
-            &[(path, "left 1\nbase 2\nbase 3\nbase 4\nleft 5\n")],
-        );
-        let right_tree = testutils::create_tree(
-            &test_repo.repo,
-            &[(path, "right 1\nbase 2\nbase 3\nbase 4\nright 5\n")],
-        );
-
-        fn to_file_id(tree_value: MergedTreeValue) -> Option<FileId> {
-            match tree_value.into_resolved() {
-                Ok(Some(TreeValue::File {
-                    id,
-                    executable: _,
-                    copy_id: _,
-                })) => Some(id.clone()),
-                other => {
-                    panic!("merge should have been a FileId: {other:?}")
-                }
-            }
-        }
-
-        let merge = Merge::from_vec(vec![
-            to_file_id(left_tree.path_value(path).block_on().unwrap()),
-            to_file_id(base_tree.path_value(path).block_on().unwrap()),
-            to_file_id(right_tree.path_value(path).block_on().unwrap()),
-        ]);
-        let content = extract_as_single_hunk(&merge, store, path)
-            .block_on()
-            .unwrap();
-        let merge_result = files::merge_hunks(&content, store.merge_options());
-        let sections = make_merge_sections(merge_result).unwrap();
-        insta::assert_debug_snapshot!(sections, @r#"
-        [
-            Changed {
-                lines: [
-                    SectionChangedLine {
-                        is_checked: false,
-                        change_type: Added,
-                        line: "left 1\n",
-                    },
-                    SectionChangedLine {
-                        is_checked: false,
-                        change_type: Removed,
-                        line: "base 1\n",
-                    },
-                    SectionChangedLine {
-                        is_checked: false,
-                        change_type: Added,
-                        line: "right 1\n",
-                    },
-                ],
-            },
-            Unchanged {
-                lines: [
-                    "base 2\n",
-                    "base 3\n",
-                    "base 4\n",
-                ],
-            },
-            Changed {
-                lines: [
-                    SectionChangedLine {
-                        is_checked: false,
-                        change_type: Added,
-                        line: "left 5\n",
-                    },
-                    SectionChangedLine {
-                        is_checked: false,
-                        change_type: Removed,
-                        line: "base 5\n",
-                    },
-                    SectionChangedLine {
-                        is_checked: false,
-                        change_type: Added,
-                        line: "right 5\n",
-                    },
-                ],
-            },
-        ]
-        "#);
     }
 
     prop_state_machine! {

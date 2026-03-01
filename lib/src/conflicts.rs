@@ -94,7 +94,7 @@ fn write_diff_hunks(hunks: &[DiffHunk], file: &mut dyn Write) -> io::Result<()> 
     Ok(())
 }
 
-async fn get_file_contents(
+pub async fn get_file_contents(
     store: &Store,
     path: &RepoPath,
     term: Option<&FileId>,

@@ -15,6 +15,7 @@
 #![expect(missing_docs)]
 
 use std::borrow::Borrow;
+use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::iter;
 use std::mem;
@@ -346,12 +347,19 @@ fn merge_hunk_by_word(inputs: Merge<&BStr>, same_change: SameChange) -> MergeHun
 
 /// `Cow`-like type over `Merge<T>`.
 #[derive(Clone, Debug)]
-enum MergeHunk<'input> {
+pub enum MergeHunk<'input> {
     Borrowed(Merge<&'input BStr>),
     Owned(Merge<BString>),
 }
 
-impl MergeHunk<'_> {
+impl<'a> MergeHunk<'a> {
+    pub fn resolved(hunk: Cow<'a, BStr>) -> Self {
+        match hunk {
+            Cow::Borrowed(hunk) => Self::Borrowed(Merge::resolved(hunk)),
+            Cow::Owned(hunk) => Self::Owned(Merge::resolved(hunk)),
+        }
+    }
+
     fn len(&self) -> usize {
         match self {
             MergeHunk::Borrowed(merge) => merge.as_slice().len(),
@@ -382,7 +390,7 @@ impl MergeHunk<'_> {
 }
 
 /// `FromIterator` for merge result.
-trait FromMergeHunks<'input>: Sized {
+pub trait FromMergeHunks<'input>: Sized {
     fn from_hunks<I: IntoIterator<Item = MergeHunk<'input>>>(hunks: I) -> Self;
 }
 

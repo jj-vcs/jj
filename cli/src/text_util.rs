@@ -409,10 +409,10 @@ pub fn write_indented(
 
 /// Word with trailing whitespace.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct ByteFragment<'a> {
-    word: &'a [u8],
-    whitespace_len: usize,
-    word_width: usize,
+pub struct ByteFragment<'a> {
+    pub word: &'a [u8],
+    pub whitespace_len: usize,
+    pub word_width: usize,
 }
 
 impl<'a> ByteFragment<'a> {
@@ -445,7 +445,7 @@ impl textwrap::core::Fragment for ByteFragment<'_> {
     }
 }
 
-fn byte_offset_from(outer: &[u8], inner: &[u8]) -> usize {
+pub fn byte_offset_from(outer: &[u8], inner: &[u8]) -> usize {
     let outer_start = outer.as_ptr() as usize;
     let inner_start = inner.as_ptr() as usize;
     assert!(outer_start <= inner_start);
@@ -453,7 +453,7 @@ fn byte_offset_from(outer: &[u8], inner: &[u8]) -> usize {
     inner_start - outer_start
 }
 
-fn split_byte_line_to_words(line: &[u8]) -> Vec<ByteFragment<'_>> {
+pub fn split_byte_line_to_words(line: &[u8]) -> Vec<ByteFragment<'_>> {
     let mut words = Vec::new();
     let mut tail = line;
     while let Some(word_end) = tail.iter().position(|&c| c == b' ') {

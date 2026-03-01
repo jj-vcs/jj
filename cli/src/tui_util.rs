@@ -12,11 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io;
 use std::sync::Mutex;
 
+use crossterm::ExecutableCommand as _;
+use crossterm::event::DisableMouseCapture;
+use crossterm::event::EnableMouseCapture;
+use crossterm::terminal::EnterAlternateScreen;
+use crossterm::terminal::LeaveAlternateScreen;
+use crossterm::terminal::disable_raw_mode;
+use crossterm::terminal::enable_raw_mode;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Margin;
 use ratatui::layout::Rect;
+use ratatui::style::Style;
+use ratatui::text::Line;
+use ratatui::text::Span;
 use ratatui::text::Text;
 use ratatui::widgets::Block;
 use ratatui::widgets::ScrollDirection;
@@ -221,4 +232,65 @@ pub fn scroll_offset_by(offset: &mut usize, direction: ScrollDirection, amount: 
 
 pub fn to_u16(position: usize) -> u16 {
     position.try_into().unwrap_or(u16::MAX)
+}
+
+fn sliding_window<T: PartialEq>(mut items: Vec<T>, current: &T, context: usize) -> Vec<T> {
+    let current_index = items
+        .iter()
+        .position(|selection| selection == current)
+        .unwrap_or(0);
+
+    let window_size = context * 2 + 1;
+    let start_index = current_index
+        .saturating_sub(context)
+        .min(items.len().saturating_sub(window_size));
+    items.drain(0..start_index);
+    items.truncate(window_size);
+    items
+}
+
+pub fn render_horizontal_list<T: PartialEq>(
+    items: Vec<T>,
+    current: &T,
+    item_to_string: impl Fn(&T) -> String,
+    area: Rect,
+    buf: &mut Buffer,
+) {
+    let items = sliding_window(items, current, 2);
+
+    let mut line = Line::default().right_aligned();
+    if items.first() != Some(current) {
+        line.push_span("🞀");
+    }
+    for item in &items {
+        let style = if item == current {
+            Style::new().reversed()
+        } else {
+            Style::new()
+        };
+        line.push_span(Span::styled(" ", style));
+        line.push_span(Span::styled(item_to_string(item), style));
+        line.push_span(Span::styled(" ", style));
+    }
+    if items.last() != Some(current) {
+        line.push_span("🞂 ");
+    } else {
+        line.push_span("  ");
+    }
+
+    line.render(area, buf);
+}
+
+pub fn enter_tui() -> io::Result<()> {
+    io::stdout().execute(EnterAlternateScreen)?;
+    io::stdout().execute(EnableMouseCapture)?;
+    enable_raw_mode()?;
+    Ok(())
+}
+
+pub fn exit_tui() -> io::Result<()> {
+    disable_raw_mode()?;
+    io::stdout().execute(DisableMouseCapture)?;
+    io::stdout().execute(LeaveAlternateScreen)?;
+    Ok(())
 }
