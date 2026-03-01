@@ -54,7 +54,7 @@ use crate::ui::Ui;
 ///     https://docs.jj-vcs.dev/latest/revsets/
 ///
 /// Spans of revisions that are not included in the graph per `--revisions` are
-/// rendered as a synthetic node labeled "(elided revisions)".
+/// rendered as a synthetic node labeled "(N elided revisions)".
 ///
 /// The working-copy commit is indicated by a `@` symbol in the graph.
 /// [Immutable revisions] have a `◆` symbol. Other commits have a `○` symbol.
@@ -215,9 +215,8 @@ pub(crate) async fn cmd_log(
             let mut raw_output = formatter.raw()?;
             let mut graph = get_graphlog(graph_style, raw_output.as_mut());
             let iter: Box<dyn Iterator<Item = _>> = {
-                let mut forward_iter = TopoGroupedGraphIterator::new(revset.iter_graph(), |id| id);
-
                 let has_commit = revset.containing_fn();
+                let mut forward_iter = TopoGroupedGraphIterator::new(revset.iter_graph(), |id| id);
 
                 for prio in prio_revset.evaluate_to_commit_ids()? {
                     let prio = prio?;
@@ -253,9 +252,9 @@ pub(crate) async fn cmd_log(
                         GraphEdgeType::Direct => {
                             graphlog_edges.push(GraphEdge::direct((edge.target, false)));
                         }
-                        GraphEdgeType::Indirect => {
+                        GraphEdgeType::Indirect(elided_count) => {
                             if use_elided_nodes {
-                                elided_targets.push(edge.target.clone());
+                                elided_targets.push((edge.target.clone(), elided_count));
                                 graphlog_edges.push(GraphEdge::direct((edge.target, true)));
                             } else {
                                 graphlog_edges.push(GraphEdge::indirect((edge.target, false)));
@@ -300,7 +299,7 @@ pub(crate) async fn cmd_log(
                 // TODO: propagate errors
                 explicit_paths.retain(|&path| tree.path_value(path).unwrap().is_absent());
 
-                for elided_target in elided_targets {
+                for (elided_target, elided_count) in elided_targets {
                     let elided_key = (elided_target, true);
                     let real_key = (elided_key.0.clone(), false);
                     let edges = [GraphEdge::direct(real_key)];
@@ -308,7 +307,14 @@ pub(crate) async fn cmd_log(
                     let within_graph =
                         with_content_format.sub_width(graph.width(&elided_key, &edges));
                     within_graph.write(ui.new_formatter(&mut buffer).as_mut(), |formatter| {
-                        writeln!(formatter.labeled("elided"), "(elided revisions)")
+                        if elided_count == 1 {
+                            writeln!(formatter.labeled("elided"), "(1 elided revision)")
+                        } else {
+                            writeln!(
+                                formatter.labeled("elided"),
+                                "({elided_count} elided revisions)"
+                            )
+                        }
                     })?;
                     let node_symbol = format_template(ui, &None, &node_template);
                     graph.add_node(

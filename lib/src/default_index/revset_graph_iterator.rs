@@ -29,6 +29,7 @@ use super::rev_walk::RevWalk;
 use super::revset_engine::BoxedRevWalk;
 use crate::backend::CommitId;
 use crate::graph::GraphEdge;
+use crate::graph::GraphEdgeType;
 use crate::graph::GraphNode;
 use crate::revset::RevsetEvaluationError;
 
@@ -185,11 +186,19 @@ impl<'a> RevsetGraphWalk<'a> {
                     if parent_edges.iter().all(|edge| edge.is_missing()) {
                         edges.push(CommitGraphEdge::missing(parent_position));
                     } else {
-                        edges.extend(
-                            parent_edges
-                                .iter()
-                                .filter(|edge| !known_ancestors.get_set(edge.target)),
-                        );
+                        for edge in parent_edges.iter() {
+                            if known_ancestors.get_set(edge.target) {
+                                if let GraphEdgeType::Indirect(new_count) = edge.edge_type
+                                    && let Some(existing) =
+                                        edges.iter_mut().find(|e| e.target == edge.target)
+                                    && let GraphEdgeType::Indirect(count) = &mut existing.edge_type
+                                {
+                                    *count += new_count;
+                                }
+                            } else {
+                                edges.push(*edge);
+                            }
+                        }
                     }
                 }
             }
@@ -206,78 +215,124 @@ impl<'a> RevsetGraphWalk<'a> {
         index_entry: CommitIndexEntry<'_>,
     ) -> Result<&Rc<[CommitGraphEdge]>, RevsetEvaluationError> {
         let position = index_entry.position();
-        let mut stack = vec![index_entry];
-        while let Some(entry) = stack.last() {
-            let position = entry.position();
-            if self.edges.contains_key(&position) {
-                stack.pop().unwrap();
-                continue;
+        if self.edges.contains_key(&position) {
+            return Ok(self.edges.get(&position).unwrap());
+        }
+
+        // If position is below min_position, the input set is exhausted above this
+        // point — treat as missing. The caller already called consume_to(position).
+        if position < self.min_position {
+            let edges: Rc<[CommitGraphEdge]> = [CommitGraphEdge::missing(position)].into();
+            self.edges.insert(position, edges);
+            return Ok(self.edges.get(&position).unwrap());
+        }
+
+        // Phase 1: Collect all external positions reachable from `position`
+        // that are not yet cached. We just gather positions here without
+        // computing edges, so the traversal order doesn't matter.
+        let mut to_process: Vec<GlobalCommitPosition> = Vec::new();
+        let mut visited = PositionsBitSet::with_max_pos(position);
+        let mut work: Vec<GlobalCommitPosition> = vec![position];
+        while let Some(pos) = work.pop() {
+            if visited.get_set(pos) {
+                continue; // Already visited
             }
-            let mut parent_entries = entry.parents();
-            let complete_parent_edges = if parent_entries.len() == 1 {
-                let parent = parent_entries.next().unwrap();
-                let parent_position = parent.position();
-                self.consume_to(index, parent_position)?;
-                if self.look_ahead.binary_search(&parent_position).is_ok() {
-                    // We have found a path back into the input set
-                    Some([CommitGraphEdge::indirect(parent_position)].into())
-                } else if let Some(parent_edges) = self.edges.get(&parent_position) {
-                    if parent_edges.iter().all(|edge| edge.is_missing()) {
-                        Some([CommitGraphEdge::missing(parent_position)].into())
-                    } else {
-                        Some(parent_edges.clone())
-                    }
-                } else if parent_position < self.min_position {
-                    // The parent is not in the input set
-                    Some([CommitGraphEdge::missing(parent_position)].into())
-                } else {
-                    // The parent is not in the input set but it's somewhere in the range
-                    // where we have commits in the input set, so continue searching.
-                    stack.push(parent);
-                    None
-                }
-            } else {
-                let mut edges = Vec::new();
-                let mut known_ancestors = PositionsBitSet::with_max_pos(position);
-                let mut parents_complete = true;
-                for parent in parent_entries {
-                    let parent_position = parent.position();
-                    self.consume_to(index, parent_position)?;
-                    if self.look_ahead.binary_search(&parent_position).is_ok() {
-                        // We have found a path back into the input set
-                        edges.push(CommitGraphEdge::indirect(parent_position));
-                    } else if let Some(parent_edges) = self.edges.get(&parent_position) {
-                        if parent_edges.iter().all(|edge| edge.is_missing()) {
-                            edges.push(CommitGraphEdge::missing(parent_position));
-                        } else {
-                            edges.extend(
-                                parent_edges
-                                    .iter()
-                                    .filter(|edge| !known_ancestors.get_set(edge.target)),
-                            );
-                        }
-                    } else if parent_position < self.min_position {
-                        // The parent is not in the input set
-                        edges.push(CommitGraphEdge::missing(parent_position));
-                    } else {
-                        // The parent is not in the input set but it's somewhere in the range
-                        // where we have commits in the input set, so continue searching.
-                        stack.push(parent);
-                        parents_complete = false;
-                    }
-                }
-                parents_complete.then(|| {
-                    if self.skip_transitive_edges {
-                        self.remove_transitive_edges(index.commits(), &mut edges);
-                    }
-                    edges.into()
-                })
-            };
-            if let Some(edges) = complete_parent_edges {
-                stack.pop().unwrap();
-                self.edges.insert(position, edges);
+            if self.edges.contains_key(&pos) {
+                continue; // Already cached
+            }
+            self.consume_to(index, pos)?;
+            if self.look_ahead.binary_search(&pos).is_ok() || pos < self.min_position {
+                continue; // Visible or outside the search range
+            }
+            to_process.push(pos);
+            let entry = index.commits().entry_by_pos(pos);
+            for parent_pos in entry.parent_positions() {
+                work.push(parent_pos);
             }
         }
+
+        // Phase 2: Process positions in ascending order (parents before children).
+        // Because GlobalCommitPosition is topologically sorted (lower = older =
+        // ancestor), ascending order guarantees every parent is processed
+        // before its children. This lets us build each commit's edge list
+        // directly from its parent's cached data, with a simple +1 increment —
+        // no DFS stack unwinding needed.
+        to_process.sort_unstable();
+        for &pos in &to_process {
+            let entry = index.commits().entry_by_pos(pos);
+            let parent_positions = entry.parent_positions();
+            let mut edges: Vec<CommitGraphEdge> = Vec::new();
+            let mut known = PositionsBitSet::with_max_pos(pos);
+            for parent_pos in parent_positions {
+                if self.look_ahead.binary_search(&parent_pos).is_ok() {
+                    // Parent is visible: this hidden commit is 1 hop away from it.
+                    if known.get_set(parent_pos) {
+                        // Same visible target reached via multiple parents — sum counts.
+                        if let Some(ex) = edges.iter_mut().find(|e| e.target == parent_pos)
+                            && let GraphEdgeType::Indirect(count) = &mut ex.edge_type
+                        {
+                            *count += 1;
+                        }
+                    } else {
+                        edges.push(CommitGraphEdge {
+                            target: parent_pos,
+                            edge_type: GraphEdgeType::Indirect(1),
+                        });
+                    }
+                } else if let Some(parent_edges) = self.edges.get(&parent_pos).cloned() {
+                    if parent_edges.iter().all(|e| e.is_missing()) {
+                        // Parent's entire reachable subgraph is outside the input set.
+                        if !known.get_set(parent_pos) {
+                            edges.push(CommitGraphEdge::missing(parent_pos));
+                        }
+                    } else {
+                        // Propagate parent's edges, adding 1 for the current hidden commit.
+                        for edge in parent_edges.iter() {
+                            match edge.edge_type {
+                                GraphEdgeType::Indirect(n) => {
+                                    if known.get_set(edge.target) {
+                                        if let Some(ex) =
+                                            edges.iter_mut().find(|e| e.target == edge.target)
+                                            && let GraphEdgeType::Indirect(count) =
+                                                &mut ex.edge_type
+                                        {
+                                            *count += n + 1;
+                                        }
+                                    } else {
+                                        edges.push(CommitGraphEdge {
+                                            target: edge.target,
+                                            edge_type: GraphEdgeType::Indirect(n + 1),
+                                        });
+                                    }
+                                }
+                                GraphEdgeType::Missing => {
+                                    if !known.get_set(edge.target) {
+                                        edges.push(*edge);
+                                    }
+                                }
+                                GraphEdgeType::Direct => {
+                                    unreachable!("external commit cache never holds Direct edges")
+                                }
+                            }
+                        }
+                    }
+                } else if parent_pos < self.min_position {
+                    // Parent is below the search range.
+                    if !known.get_set(parent_pos) {
+                        edges.push(CommitGraphEdge::missing(parent_pos));
+                    }
+                }
+                // else: parent_pos is in the range but not cached and not
+                // visible. This can't happen because we sorted
+                // to_process ascending and parents always have
+                // lower positions than their children.
+            }
+            if self.skip_transitive_edges {
+                self.remove_transitive_edges(index.commits(), &mut edges);
+            }
+            self.edges.insert(pos, edges.into());
+        }
+
         Ok(self.edges.get(&position).unwrap())
     }
 

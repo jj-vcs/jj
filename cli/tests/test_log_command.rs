@@ -1662,10 +1662,10 @@ fn test_elided() {
     ├─╮
     │ ○  side bookmark 2
     │ │
-    │ ~  (elided revisions)
+    │ ~  (1 elided revision)
     ○ │  main bookmark 2
     │ │
-    ~ │  (elided revisions)
+    ~ │  (1 elided revision)
     ├─╯
     ○  initial
     │
@@ -1678,10 +1678,10 @@ fn test_elided() {
     insta::assert_snapshot!(get_log("@-- | root()"), @"
     ○  side bookmark 1
     │
-    ~  (elided revisions)
+    ~  (1 elided revision)
     │ ○  main bookmark 1
     │ │
-    │ ~  (elided revisions)
+    │ ~  (1 elided revision)
     ├─╯
     ◆
     [EOF]
@@ -1720,10 +1720,10 @@ fn test_log_with_custom_symbols() {
     ├─╮
     │ ┝  side bookmark 2
     │ │
-    │ 🮀  (elided revisions)
+    │ 🮀  (1 elided revision)
     ┝ │  main bookmark 2
     │ │
-    🮀 │  (elided revisions)
+    🮀 │  (1 elided revision)
     ├─╯
     ┝  initial
     │
@@ -1744,10 +1744,10 @@ fn test_log_with_custom_symbols() {
     |\
     | *  side bookmark 2
     | |
-    | :  (elided revisions)
+    | :  (1 elided revision)
     * |  main bookmark 2
     | |
-    : |  (elided revisions)
+    : |  (1 elided revision)
     |/
     *  initial
     |

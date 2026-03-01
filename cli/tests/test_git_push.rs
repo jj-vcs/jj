@@ -2546,7 +2546,7 @@ fn test_git_push_sign_on_push() {
     ○  pre-signed commit
     │  Signature: test-display, Status: good, Key: impeccable
     ◆  commit which should not be signed 1
-    ~  (elided revisions)
+    ~  (3 elided revisions)
     │ ○  description 1
     ├─╯
     ◆
@@ -2570,7 +2570,7 @@ fn test_git_push_sign_on_push() {
     ○  pre-signed commit
     │  Signature: test-display, Status: good, Key: impeccable
     ◆  commit which should not be signed 1
-    ~  (elided revisions)
+    ~  (3 elided revisions)
     │ ○  description 1
     ├─╯
     ◆
