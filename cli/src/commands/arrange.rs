@@ -242,6 +242,14 @@ impl State {
         self.current_order = commit_ids.into_iter().cloned().collect();
     }
 
+    /// Check if one commit is a parent of the other or vice versa.
+    fn are_graph_neighbors(&self, a_idx: usize, b_idx: usize) -> bool {
+        let a_id = &self.current_order[a_idx];
+        let b_id = &self.current_order[b_idx];
+        self.parents.get(b_id).unwrap().contains(a_id)
+            || self.parents.get(a_id).unwrap().contains(b_id)
+    }
+
     fn swap_commits(&mut self, a_idx: usize, b_idx: usize) {
         if a_idx == b_idx {
             return;
@@ -403,14 +411,23 @@ fn run_tui<B: ratatui::backend::Backend>(
                     let id = state.current_order[state.current_selection].clone();
                     state.actions.insert(id, Action::Keep);
                 }
-                // TODO: Allow swapping up/down only within linear parts of the graph.
                 (KeyCode::Down | KeyCode::Char('J'), KeyModifiers::SHIFT) => {
-                    if state.current_selection + 1 < state.commits.len() {
+                    if state.current_selection + 1 < state.commits.len()
+                        && state.are_graph_neighbors(
+                            state.current_selection,
+                            state.current_selection + 1,
+                        )
+                    {
                         state.swap_commits(state.current_selection, state.current_selection + 1);
                     }
                 }
                 (KeyCode::Up | KeyCode::Char('K'), KeyModifiers::SHIFT) => {
-                    if state.current_selection > 0 {
+                    if state.current_selection > 0
+                        && state.are_graph_neighbors(
+                            state.current_selection,
+                            state.current_selection - 1,
+                        )
+                    {
                         state.swap_commits(state.current_selection, state.current_selection - 1);
                     }
                 }
