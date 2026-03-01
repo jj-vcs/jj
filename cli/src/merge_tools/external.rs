@@ -324,7 +324,11 @@ fn run_mergetool_external_single_file(
             }))
         }
         // Update the file ids only, leaving the executable flags unchanged
-        Err(file_ids) => conflict.with_new_file_ids(&file_ids),
+        Err(file_ids) => conflict.with_new_file_ids(
+            &file_ids,
+            file.executable.unwrap_or(false),
+            CopyId::placeholder(),
+        ),
     };
     tree_builder.set_or_remove(repo_path.to_owned(), new_tree_value);
     Ok(())
