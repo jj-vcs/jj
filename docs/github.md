@@ -125,46 +125,22 @@ $ # Push it to your remote
 $ jj git push
 ```
 
-Notably, the above workflow creates a new commit for you. The same can be
-achieved without creating a new commit.
-
-!!! warning
-
-    We strongly suggest to `jj new` after the example below, as all further edits
-    still get amended to the previous commit.
-
-```shell
-$ # Create a new commit on top of the `your-feature` bookmark from above.
-$ jj new your-feature
-$ # Address the comments by updating the code. Then review the changes.
-$ jj diff
-$ # Give the fix a description.
-$ jj describe -m 'address pr comments'
-$ # Update the bookmark to point to the current commit.
-$ jj bookmark move your-feature --to @
-$ # Push it to your remote
-$ jj git push
-```
-
 ### Rewriting commits
 
-If your project prefers that you keep commits clean, you can do that by doing
-something like this:
+If your project prefers that you rewrite existing commits, you can do that by
+doing something like this:
 
 ```shell
-$ # Create a new commit on top of the second-to-last commit in `your-feature`,
-$ # as reviewers requested a fix there.
-$ jj new your-feature- # NOTE: the trailing hyphen is not a typo!
+$ # Reviewers asked for changes to xyz
+$ jj new xyz
 $ # Address the comments by updating the code. Then review the changes.
 $ jj diff
-$ # Squash the changes into the parent commit
+$ # Squash the changes into the parent, xyz
 $ jj squash
 $ # Push the updated bookmark to the remote. Jujutsu automatically makes it a
 $ # force push
 $ jj git push --bookmark your-feature
 ```
-
-The hyphen after `your-feature` comes from the [revset](revsets.md) syntax.
 
 ## Working with other people's bookmarks
 
