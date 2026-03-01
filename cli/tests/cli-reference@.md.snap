@@ -3180,6 +3180,11 @@ An alternative squashing UI is available via the `-o`, `-A`, and `-B` options. U
 * `-i`, `--interactive` — Interactively choose which parts to squash
 * `--tool <NAME>` — Specify diff editor to be used (implies --interactive)
 * `-k`, `--keep-emptied` — The source revision will not be abandoned
+* `--restore-descendants` — Preserve the content (not the diff) when rebasing descendants of the source and target commits
+
+   Only the snapshots of the `--from` and the `--into` commits will be modified.
+
+   If you'd like to preserve the content of *only* the target's descendants (or *only* the source's), consider using `jj rebase -r` or `jj duplicate` before squashing.
 
 
 

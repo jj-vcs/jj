@@ -27,6 +27,7 @@ use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite;
 use jj_lib::rewrite::CommitWithSelection;
+use jj_lib::rewrite::SquashOptions;
 use jj_lib::rewrite::merge_commit_trees;
 use tracing::instrument;
 
@@ -175,6 +176,21 @@ pub(crate) struct SquashArgs {
     /// The source revision will not be abandoned
     #[arg(long, short)]
     keep_emptied: bool,
+    /// Preserve the content (not the diff) when rebasing descendants of the
+    /// source and target commits
+    ///
+    /// Only the snapshots of the `--from` and the `--into` commits will be
+    /// modified.
+    ///
+    /// If you'd like to preserve the content of *only* the target's descendants
+    /// (or *only* the source's), consider using `jj rebase -r` or `jj
+    /// duplicate` before squashing.
+    //
+    // TODO: Once it's implemented, we should recommend `jj rebase -r
+    // --restore-descendants` instead of `jj duplicate`, since you actually
+    // would need to `squash` twice with `duplicate`.
+    #[arg(long)]
+    restore_descendants: bool,
 }
 
 #[instrument(skip_all)]
@@ -191,6 +207,18 @@ pub(crate) async fn cmd_squash(
     let mut sources: Vec<Commit>;
     let pre_existing_destination;
 
+    if args.restore_descendants && insert_destination_commit {
+        // TODO(ilyagr, glehmann): This might just work, but requires some
+        // thinking to make sure it makes sense and writing some tests to double-check
+        // that snapshots of un-squahsed descendants of `--from` commits and a
+        // `--before` commit should remain unchanged.
+        // TODO: Does `--after` work with paths? If so, the combination with
+        // --restore-descendatns needs even more testing.
+        return Err(user_error(
+            "Not implemented: `--restore-descendants` does not currently work with \
+             `--destination`, `--after`, or `--before`.",
+        ));
+    }
     if !args.from.is_empty() || args.into.is_some() || insert_destination_commit {
         sources = if args.from.is_empty() {
             workspace_command.parse_revset(ui, &RevisionArg::AT)?
@@ -326,7 +354,10 @@ pub(crate) async fn cmd_squash(
         tx.repo_mut(),
         &source_commits,
         &destination,
-        args.keep_emptied,
+        SquashOptions {
+            keep_emptied: args.keep_emptied,
+            restore_descendants: args.restore_descendants,
+        },
     )
     .await?
     {
@@ -385,7 +416,14 @@ pub(crate) async fn cmd_squash(
             );
         }
         let commit = commit_builder.write(tx.repo_mut()).await?;
-        let num_rebased = tx.repo_mut().rebase_descendants().await?;
+        let (num_rebased, num_reparented);
+        if !args.restore_descendants {
+            num_rebased = tx.repo_mut().rebase_descendants().await?;
+            num_reparented = 0;
+        } else {
+            num_rebased = 0;
+            num_reparented = tx.repo_mut().reparent_descendants().await?;
+        }
         if let Some(mut formatter) = ui.status_formatter() {
             if insert_destination_commit {
                 write!(formatter, "Created new commit ")?;
@@ -394,6 +432,12 @@ pub(crate) async fn cmd_squash(
             }
             if num_rebased > 0 {
                 writeln!(formatter, "Rebased {num_rebased} descendant commits")?;
+            }
+            if num_reparented > 0 {
+                writeln!(
+                    formatter,
+                    "Rebased {num_reparented} descendant commits (while preserving their content)",
+                )?;
             }
         }
     } else {
