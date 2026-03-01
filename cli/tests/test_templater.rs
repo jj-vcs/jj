@@ -199,7 +199,7 @@ fn test_templater_upper_lower() {
 
     insta::assert_snapshot!(
         render(r#"change_id.shortest(4).upper() ++ change_id.shortest(4).upper().lower()"#),
-        @"[1m[38;5;5mZ[0m[38;5;8mZZZ[1m[38;5;5mz[0m[38;5;8mzzz[39m[EOF]");
+        @"[1m[38;5;5mZ[0m[2m[38;5;5mZZZ[0m[1m[38;5;5mz[0m[2m[38;5;5mzzz[0m[EOF]");
     insta::assert_snapshot!(
         render(r#""Hello".upper() ++ "Hello".lower()"#), @"HELLOhello[EOF]");
 }
