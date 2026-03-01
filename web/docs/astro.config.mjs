@@ -5,6 +5,7 @@ import remarkDirective from 'remark-directive';
 import remarkGfm from 'remark-gfm';
 import remarkIncludeMarkdown from './plugins/remark-include-markdown.mjs';
 import remarkYamlTable from './plugins/remark-yaml-table.mjs';
+import starlightStripMdExtension from './plugins/starlight-strip-md-extension.mjs';
 import { fileURLToPath } from 'node:url';
 
 const docsDir = fileURLToPath(new URL('src/content/docs', import.meta.url));
@@ -22,6 +23,7 @@ export default defineConfig({
 	},
 	integrations: [
 		starlight({
+			plugins: [starlightStripMdExtension()],
 			title: 'Jujutsu docs',
 			favicon: "/images/jj-logo.svg",
 			customCss: ['./src/styles/custom.css'],
