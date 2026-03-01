@@ -25,7 +25,6 @@ use futures::try_join;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
-use pollster::FutureExt as _;
 use tracing::instrument;
 
 use crate::backend::BackendError;
@@ -570,12 +569,12 @@ impl ComputedMoveCommits {
         self.to_abandon.extend(commit_ids);
     }
 
-    pub fn apply(
+    pub async fn apply(
         self,
         mut_repo: &mut MutableRepo,
         options: &RebaseOptions,
     ) -> BackendResult<MoveCommitsStats> {
-        apply_move_commits(mut_repo, self, options)
+        apply_move_commits(mut_repo, self, options).await
     }
 }
 
@@ -587,12 +586,14 @@ impl ComputedMoveCommits {
 /// heads of the commits in `targets`. This assumes that commits in `target` and
 /// `new_child_ids` can be rewritten, and there will be no cycles in the
 /// resulting graph. Commits in `target` should be in reverse topological order.
-pub fn move_commits(
+pub async fn move_commits(
     mut_repo: &mut MutableRepo,
     loc: &MoveCommitsLocation,
     options: &RebaseOptions,
 ) -> BackendResult<MoveCommitsStats> {
-    compute_move_commits(mut_repo, loc)?.apply(mut_repo, options)
+    compute_move_commits(mut_repo, loc)?
+        .apply(mut_repo, options)
+        .await
 }
 
 pub fn compute_move_commits(
@@ -885,7 +886,7 @@ pub fn compute_move_commits(
     })
 }
 
-fn apply_move_commits(
+async fn apply_move_commits(
     mut_repo: &mut MutableRepo,
     commits: ComputedMoveCommits,
     options: &RebaseOptions,
@@ -939,7 +940,7 @@ fn apply_move_commits(
                 Ok(())
             },
         )
-        .block_on()?;
+        .await?;
 
     Ok(MoveCommitsStats {
         num_rebased_targets,
