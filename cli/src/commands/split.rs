@@ -333,11 +333,13 @@ pub(crate) async fn cmd_split(
             // Merge the original commit tree with its parent using the tree
             // containing the user selected changes as the base for the merge.
             // This results in a tree with the changes the user didn't select.
-            let selected_diff = target.diff_with_labels(
-                "parents of split revision",
-                "selected changes for split",
-                "split revision",
-            )?;
+            let selected_diff = target
+                .diff_with_labels(
+                    "parents of split revision",
+                    "selected changes for split",
+                    "split revision",
+                )
+                .await?;
             MergedTree::merge(Merge::from_diffs(
                 (
                     target_tree,
@@ -562,7 +564,7 @@ The changes that are not selected will replace the original commit.
         ui,
         Diff::new(&parent_tree, &target_commit.tree()),
         Diff::new(
-            target_commit.parents_conflict_label()?,
+            target_commit.parents_conflict_label().await?,
             target_commit.conflict_label(),
         ),
         matcher,

@@ -190,7 +190,7 @@ pub async fn cmd_workspace_add(
                 .store()
                 .get_commit(old_wc_commit_id)?
                 .parents()
-                .try_collect()?
+                .await?
         } else {
             vec![tx.repo().store().root_commit()]
         }

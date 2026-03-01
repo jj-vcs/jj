@@ -16,7 +16,6 @@ use std::io::Write as _;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
-use itertools::Itertools as _;
 use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::rewrite::merge_commit_trees;
@@ -114,7 +113,7 @@ pub(crate) async fn cmd_diffedit(
     } else {
         target_commit = workspace_command
             .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
-        base_commits = target_commit.parents().try_collect()?;
+        base_commits = target_commit.parents().await?;
         diff_description = "The diff initially shows the commit's changes.".to_string();
     }
     workspace_command.check_rewritable([target_commit.id()])?;

@@ -138,8 +138,7 @@ pub(crate) async fn cmd_status(
         write!(formatter, "Working copy  (@) : ")?;
         template.format(wc_commit, formatter)?;
         writeln!(formatter)?;
-        for parent in wc_commit.parents() {
-            let parent = parent?;
+        for parent in wc_commit.parents().await? {
             //                "Working copy  (@) : "
             write!(formatter, "Parent commit (@-): ")?;
             template.format(&parent, formatter)?;
@@ -170,8 +169,7 @@ pub(crate) async fn cmd_status(
 
             workspace_command.report_repo_conflicts(formatter, repo, ancestors_conflicts)?;
         } else {
-            for parent in wc_commit.parents() {
-                let parent = parent?;
+            for parent in wc_commit.parents().await? {
                 if parent.has_conflict() {
                     writeln!(
                         formatter.labeled("hint").with_heading("Hint: "),

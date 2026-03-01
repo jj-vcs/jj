@@ -130,7 +130,7 @@ pub(crate) async fn cmd_restore(
         from_tree = to_commit
             .parent_tree(workspace_command.repo().as_ref())
             .await?;
-        from_commits = to_commit.parents().try_collect()?;
+        from_commits = to_commit.parents().await?;
     }
     workspace_command.check_rewritable([to_commit.id()])?;
 

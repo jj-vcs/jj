@@ -1085,7 +1085,7 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
         |_language, _diagnostics, _build_ctx, self_property, function| {
             function.expect_no_arguments()?;
             let out_property = self_property.and_then(|commit| {
-                let commits: Vec<_> = commit.parents().try_collect()?;
+                let commits = commit.parents().block_on()?;
                 Ok(commits)
             });
             Ok(out_property.into_dyn_wrapped())

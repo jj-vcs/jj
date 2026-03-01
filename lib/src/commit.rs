@@ -107,11 +107,7 @@ impl Commit {
         &self.data.parents
     }
 
-    pub fn parents(&self) -> impl Iterator<Item = BackendResult<Self>> {
-        self.data.parents.iter().map(|id| self.store.get_commit(id))
-    }
-
-    pub async fn parents_async(&self) -> BackendResult<Vec<Self>> {
+    pub async fn parents(&self) -> BackendResult<Vec<Self>> {
         try_join_all(
             self.data
                 .parents
@@ -142,7 +138,7 @@ impl Commit {
         if is_commit_empty_by_index(repo, &self.id)? == Some(true) {
             return Ok(self.tree());
         }
-        let parents: Vec<_> = self.parents_async().await?;
+        let parents = self.parents().await?;
         merge_commit_trees(repo, &parents).await
     }
 
@@ -231,8 +227,8 @@ impl Commit {
     }
 
     /// A string describing the commit's parents to be used in conflict markers.
-    pub fn parents_conflict_label(&self) -> BackendResult<String> {
-        let parents: Vec<_> = self.parents().try_collect()?;
+    pub async fn parents_conflict_label(&self) -> BackendResult<String> {
+        let parents = self.parents().await?;
         Ok(conflict_label_for_commits(&parents))
     }
 }

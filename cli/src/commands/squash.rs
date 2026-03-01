@@ -215,7 +215,7 @@ pub(crate) async fn cmd_squash(
     } else {
         let source = workspace_command
             .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
-        let mut parents: Vec<_> = source.parents().try_collect()?;
+        let mut parents = source.parents().await?;
         if parents.len() != 1 {
             return Err(
                 user_error("Cannot squash merge commits without a specified destination")
@@ -489,7 +489,10 @@ async fn select_diff(
         let selected_tree = diff_selector.select(
             ui,
             Diff::new(&parent_tree, &source_tree),
-            Diff::new(source.parents_conflict_label()?, source.conflict_label()),
+            Diff::new(
+                source.parents_conflict_label().await?,
+                source.conflict_label(),
+            ),
             matcher,
             format_instructions,
         )?;

@@ -15,7 +15,6 @@
 use assert_matches::assert_matches;
 use futures::StreamExt as _;
 use indoc::indoc;
-use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::MillisSinceEpoch;
@@ -120,7 +119,7 @@ fn test_initial(backend: TestRepoBackend) {
     let commit = builder.write_unwrap();
     let repo = tx.commit("test").block_on().unwrap();
 
-    let parents: Vec<_> = commit.parents().try_collect().unwrap();
+    let parents = commit.parents().block_on().unwrap();
     assert_eq!(parents, vec![store.root_commit()]);
     assert!(commit.store_commit().predecessors.is_empty());
     assert_eq!(commit.description(), "description");
@@ -197,7 +196,7 @@ fn test_rewrite(backend: TestRepoBackend) {
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo = tx.commit("test").block_on().unwrap();
-    let parents: Vec<_> = rewritten_commit.parents().try_collect().unwrap();
+    let parents = rewritten_commit.parents().block_on().unwrap();
     assert_eq!(parents, vec![store.root_commit()]);
     assert_eq!(
         rewritten_commit.store_commit().predecessors,

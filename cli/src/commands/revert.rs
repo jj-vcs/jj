@@ -153,7 +153,7 @@ pub(crate) async fn cmd_revert(
     for (commit_to_revert, new_commit_description) in
         &commits_to_revert_with_new_commit_descriptions
     {
-        let old_parents: Vec<_> = commit_to_revert.parents().try_collect()?;
+        let old_parents = commit_to_revert.parents().await?;
         let old_base_tree = commit_to_revert.parent_tree(tx.repo()).await?;
         let old_tree = commit_to_revert.tree();
         let new_tree = MergedTree::merge(Merge::from_vec(vec![
