@@ -678,13 +678,20 @@ fn env_base_layer() -> ConfigLayer {
         // should override $NO_COLOR." https://no-color.org/
         layer.set_value("ui.color", "never").unwrap();
     }
+    if let Ok(value) = env::var("PAGER") {
+        // TODO: support shellish parsing here instead of splitting just on spaces.
+        layer.set_value("ui.pager.command", toml_edit::Array::from_iter(value.split(' '))).unwrap();
+
+        let less_var = env::var("LESS").unwrap_or_else(|_| "-FRX".to_owned());
+        layer
+            .set_value("ui.pager.env", ConfigValue::from_iter([("LESS", less_var)]))
+            .unwrap();
+    }
     if let Ok(value) = env::var("VISUAL") {
         layer.set_value("ui.editor", value).unwrap();
     } else if let Ok(value) = env::var("EDITOR") {
         layer.set_value("ui.editor", value).unwrap();
     }
-    // Intentionally NOT respecting $PAGER here as it often creates a bad
-    // out-of-the-box experience for users, see http://github.com/jj-vcs/jj/issues/3502.
     layer
 }
 

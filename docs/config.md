@@ -758,9 +758,15 @@ By default, jj will paginate output that would scroll off the screen. It does
 this by passing output through `less -FRX` on most platforms (on Windows it uses
 [the pager](#builtin-pager) that is built-in to jj).
 
-Which pager to use can be customized by setting `ui.pager`. When choosing a
-pager, ensure that it either supports color codes or that you disable color (see
+The default can be overridden by setting `ui.pager` or the `$PAGER` environment
+variable. If both are set, `ui.pager` takes precedence. When choosing a pager,
+ensure that it either supports color codes or that you disable color (see
 [Colorizing output](#colorizing-output)).
+
+If `$PAGER` is set in the environment and `$LESS` is _not_ set in the
+environment, then `jj` will set `LESS=-FRX` in the environment when executing
+the pager. If `ui.pager` is also configured, this will override the setting of
+the environment variable.
 
 Examples:
 
@@ -771,8 +777,16 @@ $ jj config set --user ui.pager "less -FRX"
 # Use the built-in pager (default on Windows)
 $ jj config set --user ui.pager :builtin
 
-# Use `$PAGER` environment variable if set (on non-Windows platforms)
-$ jj config set --user ui.pager '["sh", "-c", "exec ${PAGER:-less -FRX}"]'
+# Invoke a specific version of less. Note that because we only set LESS=-FRX
+# when reading the pager configuration from `$PAGER`, you need to specify -FRX
+# here yourself. Also, jj does not resolve environment variables here, hence the
+# use of the double quotes to resolve $HOME immediately (when executing this `jj
+# config set` command).
+$ jj config set --user ui.pager "$HOME/bin/my_less -FRX"
+
+# If you need to set an environment variable when running the pager, you can do
+# so using an alternate form of the config setting:
+$ jj config set --user ui.pager '{command = ["my-pager", "--arg"], env = { MY_PAGER = "some_val" }}'
 ```
 
 Additionally, paging behavior can be toggled via `ui.paginate` like so:
