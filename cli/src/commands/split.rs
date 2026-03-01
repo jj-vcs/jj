@@ -201,7 +201,7 @@ pub(crate) struct SplitArgs {
 impl SplitArgs {
     /// Resolves the raw SplitArgs into the components necessary to run the
     /// command. Returns an error if the command cannot proceed.
-    fn resolve(
+    async fn resolve(
         &self,
         ui: &Ui,
         workspace_command: &WorkspaceCommandHelper,
@@ -237,7 +237,7 @@ impl SplitArgs {
             &fileset_expression,
             [
                 // We check the parent commit to account for deleted files.
-                &target_commit.parent_tree(repo.as_ref())?,
+                &target_commit.parent_tree(repo.as_ref()).await?,
                 &target_commit.tree(),
             ],
         )?;
@@ -279,12 +279,12 @@ pub(crate) async fn cmd_split(
         use_move_flags,
         new_parent_ids,
         new_child_ids,
-    } = args.resolve(ui, &workspace_command)?;
+    } = args.resolve(ui, &workspace_command).await?;
     let text_editor = workspace_command.text_editor()?;
     let mut tx = workspace_command.start_transaction();
 
     // Prompt the user to select the changes they want for the first commit.
-    let target = select_diff(ui, &tx, &target_commit, &matcher, &diff_selector)?;
+    let target = select_diff(ui, &tx, &target_commit, &matcher, &diff_selector).await?;
 
     // Create the first commit, which includes the changes selected by the user.
     let first_commit = {
@@ -536,9 +536,9 @@ async fn rewrite_descendants(
 
 /// Prompts the user to select the content they want in the first commit and
 /// returns the target commit and the tree corresponding to the selection.
-fn select_diff(
+async fn select_diff(
     ui: &Ui,
-    tx: &WorkspaceCommandTransaction,
+    tx: &WorkspaceCommandTransaction<'_>,
     target_commit: &Commit,
     matcher: &dyn Matcher,
     diff_selector: &DiffSelector,
@@ -557,7 +557,7 @@ The changes that are not selected will replace the original commit.
             tx.format_commit_summary(target_commit)
         )
     };
-    let parent_tree = target_commit.parent_tree(tx.repo())?;
+    let parent_tree = target_commit.parent_tree(tx.repo()).await?;
     let selected_tree = diff_selector.select(
         ui,
         Diff::new(&parent_tree, &target_commit.tree()),

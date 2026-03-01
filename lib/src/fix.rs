@@ -223,7 +223,7 @@ pub async fn fix_files(
                     paths.extend(parent_paths.iter().cloned());
                 }
             }
-            commit.parent_tree_async(repo_mut).await?
+            commit.parent_tree(repo_mut).await?
         };
         // TODO: handle copy tracking
         let mut diff_stream = parent_tree.diff_stream(&commit.tree(), &matcher);
