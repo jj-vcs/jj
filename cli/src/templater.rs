@@ -25,6 +25,7 @@ use std::rc::Rc;
 
 use bstr::BStr;
 use bstr::BString;
+use itertools::Itertools as _;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigValue;
@@ -606,6 +607,44 @@ impl<T: Template> TemplateProperty for PlainTextFormattedProperty<T> {
         let mut wrapper = TemplateFormatter::new(&mut formatter, propagate_property_error);
         self.template.format(&mut wrapper)?;
         Ok(String::from_utf8(output).map_err(|err| err.utf8_error())?)
+    }
+}
+
+/// Wrapper for `(key, value)` property pairs that can be evaluated to
+/// serializable objects.
+pub struct SerializeMapProperty<'a> {
+    entries: Vec<(BoxedSerializeProperty<'a>, BoxedSerializeProperty<'a>)>,
+}
+
+impl<'a> SerializeMapProperty<'a> {
+    pub fn new(entries: Vec<(BoxedSerializeProperty<'a>, BoxedSerializeProperty<'a>)>) -> Self {
+        SerializeMapProperty { entries }
+    }
+}
+
+impl<'a> TemplateProperty for SerializeMapProperty<'a> {
+    type Output = SerializeMap<'a>;
+
+    fn extract(&self) -> Result<Self::Output, TemplatePropertyError> {
+        let entries = self.entries.iter().map(|e| e.extract()).try_collect()?;
+        Ok(SerializeMap { entries })
+    }
+}
+
+/// Wrapper for serializable `(key, value)` pairs.
+pub struct SerializeMap<'a> {
+    entries: Vec<(
+        Box<dyn erased_serde::Serialize + 'a>,
+        Box<dyn erased_serde::Serialize + 'a>,
+    )>,
+}
+
+impl serde::Serialize for SerializeMap<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.collect_map(self.entries.iter().map(|(k, v)| (k, v)))
     }
 }
 
