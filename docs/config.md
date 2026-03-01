@@ -80,6 +80,8 @@ very short if you ever need to check.
 [user]
 name = "YOUR NAME"
 email = "YOUR_EMAIL@example.com"
+# Possible values are "day", "month", and "year".
+# commit-timestamp-granularity = <none>
 ```
 
 Don't forget to change these to your own details!
