@@ -538,7 +538,9 @@ mod git {
     use jj_lib::git::GitResetHeadError;
     use jj_lib::git::UnexpectedGitBackendError;
 
-    use super::*;
+    use super::CommandError;
+    use super::user_error;
+    use super::user_error_with_message;
 
     impl From<GitImportError> for CommandError {
         fn from(err: GitImportError) -> Self {
