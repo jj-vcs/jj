@@ -464,7 +464,7 @@ impl CompositeChangedPathIndex {
         assert_eq!(self_start_pos + self.num_commits, other_start_pos);
         self.readonly_segments
             .extend_from_slice(&other.readonly_segments);
-        self.mutable_segment = other.mutable_segment.clone();
+        self.mutable_segment.clone_from(&other.mutable_segment);
         self.num_commits += other.num_commits;
     }
 

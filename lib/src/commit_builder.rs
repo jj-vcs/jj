@@ -392,7 +392,7 @@ impl DetachedCommitBuilder {
     /// Writes new commit and makes it visible in the `mut_repo`.
     pub async fn write(mut self, mut_repo: &mut MutableRepo) -> BackendResult<Commit> {
         if self.record_predecessors_in_commit {
-            self.commit.predecessors = self.predecessors.clone();
+            self.commit.predecessors.clone_from(&self.predecessors);
         }
         let commit = write_to_store(&self.store, self.commit, &self.sign_settings).await?;
         // FIXME: Google's index.has_id() always returns true.
@@ -425,7 +425,7 @@ impl DetachedCommitBuilder {
     pub async fn write_hidden(&self) -> BackendResult<Commit> {
         let mut commit = self.commit.clone();
         if self.record_predecessors_in_commit {
-            commit.predecessors = self.predecessors.clone();
+            commit.predecessors.clone_from(&self.predecessors);
         }
         write_to_store(&self.store, commit, &self.sign_settings).await
     }
