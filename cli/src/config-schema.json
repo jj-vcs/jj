@@ -690,6 +690,11 @@
                     "type": "string",
                     "description": "Default set of revisions to advance bookmarks from for jj advance (has access to `to`, the advance destination)",
                     "default": "heads(::to & bookmarks())"
+                },
+                "git-push": {
+                    "type": "string",
+                    "description": "Default set of revisions to push when no explicit revset is given for jj git push, required to take the remote as an input as the implementation expects it",
+                    "default": "remote_bookmarks(remote=remote)..@"
                 }
             },
             "additionalProperties": {
