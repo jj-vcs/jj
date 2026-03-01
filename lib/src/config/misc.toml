@@ -38,6 +38,9 @@ program = "gpg"
 allow-expired-keys = false
 program = "gpgsm"
 
+[signing.backends.sq]
+program = "sq"
+
 [signing.backends.ssh]
 # allowed-signers = <unknown>
 program = "ssh-keygen"
