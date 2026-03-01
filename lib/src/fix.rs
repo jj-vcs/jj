@@ -17,14 +17,19 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::ops::Range;
 use std::sync::mpsc::channel;
 
 use futures::StreamExt as _;
+use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
 use jj_lib::backend::TreeValue;
+use jj_lib::commit::Commit;
+use jj_lib::diff::ContentDiff;
+use jj_lib::diff::DiffHunkKind;
 use jj_lib::matchers::Matcher;
 use jj_lib::merged_tree::TreeDiffEntry;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
@@ -33,6 +38,7 @@ use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::store::Store;
 use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
@@ -40,13 +46,15 @@ use rayon::prelude::ParallelIterator as _;
 use crate::revset::RevsetEvaluationError;
 
 /// Represents a file whose content may be transformed by a FileFixer.
-// TODO: Add the set of changed line/byte ranges, so those can be passed into code formatters via
-// flags. This will help avoid introducing unrelated changes when working on code with out of date
-// formatting.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct FileToFix {
     /// Unique identifier for the file content.
     pub file_id: FileId,
+
+    /// The base FileId for the file content. We will use this FileId to
+    /// create the diff between the base commit's file content and the current
+    /// commit's file content before the fix.
+    pub base_file_id: Option<FileId>,
 
     /// The path is provided to allow the FileFixer to potentially:
     ///  - Choose different behaviors for different file names, extensions, etc.
@@ -206,49 +214,95 @@ pub async fn fix_files(
         "looking for files to fix in commits:"
     );
 
+    // Determine the base commit(s) for each commit.
+    let base_commit_map = get_base_commit_map(&commits)?;
+
+    // Maps repo paths in a commit to the base FileId for that path.
+    // Even if a file is conflicted in the current commit (having multiple
+    // FileIds at the same path), all sides share the same base FileId (derived
+    // from the first side of the base), so we don't need the current FileId in
+    // the key.
+    let mut base_files: HashMap<(CommitId, RepoPathBuf), FileId> = HashMap::new();
+
     let mut unique_files_to_fix: HashSet<FileToFix> = HashSet::new();
     let mut commit_paths: HashMap<CommitId, HashSet<RepoPathBuf>> = HashMap::new();
     for commit in commits.iter().rev() {
         let mut paths: HashSet<RepoPathBuf> = HashSet::new();
 
+        // Compute the base tree for the current commit.
+        let mut base_commits = Vec::new();
+        let base_commit_ids = base_commit_map.get(commit.id()).unwrap();
+        for base_commit_id in base_commit_ids {
+            if let Some(base_paths) = commit_paths.get(base_commit_id) {
+                paths.extend(base_paths.iter().cloned());
+            }
+            let base_commit = repo_mut.store().get_commit_async(base_commit_id).await?;
+            base_commits.push(base_commit);
+        }
+        let base_tree = merge_commit_trees(repo_mut, &base_commits).await?;
+
         // If --include-unchanged-files, we always fix every matching file in the tree.
         // Otherwise, we fix the matching changed files in this commit, plus any that
         // were fixed in ancestors, so we don't lose those changes. We do this
         // instead of rebasing onto those changes, to avoid merge conflicts.
-        let parent_tree = if include_unchanged_files {
-            repo_mut.store().empty_merged_tree()
+        let diff_base_tree = if include_unchanged_files {
+            &repo_mut.store().empty_merged_tree()
         } else {
-            for parent_id in commit.parent_ids() {
-                if let Some(parent_paths) = commit_paths.get(parent_id) {
-                    paths.extend(parent_paths.iter().cloned());
-                }
-            }
-            commit.parent_tree_async(repo_mut).await?
+            &base_tree
         };
+
         // TODO: handle copy tracking
-        let mut diff_stream = parent_tree.diff_stream(&commit.tree(), &matcher);
+        let mut diff_stream = diff_base_tree.diff_stream(&commit.tree(), &matcher);
         while let Some(TreeDiffEntry {
             path: repo_path,
             values,
         }) = diff_stream.next().await
         {
-            let after = values?.after;
+            let values = values?;
+            if values.after.is_absent() {
+                continue;
+            }
+            let before = if include_unchanged_files {
+                base_tree
+                    .path_value_async(&repo_path)
+                    .await?
+                    .into_iter()
+                    .next()
+            } else {
+                values.before.into_iter().next()
+            };
+
             // Deleted files have no file content to fix, and they have no terms in `after`,
-            // so we don't add any files-to-fix for them. Conflicted files produce one
-            // file-to-fix for each side of the conflict.
-            for term in after.into_iter().flatten() {
+            // so we don't add any files-to-fix for them. For conflicted files in the base
+            // commit(s), we diff against the first side of the conflict. For conflicted
+            // files in the current commit, we add all sides of the conflict to
+            // the files-to-fix.
+            let before_file_id = if let Some(Some(TreeValue::File {
+                id: before_id,
+                executable: _,
+                copy_id: _,
+            })) = before
+            {
+                base_files.insert((commit.id().clone(), repo_path.clone()), before_id.clone());
+                Some(before_id.clone())
+            } else {
+                None
+            };
+
+            for after_term in values.after {
                 // We currently only support fixing the content of normal files, so we skip
                 // directories and symlinks, and we ignore the executable bit.
-                if let TreeValue::File {
+                if let Some(TreeValue::File {
                     id,
                     executable: _,
                     copy_id: _,
-                } = term
+                }) = after_term
                 {
                     // TODO: Skip the file if its content is larger than some configured size,
                     // preferably without actually reading it yet.
                     let file_to_fix = FileToFix {
                         file_id: id.clone(),
+                        base_file_id: before_file_id.clone(),
                         repo_path: repo_path.clone(),
                     };
                     unique_files_to_fix.insert(file_to_fix.clone());
@@ -256,7 +310,6 @@ pub async fn fix_files(
                 }
             }
         }
-
         commit_paths.insert(commit.id().clone(), paths);
     }
 
@@ -284,6 +337,7 @@ pub async fn fix_files(
             let mut has_changes = false;
             for repo_path in repo_paths {
                 let old_value = old_tree.path_value_async(repo_path).await?;
+                let base_file_id = base_files.get(&(old_commit_id.clone(), repo_path.clone()));
                 let new_value = old_value.map(|old_term| {
                     if let Some(TreeValue::File {
                         id,
@@ -293,6 +347,7 @@ pub async fn fix_files(
                     {
                         let file_to_fix = FileToFix {
                             file_id: id.clone(),
+                            base_file_id: base_file_id.cloned(),
                             repo_path: repo_path.clone(),
                         };
                         if let Some(new_id) = fixed_file_ids.get(&file_to_fix) {
@@ -331,4 +386,153 @@ pub async fn fix_files(
 
     tracing::debug!(?summary);
     Ok(summary)
+}
+
+/// Representation of different ranges formatters can use to emit diff ranges.
+#[derive(Debug, PartialEq, Eq)]
+pub enum RegionsToFormat {
+    /// Line ranges (1-based, inclusive [first, last]).
+    LineRanges(Vec<LineRange>),
+    /// No regions to format.
+    NoRegions,
+}
+
+/// A formattable range of lines or bytes.
+#[derive(Debug, PartialEq, Eq)]
+pub struct FormatRange {
+    /// The first (inclusive) of the range.
+    pub first: usize,
+    /// The last (inclusive) of the range.
+    pub last: usize,
+}
+
+impl FormatRange {
+    /// Creates a new `FormatRange`.
+    pub fn new(first: usize, last: usize) -> Self {
+        Self { first, last }
+    }
+}
+
+impl From<Range<usize>> for FormatRange {
+    fn from(range: Range<usize>) -> Self {
+        Self {
+            first: range.start,
+            last: range.end - 1,
+        }
+    }
+}
+
+/// A line range (1-based, inclusive [first, last]).
+pub type LineRange = FormatRange;
+
+/// Computes the 1-based line ranges in `current` that are different from
+/// `base`. The ranges produced can be empty.
+pub fn compute_changed_ranges(base: &[u8], current: &[u8]) -> RegionsToFormat {
+    let mut ranges: Vec<LineRange> = Vec::new();
+    if current.is_empty() {
+        return RegionsToFormat::NoRegions;
+    }
+
+    let diff = ContentDiff::by_line([base, current]);
+    let mut current_line = 1;
+    for hunk in diff.hunks() {
+        let line_count = compute_file_line_count(hunk.contents[1]);
+        match hunk.kind {
+            DiffHunkKind::Matching => {}
+            DiffHunkKind::Different => {
+                if line_count > 0 {
+                    // We want the diff ranges to be 1-based and inclusive [first, last] as this
+                    // is what most formatters expect and is the standard used by hg.
+                    ranges.push(LineRange {
+                        first: current_line,
+                        last: current_line + line_count - 1,
+                    });
+                }
+            }
+        }
+        current_line += line_count;
+    }
+
+    RegionsToFormat::LineRanges(ranges)
+}
+
+/// Computes the number of lines in a byte slice (i.e. a file).
+pub fn compute_file_line_count(text: &[u8]) -> usize {
+    let line_count = text.iter().filter(|&&b| b == b'\n').count();
+    let extra = if !text.is_empty() && !text.ends_with(b"\n") {
+        1
+    } else {
+        0
+    };
+    line_count + extra
+}
+
+/// Given a vector of commits, determine the base commit(s) for each of the
+/// commits in the vector.
+///
+/// Notes:
+/// - `commits` must be sorted in reverse topological order (children before
+///   parents).
+/// - The returned base commits are the closest ancestors for each commit that
+///   are not in `commits`. They may include ancestors of other base commits.
+///
+/// The current commit will diff against the base commit(s) to determine the
+/// modified files that need to be `jj fix`ed. We also use these base commits to
+/// compute modified lines by diffing the file content in the current commit
+/// against the file content in the base commit(s).
+///
+/// This is public only for testing purposes.
+pub fn get_base_commit_map(
+    commits: &[Commit],
+) -> Result<HashMap<CommitId, IndexSet<CommitId>>, FixError> {
+    let commit_ids: HashSet<&CommitId> = commits.iter().map(|c| c.id()).collect();
+    let base_commits = commits
+        .iter()
+        .flat_map(|commit| commit.parents())
+        .filter_ok(|parent| !commit_ids.contains(parent.id()))
+        .collect::<Result<Vec<_>, _>>()?;
+    let base_commit_ids: HashSet<CommitId> = base_commits
+        .iter()
+        .map(|commit| commit.id().clone())
+        .collect();
+
+    // Build a map of each commit to its "base commits" (closest ancestors not in
+    // `commits`).
+    //
+    // We process commits in topological order (parents before children) so that
+    // we can propagate the base commits from parents to children. Note that the
+    // `commits` vector is in reverse topological order, so we iterate in reverse.
+    let mut base_commit_map: HashMap<CommitId, IndexSet<CommitId>> = HashMap::new();
+    for commit in commits.iter().rev() {
+        let commit_id = commit.id().clone();
+        let mut parent_commit_ids: IndexSet<CommitId> = IndexSet::new();
+
+        for parent in commit.parents() {
+            let parent_commit = parent?;
+            let parent_id = parent_commit.id();
+            if let Some(parent_bases) = base_commit_map.get(parent_id) {
+                parent_commit_ids.extend(parent_bases.iter().cloned());
+            }
+            if base_commit_ids.contains(parent_id) {
+                parent_commit_ids.insert(parent_id.clone());
+            }
+        }
+        base_commit_map.insert(commit_id, parent_commit_ids);
+    }
+
+    Ok(base_commit_map)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compute_file_line_count() {
+        assert_eq!(compute_file_line_count(b""), 0);
+        assert_eq!(compute_file_line_count(b"a"), 1);
+        assert_eq!(compute_file_line_count(b"a\n"), 1);
+        assert_eq!(compute_file_line_count(b"a\nb"), 2);
+        assert_eq!(compute_file_line_count(b"a\nb\n"), 2);
+    }
 }

@@ -879,6 +879,15 @@
                                 "type": "boolean",
                                 "description": "Disables this tool if set to false",
                                 "default": true
+                            },
+                            "line-range-arg": {
+                                "type": "string",
+                                "description": "Argument template for changed line ranges (e.g. '--lines=$first-$last')"
+                            },
+                            "skip-tool-if-zero-line-ranges": {
+                                "type": "boolean",
+                                "description": "Whether to skip the tool on files with zero line ranges to format",
+                                "default": true
                             }
                         }
                     },
