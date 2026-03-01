@@ -183,10 +183,6 @@ proptest.opt-level = 3
 proptest-state-machine.opt-level = 3
 rand_chacha.opt-level = 3
 
-[profile.test]
-# Opt-level 0 tends to run out of stack on Windows when running async code
-opt-level = 1
-
 [profile.release]
 strip = "debuginfo"
 codegen-units = 1
