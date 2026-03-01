@@ -132,7 +132,17 @@ pub(crate) async fn cmd_bisect_run(
                 {
                     let mut formatter = ui.stdout_formatter();
                     // TODO: Show a graph of the current range instead?
-                    // TODO: Say how many commits are left and estimate the number of iterations.
+                    let remaining = bisector.remaining_count()?;
+                    let steps = if remaining == 0 {
+                        0
+                    } else {
+                        (remaining as f64).log2().ceil() as usize
+                    };
+                    writeln!(
+                        formatter,
+                        "Bisecting: {remaining} revisions left to test after this (roughly \
+                         {steps} steps)"
+                    )?;
                     let commit_template = workspace_command.commit_summary_template();
                     write!(formatter, "Now evaluating: ")?;
                     commit_template.format(&commit, formatter.as_mut())?;

@@ -68,11 +68,13 @@ fn test_bisect_run() {
     create_commit(&work_dir, "f", &["e"]);
 
     std::fs::write(&bisection_script, ["fail"].join("\0")).unwrap();
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
     fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
     The revision is bad.
 
+    Bisecting: 2 revisions left to test after this (roughly 1 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     The revision is bad.
@@ -145,11 +147,13 @@ fn test_bisect_run_find_first_good() {
     create_commit(&work_dir, "e", &["d"]);
     create_commit(&work_dir, "f", &["e"]);
 
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--find-good", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--find-good", &bisector_path]), @r"
+    Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
     fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
     The revision is good.
 
+    Bisecting: 2 revisions left to test after this (roughly 1 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     The revision is good.
@@ -196,7 +200,8 @@ fn test_bisect_run_missing_bisector() {
 
     let output = work_dir.run_jj(["bisect", "run", "--range=..", "nonexistent"]);
     if cfg!(unix) {
-        insta::assert_snapshot!(output, @"
+        insta::assert_snapshot!(output, @r"
+        Bisecting: 5 revisions left to test after this (roughly 3 steps)
         Now evaluating: royxmykx dffaa0d4 c | c
         [EOF]
         ------- stderr -------
@@ -210,6 +215,7 @@ fn test_bisect_run_missing_bisector() {
         ");
     } else if cfg!(windows) {
         insta::assert_snapshot!(output, @"
+        Bisecting: 5 revisions left to test after this (roughly 3 steps)
         Now evaluating: royxmykx dffaa0d4 c | c
         [EOF]
         ------- stderr -------
@@ -239,15 +245,18 @@ fn test_bisect_run_with_args() {
     create_commit(&work_dir, "e", &["d"]);
     create_commit(&work_dir, "f", &["e"]);
 
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--find-good", "--", &bisector_path, "--require-file=c"]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--find-good", "--", &bisector_path, "--require-file=c"]), @r"
+    Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
     fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
     The revision is good.
 
+    Bisecting: 2 revisions left to test after this (roughly 1 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     The revision is bad.
 
+    Bisecting: 1 revisions left to test after this (roughly 0 steps)
     Now evaluating: zsuskuln 123b4d91 b | b
     fake-bisector testing commit 123b4d91f6e5e39bfed39bae3bacf9380dc79078
     The revision is bad.
@@ -299,11 +308,13 @@ fn test_bisect_run_crash() {
 
     // bisector crash is equivalent to a failure
     std::fs::write(&bisection_script, ["crash"].join("\0")).unwrap();
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
     fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
     The revision is bad.
 
+    Bisecting: 2 revisions left to test after this (roughly 1 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     The revision is bad.
@@ -337,7 +348,8 @@ fn test_bisect_run_abort() {
 
     // stop immediately on failure
     std::fs::write(&bisection_script, ["abort"].join("\0")).unwrap();
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    Bisecting: 2 revisions left to test after this (roughly 1 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     Evaluation command returned 127 (command not found) - aborting bisection.
@@ -368,7 +380,8 @@ fn test_bisect_run_skip() {
     create_commit(&work_dir, "b", &["a"]);
 
     std::fs::write(&bisection_script, ["skip"].join("\0")).unwrap();
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    Bisecting: 1 revisions left to test after this (roughly 0 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     It could not be determined if the revision is good or bad.
@@ -399,11 +412,13 @@ fn test_bisect_run_multiple_results() {
     create_commit(&work_dir, "c", &["a"]);
     create_commit(&work_dir, "d", &["c"]);
 
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=a|b|c|d", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=a|b|c|d", &bisector_path]), @r"
+    Bisecting: 2 revisions left to test after this (roughly 1 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     The revision is good.
 
+    Bisecting: 1 revisions left to test after this (roughly 0 steps)
     Now evaluating: royxmykx 991a7501 c | c
     fake-bisector testing commit 991a7501d660abb6a80e8b00f77c651d76d845d7
     The revision is good.
@@ -444,11 +459,13 @@ fn test_bisect_run_write_file() {
         ["write new-file\nsome contents", "fail"].join("\0"),
     )
     .unwrap();
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    Bisecting: 4 revisions left to test after this (roughly 2 steps)
     Now evaluating: zsuskuln 123b4d91 b | b
     fake-bisector testing commit 123b4d91f6e5e39bfed39bae3bacf9380dc79078
     The revision is bad.
 
+    Bisecting: 1 revisions left to test after this (roughly 0 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     The revision is bad.
@@ -507,11 +524,13 @@ fn test_bisect_run_jj_command() {
     create_commit(&work_dir, "e", &["d"]);
 
     std::fs::write(&bisection_script, ["jj new -mtesting", "fail"].join("\0")).unwrap();
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    Bisecting: 4 revisions left to test after this (roughly 2 steps)
     Now evaluating: zsuskuln 123b4d91 b | b
     fake-bisector testing commit 123b4d91f6e5e39bfed39bae3bacf9380dc79078
     The revision is bad.
 
+    Bisecting: 1 revisions left to test after this (roughly 0 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     The revision is bad.
