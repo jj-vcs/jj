@@ -77,7 +77,6 @@ use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
-use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 use unicode_width::UnicodeWidthStr as _;
@@ -488,7 +487,7 @@ impl<'a> DiffRenderer<'a> {
                     let tree_diff = diff_stream();
                     let stats =
                         DiffStats::calculate(store, tree_diff, options, self.conflict_marker_style)
-                            .block_on()?;
+                            .await?;
                     show_diff_stats(formatter, &stats, path_converter, width)?;
                 }
                 DiffFormat::Types => {

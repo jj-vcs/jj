@@ -1989,7 +1989,7 @@ to the current parents may contain changes from multiple commits.
             // Rebase descendants
             let num_rebased = mut_repo
                 .rebase_descendants()
-                .block_on()
+                .await
                 .map_err(snapshot_command_error)?;
             if num_rebased > 0 {
                 writeln!(
