@@ -15,6 +15,7 @@ log-graph-prioritize = "present(@)"
 sign = "reachable(@, mutable())"
 bookmark-advance-to = "@"
 bookmark-advance-from = "heads(::to & bookmarks())"
+git-push = "remote_bookmarks(remote=remote)..@"
 
 [revset-aliases]
 # trunk() can be overridden as '<bookmark>@<remote>'.

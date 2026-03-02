@@ -565,6 +565,23 @@ to `trunk()` in case no such change exists:
 log-graph-prioritize = 'coalesce(description("megamerge\n"), trunk())'
 ```
 
+## Git Push
+
+### Default revisions to push
+
+You can configure the default set of revisions which `jj git push` should push.
+The revset is intersected with all bookmarks to determine which are pushed, it
+also automatically expands the `remote` to passed argument.
+
+```toml
+[revsets]
+'git-push' = 'remote_bookmarks(remote=remote)..@ & ~private()'
+```
+
+The default value for `revsets.git-push` is
+`'remote_bookmarks(remote=remote)..@'` which roughly translates to push all
+changed bookmarks for this remote.
+
 ### Default Template
 
 You can configure the template used when no `-T` is specified.
