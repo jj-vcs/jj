@@ -172,12 +172,14 @@ enum UiAction {
 }
 
 /// The state of a single commit in the UI
+#[derive(Clone)]
 struct CommitState {
     commit: Commit,
     action: UiAction,
     parents: Vec<CommitId>,
 }
 
+#[derive(Clone)]
 struct State {
     /// Commits in the target set, as well as any external children and parents.
     commits: HashMap<CommitId, CommitState>,
@@ -254,6 +256,10 @@ impl State {
         };
         state.update_commit_order();
         Ok(state)
+    }
+
+    fn is_valid(&self) -> bool {
+        true
     }
 
     /// Update the current UI commit order after parents have changed.
@@ -454,57 +460,67 @@ fn run_tui<B: ratatui::backend::Backend>(
             if event.is_release() {
                 continue;
             }
+            let mut new_state = state.clone();
             match (event.code, event.modifiers) {
                 (KeyCode::Char('q'), KeyModifiers::NONE)
                 | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
                     return Ok(None);
                 }
                 (KeyCode::Char('c'), KeyModifiers::NONE) => {
-                    return Ok(Some(state));
+                    return Ok(Some(new_state));
                 }
                 (KeyCode::Down | KeyCode::Char('j'), KeyModifiers::NONE) => {
-                    if state.current_selection + 1 < state.current_order.len() {
-                        state.current_selection += 1;
+                    if new_state.current_selection + 1 < new_state.current_order.len() {
+                        new_state.current_selection += 1;
                     }
                 }
                 (KeyCode::Up | KeyCode::Char('k'), KeyModifiers::NONE) => {
-                    if state.current_selection > 0 {
-                        state.current_selection -= 1;
+                    if new_state.current_selection > 0 {
+                        new_state.current_selection -= 1;
                     }
                 }
                 (KeyCode::Char('a'), KeyModifiers::NONE) => {
-                    let id = state.current_order[state.current_selection].clone();
-                    state.commits.get_mut(&id).unwrap().action = UiAction::Abandon;
+                    let id = new_state.current_order[new_state.current_selection].clone();
+                    new_state.commits.get_mut(&id).unwrap().action = UiAction::Abandon;
                 }
                 (KeyCode::Char('p'), KeyModifiers::NONE) => {
-                    let id = state.current_order[state.current_selection].clone();
-                    state.commits.get_mut(&id).unwrap().action = UiAction::Keep;
+                    let id = new_state.current_order[new_state.current_selection].clone();
+                    new_state.commits.get_mut(&id).unwrap().action = UiAction::Keep;
                 }
                 (KeyCode::Down | KeyCode::Char('J'), KeyModifiers::SHIFT) => {
-                    if state.current_selection + 1 < state.current_order.len()
-                        && state.are_graph_neighbors(
-                            state.current_selection,
-                            state.current_selection + 1,
+                    if new_state.current_selection + 1 < new_state.current_order.len()
+                        && new_state.are_graph_neighbors(
+                            new_state.current_selection,
+                            new_state.current_selection + 1,
                         )
                     {
-                        state.swap_commits(state.current_selection, state.current_selection + 1);
+                        new_state.swap_commits(
+                            new_state.current_selection,
+                            new_state.current_selection + 1,
+                        );
                     }
                 }
                 (KeyCode::Up | KeyCode::Char('K'), KeyModifiers::SHIFT) => {
-                    if state.current_selection > 0
-                        && state.are_graph_neighbors(
-                            state.current_selection,
-                            state.current_selection - 1,
+                    if new_state.current_selection > 0
+                        && new_state.are_graph_neighbors(
+                            new_state.current_selection,
+                            new_state.current_selection - 1,
                         )
                     {
-                        state.swap_commits(state.current_selection, state.current_selection - 1);
+                        new_state.swap_commits(
+                            new_state.current_selection,
+                            new_state.current_selection - 1,
+                        );
                     }
                 }
                 _ => {
                     continue;
                 }
             }
-            state.update_commit_order();
+            if new_state.is_valid() {
+                state = new_state;
+                state.update_commit_order();
+            }
         }
     }
 }
