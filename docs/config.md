@@ -1766,6 +1766,16 @@ You can configure `jj` to use watchman triggers to automatically create
 snapshots on filesystem changes by setting
 `fsmonitor.watchman.register-snapshot-trigger = true`.
 
+A full configuration for watchman can look like this:
+
+```toml
+[fsmonitor]
+backend = "watchman"
+
+[fsmonitor.watchman]
+register-snapshot-trigger = true
+```
+
 You can check whether Watchman is enabled and whether it is installed correctly
 using `jj debug watchman status`.
 
