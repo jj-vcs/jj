@@ -47,8 +47,12 @@ use crate::ui::Ui;
 
 /// Fetch from a Git remote
 ///
-/// If no branches nor tags are specified, the default fetch refspecs are read
-/// from the Git configuration.
+/// If no remotes are specified, fetches the remotes specified by the
+/// `git.fetch` setting. If that is not configured and there are multiple
+/// remotes, the remote named "origin" will be used.
+///
+/// If no branches nor tags are specified, the default fetch refspecs for the
+/// selected remotes are read from the Git configuration.
 ///
 /// If a working-copy commit gets abandoned, it will be given a new, empty
 /// commit. This is true in general; it is not specific to this command.
@@ -100,9 +104,6 @@ pub struct GitFetchArgs {
 
     /// The remote to fetch from (only named remotes are supported, can be
     /// repeated)
-    ///
-    /// This defaults to the `git.fetch` setting. If that is not configured, and
-    /// if there are multiple remotes, the remote named "origin" will be used.
     ///
     /// By default, the specified pattern matches remote names with glob syntax,
     /// e.g. `--remote '*'`. You can also use other [string pattern syntax].
