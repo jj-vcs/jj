@@ -17,6 +17,7 @@
 #[cfg(unix)]
 mod unix;
 #[cfg(windows)]
+#[allow(unsafe_code)]
 mod windows;
 
 use std::io;
