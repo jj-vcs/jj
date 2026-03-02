@@ -91,6 +91,12 @@ It can provide completions via `psc add jj`, or offer a better completion menu f
 
 Find it [here][PSCompletions].
 
+## LightJJ
+
+A fast, keyboard-driven browser UI for Jujutsu.
+
+Find it [here][LightJJ].
+
 ## Finding other integrations
 
 You can find other community contributed tools and integrations in our
@@ -105,6 +111,7 @@ You can find other community contributed tools and integrations in our
 [jjui]: https://github.com/idursun/jjui
 [lazyjj]: https://github.com/Cretezy/lazyjj
 [PSCompletions]: https://github.com/abgox/PSCompletions
+[LightJJ]: https://github.com/chronologos/lightjj
 [selvejj]: https://selvejj.com
 [visualjj]: https://www.visualjj.com
 [vjj]: https://github.com/noahmayr/vjj
