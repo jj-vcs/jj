@@ -5510,6 +5510,16 @@ and
 <span class="n">--when</span><span class="p">.</span><span class="n">platforms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;unix&quot;</span><span class="p">]</span><span class="w">               </span><span class="c1"># matches anything in the Unix family (Linux, FreeBSD, macOS, etc.)</span>
 </code></pre></div>
 </li>
+<li>
+<p><code>--when.environments</code>: List of environment variable conditions in
+  <code>"NAME=VALUE"</code> format (check if the variable has the value), or <code>NAME</code> to
+  check if the variable is set.</p>
+<div class="highlight"><pre><span></span><code><span class="n">--when</span><span class="p">.</span><span class="n">environments</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;CI=true&quot;</span><span class="p">]</span><span class="w">                     </span><span class="c1"># matches when CI is set to &quot;true&quot;</span>
+<span class="n">--when</span><span class="p">.</span><span class="n">environments</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;CI&quot;</span><span class="p">]</span><span class="w">                          </span><span class="c1"># matches when CI is set to anything</span>
+<span class="n">--when</span><span class="p">.</span><span class="n">environments</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;CI=true&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;CI=1&quot;</span><span class="p">]</span><span class="w">             </span><span class="c1"># matches when CI is &quot;true&quot; or &quot;1&quot;</span>
+<span class="n">--when</span><span class="p">.</span><span class="n">environments</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;CI=true&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;GITHUB_ACTIONS=1&quot;</span><span class="p">]</span><span class="w"> </span><span class="c1"># matches when EITHER condition holds</span>
+</code></pre></div>
+</li>
 </ul>
 <div class="footnote">
 <hr />
