@@ -89,6 +89,8 @@ use crate::diff_util;
 use crate::diff_util::DiffStatEntry;
 use crate::diff_util::DiffStats;
 use crate::formatter::Formatter;
+#[cfg(feature = "git")]
+use crate::gerrit_util;
 use crate::git_util;
 use crate::operation_templater;
 use crate::operation_templater::OperationTemplateBuildFnTable;
@@ -1141,6 +1143,21 @@ fn builtin_commit_methods<'repo>() -> CommitTemplateBuildMethodFnMap<'repo, Comm
             let name = language.workspace_name.clone();
             let out_property = self_property
                 .map(move |commit| Some(commit.id()) == repo.view().get_wc_commit_id(&name));
+            Ok(out_property.into_dyn_wrapped())
+        },
+    );
+    #[cfg(feature = "git")]
+    map.insert(
+        "gerrit_url",
+        |language, _diagnostics, _build_ctx, self_property, function| {
+            function.expect_no_arguments()?;
+            let repo = language.repo;
+            let review_url = gerrit_util::get_review_url(language.settings()).ok();
+            let out_property = self_property.map(move |commit|
+                // This template should fail gracefully. We don't want `jj log` to error out.
+                review_url.as_deref().and_then(|url|
+                    gerrit_util::review_url_for_commit(repo, &commit, url).ok().flatten()
+                ).unwrap_or_default());
             Ok(out_property.into_dyn_wrapped())
         },
     );
