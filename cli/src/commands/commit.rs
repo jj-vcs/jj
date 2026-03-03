@@ -195,7 +195,7 @@ new working-copy commit.
     // to an empty description would break that logic.
     let description = if !description.is_empty() || use_editor {
         commit_builder.set_description(description);
-        add_trailers(ui, &tx, &commit_builder)?
+        add_trailers(ui, &tx, &commit_builder).await?
     } else {
         description
     };

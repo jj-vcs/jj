@@ -21,7 +21,6 @@ use jj_lib::file_util::PathError;
 use jj_lib::settings::UserSettings;
 use jj_lib::trailer::parse_description_trailers;
 use jj_lib::trailer::parse_trailers;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use crate::cli_util::WorkspaceCommandTransaction;
@@ -321,9 +320,9 @@ pub fn try_combine_messages(sources: &[Commit], destination: &Commit) -> Option<
 ///
 /// This includes empty descriptins too, so the user doesn't have to wonder why
 /// they only see 2 descriptions when they combined 3 commits.
-pub fn combine_messages_for_editing(
+pub async fn combine_messages_for_editing(
     ui: &Ui,
-    tx: &WorkspaceCommandTransaction,
+    tx: &WorkspaceCommandTransaction<'_>,
     sources: &[Commit],
     destination: Option<&Commit>,
     commit_builder: &DetachedCommitBuilder,
@@ -345,7 +344,7 @@ pub fn combine_messages_for_editing(
             .chain(destination)
             .flat_map(|commit| parse_description_trailers(commit.description()))
             .collect();
-        let commit = commit_builder.write_hidden().block_on()?;
+        let commit = commit_builder.write_hidden().await?;
         let trailer_lines = template
             .format_plain_text(&commit)
             .into_string()
@@ -427,13 +426,13 @@ pub fn add_trailers_with_template(
 /// the description
 ///
 /// It just lets the description untouched if the trailers are already there.
-pub fn add_trailers(
+pub async fn add_trailers(
     ui: &Ui,
-    tx: &WorkspaceCommandTransaction,
+    tx: &WorkspaceCommandTransaction<'_>,
     commit_builder: &DetachedCommitBuilder,
 ) -> Result<String, CommandError> {
     if let Some(renderer) = parse_trailers_template(ui, tx)? {
-        let commit = commit_builder.write_hidden().block_on()?;
+        let commit = commit_builder.write_hidden().await?;
         add_trailers_with_template(&renderer, &commit)
     } else {
         Ok(commit_builder.description().to_owned())

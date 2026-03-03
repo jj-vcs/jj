@@ -212,7 +212,7 @@ pub async fn cmd_workspace_add(
         // can be discarded as soon as it's no longer the working copy. Adding a
         // trailer to an empty description would break that logic.
         commit_builder.set_description(description);
-        description = add_trailers(ui, &tx, &commit_builder)?;
+        description = add_trailers(ui, &tx, &commit_builder).await?;
     }
     commit_builder.set_description(&description);
     let new_wc_commit = commit_builder.write(tx.repo_mut()).await?;
