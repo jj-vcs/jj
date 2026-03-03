@@ -165,8 +165,8 @@ fn test_run_invalid_revset() {
     1 | ::invalid::
       |           ^---
       |
-      = expected <identifier>, <string_literal>, or <raw_string_literal>
-    Hint: See https://jj-vcs.github.io/jj/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
+      = expected <primary>
+    Hint: See https://docs.jj-vcs.dev/latest/revsets/ or use `jj help -k revsets` for revsets syntax and how to quote symbols.
     [EOF]
     [exit status: 1]
     ");
