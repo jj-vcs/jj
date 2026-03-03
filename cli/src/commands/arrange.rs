@@ -427,7 +427,8 @@ fn run_tui<B: ratatui::backend::Backend>(
                 continue;
             }
             match (event.code, event.modifiers) {
-                (KeyCode::Char('q'), KeyModifiers::NONE) => {
+                (KeyCode::Char('q'), KeyModifiers::NONE)
+                | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
                     return Ok(None);
                 }
                 (KeyCode::Char('c'), KeyModifiers::NONE) => {
