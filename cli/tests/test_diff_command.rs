@@ -63,13 +63,13 @@ fn test_diff_basic() {
 
     let output = work_dir.run_jj(["diff", "--color=debug"]);
     insta::assert_snapshot!(output, @"
-    [38;5;3m<<diff header::Modified regular file file2:>>[39m
-    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: 1>>
-    [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: >>[4m[38;5;1m<<diff removed token::2>>[38;5;2m<<diff added token::5>>[24m[39m<<diff::>>
-    [2m[38;5;1m<<diff context removed line_number::   3>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   3>>[0m<<diff context::: 3>>
-    [38;5;1m<<diff removed line_number::   4>>[39m<<diff::     : >>[4m[38;5;1m<<diff removed token::4>>[24m[39m
-    [38;5;3m<<diff header::Modified regular file file3 (file1 => file3):>>[39m
-    [38;5;3m<<diff header::Modified regular file file4 (file2 => file4):>>[39m
+    [38;5;3m<<diff color_words header::Modified regular file file2:>>[39m
+    [2m[38;5;1m<<diff color_words context removed line_number::   1>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   1>>[0m<<diff color_words context::: 1>>
+    [38;5;1m<<diff color_words removed line_number::   2>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   2>>[39m<<diff color_words::: >>[4m[38;5;1m<<diff color_words removed token::2>>[38;5;2m<<diff color_words added token::5>>[24m[39m<<diff color_words::>>
+    [2m[38;5;1m<<diff color_words context removed line_number::   3>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   3>>[0m<<diff color_words context::: 3>>
+    [38;5;1m<<diff color_words removed line_number::   4>>[39m<<diff color_words::     : >>[4m[38;5;1m<<diff color_words removed token::4>>[24m[39m
+    [38;5;3m<<diff color_words header::Modified regular file file3 (file1 => file3):>>[39m
+    [38;5;3m<<diff color_words header::Modified regular file file4 (file2 => file4):>>[39m
     [EOF]
     ");
 
@@ -160,22 +160,22 @@ fn test_diff_basic() {
 
     let output = work_dir.run_jj(["diff", "--git", "--color=debug"]);
     insta::assert_snapshot!(output, @"
-    [1m<<diff file_header::diff --git a/file2 b/file2>>[0m
-    [1m<<diff file_header::index 94ebaf9001..1ffc51b472 100644>>[0m
-    [1m<<diff file_header::--- a/file2>>[0m
-    [1m<<diff file_header::+++ b/file2>>[0m
-    [38;5;6m<<diff hunk_header::@@ -1,4 +1,3 @@>>[39m
-    <<diff context:: 1>>
-    [38;5;1m<<diff removed::->>[4m<<diff removed token::2>>[24m<<diff removed::>>[39m
-    [38;5;2m<<diff added::+>>[4m<<diff added token::5>>[24m<<diff added::>>[39m
-    <<diff context:: 3>>
-    [38;5;1m<<diff removed::->>[4m<<diff removed token::4>>[24m[39m
-    [1m<<diff file_header::diff --git a/file1 b/file3>>[0m
-    [1m<<diff file_header::rename from file1>>[0m
-    [1m<<diff file_header::rename to file3>>[0m
-    [1m<<diff file_header::diff --git a/file2 b/file4>>[0m
-    [1m<<diff file_header::copy from file2>>[0m
-    [1m<<diff file_header::copy to file4>>[0m
+    [1m<<diff git file_header::diff --git a/file2 b/file2>>[0m
+    [1m<<diff git file_header::index 94ebaf9001..1ffc51b472 100644>>[0m
+    [1m<<diff git file_header::--- a/file2>>[0m
+    [1m<<diff git file_header::+++ b/file2>>[0m
+    [38;5;6m<<diff git hunk_header::@@ -1,4 +1,3 @@>>[39m
+    <<diff git context:: 1>>
+    [38;5;1m<<diff git removed::->>[4m<<diff git removed token::2>>[24m<<diff git removed::>>[39m
+    [38;5;2m<<diff git added::+>>[4m<<diff git added token::5>>[24m<<diff git added::>>[39m
+    <<diff git context:: 3>>
+    [38;5;1m<<diff git removed::->>[4m<<diff git removed token::4>>[24m[39m
+    [1m<<diff git file_header::diff --git a/file1 b/file3>>[0m
+    [1m<<diff git file_header::rename from file1>>[0m
+    [1m<<diff git file_header::rename to file3>>[0m
+    [1m<<diff git file_header::diff --git a/file2 b/file4>>[0m
+    [1m<<diff git file_header::copy from file2>>[0m
+    [1m<<diff git file_header::copy to file4>>[0m
     [EOF]
     ");
 
@@ -902,14 +902,14 @@ fn test_diff_hunks() {
 
     let output = work_dir.run_jj(["diff", "--color=debug"]);
     insta::assert_snapshot!(output, @"
-    [38;5;3m<<diff header::Modified regular file file1:>>[39m
-    <<diff::     >>[38;5;2m<<diff added line_number::   1>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::foo>>[24m[39m
-    [38;5;3m<<diff header::Modified regular file file2:>>[39m
-    [38;5;1m<<diff removed line_number::   1>>[39m<<diff::     : >>[4m[38;5;1m<<diff removed token::foo>>[24m[39m
-    [38;5;3m<<diff header::Modified regular file file3:>>[39m
-    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: foo>>
-    <<diff::     >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::bar>>[24m[39m
-    [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   3>>[39m<<diff::: baz >>[4m[38;5;1m<<diff removed token::qux>>[38;5;2m<<diff added token::quux>>[24m[39m<<diff:: blah blah>>
+    [38;5;3m<<diff color_words header::Modified regular file file1:>>[39m
+    <<diff color_words::     >>[38;5;2m<<diff color_words added line_number::   1>>[39m<<diff color_words::: >>[4m[38;5;2m<<diff color_words added token::foo>>[24m[39m
+    [38;5;3m<<diff color_words header::Modified regular file file2:>>[39m
+    [38;5;1m<<diff color_words removed line_number::   1>>[39m<<diff color_words::     : >>[4m[38;5;1m<<diff color_words removed token::foo>>[24m[39m
+    [38;5;3m<<diff color_words header::Modified regular file file3:>>[39m
+    [2m[38;5;1m<<diff color_words context removed line_number::   1>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   1>>[0m<<diff color_words context::: foo>>
+    <<diff color_words::     >>[38;5;2m<<diff color_words added line_number::   2>>[39m<<diff color_words::: >>[4m[38;5;2m<<diff color_words added token::bar>>[24m[39m
+    [38;5;1m<<diff color_words removed line_number::   2>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   3>>[39m<<diff color_words::: baz >>[4m[38;5;1m<<diff color_words removed token::qux>>[38;5;2m<<diff color_words added token::quux>>[24m[39m<<diff color_words:: blah blah>>
     [EOF]
     ");
 
@@ -941,27 +941,27 @@ fn test_diff_hunks() {
 
     let output = work_dir.run_jj(["diff", "--git", "--color=debug"]);
     insta::assert_snapshot!(output, @"
-    [1m<<diff file_header::diff --git a/file1 b/file1>>[0m
-    [1m<<diff file_header::index e69de29bb2..257cc5642c 100644>>[0m
-    [1m<<diff file_header::--- a/file1>>[0m
-    [1m<<diff file_header::+++ b/file1>>[0m
-    [38;5;6m<<diff hunk_header::@@ -0,0 +1,1 @@>>[39m
-    [38;5;2m<<diff added::+>>[4m<<diff added token::foo>>[24m[39m
-    [1m<<diff file_header::diff --git a/file2 b/file2>>[0m
-    [1m<<diff file_header::index 257cc5642c..e69de29bb2 100644>>[0m
-    [1m<<diff file_header::--- a/file2>>[0m
-    [1m<<diff file_header::+++ b/file2>>[0m
-    [38;5;6m<<diff hunk_header::@@ -1,1 +0,0 @@>>[39m
-    [38;5;1m<<diff removed::->>[4m<<diff removed token::foo>>[24m[39m
-    [1m<<diff file_header::diff --git a/file3 b/file3>>[0m
-    [1m<<diff file_header::index 221a95a095..a543ef3892 100644>>[0m
-    [1m<<diff file_header::--- a/file3>>[0m
-    [1m<<diff file_header::+++ b/file3>>[0m
-    [38;5;6m<<diff hunk_header::@@ -1,2 +1,3 @@>>[39m
-    <<diff context:: foo>>
-    [38;5;1m<<diff removed::-baz >>[4m<<diff removed token::qux>>[24m<<diff removed:: blah blah>>[39m
-    [38;5;2m<<diff added::+>>[4m<<diff added token::bar>>[24m[39m
-    [38;5;2m<<diff added::+baz >>[4m<<diff added token::quux>>[24m<<diff added:: blah blah>>[39m
+    [1m<<diff git file_header::diff --git a/file1 b/file1>>[0m
+    [1m<<diff git file_header::index e69de29bb2..257cc5642c 100644>>[0m
+    [1m<<diff git file_header::--- a/file1>>[0m
+    [1m<<diff git file_header::+++ b/file1>>[0m
+    [38;5;6m<<diff git hunk_header::@@ -0,0 +1,1 @@>>[39m
+    [38;5;2m<<diff git added::+>>[4m<<diff git added token::foo>>[24m[39m
+    [1m<<diff git file_header::diff --git a/file2 b/file2>>[0m
+    [1m<<diff git file_header::index 257cc5642c..e69de29bb2 100644>>[0m
+    [1m<<diff git file_header::--- a/file2>>[0m
+    [1m<<diff git file_header::+++ b/file2>>[0m
+    [38;5;6m<<diff git hunk_header::@@ -1,1 +0,0 @@>>[39m
+    [38;5;1m<<diff git removed::->>[4m<<diff git removed token::foo>>[24m[39m
+    [1m<<diff git file_header::diff --git a/file3 b/file3>>[0m
+    [1m<<diff git file_header::index 221a95a095..a543ef3892 100644>>[0m
+    [1m<<diff git file_header::--- a/file3>>[0m
+    [1m<<diff git file_header::+++ b/file3>>[0m
+    [38;5;6m<<diff git hunk_header::@@ -1,2 +1,3 @@>>[39m
+    <<diff git context:: foo>>
+    [38;5;1m<<diff git removed::-baz >>[4m<<diff git removed token::qux>>[24m<<diff git removed:: blah blah>>[39m
+    [38;5;2m<<diff git added::+>>[4m<<diff git added token::bar>>[24m[39m
+    [38;5;2m<<diff git added::+baz >>[4m<<diff git added token::quux>>[24m<<diff git added:: blah blah>>[39m
     [EOF]
     ");
 }
@@ -1465,50 +1465,50 @@ fn test_diff_color_words_inlining_threshold() {
     [EOF]
     ");
     insta::assert_snapshot!(render_diff(2, &["--color=debug"]), @"
-    [38;5;3m<<diff header::Modified regular file file1-single-line:>>[39m
-    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: == adds ==>>
-    [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: a >>[4m[38;5;2m<<diff added token::X >>[24m[39m<<diff::b >>[4m[38;5;2m<<diff added token::Y Z >>[24m[39m<<diff::c>>
-    [2m[38;5;1m<<diff context removed line_number::   3>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   3>>[0m<<diff context::: == removes ==>>
-    [38;5;1m<<diff removed line_number::   4>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   4>>[39m<<diff::: a >>[4m[38;5;1m<<diff removed token::b >>[24m[39m<<diff::c >>[4m[38;5;1m<<diff removed token::d e >>[24m[39m<<diff::f>>[4m[38;5;1m<<diff removed token:: g>>[24m[39m<<diff::>>
-    [2m[38;5;1m<<diff context removed line_number::   5>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   5>>[0m<<diff context::: == adds + removes ==>>
-    [38;5;1m<<diff removed line_number::   6>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   6>>[39m<<diff::: a >>[4m[38;5;2m<<diff added token::X >>[24m[39m<<diff::b >>[4m[38;5;1m<<diff removed token::c >>[24m[39m<<diff::d>>[4m[38;5;1m<<diff removed token:: e>>[24m[39m<<diff::>>
-    [2m[38;5;1m<<diff context removed line_number::   7>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   7>>[0m<<diff context::: == adds + removes + adds ==>>
-    [38;5;1m<<diff removed line_number::   8>>[39m<<diff::     : >>[38;5;1m<<diff removed::a b >>[4m<<diff removed token::c >>[24m<<diff removed::d >>[4m<<diff removed token::e>>[24m<<diff removed::>>[39m
-    <<diff::     >>[38;5;2m<<diff added line_number::   8>>[39m<<diff::: >>[38;5;2m<<diff added::a >>[4m<<diff added token::X >>[24m<<diff added::b d >>[4m<<diff added token::Y>>[24m<<diff added::>>[39m
-    [2m[38;5;1m<<diff context removed line_number::   9>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   9>>[0m<<diff context::: == adds + removes + adds + removes ==>>
-    [38;5;1m<<diff removed line_number::  10>>[39m<<diff::     : >>[38;5;1m<<diff removed::a b >>[4m<<diff removed token::c >>[24m<<diff removed::d e>>[4m<<diff removed token:: f g>>[24m<<diff removed::>>[39m
-    <<diff::     >>[38;5;2m<<diff added line_number::  10>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::X >>[24m<<diff added::a >>[4m<<diff added token::Y >>[24m<<diff added::b d >>[4m<<diff added token::Z >>[24m<<diff added::e>>[39m
-    [38;5;3m<<diff header::Modified regular file file2-multiple-lines-in-single-hunk:>>[39m
-    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: == adds; removes; adds + removes ==>>
-    [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: a >>[4m[38;5;2m<<diff added token::X >>[24m[39m<<diff::b >>[4m[38;5;2m<<diff added token::Y Z >>[24m[39m<<diff::c>>
-    [38;5;1m<<diff removed line_number::   3>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   3>>[39m<<diff::: a >>[4m[38;5;1m<<diff removed token::b >>[24m[39m<<diff::c >>[4m[38;5;1m<<diff removed token::d e >>[24m[39m<<diff::f>>[4m[38;5;1m<<diff removed token:: g>>[24m[39m<<diff::>>
-    [38;5;1m<<diff removed line_number::   4>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   4>>[39m<<diff::: a >>[4m[38;5;2m<<diff added token::X >>[24m[39m<<diff::b >>[4m[38;5;1m<<diff removed token::c >>[24m[39m<<diff::d>>[4m[38;5;1m<<diff removed token:: e>>[24m[39m<<diff::>>
-    [2m[38;5;1m<<diff context removed line_number::   5>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   5>>[0m<<diff context::: == adds + removes + adds; adds + removes + adds + removes ==>>
-    [38;5;1m<<diff removed line_number::   6>>[39m<<diff::     : >>[38;5;1m<<diff removed::a b >>[4m<<diff removed token::c >>[24m<<diff removed::d >>[4m<<diff removed token::e>>[24m<<diff removed::>>[39m
-    [38;5;1m<<diff removed line_number::   7>>[39m<<diff::     : >>[38;5;1m<<diff removed::a b >>[4m<<diff removed token::c >>[24m<<diff removed::d e>>[4m<<diff removed token:: f g>>[24m<<diff removed::>>[39m
-    <<diff::     >>[38;5;2m<<diff added line_number::   6>>[39m<<diff::: >>[38;5;2m<<diff added::a >>[4m<<diff added token::X >>[24m<<diff added::b d >>[4m<<diff added token::Y>>[24m<<diff added::>>[39m
-    <<diff::     >>[38;5;2m<<diff added line_number::   7>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::X >>[24m<<diff added::a >>[4m<<diff added token::Y >>[24m<<diff added::b d >>[4m<<diff added token::Z >>[24m<<diff added::e>>[39m
-    [38;5;3m<<diff header::Modified regular file file3-changes-across-lines:>>[39m
-    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: == adds ==>>
-    [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: a >>[4m[38;5;2m<<diff added token::X >>[24m[39m<<diff::b>>[4m[38;5;2m<<diff added token::>>[24m[39m
-    [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   3>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::Y Z>>[24m[39m<<diff:: c>>
-    [2m[38;5;1m<<diff context removed line_number::   3>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   4>>[0m<<diff context::: == removes ==>>
-    [38;5;1m<<diff removed line_number::   4>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   5>>[39m<<diff::: a >>[4m[38;5;1m<<diff removed token::b >>[24m[39m<<diff::c >>[4m[38;5;1m<<diff removed token::d>>[24m[39m
-    [38;5;1m<<diff removed line_number::   5>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   5>>[39m<<diff::: >>[4m[38;5;1m<<diff removed token::e >>[24m[39m<<diff::f>>[4m[38;5;1m<<diff removed token:: g>>[24m[39m<<diff::>>
-    [2m[38;5;1m<<diff context removed line_number::   6>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   6>>[0m<<diff context::: == adds + removes ==>>
-    [38;5;1m<<diff removed line_number::   7>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   7>>[39m<<diff::: a>>[4m[38;5;2m<<diff added token::>>[24m[39m
-    [38;5;1m<<diff removed line_number::   7>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   8>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::X>>[24m[39m<<diff:: b >>[4m[38;5;1m<<diff removed token::c>>[24m[39m
-    [38;5;1m<<diff removed line_number::   8>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   8>>[39m<<diff::: d>>[4m[38;5;1m<<diff removed token:: e>>[24m[39m<<diff::>>
-    [2m[38;5;1m<<diff context removed line_number::   9>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   9>>[0m<<diff context::: == adds + removes + adds ==>>
-    [38;5;1m<<diff removed line_number::  10>>[39m<<diff::     : >>[38;5;1m<<diff removed::a b >>[4m<<diff removed token::c>>[24m[39m
-    [38;5;1m<<diff removed line_number::  11>>[39m<<diff::     : >>[38;5;1m<<diff removed::d>>[4m<<diff removed token:: e>>[24m<<diff removed::>>[39m
-    <<diff::     >>[38;5;2m<<diff added line_number::  10>>[39m<<diff::: >>[38;5;2m<<diff added::a >>[4m<<diff added token::X >>[24m<<diff added::b d>>[4m<<diff added token::>>[24m[39m
-    <<diff::     >>[38;5;2m<<diff added line_number::  11>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::Y>>[24m<<diff added::>>[39m
-    [2m[38;5;1m<<diff context removed line_number::  12>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::  12>>[0m<<diff context::: == adds + removes + adds + removes ==>>
-    [38;5;1m<<diff removed line_number::  13>>[39m<<diff::     : >>[38;5;1m<<diff removed::a b>>[4m<<diff removed token::>>[24m[39m
-    [38;5;1m<<diff removed line_number::  14>>[39m<<diff::     : >>[4m[38;5;1m<<diff removed token::c>>[24m<<diff removed:: d e>>[4m<<diff removed token:: f g>>[24m<<diff removed::>>[39m
-    <<diff::     >>[38;5;2m<<diff added line_number::  13>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::X >>[24m<<diff added::a >>[4m<<diff added token::Y >>[24m<<diff added::b d>>[4m<<diff added token::>>[24m[39m
-    <<diff::     >>[38;5;2m<<diff added line_number::  14>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::Z>>[24m<<diff added:: e>>[39m
+    [38;5;3m<<diff color_words header::Modified regular file file1-single-line:>>[39m
+    [2m[38;5;1m<<diff color_words context removed line_number::   1>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   1>>[0m<<diff color_words context::: == adds ==>>
+    [38;5;1m<<diff color_words removed line_number::   2>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   2>>[39m<<diff color_words::: a >>[4m[38;5;2m<<diff color_words added token::X >>[24m[39m<<diff color_words::b >>[4m[38;5;2m<<diff color_words added token::Y Z >>[24m[39m<<diff color_words::c>>
+    [2m[38;5;1m<<diff color_words context removed line_number::   3>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   3>>[0m<<diff color_words context::: == removes ==>>
+    [38;5;1m<<diff color_words removed line_number::   4>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   4>>[39m<<diff color_words::: a >>[4m[38;5;1m<<diff color_words removed token::b >>[24m[39m<<diff color_words::c >>[4m[38;5;1m<<diff color_words removed token::d e >>[24m[39m<<diff color_words::f>>[4m[38;5;1m<<diff color_words removed token:: g>>[24m[39m<<diff color_words::>>
+    [2m[38;5;1m<<diff color_words context removed line_number::   5>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   5>>[0m<<diff color_words context::: == adds + removes ==>>
+    [38;5;1m<<diff color_words removed line_number::   6>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   6>>[39m<<diff color_words::: a >>[4m[38;5;2m<<diff color_words added token::X >>[24m[39m<<diff color_words::b >>[4m[38;5;1m<<diff color_words removed token::c >>[24m[39m<<diff color_words::d>>[4m[38;5;1m<<diff color_words removed token:: e>>[24m[39m<<diff color_words::>>
+    [2m[38;5;1m<<diff color_words context removed line_number::   7>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   7>>[0m<<diff color_words context::: == adds + removes + adds ==>>
+    [38;5;1m<<diff color_words removed line_number::   8>>[39m<<diff color_words::     : >>[38;5;1m<<diff color_words removed::a b >>[4m<<diff color_words removed token::c >>[24m<<diff color_words removed::d >>[4m<<diff color_words removed token::e>>[24m<<diff color_words removed::>>[39m
+    <<diff color_words::     >>[38;5;2m<<diff color_words added line_number::   8>>[39m<<diff color_words::: >>[38;5;2m<<diff color_words added::a >>[4m<<diff color_words added token::X >>[24m<<diff color_words added::b d >>[4m<<diff color_words added token::Y>>[24m<<diff color_words added::>>[39m
+    [2m[38;5;1m<<diff color_words context removed line_number::   9>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   9>>[0m<<diff color_words context::: == adds + removes + adds + removes ==>>
+    [38;5;1m<<diff color_words removed line_number::  10>>[39m<<diff color_words::     : >>[38;5;1m<<diff color_words removed::a b >>[4m<<diff color_words removed token::c >>[24m<<diff color_words removed::d e>>[4m<<diff color_words removed token:: f g>>[24m<<diff color_words removed::>>[39m
+    <<diff color_words::     >>[38;5;2m<<diff color_words added line_number::  10>>[39m<<diff color_words::: >>[4m[38;5;2m<<diff color_words added token::X >>[24m<<diff color_words added::a >>[4m<<diff color_words added token::Y >>[24m<<diff color_words added::b d >>[4m<<diff color_words added token::Z >>[24m<<diff color_words added::e>>[39m
+    [38;5;3m<<diff color_words header::Modified regular file file2-multiple-lines-in-single-hunk:>>[39m
+    [2m[38;5;1m<<diff color_words context removed line_number::   1>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   1>>[0m<<diff color_words context::: == adds; removes; adds + removes ==>>
+    [38;5;1m<<diff color_words removed line_number::   2>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   2>>[39m<<diff color_words::: a >>[4m[38;5;2m<<diff color_words added token::X >>[24m[39m<<diff color_words::b >>[4m[38;5;2m<<diff color_words added token::Y Z >>[24m[39m<<diff color_words::c>>
+    [38;5;1m<<diff color_words removed line_number::   3>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   3>>[39m<<diff color_words::: a >>[4m[38;5;1m<<diff color_words removed token::b >>[24m[39m<<diff color_words::c >>[4m[38;5;1m<<diff color_words removed token::d e >>[24m[39m<<diff color_words::f>>[4m[38;5;1m<<diff color_words removed token:: g>>[24m[39m<<diff color_words::>>
+    [38;5;1m<<diff color_words removed line_number::   4>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   4>>[39m<<diff color_words::: a >>[4m[38;5;2m<<diff color_words added token::X >>[24m[39m<<diff color_words::b >>[4m[38;5;1m<<diff color_words removed token::c >>[24m[39m<<diff color_words::d>>[4m[38;5;1m<<diff color_words removed token:: e>>[24m[39m<<diff color_words::>>
+    [2m[38;5;1m<<diff color_words context removed line_number::   5>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   5>>[0m<<diff color_words context::: == adds + removes + adds; adds + removes + adds + removes ==>>
+    [38;5;1m<<diff color_words removed line_number::   6>>[39m<<diff color_words::     : >>[38;5;1m<<diff color_words removed::a b >>[4m<<diff color_words removed token::c >>[24m<<diff color_words removed::d >>[4m<<diff color_words removed token::e>>[24m<<diff color_words removed::>>[39m
+    [38;5;1m<<diff color_words removed line_number::   7>>[39m<<diff color_words::     : >>[38;5;1m<<diff color_words removed::a b >>[4m<<diff color_words removed token::c >>[24m<<diff color_words removed::d e>>[4m<<diff color_words removed token:: f g>>[24m<<diff color_words removed::>>[39m
+    <<diff color_words::     >>[38;5;2m<<diff color_words added line_number::   6>>[39m<<diff color_words::: >>[38;5;2m<<diff color_words added::a >>[4m<<diff color_words added token::X >>[24m<<diff color_words added::b d >>[4m<<diff color_words added token::Y>>[24m<<diff color_words added::>>[39m
+    <<diff color_words::     >>[38;5;2m<<diff color_words added line_number::   7>>[39m<<diff color_words::: >>[4m[38;5;2m<<diff color_words added token::X >>[24m<<diff color_words added::a >>[4m<<diff color_words added token::Y >>[24m<<diff color_words added::b d >>[4m<<diff color_words added token::Z >>[24m<<diff color_words added::e>>[39m
+    [38;5;3m<<diff color_words header::Modified regular file file3-changes-across-lines:>>[39m
+    [2m[38;5;1m<<diff color_words context removed line_number::   1>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   1>>[0m<<diff color_words context::: == adds ==>>
+    [38;5;1m<<diff color_words removed line_number::   2>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   2>>[39m<<diff color_words::: a >>[4m[38;5;2m<<diff color_words added token::X >>[24m[39m<<diff color_words::b>>[4m[38;5;2m<<diff color_words added token::>>[24m[39m
+    [38;5;1m<<diff color_words removed line_number::   2>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   3>>[39m<<diff color_words::: >>[4m[38;5;2m<<diff color_words added token::Y Z>>[24m[39m<<diff color_words:: c>>
+    [2m[38;5;1m<<diff color_words context removed line_number::   3>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   4>>[0m<<diff color_words context::: == removes ==>>
+    [38;5;1m<<diff color_words removed line_number::   4>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   5>>[39m<<diff color_words::: a >>[4m[38;5;1m<<diff color_words removed token::b >>[24m[39m<<diff color_words::c >>[4m[38;5;1m<<diff color_words removed token::d>>[24m[39m
+    [38;5;1m<<diff color_words removed line_number::   5>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   5>>[39m<<diff color_words::: >>[4m[38;5;1m<<diff color_words removed token::e >>[24m[39m<<diff color_words::f>>[4m[38;5;1m<<diff color_words removed token:: g>>[24m[39m<<diff color_words::>>
+    [2m[38;5;1m<<diff color_words context removed line_number::   6>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   6>>[0m<<diff color_words context::: == adds + removes ==>>
+    [38;5;1m<<diff color_words removed line_number::   7>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   7>>[39m<<diff color_words::: a>>[4m[38;5;2m<<diff color_words added token::>>[24m[39m
+    [38;5;1m<<diff color_words removed line_number::   7>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   8>>[39m<<diff color_words::: >>[4m[38;5;2m<<diff color_words added token::X>>[24m[39m<<diff color_words:: b >>[4m[38;5;1m<<diff color_words removed token::c>>[24m[39m
+    [38;5;1m<<diff color_words removed line_number::   8>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   8>>[39m<<diff color_words::: d>>[4m[38;5;1m<<diff color_words removed token:: e>>[24m[39m<<diff color_words::>>
+    [2m[38;5;1m<<diff color_words context removed line_number::   9>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   9>>[0m<<diff color_words context::: == adds + removes + adds ==>>
+    [38;5;1m<<diff color_words removed line_number::  10>>[39m<<diff color_words::     : >>[38;5;1m<<diff color_words removed::a b >>[4m<<diff color_words removed token::c>>[24m[39m
+    [38;5;1m<<diff color_words removed line_number::  11>>[39m<<diff color_words::     : >>[38;5;1m<<diff color_words removed::d>>[4m<<diff color_words removed token:: e>>[24m<<diff color_words removed::>>[39m
+    <<diff color_words::     >>[38;5;2m<<diff color_words added line_number::  10>>[39m<<diff color_words::: >>[38;5;2m<<diff color_words added::a >>[4m<<diff color_words added token::X >>[24m<<diff color_words added::b d>>[4m<<diff color_words added token::>>[24m[39m
+    <<diff color_words::     >>[38;5;2m<<diff color_words added line_number::  11>>[39m<<diff color_words::: >>[4m[38;5;2m<<diff color_words added token::Y>>[24m<<diff color_words added::>>[39m
+    [2m[38;5;1m<<diff color_words context removed line_number::  12>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::  12>>[0m<<diff color_words context::: == adds + removes + adds + removes ==>>
+    [38;5;1m<<diff color_words removed line_number::  13>>[39m<<diff color_words::     : >>[38;5;1m<<diff color_words removed::a b>>[4m<<diff color_words removed token::>>[24m[39m
+    [38;5;1m<<diff color_words removed line_number::  14>>[39m<<diff color_words::     : >>[4m[38;5;1m<<diff color_words removed token::c>>[24m<<diff color_words removed:: d e>>[4m<<diff color_words removed token:: f g>>[24m<<diff color_words removed::>>[39m
+    <<diff color_words::     >>[38;5;2m<<diff color_words added line_number::  13>>[39m<<diff color_words::: >>[4m[38;5;2m<<diff color_words added token::X >>[24m<<diff color_words added::a >>[4m<<diff color_words added token::Y >>[24m<<diff color_words added::b d>>[4m<<diff color_words added token::>>[24m[39m
+    <<diff color_words::     >>[38;5;2m<<diff color_words added line_number::  14>>[39m<<diff color_words::: >>[4m[38;5;2m<<diff color_words added token::Z>>[24m<<diff color_words added:: e>>[39m
     [EOF]
     ");
 }

@@ -364,6 +364,17 @@ contents.
 "diff context" = { dim = true }
 ```
 
+Colors and styles can be configured differently for each diff format:
+
+```toml
+[colors]
+# Dim unchanged parts of changed lines in color-words diffs
+"diff color_words removed" = { dim = true }
+"diff color_words added" = { dim = true }
+"diff color_words removed token" = { dim = false }
+"diff color_words added token" = { dim = false }
+```
+
 ### Diff format
 
 ```toml

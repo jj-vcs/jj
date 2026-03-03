@@ -118,11 +118,11 @@ fn test_show_basic() {
     <<show commit::>>
     [38;5;3m<<show commit description placeholder::    (no description set)>>[39m<<show commit::>>
     <<show commit::>>
-    [38;5;3m<<diff header::Modified regular file file2:>>[39m
-    [2m[38;5;1m<<diff context removed line_number::   1>>[0m<<diff context:: >>[2m[38;5;2m<<diff context added line_number::   1>>[0m<<diff context::: foo>>
-    <<diff::     >>[38;5;2m<<diff added line_number::   2>>[39m<<diff::: >>[4m[38;5;2m<<diff added token::bar>>[24m[39m
-    [38;5;1m<<diff removed line_number::   2>>[39m<<diff:: >>[38;5;2m<<diff added line_number::   3>>[39m<<diff::: baz >>[4m[38;5;1m<<diff removed token::qux>>[38;5;2m<<diff added token::quux>>[24m[39m<<diff::>>
-    [38;5;3m<<diff header::Modified regular file file3 (file1 => file3):>>[39m
+    [38;5;3m<<diff color_words header::Modified regular file file2:>>[39m
+    [2m[38;5;1m<<diff color_words context removed line_number::   1>>[0m<<diff color_words context:: >>[2m[38;5;2m<<diff color_words context added line_number::   1>>[0m<<diff color_words context::: foo>>
+    <<diff color_words::     >>[38;5;2m<<diff color_words added line_number::   2>>[39m<<diff color_words::: >>[4m[38;5;2m<<diff color_words added token::bar>>[24m[39m
+    [38;5;1m<<diff color_words removed line_number::   2>>[39m<<diff color_words:: >>[38;5;2m<<diff color_words added line_number::   3>>[39m<<diff color_words::: baz >>[4m[38;5;1m<<diff color_words removed token::qux>>[38;5;2m<<diff color_words added token::quux>>[24m[39m<<diff color_words::>>
+    [38;5;3m<<diff color_words header::Modified regular file file3 (file1 => file3):>>[39m
     [EOF]
     ");
 
@@ -210,18 +210,18 @@ fn test_show_basic() {
     <<show commit::>>
     [38;5;3m<<show commit description placeholder::    (no description set)>>[39m<<show commit::>>
     <<show commit::>>
-    [1m<<diff file_header::diff --git a/file2 b/file2>>[0m
-    [1m<<diff file_header::index 523a4a9de8..485b56a572 100644>>[0m
-    [1m<<diff file_header::--- a/file2>>[0m
-    [1m<<diff file_header::+++ b/file2>>[0m
-    [38;5;6m<<diff hunk_header::@@ -1,2 +1,3 @@>>[39m
-    <<diff context:: foo>>
-    [38;5;1m<<diff removed::-baz >>[4m<<diff removed token::qux>>[24m<<diff removed::>>[39m
-    [38;5;2m<<diff added::+>>[4m<<diff added token::bar>>[24m[39m
-    [38;5;2m<<diff added::+baz >>[4m<<diff added token::quux>>[24m<<diff added::>>[39m
-    [1m<<diff file_header::diff --git a/file1 b/file3>>[0m
-    [1m<<diff file_header::rename from file1>>[0m
-    [1m<<diff file_header::rename to file3>>[0m
+    [1m<<diff git file_header::diff --git a/file2 b/file2>>[0m
+    [1m<<diff git file_header::index 523a4a9de8..485b56a572 100644>>[0m
+    [1m<<diff git file_header::--- a/file2>>[0m
+    [1m<<diff git file_header::+++ b/file2>>[0m
+    [38;5;6m<<diff git hunk_header::@@ -1,2 +1,3 @@>>[39m
+    <<diff git context:: foo>>
+    [38;5;1m<<diff git removed::-baz >>[4m<<diff git removed token::qux>>[24m<<diff git removed::>>[39m
+    [38;5;2m<<diff git added::+>>[4m<<diff git added token::bar>>[24m[39m
+    [38;5;2m<<diff git added::+baz >>[4m<<diff git added token::quux>>[24m<<diff git added::>>[39m
+    [1m<<diff git file_header::diff --git a/file1 b/file3>>[0m
+    [1m<<diff git file_header::rename from file1>>[0m
+    [1m<<diff git file_header::rename to file3>>[0m
     [EOF]
     ");
 

@@ -482,27 +482,28 @@ impl<'a> DiffRenderer<'a> {
             match format {
                 DiffFormat::Summary => {
                     let tree_diff = diff_stream();
-                    show_diff_summary(formatter, tree_diff, path_converter).await?;
+                    show_diff_summary(*formatter.labeled("summary"), tree_diff, path_converter)
+                        .await?;
                 }
                 DiffFormat::Stat(options) => {
                     let tree_diff = diff_stream();
                     let stats =
                         DiffStats::calculate(store, tree_diff, options, self.conflict_marker_style)
                             .await?;
-                    show_diff_stats(formatter, &stats, path_converter, width)?;
+                    show_diff_stats(*formatter.labeled("stat"), &stats, path_converter, width)?;
                 }
                 DiffFormat::Types => {
                     let tree_diff = diff_stream();
-                    show_types(formatter, tree_diff, path_converter).await?;
+                    show_types(*formatter.labeled("types"), tree_diff, path_converter).await?;
                 }
                 DiffFormat::NameOnly => {
                     let tree_diff = diff_stream();
-                    show_names(formatter, tree_diff, path_converter).await?;
+                    show_names(*formatter.labeled("name_only"), tree_diff, path_converter).await?;
                 }
                 DiffFormat::Git(options) => {
                     let tree_diff = diff_stream();
                     show_git_diff(
-                        formatter,
+                        *formatter.labeled("git"),
                         store,
                         tree_diff,
                         conflict_labels,
@@ -514,7 +515,7 @@ impl<'a> DiffRenderer<'a> {
                 DiffFormat::ColorWords(options) => {
                     let tree_diff = diff_stream();
                     show_color_words_diff(
-                        formatter,
+                        *formatter.labeled("color_words"),
                         store,
                         tree_diff,
                         conflict_labels,
