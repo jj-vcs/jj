@@ -373,21 +373,21 @@ local one.</li>
 <li><code dir="auto">.remote_tags() -> List&#x3C;CommitRef></code>: All remote tags pointing to the commit.</li>
 <li><code dir="auto">.divergent() -> Boolean</code>: True if the commit’s change ID corresponds to multiple
 visible commits.</li>
-<li><code dir="auto">.change_offset() -> Option&#x3C;Integer></code>: The <a href="glossary.md#change-offset">change offset</a>
+<li><code dir="auto">.change_offset() -> Option&#x3C;Integer></code>: The <a href="../glossary/#change-offset">change offset</a>
 of this commit. May not be available for some commits.</li>
 <li><code dir="auto">.hidden() -> Boolean</code>: True if the commit is not visible (a.k.a. abandoned).</li>
-<li><code dir="auto">.immutable() -> Boolean</code>: True if the commit is included in <a href="config.md#set-of-immutable-commits">the set of
+<li><code dir="auto">.immutable() -> Boolean</code>: True if the commit is included in <a href="../config/#set-of-immutable-commits">the set of
 immutable commits</a>.</li>
 <li><code dir="auto">.contained_in(revset: StringLiteral) -> Boolean</code>: True if the commit is included in
-<a href="revsets.md">the provided revset</a>.</li>
+<a href="../revsets/">the provided revset</a>.</li>
 <li><code dir="auto">.conflict() -> Boolean</code>: True if the commit contains merge conflicts.</li>
 <li><code dir="auto">.conflicted_files() -> List&#x3C;TreeEntry></code>: Conflicted files in this commit.</li>
 <li><code dir="auto">.empty() -> Boolean</code>: True if the commit modifies no files.</li>
-<li><code dir="auto">.diff([files: StringLiteral]) -> TreeDiff</code>: Changes from the parents within <a href="filesets.md">the
+<li><code dir="auto">.diff([files: StringLiteral]) -> TreeDiff</code>: Changes from the parents within <a href="../filesets/">the
 <code dir="auto">files</code> expression</a>. All files are compared by default, but it is
 likely to change in future version to respect the command line path arguments.</li>
 <li><code dir="auto">.files([files: StringLiteral]) -> List&#x3C;TreeEntry></code>: Files that exist in this commit,
-matching <a href="filesets.md">the <code dir="auto">files</code> expression</a>. Use <code dir="auto">.diff().files()</code> to list
+matching <a href="../filesets/">the <code dir="auto">files</code> expression</a>. Use <code dir="auto">.diff().files()</code> to list
 changed files.</li>
 <li><code dir="auto">.root() -> Boolean</code>: True if the commit is the root commit.</li>
 </ul>
@@ -422,7 +422,7 @@ canonical “reversed” (z-k) representation.</li>
 <li><code dir="auto">.name() -> RefSymbol</code>: Local bookmark or tag name.</li>
 <li><code dir="auto">.remote() -> Option&#x3C;RefSymbol></code>: Remote name if this is a remote ref.</li>
 <li><code dir="auto">.present() -> Boolean</code>: True if the ref points to any commit.</li>
-<li><code dir="auto">.conflict() -> Boolean</code>: True if <a href="bookmarks.md#conflicts">the bookmark or tag is
+<li><code dir="auto">.conflict() -> Boolean</code>: True if <a href="../bookmarks/#conflicts">the bookmark or tag is
 conflicted</a>.</li>
 <li><code dir="auto">.normal_target() -> Option&#x3C;Commit></code>: Target commit if the ref is not
 conflicted and points to a commit.</li>
@@ -720,7 +720,7 @@ be parsed and checked before the template is evaluated.</p>
 <code dir="auto">Template</code>, color labels are stripped.</p>
 <div class="sl-heading-wrapper level-h3"><h3 id="stringpattern-type"><code dir="auto">StringPattern</code> type</h3><a class="sl-anchor-link" href="#stringpattern-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “StringPattern type”</span></a></div>
 <p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: no, <code dir="auto">Template</code>: no</em></p>
-<p>These are the exact same as the <a href="revsets.md#string-patterns">String pattern type</a> in revsets, except that
+<p>These are the exact same as the <a href="../revsets/#string-patterns">String pattern type</a> in revsets, except that
 quotes are mandatory.</p>
 <p>Literal strings may be used, which are interpreted as case-sensitive substring
 matching.</p>
@@ -740,10 +740,10 @@ format string</a>.</li>
 <li><code dir="auto">.local() -> Timestamp</code>: Convert timestamp into local timezone.</li>
 <li><code dir="auto">.after(date: StringLiteral) -> Boolean</code>: True if the timestamp is exactly at or
 after the given date. Supported date formats are the same as the revset
-<a href="revsets.md#date-patterns">Date pattern type</a>.</li>
+<a href="../revsets/#date-patterns">Date pattern type</a>.</li>
 <li><code dir="auto">.before(date: StringLiteral) -> Boolean</code>: True if the timestamp is before, but
 not including, the given date. Supported date formats are the same as the
-revset <a href="revsets.md#date-patterns">Date pattern type</a>.</li>
+revset <a href="../revsets/#date-patterns">Date pattern type</a>.</li>
 </ul>
 <div class="sl-heading-wrapper level-h3"><h3 id="timestamprange-type"><code dir="auto">TimestampRange</code> type</h3><a class="sl-anchor-link" href="#timestamprange-type"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “TimestampRange type”</span></a></div>
 <p><em>Conversion: <code dir="auto">Boolean</code>: no, <code dir="auto">Serialize</code>: yes, <code dir="auto">Template</code>: yes</em></p>
@@ -800,7 +800,7 @@ points to the target (or right) entry.</li>
 <li><code dir="auto">.target() -> Commit</code>: Returns the working-copy commit of this workspace.</li>
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="color-labels">Color labels</h2><a class="sl-anchor-link" href="#color-labels"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Color labels”</span></a></div>
-<p>You can <a href="config.md#custom-colors-and-styles">customize the output colors</a> by using color labels. <code dir="auto">jj</code>
+<p>You can <a href="../config/#custom-colors-and-styles">customize the output colors</a> by using color labels. <code dir="auto">jj</code>
 adds some labels automatically; they can also be added manually.</p>
 <p>Template fragments are usually <strong>automatically</strong> labeled with the command name,
 the context (or the top-level object), and the method names. For example, the
@@ -818,7 +818,7 @@ style as the first character of the id. It would also be fine to use an
 arbitrary template instead of the string <code dir="auto">"&#x3C;redacted>"</code>, possibly including
 nested invocations of <code dir="auto">label()</code>.</p>
 <p>You are free to use custom label names as well. This will only have a visible
-effect if you also <a href="config.md#custom-colors-and-styles">customize their colors</a> explicitly.</p>
+effect if you also <a href="../config/#custom-colors-and-styles">customize their colors</a> explicitly.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="configuration">Configuration</h2><a class="sl-anchor-link" href="#configuration"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Configuration”</span></a></div>
 <p>The default templates and aliases() are defined in the <code dir="auto">[templates]</code> and
 <code dir="auto">[template-aliases]</code> sections of the config respectively. The exact definitions

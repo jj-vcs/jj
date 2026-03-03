@@ -236,7 +236,7 @@ error to pass a revset that resolves to more than one commit (or zero commits)
 to such commands.</p>
 <p>The words “revisions” and “commits” are used interchangeably in this document.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="hidden-revisions">Hidden revisions</h2><a class="sl-anchor-link" href="#hidden-revisions"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Hidden revisions”</span></a></div>
-<p>Most revsets search only the <a href="glossary.md#visible-commits">visible commits</a>.
+<p>Most revsets search only the <a href="../glossary/#visible-commits">visible commits</a>.
 Other commits are only included if you explicitly mention them (e.g. by commit
 ID, <code dir="auto">&#x3C;name>@&#x3C;remote></code> symbol, or <code dir="auto">at_operation()</code> function).</p>
 <p>If hidden commits are specified, their ancestors also become available to the
@@ -251,10 +251,10 @@ workspace. Use <code dir="auto">&#x3C;name>@&#x3C;remote></code> to refer to a r
 ID can also be used. It is an error to use a non-unique prefix.</p>
 <p>A full change ID refers to a visible commit with that change ID. A unique prefix
 of the full change ID can also be used. It is an error to use a non-unique
-prefix or <a href="glossary.md#divergent-change">a divergent change ID</a>. To refer to a
-<a href="#hidden-revisions">hidden</a> commit or <a href="glossary.md#divergent-change">divergent change</a>, a
-<a href="glossary.md#change-offset">change offset</a> can be added using <code dir="auto">&#x3C;change ID>/&#x3C;offset></code> syntax.</p>
-<p>Use <a href="templates.md#stringliteral-type">single or double quotes</a> to prevent a symbol from being
+prefix or <a href="../glossary/#divergent-change">a divergent change ID</a>. To refer to a
+<a href="#hidden-revisions">hidden</a> commit or <a href="../glossary/#divergent-change">divergent change</a>, a
+<a href="../glossary/#change-offset">change offset</a> can be added using <code dir="auto">&#x3C;change ID>/&#x3C;offset></code> syntax.</p>
+<p>Use <a href="../templates/#stringliteral-type">single or double quotes</a> to prevent a symbol from being
 interpreted as an expression. For example, <code dir="auto">"x-"</code> is the symbol <code dir="auto">x-</code>, not the
 parents of symbol <code dir="auto">x</code>. Taking shell quoting into account, you may need to use
 something like <code dir="auto">jj log -r '"x-"'</code>.</p>
@@ -598,7 +598,7 @@ given <a href="#string-patterns">string pattern</a>.</p>
 user modifications and <code dir="auto">root()</code>.</p>
 </li>
 <li>
-<p><code dir="auto">files(expression)</code>: Commits modifying paths matching the given <a href="filesets.md">fileset
+<p><code dir="auto">files(expression)</code>: Commits modifying paths matching the given <a href="../filesets/">fileset
 expression</a>.</p>
 <p>Paths are relative to the directory <code dir="auto">jj</code> was invoked from. A directory name
 will match all files in that directory and its subdirectories.</p>
@@ -620,7 +620,7 @@ is added to or removed from files under “src”.</p>
 <p><code dir="auto">conflicts()</code>: Commits with conflicts.</p>
 </li>
 <li>
-<p><code dir="auto">divergent()</code>: Commits that are <a href="glossary.md#divergent-change">divergent</a>.</p>
+<p><code dir="auto">divergent()</code>: Commits that are <a href="../glossary/#divergent-change">divergent</a>.</p>
 </li>
 <li>
 <p><code dir="auto">present(x)</code>: Same as <code dir="auto">x</code>, but evaluated to <code dir="auto">none()</code> if any of the commits
@@ -635,7 +635,7 @@ the result of <code dir="auto">coalesce</code> will also be <code dir="auto">non
 <p><code dir="auto">working_copies()</code>: The working copy commits across all the workspaces.</p>
 </li>
 <li>
-<p><code dir="auto">at_operation(op, x)</code>: Evaluates <code dir="auto">x</code> at the specified <a href="glossary.md#operation">operation</a>. For
+<p><code dir="auto">at_operation(op, x)</code>: Evaluates <code dir="auto">x</code> at the specified <a href="../glossary/#operation">operation</a>. For
 example, <code dir="auto">at_operation(@-, visible_heads())</code> will return all heads which were
 visible at the previous operation.</p>
 <p>Since <code dir="auto">at_operation(op, x)</code> brings all commits that were visible at the
@@ -755,7 +755,7 @@ global configuration tries the bookmarks <code dir="auto">main</code>, <code dir
 <code dir="auto">upstream</code> and <code dir="auto">origin</code> remotes. If more than one potential trunk commit
 exists, the newest one is chosen. If none of the bookmarks exist, the revset
 evaluates to <code dir="auto">root()</code>.</p>
-<p>You can <a href="./config.md">override</a> this as appropriate. If you do, make sure it
+<p>You can <a href="../config/">override</a> this as appropriate. If you do, make sure it
 always resolves to exactly one commit. For example:</p>
 <div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="toml"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">[revset-aliases]</span></div></div><div class="ec-line"><div class="code"><span style="--0:#C5E478;--1:#3B61B0">'trunk()'</span><span style="--0:#D6DEEB;--1:#403F53"> = </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">your-bookmark@your-remote</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="[revset-aliases]&#x27;trunk()&#x27; = &#x27;your-bookmark@your-remote&#x27;"><div></div></button></div></figure></div>
 </li>
@@ -769,7 +769,7 @@ redefine this alias. Prefer to redefine <code dir="auto">immutable_heads()</code
 <p><code dir="auto">immutable_heads()</code>: Resolves to
 <code dir="auto">present(trunk()) | tags() | untracked_remote_bookmarks()</code> by default. It is
 actually defined as <code dir="auto">builtin_immutable_heads()</code>, and can be overridden as
-required. See <a href="config.md#set-of-immutable-commits">here</a> for details.</p>
+required. See <a href="../config/#set-of-immutable-commits">here</a> for details.</p>
 </li>
 <li>
 <p><code dir="auto">immutable()</code>: The set of commits that <code dir="auto">jj</code> treats as immutable. This is

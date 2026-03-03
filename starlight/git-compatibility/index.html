@@ -235,7 +235,7 @@ briefer help).</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="supported-features">Supported features</h2><a class="sl-anchor-link" href="#supported-features"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Supported features”</span></a></div>
 <p>The following list describes which Git features Jujutsu is compatible with. For
 a comparison with Git, including how workflows are different, see the
-<a href="git-comparison.md">Git-comparison doc</a>.</p>
+<a href="../git-comparison/">Git-comparison doc</a>.</p>
 <ul>
 <li><strong>Configuration: Partial.</strong> The only configuration from Git (e.g. in
 <code dir="auto">~/.gitconfig</code>) that’s respected is the following. Feel free to file a bug if
@@ -249,7 +249,7 @@ are respected when branches are not explicitly specified on the CLI.
 </li>
 <li><strong>Authentication: Yes.</strong> <code dir="auto">git</code> is used for remote operations under the hood.</li>
 <li><strong>Branches: Yes.</strong> You can read more about
-<a href="bookmarks.md">how branches work in Jujutsu</a>
+<a href="../bookmarks/">how branches work in Jujutsu</a>
 and <a href="#branches">how they interoperate with Git</a>.</li>
 <li><strong>Tags: Partial.</strong> You can check out tagged commits by name (pointed to by
 either annotated or lightweight tags). You can also create lightweight tags,
@@ -273,7 +273,7 @@ natural state.</li>
 parent of all commits Git would call “root commits”.</li>
 <li><strong>Staging area: Kind of.</strong> The staging area will be ignored. For example,
 <code dir="auto">jj diff</code> will show a diff from the Git HEAD to the working copy. There are
-<a href="git-comparison.md#the-index">ways of fulfilling your use cases without a staging
+<a href="../git-comparison/#the-index">ways of fulfilling your use cases without a staging
 area</a>.</li>
 <li><strong>Garbage collection: Yes.</strong> It should be safe to run <code dir="auto">git gc</code> in the Git
 repo, but it’s not tested, so it’s probably a good idea to make a backup of
@@ -293,7 +293,7 @@ copies backed by a single repo. See the <code dir="auto">jj workspace</code> fam
 <li><strong>Sparse checkouts: No.</strong> However, there’s native support for sparse
 checkouts. See the <code dir="auto">jj sparse</code> command.</li>
 <li><strong>Signed commits: Yes.</strong>
-You can sign commits automatically <a href="config.md#commit-signing">by configuration</a>,
+You can sign commits automatically <a href="../config/#commit-signing">by configuration</a>,
 or use the <code dir="auto">jj sign</code> command.</li>
 <li><strong>Git LFS: No.</strong> (<a href="https://github.com/jj-vcs/jj/issues/80">#80</a>)</li>
 </ul>
@@ -340,7 +340,7 @@ main branch) or will have branches that are out of date with jj’s bookmarks.</
 <ul>
 <li>
 <p>Interleaving <code dir="auto">jj</code> and <code dir="auto">git</code> commands increases the chance of confusing branch
-conflicts or <a href="glossary.md#divergent-change">conflicted (AKA divergent) change
+conflicts or <a href="../glossary/#divergent-change">conflicted (AKA divergent) change
 ids</a>. These never lose data, but can be
 annoying.</p>
 <p>Such interleaving can happen unknowingly. For example, some IDEs can cause
@@ -373,7 +373,7 @@ common states a Git repository can be in.</p>
 </li>
 <li>
 <p>Colocated workspaces are less resilient to
-<a href="technical/concurrency.md#syncing-with-rsync-nfs-dropbox-etc">concurrency</a>
+<a href="../technical/concurrency/#syncing-with-rsync-nfs-dropbox-etc">concurrency</a>
 issues if you share the repo using an NFS filesystem or Dropbox. In general,
 such use of Jujutsu is not currently thoroughly tested.</p>
 </li>

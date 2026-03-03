@@ -241,7 +241,7 @@ example, <code dir="auto">jj git push --bookmark foo</code> will push the state 
 to the <code dir="auto">foo</code> branch on the Git remote. Similarly, if you create a <code dir="auto">bar</code> branch
 in the backing Git repo, then a subsequent <code dir="auto">jj git import</code> will create a <code dir="auto">bar</code>
 bookmark (reminder: that import happens automatically in
-<a href="git-compatibility.md#colocated-jujutsugit-repos">colocated workspaces</a>).</p>
+<a href="../git-compatibility/#colocated-jujutsugit-repos">colocated workspaces</a>).</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="remotes-and-tracked-bookmarks">Remotes and tracked bookmarks</h2><a class="sl-anchor-link" href="#remotes-and-tracked-bookmarks"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Remotes and tracked bookmarks”</span></a></div>
 <p>Jujutsu records the last seen position of a bookmark on each remote (just like
 Git’s remote-tracking branches). This record is updated on every <code dir="auto">jj git fetch</code>
@@ -272,7 +272,7 @@ target there, <code dir="auto">jj log</code> will show the bookmark name with an
 <code dir="auto">main*</code>). That is meant to remind you that you may want to push the bookmark to
 some remote.</p>
 <p>If you want to know the internals of bookmark tracking, consult the
-<a href="design/tracking-branches.md">Design Doc</a>.</p>
+<a href="../design/tracking-branches/">Design Doc</a>.</p>
 <div class="sl-heading-wrapper level-h3"><h3 id="terminology-summary">Terminology summary</h3><a class="sl-anchor-link" href="#terminology-summary"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Terminology summary”</span></a></div>
 <ul>
 <li>A <strong>remote bookmark</strong> is a bookmark ref on the remote. <code dir="auto">jj</code> can find out its
@@ -320,7 +320,7 @@ Branches that already existed before the <code dir="auto">jj git fetch</code> ar
 is similar to Mercurial, which fetches all its bookmarks (equivalent to Git’s
 branches) by default. Similarly, all newly created local bookmarks
 will be marked as “tracked”, preparing them to be pushed with
-the next <code dir="auto">jj git push</code> command. See <a href="config.md#automatic-tracking-of-bookmarks">“Automatic tracking of
+the next <code dir="auto">jj git push</code> command. See <a href="../config/#automatic-tracking-of-bookmarks">“Automatic tracking of
 bookmarks”</a> for details.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="bookmark-updates">Bookmark updates</h2><a class="sl-anchor-link" href="#bookmark-updates"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Bookmark updates”</span></a></div>
 <p>Currently Jujutsu automatically updates local bookmarks when these conditions are

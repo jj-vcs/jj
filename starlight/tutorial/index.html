@@ -237,7 +237,7 @@ at <a href="https://jj-for-everyone.github.io">Jujutsu for everyone</a>.</p>
 <p>This text assumes that the reader is familiar with Git.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="preparation">Preparation</h2><a class="sl-anchor-link" href="#preparation"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Preparation”</span></a></div>
 <p>If you haven’t already, make sure you
-<a href="install-and-setup.md">install and configure Jujutsu</a>.</p>
+<a href="../install-and-setup/">install and configure Jujutsu</a>.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="cloning-a-git-repository">Cloning a Git repository</h2><a class="sl-anchor-link" href="#cloning-a-git-repository"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Cloning a Git repository”</span></a></div>
 <blockquote>
 <p><strong>Hint:</strong> Most identifiers used in this tutorial will be different when you
@@ -327,7 +327,7 @@ rewritten.</p>
 <p>By default, <code dir="auto">jj log</code> lists your local commits, with some remote commits added
 for context. The <code dir="auto">~</code> indicates that the commit has parents that are not included
 in the graph. We can use the <code dir="auto">--revisions</code>/<code dir="auto">-r</code> flag to select a different set
-of revisions to list. The flag accepts a <a href="revsets.md">“revset”</a>, which is an
+of revisions to list. The flag accepts a <a href="../revsets/">“revset”</a>, which is an
 expression in a simple language for specifying revisions. For example, <code dir="auto">@</code>
 refers to the working-copy commit, <code dir="auto">root()</code> refers to the root commit,
 <code dir="auto">bookmarks()</code> refers to all commits pointed to by bookmarks (similar to Git’s
@@ -340,7 +340,7 @@ function in the revset matches it.</p>
 <p>There are also operators for getting the parents (<code dir="auto">foo-</code>), children (<code dir="auto">foo+</code>),
 ancestors (<code dir="auto">::foo</code>), descendants (<code dir="auto">foo::</code>), DAG range (<code dir="auto">foo::bar</code>, like
 <code dir="auto">git log --ancestry-path</code>), range (<code dir="auto">foo..bar</code>, same as Git’s). See
-<a href="revsets.md">the revset documentation</a> for all revset operators and functions.</p>
+<a href="../revsets/">the revset documentation</a> for all revset operators and functions.</p>
 <blockquote>
 <p><strong>Hint:</strong> If the default <code dir="auto">jj log</code> omits some commits you expect to see, you
 can always run <code dir="auto">jj log -r ::</code> (or, equivalently, <code dir="auto">jj log -r 'all()'</code>) to see
@@ -442,7 +442,7 @@ figure out how it works (with the help of the instructions in the diff).</p>
 <p>There are many other diff editors you could use.
 For example, if you have <a href="https://meldmerge.org">Meld</a> installed and in the
 PATH, you can use it via <code dir="auto">jj squash -i --tool meld</code> or a fancier config with <code dir="auto">jj squash -i --tool meld-3</code>. You can configure the default with the
-<a href="config.md#editing-diffs"><code dir="auto">ui.diff-editor</code> option</a>; those docs also explain how
+<a href="../config/#editing-diffs"><code dir="auto">ui.diff-editor</code> option</a>; those docs also explain how
 to specify a path to an executable if it is not in the PATH. <a href="#user-content-fnref-alternative_diff_editors" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
 </li>
 </ol>

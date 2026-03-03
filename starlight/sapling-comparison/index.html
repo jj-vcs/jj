@@ -235,11 +235,11 @@ copied many ideas from Mercurial, there are many similarities between the two
 tools, such as:</p>
 <ul>
 <li>A user-friendly CLI</li>
-<li>A “<a href="revsets.md">revset</a>” language for selecting revisions</li>
+<li>A “<a href="../revsets/">revset</a>” language for selecting revisions</li>
 <li>Good support for working with stacked commits, including tracking “anonymous
 heads” (no “detached HEAD” state like in Git) and <code dir="auto">split</code> commands, and
 automatically rebasing descendant commits when you amend a commit.</li>
-<li>Flexible customization of output using <a href="templates.md">templates</a></li>
+<li>Flexible customization of output using <a href="../templates/">templates</a></li>
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="differences">Differences</h2><a class="sl-anchor-link" href="#differences"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Differences”</span></a></div>
 <p>Here is a list of some differences between jj and Sapling.</p>
@@ -248,7 +248,7 @@ automatically rebasing descendant commits when you amend a commit.</li>
 <p><strong>Working copy:</strong> When using Sapling (like most VCSs), the
 user explicitly tells the tool when to create a commit and which files to
 include. When using jj, the working copy
-is <a href="working-copy.md">automatically snapshotted by every command</a>. New files
+is <a href="../working-copy/">automatically snapshotted by every command</a>. New files
 are automatically tracked and deleted files are automatically untracked. This
 has several advantages:</p>
 <ul>
@@ -262,7 +262,7 @@ other commit.</li>
 <li>
 <p><strong>Conflicts:</strong> Like most VCSs, Sapling requires the user to
 resolve conflicts before committing. jj lets
-you <a href="conflicts.md">commit conflicts</a>. Note that it’s a representation of the
+you <a href="../conflicts/">commit conflicts</a>. Note that it’s a representation of the
 conflict that’s committed, not conflict markers (<code dir="auto">&#x3C;&#x3C;&#x3C;&#x3C;&#x3C;&#x3C;&#x3C;</code> etc.). This also
 has several advantages:</p>
 <ul>
@@ -275,7 +275,7 @@ rebases, but it will fail if there are conflicts.</li>
 </ul>
 </li>
 <li>
-<p><strong>Undo:</strong> jj’s undo is powered by <a href="operation-log.md">the operation log</a>, which
+<p><strong>Undo:</strong> jj’s undo is powered by <a href="../operation-log/">the operation log</a>, which
 records how the repo has changed over time. Sapling has a similar feature
 with its <a href="https://sapling-scm.com/docs/internals/metalog">MetaLog</a>.
 They seem to provide similar functionality, but jj also exposes the log to the

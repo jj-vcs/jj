@@ -283,7 +283,7 @@ list manipulation.</p>
 <p>Revsets and templates now support <code dir="auto">name:x</code> pattern aliases such as <code dir="auto">'grep:x' = 'description(regex:x)'</code>.</p>
 </li>
 <li>
-<p>Filesets now support <a href="docs/filesets.md#aliases">user aliases</a>.</p>
+<p>Filesets now support <a href="../docs/filesets/#aliases">user aliases</a>.</p>
 </li>
 <li>
 <p><code dir="auto">jj workspace add</code> now links with relative paths. This enables workspaces to work
@@ -598,7 +598,7 @@ allowing you to disambiguate them in a similar manner.</p>
 <div class="sl-heading-wrapper level-h3"><h3 id="breaking-changes-2">Breaking changes</h3><a class="sl-anchor-link" href="#breaking-changes-2"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Breaking changes”</span></a></div>
 <ul>
 <li>
-<p><a href="docs/revsets.md#string-patterns">String patterns</a> in revsets, command
+<p><a href="../docs/revsets/#string-patterns">String patterns</a> in revsets, command
 arguments, and configuration are now parsed as globs by default. Use
 <code dir="auto">substring:</code> or <code dir="auto">exact:</code> prefix as needed.</p>
 </li>
@@ -810,7 +810,7 @@ terminal while you're running other commands in another terminal.
 </li>
 <li>
 <p><code dir="auto">jj</code> now ignores <code dir="auto">$PAGER</code> set in the environment and uses <code dir="auto">less -FRX</code> on most
-platforms (<code dir="auto">:builtin</code> on Windows). See <a href="docs/config.md#pager">the docs</a> for
+platforms (<code dir="auto">:builtin</code> on Windows). See <a href="../docs/config/#pager">the docs</a> for
 more information, and <a href="https://github.com/jj-vcs/jj/issues/3502">#3502</a> for
 motivation.</p>
 </li>
@@ -818,11 +818,11 @@ motivation.</p>
 <div class="sl-heading-wrapper level-h3"><h3 id="breaking-changes-3">Breaking changes</h3><a class="sl-anchor-link" href="#breaking-changes-3"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Breaking changes”</span></a></div>
 <ul>
 <li>
-<p>In <a href="docs/filesets.md#file-patterns">filesets or path patterns</a>, glob matching
+<p>In <a href="../docs/filesets/#file-patterns">filesets or path patterns</a>, glob matching
 is enabled by default. You can use <code dir="auto">cwd:"path"</code> to match literal paths.</p>
 </li>
 <li>
-<p>In the following commands, <a href="docs/revsets.md#string-patterns">string pattern
+<p>In the following commands, <a href="../docs/revsets/#string-patterns">string pattern
 arguments</a> are now parsed the same way they
 are in revsets and can be combined with logical operators: <code dir="auto">jj bookmark delete</code>/<code dir="auto">forget</code>/<code dir="auto">list</code>/<code dir="auto">move</code>, <code dir="auto">jj tag delete</code>/<code dir="auto">list</code>, <code dir="auto">jj git clone</code>/<code dir="auto">fetch</code>/<code dir="auto">push</code></p>
 </li>
@@ -870,7 +870,7 @@ deep in muscle memory, so you can expect an unusually long deprecation period.</
 deprecated in favor of <code dir="auto">remotes.&#x3C;name>.auto-track-bookmarks</code>. For example:</p>
 <div class="expressive-code"><link rel="stylesheet" href="/starlight/_astro/ec.v4551.css"><script type="module" src="/starlight/_astro/ec.p1z7b.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="toml"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">[remotes.origin]</span></div></div><div class="ec-line"><div class="code"><span style="--0:#C5E478;--1:#3B61B0">auto-track-bookmarks</span><span style="--0:#D6DEEB;--1:#403F53"> = </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#ECC48D;--1:#984E4D">glob:*</span><span style="--0:#D9F5DD;--1:#111111">"</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="[remotes.origin]auto-track-bookmarks = &#x22;glob:*&#x22;"><div></div></button></div></figure></div>
 <p>For more details, refer to
-<a href="docs/config.md#automatic-tracking-of-bookmarks">the docs</a>.</p>
+<a href="../docs/config/#automatic-tracking-of-bookmarks">the docs</a>.</p>
 </li>
 <li>
 <p>The flag <code dir="auto">--allow-new</code> on <code dir="auto">jj git push</code> is deprecated. In order to push new
@@ -879,7 +879,7 @@ setting up an auto-tracking configuration to avoid the chore of tracking
 bookmarks manually. For example:</p>
 <div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="toml"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">[remotes.origin]</span></div></div><div class="ec-line"><div class="code"><span style="--0:#C5E478;--1:#3B61B0">auto-track-bookmarks</span><span style="--0:#D6DEEB;--1:#403F53"> = </span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#ECC48D;--1:#984E4D">glob:*</span><span style="--0:#D9F5DD;--1:#111111">"</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="[remotes.origin]auto-track-bookmarks = &#x22;glob:*&#x22;"><div></div></button></div></figure></div>
 <p>For more details, refer to
-<a href="docs/config.md#automatic-tracking-of-bookmarks">the docs</a>.</p>
+<a href="../docs/config/#automatic-tracking-of-bookmarks">the docs</a>.</p>
 </li>
 </ul>
 <div class="sl-heading-wrapper level-h3"><h3 id="new-features-3">New features</h3><a class="sl-anchor-link" href="#new-features-3"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “New features”</span></a></div>
@@ -924,7 +924,7 @@ children.</p>
 <p>A new config option <code dir="auto">remotes.&#x3C;name>.auto-track-bookmarks</code> can be set to a
 string pattern. New bookmarks matching it will be automatically tracked for
 the specified remote. See
-<a href="docs/config.md#automatic-tracking-of-bookmarks">the docs</a>.</p>
+<a href="../docs/config/#automatic-tracking-of-bookmarks">the docs</a>.</p>
 </li>
 <li>
 <p><code dir="auto">jj log</code> now supports a <code dir="auto">--count</code> flag to print the number of commits instead
@@ -1616,7 +1616,7 @@ file to prevent the EOL conversion from changing binary files unexpectedly.</p>
 </li>
 <li>
 <p>Add a <code dir="auto">.parents()</code> method to the
-<a href="docs/templates.md#operation-type"><code dir="auto">Operation</code></a> type in the templating
+<a href="../docs/templates/#operation-type"><code dir="auto">Operation</code></a> type in the templating
 language.</p>
 </li>
 <li>
@@ -1710,7 +1710,7 @@ predecessor only. <a href="https://github.com/jj-vcs/jj/issues/7090">#7090</a></
 <div class="sl-heading-wrapper level-h3"><h3 id="breaking-changes-8">Breaking changes</h3><a class="sl-anchor-link" href="#breaking-changes-8"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Breaking changes”</span></a></div>
 <ul>
 <li>
-<p>Revset expressions like <code dir="auto">hidden_id | description(x)</code> now <a href="docs/revsets.md#hidden-revisions">search the specified
+<p>Revset expressions like <code dir="auto">hidden_id | description(x)</code> now <a href="../docs/revsets/#hidden-revisions">search the specified
 hidden revision and its ancestors</a> as well
 as all visible revisions.</p>
 </li>
@@ -2001,8 +2001,8 @@ subprocessing path.</p>
 <li>
 <p><code dir="auto">ui.default-description</code> has been deprecated, and will be migrated to
 <code dir="auto">template-aliases.default_commit_description</code>. Please also consider using
-<a href="docs/config.md#default-description"><code dir="auto">templates.draft_commit_description</code></a>,
-and/or <a href="docs/config.md#commit-trailers"><code dir="auto">templates.commit_trailers</code></a>.</p>
+<a href="../docs/config/#default-description"><code dir="auto">templates.draft_commit_description</code></a>,
+and/or <a href="../docs/config/#commit-trailers"><code dir="auto">templates.commit_trailers</code></a>.</p>
 </li>
 <li>
 <p>On macOS, config.toml files in <code dir="auto">~/Library/Application Support/jj</code> are
@@ -2013,7 +2013,7 @@ deprecated; one should instead use <code dir="auto">$XDG_CONFIG_HOME/jj</code>
 <div class="sl-heading-wrapper level-h3"><h3 id="new-features-10">New features</h3><a class="sl-anchor-link" href="#new-features-10"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “New features”</span></a></div>
 <ul>
 <li>
-<p>Color-words diff has gained <a href="docs/config.md#color-words-diff-options">an option to compare conflict pairs without
+<p>Color-words diff has gained <a href="../docs/config/#color-words-diff-options">an option to compare conflict pairs without
 materializing</a>.</p>
 </li>
 <li>
@@ -2032,7 +2032,7 @@ commit trailers, configured in the <code dir="auto">commit_trailers</code> templ
 description. Use cases include DCO Sign Off and Gerrit Change Id.</p>
 </li>
 <li>
-<p>Added <code dir="auto">duplicate_description</code> template, which allows <a href="docs/config.md#duplicate-commit-description">customizing the descriptions
+<p>Added <code dir="auto">duplicate_description</code> template, which allows <a href="../docs/config/#duplicate-commit-description">customizing the descriptions
 of the commits <code dir="auto">jj duplicate</code> creates</a>.</p>
 </li>
 <li>
@@ -2368,7 +2368,7 @@ in a future release. Please report any issues you run into.</li>
 <div class="sl-heading-wrapper level-h3"><h3 id="breaking-changes-12">Breaking changes</h3><a class="sl-anchor-link" href="#breaking-changes-12"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Breaking changes”</span></a></div>
 <ul>
 <li>
-<p>Bookmark name to be created/updated is now parsed as <a href="docs/revsets.md#symbols">a revset
+<p>Bookmark name to be created/updated is now parsed as <a href="../docs/revsets/#symbols">a revset
 symbol</a>. Quotation may be needed in addition to shell
 quotes. Example: <code dir="auto">jj bookmark create -r@- "'name with space'"</code></p>
 </li>
@@ -2387,7 +2387,7 @@ workspace root, instead of the working directory of the <code dir="auto">jj fix<
 </li>
 <li>
 <p>The <code dir="auto">ui.allow-filesets</code> configuration option has been removed.
-<a href="docs/filesets.md">The "fileset" language</a> has been enabled by default since v0.20.</p>
+<a href="../docs/filesets/">The "fileset" language</a> has been enabled by default since v0.20.</p>
 </li>
 <li>
 <p><code dir="auto">templates.annotate_commit_summary</code> is renamed to <code dir="auto">templates.file_annotate</code>,
@@ -2420,7 +2420,7 @@ Existing <code dir="auto">signing.sign-all = true</code> translates to <code dir
 no <code dir="auto">--revisions</code> arguments are provided.</p>
 </li>
 <li>
-<p><code dir="auto">jj git fetch</code> now supports <a href="docs/revsets.md#string-patterns">string pattern syntax</a>
+<p><code dir="auto">jj git fetch</code> now supports <a href="../docs/revsets/#string-patterns">string pattern syntax</a>
 on <code dir="auto">--remote</code> option and <code dir="auto">git.fetch</code> configuration.</p>
 </li>
 <li>
@@ -2719,7 +2719,7 @@ configuration based on subcommand.</p>
 <p>The Jujutsu documentation site now publishes a schema for the official
 configuration file, which can be integrated into your editor for autocomplete,
 inline errors, and more.
-Please <a href="docs/config.md#json-schema-support">see the documentation</a> for more
+Please <a href="../docs/config/#json-schema-support">see the documentation</a> for more
 on this.</p>
 </li>
 </ul>
@@ -2795,7 +2795,7 @@ now materialized in a way that can be parsed correctly.
 changes. Two select improvements:</p>
 <ul>
 <li>
-<p>Improvements to configuration management, including support for <a href="docs/config.md#conditional-variables">conditional
+<p>Improvements to configuration management, including support for <a href="../docs/config/#conditional-variables">conditional
 variables</a> in config files.</p>
 </li>
 <li>
@@ -2821,7 +2821,7 @@ not converted to a string <code dir="auto">"true"</code>, and vice versa.</p>
 <li>
 <p><code dir="auto">jj config list</code> now prints inline tables <code dir="auto">{ key = value, .. }</code> literally.
 Inner items of inline tables are no longer merged across configuration files.
-See <a href="docs/config.md#dotted-style-and-headings">the table syntax
+See <a href="../docs/config/#dotted-style-and-headings">the table syntax
 documentation</a> for
 details.</p>
 </li>
@@ -2861,7 +2861,7 @@ description.</p>
 files will be left untracked.</p>
 </li>
 <li>
-<p>Configuration files now support <a href="docs/config.md#conditional-variables">conditional
+<p>Configuration files now support <a href="../docs/config/#conditional-variables">conditional
 variables</a>.</p>
 </li>
 <li>
@@ -3426,7 +3426,7 @@ moves. So do external diff tools in file-by-file mode. <code dir="auto">jj statu
 includes information about copies and moves.</p>
 </li>
 <li>
-<p>Color-words diff has gained <a href="docs/config.md#color-words-diff-options">an option to display complex changes as separate
+<p>Color-words diff has gained <a href="../docs/config/#color-words-diff-options">an option to display complex changes as separate
 lines</a>. It's enabled by default. To
 restore the old behavior, set <code dir="auto">diff.color-words.max-inline-alternation = -1</code>.</p>
 </li>
@@ -3485,7 +3485,7 @@ need to set the environment variable <code dir="auto">LIBGIT2_NO_VENDOR=1</code>
 The short alias <code dir="auto">-r</code> is still supported.</p>
 </li>
 <li>
-<p><a href="docs/config.md#set-of-immutable-commits">The default <code dir="auto">immutable_heads()</code> set</a>
+<p><a href="../docs/config/#set-of-immutable-commits">The default <code dir="auto">immutable_heads()</code> set</a>
 now includes <code dir="auto">untracked_remote_branches()</code> with the assumption that untracked
 branches aren't managed by you. Therefore, untracked branches are no longer
 displayed in <code dir="auto">jj log</code> by default.</p>
@@ -3495,7 +3495,7 @@ displayed in <code dir="auto">jj log</code> by default.</p>
 <code dir="auto">templates.op_log_node</code>.</p>
 </li>
 <li>
-<p><a href="docs/filesets.md">The "fileset" language</a> is now enabled by default. It can
+<p><a href="../docs/filesets/">The "fileset" language</a> is now enabled by default. It can
 still be disabled by setting <code dir="auto">ui.allow-filesets=false</code>.</p>
 </li>
 <li>
@@ -3530,7 +3530,7 @@ individually instead of being passed a directory by setting
 <code dir="auto">merge-tools.$TOOL.diff-invocation-mode="file-by-file"</code> in config.toml.</p>
 </li>
 <li>
-<p>In git diffs, word-level hunks are now highlighted with underline. See <a href="docs/config.md#diff-colors-and-styles">diff
+<p>In git diffs, word-level hunks are now highlighted with underline. See <a href="../docs/config/#diff-colors-and-styles">diff
 colors and styles</a> for customization.</p>
 </li>
 <li>
@@ -3589,7 +3589,7 @@ operation.</p>
 <p>New config setting <code dir="auto">git.private-commits</code> to prevent commits from being pushed.</p>
 </li>
 <li>
-<p><a href="docs/config.md#default-description">The default commit description template</a>
+<p><a href="../docs/config/#default-description">The default commit description template</a>
 can now be configured by <code dir="auto">templates.draft_commit_description</code>.</p>
 </li>
 <li>
@@ -3738,7 +3738,7 @@ revision.</p>
 <p>New diff option <code dir="auto">jj diff --name-only</code> allows for easier shell scripting.</p>
 </li>
 <li>
-<p>In color-words diffs, hunks are now highlighted with underline. See <a href="docs/config.md#diff-colors-and-styles">diff
+<p>In color-words diffs, hunks are now highlighted with underline. See <a href="../docs/config/#diff-colors-and-styles">diff
 colors and styles</a> for customization.</p>
 </li>
 <li>
@@ -4002,7 +4002,7 @@ command (e.g. <code dir="auto">jj log</code>).</p>
 allow large revsets expressions in some commands, without the <code dir="auto">all:</code> prefix.</p>
 </li>
 <li>
-<p>A new config option <code dir="auto">ui.allow-filesets</code> has been added to enable <a href="docs/filesets.md">"fileset"
+<p>A new config option <code dir="auto">ui.allow-filesets</code> has been added to enable <a href="../docs/filesets/">"fileset"
 expressions</a>. Note that filesets are currently experimental,
 but will be enabled by default in a future release.</p>
 </li>
@@ -4442,7 +4442,7 @@ those will have to be manually renamed outside of <code dir="auto">jj</code>.</p
 <p><code dir="auto">jj git push</code> gained a <code dir="auto">--tracked</code> option, to push all the tracked branches.</p>
 </li>
 <li>
-<p>There's now a virtual root operation, similar to the <a href="docs/glossary.md#root-commit">virtual root
+<p>There's now a virtual root operation, similar to the <a href="../docs/glossary/#root-commit">virtual root
 commit</a>. It appears at the end of <code dir="auto">jj op log</code>.</p>
 </li>
 <li>
@@ -4684,7 +4684,7 @@ revsets now support glob matching.</p>
 </li>
 <li>
 <p><code dir="auto">jj branch delete</code>/<code dir="auto">forget</code>/<code dir="auto">list</code>, and <code dir="auto">jj git push --branch</code> now support
-<a href="docs/revsets.md#string-patterns">string pattern syntax</a>. The <code dir="auto">--glob</code> option
+<a href="../docs/revsets/#string-patterns">string pattern syntax</a>. The <code dir="auto">--glob</code> option
 is deprecated in favor of <code dir="auto">glob:</code> pattern.</p>
 </li>
 <li>
@@ -4742,7 +4742,7 @@ non-executable files (<a href="https://github.com/jj-vcs/jj/issues/1279">#1279</
 defined
 your own <code dir="auto">trunk()</code> alias it will continue to overwrite the built-in one.
 Check <a href="docs/revsets.toml">revsets.toml</a>
-and <a href="docs/revsets.md">revsets.md</a>
+and <a href="../docs/revsets/">revsets.md</a>
 to understand how the function can be adapted.</li>
 </ul>
 <div class="sl-heading-wrapper level-h3"><h3 id="new-features-29">New features</h3><a class="sl-anchor-link" href="#new-features-29"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “New features”</span></a></div>
@@ -4908,7 +4908,7 @@ would show.</p>
 </li>
 <li>
 <p><code dir="auto">jj diff</code>/<code dir="auto">log</code> now supports <code dir="auto">--tool &#x3C;name></code> option to generate diffs by
-external program. For configuration, see <a href="docs/config.md">the documentation</a>.
+external program. For configuration, see <a href="../docs/config/">the documentation</a>.
 <a href="https://github.com/jj-vcs/jj/issues/1886">#1886</a></p>
 </li>
 <li>
@@ -5039,7 +5039,7 @@ respectively.</p>
 <li>
 <p>The <code dir="auto">ui.oplog-relative-timestamps</code> option has been removed. Use the
 <code dir="auto">format_time_range()</code> template alias instead. For details, see
-<a href="docs/config.md">the documentation</a>.</p>
+<a href="../docs/config/">the documentation</a>.</p>
 </li>
 <li>
 <p>Implicit concatenation of template expressions has been disabled. Use
@@ -5333,7 +5333,7 @@ working-copy entry.</p>
 <li>
 <p>The <code dir="auto">ui.relative-timestamps</code> option has been removed. Use the
 <code dir="auto">format_timestamp()</code> template alias instead. For details on showing relative
-timestamps in <code dir="auto">jj log</code> and <code dir="auto">jj show</code>, see <a href="docs/config.md">the documentation</a>.</p>
+timestamps in <code dir="auto">jj log</code> and <code dir="auto">jj show</code>, see <a href="../docs/config/">the documentation</a>.</p>
 </li>
 <li>
 <p><code dir="auto">jj op log</code> now shows relative timestamps by default. To disable, set
@@ -5428,7 +5428,7 @@ descendants of <code dir="auto">abc</code> can be duplicated with <code dir="aut
 <p><code dir="auto">jj log</code> now highlights the shortest unique prefix of every commit and change
 id and shows the rest in gray. To customize the length and style, use the
 <code dir="auto">format_short_id()</code> template alias. For details, see
-<a href="docs/config.md">the documentation</a>.</p>
+<a href="../docs/config/">the documentation</a>.</p>
 </li>
 <li>
 <p><code dir="auto">jj print</code> was renamed to <code dir="auto">jj cat</code>. <code dir="auto">jj print</code> remains as an alias.</p>
@@ -5483,7 +5483,7 @@ domain information of <code dir="auto">.email()</code>.</p>
 <li>
 <p>It is now possible to change the author format of <code dir="auto">jj log</code> with the
 <code dir="auto">format_short_signature()</code> template alias. For details, see
-<a href="docs/config.md">the documentation</a>.</p>
+<a href="../docs/config/">the documentation</a>.</p>
 </li>
 <li>
 <p>Added support for template aliases. New symbols and functions can be

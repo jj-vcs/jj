@@ -230,7 +230,7 @@
 users should be aware of.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="line-endings-conversion">Line endings conversion</h2><a class="sl-anchor-link" href="#line-endings-conversion"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Line endings conversion”</span></a></div>
 <p>Jujutsu currently has a setting,
-<a href="config.md#eol-conversion-settings"><code dir="auto">working-copy.eol-conversion</code></a>, similar to
+<a href="../config/#eol-conversion-settings"><code dir="auto">working-copy.eol-conversion</code></a>, similar to
 Git’s <a href="https://git-scm.com/book/en/v2/Customizing-Git-Git-Configuration#_core_autocrlf"><code dir="auto">core.autocrlf</code></a><sup><a href="#user-content-fn-1" id="user-content-fnref-1" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup>, but does not currently honor
 <code dir="auto">.gitattributes</code> and the <code dir="auto">core.autocrlf</code> git config, so it is recommended to
 keep the <code dir="auto">working-copy.eol-conversion</code> setting and the <code dir="auto">core.autocrlf</code> git
@@ -259,7 +259,7 @@ converting them to CRLF. You’ll want to make sure any tooling you use,
 especially IDEs, preserve LF line endings.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="pagination">Pagination</h2><a class="sl-anchor-link" href="#pagination"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Pagination”</span></a></div>
 <p>On Windows, <code dir="auto">jj</code> will use its integrated pager called <code dir="auto">streampager</code> by default,
-unless the config <code dir="auto">ui.pager</code> is explicitly set. See the <a href="config.md#pager">pager section of the
+unless the config <code dir="auto">ui.pager</code> is explicitly set. See the <a href="../config/#pager">pager section of the
 config docs</a> for more details.</p>
 <p>If the built-in pager doesn’t meet your needs and you have Git installed, you
 can switch to using Git’s pager as follows:</p>

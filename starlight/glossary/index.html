@@ -243,7 +243,7 @@ such as the “operation store backend” for storing
 <div class="sl-heading-wrapper level-h2"><h2 id="bookmark">Bookmark</h2><a class="sl-anchor-link" href="#bookmark"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Bookmark”</span></a></div>
 <p>A bookmark is a named pointer to a <a href="#commit">commit</a>. They are similar to Git’s
 <a href="#branch">branches</a> and even more similar to <a href="https://wiki.mercurial-scm.org/Bookmarks">Mercurial’s
-bookmarks</a>. See <a href="bookmarks.md">here</a>
+bookmarks</a>. See <a href="../bookmarks/">here</a>
 for details.</p>
 <p>Unlike in Git, there is no concept of a “current bookmark”; bookmarks <em>do not</em>
 move when you create a new commit. Bookmarks <em>do</em> automatically follow the
@@ -296,16 +296,16 @@ default. When using the Git backend, the commit ID is the Git commit ID.</p>
 directory is a sibling of <code dir="auto">.jj/</code>, we call the workspace colocated. Most
 tools designed for Git can be easily used on such workspace. <code dir="auto">jj</code> and <code dir="auto">git</code>
 commands can be used interchangeably.</p>
-<p>See <a href="git-compatibility.md#colocated-jujutsugit-repos">here</a> for details.</p>
+<p>See <a href="../git-compatibility/#colocated-jujutsugit-repos">here</a> for details.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="conflict">Conflict</h2><a class="sl-anchor-link" href="#conflict"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Conflict”</span></a></div>
 <p>Conflicts can occur in many places. The most common type is conflicts in files.
 Those are the conflicts that users coming from other VCSs are usually familiar
 with. You can see them in <code dir="auto">jj status</code> and in <code dir="auto">jj log</code> (the red “conflict”
-label at the end of the line). See <a href="conflicts.md">here</a> for details.</p>
+label at the end of the line). See <a href="../conflicts/">here</a> for details.</p>
 <p>Conflicts can also occur in <a href="#bookmark">bookmarks</a>. For example, if you moved a
 bookmark locally, and it was also moved on the remote, then the bookmark will be
 in a conflicted state after you pull from the remote.
-See <a href="bookmarks.md#conflicts">here</a> for details.</p>
+See <a href="../bookmarks/#conflicts">here</a> for details.</p>
 <p>Similar to a bookmark conflict, when a <a href="#change">change</a> is rewritten locally
 and remotely, for example, then the change will be in a conflicted state. We
 call that a <a href="#divergent-change">divergent change</a>.</p>
@@ -316,7 +316,7 @@ call that a <a href="#divergent-change">divergent change</a>.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="head">Head</h2><a class="sl-anchor-link" href="#head"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Head”</span></a></div>
 <p>A head is a commit with no descendants. The context in which it has no
 descendants varies. For example, the <code dir="auto">heads(X)</code>
-<a href="revsets.md#functions">revset function</a> returns commits that have no descendants
+<a href="../revsets/#functions">revset function</a> returns commits that have no descendants
 within the set <code dir="auto">X</code> itself. The <a href="#view">view</a> records which
 anonymous heads (heads without a bookmark pointing to them) are visible at a
 given <a href="#operation">operation</a>. Note that this is quite different from Git’s
@@ -350,7 +350,7 @@ providers that are also available for Git. For example
 <p>A synonym for <a href="#commit">Commit</a>.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="revset">Revset</h2><a class="sl-anchor-link" href="#revset"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Revset”</span></a></div>
 <p>Jujutsu supports a functional language for selecting a set of revisions.
-Expressions in this language are called “revsets”. See <a href="revsets.md">here</a> for
+Expressions in this language are called “revsets”. See <a href="../revsets/">here</a> for
 details. We also often use the term “revset” for the set of revisions selected
 by a revset.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="rewrite">Rewrite</h2><a class="sl-anchor-link" href="#rewrite"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Rewrite”</span></a></div>
@@ -374,7 +374,7 @@ directories contained directly in the directory it represents.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="tracked-bookmarks-and-tracking-bookmarks">Tracked bookmarks and tracking bookmarks</h2><a class="sl-anchor-link" href="#tracked-bookmarks-and-tracking-bookmarks"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Tracked bookmarks and tracking bookmarks”</span></a></div>
 <p>A remote bookmark can be made “tracked” with the <code dir="auto">jj bookmark track</code> command. This
 results in a “tracking” local bookmark that tracks the remote bookmark.</p>
-<p>See <a href="bookmarks.md#terminology-summary">the bookmarks documentation</a> for a more
+<p>See <a href="../bookmarks/#terminology-summary">the bookmarks documentation</a> for a more
 detailed definition of these terms.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="visible-commits">Visible commits</h2><a class="sl-anchor-link" href="#visible-commits"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Visible commits”</span></a></div>
 <p>Visible commits are the commits you see in <code dir="auto">jj log -r 'all()'</code>. They are the
@@ -398,7 +398,7 @@ associated <a href="#repository">repository</a>. There can be multiple workspace
 single repository. Each workspace has a <code dir="auto">.jj/</code> directory, but the
 <a href="#commit">commits</a> and <a href="#operation">operations</a> will be stored in the initial
 workspace; the other workspaces will have pointers to the initial workspace. See
-<a href="working-copy.md#workspaces">here</a> for details.</p>
+<a href="../working-copy/#workspaces">here</a> for details.</p>
 <p>This is what Git calls a “worktree”.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="working-copy">Working copy</h2><a class="sl-anchor-link" href="#working-copy"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Working copy”</span></a></div>
 <p>The working copy contains the files you’re currently working on. It is
@@ -406,7 +406,7 @@ automatically snapshot at the beginning of almost every <code dir="auto">jj</cod
 creating a new <a href="#working-copy-commit">working-copy commit</a> if any changes had
 been made in the working copy. Conversely, the working copy is automatically
 updated to the state of the working-copy commit at the end of almost every <code dir="auto">jj</code>
-command. See <a href="working-copy.md">here</a> for details.</p>
+command. See <a href="../working-copy/">here</a> for details.</p>
 <p>This is what Git calls a “working tree”.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="working-copy-commit">Working-copy commit</h2><a class="sl-anchor-link" href="#working-copy-commit"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only">Section titled “Working-copy commit”</span></a></div>
 <p>A commit that corresponds to the current state of the working copy. There is
