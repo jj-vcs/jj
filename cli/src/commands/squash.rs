@@ -344,7 +344,7 @@ pub(crate) async fn cmd_squash(
                 description
             } else {
                 commit_builder.set_description(&description);
-                let description_with_trailers = add_trailers(ui, &tx, &commit_builder)?;
+                let description_with_trailers = add_trailers(ui, &tx, &commit_builder).await?;
                 if args.editor {
                     commit_builder.set_description(&description_with_trailers);
                     let temp_commit = commit_builder.write_hidden().await?;
@@ -364,7 +364,8 @@ pub(crate) async fn cmd_squash(
                 abandoned_commits,
                 (!insert_destination_commit).then_some(&destination),
                 &commit_builder,
-            )?;
+            )
+            .await?;
             // It's weird that commit.description() contains "JJ: " lines, but works.
             commit_builder.set_description(combined);
             let temp_commit = commit_builder.write_hidden().await?;

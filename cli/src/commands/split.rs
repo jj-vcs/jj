@@ -308,7 +308,7 @@ pub(crate) async fn cmd_split(
         // logic.
         let description = if !description.is_empty() || use_editor {
             commit_builder.set_description(description);
-            add_trailers(ui, &tx, &commit_builder)?
+            add_trailers(ui, &tx, &commit_builder).await?
         } else {
             description
         };
@@ -375,7 +375,7 @@ pub(crate) async fn cmd_split(
             commit_builder.description().to_owned()
         };
         let description = if show_editor {
-            let new_description = add_trailers(ui, &tx, &commit_builder)?;
+            let new_description = add_trailers(ui, &tx, &commit_builder).await?;
             commit_builder.set_description(new_description);
             let temp_commit = commit_builder.write_hidden().await?;
             let intro = "Enter a description for the remaining changes.";

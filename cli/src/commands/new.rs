@@ -228,7 +228,7 @@ pub(crate) async fn cmd_new(
         // can be discarded as soon as it's no longer the working copy. Adding a
         // trailer to an empty description would break that logic.
         commit_builder.set_description(&description);
-        let description = add_trailers(ui, &tx, &commit_builder)?;
+        let description = add_trailers(ui, &tx, &commit_builder).await?;
         commit_builder.set_description(&description);
     }
     let new_commit = commit_builder.write(tx.repo_mut()).await?;
