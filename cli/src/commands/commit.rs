@@ -161,7 +161,8 @@ new working-copy commit.
         ),
         matcher.as_ref(),
         format_instructions,
-    )?;
+    )
+    .await?;
     if !args.paths.is_empty() && tree.tree_ids() == base_tree.tree_ids() {
         writeln!(
             ui.warning_default(),

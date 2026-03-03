@@ -3222,7 +3222,7 @@ impl DiffSelector {
     /// interactive editor if enabled.
     ///
     /// Only files matching the `matcher` will be copied to the new tree.
-    pub fn select(
+    pub async fn select(
         &self,
         ui: &Ui,
         trees: Diff<&MergedTree>,
@@ -3237,7 +3237,7 @@ impl DiffSelector {
             tree_labels.before,
             matcher,
         )
-        .block_on()?;
+        .await?;
         match self {
             Self::NonInteractive => Ok(selected_tree),
             Self::Interactive(editor) => {

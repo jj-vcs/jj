@@ -569,7 +569,8 @@ The changes that are not selected will replace the original commit.
         ),
         matcher,
         format_instructions,
-    )?;
+    )
+    .await?;
     let selection = CommitWithSelection {
         commit: target_commit.clone(),
         selected_tree,

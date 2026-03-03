@@ -496,7 +496,8 @@ async fn select_diff(
             ),
             matcher,
             format_instructions,
-        )?;
+        )
+        .await?;
         source_commits.push(CommitWithSelection {
             commit: source.clone(),
             selected_tree,

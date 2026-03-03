@@ -164,7 +164,8 @@ pub(crate) async fn cmd_restore(
         ),
         &matcher,
         format_instructions,
-    )?;
+    )
+    .await?;
 
     print_unmatched_explicit_paths(
         ui,
