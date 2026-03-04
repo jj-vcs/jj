@@ -125,6 +125,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj` now safely detaches the `HEAD` of alternate Git worktrees if their
   checked-out branch is moved or deleted during Git export.
 
+* `jj file track --include-ignored` now works when `fsmonitor.backend="watchman"`.
+  [#8427](https://github.com/jj-vcs/jj/issues/8427)
+
 ## [0.38.0] - 2026-02-04
 
 ### Release highlights
@@ -235,9 +238,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj gerrit upload` will no longer swallow errors and surface if changes fail
   to get pushed to gerrit.
   [#8568](https://github.com/jj-vcs/jj/issues/8568)
-
-* `jj file track --include-ignored` now works when `fsmonitor.backend="watchman"`.
-  [#8427](https://github.com/jj-vcs/jj/issues/8427)
 
 * Conflict labels are now preserved correctly when restoring files from commits
   with different conflict labels.
