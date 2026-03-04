@@ -124,12 +124,14 @@ pub(crate) async fn cmd_arrange(
     let mut state = State::new(commits, external_children);
     state.update_commit_order();
 
-    let result = run_tui(
-        ui,
-        &mut terminal,
-        &workspace_command.commit_summary_template(),
-        state,
-    );
+    let template_string = workspace_command
+        .settings()
+        .get_string("templates.arrange")?;
+    let template = workspace_command
+        .parse_commit_template(ui, &template_string)?
+        .labeled(["commit"]);
+
+    let result = run_tui(ui, &mut terminal, template, state);
 
     // Restore the terminal
     disable_raw_mode()?;
@@ -381,7 +383,7 @@ impl RewritePlan {
 fn run_tui<B: ratatui::backend::Backend>(
     ui: &mut Ui,
     terminal: &mut Terminal<B>,
-    template: &TemplateRenderer<Commit>,
+    template: TemplateRenderer<Commit>,
     mut state: State,
 ) -> Result<Option<State>, CommandError> {
     let help_items = [
@@ -413,7 +415,7 @@ fn run_tui<B: ratatui::backend::Backend>(
                     .split(frame.area());
                 let main_area = layout[0];
                 let help_area = layout[1];
-                render(&state, ui, template, frame, main_area);
+                render(&state, ui, &template, frame, main_area);
                 frame.render_widget(&help_line, help_area);
             })
             .map_err(|e| internal_error(format!("Failed to draw TUI: {e}")))?;

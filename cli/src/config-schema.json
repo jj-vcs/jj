@@ -49,7 +49,10 @@
                     "default": "diff"
                 },
                 "command": {
-                    "type": ["string", "array"],
+                    "type": [
+                        "string",
+                        "array"
+                    ],
                     "minItems": 1,
                     "items": {
                         "type": "string"
@@ -306,18 +309,21 @@
             "properties": {
                 "backend": {
                     "type": "string",
-                    "enum": ["none", "watchman"],
+                    "enum": [
+                        "none",
+                        "watchman"
+                    ],
                     "default": "none",
                     "description": "Whether to use an external filesystem monitor, useful for large repos"
                 },
                 "watchman": {
                     "type": "object",
                     "properties": {
-                      "register-snapshot-trigger": {
-                        "type": "boolean",
-                        "default": false,
-                        "description": "Whether to use triggers to monitor for changes in the background."
-                      }
+                        "register-snapshot-trigger": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether to use triggers to monitor for changes in the background."
+                        }
                     }
                 }
             }
@@ -356,17 +362,17 @@
                     "pattern": "^#[0-9a-fA-F]{6}$"
                 },
                 "colors": {
-                  "oneOf": [
-                    {
-                        "$ref": "#/properties/colors/definitions/colorNames"
-                    },
-                    {
-                        "$ref": "#/properties/colors/definitions/ansi256Color"
-                    },
-                    {
-                        "$ref": "#/properties/colors/definitions/hexColor"
-                    }
-                  ]
+                    "oneOf": [
+                        {
+                            "$ref": "#/properties/colors/definitions/colorNames"
+                        },
+                        {
+                            "$ref": "#/properties/colors/definitions/ansi256Color"
+                        },
+                        {
+                            "$ref": "#/properties/colors/definitions/hexColor"
+                        }
+                    ]
                 }
             },
             "additionalProperties": {
@@ -596,20 +602,22 @@
                             "type": "integer"
                         },
                         "description": "Array of exit codes that do not indicate tool failure, i.e. [0, 1] for unix diff.",
-                        "default": [0]
+                        "default": [
+                            0
+                        ]
                     },
                     "diff-do-chdir": {
-                      "type": "boolean",
-                      "description": "Invoke the tool in the temporary diff directory. This setting will be removed soon",
-                      "default": true
+                        "type": "boolean",
+                        "description": "Invoke the tool in the temporary diff directory. This setting will be removed soon",
+                        "default": true
                     },
                     "diff-invocation-mode": {
-                      "description": "Invoke the tool with directories or individual files",
-                      "enum": [
-                        "dir",
-                        "file-by-file"
-                      ],
-                      "default": "dir"
+                        "description": "Invoke the tool with directories or individual files",
+                        "enum": [
+                            "dir",
+                            "file-by-file"
+                        ],
+                        "default": "dir"
                     },
                     "edit-args": {
                         "type": "array",
@@ -777,7 +785,12 @@
             "properties": {
                 "backend": {
                     "type": "string",
-                    "enum": ["gpg", "gpgsm", "none", "ssh"],
+                    "enum": [
+                        "gpg",
+                        "gpgsm",
+                        "none",
+                        "ssh"
+                    ],
                     "description": "The backend to use for signing commits. The string `none` disables signing.",
                     "default": "none"
                 },
@@ -787,7 +800,12 @@
                 },
                 "behavior": {
                     "type": "string",
-                    "enum": ["drop", "keep", "own", "force"],
+                    "enum": [
+                        "drop",
+                        "keep",
+                        "own",
+                        "force"
+                    ],
                     "description": "Which commits to sign by default. Values: drop (never sign), keep (preserve existing signatures), own (sign own commits), force (sign all commits)"
                 },
                 "backends": {
@@ -908,6 +926,10 @@
             "type": "object",
             "description": "Definitions for the templates that various jj commands use",
             "properties": {
+                "arrange": {
+                    "type": "string",
+                    "description": "`jj arrange``'s template for commits in the main view"
+                },
                 "bookmark_list": {
                     "type": "string",
                     "description": "`jj bookmark list`'s output"

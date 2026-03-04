@@ -2,6 +2,7 @@
 bookmark_list = 'format_commit_ref(self, "bookmark") ++ "\n"'
 
 commit_summary = 'format_commit_summary_with_refs(self, bookmarks)'
+arrange = 'format_commit_summary_with_refs(self, bookmarks)'
 
 file_annotate = '''
 join(" ",
