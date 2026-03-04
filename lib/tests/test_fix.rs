@@ -30,6 +30,7 @@ use jj_lib::fix::get_base_commit_map;
 use jj_lib::matchers::EverythingMatcher;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
+use jj_lib::repo_path::RepoPath;
 use jj_lib::rewrite::merge_commit_trees;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
@@ -44,26 +45,16 @@ use testutils::repo_path;
 use thiserror::Error;
 
 #[derive(Clone, Debug)]
-struct TestFileFixer {
-    /// If true, the fixer will use `compute_changed_ranges` to determine
-    /// which lines to fix, and only uppercase those lines. If false, it
-    /// uppercases everything if it starts with "fixme:").
-    fix_with_line_range: bool,
-    formatter_call_count: u32,
+struct TestFileFixer<'a> {
+    files_to_fix: HashSet<FileToFix>,
+    replacements: HashMap<(&'a RepoPath, Option<&'a [u8]>, &'a [u8]), &'a [u8]>,
 }
 
-impl TestFileFixer {
+impl<'a> TestFileFixer<'a> {
     fn new() -> Self {
         Self {
-            fix_with_line_range: false,
-            formatter_call_count: 0,
-        }
-    }
-
-    fn new_with_line_ranges() -> Self {
-        Self {
-            fix_with_line_range: true,
-            formatter_call_count: 0,
+            files_to_fix: HashSet::new(),
+            replacements: HashMap::new(),
         }
     }
 
@@ -72,75 +63,45 @@ impl TestFileFixer {
         store: &Store,
         file_to_fix: &FileToFix,
     ) -> Result<Option<FileId>, FixError> {
-        if self.fix_with_line_range {
-            let old_content = read_file(store, &file_to_fix.repo_path, &file_to_fix.file_id);
-            let base_content = file_to_fix
-                .base_file_id
-                .as_ref()
-                .map(|base_file_id| read_file(store, &file_to_fix.repo_path, base_file_id));
-
-            let ranges = match compute_changed_ranges(
-                base_content.as_deref().unwrap_or_default(),
-                &old_content,
-            ) {
-                RegionsToFormat::LineRanges(ranges) => ranges,
-                RegionsToFormat::NoRegions => return Ok(None),
-            };
-
-            if ranges.is_empty() {
-                let mut output = Vec::new();
-                output.extend_from_slice(b"sort includes\n");
-                output.extend_from_slice(&old_content);
-                let new_file_id = store
-                    .write_file(&file_to_fix.repo_path, &mut output.as_slice())
-                    .block_on()
-                    .unwrap();
-                return Ok(Some(new_file_id));
-            }
-
-            let mut output = Vec::new();
-            for (line_number, line_content) in
-                old_content.split_inclusive(|b| *b == b'\n').enumerate()
-            {
-                let line_num = line_number + 1;
-                let should_fix = ranges
-                    .iter()
-                    .any(|r| line_num >= r.first && line_num <= r.last);
-                if should_fix {
-                    if let Ok(s) = std::str::from_utf8(line_content) {
-                        output.extend_from_slice(s.to_uppercase().as_bytes());
-                    } else {
-                        output.extend_from_slice(&line_content.to_ascii_uppercase());
-                    }
-                } else {
-                    output.extend_from_slice(line_content);
-                }
-            }
-
-            if output == old_content {
-                return Ok(None);
-            }
-
-            let new_file_id = store
-                .write_file(&file_to_fix.repo_path, &mut output.as_slice())
-                .block_on()
-                .unwrap();
-            Ok(Some(new_file_id))
-        } else {
-            fix_file(store, file_to_fix)
-        }
+        let old_content = read_file(store, &file_to_fix.repo_path, &file_to_fix.file_id);
+        let base_content = file_to_fix
+            .base_file_id
+            .as_ref()
+            .map(|base_file_id| read_file(store, &file_to_fix.repo_path, base_file_id));
+        let Some(replacement) = self.replacements.get(&(
+            &file_to_fix.repo_path,
+            base_content.as_deref(),
+            &old_content,
+        )) else {
+            panic!(
+                r#"Unexpected fix request:
+path: {}
+base_content: {:?}
+old_content: {:?}
+"#,
+                file_to_fix.repo_path.as_internal_file_string(),
+                base_content.map(|bytes| String::from_utf8_lossy(&bytes).to_string()),
+                String::from_utf8_lossy(&old_content)
+            );
+        };
+        let new_content = replacement.to_vec();
+        let new_file_id = store
+            .write_file(&file_to_fix.repo_path, &mut new_content.as_slice())
+            .block_on()
+            .unwrap();
+        return Ok(Some(new_file_id));
     }
 }
 
-impl FileFixer for TestFileFixer {
+impl FileFixer for TestFileFixer<'_> {
     fn fix_files<'a>(
         &mut self,
         store: &Store,
         files_to_fix: &'a HashSet<FileToFix>,
     ) -> Result<HashMap<&'a FileToFix, FileId>, FixError> {
+        self.files_to_fix = files_to_fix.clone();
         let mut changed_files: HashMap<&'a FileToFix, FileId> = HashMap::new();
         for file_to_fix in files_to_fix {
-            self.formatter_call_count += 1;
             if let Some(new_file_id) = self.fix_file(store, file_to_fix)? {
                 changed_files.insert(file_to_fix, new_file_id);
             }
@@ -185,14 +146,25 @@ fn create_commit(tx: &mut Transaction, parents: Vec<CommitId>, tree: MergedTree)
         .clone()
 }
 
+fn get_single_file_id_from_tree(tree: &MergedTree, path: &RepoPath) -> FileId {
+    tree.path_value(path)
+        .unwrap()
+        .to_file_merge()
+        .unwrap()
+        .as_normal()
+        .unwrap()
+        .clone()
+}
+
 #[test]
-fn test_fix_one_file() {
+fn test_fix_added_file() {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
     let path1 = repo_path("file1");
     let tree1 = create_tree(repo, &[(path1, "fixme:content")]);
+    let file_id1 = get_single_file_id_from_tree(&tree1, &path1);
     let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
 
     let root_commits = vec![commit_a.clone()];
@@ -208,6 +180,18 @@ fn test_fix_one_file() {
     )
     .block_on()
     .unwrap();
+
+    // The file fixer should have gotten one call with None as base file id since
+    // the file was added in commit_a.
+    assert_eq!(file_fixer.files_to_fix.len(), 1);
+    assert_eq!(
+        file_fixer.files_to_fix.iter().next().unwrap(),
+        &FileToFix {
+            repo_path: path1.to_owned(),
+            file_id: file_id1,
+            base_file_id: None,
+        }
+    );
 
     let expected_tree_a = create_tree(repo, &[(path1, "CONTENT")]);
     assert_eq!(summary.rewrites.len(), 1);
@@ -680,15 +664,15 @@ fn test_fix_complex_merge_with_base_map() {
     //   A   B (roots)
     let mut tx = repo.start_transaction();
     let path = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path, "a\nb\nc\nd\ne\n")]);
+    let tree1 = create_tree(repo, &[(path, "A")]);
     let commit_a = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
-    let tree2 = create_tree(repo, &[(path, "a\nb\nc\nd\ne\n")]);
+    let tree2 = create_tree(repo, &[(path, "B")]);
     let commit_b = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree2);
-    let tree3 = create_tree(repo, &[(path, "a-mod\nb\nc\nd\ne\n")]);
+    let tree3 = create_tree(repo, &[(path, "C")]);
     let commit_c = create_commit(&mut tx, vec![commit_a.clone(), commit_b.clone()], tree3);
-    let tree4 = create_tree(repo, &[(path, "a\nb\nc-mod\nd\ne\n")]);
+    let tree4 = create_tree(repo, &[(path, "D")]);
     let commit_d = create_commit(&mut tx, vec![commit_b.clone()], tree4);
-    let tree5 = create_tree(repo, &[(path, "a\nb\nc\nd\ne-mod\n")]);
+    let tree5 = create_tree(repo, &[(path, "E")]);
     let commit_e = create_commit(&mut tx, vec![commit_c.clone(), commit_d.clone()], tree5);
 
     let commit_c_obj = repo.store().get_commit(&commit_c).unwrap();
@@ -711,9 +695,15 @@ fn test_fix_complex_merge_with_base_map() {
 
     assert_eq!(base_commit_map, expected_base_commit_map);
 
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
-    let include_unchanged_files = false;
+    let mut file_fixer = TestFileFixer::new();
+    file_fixer
+        .replacements
+        .insert((&path, Some(b"A"), b"C"), b"C-mod");
+    file_fixer
+        .replacements
+        .insert((&path, Some(b"A"), b"E"), b"E-mod");
 
+    let include_unchanged_files = false;
     let summary = fix_files(
         vec![commit_e.clone(), commit_c.clone()],
         &EverythingMatcher,
@@ -733,14 +723,14 @@ fn test_fix_complex_merge_with_base_map() {
         .store()
         .get_commit(summary.rewrites.get(&commit_c).unwrap())
         .unwrap();
-    let expected_tree_c = create_tree(repo, &[(path, "A-MOD\nb\nc\nd\ne\n")]);
+    let expected_tree_c = create_tree(repo, &[(path, "C-mod")]);
     assert_tree_eq!(new_commit_c.tree(), expected_tree_c);
 
     let new_commit_e = repo
         .store()
         .get_commit(summary.rewrites.get(&commit_e).unwrap())
         .unwrap();
-    let expected_tree_e = create_tree(repo, &[(path, "a\nb\nC\nd\nE-MOD\n")]);
+    let expected_tree_e = create_tree(repo, &[(path, "E-mod")]);
     assert_tree_eq!(new_commit_e.tree(), expected_tree_e);
 }
 
@@ -758,13 +748,13 @@ fn test_fix_diamond_merge_with_base_map() {
     //   B (root)
     let mut tx = repo.start_transaction();
     let path = repo_path("file1");
-    let tree1 = create_tree(repo, &[(path, "b\n\n\n\n")]);
+    let tree1 = create_tree(repo, &[(path, "B")]);
     let commit_b = create_commit(&mut tx, vec![repo.store().root_commit_id().clone()], tree1);
-    let tree2 = create_tree(repo, &[(path, "b\nc\n\n\n")]);
+    let tree2 = create_tree(repo, &[(path, "C")]);
     let commit_c = create_commit(&mut tx, vec![commit_b.clone()], tree2);
-    let tree3 = create_tree(repo, &[(path, "b\n\nd\n\n")]);
+    let tree3 = create_tree(repo, &[(path, "D")]);
     let commit_d = create_commit(&mut tx, vec![commit_b.clone()], tree3);
-    let tree4 = create_tree(repo, &[(path, "b\nc\nd\ne\n")]);
+    let tree4 = create_tree(repo, &[(path, "E")]);
     let commit_e = create_commit(&mut tx, vec![commit_c.clone(), commit_d.clone()], tree4);
 
     let commit_c_obj = repo.store().get_commit(&commit_c).unwrap();
@@ -785,9 +775,15 @@ fn test_fix_diamond_merge_with_base_map() {
 
     assert_eq!(base_commit_map, expected_base_commit_map);
 
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
-    let include_unchanged_files = false;
+    let mut file_fixer = TestFileFixer::new();
+    file_fixer
+        .replacements
+        .insert((&path, Some(b"B"), b"C"), b"C-mod");
+    file_fixer
+        .replacements
+        .insert((&path, Some(b"D"), b"E"), b"E-mod");
 
+    let include_unchanged_files = false;
     let summary = fix_files(
         vec![commit_e.clone(), commit_c.clone()],
         &EverythingMatcher,
@@ -807,14 +803,14 @@ fn test_fix_diamond_merge_with_base_map() {
         .store()
         .get_commit(summary.rewrites.get(&commit_c).unwrap())
         .unwrap();
-    let expected_tree_c = create_tree(repo, &[(path, "b\nC\n\n\n")]);
+    let expected_tree_c = create_tree(repo, &[(path, "C-mod")]);
     assert_tree_eq!(new_commit_c.tree(), expected_tree_c);
 
     let new_commit_e = repo
         .store()
         .get_commit(summary.rewrites.get(&commit_e).unwrap())
         .unwrap();
-    let expected_tree_e = create_tree(repo, &[(path, "b\nC\nd\nE\n")]);
+    let expected_tree_e = create_tree(repo, &[(path, "E-mod")]);
     assert_tree_eq!(new_commit_e.tree(), expected_tree_e);
 }
 
@@ -893,7 +889,7 @@ fn test_fix_with_line_ranges_sequential_case() {
 
     // Run fix on c2.
     let root_commits = vec![c2.clone()];
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -953,7 +949,7 @@ fn test_fix_with_forking_commits() {
 
     // Run fix on c3 and c4 (i.e. the forked commits).
     let forked_commits = vec![c3.clone(), c4.clone()];
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -1014,7 +1010,7 @@ fn test_fix_with_merging_commits() {
 
     // Run fix on c4 with merging base.
     let root_commits = vec![c4.clone()];
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -1077,7 +1073,7 @@ fn test_fix_with_line_ranges_conflicted_base_commit() {
 
     // Run fix on c5.
     let root_commits = vec![c5.clone()];
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -1141,7 +1137,7 @@ fn test_fix_with_line_ranges_conflicted_current_commit() {
 
     // Run fix on c2 and c3.
     let root_commits = vec![c2.clone(), c3.clone()];
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -1186,7 +1182,7 @@ fn test_fix_reverts_commit_to_empty() {
 
     // Run fix on c2.
     let root_commits = vec![c2.clone()];
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -1235,7 +1231,7 @@ fn test_fix_renamed_file() {
 
     // Run fix on c2.
     let root_commits = vec![c2.clone()];
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -1280,7 +1276,7 @@ fn test_fix_truncate_to_empty() {
 
     // Run fix on c2.
     let root_commits = vec![c2.clone()];
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -1314,7 +1310,7 @@ fn test_fix_utf8_content() {
     let c2 = create_commit(&mut tx, vec![c1.clone()], tree2);
 
     let root_commits = vec![c2.clone()];
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -1343,7 +1339,7 @@ fn test_fix_empty_revset() {
     let repo = &test_repo.repo;
     let mut tx = repo.start_transaction();
 
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
+    let mut file_fixer = TestFileFixer::new();
     let summary = fix_files(
         vec![],
         &EverythingMatcher,
@@ -1385,7 +1381,7 @@ fn test_fix_forking_commits_same_file_id_different_base_content() {
 
     // Run fix on c1 and c2.
     let root_commits = vec![c1.clone(), c2.clone()];
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -1441,7 +1437,7 @@ fn test_fix_formatter_caching() {
 
     // Run fix on c2, c3, c4.
     let root_commits = vec![c2.clone(), c3.clone(), c4.clone()];
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = false;
 
     let summary = fix_files(
@@ -1480,7 +1476,7 @@ fn test_fix_formatter_caching() {
 
     // The formatter should be called twice. Once for the 'bar' content and once for
     // the 'baz' content.
-    assert_eq!(file_fixer.formatter_call_count, 2);
+    assert_eq!(file_fixer.files_to_fix.len(), 2);
 }
 
 #[test]
@@ -1516,7 +1512,7 @@ fn test_fix_with_line_ranges_and_include_unchanged_files() {
 
     // Run fix on commit 2 with include_unchanged_files = true.
     let root_commits = vec![c2.clone()];
-    let mut file_fixer = TestFileFixer::new_with_line_ranges();
+    let mut file_fixer = TestFileFixer::new();
     let include_unchanged_files = true;
 
     let summary = fix_files(
