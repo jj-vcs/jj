@@ -33,6 +33,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
+* `jj tag list` now supports `--contains <REVSETS>` and `--no-contains
+  <REVSETS>` to filter tags to only those whose target commit is (or is not) a
+  descendant of (or equal to) the given revision(s), similar to `git tag
+  --[no-]contains`.
+
 * `jj new` now evaluates the `new_description` template to populate the
   initial commit description when no `-m` message is provided.
 

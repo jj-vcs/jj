@@ -175,6 +175,8 @@ pub async fn cmd_bookmark_list(
         name_matcher: name_expr.to_matcher(),
         remote_matcher: remote_expr.to_matcher(),
         matched_local_targets,
+        contains_targets: None,
+        no_contains_targets: None,
         conflicted: args.conflicted,
         include_local_only: !args.tracked && args.remotes.is_none(),
         include_synced_remotes: args.tracked || args.all_remotes || args.remotes.is_some(),

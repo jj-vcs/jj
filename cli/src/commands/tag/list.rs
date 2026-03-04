@@ -90,6 +90,21 @@ pub struct TagListArgs {
     #[arg(long, short, value_name = "REVSETS")]
     revisions: Option<Vec<RevisionArg>>,
 
+    /// Show tags that contain the given revisions
+    ///
+    /// A tag "contains" a revision if the revision is an ancestor of (or equal
+    /// to) the tag's target commit.
+    #[arg(long, value_name = "REVSETS")]
+    contains: Option<Vec<RevisionArg>>,
+
+    /// Show tags that do not contain the given revisions
+    ///
+    /// A tag "contains" a revision if the revision is an ancestor of (or equal
+    /// to) the tag's target commit. This flag selects tags that do NOT contain
+    /// the given revision.
+    #[arg(long, value_name = "REVSETS")]
+    no_contains: Option<Vec<RevisionArg>>,
+
     /// Render each tag using the given template
     ///
     /// All 0-argument methods of the [`CommitRef` type] are available as
@@ -142,6 +157,27 @@ pub async fn cmd_tag_list(
     } else {
         HashSet::new()
     };
+    let contains_targets: Option<HashSet<_>> = if let Some(contains) = &args.contains {
+        // Find all tag targets that are descendants of (or equal to) the given
+        // commits. A tag "contains" a commit if that commit is an ancestor of
+        // the tag's target.
+        let expression = workspace_command.parse_union_revsets(ui, contains)?;
+        let descendants = expression.expression().descendants();
+        let mut desc_eval = workspace_command.attach_revset_evaluator(descendants);
+        desc_eval.intersect_with(&RevsetExpression::tags(StringExpression::all()));
+        Some(desc_eval.evaluate_to_commit_ids()?.try_collect()?)
+    } else {
+        None
+    };
+    let no_contains_targets: Option<HashSet<_>> = if let Some(no_contains) = &args.no_contains {
+        let expression = workspace_command.parse_union_revsets(ui, no_contains)?;
+        let descendants = expression.expression().descendants();
+        let mut desc_eval = workspace_command.attach_revset_evaluator(descendants);
+        desc_eval.intersect_with(&RevsetExpression::tags(StringExpression::all()));
+        Some(desc_eval.evaluate_to_commit_ids()?.try_collect()?)
+    } else {
+        None
+    };
     let ignored_tracked_remote = default_ignored_remote_name(repo.store());
     // --tracked implies --remote=~git by default
     let remote_expr = match (
@@ -172,6 +208,8 @@ pub async fn cmd_tag_list(
         name_matcher: name_expr.to_matcher(),
         remote_matcher: remote_expr.to_matcher(),
         matched_local_targets,
+        contains_targets,
+        no_contains_targets,
         conflicted: args.conflicted,
         include_local_only: !args.tracked && args.remotes.is_none(),
         include_synced_remotes: args.tracked || args.all_remotes || args.remotes.is_some(),
