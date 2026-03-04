@@ -177,4 +177,24 @@ only documented in the [commit-msg hook documentation]. Jujutsu's
 `jj gerrit upload` will do the same if you set
 `jj config set --repo gerrit.review-url <review-url>`.
 
+As with `Change-Id` trailer there is also the option of using `commit_trailers`
+template to automatically add the `Link` trailer to all change descriptions.
+Since the `format_gerrit_link_trailer` template will expand to nothing if
+`gerrit.review-url` isn't configured it is also possible to write a simple
+template which will use either `Link` or `Change-Id` trailer based on
+`gerrit.review-url` value, similar to what Gerrit's `commit-msg` git hook does.
+
+```toml
+[templates]
+commit_trailers = '''
+if(
+  !trailers.contains_key("Change-Id") && !trailers.contains_key("Link"),
+  coalesce(
+    format_gerrit_link_trailer(self),
+    format_gerrit_change_id_trailer(self),
+  )
+)
+'''
+```
+
 [commit-msg hook documentation]: https://gerrit-documentation.storage.googleapis.com/Documentation/3.3.1/cmd-hook-commit-msg.html
