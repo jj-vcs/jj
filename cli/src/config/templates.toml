@@ -1,8 +1,8 @@
 [templates]
 bookmark_list = 'format_commit_ref(self, "bookmark") ++ "\n"'
 
-commit_summary = 'format_commit_summary_with_refs(self, bookmarks)'
-arrange = 'format_commit_summary_with_refs(self, bookmarks)'
+commit_summary = 'format_commit_summary_with_refs(self, format_commit_ref_names(bookmarks))'
+arrange = 'format_commit_summary_with_refs(self, format_commit_ref_names(bookmarks))'
 
 file_annotate = '''
 join(" ",
@@ -48,7 +48,7 @@ workspace_list = '''
 concat(
   name,
   ": ",
-  format_commit_summary_with_refs(target, target.bookmarks()),
+  format_commit_summary_with_refs(target, format_commit_ref_names(target.bookmarks())),
   "\n",
 )
 '''
@@ -371,6 +371,8 @@ label("immutable",
   ) ++ "\n"
 )
 '''
+
+'format_commit_ref_names(refs)' = 'refs'
 
 'format_commit_ref(ref, type)' = '''
 if(ref.remote(),
