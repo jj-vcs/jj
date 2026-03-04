@@ -38,16 +38,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### New features
 
-* `jj new` now evaluates the `new_description` template to populate the
-  initial commit description when no `-m` message is provided.
-
 * Add support for push options in `jj git push` with the `--option` flag.
   This allows users to pass options to the remote server when pushing commits.
   The short alias `-o` is also supported.
 
+* `jj new` now evaluates the `new_description` template to populate the
+  initial commit description when no `-m` message is provided.
+
 * Templates now support `first()`, `last()`, `get(index)`, `reverse()`,
   `skip(count)`, and `take(count)` methods on list types for more flexible
   list manipulation.
+
+* New `builtin_draft_commit_description_with_diff` template that includes the
+  diff in the commit description editor, making it easier to review changes
+  while writing commit messages.
 
 * Revsets and templates now support `name:x` pattern aliases such as `'grep:x' =
   'description(regex:x)'`.
@@ -98,10 +102,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj gerrit upload` now recognizes Change-Id explicitly set via the alternative
   trailer `Link`, and will generate a `Link: <review-url>/id/<change-id>` trailer
   if `gerrit.review-url` option is set.
-
-* New `builtin_draft_commit_description_with_diff` template that includes the
-  diff in the commit description editor, making it easier to review changes
-  while writing commit messages.
 
 * `jj gerrit upload` no longer requires the `-r` flag, and will default to
   uploading what you're currently working on.
