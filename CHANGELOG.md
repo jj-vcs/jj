@@ -13,6 +13,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `jj arrange` command brings up a TUI where you can reorder and abandon
   revisions. [#1531](https://github.com/jj-vcs/jj/issues/1531)
 
+* `jj bookmark advance` automatically moves bookmarks forward to a
+  target revision (defaults to `@`) using customization points
+  `revsets.bookmark-advance-from` and `revsets.bookmark-advance-to`.
+  It is heavily inspired by the longstanding community alias `jj tug`.
+
 ### Breaking changes
 
 * Dropped support for legacy index files written by jj < 0.33. New index files
@@ -100,11 +105,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `jj gerrit upload` no longer requires the `-r` flag, and will default to
   uploading what you're currently working on.
-
-* New command `jj bookmark advance` automatically moves bookmarks forward to a
-  target revision (defaults to `@`). With customization points
-  `revsets.bookmark-advance-from` and `revsets.bookmark-advance-to`.
-  The command is heavily inspired by the longstanding community alias `jj tug`.
 
 * Templates now support `Serialize` operations on the result of `map()` and
   `if()`, when supported by the underlying type.
