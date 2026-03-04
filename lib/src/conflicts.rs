@@ -50,6 +50,7 @@ use crate::files;
 use crate::files::MergeResult;
 use crate::merge::Diff;
 use crate::merge::Merge;
+use crate::merge::MergeBuilder;
 use crate::merge::MergedTreeValue;
 use crate::merge::SameChange;
 use crate::repo_path::RepoPath;
@@ -574,31 +575,15 @@ struct HunkTerm {
 }
 
 fn build_hunk_sides(hunk: Merge<BString>, labels: &ConflictLabels) -> Merge<HunkTerm> {
-    let (removes, adds) = hunk.into_removes_adds();
-    let num_bases = removes.len();
-    let removes = removes.enumerate().map(|(base_index, contents)| {
-        let label = labels
-            .get_remove(base_index)
-            .map(|label| label.to_owned())
-            .unwrap_or_else(|| {
-                // The vast majority of conflicts one actually tries to resolve manually have 1
-                // base.
-                if num_bases == 1 {
-                    "base".to_string()
-                } else {
-                    format!("base #{}", base_index + 1)
-                }
-            });
-        HunkTerm { contents, label }
-    });
-    let adds = adds.enumerate().map(|(add_index, contents)| {
-        let label = labels.get_add(add_index).map_or_else(
-            || format!("side #{}", add_index + 1),
-            |label| label.to_owned(),
-        );
-        HunkTerm { contents, label }
-    });
-    let mut hunk_terms = Merge::from_removes_adds(removes, adds);
+    let mut hunk_terms = hunk
+        .into_iter()
+        .enumerate()
+        .map(|(index, contents)| HunkTerm {
+            contents,
+            label: labels.get_or_default(index).into_owned(),
+        })
+        .collect::<MergeBuilder<_>>()
+        .build();
     for term in &mut hunk_terms {
         // We don't add the no eol comment if the side is empty.
         if term.contents.last().is_some_and(|ch| *ch != b'\n') {

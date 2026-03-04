@@ -457,7 +457,7 @@ fn test_evolog_squash() {
     │ │     1     : <<<<<<< conflict 1 of 1
     │ │     2     : +++++++ side #1
     │ │     3    1: squashed 1
-    │ │     4     : %%%%%%% diff from: base
+    │ │     4     : %%%%%%% diff from: base #1
     │ │     5    1: \\\\\\\        to: side #2
     │ │     6     : +third
     │ │     7     : >>>>>>> conflict 1 of 1 ends
@@ -489,7 +489,7 @@ fn test_evolog_squash() {
     │ │  -- operation 65c81703100d squash commits into 5878cbe03cdf599c9353e5a1a52a01f4c5e0e0fa
     │ │  Modified commit description:
     │ │     1     : <<<<<<< conflict 1 of 1
-    │ │     2     : %%%%%%% diff from: base
+    │ │     2     : %%%%%%% diff from: base #1
     │ │     3     : \\\\\\\        to: side #1
     │ │     4     : +first
     │ │     5     : +++++++ side #2
