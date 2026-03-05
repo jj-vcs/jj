@@ -2164,6 +2164,7 @@ fn test_copy_diffstream_rename() {
         collect_diffs(&left, &right),
         [
             expected_rename(foo, &foo_val, bar, &bar_val),
+            // See NOTE[rename-source-deletion] in copies.rs
             expected_deletion(foo, &foo_val),
         ],
     );
@@ -2172,6 +2173,7 @@ fn test_copy_diffstream_rename() {
     assert_eq!(
         collect_diffs(&right, &left),
         [
+            // See NOTE[rename-source-deletion] in copies.rs
             expected_deletion(bar, &bar_val),
             expected_rename(bar, &bar_val, foo, &foo_val),
         ],
@@ -2533,6 +2535,7 @@ fn test_copy_diffstream_multiple_descendants() {
         collect_diffs(&left, &right),
         [
             expected_rename(gru, &gru_val, bar, &bar_val),
+            // See NOTE[rename-source-deletion] in copies.rs
             expected_deletion(gru, &gru_val),
             expected_rename(gru, &gru_val, qux, &qux_val),
         ],
@@ -2542,8 +2545,10 @@ fn test_copy_diffstream_multiple_descendants() {
     assert_eq!(
         collect_diffs(&right, &left),
         [
+            // See NOTE[rename-source-deletion] in copies.rs
             expected_deletion(bar, &bar_val),
             expected_rename(bar, &bar_val, gru, &gru_val),
+            // See NOTE[rename-source-deletion] in copies.rs
             expected_deletion(qux, &qux_val),
         ],
     );
@@ -2589,6 +2594,12 @@ fn test_copy_diffstream_same_path_parent() {
     assert_eq!(
         collect_diffs(&left, &right),
         [
+            // TODO: The deletion occurs here because we currently treat this
+            // new `foo` as completely unrelated to the old `foo` (same as the
+            // case of `test_copy_diffstream_distinct_histories`). Arguably, we
+            // could instead consider this copy history as causing them to be
+            // related and omit the deletion, or we could consider forbidding
+            // this kind of copy history entirely.
             expected_deletion(foo, &old_foo_val),
             expected_normal(foo, &old_foo_val, &new_foo_val),
         ],
@@ -2599,6 +2610,83 @@ fn test_copy_diffstream_same_path_parent() {
         [
             expected_deletion(foo, &new_foo_val),
             expected_normal(foo, &new_foo_val, &old_foo_val),
+        ],
+    );
+}
+
+#[test]
+fn test_copy_diffstream_shadowing() {
+    // CASE: bar is overwritten by a copy of foo, but foo still exists.
+    let test_repo = testutils::TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let foo = repo_path("foo.txt");
+    let foo_history = CopyHistory {
+        current_path: foo.to_owned(),
+        parents: vec![],
+        salt: vec![],
+    };
+    let foo_copyid = repo
+        .store()
+        .backend()
+        .write_copy(&foo_history)
+        .block_on()
+        .unwrap();
+
+    let bar = repo_path("bar.txt");
+    let bar_history_orig = CopyHistory {
+        current_path: bar.to_owned(),
+        parents: vec![],
+        salt: vec![],
+    };
+    let bar_copyid_orig = repo
+        .store()
+        .backend()
+        .write_copy(&bar_history_orig)
+        .block_on()
+        .unwrap();
+    let bar_history_copied = CopyHistory {
+        current_path: bar.to_owned(),
+        parents: vec![foo_copyid.clone()],
+        salt: vec![],
+    };
+    let bar_copyid_copied = repo
+        .store()
+        .backend()
+        .write_copy(&bar_history_copied)
+        .block_on()
+        .unwrap();
+
+    let left = create_tree_with_copy_id(
+        repo,
+        &[(foo, "foo", &foo_copyid), (bar, "bar", &bar_copyid_orig)],
+    );
+    let right = create_tree_with_copy_id(
+        repo,
+        &[
+            (foo, "foo", &foo_copyid),
+            (bar, "copied from foo", &bar_copyid_copied),
+        ],
+    );
+    let foo_val = left.path_value(foo).unwrap();
+    let old_bar_val = left.path_value(bar).unwrap();
+    let new_bar_val = right.path_value(bar).unwrap();
+
+    assert_eq!(
+        collect_diffs(&left, &right),
+        [
+            // The new bar is considered descended from foo, and not from the old bar (which is
+            // considered deleted)
+            expected_deletion(bar, &old_bar_val),
+            expected_copy(foo, &foo_val, bar, &new_bar_val),
+        ],
+    );
+
+    assert_eq!(
+        collect_diffs(&right, &left),
+        [
+            expected_deletion(bar, &new_bar_val),
+            expected_creation(bar, &old_bar_val),
         ],
     );
 }
@@ -2706,6 +2794,7 @@ fn test_copy_diffstream_merge_oneway() {
                     ],
                 }),
             ),
+            // See NOTE[rename-source-deletion] in copies.rs
             expected_deletion(foo, &foo_val),
         ],
     );
@@ -2908,6 +2997,7 @@ fn test_copy_diffstream_rename_overwrite() {
         [
             expected_deletion(bar, &old_bar_val),
             expected_rename(foo, &foo_val, bar, &new_bar_val),
+            // See NOTE[rename-source-deletion] in copies.rs
             expected_deletion(foo, &foo_val),
         ],
     );
@@ -2946,6 +3036,7 @@ fn test_copy_diffstream_rename_overwrite() {
     assert_eq!(
         collect_diffs(&left, &right2),
         [
+            // See NOTE[rename-source-deletion] in copies.rs
             expected_deletion(bar, &old_bar_val),
             expected_deletion(foo, &foo_val),
             expected_normal(foo, &foo_val, &final_foo_val),

@@ -458,13 +458,13 @@ impl Stream for CopyHistoryDiffStream<'_> {
 
                 (other, Some(f @ TreeValue::File { .. })) => {
                     if let Some(other) = other {
-                        // For files with non-matching copy-ids, or for a non-file that changes to a
-                        // file, mark the first as deleted and do copy-tracing on the second.
+                        // For files with non-matching copy-ids, or for a
+                        // non-file that changes to a file, mark the first as
+                        // deleted and do copy-tracing on the second.
                         //
-                        // TODO: this may emit two diff entries, where the old diffstream would
-                        // contain only one. We could block on the result of the copy-tracing
-                        // future, and then only split the diff entry if a copy ancestor was found,
-                        // but for now let's keep things simple and always split the entry.
+                        // TODO: See `test_copy_diffstream_same_path_parent` for
+                        // a case where having a deletion entry may be
+                        // excessive.
                         self.pending
                             .push_back(Box::pin(ready(CopyHistoryTreeDiffEntry {
                                 target_path: next_diff_entry.path.clone(),
@@ -487,7 +487,19 @@ impl Stream for CopyHistoryDiffStream<'_> {
                     self.pending.push_back(Box::pin(future));
                 }
 
-                // Anything else (e.g. file => non-file non-tree), issue a simple diff entry.
+                // Anything else (e.g. deletions, file => non-file non-tree),
+                // issue a simple diff entry.
+                //
+                // NOTE[rename-source-deletion]: in particular, this will
+                // generate a deletion record for every file rename. Unlike the
+                // old `CopiesTreeDiffStream`, we don't suppress rename-source
+                // deletions here because we do copy-tracing lazily, and you
+                // might not learn that a deletion was unnecessary until getting
+                // a rename entry long after the deletion entry in question.
+                //
+                // TODO: Consider creating a helper that removes the extraneous
+                // deletion records. The helper would likely either collect the
+                // deletions and emit them last, or collect the entire stream.
                 _ => self
                     .pending
                     .push_back(Box::pin(ready(CopyHistoryTreeDiffEntry::normal(
