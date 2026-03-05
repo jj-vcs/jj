@@ -504,12 +504,13 @@ defined.
 * `.trim() -> String`: Removes leading and trailing whitespace
 * `.trim_start() -> String`: Removes leading whitespace
 * `.trim_end() -> String`: Removes trailing whitespace
-* `.substr(start: Integer, end: Integer) -> String`: Extract substring. The
-  `start`/`end` indices should be specified in UTF-8 bytes. Indices are 0-based
-  and `end` is exclusive. Negative values count from the end of the string,
-  with `-1` being the last byte. If the `start` index is in the middle of a UTF-8
-  codepoint, the codepoint is fully part of the result. If the `end` index is in
-  the middle of a UTF-8 codepoint, the codepoint is not part of the result.
+* `.substr(start: Integer, [end: Integer]) -> String`: Extract substring. The
+  `start`/`end` indices should be specified in units of UTF-8 bytes. Indices are
+  0-based and `end` is exclusive. Negative values count from the end of the
+  string, with `-1` being the last byte. If the `start` index is in the middle
+  of a UTF-8 codepoint, the codepoint is fully part of the result. If the `end`
+  index is in the middle of a UTF-8 codepoint, the codepoint is not part of the
+  result. If `end` is not given, returns from `start` to the end of the string.
 * `.escape_json() -> String`: Serializes the string in JSON format. This
   function is useful for making machine-readable templates. For example, you
   can use it in a template like `'{ "foo": ' ++ foo.escape_json() ++ ' }'` to
@@ -682,7 +683,7 @@ Additionally, you can **manually** insert arbitrary labels using the
 `label(label, content)` function. For example,
 
 ```sh
-jj op log -T '"ID: " ++ self.id().short().substr(0, 1) ++ label("id short",  "<redacted>")'
+jj op log -T '"ID: " ++ self.id().short().substr(0, 1) ++ label("id short", "<redacted>")'
 ```
 
 will print "ID:" in the default style, and the string `<redacted>` in the same

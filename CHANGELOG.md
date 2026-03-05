@@ -19,6 +19,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * New `diff_lines_added()` and `diff_lines_removed()` revset functions for
   matching content on only one side of a diff.
 
+* The `end` parameter in the `String.substr(start, end)` templating method is
+  now optional. If not given, `substr()` returns from `start` to the end of the
+  string.
+
 ### Fixed bugs
 
 ## [0.39.0] - 2026-03-04

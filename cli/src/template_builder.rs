@@ -1080,15 +1080,27 @@ fn builtin_string_methods<'a, L: TemplateLanguage<'a> + ?Sized>()
     map.insert(
         "substr",
         |language, diagnostics, build_ctx, self_property, function| {
-            let [start_idx, end_idx] = function.expect_exact_arguments()?;
+            let ([start_idx], [end_idx]) = function.expect_arguments()?;
             let start_idx_property =
                 expect_isize_expression(language, diagnostics, build_ctx, start_idx)?;
-            let end_idx_property =
-                expect_isize_expression(language, diagnostics, build_ctx, end_idx)?;
+            let end_idx_property = if let Some(end_idx) = end_idx {
+                Some(expect_isize_expression(
+                    language,
+                    diagnostics,
+                    build_ctx,
+                    end_idx,
+                )?)
+            } else {
+                None
+            };
             let out_property = (self_property, start_idx_property, end_idx_property).map(
                 |(s, start_idx, end_idx)| {
                     let start_idx = string_index_to_char_boundary(&s, start_idx);
-                    let end_idx = string_index_to_char_boundary(&s, end_idx);
+                    let end_idx = if let Some(idx) = end_idx {
+                        string_index_to_char_boundary(&s, idx)
+                    } else {
+                        s.len()
+                    };
                     s.get(start_idx..end_idx).unwrap_or_default().to_owned()
                 },
             );
@@ -3659,10 +3671,15 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#""foo".substr(0, 1)"#), @"f");
         insta::assert_snapshot!(env.render_ok(r#""foo".substr(0, 3)"#), @"foo");
         insta::assert_snapshot!(env.render_ok(r#""foo".substr(0, 4)"#), @"foo");
+        insta::assert_snapshot!(env.render_ok(r#""foo".substr(1, 3)"#), @"oo");
+        insta::assert_snapshot!(env.render_ok(r#""foo".substr(1)"#), @"oo");
+        insta::assert_snapshot!(env.render_ok(r#""foo".substr(0)"#), @"foo");
         insta::assert_snapshot!(env.render_ok(r#""abcdef".substr(2, -1)"#), @"cde");
         insta::assert_snapshot!(env.render_ok(r#""abcdef".substr(-3, 99)"#), @"def");
+        insta::assert_snapshot!(env.render_ok(r#""abcdef".substr(-3)"#), @"def");
         insta::assert_snapshot!(env.render_ok(r#""abcdef".substr(-6, 99)"#), @"abcdef");
         insta::assert_snapshot!(env.render_ok(r#""abcdef".substr(-7, 1)"#), @"a");
+        insta::assert_snapshot!(env.render_ok(r#""abcdef".substr(-100)"#), @"abcdef");
 
         // non-ascii characters
         insta::assert_snapshot!(env.render_ok(r#""abc💩".substr(2, -1)"#), @"c💩");
@@ -3676,6 +3693,15 @@ mod tests {
         insta::assert_snapshot!(env.render_ok(r#""abc💩".substr(-1, 7)"#), @"");
         insta::assert_snapshot!(env.render_ok(r#""abc💩".substr(-3, 7)"#), @"");
         insta::assert_snapshot!(env.render_ok(r#""abc💩".substr(-4, 7)"#), @"💩");
+        insta::assert_snapshot!(env.render_ok(r#""abc💩".substr(0)"#), @"abc💩");
+        insta::assert_snapshot!(env.render_ok(r#""abc💩".substr(1)"#), @"bc💩");
+        insta::assert_snapshot!(env.render_ok(r#""abc💩".substr(3)"#), @"💩");
+        insta::assert_snapshot!(env.render_ok(r#""abc💩".substr(4)"#), @"💩");
+        insta::assert_snapshot!(env.render_ok(r#""abc💩".substr(-5)"#), @"c💩");
+        insta::assert_snapshot!(env.render_ok(r#""abc💩".substr(-4)"#), @"💩");
+        insta::assert_snapshot!(env.render_ok(r#""abc💩".substr(-3)"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#""abc💩".substr(-2)"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#""abc💩".substr(-1)"#), @"");
 
         // ranges with end > start are empty
         insta::assert_snapshot!(env.render_ok(r#""abcdef".substr(4, 2)"#), @"");
