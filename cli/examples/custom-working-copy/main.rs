@@ -48,7 +48,6 @@ use jj_lib::working_copy::WorkingCopyStateError;
 use jj_lib::workspace::WorkingCopyFactories;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceInitError;
-use pollster::FutureExt as _;
 
 #[derive(clap::Parser, Clone, Debug)]
 enum CustomCommand {
@@ -56,7 +55,7 @@ enum CustomCommand {
     InitConflicts,
 }
 
-fn run_custom_command(
+async fn run_custom_command(
     ui: &mut Ui,
     command_helper: &CommandHelper,
     command: CustomCommand,
@@ -82,7 +81,7 @@ fn run_custom_command(
                 &ConflictsWorkingCopyFactory {},
                 WorkspaceName::DEFAULT.to_owned(),
             )
-            .block_on()?;
+            .await?;
             Ok(())
         }
     }

@@ -46,7 +46,6 @@ use jj_lib::settings::UserSettings;
 use jj_lib::signing::Signer;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::WorkspaceInitError;
-use pollster::FutureExt as _;
 use tokio::io::AsyncRead;
 
 #[derive(clap::Parser, Clone, Debug)]
@@ -66,7 +65,7 @@ fn create_store_factories() -> StoreFactories {
     store_factories
 }
 
-fn run_custom_command(
+async fn run_custom_command(
     ui: &mut Ui,
     command_helper: &CommandHelper,
     command: CustomCommand,
@@ -82,7 +81,7 @@ fn run_custom_command(
                 &|settings, store_path| Ok(Box::new(JitBackend::init(settings, store_path)?)),
                 Signer::from_settings(&settings).map_err(WorkspaceInitError::SignInit)?,
             )
-            .block_on()?;
+            .await?;
             Ok(())
         }
     }

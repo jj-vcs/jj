@@ -3963,6 +3963,7 @@ pub fn format_template<C: Clone>(ui: &Ui, arg: &C, template: &TemplateRenderer<C
 // Like `BoxFuture<_>`, but doesn't require `Send`.
 type BoxedCliDispatchFuture<'a> = Pin<Box<dyn Future<Output = Result<(), CommandError>> + 'a>>;
 pub type BoxedAsyncCliDispatch<'a> = Box<dyn AsyncCliDispatch + 'a>;
+type BoxedAsyncCliDispatchHook<'a> = Box<dyn AsyncCliDispatchHook + 'a>;
 
 /// Object-safe trait for async command dispatch function.
 pub trait AsyncCliDispatch {
@@ -3976,7 +3977,6 @@ pub trait AsyncCliDispatch {
 }
 
 /// Object-safe trait for async command dispatch hook function.
-#[expect(dead_code)] // TODO
 trait AsyncCliDispatchHook {
     fn call<'a>(
         self: Box<Self>,
@@ -3989,7 +3989,6 @@ trait AsyncCliDispatchHook {
 }
 
 /// Object-safe wrapper for async command dispatch function.
-#[expect(dead_code)] // TODO
 struct AsyncCliDispatchFn<F>(F);
 
 impl<F> AsyncCliDispatch for AsyncCliDispatchFn<F>
@@ -4009,7 +4008,6 @@ where
 }
 
 /// Object-safe wrapper for async command dispatch hook function.
-#[expect(dead_code)] // TODO
 struct AsyncCliDispatchHookFn<F>(F);
 
 impl<F> AsyncCliDispatchHook for AsyncCliDispatchHookFn<F>
@@ -4042,16 +4040,10 @@ pub struct CliRunner<'a> {
     revset_extensions: RevsetExtensions,
     commit_template_extensions: Vec<Arc<dyn CommitTemplateLanguageExtension>>,
     operation_template_extensions: Vec<Arc<dyn OperationTemplateLanguageExtension>>,
-    dispatch_fn: CliDispatchFn<'a>,
-    dispatch_hook_fns: Vec<CliDispatchHookFn<'a>>,
+    dispatch: BoxedAsyncCliDispatch<'a>,
+    dispatch_hooks: Vec<BoxedAsyncCliDispatchHook<'a>>,
     process_global_args_fns: Vec<ProcessGlobalArgsFn<'a>>,
 }
-
-pub type CliDispatchFn<'a> =
-    Box<dyn FnOnce(&mut Ui, &CommandHelper) -> Result<(), CommandError> + 'a>;
-
-type CliDispatchHookFn<'a> =
-    Box<dyn FnOnce(&mut Ui, &CommandHelper, CliDispatchFn<'a>) -> Result<(), CommandError> + 'a>;
 
 type ProcessGlobalArgsFn<'a> =
     Box<dyn FnOnce(&mut Ui, &ArgMatches) -> Result<(), CommandError> + 'a>;
@@ -4073,10 +4065,8 @@ impl<'a> CliRunner<'a> {
             revset_extensions: Default::default(),
             commit_template_extensions: vec![],
             operation_template_extensions: vec![],
-            dispatch_fn: Box::new(|ui, command_helper| {
-                crate::commands::run_command(ui, command_helper).block_on()
-            }),
-            dispatch_hook_fns: vec![],
+            dispatch: Box::new(AsyncCliDispatchFn(crate::commands::run_command)),
+            dispatch_hooks: vec![],
             process_global_args_fns: vec![],
         }
     }
@@ -4178,9 +4168,11 @@ impl<'a> CliRunner<'a> {
     /// run the command.
     pub fn add_dispatch_hook<F>(mut self, dispatch_hook_fn: F) -> Self
     where
-        F: FnOnce(&mut Ui, &CommandHelper, CliDispatchFn) -> Result<(), CommandError> + 'a,
+        F: AsyncFnOnce(&mut Ui, &CommandHelper, BoxedAsyncCliDispatch) -> Result<(), CommandError>
+            + 'a,
     {
-        self.dispatch_hook_fns.push(Box::new(dispatch_hook_fn));
+        self.dispatch_hooks
+            .push(Box::new(AsyncCliDispatchHookFn(dispatch_hook_fn)));
         self
     }
 
@@ -4188,18 +4180,18 @@ impl<'a> CliRunner<'a> {
     pub fn add_subcommand<C, F>(mut self, custom_dispatch_fn: F) -> Self
     where
         C: clap::Subcommand,
-        F: FnOnce(&mut Ui, &CommandHelper, C) -> Result<(), CommandError> + 'a,
+        F: AsyncFnOnce(&mut Ui, &CommandHelper, C) -> Result<(), CommandError> + 'a,
     {
-        let old_dispatch_fn = self.dispatch_fn;
+        let old_dispatch = self.dispatch;
         let new_dispatch_fn =
-            move |ui: &mut Ui, command_helper: &CommandHelper| match C::from_arg_matches(
+            async move |ui: &mut Ui, command_helper: &CommandHelper| match C::from_arg_matches(
                 command_helper.matches(),
             ) {
-                Ok(command) => custom_dispatch_fn(ui, command_helper, command),
-                Err(_) => old_dispatch_fn(ui, command_helper),
+                Ok(command) => custom_dispatch_fn(ui, command_helper, command).await,
+                Err(_) => old_dispatch.call(ui, command_helper).await,
             };
         self.app = C::augment_subcommands(self.app);
-        self.dispatch_fn = Box::new(new_dispatch_fn);
+        self.dispatch = Box::new(AsyncCliDispatchFn(new_dispatch_fn));
         self
     }
 
@@ -4220,7 +4212,11 @@ impl<'a> CliRunner<'a> {
     }
 
     #[instrument(skip_all)]
-    fn run_internal(self, ui: &mut Ui, mut raw_config: RawConfig) -> Result<(), CommandError> {
+    async fn run_internal(
+        self,
+        ui: &mut Ui,
+        mut raw_config: RawConfig,
+    ) -> Result<(), CommandError> {
         // `cwd` is canonicalized for consistency with `Workspace::workspace_root()` and
         // to easily compute relative paths between them.
         let cwd = env::current_dir()
@@ -4352,15 +4348,16 @@ impl<'a> CliRunner<'a> {
         let command_helper = CommandHelper {
             data: Rc::new(command_helper_data),
         };
-        let dispatch_fn = self.dispatch_hook_fns.into_iter().fold(
-            self.dispatch_fn,
-            |old_dispatch_fn, dispatch_hook_fn| {
-                Box::new(move |ui: &mut Ui, command_helper: &CommandHelper| {
-                    dispatch_hook_fn(ui, command_helper, old_dispatch_fn)
-                })
-            },
-        );
-        (dispatch_fn)(ui, &command_helper)
+        let dispatch =
+            self.dispatch_hooks
+                .into_iter()
+                .fold(self.dispatch, |old_dispatch, dispatch_hook| {
+                    let f = async move |ui: &mut Ui, command_helper: &CommandHelper| {
+                        dispatch_hook.call(ui, command_helper, old_dispatch).await
+                    };
+                    Box::new(AsyncCliDispatchFn(f))
+                });
+        dispatch.call(ui, &command_helper).await
     }
 
     #[must_use]
@@ -4373,7 +4370,7 @@ impl<'a> CliRunner<'a> {
         // If it had, the configuration will be fixed by the next ui.reset().
         let mut ui = Ui::with_config(config.as_ref())
             .expect("default config should be valid, env vars are stringly typed");
-        let result = self.run_internal(&mut ui, config);
+        let result = self.run_internal(&mut ui, config).block_on();
         let exit_code = handle_command_result(&mut ui, result);
         ui.finalize_pager();
         exit_code

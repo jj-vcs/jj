@@ -19,7 +19,6 @@ use jj_cli::cli_util::CommandHelper;
 use jj_cli::cli_util::RevisionArg;
 use jj_cli::command_error::CommandError;
 use jj_cli::ui::Ui;
-use pollster::FutureExt as _;
 
 #[derive(clap::Parser, Clone, Debug)]
 enum CustomCommand {
@@ -34,7 +33,7 @@ struct FrobnicateArgs {
     revision: RevisionArg,
 }
 
-fn run_custom_command(
+async fn run_custom_command(
     ui: &mut Ui,
     command_helper: &CommandHelper,
     command: CustomCommand,
@@ -49,7 +48,7 @@ fn run_custom_command(
                 .rewrite_commit(&commit)
                 .set_description("Frobnicated!")
                 .write()
-                .block_on()?;
+                .await?;
             tx.finish(ui, "frobnicate")?;
             writeln!(
                 ui.status(),
