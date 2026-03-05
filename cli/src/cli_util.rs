@@ -26,6 +26,7 @@ use std::io::Write as _;
 use std::mem;
 use std::path::Path;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -3957,6 +3958,75 @@ pub fn format_template<C: Clone>(ui: &Ui, arg: &C, template: &TemplateRenderer<C
         .expect("write() to vec backed formatter should never fail");
     // Template output is usually UTF-8, but it can contain file content.
     output.into_string_lossy()
+}
+
+// Like `BoxFuture<_>`, but doesn't require `Send`.
+type BoxedCliDispatchFuture<'a> = Pin<Box<dyn Future<Output = Result<(), CommandError>> + 'a>>;
+pub type BoxedAsyncCliDispatch<'a> = Box<dyn AsyncCliDispatch + 'a>;
+
+/// Object-safe trait for async command dispatch function.
+pub trait AsyncCliDispatch {
+    fn call<'a>(
+        self: Box<Self>,
+        ui: &'a mut Ui,
+        command_helper: &'a CommandHelper,
+    ) -> BoxedCliDispatchFuture<'a>
+    where
+        Self: 'a;
+}
+
+/// Object-safe trait for async command dispatch hook function.
+#[expect(dead_code)] // TODO
+trait AsyncCliDispatchHook {
+    fn call<'a>(
+        self: Box<Self>,
+        ui: &'a mut Ui,
+        command_helper: &'a CommandHelper,
+        old_dispatch: BoxedAsyncCliDispatch<'a>,
+    ) -> BoxedCliDispatchFuture<'a>
+    where
+        Self: 'a;
+}
+
+/// Object-safe wrapper for async command dispatch function.
+#[expect(dead_code)] // TODO
+struct AsyncCliDispatchFn<F>(F);
+
+impl<F> AsyncCliDispatch for AsyncCliDispatchFn<F>
+where
+    F: AsyncFnOnce(&mut Ui, &CommandHelper) -> Result<(), CommandError>,
+{
+    fn call<'a>(
+        self: Box<Self>,
+        ui: &'a mut Ui,
+        command_helper: &'a CommandHelper,
+    ) -> BoxedCliDispatchFuture<'a>
+    where
+        Self: 'a,
+    {
+        Box::pin((self.0)(ui, command_helper))
+    }
+}
+
+/// Object-safe wrapper for async command dispatch hook function.
+#[expect(dead_code)] // TODO
+struct AsyncCliDispatchHookFn<F>(F);
+
+impl<F> AsyncCliDispatchHook for AsyncCliDispatchHookFn<F>
+where
+    F: AsyncFnOnce(&mut Ui, &CommandHelper, BoxedAsyncCliDispatch<'_>) -> Result<(), CommandError>,
+{
+    fn call<'a>(
+        self: Box<Self>,
+        ui: &'a mut Ui,
+        command_helper: &'a CommandHelper,
+        old_dispatch: BoxedAsyncCliDispatch<'a>,
+    ) -> BoxedCliDispatchFuture<'a>
+    where
+        Self: 'a,
+    {
+        Box::pin((self.0)(ui, command_helper, old_dispatch))
+    }
 }
 
 /// CLI command builder and runner.
