@@ -3252,12 +3252,13 @@ that many occurrences are replaced.</p>
 <li><code>.trim() -&gt; String</code>: Removes leading and trailing whitespace</li>
 <li><code>.trim_start() -&gt; String</code>: Removes leading whitespace</li>
 <li><code>.trim_end() -&gt; String</code>: Removes trailing whitespace</li>
-<li><code>.substr(start: Integer, end: Integer) -&gt; String</code>: Extract substring. The
-  <code>start</code>/<code>end</code> indices should be specified in UTF-8 bytes. Indices are 0-based
-  and <code>end</code> is exclusive. Negative values count from the end of the string,
-  with <code>-1</code> being the last byte. If the <code>start</code> index is in the middle of a UTF-8
-  codepoint, the codepoint is fully part of the result. If the <code>end</code> index is in
-  the middle of a UTF-8 codepoint, the codepoint is not part of the result.</li>
+<li><code>.substr(start: Integer, [end: Integer]) -&gt; String</code>: Extract substring. The
+  <code>start</code>/<code>end</code> indices should be specified in units of UTF-8 bytes. Indices are
+  0-based and <code>end</code> is exclusive. Negative values count from the end of the
+  string, with <code>-1</code> being the last byte. If the <code>start</code> index is in the middle
+  of a UTF-8 codepoint, the codepoint is fully part of the result. If the <code>end</code>
+  index is in the middle of a UTF-8 codepoint, the codepoint is not part of the
+  result. If <code>end</code> is not given, returns from <code>start</code> to the end of the string.</li>
 <li><code>.escape_json() -&gt; String</code>: Serializes the string in JSON format. This
   function is useful for making machine-readable templates. For example, you
   can use it in a template like <code>'{ "foo": ' ++ foo.escape_json() ++ ' }'</code> to
@@ -3394,7 +3395,7 @@ documented. You can discover the actual label names used with the
 </code></pre></div>
 <p>Additionally, you can <strong>manually</strong> insert arbitrary labels using the
 <code>label(label, content)</code> function. For example,</p>
-<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;&quot;ID: &quot; ++ self.id().short().substr(0, 1) ++ label(&quot;id short&quot;,  &quot;&lt;redacted&gt;&quot;)&#39;</span>
+<div class="highlight"><pre><span></span><code>jj<span class="w"> </span>op<span class="w"> </span>log<span class="w"> </span>-T<span class="w"> </span><span class="s1">&#39;&quot;ID: &quot; ++ self.id().short().substr(0, 1) ++ label(&quot;id short&quot;, &quot;&lt;redacted&gt;&quot;)&#39;</span>
 </code></pre></div>
 <p>will print "ID:" in the default style, and the string <code>&lt;redacted&gt;</code> in the same
 style as the first character of the id. It would also be fine to use an
