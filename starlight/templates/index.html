@@ -677,12 +677,13 @@ present.</p>
 <p><code dir="auto">.trim_end() -> String</code>: Removes trailing whitespace</p>
 </li>
 <li>
-<p><code dir="auto">.substr(start: Integer, end: Integer) -> String</code>: Extract substring. The
-<code dir="auto">start</code>/<code dir="auto">end</code> indices should be specified in UTF-8 bytes. Indices are 0-based
-and <code dir="auto">end</code> is exclusive. Negative values count from the end of the string,
-with <code dir="auto">-1</code> being the last byte. If the <code dir="auto">start</code> index is in the middle of a UTF-8
-codepoint, the codepoint is fully part of the result. If the <code dir="auto">end</code> index is in
-the middle of a UTF-8 codepoint, the codepoint is not part of the result.</p>
+<p><code dir="auto">.substr(start: Integer, [end: Integer]) -> String</code>: Extract substring. The
+<code dir="auto">start</code>/<code dir="auto">end</code> indices should be specified in units of UTF-8 bytes. Indices are
+0-based and <code dir="auto">end</code> is exclusive. Negative values count from the end of the
+string, with <code dir="auto">-1</code> being the last byte. If the <code dir="auto">start</code> index is in the middle
+of a UTF-8 codepoint, the codepoint is fully part of the result. If the <code dir="auto">end</code>
+index is in the middle of a UTF-8 codepoint, the codepoint is not part of the
+result. If <code dir="auto">end</code> is not given, returns from <code dir="auto">start</code> to the end of the string.</p>
 </li>
 <li>
 <p><code dir="auto">.escape_json() -> String</code>: Serializes the string in JSON format. This
@@ -812,7 +813,7 @@ documented. You can discover the actual label names used with the
 <div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="sh"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">op</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-T</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">self.id().short()</span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--color=debug</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj op log -T &#x27;self.id().short()&#x27; --color=debug"><div></div></button></div></figure></div>
 <p>Additionally, you can <strong>manually</strong> insert arbitrary labels using the
 <code dir="auto">label(label, content)</code> function. For example,</p>
-<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="sh"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">op</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-T</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">"ID: " ++ self.id().short().substr(0, 1) ++ label("id short",  "&#x3C;redacted>")</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj op log -T &#x27;&#x22;ID: &#x22; ++ self.id().short().substr(0, 1) ++ label(&#x22;id short&#x22;,  &#x22;<redacted>&#x22;)&#x27;"><div></div></button></div></figure></div>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="sh"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">jj</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">op</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">log</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-T</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#D9F5DD;--1:#111111">'</span><span style="--0:#ECC48D;--1:#984E4D">"ID: " ++ self.id().short().substr(0, 1) ++ label("id short", "&#x3C;redacted>")</span><span style="--0:#D9F5DD;--1:#111111">'</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="jj op log -T &#x27;&#x22;ID: &#x22; ++ self.id().short().substr(0, 1) ++ label(&#x22;id short&#x22;, &#x22;<redacted>&#x22;)&#x27;"><div></div></button></div></figure></div>
 <p>will print “ID:” in the default style, and the string <code dir="auto">&#x3C;redacted></code> in the same
 style as the first character of the id. It would also be fine to use an
 arbitrary template instead of the string <code dir="auto">"&#x3C;redacted>"</code>, possibly including
