@@ -172,7 +172,7 @@ struct State {
 
 impl State {
     fn new(commits: Vec<Commit>, external_children: Vec<Commit>) -> Self {
-        let current_order = commits
+        let initial_order = commits
             .iter()
             .map(|commit| commit.id().clone())
             .collect_vec();
@@ -201,7 +201,7 @@ impl State {
             .collect();
         // Initialize head_order to match the heads in the input's order.
         let heads: HashSet<&CommitId> = dag_walk::heads(
-            current_order.iter(),
+            initial_order.iter(),
             |id| *id,
             |id| {
                 parents
@@ -211,25 +211,28 @@ impl State {
                     .filter(|id| commits.contains_key(id))
             },
         );
-        let head_order = current_order
+        let head_order = initial_order
             .iter()
             .filter(|id| heads.contains(id))
             .cloned()
             .collect_vec();
-        Self {
+        let mut state = Self {
             commits,
             head_order,
-            current_order,
+            current_order: vec![], // Will be set by update_commit_order()
             current_selection: 0,
             actions,
             parents,
             external_children,
-        }
+        };
+        state.update_commit_order();
+        state
     }
 
     /// Update the current UI commit order after parents have changed.
     fn update_commit_order(&mut self) {
         // Use the original order to get a determinisic order.
+        // TODO: Use TopoGroupedGraphIterator so the order better matches `jj log`
         let commit_ids: Vec<&CommitId> = dag_walk::topo_order_reverse(
             self.head_order.iter(),
             |id| *id,
@@ -635,7 +638,6 @@ mod tests {
         );
 
         // We get the original order before we make any changes
-        state.update_commit_order();
         assert_eq!(
             state.current_order,
             vec![
@@ -707,11 +709,29 @@ mod tests {
             vec![commit_e.clone(), commit_f.clone()],
         );
         assert_eq!(state.head_order, vec![commit_d.id().clone()]);
+        assert_eq!(
+            state.current_order,
+            vec![
+                commit_d.id().clone(),
+                commit_b.id().clone(),
+                commit_c.id().clone(),
+                commit_a.id().clone()
+            ]
+        );
 
         // Swap C and D and check result
-        state.swap_commits(0, 1);
+        state.swap_commits(0, 2);
         assert_eq!(state.head_order, vec![commit_c.id().clone()]);
-        assert_eq!(state.current_selection, 1);
+        assert_eq!(
+            state.current_order,
+            vec![
+                commit_c.id().clone(),
+                commit_b.id().clone(),
+                commit_d.id().clone(),
+                commit_a.id().clone()
+            ]
+        );
+        assert_eq!(state.current_selection, 2);
         assert_eq!(
             *state.parents.get(commit_c.id()).unwrap(),
             vec![commit_b.id().clone(), commit_d.id().clone()],
