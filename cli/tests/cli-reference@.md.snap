@@ -1973,7 +1973,7 @@ Renders a graphical view of the project's history, ordered with children before 
 
 [`jj help -k revsets`]: https://docs.jj-vcs.dev/latest/revsets/
 
-Spans of revisions that are not included in the graph per `--revisions` are rendered as a synthetic node labeled "(elided revisions)".
+Spans of revisions that are not included in the graph per `--revisions` are rendered as a synthetic node labeled "(N elided revisions)".
 
 The working-copy commit is indicated by a `@` symbol in the graph. [Immutable revisions] have a `◆` symbol. Other commits have a `○` symbol. All of these symbols can be [customized].
 

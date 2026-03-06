@@ -128,6 +128,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Templates now support `Serialize` operations on the result of `map()` and
   `if()`, when supported by the underlying type.
 
+* `jj log` now shows the exact number of elided revisions in the synthetic
+  "(N elided revisions)" graph nodes, instead of always showing a placeholder.
+  [#3099](https://github.com/jj-vcs/jj/issues/3099)
+
 * `jj bookmark rename` now supports `--overwrite-existing` to allow renaming a
   bookmark even if the new name already exists, effectively replacing the
   existing bookmark.

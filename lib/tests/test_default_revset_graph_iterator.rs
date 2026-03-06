@@ -18,6 +18,7 @@ use jj_lib::commit::Commit;
 use jj_lib::default_index::DefaultReadonlyIndex;
 use jj_lib::default_index::DefaultReadonlyIndexRevset;
 use jj_lib::graph::GraphEdge;
+use jj_lib::graph::GraphEdgeType;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::ResolvedExpression;
@@ -40,12 +41,15 @@ fn direct(commit: &Commit) -> GraphEdge<CommitId> {
     GraphEdge::direct(commit.id().clone())
 }
 
-fn indirect(commit: &Commit) -> GraphEdge<CommitId> {
-    GraphEdge::indirect(commit.id().clone())
-}
-
 fn missing(commit: &Commit) -> GraphEdge<CommitId> {
     GraphEdge::missing(commit.id().clone())
+}
+
+fn indirect_n(commit: &Commit, n: u32) -> GraphEdge<CommitId> {
+    GraphEdge {
+        target: commit.id().clone(),
+        edge_type: GraphEdgeType::Indirect(n),
+    }
 }
 
 #[test_case(false, 0; "keep transitive edges")]
@@ -83,7 +87,8 @@ fn test_graph_iterator_linearized(skip_transitive_edges: bool, padding: u32) {
     assert_eq!(commits.len(), 2);
     assert_eq!(commits[0].0, *commit_d.id());
     assert_eq!(commits[1].0, *commit_a.id());
-    assert_eq!(commits[0].1, vec![indirect(&commit_a)]);
+    // 2 hidden commits between D and A: b and c.
+    assert_eq!(commits[0].1, vec![indirect_n(&commit_a, 2)]);
     assert_eq!(commits[1].1, vec![missing(&root_commit)]);
 }
 
@@ -128,12 +133,15 @@ fn test_graph_iterator_virtual_octopus(skip_transitive_edges: bool, padding: u32
     assert_eq!(commits[1].0, *commit_c.id());
     assert_eq!(commits[2].0, *commit_b.id());
     assert_eq!(commits[3].0, *commit_a.id());
+    // F→d→A: 1 hidden (d).
+    // F→d+e→B: 2 hidden (d and e both connect to B).
+    // F→e→C: 1 hidden (e).
     assert_eq!(
         commits[0].1,
         vec![
-            indirect(&commit_a),
-            indirect(&commit_b),
-            indirect(&commit_c),
+            indirect_n(&commit_a, 1),
+            indirect_n(&commit_b, 2),
+            indirect_n(&commit_c, 1),
         ]
     );
     assert_eq!(commits[1].1, vec![missing(&root_commit)]);
@@ -181,8 +189,10 @@ fn test_graph_iterator_simple_fork(skip_transitive_edges: bool, padding: u32) {
     assert_eq!(commits[0].0, *commit_e.id());
     assert_eq!(commits[1].0, *commit_c.id());
     assert_eq!(commits[2].0, *commit_a.id());
-    assert_eq!(commits[0].1, vec![indirect(&commit_a)]);
-    assert_eq!(commits[1].1, vec![indirect(&commit_a)]);
+    // E→d→b→A: 2 hidden (d and b).
+    assert_eq!(commits[0].1, vec![indirect_n(&commit_a, 2)]);
+    // C→b→A: 1 hidden (b).
+    assert_eq!(commits[1].1, vec![indirect_n(&commit_a, 1)]);
     assert_eq!(commits[2].1, vec![missing(&root_commit)]);
 }
 
@@ -224,9 +234,14 @@ fn test_graph_iterator_multiple_missing(skip_transitive_edges: bool, padding: u3
     assert_eq!(commits.len(), 2);
     assert_eq!(commits[0].0, *commit_f.id());
     assert_eq!(commits[1].0, *commit_b.id());
+    // F→d+e→B: 2 hidden (d and e both connect to B).
     assert_eq!(
         commits[0].1,
-        vec![missing(&commit_a), indirect(&commit_b), missing(&commit_c)]
+        vec![
+            missing(&commit_a),
+            indirect_n(&commit_b, 2),
+            missing(&commit_c)
+        ]
     );
     assert_eq!(commits[1].1, vec![missing(&root_commit)]);
 }
@@ -275,7 +290,11 @@ fn test_graph_iterator_edge_to_ancestor(skip_transitive_edges: bool, padding: u3
     if skip_transitive_edges {
         assert_eq!(commits[0].1, vec![direct(&commit_d)]);
     } else {
-        assert_eq!(commits[0].1, vec![direct(&commit_d), indirect(&commit_c),]);
+        // F→e→C: 1 hidden (e).
+        assert_eq!(
+            commits[0].1,
+            vec![direct(&commit_d), indirect_n(&commit_c, 1)]
+        );
     }
     assert_eq!(commits[1].1, vec![missing(&commit_b), direct(&commit_c)]);
     assert_eq!(commits[2].1, vec![missing(&commit_a)]);
@@ -337,16 +356,33 @@ fn test_graph_iterator_edge_escapes_from_(skip_transitive_edges: bool, padding: 
     assert_eq!(commits[3].0, *commit_d.id());
     assert_eq!(commits[4].0, *commit_a.id());
     if skip_transitive_edges {
-        assert_eq!(commits[0].1, vec![direct(&commit_g), indirect(&commit_h)]);
-        assert_eq!(commits[1].1, vec![indirect(&commit_d)]);
+        // J→i→H: 1 hidden (i).
+        assert_eq!(
+            commits[0].1,
+            vec![direct(&commit_g), indirect_n(&commit_h, 1)]
+        );
+        // H→f→D: 1 hidden (f).
+        assert_eq!(commits[1].1, vec![indirect_n(&commit_d, 1)]);
     } else {
         assert_eq!(
             commits[0].1,
-            vec![direct(&commit_g), indirect(&commit_d), indirect(&commit_h)]
+            vec![
+                direct(&commit_g),
+                indirect_n(&commit_d, 2), // J→i→e→D: 2 hidden (i and e).
+                indirect_n(&commit_h, 1), // J→i→H: 1 hidden (i).
+            ]
         );
-        assert_eq!(commits[1].1, vec![indirect(&commit_d), indirect(&commit_a)]);
+        assert_eq!(
+            commits[1].1,
+            vec![
+                indirect_n(&commit_d, 1), // H→f→D: 1 hidden (f).
+                indirect_n(&commit_a, 2), // H→f→c→A: 2 hidden (f and c).
+            ]
+        );
     }
-    assert_eq!(commits[2].1, vec![indirect(&commit_a)]);
-    assert_eq!(commits[3].1, vec![indirect(&commit_a)]);
+    // G→b→A: 1 hidden (b).
+    assert_eq!(commits[2].1, vec![indirect_n(&commit_a, 1)]);
+    // D→b→A: 1 hidden (b).
+    assert_eq!(commits[3].1, vec![indirect_n(&commit_a, 1)]);
     assert_eq!(commits[4].1, vec![missing(&root_commit)]);
 }

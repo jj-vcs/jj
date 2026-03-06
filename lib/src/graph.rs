@@ -49,7 +49,7 @@ impl<N> GraphEdge<N> {
     pub fn indirect(target: N) -> Self {
         Self {
             target,
-            edge_type: GraphEdgeType::Indirect,
+            edge_type: GraphEdgeType::Indirect(0),
         }
     }
 
@@ -69,7 +69,7 @@ impl<N> GraphEdge<N> {
     }
 
     pub fn is_indirect(&self) -> bool {
-        self.edge_type == GraphEdgeType::Indirect
+        matches!(self.edge_type, GraphEdgeType::Indirect(_))
     }
 }
 
@@ -77,7 +77,11 @@ impl<N> GraphEdge<N> {
 pub enum GraphEdgeType {
     Missing,
     Direct,
-    Indirect,
+    /// Total number of elided (not-in-revset) commits between the source and
+    /// this target, summed across all paths. Multiple hidden branches that
+    /// converge on the same visible ancestor each contribute their own hidden
+    /// commits to the count.
+    Indirect(u32),
 }
 
 fn reachable_targets<N>(edges: &[GraphEdge<N>]) -> impl DoubleEndedIterator<Item = &N> {
@@ -381,7 +385,7 @@ mod tests {
         match edge.edge_type {
             GraphEdgeType::Missing => format!("missing({c})"),
             GraphEdgeType::Direct => format!("direct({c})"),
-            GraphEdgeType::Indirect => format!("indirect({c})"),
+            GraphEdgeType::Indirect(_) => format!("indirect({c})"),
         }
     }
 
@@ -406,7 +410,7 @@ mod tests {
                     .map(|edge| match edge.edge_type {
                         GraphEdgeType::Missing => Ancestor::Anonymous,
                         GraphEdgeType::Direct => Ancestor::Parent(edge.target),
-                        GraphEdgeType::Indirect => Ancestor::Ancestor(edge.target),
+                        GraphEdgeType::Indirect(_) => Ancestor::Ancestor(edge.target),
                     })
                     .collect();
                 renderer.next_row(id, parents, glyph, message)
