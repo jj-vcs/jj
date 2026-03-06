@@ -18,6 +18,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use assert_matches::assert_matches;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::config::ConfigLayer;
@@ -890,12 +891,16 @@ fn test_walk_ancestors() {
     }
 
     fn collect_ancestors(head_ops: &[Operation]) -> Vec<Operation> {
-        op_walk::walk_ancestors(head_ops).try_collect().unwrap()
+        op_walk::walk_ancestors(head_ops)
+            .try_collect()
+            .block_on()
+            .unwrap()
     }
 
     fn collect_ancestors_range(head_ops: &[Operation], root_ops: &[Operation]) -> Vec<Operation> {
         op_walk::walk_ancestors_range(head_ops, root_ops)
             .try_collect()
+            .block_on()
             .unwrap()
     }
 

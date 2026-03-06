@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::pin::Pin;
 use std::slice;
 
 use clap_complete::ArgValueCandidates;
+use futures::Stream;
+use futures::StreamExt as _;
+use futures::stream;
 use itertools::Itertools as _;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::reverse_graph;
@@ -209,24 +213,28 @@ async fn do_op_log(
     ui.request_pager();
     let mut formatter = ui.stdout_formatter();
     let formatter = formatter.as_mut();
-    let iter =
+    let stream =
         op_walk::walk_ancestors(slice::from_ref(current_op)).take(args.limit.unwrap_or(usize::MAX));
 
     if !args.no_graph {
         let mut raw_output = formatter.raw()?;
         let mut graph = get_graphlog(graph_style, raw_output.as_mut());
-        let iter = iter.map(|op| -> Result<_, OpStoreError> {
+        let stream = stream.map(|op| -> Result<_, OpStoreError> {
             let op = op?;
             let ids = op.parent_ids();
             let edges = ids.iter().cloned().map(GraphEdge::direct).collect();
             Ok((op, edges))
         });
-        let iter_nodes: Box<dyn Iterator<Item = _>> = if args.reversed {
-            Box::new(reverse_graph(iter, Operation::id)?.into_iter().map(Ok))
+        let mut stream_nodes: Pin<Box<dyn Stream<Item = _>>> = if args.reversed {
+            Box::pin(stream::iter(
+                reverse_graph(stream.collect::<Vec<_>>().await.into_iter(), Operation::id)?
+                    .into_iter()
+                    .map(Ok),
+            ))
         } else {
-            Box::new(iter)
+            Box::pin(stream)
         };
-        for node in iter_nodes {
+        while let Some(node) = stream_nodes.next().await {
             let (op, edges) = node?;
             let mut buffer = vec![];
             let within_graph = with_content_format.sub_width(graph.width(op.id(), &edges));
@@ -246,12 +254,14 @@ async fn do_op_log(
             )?;
         }
     } else {
-        let iter: Box<dyn Iterator<Item = _>> = if args.reversed {
-            Box::new(iter.collect_vec().into_iter().rev())
+        let mut stream: Pin<Box<dyn Stream<Item = _>>> = if args.reversed {
+            Box::pin(stream::iter(
+                stream.collect::<Vec<_>>().await.into_iter().rev(),
+            ))
         } else {
-            Box::new(iter)
+            Box::pin(stream)
         };
-        for op in iter {
+        while let Some(op) = stream.next().await {
             let op = op?;
             with_content_format.write(formatter, |formatter| template.format(&op, formatter))?;
             if let Some(show) = &maybe_show_op_diff {

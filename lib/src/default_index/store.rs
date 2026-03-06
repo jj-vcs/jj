@@ -21,10 +21,13 @@ use std::io;
 use std::io::Write as _;
 use std::path::Path;
 use std::path::PathBuf;
+use std::pin::pin;
 use std::slice;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use prost::Message as _;
 use tempfile::NamedTempFile;
@@ -237,7 +240,8 @@ impl DefaultIndexStore {
         // Pick the latest existing ancestor operation as the parent segment.
         let mut unindexed_ops = Vec::new();
         let mut parent_op = None;
-        for op in op_walk::walk_ancestors(slice::from_ref(operation)) {
+        let mut ancestors = pin!(op_walk::walk_ancestors(slice::from_ref(operation)));
+        while let Some(op) = ancestors.next().await {
             let op = op?;
             if op_links_dir.join(op.id().hex()).is_file() {
                 parent_op = Some(op);
@@ -250,7 +254,8 @@ impl DefaultIndexStore {
             // There may be concurrent ops, so revisit from the head. The parent
             // op is usually shallow if existed.
             op_walk::walk_ancestors_range(slice::from_ref(operation), slice::from_ref(op))
-                .try_collect()?
+                .try_collect()
+                .await?
         } else {
             unindexed_ops
         };
