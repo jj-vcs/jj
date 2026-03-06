@@ -54,7 +54,7 @@ use crate::ui::Ui;
 /// comparing the result to `--to`.
 ///
 /// To see the changes throughout the whole evolution of a change instead of
-/// between just two revisions, use `jj evolog -p instead`.
+/// between just two revisions, use `jj evolog -p` instead.
 #[derive(clap::Args, Clone, Debug)]
 #[command(group(ArgGroup::new("to_diff").args(&["from", "to"]).multiple(true).required(true)))]
 #[command(mut_arg("ignore_all_space", |a| a.short('w')))]

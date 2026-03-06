@@ -1934,7 +1934,7 @@ This command is different from `jj diff --from A --to B`, which compares file co
 
 Technically, this works by rebasing `--from` onto `--to`'s parents and comparing the result to `--to`.
 
-To see the changes throughout the whole evolution of a change instead of between just two revisions, use `jj evolog -p instead`.
+To see the changes throughout the whole evolution of a change instead of between just two revisions, use `jj evolog -p` instead.
 
 **Usage:** `jj interdiff [OPTIONS] <--from <REVSET>|--to <REVSET>> [FILESETS]...`
 
