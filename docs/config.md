@@ -280,6 +280,36 @@ is the most significant.
 
 When the `--sort` option is used, the configuration is ignored.
 
+### Bookmark advance default targets
+
+The `jj bookmark advance` command moves bookmarks forward in the graph. The
+default values for what bookmarks to advance and where to advance them to are:
+
+```toml
+[revsets]
+bookmark-advance-from = 'heads(::to & bookmarks())'  # The closest bookmarks
+bookmark-advance-to = '@'  # To the current working copy
+```
+
+The default `from` is likely to be a good fit for almost everyone. The `from`
+revset has access to `to`, allowing it to find bookmarks relative to the
+destination revision.
+
+The default `to` is largely up to your preference and workflow. One simple
+alternative which fits squash-heavy workflows is `@-`, while a more involved
+and versatile alternative that advances to the closest "pushable" revision is:
+
+```toml
+[revsets]
+bookmark-advance-to = 'closest_pushable(@)'
+
+[revset-aliases]
+# Closest revision that is mutable, described and either non-empty or a merge
+'closest_pushable(to)' = '''
+  heads(::to & mutable() & ~description(exact:"") & (~empty() | merges()))
+'''
+```
+
 ### Commit trailers
 
 You can configure automatic addition of one or more trailers to commit
