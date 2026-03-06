@@ -119,3 +119,5 @@
 "signature status unknown" = "yellow"
 "signature status bad" = "red"
 "signature status invalid" = "red"
+
+"arrange context commit" = { dim = true }

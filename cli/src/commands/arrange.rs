@@ -58,6 +58,7 @@ use crate::command_error::CommandError;
 use crate::command_error::internal_error;
 use crate::command_error::user_error;
 use crate::complete;
+use crate::formatter::FormatterExt as _;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
@@ -174,8 +175,6 @@ struct State {
     current_order: Vec<CommitId>,
     /// The current selection as an index into `current_order`
     current_selection: usize,
-    // TODO: Use this to render external children
-    #[expect(dead_code)]
     external_children: IndexSet<CommitId>,
 }
 
@@ -490,8 +489,12 @@ fn render(
         .build_box_drawing();
     let mut row_area = main_area;
     let current_seletion_id = &state.current_order[state.current_selection];
-    // TODO: It might be nice to render external parents and children grayed out
-    for id in &state.current_order {
+    let commits_to_render = state
+        .external_children
+        .iter()
+        .chain(state.current_order.iter());
+    // TODO: also render external parents dimmed
+    for id in commits_to_render {
         // TODO: Make the graph column width depend on what's needed to render the
         // graph.
         let row_layout = Layout::horizontal([
@@ -541,17 +544,26 @@ fn render(
             .intersection(main_area);
         frame.render_widget(graph_text, graph_area);
 
-        let action_text = match action {
-            UiAction::Abandon => "abandon",
-            UiAction::Keep => "keep",
-        };
-        frame.render_widget(Text::from(action_text), action_area);
+        let is_context_node = state.external_children.contains(id);
+        if !is_context_node {
+            let action_text = match action {
+                UiAction::Abandon => "abandon",
+                UiAction::Keep => "keep",
+            };
+            frame.render_widget(Text::from(action_text), action_area);
+        }
 
         let mut text_lines = vec![];
-        let mut formatter = ui.new_formatter(&mut text_lines);
-        template
-            .format(&commit_state.commit, formatter.as_mut())
-            .unwrap();
+        let mut formatter = ui.new_formatter(&mut text_lines).into_labeled("arrange");
+        if is_context_node {
+            template
+                .format(&commit_state.commit, formatter.labeled("context").as_mut())
+                .unwrap();
+        } else {
+            template
+                .format(&commit_state.commit, formatter.as_mut())
+                .unwrap();
+        }
         drop(formatter);
         let text = ansi_to_tui::IntoText::into_text(&text_lines).unwrap();
         frame.render_widget(text, text_area);
