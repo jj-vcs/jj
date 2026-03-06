@@ -23,6 +23,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   now optional. If not given, `substr()` returns from `start` to the end of the
   string.
 
+* The `jj arrange` TUI now includes immediate parents and children. They are not
+  selectable and are dimmed by default.
+
 ### Fixed bugs
 
 ## [0.39.0] - 2026-03-04

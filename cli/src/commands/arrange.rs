@@ -25,8 +25,10 @@ use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
+use futures::future::try_join_all;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
+use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::dag_walk;
@@ -123,7 +125,7 @@ pub(crate) async fn cmd_arrange(
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     terminal.clear()?;
 
-    let mut state = State::new(commits, external_children);
+    let mut state = State::new(commits, external_children).await?;
     state.update_commit_order();
 
     let template_string = workspace_command
@@ -164,7 +166,7 @@ struct CommitState {
 }
 
 struct State {
-    /// Commits in the target set, as well as any external children.
+    /// Commits in the target set, as well as any external children and parents.
     commits: HashMap<CommitId, CommitState>,
     /// Heads of the target set in the order they should be added to the UI.
     /// This is used to make the graph rendering more stable. It must be
@@ -176,19 +178,35 @@ struct State {
     /// The current selection as an index into `current_order`
     current_selection: usize,
     external_children: IndexSet<CommitId>,
+    external_parents: IndexSet<CommitId>,
 }
 
 impl State {
     /// Creates a new `State` from a list of commits and a list of external
     /// children. The list of commits must not have gaps between commits.
-    fn new(commits: Vec<Commit>, external_children: Vec<Commit>) -> Self {
+    async fn new(commits: Vec<Commit>, external_children: Vec<Commit>) -> BackendResult<Self> {
         // Initialize head_order to match the heads in the input's order.
-        let mut heads: HashSet<_> = commits.iter().map(|commit| commit.id()).collect();
+        let commit_set: HashSet<_> = commits.iter().map(|commit| commit.id()).collect();
+        let mut heads: HashSet<_> = commit_set.clone();
         for commit in &commits {
             for parent in commit.parent_ids() {
                 heads.remove(parent);
             }
         }
+        let mut external_parents = IndexSet::new();
+        for commit in &commits {
+            for parent_id in commit.parent_ids() {
+                if !commit_set.contains(parent_id) {
+                    external_parents.insert(parent_id.clone());
+                }
+            }
+        }
+        let external_parent_commits: Vec<_> = try_join_all(
+            external_parents
+                .iter()
+                .map(|id| commits[0].store().get_commit_async(id)),
+        )
+        .await?;
         let head_order = commits
             .iter()
             .filter(|&commit| heads.contains(commit.id()))
@@ -201,6 +219,7 @@ impl State {
         let commits: HashMap<CommitId, CommitState> = commits
             .into_iter()
             .chain(external_children)
+            .chain(external_parent_commits.into_iter())
             .map(|commit: Commit| {
                 let id = commit.id().clone();
                 let parents = commit.parent_ids().to_vec();
@@ -218,9 +237,10 @@ impl State {
             current_order: vec![], // Will be set by update_commit_order()
             current_selection: 0,
             external_children: external_children_ids,
+            external_parents,
         };
         state.update_commit_order();
-        state
+        Ok(state)
     }
 
     /// Update the current UI commit order after parents have changed.
@@ -231,12 +251,9 @@ impl State {
             self.head_order.iter(),
             |id| *id,
             |id| {
-                self.commits
-                    .get(id)
-                    .unwrap()
-                    .parents
-                    .iter()
-                    .filter(|id| self.commits.contains_key(id))
+                self.commits.get(id).unwrap().parents.iter().filter(|id| {
+                    self.commits.contains_key(id) && !self.external_parents.contains(*id)
+                })
             },
             |_| panic!("cycle detected"),
         )
@@ -299,6 +316,9 @@ impl State {
     fn to_rewrite_plan(&self) -> RewritePlan {
         let mut rewrites = HashMap::new();
         for (id, commit_state) in &self.commits {
+            if self.external_parents.contains(id) {
+                continue;
+            }
             rewrites.insert(
                 id.clone(),
                 Rewrite {
@@ -492,8 +512,8 @@ fn render(
     let commits_to_render = state
         .external_children
         .iter()
-        .chain(state.current_order.iter());
-    // TODO: also render external parents dimmed
+        .chain(state.current_order.iter())
+        .chain(state.external_parents.iter());
     for id in commits_to_render {
         // TODO: Make the graph column width depend on what's needed to render the
         // graph.
@@ -544,7 +564,8 @@ fn render(
             .intersection(main_area);
         frame.render_widget(graph_text, graph_area);
 
-        let is_context_node = state.external_children.contains(id);
+        let is_context_node =
+            state.external_children.contains(id) || state.external_parents.contains(id);
         if !is_context_node {
             let action_text = match action {
                 UiAction::Abandon => "abandon",
@@ -598,7 +619,7 @@ mod tests {
 
     #[test]
     fn test_update_commit_order_empty() {
-        let mut state = State::new(vec![], vec![]);
+        let mut state = State::new(vec![], vec![]).block_on().unwrap();
         assert_eq!(state.head_order, vec![]);
         state.update_commit_order();
         assert_eq!(state.current_order, vec![]);
@@ -635,7 +656,9 @@ mod tests {
                 commit_a.clone(),
             ],
             vec![],
-        );
+        )
+        .block_on()
+        .unwrap();
 
         // The initial head order is determined by the input order
         assert_eq!(
@@ -710,7 +733,9 @@ mod tests {
                 commit_a.clone(),
             ],
             vec![commit_e.clone(), commit_f.clone()],
-        );
+        )
+        .block_on()
+        .unwrap();
         assert_eq!(state.head_order, vec![commit_d.id().clone()]);
         assert_eq!(
             state.current_order,
