@@ -25,6 +25,7 @@ use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
+use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -155,19 +156,22 @@ enum UiAction {
 }
 
 struct State {
+    /// Commits in the target set, as well as any external children.
     commits: HashMap<CommitId, Commit>,
-    /// Heads of the set in the order they should be added to the UI. This is
-    /// used to make the graph rendering more stable. It must be kept up to date
-    /// parents are changed.
+    /// Heads of the target set in the order they should be added to the UI.
+    /// This is used to make the graph rendering more stable. It must be
+    /// kept up to date when parents are changed.
     head_order: Vec<CommitId>,
-    /// The current order of commits in the UI. This is recalculated when
-    /// necessary from `head_order`.
+    /// The current order of commits target commits in the UI. This is
+    /// recalculated when necessary from `head_order`.
     current_order: Vec<CommitId>,
-    // The current selection as an index into `current_order`
+    /// The current selection as an index into `current_order`
     current_selection: usize,
     actions: HashMap<CommitId, UiAction>,
     parents: HashMap<CommitId, Vec<CommitId>>,
-    external_children: HashMap<CommitId, Commit>,
+    // TODO: Use this to render external children
+    #[expect(dead_code)]
+    external_children: IndexSet<CommitId>,
 }
 
 impl State {
@@ -186,28 +190,25 @@ impl State {
             .filter(|&commit| heads.contains(commit.id()))
             .map(|commit| commit.id().clone())
             .collect();
-        let actions = commits
+        let external_children_ids = external_children
             .iter()
-            .chain(external_children.iter())
-            .map(|commit| (commit.id().clone(), UiAction::Keep))
+            .map(|commit| commit.id().clone())
             .collect();
         let commits: HashMap<CommitId, Commit> = commits
             .into_iter()
-            .map(|commit| {
+            .chain(external_children)
+            .map(|commit: Commit| {
                 let id = commit.id().clone();
                 (id, commit)
             })
             .collect();
-        let mut parents: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
-        for (id, commit) in &commits {
-            parents.insert(id.clone(), commit.parent_ids().to_vec());
-        }
-        for child in &external_children {
-            parents.insert(child.id().clone(), child.parent_ids().to_vec());
-        }
-        let external_children = external_children
-            .into_iter()
-            .map(|commit| (commit.id().clone(), commit))
+        let actions = commits
+            .keys()
+            .map(|id| (id.clone(), UiAction::Keep))
+            .collect();
+        let parents: HashMap<CommitId, Vec<CommitId>> = commits
+            .values()
+            .map(|commit| (commit.id().clone(), commit.parent_ids().to_vec()))
             .collect();
         let mut state = Self {
             commits,
@@ -216,7 +217,7 @@ impl State {
             current_selection: 0,
             actions,
             parents,
-            external_children,
+            external_children: external_children_ids,
         };
         state.update_commit_order();
         state
@@ -299,8 +300,7 @@ impl State {
             let commit = self
                 .commits
                 .get(id)
-                .or_else(|| self.external_children.get(id))
-                .expect("actions should only contain commits in commits or external_children");
+                .expect("actions should only contain commits in commits");
             let parents = self.parents.get(id).unwrap();
             rewrites.insert(
                 id.clone(),
@@ -433,7 +433,7 @@ fn run_tui<B: ratatui::backend::Backend>(
                     return Ok(Some(state));
                 }
                 (KeyCode::Down | KeyCode::Char('j'), KeyModifiers::NONE) => {
-                    if state.current_selection + 1 < state.commits.len() {
+                    if state.current_selection + 1 < state.current_order.len() {
                         state.current_selection += 1;
                     }
                 }
@@ -451,7 +451,7 @@ fn run_tui<B: ratatui::backend::Backend>(
                     state.actions.insert(id, UiAction::Keep);
                 }
                 (KeyCode::Down | KeyCode::Char('J'), KeyModifiers::SHIFT) => {
-                    if state.current_selection + 1 < state.commits.len()
+                    if state.current_selection + 1 < state.current_order.len()
                         && state.are_graph_neighbors(
                             state.current_selection,
                             state.current_selection + 1,
