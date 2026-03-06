@@ -171,11 +171,21 @@ struct State {
 }
 
 impl State {
+    /// Creates a new `State` from a list of commits and a list of external
+    /// children. The list of commits must not have gaps between commits.
     fn new(commits: Vec<Commit>, external_children: Vec<Commit>) -> Self {
-        let initial_order = commits
+        // Initialize head_order to match the heads in the input's order.
+        let mut heads: HashSet<_> = commits.iter().map(|commit| commit.id()).collect();
+        for commit in &commits {
+            for parent in commit.parent_ids() {
+                heads.remove(parent);
+            }
+        }
+        let head_order = commits
             .iter()
+            .filter(|&commit| heads.contains(commit.id()))
             .map(|commit| commit.id().clone())
-            .collect_vec();
+            .collect();
         let actions = commits
             .iter()
             .chain(external_children.iter())
@@ -199,23 +209,6 @@ impl State {
             .into_iter()
             .map(|commit| (commit.id().clone(), commit))
             .collect();
-        // Initialize head_order to match the heads in the input's order.
-        let heads: HashSet<&CommitId> = dag_walk::heads(
-            initial_order.iter(),
-            |id| *id,
-            |id| {
-                parents
-                    .get(id)
-                    .unwrap()
-                    .iter()
-                    .filter(|id| commits.contains_key(id))
-            },
-        );
-        let head_order = initial_order
-            .iter()
-            .filter(|id| heads.contains(id))
-            .cloned()
-            .collect_vec();
         let mut state = Self {
             commits,
             head_order,
