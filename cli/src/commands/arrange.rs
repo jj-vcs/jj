@@ -489,8 +489,9 @@ fn render(
         .with_min_row_height(2)
         .build_box_drawing();
     let mut row_area = main_area;
+    let current_seletion_id = &state.current_order[state.current_selection];
     // TODO: It might be nice to render external parents and children grayed out
-    for (index, id) in state.current_order.iter().enumerate() {
+    for id in &state.current_order {
         // TODO: Make the graph column width depend on what's needed to render the
         // graph.
         let row_layout = Layout::horizontal([
@@ -505,7 +506,7 @@ fn render(
         let action_area = row_layout[2];
         let text_area = row_layout[3];
 
-        if index == state.current_selection {
+        if id == current_seletion_id {
             frame.render_widget(Text::from("▶"), selection_area);
         }
 
