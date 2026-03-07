@@ -184,7 +184,7 @@ pub(crate) async fn cmd_evolog(
                 template.format(&entry, formatter)
             })?;
             if let Some(renderer) = &diff_renderer {
-                let predecessors: Vec<_> = entry.predecessors().try_collect()?;
+                let predecessors = entry.predecessors().await?;
                 let mut formatter = ui.new_formatter(&mut buffer);
                 renderer
                     .show_inter_diff(
@@ -218,7 +218,7 @@ pub(crate) async fn cmd_evolog(
             let entry = entry?;
             with_content_format.write(formatter, |formatter| template.format(&entry, formatter))?;
             if let Some(renderer) = &diff_renderer {
-                let predecessors: Vec<_> = entry.predecessors().try_collect()?;
+                let predecessors = entry.predecessors().await?;
                 let width = ui.term_width();
                 renderer
                     .show_inter_diff(
