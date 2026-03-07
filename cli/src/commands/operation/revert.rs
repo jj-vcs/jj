@@ -58,8 +58,8 @@ pub async fn cmd_op_revert(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let bad_op = workspace_command.resolve_single_op(&args.operation)?;
-    let parent_of_bad_op = match bad_op.parents().at_most_one() {
-        Ok(Some(parent_of_bad_op)) => parent_of_bad_op?,
+    let parent_of_bad_op = match bad_op.parents().await?.into_iter().at_most_one() {
+        Ok(Some(parent_of_bad_op)) => parent_of_bad_op,
         Ok(None) => return Err(user_error("Cannot revert root operation")),
         Err(_) => return Err(user_error("Cannot revert a merge operation")),
     };

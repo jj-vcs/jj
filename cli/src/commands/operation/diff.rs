@@ -119,7 +119,7 @@ pub async fn cmd_op_diff(
         to_op = workspace_command.resolve_single_op(args.to.as_deref().unwrap_or("@"))?;
     } else {
         to_op = workspace_command.resolve_single_op(args.operation.as_deref().unwrap_or("@"))?;
-        from_ops = to_op.parents().try_collect()?;
+        from_ops = to_op.parents().await?;
     }
     let graph_style = GraphStyle::from_settings(settings)?;
     let with_content_format = LogContentFormat::new(ui, settings)?;

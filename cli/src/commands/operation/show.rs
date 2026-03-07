@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCandidates;
-use itertools::Itertools as _;
 use jj_lib::operation::Operation;
 
 use super::diff::parse_op_diff_changes_in;
@@ -89,7 +88,7 @@ pub async fn cmd_op_show(
     let repo_loader = workspace_command.workspace().repo_loader();
     let settings = workspace_command.settings();
     let op = workspace_command.resolve_single_op(&args.operation)?;
-    let parent_ops: Vec<_> = op.parents().try_collect()?;
+    let parent_ops = op.parents().await?;
     let merged_parent_op = repo_loader
         .merge_operations(parent_ops.clone(), None)
         .await?;

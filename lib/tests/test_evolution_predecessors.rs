@@ -154,7 +154,9 @@ fn test_walk_predecessors_concurrent_ops() -> TestResult {
     let [op2, op3] = repo4
         .operation()
         .parents()
-        .map(Result::unwrap)
+        .block_on()
+        .unwrap()
+        .into_iter()
         .collect_array()
         .unwrap();
 

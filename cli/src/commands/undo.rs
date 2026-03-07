@@ -118,8 +118,8 @@ pub async fn cmd_undo(
         writeln!(ui.hint_default(), "To avoid this, run `jj redo` now.")?;
     }
 
-    let mut op_to_restore = match op_to_undo.parents().at_most_one() {
-        Ok(Some(parent_of_op_to_undo)) => parent_of_op_to_undo?,
+    let mut op_to_restore = match op_to_undo.parents().await?.into_iter().at_most_one() {
+        Ok(Some(parent_of_op_to_undo)) => parent_of_op_to_undo,
         Ok(None) => return Err(user_error("Cannot undo root operation")),
         Err(_) => {
             return Err(user_error("Cannot undo a merge operation")
