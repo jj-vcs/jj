@@ -2319,12 +2319,12 @@ specify a contributor's bookmark as <code>jj new &lt;bookmark&gt;</code> instead
 that aren't <a href="../git-compatibility/#colocated-jujutsugit-repos">colocated</a>
 (see <a href="https://github.com/jj-vcs/jj/issues/1008">issue #1008</a>). You can configure the <code>$GIT_DIR</code> environment variable to
 point it to the right path:</p>
-<div class="highlight"><pre><span></span><code>$<span class="w"> </span><span class="nv">GIT_DIR</span><span class="o">=</span>.jj/repo/store/git<span class="w"> </span>gh<span class="w"> </span>issue<span class="w"> </span>list
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span><span class="nv">GIT_DIR</span><span class="o">=</span><span class="k">$(</span>jj<span class="w"> </span>git<span class="w"> </span>root<span class="k">)</span><span class="w"> </span>gh<span class="w"> </span>issue<span class="w"> </span>list
 </code></pre></div>
 <p>You can make that automatic by installing <a href="https://direnv.net">direnv</a> and
 defining hooks in a <code>.envrc</code> file in the repository root to configure <code>$GIT_DIR</code>.
 Just add this line into <code>.envrc</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">GIT_DIR</span><span class="o">=</span><span class="nv">$PWD</span>/.jj/repo/store/git
+<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">GIT_DIR</span><span class="o">=</span><span class="k">$(</span>jj<span class="w"> </span>git<span class="w"> </span>root<span class="k">)</span>
 </code></pre></div>
 <p>and run <code>direnv allow</code> to approve it for direnv to run. Then GitHub CLI will
 work automatically even in workspaces that aren't colocated so you can execute
