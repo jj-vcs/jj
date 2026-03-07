@@ -15,6 +15,7 @@
 //! Contains the `ReadonlyUserRepo`.
 
 use std::cell::OnceCell;
+use std::mem;
 use std::sync::Arc;
 
 use crate::id_prefix::IdPrefixContext;
@@ -24,19 +25,33 @@ use crate::repo::ReadonlyRepo;
 /// data is lazily loaded.
 pub struct ReadonlyUserRepo {
     /// The `ReadonlyRepo` we currently work on.
-    // TODO: make private
-    pub repo: Arc<ReadonlyRepo>,
+    repo: Arc<ReadonlyRepo>,
     /// The associated `IdPrefixContext`
-    // TODO: make private
-    pub id_prefix_context: OnceCell<IdPrefixContext>,
+    id_prefix_context: OnceCell<IdPrefixContext>,
 }
 
 impl ReadonlyUserRepo {
-    /// Create a new `ReadonlyUserRepo` from `repo`.
+    /// Creates a new `ReadonlyUserRepo` from `repo`.
     pub fn new(repo: Arc<ReadonlyRepo>) -> Self {
         Self {
             repo,
             id_prefix_context: OnceCell::new(),
         }
+    }
+
+    /// Gets the associated `ReadonlyRepo`.
+    pub fn repo(&self) -> &Arc<ReadonlyRepo> {
+        &self.repo
+    }
+
+    /// Gets the associated `IdPrefixContext`. Makes no guarantees about being
+    /// initialized.
+    pub fn id_prefix_context(&self) -> &OnceCell<IdPrefixContext> {
+        &self.id_prefix_context
+    }
+
+    /// Takes the `IdPrefixContext` from the `ReadonlyUserRepo`.
+    pub fn take_id_prefix_context(&mut self) -> OnceCell<IdPrefixContext> {
+        mem::take(&mut self.id_prefix_context)
     }
 }

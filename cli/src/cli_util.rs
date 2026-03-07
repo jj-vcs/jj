@@ -1316,7 +1316,7 @@ impl WorkspaceCommandHelper {
             );
             if self.env.command.should_commit_transaction() {
                 locked_ws
-                    .finish(self.user_repo.repo.op_id().clone())
+                    .finish(self.user_repo.repo().op_id().clone())
                     .await?;
             }
             if old_git_head.is_present() {
@@ -1381,7 +1381,7 @@ impl WorkspaceCommandHelper {
     }
 
     pub fn repo(&self) -> &Arc<ReadonlyRepo> {
-        &self.user_repo.repo
+        self.user_repo.repo()
     }
 
     pub fn repo_path(&self) -> &Path {
@@ -1437,7 +1437,7 @@ impl WorkspaceCommandHelper {
         let mut locked_ws = self.workspace.start_working_copy_mutation()?;
         let (repo, new_commit) = working_copy::create_and_check_out_recovery_commit(
             locked_ws.locked_wc(),
-            &self.user_repo.repo,
+            self.user_repo.repo(),
             workspace_name,
             "RECOVERY COMMIT FROM `jj workspace update-stale`
 
@@ -1803,7 +1803,7 @@ to the current parents may contain changes from multiple commits.
 
     pub fn id_prefix_context(&self) -> &IdPrefixContext {
         self.user_repo
-            .id_prefix_context
+            .id_prefix_context()
             .get_or_init(|| self.env.new_id_prefix_context())
     }
 
@@ -2021,7 +2021,7 @@ to the current parents may contain changes from multiple commits.
         };
         if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
             let mut tx = start_repo_transaction(
-                &self.user_repo.repo,
+                self.user_repo.repo(),
                 &workspace_name,
                 self.env.command.string_args(),
             );
@@ -2099,7 +2099,7 @@ to the current parents may contain changes from multiple commits.
 
         if self.env.command.should_commit_transaction() {
             locked_ws
-                .finish(self.user_repo.repo.op_id().clone())
+                .finish(self.user_repo.repo().op_id().clone())
                 .await
                 .map_err(snapshot_command_error)?;
         }
@@ -2114,7 +2114,7 @@ to the current parents may contain changes from multiple commits.
     ) -> Result<(), CommandError> {
         assert!(self.may_update_working_copy);
         let stats = update_working_copy(
-            &self.user_repo.repo,
+            self.user_repo.repo(),
             &mut self.workspace,
             maybe_old_commit,
             new_commit,
@@ -2165,7 +2165,7 @@ to the current parents may contain changes from multiple commits.
             self.workspace_name(),
             self.env.command.string_args(),
         );
-        let id_prefix_context = mem::take(&mut self.user_repo.id_prefix_context);
+        let id_prefix_context = self.user_repo.take_id_prefix_context();
         WorkspaceCommandTransaction {
             helper: self,
             tx,
