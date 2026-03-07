@@ -121,6 +121,7 @@ pub mod user_error;
 pub mod view;
 pub mod working_copy;
 pub mod workspace;
+pub mod workspace_operation_runner;
 pub mod workspace_store;
 pub mod workspace_util;
 
