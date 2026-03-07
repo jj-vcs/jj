@@ -188,7 +188,7 @@ that aren't [colocated](./git-compatibility.md#colocated-jujutsugit-repos)
 point it to the right path:
 
 ```shell
-$ GIT_DIR=.jj/repo/store/git gh issue list
+$ GIT_DIR=$(jj git root) gh issue list
 ```
 
 You can make that automatic by installing [direnv](https://direnv.net) and
@@ -196,7 +196,7 @@ defining hooks in a `.envrc` file in the repository root to configure `$GIT_DIR`
 Just add this line into `.envrc`:
 
 ```shell
-export GIT_DIR=$PWD/.jj/repo/store/git
+export GIT_DIR=$(jj git root)
 ```
 
 and run `direnv allow` to approve it for direnv to run. Then GitHub CLI will
