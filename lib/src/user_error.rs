@@ -62,11 +62,15 @@ use crate::str_util::StringPatternParseError;
 use crate::trailer::TrailerParseError;
 use crate::transaction::TransactionCommitError;
 use crate::view::RenameWorkspaceError;
+use crate::working_copy::CheckoutError;
 use crate::working_copy::RecoverWorkspaceError;
 use crate::working_copy::ResetError;
 use crate::working_copy::SnapshotError;
 use crate::working_copy::WorkingCopyStateError;
 use crate::workspace::WorkspaceInitError;
+use crate::workspace_operation_runner::FinishedTransactionError;
+use crate::workspace_operation_runner::HandleStaleWorkingCopyError;
+use crate::workspace_operation_runner::WorkspaceOperationError;
 use crate::workspace_store::WorkspaceStoreError;
 
 /// The supported UserError kinds and their source.
@@ -471,6 +475,9 @@ mod git {
     use crate::git::GitRemoteManagementError;
     use crate::git::GitResetHeadError;
     use crate::git::UnexpectedGitBackendError;
+    use crate::workspace_operation_runner::ImportGitError;
+    use crate::workspace_operation_runner::ImportGitHeadError;
+    use crate::workspace_operation_runner::WorkspaceGitExportError;
 
     impl From<GitImportError> for UserError {
         fn from(err: GitImportError) -> Self {
@@ -560,6 +567,47 @@ jj currently does not support partial clones. To use jj with this repository, tr
     impl From<UnexpectedGitBackendError> for UserError {
         fn from(err: UnexpectedGitBackendError) -> Self {
             user_error(err)
+        }
+    }
+
+    impl From<ImportGitError> for UserError {
+        fn from(err: ImportGitError) -> Self {
+            match err {
+                ImportGitError::Backend(err) => err.into(),
+                // TODO: the below may not be correct.
+                ImportGitError::Checkout(err) => user_error(err),
+                ImportGitError::CheckoutCommit(err) => err.into(),
+                ImportGitError::GitExport(err) => err.into(),
+                ImportGitError::GitImport(err) => err.into(),
+                ImportGitError::ResetFailed(err) => err.into(),
+                ImportGitError::Transaction(err) => err.into(),
+            }
+        }
+    }
+
+    impl From<ImportGitHeadError> for UserError {
+        fn from(err: ImportGitHeadError) -> Self {
+            match err {
+                ImportGitHeadError::Backend(err) => err.into(),
+                // TODO: the below may not be correct
+                ImportGitHeadError::Checkout(err) => user_error(err),
+                ImportGitHeadError::CheckoutCommit(err) => err.into(),
+                ImportGitHeadError::GitExport(err) => err.into(),
+                ImportGitHeadError::GitImport(err) => err.into(),
+                ImportGitHeadError::GitReset(err) => err.into(),
+                ImportGitHeadError::Reset(err) => err.into(),
+                ImportGitHeadError::TransactionCommit(err) => err.into(),
+                ImportGitHeadError::WorkingCopyState(err) => err.into(),
+            }
+        }
+    }
+
+    impl From<WorkspaceGitExportError> for UserError {
+        fn from(err: WorkspaceGitExportError) -> Self {
+            match err {
+                WorkspaceGitExportError::GitReset(err) => err.into(),
+                WorkspaceGitExportError::GitExport(err) => err.into(),
+            }
         }
     }
 }
@@ -664,6 +712,108 @@ impl From<BisectionError> for UserError {
 impl From<SecureConfigError> for UserError {
     fn from(err: SecureConfigError) -> Self {
         internal_error_with_message("Failed to determine the secure config for a repo", err)
+    }
+}
+
+impl From<WorkspaceOperationError> for UserError {
+    fn from(err: WorkspaceOperationError) -> Self {
+        match err {
+            WorkspaceOperationError::Backend(err) => err.into(),
+            WorkspaceOperationError::GitExport(err) => err.into(),
+            WorkspaceOperationError::GitReset(err) => err.into(),
+            WorkspaceOperationError::OperationStore(err) => err.into(),
+            WorkspaceOperationError::RecoverWorkspace(err) => err.into(),
+            WorkspaceOperationError::RepoLoad(err) => err.into(),
+            WorkspaceOperationError::RewriteRoot(err) => err.into(),
+            WorkspaceOperationError::Snapshot(err) => err.into(),
+            WorkspaceOperationError::StaleWorkingCopy(ref id) => internal_error_with_message(
+                format!(
+                    "The workspace is stale (at operation {}).",
+                    short_operation_hash(id)
+                ),
+                err,
+            ),
+            WorkspaceOperationError::Transaction(err) => err.into(),
+            WorkspaceOperationError::WorkingCopyState(err) => err.into(),
+            WorkspaceOperationError::WorkspaceStaleSibling(ref operation_id, ref sibling_id) => {
+                internal_error_with_message(
+                    format!(
+                        "The workspace is stale (at operation {}) with the sibling being {}.",
+                        short_operation_hash(operation_id),
+                        short_operation_hash(sibling_id)
+                    ),
+                    err,
+                )
+            }
+        }
+    }
+}
+
+impl From<FinishedTransactionError> for UserError {
+    fn from(err: FinishedTransactionError) -> Self {
+        match err {
+            FinishedTransactionError::Backend(err) => err.into(),
+            // TODO: this may also be not correct.
+            FinishedTransactionError::Checkout(err) => internal_error(err),
+            // TODO: this may also be not correct.
+            FinishedTransactionError::CheckoutCommit(err) => internal_error(err),
+            FinishedTransactionError::GitExport(err) => err.into(),
+            FinishedTransactionError::ResetHeadFailed(err) => err.into(),
+            FinishedTransactionError::Transaction(err) => err.into(),
+        }
+    }
+}
+
+// TODO: this seems wrong
+impl From<CheckoutError> for UserError {
+    fn from(err: CheckoutError) -> Self {
+        match err {
+            CheckoutError::SourceNotFound { source } => internal_error(source),
+            CheckoutError::ConcurrentCheckout => internal_error(err),
+            CheckoutError::InvalidRepoPath(err) => internal_error(err),
+            CheckoutError::ReservedPathComponent { ref path, name } => internal_error_with_message(
+                format!(
+                    "Reserved path component {} in path {} ",
+                    name,
+                    path.display(),
+                ),
+                err,
+            ),
+            CheckoutError::InternalBackendError(err) => err.into(),
+            CheckoutError::WorkingCopyStateError(err) => err.into(),
+            CheckoutError::Other { message, err } => internal_error_with_message(message, err),
+        }
+    }
+}
+
+impl From<HandleStaleWorkingCopyError> for UserError {
+    fn from(err: HandleStaleWorkingCopyError) -> Self {
+        match err {
+            HandleStaleWorkingCopyError::Backend(err) => err.into(),
+            HandleStaleWorkingCopyError::OperationStoreError(err) => err.into(),
+            HandleStaleWorkingCopyError::RepoLoad(err) => err.into(),
+            // The last two variants shouldn't be reachable by CLI code.
+            HandleStaleWorkingCopyError::StaleSiblingOperation(
+                ref operation_id,
+                ref sibling_id,
+            ) => internal_error_with_message(
+                format!(
+                    "The working-copy is stale at operation {} and has a sibling {}",
+                    short_operation_hash(operation_id),
+                    short_operation_hash(sibling_id)
+                ),
+                err,
+            ),
+            HandleStaleWorkingCopyError::WorkingCopyStale(ref operation_id) => {
+                internal_error_with_message(
+                    format!(
+                        "The working-copy is stale at {}",
+                        short_operation_hash(operation_id)
+                    ),
+                    err,
+                )
+            }
+        }
     }
 }
 
@@ -852,7 +1002,7 @@ fn string_pattern_parse_error_hint(err: &StringPatternParseError) -> Option<Stri
     }
 }
 
-/// Prints ashort operation hash of the given `OperationId`.
+/// Prints a short operation hash of the given `OperationId`.
 // TODO: remove these duplicate functions
 pub fn short_operation_hash(operation_id: &OperationId) -> String {
     format!("{operation_id:.12}")
