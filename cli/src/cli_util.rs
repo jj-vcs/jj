@@ -89,6 +89,7 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::op_walk;
 use jj_lib::op_walk::OpsetEvaluationError;
 use jj_lib::operation::Operation;
+use jj_lib::readonly_user_repo::ReadonlyUserRepo;
 use jj_lib::ref_name::RefName;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
@@ -769,22 +770,6 @@ impl CommandHelper {
         let env = self.workspace_environment(ui, &workspace)?;
         let loaded_at_head = true;
         WorkspaceCommandHelper::new(ui, workspace, repo, env, loaded_at_head)
-    }
-}
-
-/// A ReadonlyRepo along with user-config-dependent derived data. The derived
-/// data is lazily loaded.
-struct ReadonlyUserRepo {
-    repo: Arc<ReadonlyRepo>,
-    id_prefix_context: OnceCell<IdPrefixContext>,
-}
-
-impl ReadonlyUserRepo {
-    fn new(repo: Arc<ReadonlyRepo>) -> Self {
-        Self {
-            repo,
-            id_prefix_context: OnceCell::new(),
-        }
     }
 }
 
