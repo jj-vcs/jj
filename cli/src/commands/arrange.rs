@@ -155,9 +155,16 @@ enum UiAction {
     Keep,
 }
 
+/// The state of a single commit in the UI
+struct CommitState {
+    commit: Commit,
+    action: UiAction,
+    parents: Vec<CommitId>,
+}
+
 struct State {
     /// Commits in the target set, as well as any external children.
-    commits: HashMap<CommitId, Commit>,
+    commits: HashMap<CommitId, CommitState>,
     /// Heads of the target set in the order they should be added to the UI.
     /// This is used to make the graph rendering more stable. It must be
     /// kept up to date when parents are changed.
@@ -167,8 +174,6 @@ struct State {
     current_order: Vec<CommitId>,
     /// The current selection as an index into `current_order`
     current_selection: usize,
-    actions: HashMap<CommitId, UiAction>,
-    parents: HashMap<CommitId, Vec<CommitId>>,
     // TODO: Use this to render external children
     #[expect(dead_code)]
     external_children: IndexSet<CommitId>,
@@ -194,29 +199,25 @@ impl State {
             .iter()
             .map(|commit| commit.id().clone())
             .collect();
-        let commits: HashMap<CommitId, Commit> = commits
+        let commits: HashMap<CommitId, CommitState> = commits
             .into_iter()
             .chain(external_children)
             .map(|commit: Commit| {
                 let id = commit.id().clone();
-                (id, commit)
+                let parents = commit.parent_ids().to_vec();
+                let commit_state = CommitState {
+                    commit,
+                    action: UiAction::Keep,
+                    parents,
+                };
+                (id, commit_state)
             })
-            .collect();
-        let actions = commits
-            .keys()
-            .map(|id| (id.clone(), UiAction::Keep))
-            .collect();
-        let parents: HashMap<CommitId, Vec<CommitId>> = commits
-            .values()
-            .map(|commit| (commit.id().clone(), commit.parent_ids().to_vec()))
             .collect();
         let mut state = Self {
             commits,
             head_order,
             current_order: vec![], // Will be set by update_commit_order()
             current_selection: 0,
-            actions,
-            parents,
             external_children: external_children_ids,
         };
         state.update_commit_order();
@@ -231,9 +232,10 @@ impl State {
             self.head_order.iter(),
             |id| *id,
             |id| {
-                self.parents
+                self.commits
                     .get(id)
                     .unwrap()
+                    .parents
                     .iter()
                     .filter(|id| self.commits.contains_key(id))
             },
@@ -247,8 +249,8 @@ impl State {
     fn are_graph_neighbors(&self, a_idx: usize, b_idx: usize) -> bool {
         let a_id = &self.current_order[a_idx];
         let b_id = &self.current_order[b_idx];
-        self.parents.get(b_id).unwrap().contains(a_id)
-            || self.parents.get(a_id).unwrap().contains(b_id)
+        self.commits.get(b_id).unwrap().parents.contains(a_id)
+            || self.commits.get(a_id).unwrap().parents.contains(b_id)
     }
 
     fn swap_commits(&mut self, a_idx: usize, b_idx: usize) {
@@ -277,8 +279,8 @@ impl State {
         }
 
         // Update references to the swapped commits from their children
-        for parents in self.parents.values_mut() {
-            for id in parents {
+        for commit_state in self.commits.values_mut() {
+            for id in &mut commit_state.parents {
                 if id == a_id {
                     *id = b_id.clone();
                 } else if id == b_id {
@@ -287,27 +289,23 @@ impl State {
             }
         }
 
-        // Temporarily remove the parents of the swapped commits
-        let a_parents = self.parents.remove(a_id).unwrap();
-        let b_parents = self.parents.remove(b_id).unwrap();
-        self.parents.insert(a_id.clone(), b_parents);
-        self.parents.insert(b_id.clone(), a_parents);
+        // Swap the parents of the swapped commits
+        let [a_state, b_state] = self
+            .commits
+            .get_disjoint_mut([a_id, b_id])
+            .map(Option::unwrap);
+        std::mem::swap(&mut a_state.parents, &mut b_state.parents);
     }
 
     fn to_rewrite_plan(&self) -> RewritePlan {
         let mut rewrites = HashMap::new();
-        for (id, action) in &self.actions {
-            let commit = self
-                .commits
-                .get(id)
-                .expect("actions should only contain commits in commits");
-            let parents = self.parents.get(id).unwrap();
+        for (id, commit_state) in &self.commits {
             rewrites.insert(
                 id.clone(),
                 Rewrite {
-                    old_commit: commit.clone(),
-                    new_parents: parents.clone(),
-                    action: match action {
+                    old_commit: commit_state.commit.clone(),
+                    new_parents: commit_state.parents.clone(),
+                    action: match commit_state.action {
                         UiAction::Abandon => RewriteAction::Abandon,
                         UiAction::Keep => RewriteAction::Keep,
                     },
@@ -444,11 +442,11 @@ fn run_tui<B: ratatui::backend::Backend>(
                 }
                 (KeyCode::Char('a'), KeyModifiers::NONE) => {
                     let id = state.current_order[state.current_selection].clone();
-                    state.actions.insert(id, UiAction::Abandon);
+                    state.commits.get_mut(&id).unwrap().action = UiAction::Abandon;
                 }
                 (KeyCode::Char('p'), KeyModifiers::NONE) => {
                     let id = state.current_order[state.current_selection].clone();
-                    state.actions.insert(id, UiAction::Keep);
+                    state.commits.get_mut(&id).unwrap().action = UiAction::Keep;
                 }
                 (KeyCode::Down | KeyCode::Char('J'), KeyModifiers::SHIFT) => {
                     if state.current_selection + 1 < state.current_order.len()
@@ -511,14 +509,14 @@ fn render(
             frame.render_widget(Text::from("▶"), selection_area);
         }
 
-        let commit = state.commits.get(id).unwrap();
-        let action = state.actions.get(id).unwrap();
+        let commit_state = state.commits.get(id).unwrap();
+        let action = &commit_state.action;
 
         // TODO: The graph can be misaligned with the text because sometimes `renderdag`
         // inserts a line of edges before the line with the node and we assume the node
         // is the first line emitted.
-        let parents = state.parents.get(id).unwrap();
-        let edges = parents
+        let edges = commit_state
+            .parents
             .iter()
             .map(|parent| {
                 if state.commits.contains_key(parent) {
@@ -550,7 +548,9 @@ fn render(
 
         let mut text_lines = vec![];
         let mut formatter = ui.new_formatter(&mut text_lines);
-        template.format(commit, formatter.as_mut()).unwrap();
+        template
+            .format(&commit_state.commit, formatter.as_mut())
+            .unwrap();
         drop(formatter);
         let text = ansi_to_tui::IntoText::into_text(&text_lines).unwrap();
         frame.render_widget(text, text_area);
@@ -642,12 +642,9 @@ mod tests {
         );
 
         // Update parents and head order and check that the commit order changes.
-        state
-            .parents
-            .insert(commit_a.id().clone(), vec![commit_c.id().clone()]);
-        state
-            .parents
-            .insert(commit_b.id().clone(), vec![store.root_commit_id().clone()]);
+        state.commits.get_mut(commit_a.id()).unwrap().parents = vec![commit_c.id().clone()];
+        state.commits.get_mut(commit_b.id()).unwrap().parents =
+            vec![store.root_commit_id().clone()];
         state.head_order = vec![commit_d.id().clone(), commit_a.id().clone()];
         state.update_commit_order();
         assert_eq!(
@@ -726,19 +723,19 @@ mod tests {
         );
         assert_eq!(state.current_selection, 2);
         assert_eq!(
-            *state.parents.get(commit_c.id()).unwrap(),
+            *state.commits.get(commit_c.id()).unwrap().parents,
             vec![commit_b.id().clone(), commit_d.id().clone()],
         );
         assert_eq!(
-            *state.parents.get(commit_d.id()).unwrap(),
+            *state.commits.get(commit_d.id()).unwrap().parents,
             vec![commit_a.id().clone()],
         );
         assert_eq!(
-            *state.parents.get(commit_e.id()).unwrap(),
+            *state.commits.get(commit_e.id()).unwrap().parents,
             vec![commit_d.id().clone()],
         );
         assert_eq!(
-            *state.parents.get(commit_f.id()).unwrap(),
+            *state.commits.get(commit_f.id()).unwrap().parents,
             vec![commit_c.id().clone()],
         );
     }
