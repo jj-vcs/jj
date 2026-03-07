@@ -1010,6 +1010,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#bookmark-advance-default-targets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Bookmark advance default targets
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#commit-trailers" class="md-nav__link">
     <span class="md-ellipsis">
       Commit trailers
@@ -2932,6 +2941,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#bookmark-advance-default-targets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Bookmark advance default targets
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#commit-trailers" class="md-nav__link">
     <span class="md-ellipsis">
       Commit trailers
@@ -4025,6 +4043,28 @@ sort keys are supported: <code>name</code>, <code>author-name</code>, <code>auth
 to sort in descending order. Multiple keys can be supplied here, the first key
 is the most significant.</p>
 <p>When the <code>--sort</code> option is used, the configuration is ignored.</p>
+<h3 id="bookmark-advance-default-targets">Bookmark advance default targets<a class="headerlink" href="#bookmark-advance-default-targets" title="Permanent link">&para;</a></h3>
+<p>The <code>jj bookmark advance</code> command moves bookmarks forward in the graph. The
+default values for what bookmarks to advance and where to advance them to are:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[revsets]</span>
+<span class="n">bookmark-advance-from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;heads(::to &amp; bookmarks())&#39;</span><span class="w">  </span><span class="c1"># The closest bookmarks</span>
+<span class="n">bookmark-advance-to</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;@&#39;</span><span class="w">  </span><span class="c1"># To the current working copy</span>
+</code></pre></div>
+<p>The default <code>from</code> is likely to be a good fit for almost everyone. The <code>from</code>
+revset has access to <code>to</code>, allowing it to find bookmarks relative to the
+destination revision.</p>
+<p>The default <code>to</code> is largely up to your preference and workflow. One simple
+alternative which fits squash-heavy workflows is <code>@-</code>, while a more involved
+and versatile alternative that advances to the closest "pushable" revision is:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[revsets]</span>
+<span class="n">bookmark-advance-to</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;closest_pushable(@)&#39;</span>
+
+<span class="k">[revset-aliases]</span>
+<span class="c1"># Closest revision that is mutable, described and either non-empty or a merge</span>
+<span class="s1">&#39;closest_pushable(to)&#39;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">  heads(::to &amp; mutable() &amp; ~description(exact:&quot;&quot;) &amp; (~empty() | merges()))</span>
+<span class="s1">&#39;&#39;&#39;</span>
+</code></pre></div>
 <h3 id="commit-trailers">Commit trailers<a class="headerlink" href="#commit-trailers" title="Permanent link">&para;</a></h3>
 <p>You can configure automatic addition of one or more trailers to commit
 descriptions using the <code>commit_trailers</code> template.</p>
