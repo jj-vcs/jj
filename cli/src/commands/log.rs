@@ -73,7 +73,7 @@ pub(crate) struct LogArgs {
     ///
     /// If no paths nor revisions are specified, this defaults to the
     /// `revsets.log` setting.
-    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revisions: Vec<RevisionArg>,
 

@@ -45,9 +45,9 @@ fn test_rebase_invalid() {
     let output = work_dir.run_jj(["rebase", "-r", "a", "-s", "a", "-o", "b"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    error: the argument '--revisions <REVSETS>' cannot be used with '--source <REVSETS>'
+    error: the argument '--revision <REVSETS>' cannot be used with '--source <REVSETS>'
 
-    Usage: jj rebase --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+    Usage: jj rebase --revision <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
     For more information, try '--help'.
     [EOF]
@@ -73,7 +73,7 @@ fn test_rebase_invalid() {
     ------- stderr -------
     error: the argument '--onto <REVSETS>' cannot be used with '--insert-after <REVSETS>'
 
-    Usage: jj rebase --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+    Usage: jj rebase --revision <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
     For more information, try '--help'.
     [EOF]
@@ -86,7 +86,7 @@ fn test_rebase_invalid() {
     ------- stderr -------
     error: the argument '--onto <REVSETS>' cannot be used with '--insert-before <REVSETS>'
 
-    Usage: jj rebase --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+    Usage: jj rebase --revision <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
     For more information, try '--help'.
     [EOF]

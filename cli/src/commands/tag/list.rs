@@ -87,7 +87,7 @@ pub struct TagListArgs {
     ///
     /// Note that `-r deleted_tag` will not work since `deleted_tag` wouldn't
     /// have a local target.
-    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
     revisions: Option<Vec<RevisionArg>>,
 
     /// Render each tag using the given template

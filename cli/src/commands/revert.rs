@@ -48,7 +48,13 @@ use crate::ui::Ui;
 #[command(group(ArgGroup::new("location").args(&["onto", "insert_after", "insert_before"]).multiple(true).required(true)))]
 pub(crate) struct RevertArgs {
     /// The revision(s) to apply the reverse of
-    #[arg(long, short, value_name = "REVSETS", required = true)]
+    #[arg(
+        long = "revision",
+        short,
+        value_name = "REVSETS",
+        required = true,
+        alias = "revisions"
+    )]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revisions: Vec<RevisionArg>,
 

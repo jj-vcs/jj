@@ -177,7 +177,7 @@ pub struct GitPushArgs {
     allow_private: bool,
 
     /// Push bookmarks pointing to these commits (can be repeated)
-    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
     // While `-r` will often be used with mutable revisions, immutable revisions
     // can be useful as parts of revsets or to push special-purpose branches.
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
