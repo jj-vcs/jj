@@ -41,9 +41,9 @@ use crate::backend::TreeValue;
 use crate::conflict_labels::ConflictLabels;
 use crate::copies::CopiesTreeDiffEntry;
 use crate::copies::CopiesTreeDiffStream;
-use crate::copies::CopyHistoryDiffStream;
 use crate::copies::CopyHistoryTreeDiffEntry;
 use crate::copies::CopyRecords;
+use crate::copies::copy_history_diff_stream;
 use crate::matchers::EverythingMatcher;
 use crate::matchers::Matcher;
 use crate::merge::Diff;
@@ -334,7 +334,7 @@ impl MergedTree {
         matcher: &'a dyn Matcher,
     ) -> BoxStream<'a, CopyHistoryTreeDiffEntry> {
         let stream = self.diff_stream(other, matcher);
-        Box::pin(CopyHistoryDiffStream::new(stream, self, other))
+        Box::pin(copy_history_diff_stream(stream, self, other))
     }
 
     /// Merges the provided trees into a single `MergedTree`. Any conflicts will
