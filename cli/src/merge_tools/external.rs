@@ -25,7 +25,6 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree_builder::MergedTreeBuilder;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::store::Store;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use super::ConflictResolveError;
@@ -179,7 +178,7 @@ pub enum ExternalToolError {
     Io(#[source] std::io::Error),
 }
 
-fn run_mergetool_external_single_file(
+async fn run_mergetool_external_single_file(
     editor: &ExternalMergeTool,
     store: &Store,
     merge_tool_file: &MergeToolFile,
@@ -296,11 +295,11 @@ fn run_mergetool_external_single_file(
             output_file_contents.as_slice(),
             conflict_marker_len,
         )
-        .block_on()?
+        .await?
     } else {
         let new_file_id = store
             .write_file(repo_path, &mut output_file_contents.as_slice())
-            .block_on()?;
+            .await?;
         Merge::normal(new_file_id)
     };
 
@@ -330,7 +329,7 @@ fn run_mergetool_external_single_file(
     Ok(())
 }
 
-pub fn run_mergetool_external(
+pub async fn run_mergetool_external(
     ui: &Ui,
     path_converter: &RepoPathUiConverter,
     editor: &ExternalMergeTool,
@@ -354,7 +353,9 @@ pub fn run_mergetool_external(
             merge_tool_file,
             default_conflict_marker_style,
             &mut tree_builder,
-        ) {
+        )
+        .await
+        {
             Ok(()) => {}
             Err(err) if i == 0 => {
                 // If the first resolution fails, just return the error normally
@@ -371,11 +372,11 @@ pub fn run_mergetool_external(
             }
         }
     }
-    let new_tree = tree_builder.write_tree().block_on()?;
+    let new_tree = tree_builder.write_tree().await?;
     Ok((new_tree, partial_resolution_error))
 }
 
-pub fn edit_diff_external(
+pub async fn edit_diff_external(
     editor: &ExternalMergeTool,
     trees: Diff<&MergedTree>,
     matcher: &dyn Matcher,
@@ -399,7 +400,8 @@ pub fn edit_diff_external(
         diff_type,
         instructions,
         conflict_marker_style,
-    )?;
+    )
+    .await?;
 
     let patterns = diffedit_wc.working_copies.to_command_variables(false);
     let mut cmd = Command::new(&editor.program);
@@ -417,11 +419,11 @@ pub fn edit_diff_external(
         }));
     }
 
-    diffedit_wc.snapshot_results(base_ignores)
+    diffedit_wc.snapshot_results(base_ignores).await
 }
 
 /// Generates textual diff by the specified `tool` and writes into `writer`.
-pub fn generate_diff(
+pub async fn generate_diff(
     ui: &Ui,
     writer: &mut dyn Write,
     trees: Diff<&MergedTree>,
@@ -433,7 +435,7 @@ pub fn generate_diff(
     let conflict_marker_style = tool
         .conflict_marker_style
         .unwrap_or(default_conflict_marker_style);
-    let diff_wc = check_out_trees(trees, matcher, DiffType::TwoWay, conflict_marker_style)?;
+    let diff_wc = check_out_trees(trees, matcher, DiffType::TwoWay, conflict_marker_style).await?;
     diff_wc.set_left_readonly()?;
     diff_wc.set_right_readonly()?;
     let mut patterns = diff_wc.to_command_variables(true);

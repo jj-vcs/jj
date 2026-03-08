@@ -134,8 +134,9 @@ don't make any changes, then the operation will be aborted.",
     };
     let base_tree = merge_commit_trees(tx.repo(), base_commits.as_slice()).await?;
     let tree = target_commit.tree();
-    let edited_tree =
-        diff_editor.edit(Diff::new(&base_tree, &tree), &matcher, format_instructions)?;
+    let edited_tree = diff_editor
+        .edit(Diff::new(&base_tree, &tree), &matcher, format_instructions)
+        .await?;
     if edited_tree.tree_ids() == target_commit.tree_ids() {
         writeln!(ui.status(), "Nothing changed.")?;
     } else {

@@ -18,7 +18,7 @@ mod external;
 
 use std::sync::Arc;
 
-use itertools::Itertools as _;
+use futures::future::try_join_all;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CopyId;
 use jj_lib::backend::TreeValue;
@@ -41,7 +41,6 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::settings::UserSettings;
 use jj_lib::working_copy::SnapshotError;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use self::builtin::BuiltinToolError;
@@ -293,7 +292,7 @@ impl DiffEditor {
     }
 
     /// Starts a diff editor on the two directories.
-    pub fn edit(
+    pub async fn edit(
         &self,
         trees: Diff<&MergedTree>,
         matcher: &dyn Matcher,
@@ -303,6 +302,7 @@ impl DiffEditor {
             DiffEditTool::Builtin => {
                 Ok(
                     edit_diff_builtin(trees, matcher, self.conflict_marker_style)
+                        .await
                         .map_err(Box::new)?,
                 )
             }
@@ -316,6 +316,7 @@ impl DiffEditor {
                     self.base_ignores.clone(),
                     self.conflict_marker_style,
                 )
+                .await
             }
         }
     }
@@ -329,18 +330,18 @@ struct MergeToolFile {
 }
 
 impl MergeToolFile {
-    fn from_tree_and_path(
+    async fn from_tree_and_path(
         tree: &MergedTree,
         repo_path: &RepoPath,
     ) -> Result<Self, ConflictResolveError> {
-        let conflict = match tree.path_value(repo_path)?.into_resolved() {
+        let conflict = match tree.path_value_async(repo_path).await?.into_resolved() {
             Err(conflict) => conflict,
             Ok(Some(_)) => return Err(ConflictResolveError::NotAConflict(repo_path.to_owned())),
             Ok(None) => return Err(ConflictResolveError::PathNotFound(repo_path.to_owned())),
         };
         let file =
             try_materialize_file_conflict_value(tree.store(), repo_path, &conflict, tree.labels())
-                .block_on()?
+                .await?
                 .ok_or_else(|| ConflictResolveError::NotNormalFiles {
                     path: repo_path.to_owned(),
                     summary: conflict.describe(tree.labels()),
@@ -426,43 +427,50 @@ impl MergeEditor {
     }
 
     /// Starts a merge editor for the specified files.
-    pub fn edit_files(
+    pub async fn edit_files(
         &self,
         ui: &Ui,
         tree: &MergedTree,
         repo_paths: &[&RepoPath],
     ) -> Result<(MergedTree, Option<MergeToolPartialResolutionError>), ConflictResolveError> {
-        let merge_tool_files: Vec<MergeToolFile> = repo_paths
-            .iter()
-            .map(|&repo_path| MergeToolFile::from_tree_and_path(tree, repo_path))
-            .try_collect()?;
+        let merge_tool_files: Vec<MergeToolFile> = try_join_all(
+            repo_paths
+                .iter()
+                .map(|&repo_path| MergeToolFile::from_tree_and_path(tree, repo_path)),
+        )
+        .await?;
 
         match &self.tool {
             MergeTool::Builtin => {
-                let tree = edit_merge_builtin(tree, &merge_tool_files).map_err(Box::new)?;
+                let tree = edit_merge_builtin(tree, &merge_tool_files)
+                    .await
+                    .map_err(Box::new)?;
                 Ok((tree, None))
             }
             MergeTool::Ours => {
-                let tree = pick_conflict_side(tree, &merge_tool_files, 0)?;
+                let tree = pick_conflict_side(tree, &merge_tool_files, 0).await?;
                 Ok((tree, None))
             }
             MergeTool::Theirs => {
-                let tree = pick_conflict_side(tree, &merge_tool_files, 1)?;
+                let tree = pick_conflict_side(tree, &merge_tool_files, 1).await?;
                 Ok((tree, None))
             }
-            MergeTool::External(editor) => external::run_mergetool_external(
-                ui,
-                &self.path_converter,
-                editor,
-                tree,
-                &merge_tool_files,
-                self.conflict_marker_style,
-            ),
+            MergeTool::External(editor) => {
+                external::run_mergetool_external(
+                    ui,
+                    &self.path_converter,
+                    editor,
+                    tree,
+                    &merge_tool_files,
+                    self.conflict_marker_style,
+                )
+                .await
+            }
         }
     }
 }
 
-fn pick_conflict_side(
+async fn pick_conflict_side(
     tree: &MergedTree,
     merge_tool_files: &[MergeToolFile],
     add_index: usize,
@@ -481,7 +489,7 @@ fn pick_conflict_side(
         }));
         tree_builder.set_or_remove(merge_tool_file.repo_path.clone(), new_tree_value);
     }
-    tree_builder.write_tree().block_on()
+    tree_builder.write_tree().await
 }
 
 #[cfg(test)]

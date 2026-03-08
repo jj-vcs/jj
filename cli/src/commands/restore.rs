@@ -155,16 +155,18 @@ pub(crate) async fn cmd_restore(
             to_commit = workspace_command.format_commit_summary(&to_commit),
         }
     };
-    let new_tree = diff_selector.select(
-        ui,
-        Diff::new(&to_tree, &from_tree),
-        Diff::new(
-            to_commit.conflict_label(),
-            conflict_label_for_commits(&from_commits),
-        ),
-        &matcher,
-        format_instructions,
-    )?;
+    let new_tree = diff_selector
+        .select(
+            ui,
+            Diff::new(&to_tree, &from_tree),
+            Diff::new(
+                to_commit.conflict_label(),
+                conflict_label_for_commits(&from_commits),
+            ),
+            &matcher,
+            format_instructions,
+        )
+        .await?;
 
     print_unmatched_explicit_paths(
         ui,

@@ -3229,7 +3229,7 @@ impl DiffSelector {
     /// interactive editor if enabled.
     ///
     /// Only files matching the `matcher` will be copied to the new tree.
-    pub fn select(
+    pub async fn select(
         &self,
         ui: &Ui,
         trees: Diff<&MergedTree>,
@@ -3244,7 +3244,7 @@ impl DiffSelector {
             tree_labels.before,
             matcher,
         )
-        .block_on()?;
+        .await?;
         match self {
             Self::NonInteractive => Ok(selected_tree),
             Self::Interactive(editor) => {
@@ -3255,11 +3255,13 @@ impl DiffSelector {
                     // edit_diff_external() is designed to edit the right tree,
                     // whereas we want to update the left tree. Unmatched paths
                     // shouldn't be based off the right tree.
-                    Ok(editor.edit(
-                        Diff::new(trees.before, &selected_tree),
-                        matcher,
-                        format_instructions,
-                    )?)
+                    Ok(editor
+                        .edit(
+                            Diff::new(trees.before, &selected_tree),
+                            matcher,
+                            format_instructions,
+                        )
+                        .await?)
                 }
             }
         }

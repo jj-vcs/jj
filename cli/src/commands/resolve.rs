@@ -110,7 +110,8 @@ pub(crate) async fn cmd_resolve(
     workspace_command.check_rewritable([commit.id()])?;
     let merge_editor = workspace_command.merge_editor(ui, args.tool.as_deref())?;
     let mut tx = workspace_command.start_transaction();
-    let (new_tree, partial_resolution_error) = merge_editor.edit_files(ui, &tree, &repo_paths)?;
+    let (new_tree, partial_resolution_error) =
+        merge_editor.edit_files(ui, &tree, &repo_paths).await?;
     let new_commit = tx
         .repo_mut()
         .rewrite_commit(&commit)

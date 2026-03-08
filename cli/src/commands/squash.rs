@@ -486,16 +486,18 @@ async fn select_diff(
                 destination = tx.format_commit_summary(destination),
             }
         };
-        let selected_tree = diff_selector.select(
-            ui,
-            Diff::new(&parent_tree, &source_tree),
-            Diff::new(
-                source.parents_conflict_label().await?,
-                source.conflict_label(),
-            ),
-            matcher,
-            format_instructions,
-        )?;
+        let selected_tree = diff_selector
+            .select(
+                ui,
+                Diff::new(&parent_tree, &source_tree),
+                Diff::new(
+                    source.parents_conflict_label().await?,
+                    source.conflict_label(),
+                ),
+                matcher,
+                format_instructions,
+            )
+            .await?;
         source_commits.push(CommitWithSelection {
             commit: source.clone(),
             selected_tree,

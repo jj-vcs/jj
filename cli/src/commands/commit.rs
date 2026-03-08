@@ -152,16 +152,18 @@ new working-copy commit.
             tx.format_commit_summary(&commit)
         )
     };
-    let tree = diff_selector.select(
-        ui,
-        Diff::new(&base_tree, &commit.tree()),
-        Diff::new(
-            commit.parents_conflict_label().await?,
-            commit.conflict_label(),
-        ),
-        matcher.as_ref(),
-        format_instructions,
-    )?;
+    let tree = diff_selector
+        .select(
+            ui,
+            Diff::new(&base_tree, &commit.tree()),
+            Diff::new(
+                commit.parents_conflict_label().await?,
+                commit.conflict_label(),
+            ),
+            matcher.as_ref(),
+            format_instructions,
+        )
+        .await?;
     if !args.paths.is_empty() && tree.tree_ids() == base_tree.tree_ids() {
         writeln!(
             ui.warning_default(),

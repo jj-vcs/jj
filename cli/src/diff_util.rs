@@ -551,6 +551,7 @@ impl<'a> DiffRenderer<'a> {
                                 self.conflict_marker_style,
                                 width,
                             )
+                            .await
                             .map_err(DiffRenderError::DiffGenerate)
                         }
                     }?;

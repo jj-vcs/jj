@@ -33,7 +33,6 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
 use jj_lib::tree_merge::MergeOptions;
-use pollster::FutureExt as _;
 use thiserror::Error;
 
 use super::MergeToolFile;
@@ -122,7 +121,7 @@ fn buf_to_file_contents(hash: Option<String>, buf: Vec<u8>) -> FileContents {
     }
 }
 
-fn read_file_contents(
+async fn read_file_contents(
     materialized_value: MaterializedTreeValue,
     path: &RepoPath,
     materialize_options: &ConflictMaterializeOptions,
@@ -142,7 +141,7 @@ fn read_file_contents(
         }),
 
         MaterializedTreeValue::File(mut file) => {
-            let buf = file.read_all(path).block_on()?;
+            let buf = file.read_all(path).await?;
             let file_mode = if file.executable {
                 mode::EXECUTABLE
             } else {
@@ -289,8 +288,8 @@ async fn make_diff_files(
         let left_path = entry.path.source();
         let right_path = entry.path.target();
         let values = entry.values?;
-        let left_info = read_file_contents(values.before, left_path, &materialize_options)?;
-        let right_info = read_file_contents(values.after, right_path, &materialize_options)?;
+        let left_info = read_file_contents(values.before, left_path, &materialize_options).await?;
+        let right_info = read_file_contents(values.after, right_path, &materialize_options).await?;
         let mut sections = Vec::new();
 
         if left_info.file_mode != right_info.file_mode {
@@ -402,12 +401,12 @@ fn resolve_file_copy_id(tree_value: &MergedTreeValue) -> Option<CopyId> {
     })
 }
 
-fn apply_diff_builtin(
+async fn apply_diff_builtin(
     store: &Arc<Store>,
     left_tree: &MergedTree,
     right_tree: &MergedTree,
     changed_files: Vec<RepoPathBuf>,
-    files: &[scm_record::File],
+    files: &[scm_record::File<'_>],
 ) -> BackendResult<MergedTree> {
     // Start with the right tree to match external tool behavior.
     // This ensures unmatched paths keep their values from the right tree.
@@ -415,7 +414,7 @@ fn apply_diff_builtin(
 
     // First, revert all changed files to their left versions
     for path in &changed_files {
-        let left_value = left_tree.path_value(path)?;
+        let left_value = left_tree.path_value_async(path).await?;
         tree_builder.set_or_remove(path.clone(), left_value);
     }
 
@@ -424,13 +423,13 @@ fn apply_diff_builtin(
         &mut tree_builder,
         changed_files,
         files,
-        |path| left_tree.path_value(path),
-        |path| right_tree.path_value(path),
-        |path, contents, executable| {
-            let old_value = left_tree.path_value(path)?;
+        async |path| left_tree.path_value_async(path).await,
+        async |path| right_tree.path_value_async(path).await,
+        async |path, contents, executable| {
+            let old_value = left_tree.path_value_async(path).await?;
             let copy_id = resolve_file_copy_id(&old_value).unwrap_or_else(CopyId::placeholder);
             let new_value = if old_value.is_resolved() {
-                let id = store.write_file(path, &mut &contents[..]).block_on()?;
+                let id = store.write_file(path, &mut &contents[..]).await?;
                 Merge::normal(TreeValue::File {
                     id,
                     executable,
@@ -445,7 +444,7 @@ fn apply_diff_builtin(
                     contents,
                     MIN_CONFLICT_MARKER_LEN, // TODO: use the materialization parameter
                 )
-                .block_on()?;
+                .await?;
                 match new_file_ids.into_resolved() {
                     Ok(id) => Merge::resolved(id.map(|id| TreeValue::File {
                         id,
@@ -459,17 +458,18 @@ fn apply_diff_builtin(
             };
             Ok(new_value)
         },
-    )?;
-    tree_builder.write_tree().block_on()
+    )
+    .await?;
+    tree_builder.write_tree().await
 }
 
-fn apply_changes(
+async fn apply_changes(
     tree_builder: &mut MergedTreeBuilder,
     changed_files: Vec<RepoPathBuf>,
-    files: &[scm_record::File],
-    select_left: impl Fn(&RepoPath) -> BackendResult<MergedTreeValue>,
-    select_right: impl Fn(&RepoPath) -> BackendResult<MergedTreeValue>,
-    write_file: impl Fn(&RepoPath, &[u8], bool) -> BackendResult<MergedTreeValue>,
+    files: &[scm_record::File<'_>],
+    select_left: impl AsyncFn(&RepoPath) -> BackendResult<MergedTreeValue>,
+    select_right: impl AsyncFn(&RepoPath) -> BackendResult<MergedTreeValue>,
+    write_file: impl AsyncFn(&RepoPath, &[u8], bool) -> BackendResult<MergedTreeValue>,
 ) -> BackendResult<()> {
     assert_eq!(
         changed_files.len(),
@@ -513,7 +513,7 @@ fn apply_changes(
             scm_record::SelectedContents::Unchanged => {
                 if file_mode_change_selected {
                     // File contents haven't changed, but file mode needs to be updated on the tree.
-                    let value = override_file_executable_bit(select_left(&path)?, executable);
+                    let value = override_file_executable_bit(select_left(&path).await?, executable);
                     tree_builder.set_or_remove(path, value);
                 } else {
                     // Neither file mode, nor contents changed => Do nothing.
@@ -523,7 +523,7 @@ fn apply_changes(
                 old_description: _,
                 new_description: Some(_),
             } => {
-                let value = override_file_executable_bit(select_right(&path)?, executable);
+                let value = override_file_executable_bit(select_right(&path).await?, executable);
                 tree_builder.set_or_remove(path, value);
             }
             scm_record::SelectedContents::Binary {
@@ -531,11 +531,11 @@ fn apply_changes(
                 new_description: None,
             } => {
                 // File contents emptied out, but file mode is not absent => write empty file.
-                let value = write_file(&path, &[], executable)?;
+                let value = write_file(&path, &[], executable).await?;
                 tree_builder.set_or_remove(path, value);
             }
             scm_record::SelectedContents::Text { contents } => {
-                let value = write_file(&path, contents.as_bytes(), executable)?;
+                let value = write_file(&path, contents.as_bytes(), executable).await?;
                 tree_builder.set_or_remove(path, value);
             }
         }
@@ -556,7 +556,7 @@ fn override_file_executable_bit(
     merged_tree_value
 }
 
-pub fn edit_diff_builtin(
+pub async fn edit_diff_builtin(
     trees: Diff<&MergedTree>,
     matcher: &dyn Matcher,
     conflict_marker_style: ConflictMarkerStyle,
@@ -568,7 +568,7 @@ pub fn edit_diff_builtin(
         .before
         .diff_stream_with_copies(trees.after, matcher, &copy_records);
     let (changed_files, files) =
-        make_diff_files(&store, trees, tree_diff, conflict_marker_style).block_on()?;
+        make_diff_files(&store, trees, tree_diff, conflict_marker_style).await?;
     let mut input = scm_record::helpers::CrosstermInput;
     let recorder = scm_record::Recorder::new(
         scm_record::RecordState {
@@ -586,6 +586,7 @@ pub fn edit_diff_builtin(
         changed_files,
         &result.files,
     )
+    .await
     .map_err(BuiltinToolError::BackendError)
 }
 
@@ -697,7 +698,7 @@ fn make_merge_file(
     })
 }
 
-pub fn edit_merge_builtin(
+pub async fn edit_merge_builtin(
     tree: &MergedTree,
     merge_tool_files: &[MergeToolFile],
 ) -> Result<MergedTree, BuiltinToolError> {
@@ -724,38 +725,40 @@ pub fn edit_merge_builtin(
             .collect_vec(),
         &state.files,
     )
+    .await
     .map_err(BuiltinToolError::BackendError)
 }
 
-fn apply_merge_builtin(
+async fn apply_merge_builtin(
     store: &Arc<Store>,
     tree: &MergedTree,
     changed_files: Vec<RepoPathBuf>,
-    files: &[scm_record::File],
+    files: &[scm_record::File<'_>],
 ) -> BackendResult<MergedTree> {
     let mut tree_builder = MergedTreeBuilder::new(tree.clone());
     apply_changes(
         &mut tree_builder,
         changed_files,
         files,
-        |path| tree.path_value(path),
+        async |path| tree.path_value_async(path).await,
         // FIXME: It doesn't make sense to select a new value from the source tree.
         // Presently, `select_right` is never actually called, since it is used to select binary
         // sections, but `make_merge_file` does not produce `Binary` sections for conflicted files.
         // This needs to be revisited when the UI becomes capable of representing binary conflicts.
-        |path| tree.path_value(path),
-        |path, contents, executable| {
-            let id = store.write_file(path, &mut &contents[..]).block_on()?;
-            let copy_id =
-                resolve_file_copy_id(&tree.path_value(path)?).unwrap_or_else(CopyId::placeholder);
+        async |path| tree.path_value_async(path).await,
+        async |path, contents, executable| {
+            let id = store.write_file(path, &mut &contents[..]).await?;
+            let tree_value = tree.path_value_async(path).await?;
+            let copy_id = resolve_file_copy_id(&tree_value).unwrap_or_else(CopyId::placeholder);
             Ok(Merge::normal(TreeValue::File {
                 id,
                 executable,
                 copy_id,
             }))
         },
-    )?;
-    tree_builder.write_tree().block_on()
+    )
+    .await?;
+    tree_builder.write_tree().await
 }
 
 #[cfg(test)]
@@ -768,6 +771,7 @@ mod tests {
     use jj_lib::matchers::EverythingMatcher;
     use jj_lib::matchers::FilesMatcher;
     use jj_lib::repo::Repo as _;
+    use pollster::FutureExt as _;
     use proptest::prelude::*;
     use proptest_state_machine::ReferenceStateMachine;
     use proptest_state_machine::StateMachineTest;
@@ -816,7 +820,9 @@ mod tests {
         changed_files: &[RepoPathBuf],
         files: &[scm_record::File],
     ) -> MergedTree {
-        apply_diff_builtin(store, left_tree, right_tree, changed_files.to_vec(), files).unwrap()
+        apply_diff_builtin(store, left_tree, right_tree, changed_files.to_vec(), files)
+            .block_on()
+            .unwrap()
     }
 
     #[test]
@@ -1197,10 +1203,13 @@ mod tests {
             .copy_id(new_copy_id.clone());
         let tree = tree_builder.write_merged_tree();
 
-        let merge_tool_file = MergeToolFile::from_tree_and_path(&tree, file_path).unwrap();
+        let merge_tool_file = MergeToolFile::from_tree_and_path(&tree, file_path)
+            .block_on()
+            .unwrap();
         let merge_file = make_merge_file(&merge_tool_file, store.merge_options()).unwrap();
-        let tree =
-            apply_merge_builtin(store, &tree, vec![file_path.to_owned()], &[merge_file]).unwrap();
+        let tree = apply_merge_builtin(store, &tree, vec![file_path.to_owned()], &[merge_file])
+            .block_on()
+            .unwrap();
 
         let actual_copy_ids =
             tree.path_value_async(file_path)
@@ -2041,8 +2050,9 @@ mod tests {
 
         assert_eq!(changed_files, vec![matched_path.to_owned()]);
 
-        let result_tree =
-            apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files).unwrap();
+        let result_tree = apply_diff_builtin(store, &left_tree, &right_tree, changed_files, &files)
+            .block_on()
+            .unwrap();
 
         assert_eq!(
             result_tree.path_value(matched_path).unwrap(),

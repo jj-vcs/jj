@@ -23,7 +23,6 @@ use jj_lib::merged_tree::MergedTree;
 use jj_lib::merged_tree::TreeDiffEntry;
 use jj_lib::working_copy::CheckoutError;
 use jj_lib::working_copy::SnapshotOptions;
-use pollster::FutureExt as _;
 use tempfile::TempDir;
 use thiserror::Error;
 
@@ -129,7 +128,7 @@ pub(crate) enum DiffType {
 
 /// Check out the two trees in temporary directories. Only include changed files
 /// in the sparse checkout patterns.
-pub(crate) fn check_out_trees(
+pub(crate) async fn check_out_trees(
     trees: Diff<&MergedTree>,
     matcher: &dyn Matcher,
     diff_type: DiffType,
@@ -141,7 +140,7 @@ pub(crate) fn check_out_trees(
         .diff_stream(trees.after, matcher)
         .map(|TreeDiffEntry { path, .. }| path)
         .collect()
-        .block_on();
+        .await;
 
     let temp_dir = new_utf8_temp_dir("jj-diff-").map_err(DiffCheckoutError::SetUpDir)?;
     let temp_path = temp_dir.path();
@@ -186,14 +185,15 @@ pub(crate) struct DiffEditWorkingCopies {
 impl DiffEditWorkingCopies {
     /// Checks out the trees, populates JJ_INSTRUCTIONS, and makes appropriate
     /// sides readonly.
-    pub fn check_out(
+    pub async fn check_out(
         trees: Diff<&MergedTree>,
         matcher: &dyn Matcher,
         diff_type: DiffType,
         instructions: Option<&str>,
         conflict_marker_style: ConflictMarkerStyle,
     ) -> Result<Self, DiffEditError> {
-        let working_copies = check_out_trees(trees, matcher, diff_type, conflict_marker_style)?;
+        let working_copies =
+            check_out_trees(trees, matcher, diff_type, conflict_marker_style).await?;
         working_copies.set_left_readonly()?;
         if diff_type == DiffType::ThreeWay {
             working_copies.set_right_readonly()?;
@@ -271,7 +271,7 @@ diff editing in mind and be a little inaccurate.
         Ok(Some(output_instructions_path))
     }
 
-    pub fn snapshot_results(
+    pub async fn snapshot_results(
         self,
         base_ignores: Arc<GitIgnoreFile>,
     ) -> Result<MergedTree, DiffEditError> {
@@ -290,7 +290,7 @@ diff editing in mind and be a little inaccurate.
                 force_tracking_matcher: &NothingMatcher,
                 max_new_file_size: u64::MAX,
             })
-            .block_on()?;
+            .await?;
         Ok(output_tree_state.current_tree().clone())
     }
 }
