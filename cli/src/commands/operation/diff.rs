@@ -177,7 +177,7 @@ pub async fn show_op_diff(
     with_content_format: &LogContentFormat,
     diff_renderer: Option<&DiffRenderer<'_>>,
 ) -> Result<(), CommandError> {
-    let changes = compute_operation_commits_diff(current_repo, from_repo, to_repo)?;
+    let changes = compute_operation_commits_diff(current_repo, from_repo, to_repo).await?;
     if !changes.is_empty() {
         let revset =
             RevsetExpression::commits(changes.keys().cloned().collect()).evaluate(current_repo)?;
@@ -528,7 +528,7 @@ impl ModifiedChange {
 /// Returns a map of [`ModifiedChange`]s containing the new and old commits. For
 /// created/rewritten commits, the map entries are indexed by new ids. For
 /// abandoned commits, the entries are indexed by old ids.
-fn compute_operation_commits_diff(
+async fn compute_operation_commits_diff(
     repo: &dyn Repo,
     from_repo: &ReadonlyRepo,
     to_repo: &ReadonlyRepo,
@@ -542,7 +542,8 @@ fn compute_operation_commits_diff(
     let predecessor_commits = accumulate_predecessors(
         slice::from_ref(to_repo.operation()),
         slice::from_ref(from_repo.operation()),
-    )?;
+    )
+    .await?;
 
     // Collect hidden commits to find abandoned/rewritten changes.
     let mut hidden_commits_by_change: HashMap<ChangeId, CommitId> = HashMap::new();

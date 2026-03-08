@@ -23,6 +23,7 @@ use std::slice;
 
 use futures::Stream;
 use futures::StreamExt as _;
+use futures::future::join_all;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use thiserror::Error;
@@ -108,27 +109,27 @@ impl<I> WalkPredecessors<'_, I>
 where
     I: Stream<Item = OpStoreResult<Operation>> + Unpin,
 {
-    fn try_next(&mut self) -> Result<Option<CommitEvolutionEntry>, WalkPredecessorsError> {
+    async fn try_next(&mut self) -> Result<Option<CommitEvolutionEntry>, WalkPredecessorsError> {
         while !self.to_visit.is_empty() && self.queued.is_empty() {
-            let Some(op) = self.op_ancestors.next().block_on().transpose()? else {
+            let Some(op) = self.op_ancestors.next().await.transpose()? else {
                 // Scanned all operations, no fallback needed.
-                self.flush_commits()?;
+                self.flush_commits().await?;
                 break;
             };
             if !op.stores_commit_predecessors() {
                 // There may be concurrent ops, but let's simply switch to the
                 // legacy commit traversal. Operation history should be mostly
                 // linear.
-                self.scan_commits()?;
+                self.scan_commits().await?;
                 break;
             }
-            self.visit_op(&op)?;
+            self.visit_op(&op).await?;
         }
         Ok(self.queued.pop_front())
     }
 
     /// Looks for predecessors within the given operation.
-    fn visit_op(&mut self, op: &Operation) -> Result<(), WalkPredecessorsError> {
+    async fn visit_op(&mut self, op: &Operation) -> Result<(), WalkPredecessorsError> {
         let mut to_emit = Vec::new(); // transitive edges should be short
         let mut has_dup = false;
         let mut i = 0;
@@ -146,8 +147,8 @@ where
         }
 
         let store = self.repo.store();
-        let mut emit = |id: &CommitId| -> BackendResult<()> {
-            let commit = store.get_commit(id)?;
+        let mut emit = async |id: &CommitId| -> BackendResult<()> {
+            let commit = store.get_commit_async(id).await?;
             self.queued.push_back(CommitEvolutionEntry {
                 commit,
                 operation: Some(op.clone()),
@@ -157,18 +158,19 @@ where
         };
         match &*to_emit {
             [] => {}
-            [id] if !has_dup => emit(id)?,
+            [id] if !has_dup => emit(id).await?,
             _ => {
                 let sorted_ids = dag_walk::topo_order_reverse_ok(
                     to_emit.iter().map(Ok),
                     |&id| id,
-                    |&id| op.predecessors_for_commit(id).into_iter().flatten().map(Ok),
+                    async |&id| op.predecessors_for_commit(id).into_iter().flatten().map(Ok),
                     |id| id, // Err(&CommitId) if graph has cycle
                 )
+                .await
                 .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()))?;
                 for &id in &sorted_ids {
                     if op.predecessors_for_commit(id).is_some() {
-                        emit(id)?;
+                        emit(id).await?;
                     }
                 }
             }
@@ -177,18 +179,20 @@ where
     }
 
     /// Traverses predecessors from remainder commits.
-    fn scan_commits(&mut self) -> Result<(), WalkPredecessorsError> {
+    async fn scan_commits(&mut self) -> Result<(), WalkPredecessorsError> {
         let store = self.repo.store();
         let index = self.repo.index();
         let mut commit_predecessors: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
         let commits = dag_walk::topo_order_reverse_ok(
-            self.to_visit.drain(..).map(|id| {
+            join_all(self.to_visit.drain(..).map(async |id| {
                 store
-                    .get_commit(&id)
+                    .get_commit_async(&id)
+                    .await
                     .map_err(WalkPredecessorsError::Backend)
-            }),
+            }))
+            .await,
             |commit: &Commit| commit.id().clone(),
-            |commit: &Commit| {
+            async |commit: &Commit| {
                 let ids = match commit_predecessors.entry(commit.id().clone()) {
                     Entry::Occupied(entry) => entry.into_mut(),
                     Entry::Vacant(entry) => {
@@ -210,12 +214,17 @@ where
                     }
                 };
 
-                ids.iter()
-                    .map(|id| store.get_commit(id).map_err(WalkPredecessorsError::Backend))
-                    .collect_vec()
+                join_all(ids.iter().map(async |id| {
+                    store
+                        .get_commit_async(id)
+                        .await
+                        .map_err(WalkPredecessorsError::Backend)
+                }))
+                .await
             },
             |_| panic!("graph has cycle"),
-        )?;
+        )
+        .await?;
         self.queued.extend(commits.into_iter().map(|commit| {
             let predecessors = commit_predecessors
                 .remove(commit.id())
@@ -230,10 +239,10 @@ where
     }
 
     /// Moves remainder commits to output queue.
-    fn flush_commits(&mut self) -> BackendResult<()> {
+    async fn flush_commits(&mut self) -> BackendResult<()> {
         self.queued.reserve(self.to_visit.len());
         for id in self.to_visit.drain(..) {
-            let commit = self.repo.store().get_commit(&id)?;
+            let commit = self.repo.store().get_commit_async(&id).await?;
             self.queued.push_back(CommitEvolutionEntry {
                 commit,
                 operation: None,
@@ -246,6 +255,7 @@ where
     }
 }
 
+// TODO: Convert to `Stream`.
 impl<I> Iterator for WalkPredecessors<'_, I>
 where
     I: Stream<Item = OpStoreResult<Operation>> + Unpin,
@@ -253,7 +263,7 @@ where
     type Item = Result<CommitEvolutionEntry, WalkPredecessorsError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.try_next().transpose()
+        self.try_next().block_on().transpose()
     }
 }
 
@@ -264,7 +274,7 @@ where
 /// between `old_ops` and `new_ops`. If `old_ops` and `new_ops` have ancestors
 /// and descendants each other, or if criss-crossed merges exist between these
 /// operations, the returned mapping would be lossy.
-pub fn accumulate_predecessors(
+pub async fn accumulate_predecessors(
     new_ops: &[Operation],
     old_ops: &[Operation],
 ) -> Result<BTreeMap<CommitId, Vec<CommitId>>, WalkPredecessorsError> {
@@ -280,6 +290,7 @@ pub fn accumulate_predecessors(
             return Ok(BTreeMap::new());
         };
         return resolve_transitive_edges(map, map.keys())
+            .await
             .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()));
     }
 
@@ -287,13 +298,13 @@ pub fn accumulate_predecessors(
     // BTreeMap to stabilize order of the reversed edges.
     let mut accumulated = BTreeMap::new();
     let reverse_ops = op_walk::walk_ancestors_range(old_ops, new_ops);
-    if !try_collect_predecessors_into(&mut accumulated, reverse_ops)? {
+    if !try_collect_predecessors_into(&mut accumulated, reverse_ops).await? {
         return Ok(BTreeMap::new());
     }
     let mut accumulated = reverse_edges(accumulated);
     // Follow forward edges from new_ops to the common ancestor.
     let forward_ops = op_walk::walk_ancestors_range(new_ops, old_ops);
-    if !try_collect_predecessors_into(&mut accumulated, forward_ops)? {
+    if !try_collect_predecessors_into(&mut accumulated, forward_ops).await? {
         return Ok(BTreeMap::new());
     }
     let new_commit_ids = new_ops
@@ -301,15 +312,16 @@ pub fn accumulate_predecessors(
         .filter_map(|op| op.store_operation().commit_predecessors.as_ref())
         .flat_map(|map| map.keys());
     resolve_transitive_edges(&accumulated, new_commit_ids)
+        .await
         .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()))
 }
 
-fn try_collect_predecessors_into(
+async fn try_collect_predecessors_into(
     collected: &mut BTreeMap<CommitId, Vec<CommitId>>,
     ops: impl Stream<Item = OpStoreResult<Operation>>,
 ) -> OpStoreResult<bool> {
     let mut ops = pin!(ops);
-    while let Some(op) = ops.next().block_on() {
+    while let Some(op) = ops.next().await {
         let op = op?;
         let Some(map) = &op.store_operation().commit_predecessors else {
             return Ok(false);
@@ -323,7 +335,7 @@ fn try_collect_predecessors_into(
 /// Resolves transitive edges in `graph` starting from the `start` nodes,
 /// returns new DAG. The returned DAG only includes edges reachable from the
 /// `start` nodes.
-fn resolve_transitive_edges<'a: 'b, 'b>(
+async fn resolve_transitive_edges<'a: 'b, 'b>(
     graph: &'a BTreeMap<CommitId, Vec<CommitId>>,
     start: impl IntoIterator<Item = &'b CommitId>,
 ) -> Result<BTreeMap<CommitId, Vec<CommitId>>, &'b CommitId> {
@@ -331,9 +343,10 @@ fn resolve_transitive_edges<'a: 'b, 'b>(
     let sorted_ids = dag_walk::topo_order_forward_ok(
         start.into_iter().map(Ok),
         |&id| id,
-        |&id| graph.get(id).into_iter().flatten().map(Ok),
+        async |&id| graph.get(id).into_iter().flatten().map(Ok),
         |id| id, // Err(&CommitId) if graph has cycle
-    )?;
+    )
+    .await?;
     for cur_id in sorted_ids {
         let Some(neighbors) = graph.get(cur_id) else {
             continue;
