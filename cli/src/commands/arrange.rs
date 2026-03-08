@@ -564,8 +564,8 @@ fn render(
 #[cfg(test)]
 mod tests {
     use maplit::hashset;
-    use pollster::FutureExt as _;
     use testutils::CommitBuilderExt as _;
+    use testutils::FutureTestExt as _;
     use testutils::TestRepo;
 
     use super::*;
@@ -768,8 +768,8 @@ mod tests {
             vec![store.root_commit_id().clone()];
         plan.rewrites.get_mut(commit_f.id()).unwrap().new_parents = vec![commit_a.id().clone()];
 
-        let rewritten = plan.execute(tx.repo_mut()).block_on().unwrap();
-        tx.repo_mut().rebase_descendants().block_on().unwrap();
+        let rewritten = plan.execute(tx.repo_mut()).block_unwrap();
+        tx.repo_mut().rebase_descendants().block_unwrap();
         assert_eq!(
             rewritten.keys().collect::<HashSet<_>>(),
             hashset![
@@ -830,8 +830,8 @@ mod tests {
             action: RewriteAction::Abandon,
         };
 
-        let rewritten = plan.execute(tx.repo_mut()).block_on().unwrap();
-        tx.repo_mut().rebase_descendants().block_on().unwrap();
+        let rewritten = plan.execute(tx.repo_mut()).block_unwrap();
+        tx.repo_mut().rebase_descendants().block_unwrap();
         assert_eq!(rewritten.keys().sorted().collect_vec(), vec![commit_d.id()]);
         let new_commit_d = rewritten.get(commit_d.id()).unwrap();
         assert_eq!(new_commit_d.parent_ids(), &[commit_a.id().clone()]);

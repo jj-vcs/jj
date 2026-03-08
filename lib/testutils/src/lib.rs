@@ -82,6 +82,40 @@ pub mod git;
 pub mod proptest;
 pub mod test_backend;
 
+pub trait TestUnwrap {
+    type Output;
+    #[track_caller]
+    fn test_unwrap(self) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> TestUnwrap for Result<T, E> {
+    type Output = T;
+    #[track_caller]
+    fn test_unwrap(self) -> T {
+        self.unwrap()
+    }
+}
+
+impl<T> TestUnwrap for Option<T> {
+    type Output = T;
+    #[track_caller]
+    fn test_unwrap(self) -> T {
+        self.unwrap()
+    }
+}
+
+pub trait FutureTestExt: std::future::Future + Sized {
+    #[track_caller]
+    fn block_unwrap(self) -> <Self::Output as TestUnwrap>::Output
+    where
+        Self::Output: TestUnwrap,
+    {
+        self.block_on().test_unwrap()
+    }
+}
+
+impl<F: std::future::Future + Sized> FutureTestExt for F {}
+
 pub const HERMETIC_GIT_CONFIGS: &[(&str, &str)] = &[
     // gitoxide uses "main" as the default branch name, whereas git uses "master". This also
     // prevents git CLI from issuing the initial branch name advice.
@@ -216,8 +250,7 @@ impl TestEnvironment {
         RepoLoader::init_from_file_system(settings, repo_path, &self.default_store_factories())
             .unwrap()
             .load_at_head()
-            .block_on()
-            .unwrap()
+            .block_unwrap()
     }
 }
 
@@ -281,8 +314,7 @@ impl TestRepo {
             ReadonlyRepo::default_index_store_initializer(),
             ReadonlyRepo::default_submodule_store_initializer(),
         )
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
         Self {
             env,
@@ -339,8 +371,7 @@ impl TestWorkspace {
             &|settings, store_path| backend.init_backend(&env, settings, store_path),
             signer,
         )
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
         Self {
             env,
@@ -367,10 +398,7 @@ impl TestWorkspace {
         let mut locked_ws = self.workspace.start_working_copy_mutation().unwrap();
         let (tree, stats) = locked_ws.locked_wc().snapshot(options).block_on()?;
         // arbitrary operation id
-        locked_ws
-            .finish(self.repo.op_id().clone())
-            .block_on()
-            .unwrap();
+        locked_ws.finish(self.repo.op_id().clone()).block_unwrap();
         Ok((tree, stats))
     }
 
@@ -385,10 +413,10 @@ pub fn commit_transactions(txs: Vec<Transaction>) -> Arc<ReadonlyRepo> {
     let repo_loader = txs[0].base_repo().loader().clone();
     let mut op_ids = vec![];
     for tx in txs {
-        op_ids.push(tx.commit("test").block_on().unwrap().op_id().clone());
+        op_ids.push(tx.commit("test").block_unwrap().op_id().clone());
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
-    let repo = repo_loader.load_at_head().block_on().unwrap();
+    let repo = repo_loader.load_at_head().block_unwrap();
     // Test the setup. The assumption here is that the parent order matches the
     // order in which they were merged (which currently matches the transaction
     // commit order), so we want to know make sure they appear in a certain
@@ -411,17 +439,16 @@ pub fn repo_path_buf(value: impl Into<String>) -> RepoPathBuf {
 }
 
 pub fn read_file(store: &Store, path: &RepoPath, id: &FileId) -> Vec<u8> {
-    let mut reader = store.read_file(path, id).block_on().unwrap();
+    let mut reader = store.read_file(path, id).block_unwrap();
     let mut content = vec![];
-    reader.read_to_end(&mut content).block_on().unwrap();
+    reader.read_to_end(&mut content).block_unwrap();
     content
 }
 
 pub fn write_file(store: &Store, path: &RepoPath, contents: &str) -> FileId {
     store
         .write_file(path, &mut contents.as_bytes())
-        .block_on()
-        .unwrap()
+        .block_unwrap()
 }
 
 pub struct TestTreeBuilder {
@@ -453,7 +480,7 @@ impl TestTreeBuilder {
     }
 
     pub fn symlink(&mut self, path: &RepoPath, target: &str) {
-        let id = self.store.write_symlink(path, target).block_on().unwrap();
+        let id = self.store.write_symlink(path, target).block_unwrap();
         self.tree_builder
             .set(path.to_owned(), TreeValue::Symlink(id));
     }
@@ -464,12 +491,12 @@ impl TestTreeBuilder {
     }
 
     pub fn write_single_tree(self) -> Tree {
-        let id = self.tree_builder.write_tree().block_on().unwrap();
+        let id = self.tree_builder.write_tree().block_unwrap();
         self.store.get_tree(RepoPathBuf::root(), &id).unwrap()
     }
 
     pub fn write_merged_tree(self) -> MergedTree {
-        let id = self.tree_builder.write_tree().block_on().unwrap();
+        let id = self.tree_builder.write_tree().block_unwrap();
         MergedTree::resolved(self.store, id)
     }
 }
@@ -500,8 +527,7 @@ impl Drop for TestTreeFileEntryBuilder<'_> {
             .tree_builder
             .store()
             .write_file(&self.path, &mut self.contents.as_slice())
-            .block_on()
-            .unwrap();
+            .block_unwrap();
         let path = std::mem::replace(&mut self.path, RepoPathBuf::root());
         self.tree_builder.set(
             path,
@@ -630,14 +656,14 @@ pub fn commit_with_tree(store: &Arc<Store>, tree: MergedTree) -> Commit {
         committer: signature,
         secure_sig: None,
     };
-    store.write_commit(commit, None).block_on().unwrap()
+    store.write_commit(commit, None).block_unwrap()
 }
 
 pub fn dump_tree(merged_tree: &MergedTree) -> String {
     use std::fmt::Write as _;
     let store = merged_tree.store();
     let mut buf = String::new();
-    let trees = merged_tree.trees().block_on().unwrap();
+    let trees = merged_tree.trees().block_unwrap();
     writeln!(&mut buf, "merged tree (sides: {})", trees.num_sides()).unwrap();
     for tree in &trees {
         writeln!(&mut buf, "  tree {}", tree.id()).unwrap();
@@ -730,8 +756,7 @@ pub fn rebase_descendants_with_options_return_map(
         };
         rebased.insert(old_commit_id, new_commit_id);
     })
-    .block_on()
-    .unwrap();
+    .block_unwrap();
     rebased
 }
 
@@ -852,7 +877,7 @@ pub trait CommitBuilderExt {
 
 impl CommitBuilderExt for CommitBuilder<'_> {
     fn write_unwrap(self) -> Commit {
-        self.write().block_on().unwrap()
+        self.write().block_unwrap()
     }
 }
 

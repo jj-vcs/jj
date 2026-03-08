@@ -19,8 +19,8 @@ use jj_lib::backend::CommitId;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::duplicate_commits;
 use jj_lib::transaction::Transaction;
-use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
+use testutils::FutureTestExt as _;
 use testutils::TestRepo;
 use testutils::assert_tree_eq;
 use testutils::create_tree;
@@ -67,7 +67,7 @@ fn test_duplicate_linear_contents() {
         .repo_mut()
         .new_commit(vec![commit_d.id().clone()], tree_2.clone())
         .write_unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let duplicate_in_between = |tx: &mut Transaction,
                                 target_commits: &[&CommitId],
@@ -80,8 +80,7 @@ fn test_duplicate_linear_contents() {
             &parent_commit_ids.iter().copied().cloned().collect_vec(),
             &children_commit_ids.iter().copied().cloned().collect_vec(),
         )
-        .block_on()
-        .unwrap()
+        .block_unwrap()
     };
     let duplicate_onto =
         |tx: &mut Transaction, target_commits: &[&CommitId], parent_commit_ids: &[&CommitId]| {

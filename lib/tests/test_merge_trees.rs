@@ -20,9 +20,9 @@ use jj_lib::merge::SameChange;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::rebase_commit;
 use jj_lib::settings::UserSettings;
-use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
+use testutils::FutureTestExt as _;
 use testutils::TestRepo;
 use testutils::assert_tree_eq;
 use testutils::create_tree;
@@ -68,12 +68,10 @@ fn test_simplify_conflict_after_resolving_parent() {
         .new_commit(vec![commit_a.id().clone()], tree_d)
         .write_unwrap();
 
-    let commit_b2 = rebase_commit(tx.repo_mut(), commit_b, vec![commit_d.id().clone()])
-        .block_on()
-        .unwrap();
-    let commit_c2 = rebase_commit(tx.repo_mut(), commit_c, vec![commit_b2.id().clone()])
-        .block_on()
-        .unwrap();
+    let commit_b2 =
+        rebase_commit(tx.repo_mut(), commit_b, vec![commit_d.id().clone()]).block_unwrap();
+    let commit_c2 =
+        rebase_commit(tx.repo_mut(), commit_c, vec![commit_b2.id().clone()]).block_unwrap();
 
     // Test the setup: Both B and C should have conflicts.
     let tree_b2 = commit_b2.tree();
@@ -88,11 +86,10 @@ fn test_simplify_conflict_after_resolving_parent() {
         .rewrite_commit(&commit_b2)
         .set_tree(tree_b3)
         .write_unwrap();
-    let commit_c3 = rebase_commit(tx.repo_mut(), commit_c2, vec![commit_b3.id().clone()])
-        .block_on()
-        .unwrap();
-    tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    let commit_c3 =
+        rebase_commit(tx.repo_mut(), commit_c2, vec![commit_b3.id().clone()]).block_unwrap();
+    tx.repo_mut().rebase_descendants().block_unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     // The conflict should now be resolved.
     let tree_c2 = commit_c3.tree();
@@ -160,13 +157,11 @@ fn test_rebase_linearize_lossy_merge(same_change: SameChange) {
         .write_unwrap();
 
     match same_change {
-        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut).block_on().unwrap()),
-        SameChange::Accept => assert!(commit_d.is_empty(repo_mut).block_on().unwrap()),
+        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut).block_unwrap()),
+        SameChange::Accept => assert!(commit_d.is_empty(repo_mut).block_unwrap()),
     }
 
-    let commit_d2 = rebase_commit(repo_mut, commit_d, vec![commit_b.id().clone()])
-        .block_on()
-        .unwrap();
+    let commit_d2 = rebase_commit(repo_mut, commit_d, vec![commit_b.id().clone()]).block_unwrap();
 
     match same_change {
         SameChange::Keep => assert_tree_eq!(commit_d2.tree(), tree_1),
@@ -219,8 +214,8 @@ fn test_rebase_on_lossy_merge(same_change: SameChange) {
         .write_unwrap();
 
     match same_change {
-        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut).block_on().unwrap()),
-        SameChange::Accept => assert!(commit_d.is_empty(repo_mut).block_on().unwrap()),
+        SameChange::Keep => assert!(!commit_d.is_empty(repo_mut).block_unwrap()),
+        SameChange::Accept => assert!(commit_d.is_empty(repo_mut).block_unwrap()),
     }
 
     let commit_c2 = repo_mut
@@ -231,8 +226,7 @@ fn test_rebase_on_lossy_merge(same_change: SameChange) {
         commit_d,
         vec![commit_b.id().clone(), commit_c2.id().clone()],
     )
-    .block_on()
-    .unwrap();
+    .block_unwrap();
 
     match same_change {
         SameChange::Keep => assert_tree_eq!(commit_d2.tree(), tree_3),

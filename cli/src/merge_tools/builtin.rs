@@ -773,6 +773,7 @@ mod tests {
     use proptest_state_machine::StateMachineTest;
     use proptest_state_machine::prop_state_machine;
     use test_case::test_matrix;
+    use testutils::FutureTestExt as _;
     use testutils::TestRepo;
     use testutils::assert_tree_eq;
     use testutils::dump_tree;
@@ -805,8 +806,7 @@ mod tests {
             tree_diff,
             ConflictMarkerStyle::Diff,
         )
-        .block_on()
-        .unwrap()
+        .block_unwrap()
     }
 
     fn apply_diff(
@@ -1035,8 +1035,7 @@ mod tests {
 
         let get_actual_executables = |tree: &MergedTree| {
             tree.path_value_async(file_path)
-                .block_on()
-                .unwrap()
+                .block_unwrap()
                 .to_executable_merge()
                 .expect("The path should point to an existing file.")
         };
@@ -1153,16 +1152,15 @@ mod tests {
             }
         }
         let tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let actual_copy_ids =
-            tree.path_value_async(file_path)
-                .block_on()
-                .unwrap()
-                .map(|tree_value| {
-                    let Some(TreeValue::File { copy_id, .. }) = tree_value else {
-                        panic!("The path should point to an existing file.");
-                    };
-                    copy_id.clone()
-                });
+        let actual_copy_ids = tree
+            .path_value_async(file_path)
+            .block_unwrap()
+            .map(|tree_value| {
+                let Some(TreeValue::File { copy_id, .. }) = tree_value else {
+                    panic!("The path should point to an existing file.");
+                };
+                copy_id.clone()
+            });
         assert_eq!(
             actual_copy_ids.resolve_trivial(SameChange::Accept),
             Some(&copy_id),
@@ -1202,16 +1200,15 @@ mod tests {
         let tree =
             apply_merge_builtin(store, &tree, vec![file_path.to_owned()], &[merge_file]).unwrap();
 
-        let actual_copy_ids =
-            tree.path_value_async(file_path)
-                .block_on()
-                .unwrap()
-                .map(|tree_value| {
-                    let Some(TreeValue::File { copy_id, .. }) = tree_value else {
-                        panic!("The path should point to an existing file.");
-                    };
-                    copy_id.clone()
-                });
+        let actual_copy_ids = tree
+            .path_value_async(file_path)
+            .block_unwrap()
+            .map(|tree_value| {
+                let Some(TreeValue::File { copy_id, .. }) = tree_value else {
+                    panic!("The path should point to an existing file.");
+                };
+                copy_id.clone()
+            });
         assert_eq!(
             actual_copy_ids.resolve_trivial(SameChange::Accept),
             Some(&new_copy_id),
@@ -2091,9 +2088,7 @@ mod tests {
             to_file_id(base_tree.path_value(path).unwrap()),
             to_file_id(right_tree.path_value(path).unwrap()),
         ]);
-        let content = extract_as_single_hunk(&merge, store, path)
-            .block_on()
-            .unwrap();
+        let content = extract_as_single_hunk(&merge, store, path).block_unwrap();
         let merge_result = files::merge_hunks(&content, store.merge_options());
         let sections = make_merge_sections(merge_result).unwrap();
         insta::assert_debug_snapshot!(sections, @r#"

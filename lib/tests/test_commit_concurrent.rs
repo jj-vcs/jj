@@ -19,8 +19,8 @@ use std::thread;
 use jj_lib::dag_walk;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo as _;
-use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::FutureTestExt as _;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
 use testutils::write_random_commit;
@@ -33,9 +33,9 @@ fn count_non_merge_operations(repo: &Arc<ReadonlyRepo>) -> usize {
     for op_id in dag_walk::dfs(
         vec![op_id],
         |op_id| op_id.clone(),
-        |op_id| op_store.read_operation(op_id).block_on().unwrap().parents,
+        |op_id| op_store.read_operation(op_id).block_unwrap().parents,
     ) {
-        let op = op_store.read_operation(&op_id).block_on().unwrap();
+        let op = op_store.read_operation(&op_id).block_unwrap();
         if op.parents.len() <= 1 {
             num_ops += 1;
         }
@@ -59,11 +59,11 @@ fn test_commit_parallel(backend: TestRepoBackend) {
             s.spawn(move || {
                 let mut tx = repo.start_transaction();
                 write_random_commit(tx.repo_mut());
-                tx.commit("test").block_on().unwrap();
+                tx.commit("test").block_unwrap();
             });
         }
     });
-    let repo = repo.reload_at_head().block_on().unwrap();
+    let repo = repo.reload_at_head().block_unwrap();
     // One commit per thread plus the commit from the initial working-copy on top of
     // the root commit
     assert_eq!(repo.view().heads().len(), num_threads + 1);
@@ -90,7 +90,7 @@ fn test_commit_parallel_instances(backend: TestRepoBackend) {
             s.spawn(move || {
                 let mut tx = repo.start_transaction();
                 write_random_commit(tx.repo_mut());
-                tx.commit("test").block_on().unwrap();
+                tx.commit("test").block_unwrap();
             });
         }
     });

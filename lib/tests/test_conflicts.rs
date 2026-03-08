@@ -31,8 +31,8 @@ use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
 use jj_lib::store::Store;
 use jj_lib::tree_merge::MergeOptions;
-use pollster::FutureExt as _;
 use test_case::test_case;
+use testutils::FutureTestExt as _;
 use testutils::TestRepo;
 use testutils::read_file;
 use testutils::repo_path;
@@ -634,8 +634,7 @@ fn test_materialize_update_roundtrip(style: ConflictMarkerStyle) {
         materialized.as_bytes(),
         MIN_CONFLICT_MARKER_LEN,
     )
-    .block_on()
-    .unwrap();
+    .block_unwrap();
 
     assert_eq!(parsed, conflict);
 }
@@ -1769,9 +1768,7 @@ fn test_update_conflict_from_content() {
     let materialized =
         materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
     let parse = |content| {
-        update_from_content(&conflict, store, path, content, MIN_CONFLICT_MARKER_LEN)
-            .block_on()
-            .unwrap()
+        update_from_content(&conflict, store, path, content, MIN_CONFLICT_MARKER_LEN).block_unwrap()
     };
     assert_eq!(parse(materialized.as_bytes()), conflict);
 
@@ -1819,9 +1816,7 @@ fn test_update_conflict_from_content_modify_delete() {
     let materialized =
         materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff);
     let parse = |content| {
-        update_from_content(&conflict, store, path, content, MIN_CONFLICT_MARKER_LEN)
-            .block_on()
-            .unwrap()
+        update_from_content(&conflict, store, path, content, MIN_CONFLICT_MARKER_LEN).block_unwrap()
     };
     assert_eq!(parse(materialized.as_bytes()), conflict);
 
@@ -1872,9 +1867,7 @@ fn test_update_conflict_from_content_simplified_conflict() {
     let materialized =
         materialize_conflict_string(store, path, &simplified_conflict, ConflictMarkerStyle::Diff);
     let parse = |content| {
-        update_from_content(&conflict, store, path, content, MIN_CONFLICT_MARKER_LEN)
-            .block_on()
-            .unwrap()
+        update_from_content(&conflict, store, path, content, MIN_CONFLICT_MARKER_LEN).block_unwrap()
     };
     insta::assert_snapshot!(
         materialized,
@@ -1981,9 +1974,7 @@ fn test_update_conflict_from_content_with_long_markers() {
 
     // The conflict should be materialized using long conflict markers
     let materialized_marker_len = choose_materialized_conflict_marker_len(
-        &extract_as_single_hunk(&conflict, store, path)
-            .block_on()
-            .unwrap(),
+        &extract_as_single_hunk(&conflict, store, path).block_unwrap(),
     );
     assert!(materialized_marker_len > MIN_CONFLICT_MARKER_LEN);
     let materialized =
@@ -2010,9 +2001,7 @@ fn test_update_conflict_from_content_with_long_markers() {
     );
 
     let parse = |conflict, content| {
-        update_from_content(conflict, store, path, content, materialized_marker_len)
-            .block_on()
-            .unwrap()
+        update_from_content(conflict, store, path, content, materialized_marker_len).block_unwrap()
     };
     assert_eq!(parse(&conflict, materialized.as_bytes()), conflict);
 
@@ -2154,8 +2143,7 @@ fn test_update_conflict_from_content_no_eol() {
             materialized.as_bytes(),
             MIN_CONFLICT_MARKER_LEN,
         )
-        .block_on()
-        .unwrap(),
+        .block_unwrap(),
         conflict
     );
 
@@ -2193,8 +2181,7 @@ fn test_update_conflict_from_content_no_eol() {
             materialized.as_bytes(),
             MIN_CONFLICT_MARKER_LEN,
         )
-        .block_on()
-        .unwrap(),
+        .block_unwrap(),
         conflict
     );
 
@@ -2230,8 +2217,7 @@ fn test_update_conflict_from_content_no_eol() {
             materialized.as_bytes(),
             MIN_CONFLICT_MARKER_LEN,
         )
-        .block_on()
-        .unwrap(),
+        .block_unwrap(),
         conflict
     );
 }
@@ -2309,8 +2295,7 @@ fn test_update_conflict_from_content_no_eol_in_diff_hunk() {
             materialized.as_bytes(),
             MIN_CONFLICT_MARKER_LEN,
         )
-        .block_on()
-        .unwrap(),
+        .block_unwrap(),
         conflict
     );
 }
@@ -2353,8 +2338,7 @@ fn test_update_conflict_from_content_only_no_eol_change() {
             materialized.as_bytes(),
             MIN_CONFLICT_MARKER_LEN,
         )
-        .block_on()
-        .unwrap(),
+        .block_unwrap(),
         conflict
     );
 }
@@ -2405,9 +2389,7 @@ fn test_update_from_content_malformed_conflict() {
 
     // The conflict should be materialized with normal markers
     let materialized_marker_len = choose_materialized_conflict_marker_len(
-        &extract_as_single_hunk(&conflict, store, path)
-            .block_on()
-            .unwrap(),
+        &extract_as_single_hunk(&conflict, store, path).block_unwrap(),
     );
     assert!(materialized_marker_len == MIN_CONFLICT_MARKER_LEN);
 
@@ -2437,9 +2419,7 @@ fn test_update_from_content_malformed_conflict() {
     );
 
     let parse = |conflict, content| {
-        update_from_content(conflict, store, path, content, materialized_marker_len)
-            .block_on()
-            .unwrap()
+        update_from_content(conflict, store, path, content, materialized_marker_len).block_unwrap()
     };
     assert_eq!(parse(&conflict, materialized.as_bytes()), conflict);
 
@@ -2538,9 +2518,7 @@ fn materialize_conflict_string_with_labels(
     conflict_labels: &ConflictLabels,
     marker_style: ConflictMarkerStyle,
 ) -> String {
-    let contents = extract_as_single_hunk(conflict, store, path)
-        .block_on()
-        .unwrap();
+    let contents = extract_as_single_hunk(conflict, store, path).block_unwrap();
     let options = ConflictMaterializeOptions {
         marker_style,
         marker_len: None,

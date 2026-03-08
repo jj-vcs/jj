@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use jj_lib::repo::RepoLoader;
-use pollster::FutureExt as _;
+use testutils::FutureTestExt as _;
 use testutils::TestRepo;
 use testutils::write_random_commit;
 
@@ -25,11 +25,11 @@ fn test_load_at_operation() {
 
     let mut tx = repo.start_transaction();
     let commit = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("add commit").block_on().unwrap();
+    let repo = tx.commit("add commit").block_unwrap();
 
     let mut tx = repo.start_transaction();
     tx.repo_mut().remove_head(commit.id());
-    tx.commit("remove commit").block_on().unwrap();
+    tx.commit("remove commit").block_unwrap();
 
     // If we load the repo at head, we should not see the commit since it was
     // removed
@@ -39,7 +39,7 @@ fn test_load_at_operation() {
         &test_repo.env.default_store_factories(),
     )
     .unwrap();
-    let head_repo = loader.load_at_head().block_on().unwrap();
+    let head_repo = loader.load_at_head().block_unwrap();
     assert!(!head_repo.view().heads().contains(commit.id()));
 
     // If we load the repo at the previous operation, we should see the commit since
@@ -50,6 +50,6 @@ fn test_load_at_operation() {
         &test_repo.env.default_store_factories(),
     )
     .unwrap();
-    let old_repo = loader.load_at(repo.operation()).block_on().unwrap();
+    let old_repo = loader.load_at(repo.operation()).block_unwrap();
     assert!(old_repo.view().heads().contains(commit.id()));
 }
