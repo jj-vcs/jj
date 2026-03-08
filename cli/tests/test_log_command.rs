@@ -24,7 +24,7 @@ fn test_log_with_empty_revision() {
     let output = work_dir.run_jj(["log", "-r="]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    error: a value is required for '--revisions <REVSETS>' but none was supplied
+    error: a value is required for '--revision <REVSETS>' but none was supplied
 
     For more information, try '--help'.
     [EOF]

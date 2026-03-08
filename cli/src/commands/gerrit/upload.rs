@@ -73,7 +73,7 @@ pub struct UploadArgs {
     /// If this is not provided, it will check whether @ has a description.
     /// * If it does, it will upload @
     /// * Otherwise, it will upload @-
-    #[arg(long, short = 'r')]
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
     revisions: Vec<RevisionArg>,
 
     /// The location where your changes are intended to land
