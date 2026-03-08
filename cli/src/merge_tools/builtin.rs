@@ -463,10 +463,12 @@ async fn apply_diff_builtin(
     let mut right_paths = HashSet::new();
     for (path, selected_value) in selected_values {
         match selected_value {
-            SelectedValue::Left(value) => left_tree_builder.set_or_remove(path, value),
+            SelectedValue::Left(value) => {
+                left_tree_builder.set_or_remove_merge(path, value).unwrap();
+            }
             SelectedValue::Right(value) => {
                 right_paths.insert(path.clone());
-                right_tree_builder.set_or_remove(path, value);
+                right_tree_builder.set_or_remove_merge(path, value).unwrap();
             }
         }
     }
@@ -797,7 +799,7 @@ async fn apply_merge_builtin(
     .await?;
     let mut tree_builder = MergedTreeBuilder::new(tree.clone());
     for (path, SelectedValue::Left(value) | SelectedValue::Right(value)) in selected_values {
-        tree_builder.set_or_remove(path, value);
+        tree_builder.set_or_remove_merge(path, value).unwrap();
     }
     tree_builder.write_tree().await
 }

@@ -175,13 +175,13 @@ pub async fn split_hunks_to_trees(
             // the source parent, we can propagate file deletion only if the
             // whole file content is deleted at a single destination commit.
             let new_tree_value = if new_text.is_empty() && deleted {
-                Merge::absent()
+                None
             } else {
                 let id = repo
                     .store()
                     .write_file(left_path, &mut new_text.as_slice())
                     .await?;
-                Merge::normal(TreeValue::File {
+                Some(TreeValue::File {
                     id,
                     executable,
                     copy_id: copy_id.clone(),

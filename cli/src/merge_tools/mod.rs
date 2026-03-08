@@ -652,10 +652,12 @@ async fn edit_conflict_markers_in_text_editor(
         conflict_marker_len,
     )
     .await?;
-    tree_builder.set_or_remove(
-        repo_path.to_owned(),
-        merge_tool_file.new_tree_value(new_file_ids),
-    );
+    tree_builder
+        .set_or_remove_merge(
+            repo_path.to_owned(),
+            merge_tool_file.new_tree_value(new_file_ids),
+        )
+        .unwrap();
     Ok(())
 }
 
@@ -670,7 +672,9 @@ async fn pick_conflict_side(
         // This ensures that the behavior is consistent.
         let file_id = merge_tool_file.file.ids.get_add(add_index).unwrap();
         let new_tree_value = merge_tool_file.new_tree_value(Merge::resolved(file_id.clone()));
-        tree_builder.set_or_remove(merge_tool_file.repo_path.clone(), new_tree_value);
+        tree_builder
+            .set_or_remove_merge(merge_tool_file.repo_path.clone(), new_tree_value)
+            .unwrap();
     }
     tree_builder.write_tree().await
 }
