@@ -113,7 +113,9 @@ pub(crate) async fn cmd_file_chmod(
                 *executable = executable_bit;
             }
         }
-        tree_builder.set_or_remove(repo_path, tree_value);
+        tree_builder
+            .set_or_remove_merge(repo_path, tree_value)
+            .unwrap();
     }
 
     let new_tree = tree_builder.write_tree().await?;

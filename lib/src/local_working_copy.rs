@@ -1378,14 +1378,14 @@ impl TreeState {
         let mut tree_builder = MergedTreeBuilder::new(self.tree.clone());
         trace_span!("process tree entries").in_scope(|| {
             for (path, tree_values) in &tree_entries_rx {
-                tree_builder.set_or_remove(path, tree_values);
+                tree_builder.set_or_remove_merge(path, tree_values).unwrap();
             }
         });
         let deleted_files = trace_span!("process deleted tree entries").in_scope(|| {
             let deleted_files = HashSet::from_iter(deleted_files_rx);
             is_dirty |= !deleted_files.is_empty();
             for file in &deleted_files {
-                tree_builder.set_or_remove(file.clone(), Merge::absent());
+                tree_builder.set_or_remove(file.clone(), None);
             }
             deleted_files
         });

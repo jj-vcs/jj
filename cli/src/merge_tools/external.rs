@@ -312,10 +312,12 @@ async fn run_mergetool_external_single_file(
         ));
     }
 
-    tree_builder.set_or_remove(
-        repo_path.to_owned(),
-        merge_tool_file.new_tree_value(new_file_ids),
-    );
+    tree_builder
+        .set_or_remove_merge(
+            repo_path.to_owned(),
+            merge_tool_file.new_tree_value(new_file_ids),
+        )
+        .unwrap();
     Ok(())
 }
 
