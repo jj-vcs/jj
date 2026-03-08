@@ -1538,6 +1538,7 @@ impl FileSnapshotter<'_> {
             .with_min_len(100)
             .filter_map(|entry| {
                 self.process_dir_entry(&dir, &git_ignore, file_states, &entry, scope)
+                    .block_on()
                     .transpose()
             })
             .map(|item| match item {
@@ -1551,7 +1552,7 @@ impl FileSnapshotter<'_> {
         Ok(())
     }
 
-    fn process_dir_entry<'scope>(
+    async fn process_dir_entry<'scope>(
         &'scope self,
         dir: &RepoPath,
         git_ignore: &Arc<GitIgnoreFile>,
@@ -1601,7 +1602,9 @@ impl FileSnapshotter<'_> {
                 // ignored directory must be ignored. It's also more efficient.
                 // start_tracking_matcher is NOT tested here because we need to
                 // scan directory entries to report untracked paths.
-                self.spawn_ok(scope, move |_| self.visit_tracked_files(file_states));
+                self.spawn_ok(scope, move |_| {
+                    self.visit_tracked_files(file_states).block_on()
+                });
             } else if !self.matcher.visit(&path).is_nothing() {
                 let directory_to_visit = DirectoryToVisit {
                     dir: path,
@@ -1659,7 +1662,8 @@ impl FileSnapshotter<'_> {
                         &entry.path(),
                         maybe_current_file_state.as_ref(),
                         new_file_state,
-                    )?;
+                    )
+                    .await?;
                     Ok(Some((PresentDirEntryKind::File, name_string)))
                 } else {
                     // Special file is not considered present
@@ -1672,7 +1676,7 @@ impl FileSnapshotter<'_> {
     }
 
     /// Visits only paths we're already tracking.
-    fn visit_tracked_files(&self, file_states: FileStates<'_>) -> Result<(), SnapshotError> {
+    async fn visit_tracked_files(&self, file_states: FileStates<'_>) -> Result<(), SnapshotError> {
         for (tracked_path, current_file_state) in file_states {
             if current_file_state.file_type == FileType::GitSubmodule {
                 continue;
@@ -1700,7 +1704,8 @@ impl FileSnapshotter<'_> {
                     &disk_path,
                     Some(&current_file_state),
                     new_file_state,
-                )?;
+                )
+                .await?;
             } else {
                 self.deleted_files_tx.send(tracked_path.to_owned()).ok();
             }
@@ -1708,19 +1713,16 @@ impl FileSnapshotter<'_> {
         Ok(())
     }
 
-    fn process_present_file(
+    async fn process_present_file(
         &self,
         path: RepoPathBuf,
         disk_path: &Path,
         maybe_current_file_state: Option<&FileState>,
         mut new_file_state: FileState,
     ) -> Result<(), SnapshotError> {
-        let update = self.get_updated_tree_value(
-            &path,
-            disk_path,
-            maybe_current_file_state,
-            &new_file_state,
-        )?;
+        let update = self
+            .get_updated_tree_value(&path, disk_path, maybe_current_file_state, &new_file_state)
+            .await?;
         // Preserve materialized conflict data for normal, non-resolved files
         if matches!(new_file_state.file_type, FileType::Normal { .. })
             && !update.as_ref().is_some_and(|update| update.is_resolved())
@@ -1770,7 +1772,7 @@ impl FileSnapshotter<'_> {
             .ok();
     }
 
-    fn get_updated_tree_value(
+    async fn get_updated_tree_value(
         &self,
         repo_path: &RepoPath,
         disk_path: &Path,
@@ -1792,7 +1794,7 @@ impl FileSnapshotter<'_> {
         if clean {
             Ok(None)
         } else {
-            let current_tree_values = self.current_tree.path_value(repo_path)?;
+            let current_tree_values = self.current_tree.path_value_async(repo_path).await?;
             let new_file_type = if !self.tree_state.symlink_support {
                 let mut new_file_type = new_file_state.file_type.clone();
                 if matches!(new_file_type, FileType::Normal { .. })
@@ -1805,19 +1807,18 @@ impl FileSnapshotter<'_> {
                 new_file_state.file_type.clone()
             };
             let new_tree_values = match new_file_type {
-                FileType::Normal { exec_bit } => self
-                    .write_path_to_store(
+                FileType::Normal { exec_bit } => {
+                    self.write_path_to_store(
                         repo_path,
                         disk_path,
                         &current_tree_values,
                         exec_bit,
                         maybe_current_file_state.and_then(|state| state.materialized_conflict_data),
                     )
-                    .block_on()?,
+                    .await?
+                }
                 FileType::Symlink => {
-                    let id = self
-                        .write_symlink_to_store(repo_path, disk_path)
-                        .block_on()?;
+                    let id = self.write_symlink_to_store(repo_path, disk_path).await?;
                     Merge::normal(TreeValue::Symlink(id))
                 }
                 FileType::GitSubmodule => panic!("git submodule cannot be written to store"),
