@@ -21,6 +21,7 @@ use std::task::Poll;
 use std::task::ready;
 
 use futures::Stream;
+use pollster::FutureExt as _;
 
 use crate::backend::BackendResult;
 use crate::backend::CopyRecord;
@@ -166,15 +167,15 @@ impl<'a> CopiesTreeDiffStream<'a> {
         }
     }
 
-    fn resolve_copy_source(
+    async fn resolve_copy_source(
         &self,
         source: &RepoPath,
         values: BackendResult<Diff<MergedTreeValue>>,
     ) -> BackendResult<(CopyOperation, Diff<MergedTreeValue>)> {
         let target_value = values?.after;
-        let source_value = self.source_tree.path_value(source)?;
+        let source_value = self.source_tree.path_value_async(source).await?;
         // If the source path is deleted in the target tree, it's a rename.
-        let source_value_at_target = self.target_tree.path_value(source)?;
+        let source_value_at_target = self.target_tree.path_value_async(source).await?;
         let copy_op = if source_value_at_target.is_absent() || source_value_at_target.is_tree() {
             CopyOperation::Rename
         } else {
@@ -206,7 +207,10 @@ impl Stream for CopiesTreeDiffStream<'_> {
                 }));
             };
 
-            let (copy_op, values) = match self.resolve_copy_source(source, diff_entry.values) {
+            let (copy_op, values) = match self
+                .resolve_copy_source(source, diff_entry.values)
+                .block_on()
+            {
                 Ok((copy_op, values)) => (copy_op, Ok(values)),
                 // Fall back to "copy" (= path still exists) if unknown.
                 Err(err) => (CopyOperation::Copy, Err(err)),
