@@ -26,6 +26,7 @@ use std::sync::Arc;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendError;
+use jj_lib::backend::BackendResult;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::Signature;
@@ -586,7 +587,8 @@ fn converge_parents(
 }
 
 // Assume A, B, C are the divergent commits, P is the solution parents (i.e. the
-// parents chosen by converge_parents), and F is the evolution fork point.
+// parents chosen by converge_parents), and F is a commit producing the
+// dominator value (of the trees).
 //
 // Notation:
 // * N': commit N rebased on top of P
@@ -612,16 +614,41 @@ async fn converge_trees(
         try_join_all(parents.iter().map(|id| repo.store().get_commit_async(id))).await?;
     let parents_merged_tree = merge_commit_trees_no_resolve(repo.as_ref(), &parent_commits).await?;
 
-    // TODO: for now we are using the evolution fork point as the base of the merge when converging trees. We
-    // should instead use the dominator value algorithm, more specifically, we should find the dominator
-    // value of the trees (of the divergent commits); that tree will come from one or more commits in the
-    // evolution graph. We should use one of those commits as the base of the merge.
+    // We first compute the dominator value of the trees (in the value history graph of the trees), together
+    // with the commit(s) that produce that tree. Any such commit is a good candidate to be used as the base
+    // of the merge.
 
-    let base_commit = truncated_evolution_graph.get_evolution_fork_point()?;
-    let base_commit_tree_labels = format!("evolution fork point: {}", base_commit.conflict_label());
+    let tree_ids_fn = |c: &Commit| {
+        Ok(
+            rebase_tree_onto_solution_parents(c, &parents_merged_tree, repo)
+                .block_on()?
+                .into_tree_ids(),
+        )
+    };
+    let divergent_trees: HashSet<_> = divergent_commits.iter().map(&tree_ids_fn).try_collect()?;
+    if divergent_trees.len() == 1 {
+        return Ok(rebase_tree_onto_solution_parents(
+            &divergent_commits[0],
+            &parents_merged_tree,
+            repo,
+        )
+        .block_on()?);
+    }
+
+    let (_dominator, producers) =
+        find_dominator_value_and_producers(divergent_commits, truncated_evolution_graph, &tree_ids_fn)?;
+    if producers.is_empty() {
+        return Err(ConvergeError::Other(
+            "Unexpected error: no producer commits found for the dominator tree".into(),
+        ));
+    }
+
+    // The first "producer" is the base of our merge of trees.
+    let base_commit = truncated_evolution_graph.get_commit(&producers[0])?;
+    let base_commit_tree_labels = format!("converge base: {}", base_commit.conflict_label());
     let base_commit_parent_tree = base_commit.parent_tree_no_resolve(repo.as_ref()).await?;
     let base_commit_parent_tree_labels = format!(
-        "evolution fork point parent(s): {}",
+        "converge base parent(s): {}",
         base_commit.parents_conflict_label().await?
     );
 
@@ -772,6 +799,142 @@ where
             format!("Unexpected error: {e}").into(),
         )),
     }
+}
+
+// Similar to find_dominator_value, but also returns the commits that "produce"
+// the dominator value (there may be multiple commits that produce the same
+// value).
+fn find_dominator_value_and_producers<T, VF>(
+    divergent_commits: &[Commit],
+    graph: &TruncatedEvolutionGraph,
+    value_fn: &VF,
+) -> Result<(T, Vec<CommitId>), ConvergeError>
+where
+    T: Eq + Hash + Clone,
+    VF: Fn(&Commit) -> Result<T, ConvergeError>,
+{
+    // The nodes of the value history graph, along with the commits that produced
+    // each value. Includes the virtual entry node.
+    let mut nodes: HashMap<ValueTag<T>, Vec<CommitId>> =
+        HashMap::with_capacity(divergent_commits.len());
+
+    // The edges in the value history graph, including edges from the virtual entry
+    // node.
+    let mut edges: HashSet<(ValueTag<T>, ValueTag<T>)> =
+        HashSet::with_capacity(divergent_commits.len());
+
+    // The values of the divergent commits (we want to find the closest common
+    // dominator to these values in the value history graph).
+    let mut targets: HashSet<ValueTag<T>> = HashSet::with_capacity(divergent_commits.len());
+
+    let mut to_visit = VecDeque::with_capacity(divergent_commits.len());
+
+    for divergent_commit in divergent_commits {
+        let commit_value = ValueTag::Real(value_fn(divergent_commit)?);
+        nodes
+            .entry(commit_value.clone())
+            .or_default()
+            .push(divergent_commit.id().clone());
+        targets.insert(commit_value.clone());
+        to_visit.push_back((divergent_commit.id().clone(), commit_value));
+    }
+
+    if nodes.len() == 1 {
+        // All divergent commits have the same value for this aspect, so we can just use
+        // that value in the solution.
+        match nodes.iter().next().unwrap() {
+            (ValueTag::Real(value), commit_ids) => {
+                return Ok((value.clone(), commit_ids.clone()));
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    nodes.insert(ValueTag::Virtual, vec![]);
+
+    let fork_point = graph.get_evolution_fork_point()?;
+    let fork_point_value = ValueTag::Real(value_fn(fork_point)?);
+    nodes
+        .entry(fork_point_value.clone())
+        .or_default()
+        .push(fork_point.id().clone());
+    // Add an edge from the virtual entry value to the fork point value, to ensure
+    // the graph has a single entry node.
+    edges.insert((ValueTag::Virtual, fork_point_value.clone()));
+
+    while let Some((commit_id, node_value)) = to_visit.pop_front() {
+        let node = graph.nodes.get(&commit_id).unwrap();
+        for predecessor_commit_id in &node.predecessors {
+            let predecessor_commit = graph.get_commit(predecessor_commit_id)?;
+            let predecessor_value = ValueTag::Real(value_fn(predecessor_commit)?);
+            nodes
+                .entry(predecessor_value.clone())
+                .or_default()
+                .push(predecessor_commit_id.clone());
+            edges.insert((predecessor_value.clone(), node_value.clone()));
+            if predecessor_commit_id != &graph.evolution_fork_point {
+                to_visit.push_back((predecessor_commit_id.clone(), predecessor_value));
+            }
+        }
+    }
+
+    let dominator = match find_closest_common_dominator(
+        nodes.keys().cloned(),
+        edges.iter().cloned(),
+        targets.iter().cloned(),
+    ) {
+        Ok(Some(dominator)) => Ok(dominator),
+        Ok(None) => Err(ConvergeError::Other(
+            "Unexpected error: no common dominator found".into(),
+        )),
+        Err(e) => Err(ConvergeError::Other(
+            format!("Unexpected error: {e}").into(),
+        )),
+    }?;
+    let dominator_producers = nodes.get(&dominator).ok_or_else(|| {
+        ConvergeError::Other("Unexpected error: dominator value not found in nodes".into())
+    })?;
+    let dominator_value = match dominator {
+        ValueTag::Real(value) => Ok(value),
+        ValueTag::Virtual => Err(ConvergeError::Other(
+            "Unexpected error: the common dominator should not be the virtual node".into(),
+        )),
+    }?;
+    Ok((dominator_value.clone(), dominator_producers.clone()))
+}
+
+async fn rebase_tree_onto_solution_parents(
+    c: &Commit,
+    parents_merged_tree: &MergedTree,
+    repo: &Arc<ReadonlyRepo>,
+) -> BackendResult<MergedTree> {
+    rebase_tree_onto_solution_parents_no_resolve(c, parents_merged_tree, repo)
+        .await?
+        .resolve()
+        .await
+}
+
+async fn rebase_tree_onto_solution_parents_no_resolve(
+    c: &Commit,
+    parents_merged_tree: &MergedTree,
+    repo: &Arc<ReadonlyRepo>,
+) -> BackendResult<MergedTree> {
+    let mut terms: Vec<(MergedTree, String)> = Vec::new();
+    // Add
+    terms.push((
+        parents_merged_tree.clone(),
+        "converge solution parent(s)".to_string(),
+    ));
+    // Remove
+    terms.push((
+        c.parent_tree_no_resolve(repo.as_ref()).await?,
+        c.parents_conflict_label().await?,
+    ));
+    // Add
+    terms.push((c.tree(), c.conflict_label()));
+    Ok(MergedTree::merge_no_resolve(
+        MergeBuilder::from_iter(terms).build(),
+    ))
 }
 
 /// Returns those commits in commit_ids that are not descendants of any other
