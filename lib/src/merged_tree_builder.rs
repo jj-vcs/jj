@@ -48,11 +48,18 @@ impl MergedTreeBuilder {
         }
     }
 
-    /// Set an override compared to  the base tree. The `values` merge must
+    /// Set an override compared to the base tree. The `values` merge must
     /// either be resolved (i.e. have 1 side) or have the same number of
-    /// sides as the `base_tree_ids` used to construct this builder. Use
-    /// `Merge::absent()` to remove a value from the tree.
+    /// sides as the base tree used to construct this builder. Conflicted
+    /// values should also be derived from the base tree's conflict. To
+    /// combine paths from a differently conflicted tree, merge the trees
+    /// instead (e.g. using `MergedTree::filtered()` and
+    /// `MergedTree::merge()`). Use `Merge::absent()` to remove a value from
+    /// the tree.
     pub fn set_or_remove(&mut self, path: RepoPathBuf, values: MergedTreeValue) {
+        assert!(
+            values.is_resolved() || values.num_sides() == self.base_tree.tree_ids().num_sides()
+        );
         self.overrides.insert(path, values);
     }
 
