@@ -465,7 +465,9 @@ fn parse_term_node(pair: Pair<Rule>) -> TemplateParseResult<ExpressionNode> {
     let span = expr.as_span();
     let primary = match expr.as_rule() {
         Rule::string_literal => {
-            let text = STRING_LITERAL_PARSER.parse(expr.into_inner());
+            let text = STRING_LITERAL_PARSER
+                .parse(expr.into_inner())
+                .map_err(|err| TemplateParseError::expression(err.to_string(), span))?;
             ExpressionNode::new(ExpressionKind::String(text), span)
         }
         Rule::raw_string_literal => {
@@ -1122,8 +1124,14 @@ mod tests {
             Ok(ExpressionKind::String("aeiou".to_owned())),
         );
         assert_eq!(
-            parse_into_kind(r#""\xe0\xe8\xec\xf0\xf9""#),
+            parse_into_kind(r#""\xc3\xa0\xc3\xa8\xc3\xac\xc3\xb0\xc3\xb9""#),
             Ok(ExpressionKind::String("àèìðù".to_owned())),
+        );
+        assert_eq!(
+            parse_into_kind(r#""\xc3""#),
+            Err(TemplateParseErrorKind::Expression(
+                "Invalid UTF-8 sequence".to_owned(),
+            )),
         );
         assert_eq!(
             parse_into_kind(r#""\x""#),

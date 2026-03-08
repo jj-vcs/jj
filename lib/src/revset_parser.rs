@@ -636,14 +636,14 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
             assert_eq!(lhs.as_rule(), Rule::strict_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
             let kind = lhs.as_str();
-            let value = parse_as_string_literal(rhs);
+            let value = parse_as_string_literal(rhs)?;
             ExpressionKind::StringPattern { kind, value }
         }
         // Identifier without "@" may be substituted by aliases. Primary expression including "@"
         // is considered an indecomposable unit, and no alias substitution would be made.
         Rule::identifier if pairs.peek().is_none() => ExpressionKind::Identifier(first.as_str()),
         Rule::identifier | Rule::string_literal | Rule::raw_string_literal => {
-            let name = parse_as_string_literal(first);
+            let name = parse_as_string_literal(first)?;
             match pairs.next() {
                 None => ExpressionKind::String(name),
                 Some(op) => {
@@ -654,7 +654,7 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
                         // infix "<name>@<remote>"
                         Some(second) => {
                             let name: RefNameBuf = name.into();
-                            let remote: RemoteNameBuf = parse_as_string_literal(second).into();
+                            let remote: RemoteNameBuf = parse_as_string_literal(second)?.into();
                             ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf { name, remote })
                         }
                     }
@@ -669,14 +669,17 @@ fn parse_primary_node(pair: Pair<Rule>) -> Result<ExpressionNode, RevsetParseErr
 }
 
 /// Parses part of compound symbol to string.
-fn parse_as_string_literal(pair: Pair<Rule>) -> String {
+fn parse_as_string_literal(pair: Pair<Rule>) -> Result<String, RevsetParseError> {
+    let span = pair.as_span();
     match pair.as_rule() {
-        Rule::identifier => pair.as_str().to_owned(),
-        Rule::string_literal => STRING_LITERAL_PARSER.parse(pair.into_inner()),
+        Rule::identifier => Ok(pair.as_str().to_owned()),
+        Rule::string_literal => STRING_LITERAL_PARSER
+            .parse(pair.into_inner())
+            .map_err(|err| RevsetParseError::expression(err.to_string(), span)),
         Rule::raw_string_literal => {
             let [content] = pair.into_inner().collect_array().unwrap();
             assert_eq!(content.as_rule(), Rule::raw_string_content);
-            content.as_str().to_owned()
+            Ok(content.as_str().to_owned())
         }
         _ => {
             panic!("unexpected string literal rule: {:?}", pair.as_str());
@@ -697,7 +700,7 @@ pub fn parse_symbol(text: &str) -> Result<String, RevsetParseError> {
     let mut pairs = RevsetParser::parse(Rule::symbol_name, text)?;
     let first = pairs.next().unwrap();
     let span = first.as_span();
-    let name = parse_as_string_literal(first);
+    let name = parse_as_string_literal(first)?;
     if name.is_empty() {
         Err(RevsetParseError::expression(
             "Expected non-empty string",
@@ -1284,8 +1287,14 @@ mod tests {
             Ok(ExpressionKind::String("aeiou".to_owned()))
         );
         assert_eq!(
-            parse_into_kind(r#""\xe0\xe8\xec\xf0\xf9""#),
+            parse_into_kind(r#""\xc3\xa0\xc3\xa8\xc3\xac\xc3\xb0\xc3\xb9""#),
             Ok(ExpressionKind::String("àèìðù".to_owned()))
+        );
+        assert_eq!(
+            parse_into_kind(r#""\xc3""#),
+            Err(RevsetParseErrorKind::Expression(
+                "Invalid UTF-8 sequence".to_owned()
+            ))
         );
         assert_eq!(
             parse_into_kind(r#""\x""#),

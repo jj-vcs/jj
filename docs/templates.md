@@ -458,7 +458,7 @@ A double-quoted string literal supports the following escape sequences:
 * `\n`: new line
 * `\0`: null
 * `\e`: escape (i.e., `\x1b`)
-* `\xHH`: byte with hex value `HH`
+* `\xHH`: byte with hex value `HH` (must be part of a valid UTF-8 string)
 
 Other escape sequences are not supported. Any UTF-8 characters are allowed
 inside a string literal, with two exceptions: unescaped `"`-s and uses of `\`

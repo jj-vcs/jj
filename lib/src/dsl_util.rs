@@ -16,6 +16,7 @@
 
 use std::ascii;
 use std::collections::HashMap;
+use std::error;
 use std::fmt;
 use std::slice;
 
@@ -397,26 +398,36 @@ pub struct StringLiteralParser<R> {
     pub escape_rule: R,
 }
 
+#[expect(missing_docs)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StringLiteralParseError;
+
+impl fmt::Display for StringLiteralParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Invalid UTF-8 sequence")
+    }
+}
+
+impl error::Error for StringLiteralParseError {}
+
 impl<R: RuleType> StringLiteralParser<R> {
     /// Parses the given string literal `pairs` into string.
-    pub fn parse(&self, pairs: Pairs<R>) -> String {
-        let mut result = String::new();
+    pub fn parse(&self, pairs: Pairs<R>) -> Result<String, StringLiteralParseError> {
+        let mut result = Vec::new();
         for part in pairs {
             if part.as_rule() == self.content_rule {
-                result.push_str(part.as_str());
+                result.extend_from_slice(part.as_str().as_bytes());
             } else if part.as_rule() == self.escape_rule {
                 match &part.as_str()[1..] {
-                    "\"" => result.push('"'),
-                    "\\" => result.push('\\'),
-                    "t" => result.push('\t'),
-                    "r" => result.push('\r'),
-                    "n" => result.push('\n'),
-                    "0" => result.push('\0'),
-                    "e" => result.push('\x1b'),
+                    "\"" => result.push(b'"'),
+                    "\\" => result.push(b'\\'),
+                    "t" => result.push(b'\t'),
+                    "r" => result.push(b'\r'),
+                    "n" => result.push(b'\n'),
+                    "0" => result.push(b'\0'),
+                    "e" => result.push(b'\x1b'),
                     hex if hex.starts_with('x') => {
-                        result.push(char::from(
-                            u8::from_str_radix(&hex[1..], 16).expect("hex characters"),
-                        ));
+                        result.push(u8::from_str_radix(&hex[1..], 16).expect("hex characters"));
                     }
                     char => panic!("invalid escape: \\{char:?}"),
                 }
@@ -424,7 +435,7 @@ impl<R: RuleType> StringLiteralParser<R> {
                 panic!("unexpected part of string: {part:?}");
             }
         }
-        result
+        String::from_utf8(result).map_err(|_| StringLiteralParseError)
     }
 }
 

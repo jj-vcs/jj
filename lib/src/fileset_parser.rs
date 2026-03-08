@@ -236,14 +236,17 @@ fn parse_function_call_node(pair: Pair<Rule>) -> FilesetParseResult<FunctionCall
     })
 }
 
-fn parse_as_string_literal(pair: Pair<Rule>) -> String {
+fn parse_as_string_literal(pair: Pair<Rule>) -> FilesetParseResult<String> {
+    let span = pair.as_span();
     match pair.as_rule() {
-        Rule::identifier => pair.as_str().to_owned(),
-        Rule::string_literal => STRING_LITERAL_PARSER.parse(pair.into_inner()),
+        Rule::identifier => Ok(pair.as_str().to_owned()),
+        Rule::string_literal => STRING_LITERAL_PARSER
+            .parse(pair.into_inner())
+            .map_err(|err| FilesetParseError::expression(err.to_string(), span)),
         Rule::raw_string_literal => {
             let [content] = pair.into_inner().collect_array().unwrap();
             assert_eq!(content.as_rule(), Rule::raw_string_content);
-            content.as_str().to_owned()
+            Ok(content.as_str().to_owned())
         }
         r => panic!("unexpected string literal rule: {r:?}"),
     }
@@ -264,12 +267,12 @@ fn parse_primary_node(pair: Pair<Rule>) -> FilesetParseResult<ExpressionNode> {
             assert_eq!(lhs.as_rule(), Rule::strict_identifier);
             assert_eq!(op.as_rule(), Rule::pattern_kind_op);
             let kind = lhs.as_str();
-            let value = parse_as_string_literal(rhs);
+            let value = parse_as_string_literal(rhs)?;
             ExpressionKind::StringPattern { kind, value }
         }
         Rule::identifier => ExpressionKind::Identifier(first.as_str()),
         Rule::string_literal | Rule::raw_string_literal => {
-            ExpressionKind::String(parse_as_string_literal(first))
+            ExpressionKind::String(parse_as_string_literal(first)?)
         }
         r => panic!("unexpected primary rule: {r:?}"),
     };
@@ -519,8 +522,14 @@ mod tests {
             Ok(ExpressionKind::String("aeiou".to_owned())),
         );
         assert_eq!(
-            parse_into_kind(r#""\xe0\xe8\xec\xf0\xf9""#),
+            parse_into_kind(r#""\xc3\xa0\xc3\xa8\xc3\xac\xc3\xb0\xc3\xb9""#),
             Ok(ExpressionKind::String("àèìðù".to_owned())),
+        );
+        assert_eq!(
+            parse_into_kind(r#""\xc3""#),
+            Err(FilesetParseErrorKind::Expression(
+                "Invalid UTF-8 sequence".to_owned(),
+            )),
         );
         assert_eq!(
             parse_into_kind(r#""\x""#),
