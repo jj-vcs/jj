@@ -134,7 +134,7 @@ impl Tree {
             match sub_tree {
                 TreeValue::Tree(sub_tree_id) => {
                     let subdir = self.dir.join(name);
-                    let sub_tree = self.store.get_tree_async(subdir, sub_tree_id).await?;
+                    let sub_tree = self.store.get_tree(subdir, sub_tree_id).await?;
                     Ok(Some(sub_tree))
                 }
                 _ => Ok(None),
@@ -145,7 +145,7 @@ impl Tree {
     }
 
     async fn known_sub_tree(&self, subdir: RepoPathBuf, id: &TreeId) -> Self {
-        self.store.get_tree_async(subdir, id).await.unwrap()
+        self.store.get_tree(subdir, id).await.unwrap()
     }
 
     /// Look up the tree at the given path.

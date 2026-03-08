@@ -180,7 +180,7 @@ pub async fn cmd_debug_object(
                 TreeId::try_from_hex(tree_id)
                     .ok_or_else(|| user_error(format!(r#"Invalid hex tree id: "{tree_id}""#)))?
             };
-            let tree = repo_loader.store().get_tree(dir, &id)?;
+            let tree = repo_loader.store().get_tree(dir, &id).await?;
             writeln!(ui.stdout(), "{:#?}", tree.data())?;
         }
         DebugObjectArgs::View(args) => {

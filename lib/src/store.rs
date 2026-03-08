@@ -188,15 +188,7 @@ impl Store {
         Ok(Commit::new(self.clone(), commit_id, data))
     }
 
-    pub fn get_tree(self: &Arc<Self>, dir: RepoPathBuf, id: &TreeId) -> BackendResult<Tree> {
-        self.get_tree_async(dir, id).block_on()
-    }
-
-    pub async fn get_tree_async(
-        self: &Arc<Self>,
-        dir: RepoPathBuf,
-        id: &TreeId,
-    ) -> BackendResult<Tree> {
+    pub async fn get_tree(self: &Arc<Self>, dir: RepoPathBuf, id: &TreeId) -> BackendResult<Tree> {
         let data = self.get_backend_tree(&dir, id).await?;
         Ok(Tree::new(self.clone(), dir, id.clone(), data))
     }

@@ -815,7 +815,7 @@ where
                 tree_id_merge
                     .try_map_async(async |id| {
                         if let Some(id) = id {
-                            store.get_tree_async(dir.to_owned(), id).await
+                            store.get_tree(dir.to_owned(), id).await
                         } else {
                             Ok(Tree::empty(store.clone(), dir.to_owned()))
                         }
@@ -961,7 +961,7 @@ impl Merge<Tree> {
             Ok(Some(TreeValue::Tree(sub_tree_id))) => {
                 let subdir = self.dir().join(name);
                 Ok(Some(Self::resolved(
-                    store.get_tree_async(subdir, sub_tree_id).await?,
+                    store.get_tree(subdir, sub_tree_id).await?,
                 )))
             }
             Ok(_) => Ok(None),
@@ -973,7 +973,7 @@ impl Merge<Tree> {
                     .try_map_async(async |value| match value {
                         Some(TreeValue::Tree(sub_tree_id)) => {
                             let subdir = self.dir().join(name);
-                            store.get_tree_async(subdir, sub_tree_id).await
+                            store.get_tree(subdir, sub_tree_id).await
                         }
                         Some(_) => unreachable!(),
                         None => {

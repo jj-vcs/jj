@@ -132,7 +132,7 @@ impl MergedTree {
     /// Reads the merge of tree objects represented by this `MergedTree`.
     pub async fn trees(&self) -> BackendResult<Merge<Tree>> {
         self.tree_ids
-            .try_map_async(|id| self.store.get_tree_async(RepoPathBuf::root(), id))
+            .try_map_async(|id| self.store.get_tree(RepoPathBuf::root(), id))
             .await
     }
 
@@ -778,7 +778,7 @@ impl<'matcher> TreeDiffStreamImpl<'matcher> {
         value: Option<&TreeValue>,
     ) -> BackendResult<Tree> {
         match value {
-            Some(TreeValue::Tree(tree_id)) => store.get_tree_async(dir, tree_id).await,
+            Some(TreeValue::Tree(tree_id)) => store.get_tree(dir, tree_id).await,
             _ => Ok(Tree::empty(store.clone(), dir.clone())),
         }
     }

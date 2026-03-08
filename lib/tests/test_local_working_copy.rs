@@ -574,7 +574,11 @@ fn test_tree_builder_file_directory_transition() {
     let mut ws = test_workspace.workspace;
     let workspace_root = ws.workspace_root().to_owned();
     let mut check_out_tree = |tree_id: &TreeId| {
-        let tree = repo.store().get_tree(RepoPathBuf::root(), tree_id).unwrap();
+        let tree = repo
+            .store()
+            .get_tree(RepoPathBuf::root(), tree_id)
+            .block_on()
+            .unwrap();
         let commit = commit_with_tree(
             repo.store(),
             MergedTree::resolved(repo.store().clone(), tree.id().clone()),
