@@ -70,6 +70,7 @@ use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
+use testutils::FutureTestExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::TestWorkspace;
@@ -253,7 +254,7 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
                 )
             }
             Kind::Symlink => {
-                let id = store.write_symlink(path, "target").block_on().unwrap();
+                let id = store.write_symlink(path, "target").block_unwrap();
                 Merge::normal(TreeValue::Symlink(id))
             }
             Kind::Tree => {
@@ -270,7 +271,7 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
             Kind::GitSubmodule => {
                 let mut tx = repo.start_transaction();
                 let id = write_random_commit(tx.repo_mut()).id().clone();
-                tx.commit("test").block_on().unwrap();
+                tx.commit("test").block_unwrap();
                 Merge::normal(TreeValue::GitSubmodule(id))
             }
         };
@@ -301,18 +302,16 @@ fn test_checkout_file_transitions(backend: TestRepoBackend) {
             files.push((*left_kind, *right_kind, path.clone()));
         }
     }
-    let left_tree = left_tree_builder.write_tree().block_on().unwrap();
-    let right_tree = right_tree_builder.write_tree().block_on().unwrap();
+    let left_tree = left_tree_builder.write_tree().block_unwrap();
+    let right_tree = right_tree_builder.write_tree().block_unwrap();
     let left_commit = commit_with_tree(&store, left_tree);
     let right_commit = commit_with_tree(&store, right_tree.clone());
 
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &left_commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     ws.check_out(repo.op_id().clone(), None, &right_commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     // Check that the working copy is clean.
     let new_tree = test_workspace.snapshot().unwrap();
@@ -407,8 +406,7 @@ fn test_checkout_no_op() {
 
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit1)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     // Test the setup: the file should exist on in the tree state.
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
@@ -418,8 +416,7 @@ fn test_checkout_no_op() {
     let new_op_id = OperationId::from_bytes(b"whatever");
     let stats = ws
         .check_out(new_op_id.clone(), None, &commit2)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert_eq!(stats, CheckoutStats::default());
 
     // The tree state is unchanged but the recorded operation id is updated.
@@ -444,17 +441,14 @@ fn test_conflict_subdirectory() {
         (empty_tree, "empty".into()),
         (tree2, "tree 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_unwrap();
     let merged_commit = commit_with_tree(repo.store(), merged_tree);
     let repo = &test_workspace.repo;
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit1)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     ws.check_out(repo.op_id().clone(), None, &merged_commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 }
 
 #[test]
@@ -500,17 +494,12 @@ fn test_acl() {
     )
     .unwrap();
     // Reload commits from the store associated with the workspace
-    let repo = ws
-        .repo_loader()
-        .load_at(repo.operation())
-        .block_on()
-        .unwrap();
+    let repo = ws.repo_loader().load_at(repo.operation()).block_unwrap();
     let commit1 = repo.store().get_commit(commit1.id()).unwrap();
     let commit2 = repo.store().get_commit(commit2.id()).unwrap();
 
     ws.check_out(repo.op_id().clone(), None, &commit1)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert!(
         !secret_modified_path
             .to_fs_path_unchecked(&workspace_root)
@@ -537,8 +526,7 @@ fn test_acl() {
             .is_file()
     );
     ws.check_out(repo.op_id().clone(), None, &commit2)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert!(
         !secret_modified_path
             .to_fs_path_unchecked(&workspace_root)
@@ -580,8 +568,7 @@ fn test_tree_builder_file_directory_transition() {
             MergedTree::resolved(repo.store().clone(), tree.id().clone()),
         );
         ws.check_out(repo.op_id().clone(), None, &commit)
-            .block_on()
-            .unwrap();
+            .block_unwrap();
     };
 
     let parent_path = repo_path("foo/bar");
@@ -597,7 +584,7 @@ fn test_tree_builder_file_directory_transition() {
             copy_id: CopyId::placeholder(),
         },
     );
-    let tree_id = tree_builder.write_tree().block_on().unwrap();
+    let tree_id = tree_builder.write_tree().block_unwrap();
     check_out_tree(&tree_id);
     assert!(parent_path.to_fs_path_unchecked(&workspace_root).is_file());
     assert!(!child_path.to_fs_path_unchecked(&workspace_root).exists());
@@ -613,7 +600,7 @@ fn test_tree_builder_file_directory_transition() {
             copy_id: CopyId::placeholder(),
         },
     );
-    let tree_id = tree_builder.write_tree().block_on().unwrap();
+    let tree_id = tree_builder.write_tree().block_unwrap();
     check_out_tree(&tree_id);
     assert!(parent_path.to_fs_path_unchecked(&workspace_root).is_dir());
     assert!(child_path.to_fs_path_unchecked(&workspace_root).is_file());
@@ -629,7 +616,7 @@ fn test_tree_builder_file_directory_transition() {
             copy_id: CopyId::placeholder(),
         },
     );
-    let tree_id = tree_builder.write_tree().block_on().unwrap();
+    let tree_id = tree_builder.write_tree().block_unwrap();
     check_out_tree(&tree_id);
     assert!(parent_path.to_fs_path_unchecked(&workspace_root).is_file());
     assert!(!child_path.to_fs_path_unchecked(&workspace_root).exists());
@@ -682,8 +669,7 @@ fn test_conflicting_changes_on_disk() {
 
     let stats = ws
         .check_out(repo.op_id().clone(), None, &commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert_eq!(
         stats,
         CheckoutStats {
@@ -734,8 +720,7 @@ fn test_reset() {
     let ws = &mut test_workspace.workspace;
     let commit = commit_with_tree(repo.store(), tree_with_file.clone());
     ws.check_out(repo.op_id().clone(), None, &commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     // Test the setup: the file should exist on disk and in the tree state.
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
@@ -749,9 +734,8 @@ fn test_reset() {
     locked_ws
         .locked_wc()
         .reset(&commit_without_file)
-        .block_on()
-        .unwrap();
-    locked_ws.finish(op_id.clone()).block_on().unwrap();
+        .block_unwrap();
+    locked_ws.finish(op_id.clone()).block_unwrap();
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(!wc.file_states().unwrap().contains_path(ignored_path));
@@ -765,9 +749,8 @@ fn test_reset() {
     locked_ws
         .locked_wc()
         .reset(&commit_with_file)
-        .block_on()
-        .unwrap();
-    locked_ws.finish(op_id.clone()).block_on().unwrap();
+        .block_unwrap();
+    locked_ws.finish(op_id.clone()).block_unwrap();
     assert!(ignored_path.to_fs_path_unchecked(&workspace_root).is_file());
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert!(wc.file_states().unwrap().contains_path(ignored_path));
@@ -795,8 +778,7 @@ fn test_checkout_discard() {
 
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit1)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     let state_path = wc.state_path().to_path_buf();
 
@@ -807,11 +789,7 @@ fn test_checkout_discard() {
 
     // Start a checkout
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-    locked_ws
-        .locked_wc()
-        .check_out(&commit2)
-        .block_on()
-        .unwrap();
+    locked_ws.locked_wc().check_out(&commit2).block_unwrap();
     // The change should be reflected in the working copy but not saved
     assert!(!file1_path.to_fs_path_unchecked(&workspace_root).is_file());
     assert!(file2_path.to_fs_path_unchecked(&workspace_root).is_file());
@@ -858,8 +836,7 @@ fn test_snapshot_file_directory_transition() {
 
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit1)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     // file -> directory
     std::fs::remove_file(to_ws_path(file1p_path)).unwrap();
@@ -873,8 +850,7 @@ fn test_snapshot_file_directory_transition() {
 
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit2)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     // directory -> file
     std::fs::remove_file(to_ws_path(file1_path)).unwrap();
@@ -912,14 +888,12 @@ fn test_materialize_snapshot_conflicted_files() {
         (base2_tree, "base 2".into()),
         (side3_tree, "side 3".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_unwrap();
     let commit = commit_with_tree(repo.store(), merged_tree.clone());
 
     let stats = ws
         .check_out(repo.op_id().clone(), None, &commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert_eq!(
         stats,
         CheckoutStats {
@@ -1049,15 +1023,13 @@ fn test_materialize_snapshot_unchanged_conflicts() {
         (base_tree, "base".into()),
         (right_tree, "right".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_unwrap();
     let commit = commit_with_tree(repo.store(), merged_tree.clone());
 
     test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     // "line 5" should be deleted from the checked-out content.
     let disk_path = file_path.to_fs_path_unchecked(&workspace_root);
@@ -1094,8 +1066,7 @@ fn test_materialize_snapshot_unchanged_conflicts() {
     let stats = test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit_with_labels)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert_eq!(
         stats,
         CheckoutStats {
@@ -1358,20 +1329,18 @@ fn test_snapshot_modified_materialized_conflict(
         .new_commit(vec![base_commit.id().clone()], tree)
         .write_unwrap();
     // Update the repo to pick up the new commits.
-    test_workspace.repo = tx.commit("create parent commits").block_on().unwrap();
+    test_workspace.repo = tx.commit("create parent commits").block_unwrap();
 
     // Create the merge commit.
-    let tree = merge_commit_trees(&*test_workspace.repo, &[parent1_commit, parent2_commit])
-        .block_on()
-        .unwrap();
+    let tree =
+        merge_commit_trees(&*test_workspace.repo, &[parent1_commit, parent2_commit]).block_unwrap();
     let merge_commit = commit_with_tree(test_workspace.repo.store(), tree);
 
     // Checkout the merge commit.
     test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &merge_commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     let contents = std::fs::read(&file_disk_path).unwrap();
     let hunks =
         jj_lib::conflicts::parse_conflict(&contents, 2, jj_lib::conflicts::MIN_CONFLICT_MARKER_LEN)
@@ -1400,8 +1369,7 @@ fn test_snapshot_modified_materialized_conflict(
     let tree = test_workspace.snapshot().unwrap();
     let actual_file_contents = tree
         .path_value_async(file_repo_path)
-        .block_on()
-        .unwrap()
+        .block_unwrap()
         .try_map_async(async |tree_value| {
             let Some(tree_value) = tree_value else {
                 return Ok::<_, Infallible>(None);
@@ -1421,8 +1389,7 @@ fn test_snapshot_modified_materialized_conflict(
                 .unwrap();
             Ok::<_, Infallible>(Some(String::from_utf8(contents).unwrap()))
         })
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     let expected_file_contents =
         expected_file_contents.map(|contents| contents.as_deref().map(str::to_string));
     assert_eq!(actual_file_contents, expected_file_contents);
@@ -1447,8 +1414,7 @@ fn test_snapshot_racy_timestamps() {
         let (new_tree, _stats) = locked_ws
             .locked_wc()
             .snapshot(&empty_snapshot_options())
-            .block_on()
-            .unwrap();
+            .block_unwrap();
         assert_ne!(new_tree.tree_ids(), previous_tree.tree_ids());
         previous_tree = new_tree;
     }
@@ -1480,12 +1446,10 @@ fn test_snapshot_special_file() {
     let (tree, _stats) = locked_ws
         .locked_wc()
         .snapshot(&empty_snapshot_options())
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     locked_ws
         .finish(OperationId::from_hex("abc123"))
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     // Only the regular files should be in the tree
     assert_eq!(
         tree.entries().map(|(path, _value)| path).collect_vec(),
@@ -1588,9 +1552,7 @@ fn test_gitignores_in_ignored_dir() {
     let tree1 = create_tree(&test_workspace.repo, &[(gitignore_path, "ignored\n")]);
     let commit1 = commit_with_tree(test_workspace.repo.store(), tree1.clone());
     let ws = &mut test_workspace.workspace;
-    ws.check_out(op_id.clone(), None, &commit1)
-        .block_on()
-        .unwrap();
+    ws.check_out(op_id.clone(), None, &commit1).block_unwrap();
 
     testutils::write_working_copy_file(&workspace_root, nested_gitignore_path, "!file\n");
     testutils::write_working_copy_file(&workspace_root, ignored_path, "contents");
@@ -1611,11 +1573,10 @@ fn test_gitignores_in_ignored_dir() {
         .workspace
         .start_working_copy_mutation()
         .unwrap();
-    locked_ws.locked_wc().reset(&commit2).block_on().unwrap();
+    locked_ws.locked_wc().reset(&commit2).block_unwrap();
     locked_ws
         .finish(OperationId::from_hex("abc123"))
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     let new_tree = test_workspace.snapshot().unwrap();
     assert_tree_eq!(new_tree, tree2);
@@ -1698,8 +1659,7 @@ fn test_gitignores_ignored_directory_already_tracked() {
     // Check out the tree with the files in `ignored/`
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     // Make some changes inside the ignored directory and check that they are
     // detected when we snapshot. The files that are still there should not be
@@ -1818,7 +1778,7 @@ fn test_git_submodule(gitignore_content: &str) {
         Merge::normal(TreeValue::GitSubmodule(submodule_id1)),
     );
 
-    let tree_id1 = tree_builder.write_tree().block_on().unwrap();
+    let tree_id1 = tree_builder.write_tree().block_unwrap();
     let commit1 = commit_with_tree(repo.store(), tree_id1.clone());
 
     let mut tree_builder = MergedTreeBuilder::new(tree_id1.clone());
@@ -1827,13 +1787,12 @@ fn test_git_submodule(gitignore_content: &str) {
         submodule_path.to_owned(),
         Merge::normal(TreeValue::GitSubmodule(submodule_id2)),
     );
-    let tree_id2 = tree_builder.write_tree().block_on().unwrap();
+    let tree_id2 = tree_builder.write_tree().block_unwrap();
     let commit2 = commit_with_tree(repo.store(), tree_id2.clone());
 
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit1)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     std::fs::create_dir(submodule_path.to_fs_path_unchecked(&workspace_root)).unwrap();
 
@@ -1861,8 +1820,7 @@ fn test_git_submodule(gitignore_content: &str) {
     // of existing submodule files
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit2)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     // Check that the files in the submodule are not deleted
     let file_in_submodule_path = added_submodule_path.to_fs_path_unchecked(&workspace_root);
@@ -1882,8 +1840,7 @@ fn test_git_submodule(gitignore_content: &str) {
     let ws = &mut test_workspace.workspace;
     let stats = ws
         .check_out(repo.op_id().clone(), None, &store.root_commit())
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert_eq!(stats.skipped_files, 1);
 }
 
@@ -1901,8 +1858,7 @@ fn test_check_out_existing_file_cannot_be_removed() {
 
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit1)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     // Make the parent directory readonly.
     let writable_dir_perm = workspace_root.symlink_metadata().unwrap().permissions();
@@ -1938,8 +1894,7 @@ fn test_check_out_existing_file_replaced_with_directory() {
 
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit1)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     std::fs::remove_file(file_path.to_fs_path_unchecked(&workspace_root)).unwrap();
     std::fs::create_dir(file_path.to_fs_path_unchecked(&workspace_root)).unwrap();
@@ -1947,8 +1902,7 @@ fn test_check_out_existing_file_replaced_with_directory() {
     // Checkout doesn't fail, but the file should be skipped.
     let stats = ws
         .check_out(repo.op_id().clone(), None, &commit2)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert_eq!(stats.skipped_files, 1);
     assert!(file_path.to_fs_path_unchecked(&workspace_root).is_dir());
 }
@@ -1981,8 +1935,7 @@ fn test_check_out_existing_directory_symlink() {
     let ws = &mut test_workspace.workspace;
     let stats = ws
         .check_out(repo.op_id().clone(), None, &commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert_eq!(stats.skipped_files, 2);
 
     // Therefore, "../escaped*" paths shouldn't be created.
@@ -2015,8 +1968,7 @@ fn test_check_out_existing_directory_symlink_icase_fs() {
     let ws = &mut test_workspace.workspace;
     let stats = ws
         .check_out(repo.op_id().clone(), None, &commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     if is_icase_fs {
         assert_eq!(stats.skipped_files, 2);
     } else {
@@ -2062,8 +2014,7 @@ fn test_check_out_existing_file_symlink_icase_fs(victim_exists: bool) {
     let ws = &mut test_workspace.workspace;
     let stats = ws
         .check_out(repo.op_id().clone(), None, &commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     if is_icase_fs {
         assert_eq!(stats.skipped_files, 1);
     } else {
@@ -2098,8 +2049,7 @@ fn test_check_out_file_removal_over_existing_directory_symlink() {
     // Check out "parent/escaped".
     let ws = &mut test_workspace.workspace;
     ws.check_out(repo.op_id().clone(), None, &commit1)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     // Pretend that "parent" was a symlink, which might be created by
     // e.g. checking out "PARENT" on case-insensitive fs. The file
@@ -2114,8 +2064,7 @@ fn test_check_out_file_removal_over_existing_directory_symlink() {
     // Check out empty tree, which tries to remove "parent/escaped".
     let stats = ws
         .check_out(repo.op_id().clone(), None, &commit2)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert_eq!(stats.skipped_files, 1);
 
     // "../escaped" shouldn't be removed.
@@ -2151,8 +2100,7 @@ fn test_check_out_symlink_unusual_target(link_target: &str) {
     let ws = &mut test_workspace.workspace;
     let stats = ws
         .check_out(repo.op_id().clone(), None, &commit1)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert_eq!(stats.added_files, 1);
 
     // Symlink should be created
@@ -2164,8 +2112,7 @@ fn test_check_out_symlink_unusual_target(link_target: &str) {
     // Check out empty tree
     let stats = ws
         .check_out(repo.op_id().clone(), None, &commit2)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert_eq!(stats.removed_files, 1);
 
     // Symlink should be deleted
@@ -2262,8 +2209,8 @@ fn test_check_out_reserved_file_path(file_path_str: &str) {
 
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-    locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
-    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
+    locked_ws.locked_wc().reset(&commit1).block_unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_unwrap();
     if ![".git", ".jj"].contains(&file_path_str) {
         std::fs::create_dir_all(disk_path.parent().unwrap()).unwrap();
         std::fs::write(&disk_path, "").unwrap();
@@ -2321,8 +2268,8 @@ fn test_check_out_reserved_file_path_icase_fs(file_path_str: &str) {
 
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-    locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
-    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
+    locked_ws.locked_wc().reset(&commit1).block_unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_unwrap();
     std::fs::create_dir_all(disk_path.parent().unwrap()).unwrap();
     std::fs::write(&disk_path, "").unwrap();
 
@@ -2386,8 +2333,8 @@ fn test_check_out_reserved_file_path_hfs_plus(file_path_str: &str) {
 
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-    locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
-    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
+    locked_ws.locked_wc().reset(&commit1).block_unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_unwrap();
     std::fs::create_dir_all(disk_path.parent().unwrap()).unwrap();
     std::fs::write(&disk_path, "").unwrap();
 
@@ -2456,8 +2403,8 @@ fn test_check_out_reserved_file_path_vfat(vfat_path_str: &str, file_path_strs: &
 
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-    locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
-    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
+    locked_ws.locked_wc().reset(&commit1).block_unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_unwrap();
     if is_vfat {
         std::fs::create_dir_all(vfat_disk_path.parent().unwrap()).unwrap();
         std::fs::write(&vfat_disk_path, "").unwrap();
@@ -2518,8 +2465,8 @@ fn test_check_out_reserved_file_path_dot_git_symlink(file_path_str: &str) {
 
     // Pretend that the checkout somehow succeeded.
     let mut locked_ws = ws.start_working_copy_mutation().unwrap();
-    locked_ws.locked_wc().reset(&commit1).block_on().unwrap();
-    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
+    locked_ws.locked_wc().reset(&commit1).block_unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_unwrap();
     if file_path_str != ".git" {
         std::fs::write(&disk_path, "").unwrap();
     }
@@ -2581,8 +2528,7 @@ fn test_fsmonitor() {
         .unwrap();
         tree_state
             .snapshot(&empty_snapshot_options())
-            .block_on()
-            .unwrap();
+            .block_unwrap();
         tree_state
     };
 
@@ -2670,7 +2616,7 @@ fn track_ignored_with_flag_and_fsmonitor() {
         if let Some(matcher) = matcher {
             options.force_tracking_matcher = matcher;
         }
-        tree_state.snapshot(&options).block_on().unwrap();
+        tree_state.snapshot(&options).block_unwrap();
         tree_state.save().unwrap();
         tree_state
     };
@@ -2729,8 +2675,7 @@ fn fsmonitor_gitignore_rescan_subtree() {
         .unwrap();
         tree_state
             .snapshot(&empty_snapshot_options())
-            .block_on()
-            .unwrap();
+            .block_unwrap();
         tree_state.save().unwrap();
         tree_state
     };
@@ -2865,8 +2810,7 @@ fn test_snapshot_symlink_use_forward_slash() {
         .repo
         .store()
         .read_symlink(link, &symlink_id)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     assert!(
         !actual_link_contents.contains('\\'),
@@ -2963,15 +2907,10 @@ fn test_snapshot_and_update_valid_symlink(get_link_target: impl FnOnce(&Path, &P
         .start_working_copy_mutation()
         .unwrap();
     let root_commit = test_workspace.repo.store().root_commit();
-    locked_ws
-        .locked_wc()
-        .check_out(&root_commit)
-        .block_on()
-        .unwrap();
+    locked_ws.locked_wc().check_out(&root_commit).block_unwrap();
     locked_ws
         .finish(test_workspace.repo.op_id().clone())
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     assert!(!std::fs::exists(&link_path).unwrap());
     assert!(std::fs::read_link(&link_path).is_err());
@@ -2981,11 +2920,10 @@ fn test_snapshot_and_update_valid_symlink(get_link_target: impl FnOnce(&Path, &P
         .workspace
         .start_working_copy_mutation()
         .unwrap();
-    locked_ws.locked_wc().check_out(&commit).block_on().unwrap();
+    locked_ws.locked_wc().check_out(&commit).block_unwrap();
     locked_ws
         .finish(test_workspace.repo.op_id().clone())
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     let actual_target = std::fs::read_link(&link_path).expect("The symlink itself should exist.");
     let actual_contents = std::fs::read(&link_path).unwrap_or_else(|e| {

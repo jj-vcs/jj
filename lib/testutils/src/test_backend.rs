@@ -433,6 +433,7 @@ mod tests {
     use pollster::FutureExt as _;
 
     use super::*;
+    use crate::FutureTestExt as _;
     use crate::repo_path_buf;
 
     fn copy_history(path: &str, parents: &[CopyId]) -> CopyHistory {
@@ -449,11 +450,11 @@ mod tests {
 
         // Test with a single chain so the resulting order is deterministic
         let copy1 = copy_history("foo1", &[]);
-        let copy1_id = backend.write_copy(&copy1).block_on().unwrap();
+        let copy1_id = backend.write_copy(&copy1).block_unwrap();
         let copy2 = copy_history("foo2", std::slice::from_ref(&copy1_id));
-        let copy2_id = backend.write_copy(&copy2).block_on().unwrap();
+        let copy2_id = backend.write_copy(&copy2).block_unwrap();
         let copy3 = copy_history("foo3", std::slice::from_ref(&copy2_id));
-        let copy3_id = backend.write_copy(&copy3).block_on().unwrap();
+        let copy3_id = backend.write_copy(&copy3).block_unwrap();
 
         // Error when looking up by non-existent id
         assert!(
@@ -465,9 +466,9 @@ mod tests {
 
         // Looking up by any id returns the related copies in the same order (children
         // before parents)
-        let related = backend.get_related_copies(&copy1_id).block_on().unwrap();
+        let related = backend.get_related_copies(&copy1_id).block_unwrap();
         assert_eq!(related, vec![copy3.clone(), copy2.clone(), copy1.clone()]);
-        let related: Vec<CopyHistory> = backend.get_related_copies(&copy3_id).block_on().unwrap();
+        let related: Vec<CopyHistory> = backend.get_related_copies(&copy3_id).block_unwrap();
         assert_eq!(related, vec![copy3.clone(), copy2.clone(), copy1.clone()]);
     }
 }

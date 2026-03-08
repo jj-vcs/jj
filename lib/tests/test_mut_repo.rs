@@ -27,8 +27,8 @@ use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::repo::Repo as _;
 use jj_lib::rewrite::RebaseOptions;
 use maplit::hashset;
-use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
+use testutils::FutureTestExt as _;
 use testutils::TestRepo;
 use testutils::assert_rebased_onto;
 use testutils::create_random_commit;
@@ -60,15 +60,14 @@ fn test_edit() {
 
     let mut tx = repo.start_transaction();
     let wc_commit = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     tx.repo_mut()
         .edit(ws_name.clone(), &wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+        .block_unwrap();
+    let repo = tx.commit("test").block_unwrap();
     assert_eq!(repo.view().get_wc_commit_id(&ws_name), Some(wc_commit.id()));
 }
 
@@ -80,19 +79,18 @@ fn test_checkout() {
 
     let mut tx = repo.start_transaction();
     let wc_commit_parent = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     let wc_commit = tx
         .repo_mut()
         .check_out(ws_name.clone(), &wc_commit_parent)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert_eq!(wc_commit.tree_ids(), wc_commit_parent.tree_ids());
     assert_eq!(wc_commit.parent_ids().len(), 1);
     assert_eq!(&wc_commit.parent_ids()[0], wc_commit_parent.id());
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
     assert_eq!(repo.view().get_wc_commit_id(&ws_name), Some(wc_commit.id()));
 }
 
@@ -109,15 +107,14 @@ fn test_edit_previous_not_empty() {
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo
         .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+        .block_unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_unwrap();
+    mut_repo.rebase_descendants().block_unwrap();
     assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
 }
 
@@ -139,15 +136,14 @@ fn test_edit_previous_empty() {
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo
         .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+        .block_unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_unwrap();
+    mut_repo.rebase_descendants().block_unwrap();
     assert!(!mut_repo.view().heads().contains(old_wc_commit.id()));
 }
 
@@ -168,8 +164,7 @@ fn test_edit_previous_empty_merge() {
         (empty_tree, "empty".into()),
         (old_parent2.tree(), "old parent 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_unwrap();
     let old_wc_commit = mut_repo
         .new_commit(
             vec![old_parent1.id().clone(), old_parent2.id().clone()],
@@ -180,15 +175,14 @@ fn test_edit_previous_empty_merge() {
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo
         .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+        .block_unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_unwrap();
+    mut_repo.rebase_descendants().block_unwrap();
     assert!(!mut_repo.view().heads().contains(old_wc_commit.id()));
 }
 
@@ -211,15 +205,14 @@ fn test_edit_previous_empty_with_description() {
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo
         .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+        .block_unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_unwrap();
+    mut_repo.rebase_descendants().block_unwrap();
     assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
 }
 
@@ -242,15 +235,14 @@ fn test_edit_previous_empty_with_local_bookmark() {
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo
         .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+        .block_unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_unwrap();
+    mut_repo.rebase_descendants().block_unwrap();
     assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
 }
 
@@ -272,20 +264,18 @@ fn test_edit_previous_empty_with_other_workspace() {
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo
         .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     let other_ws_name = WorkspaceNameBuf::from("other");
     mut_repo
         .edit(other_ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+        .block_unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_unwrap();
+    mut_repo.rebase_descendants().block_unwrap();
     assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
 }
 
@@ -310,15 +300,14 @@ fn test_edit_previous_empty_non_head() {
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo
         .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+        .block_unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     let new_wc_commit = write_random_commit(mut_repo);
-    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.edit(ws_name, &new_wc_commit).block_unwrap();
+    mut_repo.rebase_descendants().block_unwrap();
     assert_eq!(
         *mut_repo.view().heads(),
         hashset! {old_child.id().clone(), new_wc_commit.id().clone()}
@@ -334,15 +323,14 @@ fn test_edit_initial() {
 
     let mut tx = repo.start_transaction();
     let wc_commit = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let ws_name = WorkspaceNameBuf::from("new-workspace");
     tx.repo_mut()
         .edit(ws_name.clone(), &wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+        .block_unwrap();
+    let repo = tx.commit("test").block_unwrap();
     assert_eq!(repo.view().get_wc_commit_id(&ws_name), Some(wc_commit.id()));
 }
 
@@ -363,9 +351,8 @@ fn test_edit_hidden_commit() {
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     tx.repo_mut()
         .edit(ws_name.clone(), &wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+        .block_unwrap();
+    let repo = tx.commit("test").block_unwrap();
     assert_eq!(repo.view().get_wc_commit_id(&ws_name), Some(wc_commit.id()));
     assert_eq!(*repo.view().heads(), hashset! {wc_commit.id().clone()});
 }
@@ -391,7 +378,7 @@ fn test_add_head_success() {
     mut_repo.add_head(&new_commit).unwrap();
     assert!(mut_repo.view().heads().contains(new_commit.id()));
     assert!(index_has_id(mut_repo.index(), new_commit.id()));
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
     assert!(repo.view().heads().contains(new_commit.id()));
     assert!(index_has_id(repo.index(), new_commit.id()));
 }
@@ -407,7 +394,7 @@ fn test_add_head_ancestor() {
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
     let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     assert_eq!(repo.view().heads(), &hashset! {commit3.id().clone()});
     let mut tx = repo.start_transaction();
@@ -425,7 +412,7 @@ fn test_add_head_not_immediate_child() {
 
     let mut tx = repo.start_transaction();
     let initial = write_random_commit(tx.repo_mut());
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     // Create some commits outside of the repo by using a temporary transaction.
     // Then add one of them as a head.
@@ -462,7 +449,7 @@ fn test_remove_head() {
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
     let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -475,7 +462,7 @@ fn test_remove_head() {
     assert!(index_has_id(mut_repo.index(), commit1.id()));
     assert!(index_has_id(mut_repo.index(), commit2.id()));
     assert!(index_has_id(mut_repo.index(), commit3.id()));
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
     let heads = repo.view().heads().clone();
     assert!(!heads.contains(commit3.id()));
     assert!(!heads.contains(commit2.id()));
@@ -511,7 +498,7 @@ fn test_has_changed() {
         remote_symbol("main", "origin"),
         normal_remote_ref(commit1.id()),
     );
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
     // Test the setup
     assert_eq!(repo.view().heads(), &hashset! {commit1.id().clone()});
 
@@ -578,7 +565,7 @@ fn test_rebase_descendants_simple() {
     let commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
     let commit4 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
     let commit5 = write_random_commit_with_parents(tx.repo_mut(), &[&commit4]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -611,7 +598,7 @@ fn test_rebase_descendants_divergent_rewrite() {
     let commit1 = write_random_commit(tx.repo_mut());
     let commit2 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
     let _commit3 = write_random_commit_with_parents(tx.repo_mut(), &[&commit2]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
@@ -664,14 +651,13 @@ fn test_remove_wc_commit_previous_not_discardable() {
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo
         .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+        .block_unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    mut_repo.remove_wc_commit(&ws_name).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.remove_wc_commit(&ws_name).block_unwrap();
+    mut_repo.rebase_descendants().block_unwrap();
     assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
 }
 
@@ -693,14 +679,13 @@ fn test_remove_wc_commit_previous_discardable() {
     let ws_name = WorkspaceName::DEFAULT.to_owned();
     mut_repo
         .edit(ws_name.clone(), &old_wc_commit)
-        .block_on()
-        .unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+        .block_unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    mut_repo.remove_wc_commit(&ws_name).block_on().unwrap();
-    mut_repo.rebase_descendants().block_on().unwrap();
+    mut_repo.remove_wc_commit(&ws_name).block_unwrap();
+    mut_repo.rebase_descendants().block_unwrap();
     assert!(!mut_repo.view().heads().contains(old_wc_commit.id()));
 }
 
@@ -730,7 +715,7 @@ fn test_reparent_descendants() {
         mut_repo
             .set_local_bookmark_target(bookmark.as_ref(), RefTarget::normal(commit.id().clone()));
     }
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     // Rewrite "commit_a".
     let mut tx = repo.start_transaction();
@@ -739,11 +724,11 @@ fn test_reparent_descendants() {
         .rewrite_commit(&commit_a)
         .set_tree(create_random_tree(&repo))
         .write_unwrap();
-    let reparented = mut_repo.reparent_descendants().block_on().unwrap();
+    let reparented = mut_repo.reparent_descendants().block_unwrap();
     // "child_a_b", "grandchild_a_b" and "child_a" (3 commits) must have been
     // reparented.
     assert_eq!(reparented, 3);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
 
     for (bookmark, commit) in [
         ("b", &commit_b),
@@ -786,13 +771,13 @@ fn test_bookmark_hidden_commit() {
     let mut tx = repo.start_transaction();
     let commit = write_random_commit(tx.repo_mut());
     tx.repo_mut().remove_head(commit.id());
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
     // Test the setup
     assert_eq!(*repo.view().heads(), hashset! {root_commit.id().clone()});
 
     let mut tx = repo.start_transaction();
     tx.repo_mut()
         .set_local_bookmark_target("b".as_ref(), RefTarget::normal(commit.id().clone()));
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
     assert_eq!(*repo.view().heads(), hashset! {commit.id().clone()});
 }

@@ -942,6 +942,7 @@ mod tests {
     use maplit::btreemap;
     use maplit::hashmap;
     use maplit::hashset;
+    use testutils::FutureTestExt as _;
 
     use super::*;
     use crate::hex_util;
@@ -1071,8 +1072,8 @@ mod tests {
         };
         let store = SimpleOpStore::init(temp_dir.path(), root_data).unwrap();
         let view = create_view();
-        let view_id = store.write_view(&view).block_on().unwrap();
-        let read_view = store.read_view(&view_id).block_on().unwrap();
+        let view_id = store.write_view(&view).block_unwrap();
+        let read_view = store.read_view(&view_id).block_unwrap();
         assert_eq!(read_view, view);
     }
 
@@ -1084,8 +1085,8 @@ mod tests {
         };
         let store = SimpleOpStore::init(temp_dir.path(), root_data).unwrap();
         let operation = create_operation();
-        let op_id = store.write_operation(&operation).block_on().unwrap();
-        let read_operation = store.read_operation(&op_id).block_on().unwrap();
+        let op_id = store.write_operation(&operation).block_unwrap();
+        let read_operation = store.read_operation(&op_id).block_unwrap();
         assert_eq!(read_operation, operation);
     }
 

@@ -22,6 +22,7 @@ use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::working_copy::CheckoutStats;
 use jj_lib::working_copy::WorkingCopy as _;
 use pollster::FutureExt as _;
+use testutils::FutureTestExt as _;
 use testutils::TestWorkspace;
 use testutils::commit_with_tree;
 use testutils::create_tree;
@@ -63,8 +64,7 @@ fn test_sparse_checkout() {
     test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     let ws = &mut test_workspace.workspace;
 
     // Set sparse patterns to only dir1/
@@ -73,8 +73,7 @@ fn test_sparse_checkout() {
     let stats = locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns.clone())
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert_eq!(
         stats,
         CheckoutStats {
@@ -120,7 +119,7 @@ fn test_sparse_checkout() {
     );
 
     // Write the new state to disk
-    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_unwrap();
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert_eq!(
         wc.file_states().unwrap().paths().collect_vec(),
@@ -147,8 +146,7 @@ fn test_sparse_checkout() {
     let sparse_patterns = to_owned_path_vec(&[root_file1_path, dir1_subdir1_path, dir2_path]);
     let stats = locked_wc
         .set_sparse_patterns(sparse_patterns.clone())
-        .block_on()
-        .unwrap();
+        .block_unwrap();
     assert_eq!(
         stats,
         CheckoutStats {
@@ -189,7 +187,7 @@ fn test_sparse_checkout() {
             .to_fs_path_unchecked(&working_copy_path)
             .exists()
     );
-    let wc = locked_wc.finish(repo.op_id().clone()).block_on().unwrap();
+    let wc = locked_wc.finish(repo.op_id().clone()).block_unwrap();
     let wc: &LocalWorkingCopy = wc.downcast_ref().unwrap();
     assert_eq!(
         wc.file_states().unwrap().paths().collect_vec(),
@@ -224,8 +222,7 @@ fn test_sparse_commit() {
     test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     // Set sparse patterns to only dir1/
     let mut locked_ws = test_workspace
@@ -236,9 +233,8 @@ fn test_sparse_commit() {
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
-        .block_on()
-        .unwrap();
-    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
+        .block_unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_unwrap();
 
     // Write modified version of all files, including files that are not in the
     // sparse patterns.
@@ -278,9 +274,8 @@ fn test_sparse_commit() {
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
-        .block_on()
-        .unwrap();
-    locked_ws.finish(op_id).block_on().unwrap();
+        .block_unwrap();
+    locked_ws.finish(op_id).block_unwrap();
 
     // Create a tree from the working copy. Only dir1/file1 and dir2/file1 should be
     // updated in the tree.
@@ -314,9 +309,8 @@ fn test_sparse_commit_gitignore() {
     locked_ws
         .locked_wc()
         .set_sparse_patterns(sparse_patterns)
-        .block_on()
-        .unwrap();
-    locked_ws.finish(repo.op_id().clone()).block_on().unwrap();
+        .block_unwrap();
+    locked_ws.finish(repo.op_id().clone()).block_unwrap();
 
     // Write dir1/file1 and dir1/file2 and a .gitignore saying to ignore dir1/file1
     std::fs::write(working_copy_path.join(".gitignore"), "dir1/file1").unwrap();

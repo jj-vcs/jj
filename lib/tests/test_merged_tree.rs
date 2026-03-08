@@ -42,6 +42,7 @@ use jj_lib::repo_path::RepoPath;
 use jj_lib::repo_path::RepoPathBuf;
 use pollster::FutureExt as _;
 use pretty_assertions::assert_eq;
+use testutils::FutureTestExt as _;
 use testutils::TestRepo;
 use testutils::assert_tree_eq;
 use testutils::create_single_tree;
@@ -91,7 +92,7 @@ fn test_merged_tree_builder_resolves_conflict() {
         ConflictLabels::from_vec(vec!["tree 2".into(), "tree 1".into(), "tree 3".into()]),
     );
     let tree_builder = MergedTreeBuilder::new(base_tree);
-    let tree = tree_builder.write_tree().block_on().unwrap();
+    let tree = tree_builder.write_tree().block_unwrap();
     assert_eq!(*tree.tree_ids(), Merge::resolved(tree2.id().clone()));
 }
 
@@ -159,12 +160,12 @@ fn test_path_value_and_entries() {
     // Get file path without conflict
     assert_eq!(
         merged_tree.path_value(resolved_file_path).unwrap(),
-        Merge::resolved(tree1.path_value(resolved_file_path).block_on().unwrap()),
+        Merge::resolved(tree1.path_value(resolved_file_path).block_unwrap()),
     );
     // Get directory path without conflict
     assert_eq!(
         merged_tree.path_value(resolved_dir_path).unwrap(),
-        Merge::resolved(tree1.path_value(resolved_dir_path).block_on().unwrap()),
+        Merge::resolved(tree1.path_value(resolved_dir_path).block_unwrap()),
     );
     // Get missing path
     assert_eq!(
@@ -175,21 +176,18 @@ fn test_path_value_and_entries() {
     assert_eq!(
         merged_tree.path_value(modify_delete_path).unwrap(),
         Merge::from_removes_adds(
-            vec![tree1.path_value(modify_delete_path).block_on().unwrap()],
-            vec![
-                tree2.path_value(modify_delete_path).block_on().unwrap(),
-                None
-            ]
+            vec![tree1.path_value(modify_delete_path).block_unwrap()],
+            vec![tree2.path_value(modify_delete_path).block_unwrap(), None]
         ),
     );
     // Get file/dir conflict path
     assert_eq!(
         merged_tree.path_value(file_dir_conflict_path).unwrap(),
         Merge::from_removes_adds(
-            vec![tree1.path_value(file_dir_conflict_path).block_on().unwrap()],
+            vec![tree1.path_value(file_dir_conflict_path).block_unwrap()],
             vec![
-                tree2.path_value(file_dir_conflict_path).block_on().unwrap(),
-                tree3.path_value(file_dir_conflict_path).block_on().unwrap()
+                tree2.path_value(file_dir_conflict_path).block_unwrap(),
+                tree3.path_value(file_dir_conflict_path).block_unwrap()
             ]
         ),
     );
@@ -301,7 +299,7 @@ fn test_resolve_success() {
         ]),
         ConflictLabels::from_vec(vec!["left".into(), "base".into(), "right".into()]),
     );
-    let resolved_tree = tree.resolve().block_on().unwrap();
+    let resolved_tree = tree.resolve().block_unwrap();
     assert!(resolved_tree.tree_ids().is_resolved());
     assert_tree_eq!(resolved_tree, expected);
 }
@@ -327,7 +325,7 @@ fn test_resolve_root_becomes_empty() {
         ]),
         ConflictLabels::from_vec(vec!["side 1".into(), "base 1".into(), "side 2".into()]),
     );
-    let resolved = tree.resolve().block_on().unwrap();
+    let resolved = tree.resolve().block_unwrap();
     assert_tree_eq!(resolved, store.empty_merged_tree());
 }
 
@@ -373,7 +371,7 @@ fn test_resolve_with_conflict() {
             "side 3".into(),
         ]),
     );
-    let resolved_tree = tree.resolve().block_on().unwrap();
+    let resolved_tree = tree.resolve().block_unwrap();
     assert_tree_eq!(
         resolved_tree,
         MergedTree::new(
@@ -409,7 +407,7 @@ fn test_resolve_with_conflict_containing_empty_subtree() {
         ]),
         ConflictLabels::from_vec(vec!["left".into(), "base".into(), "right".into()]),
     );
-    let resolved_tree = tree.clone().resolve().block_on().unwrap();
+    let resolved_tree = tree.clone().resolve().block_unwrap();
     assert_tree_eq!(resolved_tree, tree);
 }
 
@@ -495,10 +493,10 @@ fn test_conflict_iterator() {
         .collect_vec();
     let conflict_at = |path: &RepoPath| {
         Merge::from_removes_adds(
-            vec![base1.path_value(path).block_on().unwrap()],
+            vec![base1.path_value(path).block_unwrap()],
             vec![
-                side1.path_value(path).block_on().unwrap(),
-                side2.path_value(path).block_on().unwrap(),
+                side1.path_value(path).block_unwrap(),
+                side2.path_value(path).block_unwrap(),
             ],
         )
     };
@@ -541,7 +539,7 @@ fn test_conflict_iterator() {
     );
 
     // After we resolve conflicts, there are only non-trivial conflicts left
-    let tree = tree.resolve().block_on().unwrap();
+    let tree = tree.resolve().block_unwrap();
     let conflicts = tree
         .conflicts()
         .map(|(path, conflict)| (path, conflict.unwrap()))
@@ -618,13 +616,13 @@ fn test_conflict_iterator_higher_arity() {
     let conflict_at = |path: &RepoPath| {
         Merge::from_removes_adds(
             vec![
-                base1.path_value(path).block_on().unwrap(),
-                base2.path_value(path).block_on().unwrap(),
+                base1.path_value(path).block_unwrap(),
+                base2.path_value(path).block_unwrap(),
             ],
             vec![
-                side1.path_value(path).block_on().unwrap(),
-                side2.path_value(path).block_on().unwrap(),
-                side3.path_value(path).block_on().unwrap(),
+                side1.path_value(path).block_unwrap(),
+                side2.path_value(path).block_unwrap(),
+                side3.path_value(path).block_unwrap(),
             ],
         )
     };
@@ -678,8 +676,8 @@ fn test_diff_resolved() {
         (
             modified_path.to_owned(),
             (
-                Merge::resolved(before.path_value(modified_path).block_on().unwrap()),
-                Merge::resolved(after.path_value(modified_path).block_on().unwrap())
+                Merge::resolved(before.path_value(modified_path).block_unwrap()),
+                Merge::resolved(after.path_value(modified_path).block_unwrap())
             ),
         )
     );
@@ -688,7 +686,7 @@ fn test_diff_resolved() {
         (
             removed_path.to_owned(),
             (
-                Merge::resolved(before.path_value(removed_path).block_on().unwrap()),
+                Merge::resolved(before.path_value(removed_path).block_unwrap()),
                 Merge::absent()
             ),
         )
@@ -699,7 +697,7 @@ fn test_diff_resolved() {
             added_path.to_owned(),
             (
                 Merge::absent(),
-                Merge::resolved(after.path_value(added_path).block_on().unwrap())
+                Merge::resolved(after.path_value(added_path).block_unwrap())
             ),
         )
     );
@@ -770,8 +768,8 @@ fn test_diff_copy_tracing() {
                 target: modified_path.to_owned()
             },
             Diff::new(
-                Merge::resolved(before.path_value(modified_path).block_on().unwrap()),
-                Merge::resolved(after.path_value(modified_path).block_on().unwrap())
+                Merge::resolved(before.path_value(modified_path).block_unwrap()),
+                Merge::resolved(after.path_value(modified_path).block_unwrap())
             ),
         )
     );
@@ -783,8 +781,8 @@ fn test_diff_copy_tracing() {
                 target: copied_path.to_owned(),
             },
             Diff::new(
-                Merge::resolved(before.path_value(modified_path).block_on().unwrap()),
-                Merge::resolved(after.path_value(copied_path).block_on().unwrap()),
+                Merge::resolved(before.path_value(modified_path).block_unwrap()),
+                Merge::resolved(after.path_value(copied_path).block_unwrap()),
             ),
         )
     );
@@ -796,8 +794,8 @@ fn test_diff_copy_tracing() {
                 target: added_path.to_owned(),
             },
             Diff::new(
-                Merge::resolved(before.path_value(removed_path).block_on().unwrap()),
-                Merge::resolved(after.path_value(added_path).block_on().unwrap())
+                Merge::resolved(before.path_value(removed_path).block_unwrap()),
+                Merge::resolved(after.path_value(added_path).block_unwrap())
             ),
         )
     );
@@ -1307,8 +1305,7 @@ fn test_merge_simple() {
         (base1_merged, "base 1".into()),
         (side2_merged, "side 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_unwrap();
     assert_tree_eq!(merged, expected_merged);
 }
 
@@ -1345,8 +1342,7 @@ fn test_merge_partial_resolution() {
         (base1_merged, "base 1".into()),
         (side2_merged, "side 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_unwrap();
     assert_tree_eq!(merged, expected_merged);
 }
 
@@ -1398,8 +1394,7 @@ fn test_merge_simplify_only() {
         (base1_merged, "base 1".into()),
         (side2_merged, "side 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_unwrap();
     assert_tree_eq!(merged, expected_merged);
 }
 
@@ -1460,8 +1455,7 @@ fn test_merge_simplify_result() {
         (base1_merged, "base 1".into()),
         (side2_merged, "side 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_unwrap();
     assert_tree_eq!(merged, expected_merged);
 }
 
@@ -1516,8 +1510,7 @@ fn test_merge_simplify_result_with_resolved_labels() {
         (base1_merged, "".into()),
         (side2_merged, "side 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_unwrap();
     assert_tree_eq!(merged, expected_merged);
 }
 
@@ -1648,8 +1641,7 @@ fn test_merge_simplify_file_conflict() {
         (parent_merged, "parent".into()),
         (child2_merged, "child 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_unwrap();
     assert_tree_eq!(merged, expected_merged);
 
     // Also test the setup by checking that the unsimplified content conflict cannot
@@ -1713,8 +1705,7 @@ fn test_merge_simplify_file_conflict_with_absent() {
         (parent_merged, "parent".into()),
         (child2_merged, "child 2".into()),
     ]))
-    .block_on()
-    .unwrap();
+    .block_unwrap();
     assert_tree_eq!(merged, expected_merged);
 }
 

@@ -40,8 +40,8 @@ use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use maplit::hashmap;
 use maplit::hashset;
-use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
+use testutils::FutureTestExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
 use testutils::assert_tree_eq;
@@ -142,7 +142,7 @@ fn test_gc() {
         .set_parents(vec![commit_f.id().clone()])
         .set_predecessors(vec![commit_d.id().clone()])
         .write_unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_unwrap();
     assert_eq!(
         *repo.view().heads(),
         hashset! {
@@ -203,13 +203,13 @@ fn test_gc() {
 
     // G is no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a).block_on().unwrap();
-    mut_index.add_commit(&commit_b).block_on().unwrap();
-    mut_index.add_commit(&commit_c).block_on().unwrap();
-    mut_index.add_commit(&commit_d).block_on().unwrap();
-    mut_index.add_commit(&commit_e).block_on().unwrap();
-    mut_index.add_commit(&commit_f).block_on().unwrap();
-    mut_index.add_commit(&commit_h).block_on().unwrap();
+    mut_index.add_commit(&commit_a).block_unwrap();
+    mut_index.add_commit(&commit_b).block_unwrap();
+    mut_index.add_commit(&commit_c).block_unwrap();
+    mut_index.add_commit(&commit_d).block_unwrap();
+    mut_index.add_commit(&commit_e).block_unwrap();
+    mut_index.add_commit(&commit_f).block_unwrap();
+    mut_index.add_commit(&commit_h).block_unwrap();
     repo.store().gc(mut_index.as_index(), now()).unwrap();
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
@@ -222,10 +222,10 @@ fn test_gc() {
 
     // D|E|H are no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a).block_on().unwrap();
-    mut_index.add_commit(&commit_b).block_on().unwrap();
-    mut_index.add_commit(&commit_c).block_on().unwrap();
-    mut_index.add_commit(&commit_f).block_on().unwrap();
+    mut_index.add_commit(&commit_a).block_unwrap();
+    mut_index.add_commit(&commit_b).block_unwrap();
+    mut_index.add_commit(&commit_c).block_unwrap();
+    mut_index.add_commit(&commit_f).block_unwrap();
     repo.store().gc(mut_index.as_index(), now()).unwrap();
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
@@ -237,7 +237,7 @@ fn test_gc() {
 
     // B|C|F are no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a).block_on().unwrap();
+    mut_index.add_commit(&commit_a).block_unwrap();
     repo.store().gc(mut_index.as_index(), now()).unwrap();
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
@@ -289,7 +289,7 @@ fn test_gc_extra_table() {
     for _ in 0..4 {
         write_random_commit(tx.repo_mut());
     }
-    tx.commit("test").block_on().unwrap();
+    tx.commit("test").block_unwrap();
     // The first 3 will be squashed into one table segment
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 5 + 1);

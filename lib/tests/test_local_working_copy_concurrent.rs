@@ -21,6 +21,7 @@ use jj_lib::working_copy::CheckoutError;
 use jj_lib::workspace::Workspace;
 use jj_lib::workspace::default_working_copy_factories;
 use pollster::FutureExt as _;
+use testutils::FutureTestExt as _;
 use testutils::TestWorkspace;
 use testutils::assert_tree_eq;
 use testutils::commit_with_tree;
@@ -50,8 +51,7 @@ fn test_concurrent_checkout() {
     let ws1 = &mut test_workspace1.workspace;
     // The operation ID is not correct, but that doesn't matter for this test
     ws1.check_out(repo.op_id().clone(), None, &commit1)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     // Check out tree2 from another process (simulated by another workspace
     // instance)
@@ -64,15 +64,10 @@ fn test_concurrent_checkout() {
         )
         .unwrap();
         // Reload commit from the store associated with the workspace
-        let repo = ws2
-            .repo_loader()
-            .load_at(repo.operation())
-            .block_on()
-            .unwrap();
+        let repo = ws2.repo_loader().load_at(repo.operation()).block_unwrap();
         let commit2 = repo.store().get_commit(commit2.id()).unwrap();
         ws2.check_out(repo.op_id().clone(), Some(&tree1), &commit2)
-            .block_on()
-            .unwrap();
+            .block_unwrap();
     }
 
     // Checking out another tree (via the first workspace instance) should now fail.
@@ -117,8 +112,7 @@ fn test_checkout_parallel() {
     test_workspace
         .workspace
         .check_out(repo.op_id().clone(), None, &commit)
-        .block_on()
-        .unwrap();
+        .block_unwrap();
 
     thread::scope(|s| {
         for tree in &trees {
@@ -140,14 +134,10 @@ fn test_checkout_parallel() {
                 let repo = workspace
                     .repo_loader()
                     .load_at(repo.operation())
-                    .block_on()
-                    .unwrap();
+                    .block_unwrap();
                 let commit = repo.store().get_commit(commit.id()).unwrap();
                 // The operation ID is not correct, but that doesn't matter for this test
-                let stats = workspace
-                    .check_out(op_id, None, &commit)
-                    .block_on()
-                    .unwrap();
+                let stats = workspace.check_out(op_id, None, &commit).block_unwrap();
                 assert_eq!(stats.updated_files, 0);
                 assert_eq!(stats.added_files, 1);
                 assert_eq!(stats.removed_files, 1);
@@ -159,8 +149,7 @@ fn test_checkout_parallel() {
                 let (new_tree, _stats) = locked_ws
                     .locked_wc()
                     .snapshot(&empty_snapshot_options())
-                    .block_on()
-                    .unwrap();
+                    .block_unwrap();
                 assert!(
                     trees
                         .iter()
@@ -185,9 +174,7 @@ fn test_racy_checkout() {
     let mut num_matches = 0;
     for _ in 0..100 {
         let ws = &mut test_workspace.workspace;
-        ws.check_out(op_id.clone(), None, &commit)
-            .block_on()
-            .unwrap();
+        ws.check_out(op_id.clone(), None, &commit).block_unwrap();
         assert_eq!(
             std::fs::read(path.to_fs_path_unchecked(&workspace_root)).unwrap(),
             b"1".to_vec()

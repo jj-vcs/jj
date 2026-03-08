@@ -292,7 +292,7 @@ async fn visit_collapsed_untracked_files(
 
 #[cfg(test)]
 mod test {
-    use pollster::FutureExt as _;
+    use testutils::FutureTestExt as _;
     use testutils::TestRepo;
     use testutils::TestTreeBuilder;
     use testutils::repo_path;
@@ -314,8 +314,7 @@ mod test {
             result.push('\n');
             Ok(())
         })
-        .block_on()
-        .unwrap();
+        .block_unwrap();
         result
     }
 

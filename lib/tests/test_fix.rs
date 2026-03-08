@@ -29,6 +29,7 @@ use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
+use testutils::FutureTestExt as _;
 use testutils::TestRepo;
 use testutils::assert_tree_eq;
 use testutils::create_tree;
@@ -82,8 +83,7 @@ fn fix_file(store: &Store, file_to_fix: &FileToFix) -> Result<Option<FileId>, Fi
         let new_content = rest.to_ascii_uppercase();
         let new_file_id = store
             .write_file(&file_to_fix.repo_path, &mut new_content.as_slice())
-            .block_on()
-            .unwrap();
+            .block_unwrap();
         Ok(Some(new_file_id))
     } else if let Some(rest) = old_content.strip_prefix(b"error:") {
         Err(make_fix_content_error(str::from_utf8(rest).unwrap()))
@@ -121,8 +121,7 @@ fn test_fix_one_file() {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_unwrap();
 
     let expected_tree_a = create_tree(repo, &[(path1, "CONTENT")]);
     assert_eq!(summary.rewrites.len(), 1);
@@ -158,8 +157,7 @@ fn test_fixer_does_not_change_content() {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_unwrap();
 
     assert!(summary.rewrites.is_empty());
     assert_eq!(summary.num_checked_commits, 1);
@@ -186,8 +184,7 @@ fn test_empty_commit() {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_unwrap();
 
     assert!(summary.rewrites.is_empty());
     assert_eq!(summary.num_checked_commits, 1);
@@ -245,8 +242,7 @@ fn test_unchanged_file_is_not_fixed() {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_unwrap();
 
     assert!(summary.rewrites.is_empty());
     assert_eq!(summary.num_checked_commits, 1);
@@ -276,8 +272,7 @@ fn test_unchanged_file_is_fixed() {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_unwrap();
 
     let expected_tree_b = create_tree(repo, &[(path1, "CONTENT")]);
     assert_eq!(summary.rewrites.len(), 1);
@@ -317,8 +312,7 @@ fn test_already_fixed_descendant() {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_unwrap();
 
     assert_eq!(summary.rewrites.len(), 2);
     assert!(summary.rewrites.contains_key(&commit_a));
@@ -359,8 +353,7 @@ fn test_parallel_fixer_basic() {
         tx.repo_mut(),
         &mut parallel_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_unwrap();
 
     let expected_tree_a = create_tree(repo, &[(path1, "CONTENT")]);
     assert_eq!(summary.rewrites.len(), 1);
@@ -399,8 +392,7 @@ fn test_parallel_fixer_fixes_files() {
         tx.repo_mut(),
         &mut parallel_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_unwrap();
 
     let expected_tree_a = create_tree_with(repo, |builder| {
         for i in 0..100 {
@@ -444,8 +436,7 @@ fn test_parallel_fixer_does_not_change_content() {
         tx.repo_mut(),
         &mut parallel_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_unwrap();
 
     assert!(summary.rewrites.is_empty());
     assert_eq!(summary.num_checked_commits, 1);
@@ -527,8 +518,7 @@ fn test_fix_multiple_revisions() {
         tx.repo_mut(),
         &mut file_fixer,
     )
-    .block_on()
-    .unwrap();
+    .block_unwrap();
 
     let expected_tree_a = create_tree(repo, &[(path1, "XYZ")]);
 
