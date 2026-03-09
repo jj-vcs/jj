@@ -25,14 +25,14 @@ fn test_arrange_bad_revisions() {
     create_commit(&work_dir, "b", &["a"]);
     create_commit(&work_dir, "c", &["b"]);
 
-    let output = work_dir.run_jj(["arrange", "-r", "none()"]);
+    let output = work_dir.run_jj(["arrange", "none()"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     No revisions to arrange.
     [EOF]
     ");
 
-    let output = work_dir.run_jj(["arrange", "-r", "a|c"]);
+    let output = work_dir.run_jj(["arrange", "a", "c"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     Error: Cannot arrange revset with gaps in.

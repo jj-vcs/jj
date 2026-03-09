@@ -67,13 +67,17 @@ use crate::ui::Ui;
 /// Interactively arrange the commit graph.
 #[derive(clap::Args, Clone, Debug)]
 pub(crate) struct ArrangeArgs {
-    /// The revisions to edit.
+    /// The revisions to arrange [aliases: -r]
     ///
     /// If no revisions are specified, this defaults to the `revsets.arrange`
-    /// setting, or `reachable(@, mutable())` if it is not set.
-    #[arg(long, short, value_name = "REVSETS")]
+    /// setting.
+    #[arg(value_name = "REVSETS")]
     #[arg(add = clap_complete::ArgValueCompleter::new(complete::revset_expression_mutable))]
-    revisions: Vec<RevisionArg>,
+    revisions_pos: Vec<RevisionArg>,
+
+    #[arg(short = 'r', hide = true, value_name = "REVSETS")]
+    #[arg(add = clap_complete::ArgValueCompleter::new(complete::revset_expression_mutable))]
+    revisions_opt: Vec<RevisionArg>,
 }
 
 #[instrument(skip_all)]
@@ -84,11 +88,12 @@ pub(crate) async fn cmd_arrange(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
-    let target_expression = if args.revisions.is_empty() {
+    let target_expression = if args.revisions_pos.is_empty() && args.revisions_opt.is_empty() {
         let revs = workspace_command.settings().get_string("revsets.arrange")?;
         workspace_command.parse_revset(ui, &RevisionArg::from(revs))?
     } else {
-        workspace_command.parse_union_revsets(ui, &args.revisions)?
+        workspace_command
+            .parse_union_revsets(ui, &[&*args.revisions_pos, &*args.revisions_opt].concat())?
     }
     .resolve()?;
     workspace_command.check_rewritable_expr(&target_expression)?;
