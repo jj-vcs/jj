@@ -19,6 +19,7 @@ use std::io;
 use crossterm::ExecutableCommand as _;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
 use crossterm::event::{self};
 use crossterm::terminal::EnterAlternateScreen;
@@ -172,14 +173,14 @@ enum UiAction {
 }
 
 /// The state of a single commit in the UI
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 struct CommitState {
     commit: Commit,
     action: UiAction,
     parents: Vec<CommitId>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 struct State {
     /// Commits in the target set, as well as any external children and parents.
     commits: HashMap<CommitId, CommitState>,
@@ -460,69 +461,62 @@ fn run_tui<B: ratatui::backend::Backend>(
             if event.is_release() {
                 continue;
             }
-            let mut new_state = state.clone();
             match (event.code, event.modifiers) {
                 (KeyCode::Char('q'), KeyModifiers::NONE)
                 | (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
                     return Ok(None);
                 }
                 (KeyCode::Char('c'), KeyModifiers::NONE) => {
-                    return Ok(Some(new_state));
+                    return Ok(Some(state));
                 }
-                (KeyCode::Down | KeyCode::Char('j'), KeyModifiers::NONE) => {
-                    if new_state.current_selection + 1 < new_state.current_order.len() {
-                        new_state.current_selection += 1;
-                    }
-                }
-                (KeyCode::Up | KeyCode::Char('k'), KeyModifiers::NONE) => {
-                    if new_state.current_selection > 0 {
-                        new_state.current_selection -= 1;
-                    }
-                }
-                (KeyCode::Char('a'), KeyModifiers::NONE) => {
-                    let id = new_state.current_order[new_state.current_selection].clone();
-                    new_state.commits.get_mut(&id).unwrap().action = UiAction::Abandon;
-                }
-                (KeyCode::Char('p'), KeyModifiers::NONE) => {
-                    let id = new_state.current_order[new_state.current_selection].clone();
-                    new_state.commits.get_mut(&id).unwrap().action = UiAction::Keep;
-                }
-                (KeyCode::Down | KeyCode::Char('J'), KeyModifiers::SHIFT) => {
-                    if new_state.current_selection + 1 < new_state.current_order.len()
-                        && new_state.are_graph_neighbors(
-                            new_state.current_selection,
-                            new_state.current_selection + 1,
-                        )
-                    {
-                        new_state.swap_commits(
-                            new_state.current_selection,
-                            new_state.current_selection + 1,
-                        );
-                    }
-                }
-                (KeyCode::Up | KeyCode::Char('K'), KeyModifiers::SHIFT) => {
-                    if new_state.current_selection > 0
-                        && new_state.are_graph_neighbors(
-                            new_state.current_selection,
-                            new_state.current_selection - 1,
-                        )
-                    {
-                        new_state.swap_commits(
-                            new_state.current_selection,
-                            new_state.current_selection - 1,
-                        );
-                    }
-                }
-                _ => {
-                    continue;
-                }
+                _ => {}
             }
-            if new_state.is_valid() {
+            let new_state = handle_key_event(event, state.clone());
+            if new_state != state && new_state.is_valid() {
                 state = new_state;
                 state.update_commit_order();
             }
         }
     }
+}
+
+fn handle_key_event(event: KeyEvent, mut state: State) -> State {
+    match (event.code, event.modifiers) {
+        (KeyCode::Down | KeyCode::Char('j'), KeyModifiers::NONE) => {
+            if state.current_selection + 1 < state.current_order.len() {
+                state.current_selection += 1;
+            }
+        }
+        (KeyCode::Up | KeyCode::Char('k'), KeyModifiers::NONE) => {
+            if state.current_selection > 0 {
+                state.current_selection -= 1;
+            }
+        }
+        (KeyCode::Char('a'), KeyModifiers::NONE) => {
+            let id = state.current_order[state.current_selection].clone();
+            state.commits.get_mut(&id).unwrap().action = UiAction::Abandon;
+        }
+        (KeyCode::Char('p'), KeyModifiers::NONE) => {
+            let id = state.current_order[state.current_selection].clone();
+            state.commits.get_mut(&id).unwrap().action = UiAction::Keep;
+        }
+        (KeyCode::Down | KeyCode::Char('J'), KeyModifiers::SHIFT) => {
+            if state.current_selection + 1 < state.current_order.len()
+                && state.are_graph_neighbors(state.current_selection, state.current_selection + 1)
+            {
+                state.swap_commits(state.current_selection, state.current_selection + 1);
+            }
+        }
+        (KeyCode::Up | KeyCode::Char('K'), KeyModifiers::SHIFT) => {
+            if state.current_selection > 0
+                && state.are_graph_neighbors(state.current_selection, state.current_selection - 1)
+            {
+                state.swap_commits(state.current_selection, state.current_selection - 1);
+            }
+        }
+        _ => {}
+    }
+    state
 }
 
 fn render(
