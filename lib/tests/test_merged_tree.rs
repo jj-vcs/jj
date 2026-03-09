@@ -34,6 +34,7 @@ use jj_lib::matchers::EverythingMatcher;
 use jj_lib::matchers::FilesMatcher;
 use jj_lib::matchers::GlobsMatcher;
 use jj_lib::matchers::Matcher;
+use jj_lib::matchers::NothingMatcher;
 use jj_lib::matchers::PathGlobPattern;
 use jj_lib::matchers::PrefixMatcher;
 use jj_lib::merge::Diff;
@@ -664,6 +665,285 @@ fn test_conflict_iterator_higher_arity() -> TestResult {
         ]
     );
     Ok(())
+}
+
+#[test]
+fn test_filtered_empty() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let two_sided_path = repo_path("file");
+    let side1 = create_single_tree(repo, &[(two_sided_path, "side1")]);
+    let base1 = create_single_tree(repo, &[(two_sided_path, "base1")]);
+    let side2 = create_single_tree(repo, &[(two_sided_path, "side2")]);
+
+    let tree = MergedTree::new(
+        repo.store().clone(),
+        Merge::from_vec(vec![
+            side1.id().clone(),
+            base1.id().clone(),
+            side2.id().clone(),
+        ]),
+        ConflictLabels::from_vec(vec!["side 1".into(), "base 1".into(), "side 2".into()]),
+    );
+    let filtered = tree.filtered(&NothingMatcher).block_on().unwrap();
+    assert_eq!(filtered.labels(), tree.labels());
+    let empty_tree_id = repo.store().empty_tree_id();
+    assert_eq!(
+        *filtered.tree_ids(),
+        Merge::from_vec(vec![
+            empty_tree_id.clone(),
+            empty_tree_id.clone(),
+            empty_tree_id.clone()
+        ])
+    );
+}
+
+#[test]
+fn test_filtered_non_empty() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let unchanged_file = repo_path("unchanged");
+    // `resolved` has a trivial conflict. We shouldn't currently have entries
+    // like this, but we would if we implement
+    // https://github.com/jj-vcs/jj/issues/4152. Let's make sure we handle it
+    // correctly already.
+    let resolved_file = repo_path("dir/resolved");
+    let conflicted_file = repo_path("dir/conflicted");
+    // `foo` is a file that's modified on one side and replaced by a directory on
+    // the other side
+    let conflicted_type_file = repo_path("foo");
+    let conflicted_type_dir = repo_path("foo/file");
+    let base = create_single_tree(
+        repo,
+        &[
+            (unchanged_file, "unchanged"),
+            (resolved_file, "unchanged"),
+            (conflicted_file, "base"),
+            (conflicted_type_file, "old"),
+        ],
+    );
+    let side1 = create_single_tree(
+        repo,
+        &[
+            (unchanged_file, "unchanged"),
+            (resolved_file, "unchanged"),
+            (conflicted_file, "side1"),
+            (conflicted_type_file, "new"),
+        ],
+    );
+    let side2 = create_single_tree(
+        repo,
+        &[
+            (unchanged_file, "unchanged"),
+            (resolved_file, "changed"),
+            (conflicted_file, "side2"),
+            (conflicted_type_dir, "new in dir"),
+        ],
+    );
+    let tree = MergedTree::new(
+        repo.store().clone(),
+        Merge::from_vec(vec![
+            side1.id().clone(),
+            base.id().clone(),
+            side2.id().clone(),
+        ]),
+        ConflictLabels::from_vec(vec!["side 1".into(), "base 1".into(), "side 2".into()]),
+    );
+
+    // Match nothing
+    let filtered = tree.filtered(&NothingMatcher).block_on().unwrap();
+    assert_eq!(filtered.labels(), tree.labels());
+    let empty_tree_id = repo.store().empty_tree_id();
+    assert_eq!(
+        *filtered.tree_ids(),
+        Merge::from_vec(vec![
+            empty_tree_id.clone(),
+            empty_tree_id.clone(),
+            empty_tree_id.clone()
+        ])
+    );
+
+    // Match everything
+    let filtered = tree.filtered(&EverythingMatcher).block_on().unwrap();
+    assert_eq!(filtered.labels(), tree.labels());
+    assert_eq!(filtered.tree_ids(), tree.tree_ids());
+
+    // Match all paths explicitly
+    let filtered = tree
+        .filtered(&FilesMatcher::new([
+            unchanged_file,
+            resolved_file,
+            conflicted_file,
+            conflicted_type_file,
+            conflicted_type_dir,
+        ]))
+        .block_on()
+        .unwrap();
+    assert_eq!(filtered.labels(), tree.labels());
+    assert_eq!(filtered.tree_ids(), tree.tree_ids());
+
+    // Match only `dir/resolved`. All sides are equal in this case. Ideally the
+    // implementation only writes the `dir` tree once but we don't test that here.
+    let filtered = tree
+        .filtered(&FilesMatcher::new([resolved_file]))
+        .block_on()
+        .unwrap();
+    assert_eq!(filtered.labels(), tree.labels());
+
+    // Match only file-side of the file/dir conflict
+    let filtered = tree
+        .filtered(&FilesMatcher::new([conflicted_type_file]))
+        .block_on()
+        .unwrap();
+    assert_eq!(filtered.labels(), tree.labels());
+    let expected_base = create_single_tree(repo, &[(conflicted_type_file, "old")]);
+    let expected_side1 = create_single_tree(repo, &[(conflicted_type_file, "new")]);
+    let expected_side2 = create_single_tree(repo, &[]);
+    assert_tree_eq!(
+        filtered,
+        MergedTree::new(
+            repo.store().clone(),
+            Merge::from_vec(vec![
+                expected_side1.id().clone(),
+                expected_base.id().clone(),
+                expected_side2.id().clone()
+            ]),
+            tree.labels().clone()
+        )
+    );
+}
+
+#[test]
+fn test_filtered_redundant_reads() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let unchanged_file = repo_path("dir/subdir/unchanged");
+    let conflicted_file = repo_path("dir/conflicted");
+    let unmatched_file = repo_path("dir/unmatched");
+    let base = create_single_tree(
+        repo,
+        &[
+            (unchanged_file, "unchanged"),
+            (conflicted_file, "base"),
+            (unmatched_file, "unchanged"),
+        ],
+    );
+    let side1 = create_single_tree(
+        repo,
+        &[
+            (unchanged_file, "unchanged"),
+            (conflicted_file, "side1"),
+            (unmatched_file, "unchanged"),
+        ],
+    );
+    let side2 = create_single_tree(
+        repo,
+        &[
+            (unchanged_file, "unchanged"),
+            (conflicted_file, "side2"),
+            (unmatched_file, "unchanged"),
+        ],
+    );
+    let tree = MergedTree::new(
+        repo.store().clone(),
+        Merge::from_vec(vec![
+            side1.id().clone(),
+            base.id().clone(),
+            side2.id().clone(),
+        ]),
+        ConflictLabels::from_vec(vec!["side 1".into(), "base 1".into(), "side 2".into()]),
+    );
+
+    // Match both `dir/subdir/unchanged` and `dir/conflicted``. We need to read 3
+    // different root trees and 3 different `dir/` trees because they're
+    // conflicted, but we should only need to read one `dir/subdir/` version. We
+    // don't strictly need to write any `dir/subdir/` trees since we ended up
+    // matching the only file there. We need to write 3 `dir/` trees and 3 root
+    // tree.
+    let filtered = tree
+        .filtered(&FilesMatcher::new([unchanged_file, conflicted_file]))
+        .block_on()
+        .unwrap();
+    let expected_base = create_single_tree(
+        repo,
+        &[(unchanged_file, "unchanged"), (conflicted_file, "base")],
+    );
+    let expected_side1 = create_single_tree(
+        repo,
+        &[(unchanged_file, "unchanged"), (conflicted_file, "side1")],
+    );
+    let expected_side2 = create_single_tree(
+        repo,
+        &[(unchanged_file, "unchanged"), (conflicted_file, "side2")],
+    );
+    assert_tree_eq!(
+        filtered,
+        MergedTree::new(
+            repo.store().clone(),
+            Merge::from_vec(vec![
+                expected_side1.id().clone(),
+                expected_base.id().clone(),
+                expected_side2.id().clone()
+            ]),
+            tree.labels().clone()
+        )
+    );
+}
+
+#[test]
+fn test_filtered_redundant_writes() {
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let unchanged_file = repo_path("dir/unchanged");
+    let conflicted_file = repo_path("dir/conflicted");
+    let base = create_single_tree(
+        repo,
+        &[(unchanged_file, "unchanged"), (conflicted_file, "base")],
+    );
+    let side1 = create_single_tree(
+        repo,
+        &[(unchanged_file, "unchanged"), (conflicted_file, "side1")],
+    );
+    let side2 = create_single_tree(
+        repo,
+        &[(unchanged_file, "unchanged"), (conflicted_file, "side2")],
+    );
+    let tree = MergedTree::new(
+        repo.store().clone(),
+        Merge::from_vec(vec![
+            side1.id().clone(),
+            base.id().clone(),
+            side2.id().clone(),
+        ]),
+        ConflictLabels::from_vec(vec!["side 1".into(), "base 1".into(), "side 2".into()]),
+    );
+
+    // Match only dir/unchanged. This would require reading multiple trees but
+    // should only require writing one tree each for `dir/` and for the root. We
+    // don't currently test that only one write happens.
+    let filtered = tree
+        .filtered(&FilesMatcher::new([unchanged_file]))
+        .block_on()
+        .unwrap();
+    let expected_tree = create_single_tree(repo, &[(unchanged_file, "unchanged")])
+        .id()
+        .clone();
+    assert_tree_eq!(
+        filtered,
+        MergedTree::new(
+            repo.store().clone(),
+            Merge::from_vec(vec![
+                expected_tree.clone(),
+                expected_tree.clone(),
+                expected_tree.clone()
+            ]),
+            tree.labels().clone()
+        )
+    );
 }
 
 /// Diff two resolved trees
