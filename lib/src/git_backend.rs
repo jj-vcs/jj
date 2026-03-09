@@ -738,12 +738,6 @@ fn serialize_extras(commit: &Commit) -> Vec<u8> {
         ..Default::default()
     };
     proto.uses_tree_conflict_format = true;
-    if !commit.root_tree.is_resolved() {
-        // This is done for the sake of jj versions <0.28 (before commit
-        // f7b14be) being able to read the repo. At some point in the
-        // future, we can stop doing it.
-        proto.root_tree = commit.root_tree.iter().map(|r| r.to_bytes()).collect();
-    }
     for predecessor in &commit.predecessors {
         proto.predecessors.push(predecessor.to_bytes());
     }
