@@ -470,7 +470,7 @@ fn test_restore_tree_with_conflicts() -> TestResult {
         (right_side2.clone(), "right side 2".into()),
         (
             expected_base,
-            "base files for restore (from right side)".into(),
+            "base files for restore (from right side 1)".into(),
         ),
         (expected_left_side1, "left side 1".into()),
         (expected_left_base1, "left base 1".into()),
