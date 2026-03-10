@@ -1794,7 +1794,7 @@ impl FileSnapshotter<'_> {
         if clean {
             Ok(None)
         } else {
-            let current_tree_values = self.current_tree.path_value_async(repo_path).await?;
+            let current_tree_values = self.current_tree.path_value(repo_path).await?;
             let new_file_type = if !self.tree_state.symlink_support {
                 let mut new_file_type = new_file_state.file_type.clone();
                 if matches!(new_file_type, FileType::Normal { .. })

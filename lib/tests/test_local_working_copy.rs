@@ -936,8 +936,8 @@ fn test_materialize_snapshot_conflicted_files() {
 
     // Even though the tree-level conflict is a 3-sided conflict, each file is
     // materialized as a 2-sided conflict.
-    let file1_value = merged_tree.path_value(file1_path).unwrap();
-    let file2_value = merged_tree.path_value(file2_path).unwrap();
+    let file1_value = merged_tree.path_value(file1_path).block_on().unwrap();
+    let file2_value = merged_tree.path_value(file2_path).block_on().unwrap();
     assert_eq!(file1_value.num_sides(), 3);
     assert_eq!(file2_value.num_sides(), 3);
     insta::assert_snapshot!(
@@ -982,7 +982,7 @@ fn test_materialize_snapshot_conflicted_files() {
     );
 
     let edited_tree = test_workspace.snapshot().unwrap();
-    let edited_file_value = edited_tree.path_value(file1_path).unwrap();
+    let edited_file_value = edited_tree.path_value(file1_path).block_on().unwrap();
     let edited_file_values = edited_file_value.iter().flatten().collect_vec();
     assert_eq!(edited_file_values.len(), 5);
 
@@ -1403,7 +1403,7 @@ fn test_snapshot_modified_materialized_conflict(
     // Snapshot.
     let tree = test_workspace.snapshot().unwrap();
     let actual_file_contents = tree
-        .path_value_async(file_repo_path)
+        .path_value(file_repo_path)
         .block_on()
         .unwrap()
         .try_map_async(async |tree_value| {
@@ -2854,6 +2854,7 @@ fn test_snapshot_symlink_use_forward_slash() {
         .expect("Snapshot with symlink should succeed.");
     let tree_value = tree
         .path_value(link)
+        .block_on()
         .expect("Failed to retrieve the MergedTreeValue from the path.")
         .into_resolved()
         .expect("Shouldn't have conflicts.")

@@ -80,7 +80,13 @@ fn annotate_within(
 
 fn annotate_parent_tree(repo: &dyn Repo, commit: &Commit, file_path: &RepoPath) -> String {
     let tree = commit.parent_tree(repo).block_on().unwrap();
-    let text = match tree.path_value(file_path).unwrap().into_resolved().unwrap() {
+    let text = match tree
+        .path_value(file_path)
+        .block_on()
+        .unwrap()
+        .into_resolved()
+        .unwrap()
+    {
         Some(TreeValue::File { id, .. }) => read_file(repo.store(), file_path, &id),
         value => panic!("unexpected path value: {value:?}"),
     };

@@ -209,6 +209,6 @@ async fn get_tree_value(
 ) -> Result<MergedTreeValue, CommandError> {
     let workspace_command = command.workspace_helper_no_snapshot(ui)?;
     let commit = workspace_command.resolve_single_rev(ui, rev)?;
-    let tree_value = commit.tree().path_value_async(path).await?;
+    let tree_value = commit.tree().path_value(path).await?;
     Ok(tree_value)
 }

@@ -3065,7 +3065,7 @@ pub fn print_unmatched_explicit_paths<'a>(
     let mut explicit_paths = expression.explicit_paths().collect_vec();
     for tree in trees {
         // TODO: propagate errors
-        explicit_paths.retain(|&path| tree.path_value(path).unwrap().is_absent());
+        explicit_paths.retain(|&path| tree.path_value(path).block_on().unwrap().is_absent());
     }
 
     if !explicit_paths.is_empty() {

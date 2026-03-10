@@ -147,7 +147,7 @@ fn test_path_value_and_entries() {
 
     // Get the root tree
     assert_eq!(
-        merged_tree.path_value(RepoPath::root()).unwrap(),
+        merged_tree.path_value(RepoPath::root()).block_on().unwrap(),
         Merge::from_removes_adds(
             vec![Some(TreeValue::Tree(tree1.id().clone()))],
             vec![
@@ -158,22 +158,31 @@ fn test_path_value_and_entries() {
     );
     // Get file path without conflict
     assert_eq!(
-        merged_tree.path_value(resolved_file_path).unwrap(),
+        merged_tree
+            .path_value(resolved_file_path)
+            .block_on()
+            .unwrap(),
         Merge::resolved(tree1.path_value(resolved_file_path).block_on().unwrap()),
     );
     // Get directory path without conflict
     assert_eq!(
-        merged_tree.path_value(resolved_dir_path).unwrap(),
+        merged_tree
+            .path_value(resolved_dir_path)
+            .block_on()
+            .unwrap(),
         Merge::resolved(tree1.path_value(resolved_dir_path).block_on().unwrap()),
     );
     // Get missing path
     assert_eq!(
-        merged_tree.path_value(missing_path).unwrap(),
+        merged_tree.path_value(missing_path).block_on().unwrap(),
         Merge::absent()
     );
     // Get modify/delete conflict (some None values)
     assert_eq!(
-        merged_tree.path_value(modify_delete_path).unwrap(),
+        merged_tree
+            .path_value(modify_delete_path)
+            .block_on()
+            .unwrap(),
         Merge::from_removes_adds(
             vec![tree1.path_value(modify_delete_path).block_on().unwrap()],
             vec![
@@ -184,7 +193,10 @@ fn test_path_value_and_entries() {
     );
     // Get file/dir conflict path
     assert_eq!(
-        merged_tree.path_value(file_dir_conflict_path).unwrap(),
+        merged_tree
+            .path_value(file_dir_conflict_path)
+            .block_on()
+            .unwrap(),
         Merge::from_removes_adds(
             vec![tree1.path_value(file_dir_conflict_path).block_on().unwrap()],
             vec![
@@ -198,7 +210,10 @@ fn test_path_value_and_entries() {
     // directory in the merged tree, making the file hidden until the directory
     // conflict has been resolved.
     assert_eq!(
-        merged_tree.path_value(file_dir_conflict_sub_path).unwrap(),
+        merged_tree
+            .path_value(file_dir_conflict_sub_path)
+            .block_on()
+            .unwrap(),
         Merge::absent(),
     );
 
@@ -217,7 +232,12 @@ fn test_path_value_and_entries() {
     ]
     .iter()
     .sorted()
-    .map(|&path| (path.to_owned(), merged_tree.path_value(path).unwrap()))
+    .map(|&path| {
+        (
+            path.to_owned(),
+            merged_tree.path_value(path).block_on().unwrap(),
+        )
+    })
     .collect_vec();
     assert_eq!(actual_entries, expected_entries);
 
@@ -232,7 +252,12 @@ fn test_path_value_and_entries() {
     let expected_entries = [resolved_file_path, modify_delete_path]
         .iter()
         .sorted()
-        .map(|&path| (path.to_owned(), merged_tree.path_value(path).unwrap()))
+        .map(|&path| {
+            (
+                path.to_owned(),
+                merged_tree.path_value(path).block_on().unwrap(),
+            )
+        })
         .collect_vec();
     assert_eq!(actual_entries, expected_entries);
 }
@@ -847,8 +872,8 @@ fn test_diff_copy_tracing_file_and_dir() {
                 target: repo_path_buf("a/file"),
             },
             Diff::new(
-                before.path_value(repo_path("b/file")).unwrap(),
-                after.path_value(repo_path("a/file")).unwrap(),
+                before.path_value(repo_path("b/file")).block_on().unwrap(),
+                after.path_value(repo_path("a/file")).block_on().unwrap(),
             ),
         )
     );
@@ -860,8 +885,8 @@ fn test_diff_copy_tracing_file_and_dir() {
                 target: repo_path_buf("b"),
             },
             Diff::new(
-                before.path_value(repo_path("a")).unwrap(),
-                after.path_value(repo_path("b")).unwrap(),
+                before.path_value(repo_path("a")).block_on().unwrap(),
+                after.path_value(repo_path("b")).block_on().unwrap(),
             ),
         )
     );
@@ -873,8 +898,8 @@ fn test_diff_copy_tracing_file_and_dir() {
                 target: repo_path_buf("c/file"),
             },
             Diff::new(
-                before.path_value(repo_path("c")).unwrap(),
-                after.path_value(repo_path("c/file")).unwrap(),
+                before.path_value(repo_path("c")).block_on().unwrap(),
+                after.path_value(repo_path("c/file")).block_on().unwrap(),
             ),
         )
     );
@@ -981,8 +1006,8 @@ fn test_diff_conflicted() {
             (
                 path.to_owned(),
                 (
-                    left_merged.path_value(path).unwrap(),
-                    right_merged.path_value(path).unwrap(),
+                    left_merged.path_value(path).block_on().unwrap(),
+                    right_merged.path_value(path).block_on().unwrap(),
                 ),
             )
         })
@@ -1001,8 +1026,8 @@ fn test_diff_conflicted() {
             (
                 path.to_owned(),
                 (
-                    right_merged.path_value(path).unwrap(),
-                    left_merged.path_value(path).unwrap(),
+                    right_merged.path_value(path).block_on().unwrap(),
+                    left_merged.path_value(path).block_on().unwrap(),
                 ),
             )
         })
@@ -1121,8 +1146,8 @@ fn test_diff_dir_file() {
             "right side 2".into(),
         ]),
     );
-    let left_value = |path: &RepoPath| left_merged.path_value(path).unwrap();
-    let right_value = |path: &RepoPath| right_merged.path_value(path).unwrap();
+    let left_value = |path: &RepoPath| left_merged.path_value(path).block_on().unwrap();
+    let right_value = |path: &RepoPath| right_merged.path_value(path).block_on().unwrap();
 
     // Test the forwards diff
     {

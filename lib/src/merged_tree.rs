@@ -212,12 +212,7 @@ impl MergedTree {
     /// The value at the given path. The value can be `Resolved` even if
     /// `self` is a `Conflict`, which happens if the value at the path can be
     /// trivially merged.
-    pub fn path_value(&self, path: &RepoPath) -> BackendResult<MergedTreeValue> {
-        self.path_value_async(path).block_on()
-    }
-
-    /// Async version of `path_value()`.
-    pub async fn path_value_async(&self, path: &RepoPath) -> BackendResult<MergedTreeValue> {
+    pub async fn path_value(&self, path: &RepoPath) -> BackendResult<MergedTreeValue> {
         match path.split() {
             Some((dir, basename)) => {
                 let trees = self.trees().await?;

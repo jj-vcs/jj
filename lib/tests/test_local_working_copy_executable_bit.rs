@@ -121,7 +121,12 @@ fn test_exec_bit_snapshot() {
 
     // Snapshot, then assert the tree has the expected executable bit.
     let mut snapshot_assert_exec_bit = |expected| {
-        let merged_tree_val = ws.snapshot().unwrap().path_value(repo_path).unwrap();
+        let merged_tree_val = ws
+            .snapshot()
+            .unwrap()
+            .path_value(repo_path)
+            .block_on()
+            .unwrap();
         let tree_val = merged_tree_val.into_resolved().unwrap().unwrap();
         assert_tree_executable(tree_val, expected);
     };

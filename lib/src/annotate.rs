@@ -442,7 +442,7 @@ async fn get_file_contents(
     path: &RepoPath,
     tree: &MergedTree,
 ) -> Result<BString, BackendError> {
-    let file_value = tree.path_value_async(path).await?;
+    let file_value = tree.path_value(path).await?;
     let effective_file_value =
         materialize_tree_value(store, path, file_value, tree.labels()).await?;
     match effective_file_value {

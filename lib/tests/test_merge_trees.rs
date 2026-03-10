@@ -78,8 +78,8 @@ fn test_simplify_conflict_after_resolving_parent() {
     // Test the setup: Both B and C should have conflicts.
     let tree_b2 = commit_b2.tree();
     let tree_c2 = commit_b2.tree();
-    assert!(!tree_b2.path_value(path).unwrap().is_resolved());
-    assert!(!tree_c2.path_value(path).unwrap().is_resolved());
+    assert!(!tree_b2.path_value(path).block_on().unwrap().is_resolved());
+    assert!(!tree_c2.path_value(path).block_on().unwrap().is_resolved());
 
     // Create the resolved B and rebase C on top.
     let tree_b3 = create_tree(repo, &[(path, "AbC\ndef\nghi\n")]);
@@ -96,7 +96,7 @@ fn test_simplify_conflict_after_resolving_parent() {
 
     // The conflict should now be resolved.
     let tree_c2 = commit_c3.tree();
-    let resolved_value = tree_c2.path_value(path).unwrap();
+    let resolved_value = tree_c2.path_value(path).block_on().unwrap();
     match resolved_value.into_resolved() {
         Ok(Some(TreeValue::File {
             id,

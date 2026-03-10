@@ -283,7 +283,7 @@ pub async fn fix_files(
             let mut tree_builder = MergedTreeBuilder::new(old_tree.clone());
             let mut has_changes = false;
             for repo_path in repo_paths {
-                let old_value = old_tree.path_value_async(repo_path).await?;
+                let old_value = old_tree.path_value(repo_path).await?;
                 let new_value = old_value.map(|old_term| {
                     if let Some(TreeValue::File {
                         id,

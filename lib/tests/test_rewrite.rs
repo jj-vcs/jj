@@ -252,12 +252,12 @@ fn test_restore_tree_with_conflicts() {
     // After simplifying, the result should have path 1 from the left side and path
     // 2 from the right side.
     assert_eq!(
-        restored.path_value(path1).unwrap().simplify(),
-        left.path_value(path1).unwrap().simplify()
+        restored.path_value(path1).block_on().unwrap().simplify(),
+        left.path_value(path1).block_on().unwrap().simplify()
     );
     assert_eq!(
-        restored.path_value(path2).unwrap().simplify(),
-        right.path_value(path2).unwrap().simplify()
+        restored.path_value(path2).block_on().unwrap().simplify(),
+        right.path_value(path2).block_on().unwrap().simplify()
     );
 
     let expected_base_side1 = create_tree(repo, &[(path1, "right side 1")]);
@@ -393,16 +393,16 @@ fn test_restore_tree_with_conflicts() {
     // After simplifying, the result should have paths 1 and 3 from the right side
     // and path 2 from the left side.
     assert_eq!(
-        restored.path_value(path1).unwrap().simplify(),
-        right.path_value(path1).unwrap().simplify()
+        restored.path_value(path1).block_on().unwrap().simplify(),
+        right.path_value(path1).block_on().unwrap().simplify()
     );
     assert_eq!(
-        restored.path_value(path2).unwrap().simplify(),
-        left.path_value(path2).unwrap().simplify()
+        restored.path_value(path2).block_on().unwrap().simplify(),
+        left.path_value(path2).block_on().unwrap().simplify()
     );
     assert_eq!(
-        restored.path_value(path3).unwrap().simplify(),
-        right.path_value(path3).unwrap().simplify()
+        restored.path_value(path3).block_on().unwrap().simplify(),
+        right.path_value(path3).block_on().unwrap().simplify()
     );
 
     // path3 is included in all trees due to `MergedTree::resolve`.
@@ -442,16 +442,16 @@ fn test_restore_tree_with_conflicts() {
     // After simplifying, the result should have paths 1 and 2 from the right side
     // and path 3 from the left side.
     assert_eq!(
-        restored.path_value(path1).unwrap().simplify(),
-        right.path_value(path1).unwrap().simplify()
+        restored.path_value(path1).block_on().unwrap().simplify(),
+        right.path_value(path1).block_on().unwrap().simplify()
     );
     assert_eq!(
-        restored.path_value(path2).unwrap().simplify(),
-        right.path_value(path2).unwrap().simplify()
+        restored.path_value(path2).block_on().unwrap().simplify(),
+        right.path_value(path2).block_on().unwrap().simplify()
     );
     assert_eq!(
-        restored.path_value(path3).unwrap().simplify(),
-        left.path_value(path3).unwrap().simplify()
+        restored.path_value(path3).block_on().unwrap().simplify(),
+        left.path_value(path3).block_on().unwrap().simplify()
     );
 
     // path3 is updated in the existing conflict terms due to `MergedTree::resolve`.
@@ -1319,16 +1319,16 @@ fn test_rebase_descendants_contents() {
     let tree_d = commit_d.tree();
     let new_tree_c = new_commit_c.tree();
     assert_eq!(
-        new_tree_c.path_value(path3).unwrap(),
-        tree_c.path_value(path3).unwrap()
+        new_tree_c.path_value(path3).block_on().unwrap(),
+        tree_c.path_value(path3).block_on().unwrap()
     );
     assert_eq!(
-        new_tree_c.path_value(path4).unwrap(),
-        tree_d.path_value(path4).unwrap()
+        new_tree_c.path_value(path4).block_on().unwrap(),
+        tree_d.path_value(path4).block_on().unwrap()
     );
     assert_ne!(
-        new_tree_c.path_value(path2).unwrap(),
-        tree_b.path_value(path2).unwrap()
+        new_tree_c.path_value(path2).block_on().unwrap(),
+        tree_b.path_value(path2).block_on().unwrap()
     );
 }
 

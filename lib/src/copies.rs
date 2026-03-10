@@ -173,9 +173,9 @@ impl<'a> CopiesTreeDiffStream<'a> {
         values: BackendResult<Diff<MergedTreeValue>>,
     ) -> BackendResult<(CopyOperation, Diff<MergedTreeValue>)> {
         let target_value = values?.after;
-        let source_value = self.source_tree.path_value_async(source).await?;
+        let source_value = self.source_tree.path_value(source).await?;
         // If the source path is deleted in the target tree, it's a rename.
-        let source_value_at_target = self.target_tree.path_value_async(source).await?;
+        let source_value_at_target = self.target_tree.path_value(source).await?;
         let copy_op = if source_value_at_target.is_absent() || source_value_at_target.is_tree() {
             CopyOperation::Rename
         } else {

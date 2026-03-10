@@ -414,7 +414,7 @@ async fn apply_diff_builtin(
 
     // First, revert all changed files to their left versions
     for path in &changed_files {
-        let left_value = left_tree.path_value_async(path).await?;
+        let left_value = left_tree.path_value(path).await?;
         tree_builder.set_or_remove(path.clone(), left_value);
     }
 
@@ -423,10 +423,10 @@ async fn apply_diff_builtin(
         &mut tree_builder,
         changed_files,
         files,
-        async |path| left_tree.path_value_async(path).await,
-        async |path| right_tree.path_value_async(path).await,
+        async |path| left_tree.path_value(path).await,
+        async |path| right_tree.path_value(path).await,
         async |path, contents, executable| {
-            let old_value = left_tree.path_value_async(path).await?;
+            let old_value = left_tree.path_value(path).await?;
             let copy_id = resolve_file_copy_id(&old_value).unwrap_or_else(CopyId::placeholder);
             let new_value = if old_value.is_resolved() {
                 let id = store.write_file(path, &mut &contents[..]).await?;
@@ -740,15 +740,15 @@ async fn apply_merge_builtin(
         &mut tree_builder,
         changed_files,
         files,
-        async |path| tree.path_value_async(path).await,
+        async |path| tree.path_value(path).await,
         // FIXME: It doesn't make sense to select a new value from the source tree.
         // Presently, `select_right` is never actually called, since it is used to select binary
         // sections, but `make_merge_file` does not produce `Binary` sections for conflicted files.
         // This needs to be revisited when the UI becomes capable of representing binary conflicts.
-        async |path| tree.path_value_async(path).await,
+        async |path| tree.path_value(path).await,
         async |path, contents, executable| {
             let id = store.write_file(path, &mut &contents[..]).await?;
-            let tree_value = tree.path_value_async(path).await?;
+            let tree_value = tree.path_value(path).await?;
             let copy_id = resolve_file_copy_id(&tree_value).unwrap_or_else(CopyId::placeholder);
             Ok(Merge::normal(TreeValue::File {
                 id,
@@ -1040,7 +1040,7 @@ mod tests {
         }
 
         let get_actual_executables = |tree: &MergedTree| {
-            tree.path_value_async(file_path)
+            tree.path_value(file_path)
                 .block_on()
                 .unwrap()
                 .to_executable_merge()
@@ -1159,16 +1159,16 @@ mod tests {
             }
         }
         let tree = apply_diff(store, &left_tree, &right_tree, &changed_files, &files);
-        let actual_copy_ids =
-            tree.path_value_async(file_path)
-                .block_on()
-                .unwrap()
-                .map(|tree_value| {
-                    let Some(TreeValue::File { copy_id, .. }) = tree_value else {
-                        panic!("The path should point to an existing file.");
-                    };
-                    copy_id.clone()
-                });
+        let actual_copy_ids = tree
+            .path_value(file_path)
+            .block_on()
+            .unwrap()
+            .map(|tree_value| {
+                let Some(TreeValue::File { copy_id, .. }) = tree_value else {
+                    panic!("The path should point to an existing file.");
+                };
+                copy_id.clone()
+            });
         assert_eq!(
             actual_copy_ids.resolve_trivial(SameChange::Accept),
             Some(&copy_id),
@@ -1211,16 +1211,16 @@ mod tests {
             .block_on()
             .unwrap();
 
-        let actual_copy_ids =
-            tree.path_value_async(file_path)
-                .block_on()
-                .unwrap()
-                .map(|tree_value| {
-                    let Some(TreeValue::File { copy_id, .. }) = tree_value else {
-                        panic!("The path should point to an existing file.");
-                    };
-                    copy_id.clone()
-                });
+        let actual_copy_ids = tree
+            .path_value(file_path)
+            .block_on()
+            .unwrap()
+            .map(|tree_value| {
+                let Some(TreeValue::File { copy_id, .. }) = tree_value else {
+                    panic!("The path should point to an existing file.");
+                };
+                copy_id.clone()
+            });
         assert_eq!(
             actual_copy_ids.resolve_trivial(SameChange::Accept),
             Some(&new_copy_id),
@@ -2055,12 +2055,12 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            result_tree.path_value(matched_path).unwrap(),
-            left_tree.path_value(matched_path).unwrap()
+            result_tree.path_value(matched_path).block_on().unwrap(),
+            left_tree.path_value(matched_path).block_on().unwrap()
         );
         assert_eq!(
-            result_tree.path_value(unmatched_path).unwrap(),
-            right_tree.path_value(unmatched_path).unwrap()
+            result_tree.path_value(unmatched_path).block_on().unwrap(),
+            right_tree.path_value(unmatched_path).block_on().unwrap()
         );
     }
 
@@ -2097,9 +2097,9 @@ mod tests {
         }
 
         let merge = Merge::from_vec(vec![
-            to_file_id(left_tree.path_value(path).unwrap()),
-            to_file_id(base_tree.path_value(path).unwrap()),
-            to_file_id(right_tree.path_value(path).unwrap()),
+            to_file_id(left_tree.path_value(path).block_on().unwrap()),
+            to_file_id(base_tree.path_value(path).block_on().unwrap()),
+            to_file_id(right_tree.path_value(path).block_on().unwrap()),
         ]);
         let content = extract_as_single_hunk(&merge, store, path)
             .block_on()

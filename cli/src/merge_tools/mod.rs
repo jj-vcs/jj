@@ -334,7 +334,7 @@ impl MergeToolFile {
         tree: &MergedTree,
         repo_path: &RepoPath,
     ) -> Result<Self, ConflictResolveError> {
-        let conflict = match tree.path_value_async(repo_path).await?.into_resolved() {
+        let conflict = match tree.path_value(repo_path).await?.into_resolved() {
             Err(conflict) => conflict,
             Ok(Some(_)) => return Err(ConflictResolveError::NotAConflict(repo_path.to_owned())),
             Ok(None) => return Err(ConflictResolveError::PathNotFound(repo_path.to_owned())),
