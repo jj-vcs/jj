@@ -1,0 +1,6 @@
+[target.'cfg(all(target_family = "windows", target_env = "msvc"))']
+linker = "rust-lld.exe"
+# NOTE: on Windows, build with the static CRT, so that produced .exe files don't
+# depend on vcruntime140.dll; otherwise the user requires visual studio if they
+# download a raw .exe
+rustflags = ["-Ctarget-feature=+crt-static"]
