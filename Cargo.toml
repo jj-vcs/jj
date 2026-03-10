@@ -168,10 +168,6 @@ while_let_loop = "warn"
 let_underscore_drop = "warn"
 redundant_imports = "warn"
 
-[profile.dev]
-# Opt-level 0 tends to run out of stack on Windows when running async code
-opt-level = 1
-
 [profile.dev.package."*"]
 # Compile all dependencies with opt-level=3 to help speed up tests and
 # debug builds
