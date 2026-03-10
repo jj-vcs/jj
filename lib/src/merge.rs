@@ -494,6 +494,13 @@ impl<T> Merge<T> {
         Merge { values }
     }
 
+    /// Creates a new merge by applying `f` to each remove and add, consuming
+    /// `self`.
+    pub fn into_map<U>(self, f: impl FnMut(T) -> U) -> Merge<U> {
+        let values = self.values.into_iter().map(f).collect();
+        Merge { values }
+    }
+
     /// Creates a new merge by applying `f` to each remove and add, returning
     /// `Err` if `f` returns `Err` for any of them.
     pub fn try_map<'a, U, E>(
