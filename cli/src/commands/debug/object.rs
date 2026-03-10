@@ -124,7 +124,7 @@ pub async fn cmd_debug_object(
             let path = RepoPathBuf::from_internal_string(&args.path).map_err(user_error)?;
             let id = if let Some(rev) = &args.revision {
                 if let Some(Some(TreeValue::File { id, .. })) =
-                    get_tree_value(ui, command, rev, &path)?.as_resolved()
+                    get_tree_value(ui, command, rev, &path).await?.as_resolved()
                 {
                     id.clone()
                 } else {
@@ -150,7 +150,7 @@ pub async fn cmd_debug_object(
             let path = RepoPathBuf::from_internal_string(&args.path).map_err(user_error)?;
             let id = if let Some(rev) = &args.revision {
                 if let Some(Some(TreeValue::Symlink(id))) =
-                    get_tree_value(ui, command, rev, &path)?.as_resolved()
+                    get_tree_value(ui, command, rev, &path).await?.as_resolved()
                 {
                     id.clone()
                 } else {
@@ -169,7 +169,7 @@ pub async fn cmd_debug_object(
             let dir = RepoPathBuf::from_internal_string(&args.dir).map_err(user_error)?;
             let id = if let Some(rev) = &args.revision {
                 if let Some(Some(TreeValue::Tree(id))) =
-                    get_tree_value(ui, command, rev, &dir)?.as_resolved()
+                    get_tree_value(ui, command, rev, &dir).await?.as_resolved()
                 {
                     id.clone()
                 } else {
@@ -201,7 +201,7 @@ pub async fn cmd_debug_object(
     Ok(())
 }
 
-fn get_tree_value(
+async fn get_tree_value(
     ui: &mut Ui,
     command: &CommandHelper,
     rev: &RevisionArg,
@@ -209,6 +209,6 @@ fn get_tree_value(
 ) -> Result<MergedTreeValue, CommandError> {
     let workspace_command = command.workspace_helper_no_snapshot(ui)?;
     let commit = workspace_command.resolve_single_rev(ui, rev)?;
-    let tree_value = commit.tree().path_value(path)?;
+    let tree_value = commit.tree().path_value_async(path).await?;
     Ok(tree_value)
 }
