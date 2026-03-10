@@ -1562,15 +1562,16 @@ impl MutableRepo {
         workspace_name: &WorkspaceName,
     ) -> Result<(), EditCommitError> {
         let is_commit_referenced = |view: &View, commit_id: &CommitId| -> bool {
-            view.wc_commit_ids()
-                .iter()
-                .filter(|&(name, _)| name != workspace_name)
-                .map(|(_, wc_id)| wc_id)
-                .chain(
-                    view.local_bookmarks()
-                        .flat_map(|(_, target)| target.added_ids()),
-                )
-                .any(|id| id == commit_id)
+            itertools::chain!(
+                view.wc_commit_ids()
+                    .iter()
+                    .filter(|&(name, _)| name != workspace_name)
+                    .map(|(_, wc_id)| wc_id),
+                view.local_bookmarks()
+                    .flat_map(|(_, target)| target.added_ids()),
+                view.local_tags().flat_map(|(_, target)| target.added_ids()),
+            )
+            .any(|id| id == commit_id)
         };
 
         let maybe_wc_commit_id = self
@@ -1589,8 +1590,8 @@ impl MutableRepo {
                 && self.view().heads().contains(wc_commit.id())
             {
                 // Abandon the working-copy commit we're leaving if it's
-                // discardable, not pointed by local bookmark or other working
-                // copies, and a head commit.
+                // discardable, not pointed by local bookmark, tag, or other
+                // working copies, and is a head commit.
                 self.record_abandoned_commit(&wc_commit);
             }
         }

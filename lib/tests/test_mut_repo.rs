@@ -255,6 +255,37 @@ fn test_edit_previous_empty_with_local_bookmark() {
 }
 
 #[test]
+fn test_edit_previous_empty_with_local_tag() {
+    // Test that MutableRepo::edit() does not abandon the previous commit if it
+    // is pointed by local tag.
+    let test_repo = TestRepo::init();
+    let repo = &test_repo.repo;
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let old_wc_commit = mut_repo
+        .new_commit(
+            vec![repo.store().root_commit_id().clone()],
+            repo.store().empty_merged_tree(),
+        )
+        .write_unwrap();
+    mut_repo.set_local_tag_target("t".as_ref(), RefTarget::normal(old_wc_commit.id().clone()));
+    let ws_name = WorkspaceName::DEFAULT.to_owned();
+    mut_repo
+        .edit(ws_name.clone(), &old_wc_commit)
+        .block_on()
+        .unwrap();
+    let repo = tx.commit("test").block_on().unwrap();
+
+    let mut tx = repo.start_transaction();
+    let mut_repo = tx.repo_mut();
+    let new_wc_commit = write_random_commit(mut_repo);
+    mut_repo.edit(ws_name, &new_wc_commit).block_on().unwrap();
+    mut_repo.rebase_descendants().block_on().unwrap();
+    assert!(mut_repo.view().heads().contains(old_wc_commit.id()));
+}
+
+#[test]
 fn test_edit_previous_empty_with_other_workspace() {
     // Test that MutableRepo::edit() does not abandon the previous commit if it
     // is pointed by another workspace
