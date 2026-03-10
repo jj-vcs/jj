@@ -5238,6 +5238,13 @@ executable on your system</a>.</p>
 <p>You can configure <code>jj</code> to use watchman triggers to automatically create
 snapshots on filesystem changes by setting
 <code>fsmonitor.watchman.register-snapshot-trigger = true</code>.</p>
+<p>A full configuration for watchman can look like this:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[fsmonitor]</span>
+<span class="n">backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;watchman&quot;</span>
+
+<span class="k">[fsmonitor.watchman]</span>
+<span class="n">register-snapshot-trigger</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</code></pre></div>
 <p>You can check whether Watchman is enabled and whether it is installed correctly
 using <code>jj debug watchman status</code>.</p>
 <p>Note: <code>watchman</code> heavily uses <code>inotify</code> and sets up a user watch per-file. On
