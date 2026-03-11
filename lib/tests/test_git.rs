@@ -5673,7 +5673,7 @@ fn test_concurrent_read_write_commit() {
                                 Ok(()) => {
                                     // update index as git::import_refs() would do
                                     let commit = repo.store().get_commit(&commit_id).unwrap();
-                                    tx.repo_mut().add_head(&commit).unwrap();
+                                    tx.repo_mut().add_head(&commit).block_on().unwrap();
                                     None
                                 }
                                 Err(BackendError::ObjectNotFound { .. }) => Some(commit_id),

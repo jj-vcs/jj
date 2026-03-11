@@ -512,7 +512,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     let [commit_b1] = head_commits(tx.repo()).try_into().unwrap();
-    tx.repo_mut().add_head(&commit_b0).unwrap(); // resurrect rewritten commits
+    tx.repo_mut().add_head(&commit_b0).block_on().unwrap(); // resurrect rewritten commits
     let repo_2 = tx.commit("op2").block_on().unwrap();
 
     let mut tx = repo_2.start_transaction();

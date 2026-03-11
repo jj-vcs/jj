@@ -628,6 +628,7 @@ async fn import_refs_inner(
     // can still occur.
     mut_repo
         .add_heads(&head_commits)
+        .await
         .map_err(GitImportError::Backend)?;
 
     // Apply the change that happened in git since last time we imported refs.
@@ -1022,10 +1023,13 @@ pub async fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportErro
         }
         // It's unlikely the imported commits were missing, but I/O-related
         // error can still occur.
-        store
+        let commit = store
             .get_commit_async(head_id)
             .await
-            .and_then(|commit| mut_repo.add_head(&commit))
+            .map_err(GitImportError::Backend)?;
+        mut_repo
+            .add_head(&commit)
+            .await
             .map_err(GitImportError::Backend)?;
     }
 

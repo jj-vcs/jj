@@ -28,7 +28,6 @@ use std::sync::Arc;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 use once_cell::sync::OnceCell;
-use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 
@@ -1553,7 +1552,7 @@ impl MutableRepo {
         commit: &Commit,
     ) -> Result<(), EditCommitError> {
         self.maybe_abandon_wc_commit(&name).await?;
-        self.add_head(commit)?;
+        self.add_head(commit).await?;
         Ok(self.set_wc_commit(name, commit.id().clone())?)
     }
 
@@ -1623,8 +1622,8 @@ impl MutableRepo {
 
     /// Ensures that the given `head` and ancestor commits are reachable from
     /// the visible heads.
-    pub fn add_head(&mut self, head: &Commit) -> BackendResult<()> {
-        self.add_heads(slice::from_ref(head))
+    pub async fn add_head(&mut self, head: &Commit) -> BackendResult<()> {
+        self.add_heads(slice::from_ref(head)).await
     }
 
     /// Ensures that the given `heads` and ancestor commits are reachable from
@@ -1633,7 +1632,7 @@ impl MutableRepo {
     /// The `heads` may contain redundant commits such as already visible ones
     /// and ancestors of the other heads. The `heads` and ancestor commits
     /// should exist in the store.
-    pub fn add_heads(&mut self, heads: &[Commit]) -> BackendResult<()> {
+    pub async fn add_heads(&mut self, heads: &[Commit]) -> BackendResult<()> {
         let current_heads = self.view.get_mut().heads();
         // Use incremental update for common case of adding a single commit on top a
         // current head. TODO: Also use incremental update when adding a single
@@ -1648,7 +1647,7 @@ impl MutableRepo {
             {
                 self.index
                     .add_commit(head)
-                    .block_on()
+                    .await
                     // TODO: indexing error shouldn't be a "BackendError"
                     .map_err(|err| BackendError::Other(err.into()))?;
                 self.view.get_mut().add_head(head.id());
@@ -1683,7 +1682,7 @@ impl MutableRepo {
                 for CommitByCommitterTimestamp(missing_commit) in missing_commits.iter().rev() {
                     self.index
                         .add_commit(missing_commit)
-                        .block_on()
+                        .await
                         // TODO: indexing error shouldn't be a "BackendError"
                         .map_err(|err| BackendError::Other(err.into()))?;
                 }

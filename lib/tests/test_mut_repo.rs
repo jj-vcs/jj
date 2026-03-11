@@ -419,7 +419,7 @@ fn test_add_head_success() {
 
     assert!(!mut_repo.view().heads().contains(new_commit.id()));
     assert!(!index_has_id(mut_repo.index(), new_commit.id()));
-    mut_repo.add_head(&new_commit).unwrap();
+    mut_repo.add_head(&new_commit).block_on().unwrap();
     assert!(mut_repo.view().heads().contains(new_commit.id()));
     assert!(index_has_id(mut_repo.index(), new_commit.id()));
     let repo = tx.commit("test").block_on().unwrap();
@@ -443,7 +443,7 @@ fn test_add_head_ancestor() {
     assert_eq!(repo.view().heads(), &hashset! {commit3.id().clone()});
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    mut_repo.add_head(&commit1).unwrap();
+    mut_repo.add_head(&commit1).block_on().unwrap();
     assert_eq!(repo.view().heads(), &hashset! {commit3.id().clone()});
 }
 
@@ -471,7 +471,7 @@ fn test_add_head_not_immediate_child() {
     assert_eq!(repo.view().heads(), &hashset! {initial.id().clone()});
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
-    mut_repo.add_head(&child).unwrap();
+    mut_repo.add_head(&child).block_on().unwrap();
     assert_eq!(
         mut_repo.view().heads(),
         &hashset! {initial.id().clone(), child.id().clone()}
@@ -549,7 +549,7 @@ fn test_has_changed() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
 
-    mut_repo.add_head(&commit1).unwrap();
+    mut_repo.add_head(&commit1).block_on().unwrap();
     mut_repo
         .set_wc_commit(ws_name.clone(), commit1.id().clone())
         .unwrap();
@@ -565,7 +565,7 @@ fn test_has_changed() {
     mut_repo.set_remote_bookmark(remote_symbol("stable", "origin"), RemoteRef::absent());
     assert!(!mut_repo.has_changes());
 
-    mut_repo.add_head(&commit2).unwrap();
+    mut_repo.add_head(&commit2).block_on().unwrap();
     assert!(mut_repo.has_changes());
     mut_repo.remove_head(commit2.id());
     assert!(!mut_repo.has_changes());
