@@ -152,7 +152,9 @@
     `jj log`
   Notes: ''
 
-- Use case: Show log of commits that have the string "stuff" in the changed lines
+- Use case: >
+    Show log of commits that have the string "stuff" in the changed lines,
+    also known as the "pickaxe" in Git
   Git command: >
     `git log -G stuff`
   Jujutsu command: >
