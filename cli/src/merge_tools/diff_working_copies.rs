@@ -146,28 +146,30 @@ pub(crate) async fn check_out_trees(
     let temp_path = temp_dir.path();
 
     // Checkout a tree into our temp directory with the given prefix.
-    let check_out = |name: &str, tree| -> Result<TreeState, DiffCheckoutError> {
-        let wc_path = temp_path.join(name);
-        let state_dir = temp_path.join(format!("{name}_state"));
-        std::fs::create_dir(&wc_path).map_err(DiffCheckoutError::SetUpDir)?;
-        std::fs::create_dir(&state_dir).map_err(DiffCheckoutError::SetUpDir)?;
-        let tree_state_settings = TreeStateSettings {
-            conflict_marker_style,
-            eol_conversion_mode: EolConversionMode::None,
-            exec_change_setting: ExecChangeSetting::Auto,
-            fsmonitor_settings: FsmonitorSettings::None,
+    let check_out =
+        async |name: &str, tree| -> Result<TreeState, DiffCheckoutError> {
+            let wc_path = temp_path.join(name);
+            let state_dir = temp_path.join(format!("{name}_state"));
+            std::fs::create_dir(&wc_path).map_err(DiffCheckoutError::SetUpDir)?;
+            std::fs::create_dir(&state_dir).map_err(DiffCheckoutError::SetUpDir)?;
+            let tree_state_settings = TreeStateSettings {
+                conflict_marker_style,
+                eol_conversion_mode: EolConversionMode::None,
+                exec_change_setting: ExecChangeSetting::Auto,
+                fsmonitor_settings: FsmonitorSettings::None,
+            };
+            let mut state =
+                TreeState::init(store.clone(), wc_path, state_dir, &tree_state_settings)?;
+            state.set_sparse_patterns(changed_files.clone()).await?;
+            state.check_out(tree).await?;
+            Ok(state)
         };
-        let mut state = TreeState::init(store.clone(), wc_path, state_dir, &tree_state_settings)?;
-        state.set_sparse_patterns(changed_files.clone())?;
-        state.check_out(tree)?;
-        Ok(state)
-    };
 
-    let left = check_out("left", trees.before)?;
-    let right = check_out("right", trees.after)?;
+    let left = check_out("left", trees.before).await?;
+    let right = check_out("right", trees.after).await?;
     let output = match diff_type {
         DiffType::TwoWay => None,
-        DiffType::ThreeWay => Some(check_out("output", trees.after)?),
+        DiffType::ThreeWay => Some(check_out("output", trees.after).await?),
     };
     Ok(DiffWorkingCopies {
         _temp_dir: temp_dir,

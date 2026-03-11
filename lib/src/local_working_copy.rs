@@ -2127,16 +2127,19 @@ impl TreeState {
             .map_err(|err| checkout_error_for_mtime_out_of_range(err, disk_path))
     }
 
-    pub fn check_out(&mut self, new_tree: &MergedTree) -> Result<CheckoutStats, CheckoutError> {
+    pub async fn check_out(
+        &mut self,
+        new_tree: &MergedTree,
+    ) -> Result<CheckoutStats, CheckoutError> {
         let old_tree = self.tree.clone();
         let stats = self
             .update(&old_tree, new_tree, self.sparse_matcher().as_ref())
-            .block_on()?;
+            .await?;
         self.tree = new_tree.clone();
         Ok(stats)
     }
 
-    pub fn set_sparse_patterns(
+    pub async fn set_sparse_patterns(
         &mut self,
         sparse_patterns: Vec<RepoPathBuf>,
     ) -> Result<CheckoutStats, CheckoutError> {
@@ -2146,10 +2149,10 @@ impl TreeState {
         let added_matcher = DifferenceMatcher::new(&new_matcher, &old_matcher);
         let removed_matcher = DifferenceMatcher::new(&old_matcher, &new_matcher);
         let empty_tree = self.store.empty_merged_tree();
-        let added_stats = self.update(&empty_tree, &tree, &added_matcher).block_on()?;
+        let added_stats = self.update(&empty_tree, &tree, &added_matcher).await?;
         let removed_stats = self
             .update(&tree, &empty_tree, &removed_matcher)
-            .block_on()?;
+            .await?;
         self.sparse_patterns = sparse_patterns;
         assert_eq!(added_stats.updated_files, 0);
         assert_eq!(added_stats.removed_files, 0);
@@ -2797,7 +2800,7 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         let new_tree = commit.tree();
         let tree_state = self.wc.tree_state_mut()?;
         if tree_state.tree.tree_ids_and_labels() != new_tree.tree_ids_and_labels() {
-            let stats = tree_state.check_out(&new_tree)?;
+            let stats = tree_state.check_out(&new_tree).await?;
             self.tree_state_dirty = true;
             Ok(stats)
         } else {
@@ -2836,7 +2839,8 @@ impl LockedWorkingCopy for LockedLocalWorkingCopy {
         let stats = self
             .wc
             .tree_state_mut()?
-            .set_sparse_patterns(new_sparse_patterns)?;
+            .set_sparse_patterns(new_sparse_patterns)
+            .await?;
         self.tree_state_dirty = true;
         Ok(stats)
     }
