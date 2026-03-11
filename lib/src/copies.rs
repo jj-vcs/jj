@@ -422,6 +422,15 @@ async fn resolve_diff_entry_copies(
             Some(TreeValue::File { copy_id: id2, .. }),
         ) if id1 == id2 => vec![CopyHistoryTreeDiffEntry::normal(diff_entry)],
 
+        // New file with copy history — needs copy-tracing.
+        (None, Some(f @ TreeValue::File { .. })) => {
+            let f = f.clone();
+            vec![CopyHistoryTreeDiffEntry {
+                target_path: diff_entry.path,
+                diffs: diffs_from_copies(before_tree, after_tree, f).await,
+            }]
+        }
+
         // For files with non-matching copy-ids, or for a non-file that changes to a
         // file, mark the first as deleted and do copy-tracing on the second.
         //
@@ -454,15 +463,6 @@ async fn resolve_diff_entry_copies(
                     diffs: diffs_from_copies(before_tree, after_tree, f).await,
                 },
             ]
-        }
-
-        // New file with copy history — needs copy-tracing.
-        (None, Some(f @ TreeValue::File { .. })) => {
-            let f = f.clone();
-            vec![CopyHistoryTreeDiffEntry {
-                target_path: diff_entry.path,
-                diffs: diffs_from_copies(before_tree, after_tree, f).await,
-            }]
         }
 
         // Anything else (e.g. file => non-file non-tree), issue a simple diff entry.
