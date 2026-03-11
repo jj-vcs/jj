@@ -33,7 +33,7 @@ like the solution. `jj undo` can be used in that case.
 
 Divergent commits (for the same change-id) can differ:
 
-*   In their commit description (including tags)
+*   In their commit description
 *   In their commit trees
 *   In the parent(s) of the commits (commits *B/0* and *B/1* for change *B* have
     different parents)
@@ -65,11 +65,11 @@ background material. Here are some examples:
     change visible again. There are many ways this could happen.
 
 *   Divergence can happen when mutating two workspaces. For example, assume you
-    have workspaces w1 and w2 with working copy commits *A* and *B*
-    respectively, where *B* is a child of *A*. In w2 you run `jj git fetch` and
-    then rebase the whole branch onto main. Go back to w1 (which is now stale),
-    modify some file on disk and take a snapshot (e.g. run `jj log`). This
-    introduces divergence.
+    have workspaces w1 and w2 with working copy commits *C1* and *C2*
+    respectively, where *C2* is a child of *C1*. In w1 you run `jj git fetch`
+    and then rebase the whole branch onto main. Go back to w2 (which is now
+    stale), modify some file on disk and take a snapshot (e.g. run `jj log`).
+    This introduces divergence.
 
 *   When using the Git backend jj propagates change-id. The change-id is stored
     in the commit header, so after jj git fetch you can end up with a second
@@ -80,36 +80,374 @@ background material. Here are some examples:
     command to "download" a change from that system back to your jj repo. This
     can introduce divergence very much like in the Git scenario.
 
-*   At Google, snapshotting operations happen concurrently on different machines
-    (e.g. two terminals, or more commonly, a terminal and an IDE). Often times
-    they end up snapshotting the same content. Google's backend does not hold
-    locks while snapshotting because it's a distributed filesystem, so locking
-    would be slow.
+*   At Google, snapshotting operations can happen concurrently on different
+    machines (e.g. two terminals, or more commonly, a terminal and an IDE).
+    Often times they end up snapshotting the same content. Google's backend does
+    not hold locks while snapshotting because it's a distributed filesystem, so
+    locking would be slow. This can introduce divergence.
+
+## Notation
+
+The document does not use realistic commit ids or change ids: most of the time
+we refer to the divergent change-id as `B`, and its divergent commits as `B/0`,
+`B/1` and so on. Usually `P` denotes a commit in `B`'s evolution graph that is a
+common predecessor of the divergent commits, and has change-id `B`. Later on we
+make more precise how to determine this `P`.
+
+We write `A⁻` to denote the parent trees of commit `A`.
 
 ## Strawman proposal
 
-We look at some examples to illustrate what the command should do, starting with
-simple cases and moving on to more complex ones.
+At any point there can be zero, one or more divergent change-ids. The command
+needs to first find all divergent commits, grouped by change-id. If there are
+none there is nothing to do. If there are multiple divergent change-ids, the
+command will ask the user to choose one (in the future we can add logic to
+choose one automatically).
+
+```rust
+/* in jj_lib/src/converge.rs */
+
+/// Maps change-ids to commits with that change-id.
+pub type CommitsByChangeId = HashMap<ChangeId, HashMap<CommitId, Commit>>;
+
+/// Evaluates the revset expression and returns those commits that are
+/// divergent, in the sense that the expression matches two or more commits in
+/// the result with the same change-id.
+pub fn find_divergent_changes(
+    repo: &Arc<ReadonlyRepo>,
+    revset_expression: Arc<ResolvedRevsetExpression>,
+) -> Result<CommitsByChangeId, RevsetEvaluationError> { ... }
+
+/// Prompts the user to choose a change-id to converge, if there are multiple
+/// divergent change-ids.
+pub fn choose_change<'a>(
+    converge_ui: Option<&dyn ConvergeUI>,
+    divergent_changes: &'a CommitsByChangeId,
+) -> Result<Option<&'a ChangeId>, ConvergeError> { ... }
+
+/// Interface for user interactions during converge. This is only available
+/// during interactive converge, to communicate with the user whenever input is
+/// required.
+pub trait ConvergeUI {
+    /// Prompts the user to choose a change-id to converge.
+    /// Converge returns immediately if this method returns None. This method is
+    /// only invoked if there are multiple divergent change-ids.
+    fn choose_change<'a>(
+        &self,
+        divergent_changes: &'a CommitsByChangeId,
+    ) -> Result<Option<&'a ChangeId>, ConvergeError>;
+
+    ... other methods, see below ...
+}
+```
+
+Once a divergent change-id has been chosen, the command tries to create a
+solution commit that solves that change-id, possibly prompting the user along
+the way if necessary. The change-id of the solution commit is the change-id we
+are converging. The divergent commits are recorded as predecessors of the
+solution commit. Also, the solution commit "rewrites" the divergent commits:
+this makes the divergent commits hidden and thus "converges" the change back to
+a single visible commit. The descendants of the divergent commits get rebased on
+top of the solution commit. Assuming there are no concurrent operations while jj
+converge is running, it is guaranteed the algorithm will not introduce other
+divergent changes, or increase divergence on any change. In the first version of
+jj converge, the command will converge a single divergent change per invocation.
+In the future we could explore converging more than one change per invocation.
+
+It is desirable to be able to invoke the converge logic as a library, perhaps on
+the server or from other jj commands. For this reason the implementation will be
+mostly in jj-lib, and will abstract user interactions under a `ConvergeUI` trait
+to make it possible to run the algorithm in non-interactive mode. The
+implementation of `jj converge` under jj-cli will pass a concrete implementation
+of the `ConvergeUI` trait to the `converge_change` function, a non-interactive
+client would pass `NONE`.
+
+```rust
+/* in jj_lib/src/converge.rs */
+
+/// Attempts to solve divergence in the given divergent commits.
+/// Does not modify the repo.
+pub async fn converge_change(
+    repo: &Arc<ReadonlyRepo>,
+    converge_ui: Option<&dyn ConvergeUI>,
+    divergent_commits: &[Commit],
+) -> Result<ConvergeResult<Box<ConvergeCommit>>, ConvergeError> { ... }
+
+/// Encapsulates the solution to a problem, where the problem may be divergence
+/// as a whole, or determining a specific aspect of the solution such
+/// as the author, description, parents or tree of the converge commit.
+pub enum ConvergeResult<T> {
+    /// The proposed solution.
+    Solution(T),
+    /// Need user input to find a solution, but there is no ConvergeUI available.
+    NeedUserInput(String),
+    /// The user aborted the operation.
+    Aborted,
+}
+
+/// The proposed solution for converging a change.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ConvergeCommit {
+    /// The change-id of the change being converged.
+    pub change_id: ChangeId,
+    /// The divergent commits that are being converged.
+    pub divergent_commit_ids: Vec<CommitId>,
+    /// The proposed author.
+    pub author: Signature,
+    /// The proposed description.
+    pub description: String,
+    /// The proposed parents.
+    pub parents: Vec<CommitId>,
+    /// The proposed tree IDs.
+    pub tree_ids: Merge<TreeId>,
+    /// Conflict labels.
+    pub conflict_labels: ConflictLabels,
+}
+
+pub trait ConvergeUI {
+    ... other methods, see above ...
+
+    /// Prompts the user to choose the author for the solution commit.
+    fn choose_author(
+        &self,
+        divergent_commits: &[Commit],
+        evolution_fork_point: &Commit,
+    ) -> Result<Option<Signature>, ConvergeError>;
+    /// Prompts the user to choose the parents for the solution commit.
+    fn choose_parents(
+        &self,
+        divergent_commits: &[Commit],
+    ) -> Result<Option<Vec<CommitId>>, ConvergeError>;
+    /// Prompts the user to merge the description.
+    fn merge_description(
+        &self,
+        divergent_commits: &[Commit],
+        evolution_fork_point: &Commit,
+    ) -> Result<Option<String>, ConvergeError>;
+}
+
+/// Applies the proposed solution to the repo.
+pub fn apply_solution(
+    solution: Box<ConvergeCommit>,
+    repo_mut: &mut MutableRepo,
+) -> Result<Commit, ConvergeError> { ... }
+```
+
+To produce the solution commit, we need to determine the solution's author,
+description, parent commit(s) and MergedTree. We propose an algorithm that
+attempts to automatically produce a value for each of those attributes based on
+the evolution history of the divergent commits. The algorithm is applied
+separately and independently to determine the author, description and parent
+attributes. Once the parents are determined, a similar algorithm is used to
+determine the solution's MergedTree. The automatic algorithm may fail to produce
+a value for author and/or description and/or parents. In such cases:
+
+*   If a `ConvergeUI` is available the corresponding method of the `ConvergeUI`
+    is invoked to ask the user for help. For example, to determine the parents
+    of the solution the `choose_parents` method is invoked: this prompts the
+    user to choose one of the divergent commits, and uses the parents of the
+    chosen commit as the parents of the solution.
+*   If `converge_ui` is `NONE` then `converge_change` returns `NeedUserInput`.
+
+### The TruncatedEvolutionGraph
+
+We do not use the complete evolution graph, which could be quite large, as that
+seems unnecessary. Instead we introduce the *"TruncatedEvolutionGraph for B/0,
+B/1, ... , B/n"*, where *B/0, B/1, ... , B/n* are the commits we are converging.
+As its name implies, this is a sub-graph of the complete evolution history. Its
+nodes are commits for change-id *B* and the edges are from a commit to its
+immediate successors. Here is the API:
+
+```rust
+/* in jj_lib/src/converge.rs */
+
+/// The truncated evolution graph for a divergent change.
+pub struct TruncatedEvolutionGraph {
+    /// The commits in the change that are being converged (typically the
+    /// visible & mutable commits for the given change-id).
+    pub divergent_commit_ids: Vec<CommitId>,
+    /// The evolution graph of the divergent commits, with edges X->Y if commit
+    /// X is a predecessor of commit Y and both X and Y have the same
+    /// divergent change-id. The start node is the evolution fork point.
+    pub flow_graph: FlowGraph<CommitId>,
+    /// The evolution entries for the commits in the graph.
+    pub commits: HashMap<CommitId, CommitEvolutionEntry>,
+}
+
+impl TruncatedEvolutionGraph {
+    /// Builds a truncated evolution graph for the given divergent commits,
+    /// which are expected to all have the same change-id.
+    pub fn new(
+        repo: &ReadonlyRepo,
+        divergent_commits: &[Commit],
+        max_evolution_nodes: usize,
+    ) -> Result<Self, ConvergeError> { ... }
+    /// Returns the change-id of the commits in the graph.
+    pub fn change_id(&self) -> &ChangeId { ... }
+    /// Returns the commit for the given commit id.
+    pub fn get_commit(&self, commit_id: &CommitId) -> Result<&Commit, ConvergeError> {
+    /// Returns the evolution fork point.
+    pub fn get_evolution_fork_point(&self) -> &Commit { ... }
+}
+
+/* in jj_lib/src/graph_dominators.rs */
+
+/// A FlowGraph is a directed graph with a designated start node.
+pub struct FlowGraph<N>
+where
+    N: Clone + Eq + Hash + PartialEq,
+{
+    /// The graph.
+    pub graph: SimpleDirectedGraph<N>,
+    /// The start node.
+    pub start_node: N,
+}
+
+/// An immutable directed graph with nodes of type N.
+pub struct SimpleDirectedGraph<N>
+where
+    N: Clone + Eq + Hash + PartialEq,
+{
+    /// The adjacency map of the graph.
+    adj: IndexMap<N, IndexSet<N>>,
+}
+```
+
+The graph is said to be truncated for the following reasons. First of all, any
+commits in the evolution history with unrelated change-ids are ignored and not
+included in the TruncatedEvolutionGraph. Also, while traversing the evolution
+history to construct the TruncatedEvolutionGraph, if the traversal finds more
+than N commits (for change-id B) it stops the traversal and pretends that the
+"boundary" commits (at the time traversal stops) are all successors of the root
+commit. And finally, the graph contains a single start node which we call the
+"evolution fork point of B/0, B/1, ... , B/n" (more on this below); any commits
+"older" in the evolution graph than the evolution fork point are not included in
+the TruncatedEvolutionGraph.
+
+TruncatedEvolutionGraph::new follows these steps:
+
+1.  An adjacency list is built by traversing the operation log and associated
+    View objects (using `jj_lib::evolution::walk_predecessors`), adding nodes
+    and predecessor edges as needed. Nodes are added this way until there are no
+    more edges pointing to predecessors with change-id `B` (or too many nodes
+    have been traversed). This traversal keeps track of "initial nodes": these
+    are commits in the evolution history that have no predecessors (for
+    change-id `B`, they may have unrelated predecessors). Typically there will
+    be a single initial node, but if there are multiple ones, we pretend the
+    root is a common predecessor of all initial nodes.
+1.  The adjacency list is then reversed: edge now point from a commit to their
+    successors.
+1.  A FlowGraph is created from the adjacency list, using the single initial
+    node as the start node.
+1.  To find the evolution fork point, the `find_closest_common_dominator` method
+    is invoked on the FlowGraph, passing the divergent commit ids as the target
+    set. This returns the unique commit id of the commit X that is:
+    *   a dominator of all divergent commits (in the flow graph) and
+    *   is "closest" than any other common dominator, i.e. if Y is another
+        common dominator, then Y dominates X.
+1.  Once we know the evolution fork point, the final FlowGraph is constructed
+    from the FlowGraph produced in step 3 by removing nodes and edges for nodes
+    "older" than the evolution fork point.
+
+Please note the closest common dominator of a collection of nodes is NOT the
+same concept as the least common ancestor of those nodes (although sometimes
+they coincide). The least common ancestor is not uniquely defined: there may be
+zero, one or more LCAs. Also, dominators are defined in any directed graph, even
+graphs with cycles, LCA is only meaningful in DAGs. In a FlowGraph there is
+always a unique closest common ancestor to any target set. The reason we choose
+to define the evolution fork point as the closest common dominator is because
+this way we the TruncatedEvolutionGraph captures the complete evolution history,
+stemming from a single commit, an LCA may not have this property.
+
+Node: the evolution history traversal keeps track of visited commits to avoid
+infinite loops [^footnote-about-evolog-cycles] [^virtual-evolution-fork-point].
+
+### The converge_attribute algorithm
+
+As mentioned above, the converge library attempts to automatically produce an
+author, description and parents for the solution commit independently of each
+other with the help of the TruncatedEvolutionGraph. This section describe the
+core `converge_attributes` function. The function is generic and is relatively
+simple:
+
+```rust
+fn converge_attribute<T, VF>(
+    divergent_commits: &[Commit],
+    graph: &TruncatedEvolutionGraph,
+    value_fn: VF,
+) -> Result<Option<T>, ConvergeError>
+where
+    T: Eq + Hash + Clone,
+    VF: Fn(&Commit) -> Result<T, ConvergeError>,
+{
+    let dominator_value = find_dominator_value(graph, &value_fn)?;
+    let mut merge_builder = MergeBuilder::default();
+    // ADD
+    merge_builder.extend([dominator_value.clone()]);
+    for divergent_commit in divergent_commits {
+        let commit_value = value_fn(divergent_commit)?;
+        // REMOVE, ADD
+        merge_builder.extend([dominator_value.clone(), commit_value]);
+    }
+    let merge = merge_builder.build();
+    Ok(merge.resolve_trivial(SameChange::Accept).cloned())
+}
+```
+
+If the value_fn returns the same value V for all divergent commits then the
+merge resolves trivially to V. Here is an example of how `converge_attribute` is
+used to produce the solution's description:
+
+```rust
+fn converge_description(
+    converge_ui: Option<&dyn ConvergeUI>,
+    divergent_commits: &[Commit],
+    graph: &TruncatedEvolutionGraph,
+) -> Result<ConvergeResult<String>, ConvergeError> {
+    let value_fn = |c: &Commit| Ok(c.description().to_string());
+    if let Some(value) = converge_attribute(divergent_commits, graph, value_fn)? {
+        return Ok(ConvergeResult::Solution(value));
+    }
+    let ui_chooser = |converge_ui: &dyn ConvergeUI| {
+        converge_ui.merge_description(divergent_commits, graph.get_evolution_fork_point())
+    };
+    let Some(converge_ui) = converge_ui else {
+        return Ok(ConvergeResult::NeedUserInput(format!(
+            "cannot converge description automatically"
+        )));
+    };
+    match ui_chooser(converge_ui)? {
+        Some(value) => Ok(ConvergeResult::Solution(value)),
+        None => Ok(ConvergeResult::Aborted),
+    }
+}
+```
+
+TODO: Describe `find_dominator_value`.
+TODO: Describe how `converge_trees` works.
+
+We now look at some examples to illustrate what the command should do, starting
+with simple cases and moving on to more complex ones.
 
 ### Examples and expected behavior (with basic evolution graph)
 
 The first few examples assume commits *B/0* and *B/1* are visible commits for
 change *B*. First we assume *B/0* and *B/1* evolve directly from a common
 predecessor commit *P*, which is now hidden (no longer visible). Later we look
-at more complex evolution graphs. Note that *P*'s change id is also *B*.
+at more complex evolution graphs. We assume *P*'s change id is also *B*.
 
 ```
-Evolution graph for examples 1, 2, 3 and 4.
-B/0 and B/1 may have other predecessors for unrelated change-ids, P may have
-predecessors (even for change-id B):
+Evolution graph for examples 1, 2, 3 and 4
+------------------------------------------
+Predecessors(B/0) = {P}
+Predecessors(B/1) = {P}
+P, B/0 and B/1 are all for change-id B, P is hidden.
 
 B/0
 |  B/1
 | /
 P
 ```
-
-We will write `A⁻` to denote the parent trees of commit `A`.
 
 #### Example 1: two commits for change *B*, same parent
 
@@ -148,25 +486,13 @@ B/0
 A
 ```
 
-Here *P*, *B/0* and *B/1* are siblings. The command needs to determine the
-description, parents, tree and author of the solution. It uses a simple data
-structure for this purpose:
+Here *P*, *B/0* and *B/1* are siblings. `converge_attribute` is used to
+determine the description, parents, and author of the solution. Loosely speaking
+the solution for each attribute can be expressed as the merge:
 
-```rust
-struct MergedState {
-  author: Merge<Signature>,
-  description: Merge<String>,
-  parents: Merge<Vec<CommitId>>,
-  tree: Merge<MergedTree>,
-}
 ```
-
-Each of the fields of `MergedState` are populated by doing a merge of the
-corresponding fields of *P*, *B/0* and *B/1*. Loosely speaking each merge can be
-expressed as `P + (B/0 - P) + (B/1 - P)` for each of the fields. The command
-attempts to resolve the various Merge objects trivially, using `same_change:
-SameChange::Accept` (later on in this design doc we will tweak the merge
-algorithm a bit).
+value_fn(P) + (value_fn(B/0) - value_fn(P)) + (value_fn(B/1) - value_fn(P))
+```
 
 The description is merged as a String value. If the description does not
 trivially resolve, the user's merge tool will be invoked, with conflict markers.
@@ -302,8 +628,8 @@ C
 ```
 
 As a result we obtain *B/0'*, *B/1'* and *P'*, and these are sibling commits. At
-this point the command does a 3-way merge of `MergedTree` objects to produce
-`MergedState::tree` (in reality it is enough to rebase the commit *trees*).
+this point the command does a 3-way merge of `MergedTree` objects (in reality it
+is enough to rebase the commit *trees*).
 
 #### Example 5: more than 2 divergent commits
 
@@ -331,17 +657,7 @@ deal with any number of divergent commits for change *B*.
 
 So far we only considered simple cases where all divergent commits are direct
 successors of a common predecessor *P*. Now we extend the ideas to arbitrary
-evolution history. To that end we introduce the *"truncated evolution graph for
-B/0, B/1, ... , B/n"*, where *B/0, B/1, ... , B/n* are two or more commits with
-the same change-id *B*. This is a directed graph. Its nodes are commits for
-change-id *B* and the edges are from a commit to its (immediate) predecessor(s),
-ignoring predecessors with unrelated change-ids. The graph is built by
-traversing the operation log and associated View objects, adding nodes and
-predecessor edges as needed. Nodes are added this way until a single most-recent
-common predecessor commit is found. We call the most-recent common predecessor
-the *"evolution fork point of B/0, ... , B/n"*. The traversal keeps track of
-visited commits to avoid infinite loops [^footnote-about-evolog-cycles]
-[^virtual-evolution-fork-point].
+evolution history.
 
 #### Example 6: a two-level evolution graph
 
@@ -376,31 +692,10 @@ mentioned in the last bullet point in the "Some divergence scenarios" section,
 this is in fact fairly common at Google due to the distributed nature of
 Google's backend filesystem.
 
-To implement the heuristic we outlined above in example 6 (i.e. to produce
-"v3"), we propose introducing a new *try_resolve_deduplicating_same_diffs*
-method to `Merge<T>`, and using that in calls to attempt to resolve the
-MergedState::description, MergedState::parent, MergedState::author and
-MergedState::trees. try_resolve_deduplicate_same_diffs is similar to
-resolve_trivial, but it counts multiple identical *(X - Y)* terms exactly once,
-otherwise it follows the same flow as resolve_trivial with SameChange::Accept.
+In example 6, `find_dominator_value` returns "v2" (produced by Q and B/1),
+therefore `converge_description` automatically picks "v3" as the solution.
 
-We illustrate what *try_resolve_deduplicating_same_diffs* does when resolving
-the description merge for the case in example 6. We build a `Merge<String>`,
-starting with the description of the evolution fork point *P*, then adding
-*desc(Y) - desc(X)* terms for each *X->Y* edge in the truncated evolution graph.
-Then we call *try_resolve_deduplicating_same_diffs* to get:
-
-```
-P + (Q - P) + (B/1 - P) + (B/0 - Q) =
-       = v1 + (v2 - v1) + (v2 - v1) + (v3 - v2)    <== collapse duplicate
-                                                       (v2 - v1) edge/term
-       = v1 + (v2 - v1) + (v3 - v2)
-       = v3
-```
-
-*try_resolve_deduplicating_same_diffs* returns our desired value "v3". Note that
-resolve_trivial (with either SameChange value) would return none. Here is
-another example:
+Here is another example:
 
 ```
 Truncated evolution graph:
@@ -413,39 +708,41 @@ Q  /    ( foo.txt contents: "v1" )
 P       ( foo.txt contents: "v1" )
 ```
 
-In this case *try_resolve_deduplicating_same_diffs* produces none. jj converge
-cannot automatically resolve this merge so the user has to merge the
-description: the command invokes the user's merge-tool with base "v1" and sides
-"v2"/"v3".
+In this case `find_dominator_value` returns "v1" (produced by P and Q) so
+`converge_description` cannot automatically determine a value (because the merge
+is "V1" + "V2" - "V1" + "V3" - "V1"). The ConvergeUI is used to ask the user to
+merge the description (the command invokes the user's merge-tool with base "v1"
+and sides "v2"/"v3").
 
 ### Edge cases when choosing the parents of the solution
 
-When attempting to produce the solution parents, the command applies
-*try_resolve_deduplicating_same_diffs* to MergedState::parents (of type
-`Merge<Vec<CommitId>>`). If the result is `Some<Vec<CommitId>>` we have a set of
-possible parents for the solution. If these candidate parents are all visible
-commits with change-ids other than *B*, and none of those are descendants of
-*B/0, B/1, ... B/n*, then we have the desired parents for the solution commit.
+The "adds" in the `Merge<Vec<CommitId>>` used to try to produce the solution
+parents automatically are all the parents of the divergent commits. If the merge
+does not resolve trivially, the ConvergeUI is used to ask the user to choose one
+of the divergent commits and then we use the parent(s) of that commit as the
+solution parents. Either way the parents of the solution are always the parents
+of some divergent commit. In some corner cases this could suggest solution
+parents that are problematic. Let's say the algorithm (or the user) chooses {P}
+as the solution parents, where P is the parent of B/2, and furthermore let's
+assume B/1 is an ancestor of P (this should be pretty rare):
 
-On the other hand,
+```
+Commit graph snippet: B/1 is an ancestor of P and P is a parent of B/2
 
-*   if any candidate parent is a descendant of one of the divergent commits we
-    are trying to solve, or
-*   if any of the candidate parents are hidden and the chain starting at visible
-    roots and leading up to and including the parent has any commit for the
-    divergent change we are trying to solve (*B*), or for any other visible
-    commit (divergent or not), or the chain itself has two or more commits with
-    the same change-id,
+B/2
+ |
+ P
+ |
+...
+ |
+B/1
+```
 
-then we would introduce new divergence or cycles in the commit graph if we based
-on the solution on such candidate parents. In these edge cases the command will
-simply discard the candidate parents and will instead ask the user to choose
-which parents to use (or quit quit without making any changes). Care must be
-taken when picking the options to present to the user for choosing parents:
-essentially the user will choose between the parents of *B/0*, the parents of
-*B/1*, and so on, but we will skip any *B/i* if any of the parents of *B/i*
-descends from any *B/j*. Since the commit graph is a DAG, at least one option is
-viable.
+In this situation we cannot apply the solution because we cannot rebase B/1 on
+top of the solution commit S (because that would introduce a cycle in the commit
+graph). To avoid this problem `converge_parents` only considers divergent
+commits that are not descendants of other divergent commits. Since the commit
+graph is a DAG, there is at least one such divergent commit.
 
 ## Multiple divergent change-ids
 
@@ -500,10 +797,14 @@ algorithm for just 2 commits, but we chose to think about the more general case.
 
 ### Only considering the evolution fork point and visible commits
 
-As explained in example 6 this proposal uses the truncated evolution graph and
-*try_resolve_deduplicating_same_diffs* to produce the solution. That example
-shows why we think this leads to a better heuristic. We could instead only
-consider *P* and *B/0, B/1, ... , B/n*. That would be slightly simpler.
+Instead of using the value history graph, `converge_attribute` could do an n-way
+merge with the author/commit/description of the evolution fork as the base of
+the merge and the author/commit/description of the divergent commits.
+Essentially the same thing could be done in `converge_trees` (after the trees
+are properly rebased on top of the solution parents). This would be simpler, but
+we prefer to use the value history graph because it allows for more cases to be
+automatically merged and seems to better capture what we think the user will
+likely want.
 
 [^footnote-about-evolog-cycles]: It is unclear if the evolution history can
     contain cycles today, but there has been some
