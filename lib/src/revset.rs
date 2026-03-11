@@ -21,9 +21,12 @@ use std::convert::Infallible;
 use std::fmt;
 use std::ops::ControlFlow;
 use std::ops::Range;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
+use futures::Stream;
+use futures::StreamExt as _;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 use thiserror::Error;
@@ -3425,6 +3428,13 @@ pub trait Revset: fmt::Debug {
     where
         Self: 'a;
 
+    /// Streams in topological order with children before parents.
+    fn stream<'a>(
+        &self,
+    ) -> Pin<Box<dyn Stream<Item = Result<CommitId, RevsetEvaluationError>> + 'a>>
+    where
+        Self: 'a;
+
     /// Iterates commit/change id pairs in topological order.
     fn commit_change_ids<'a>(
         &self,
@@ -3432,9 +3442,19 @@ pub trait Revset: fmt::Debug {
     where
         Self: 'a;
 
+    /// Iterates graphs nodes (commit ID and edges) in topological order with
+    /// children before parents.
     fn iter_graph<'a>(
         &self,
     ) -> Box<dyn Iterator<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> + 'a>
+    where
+        Self: 'a;
+
+    /// Streams graphs nodes (commit ID and edges) in topological order with
+    /// children before parents.
+    fn stream_graph<'a>(
+        &self,
+    ) -> Pin<Box<dyn Stream<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> + 'a>>
     where
         Self: 'a;
 
@@ -3464,20 +3484,43 @@ pub trait RevsetIteratorExt {
     fn commits(
         self,
         store: &Arc<Store>,
-    ) -> impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<Self>;
+    ) -> impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<'_, Self>;
 }
 
 impl<I: Iterator<Item = Result<CommitId, RevsetEvaluationError>>> RevsetIteratorExt for I {
     fn commits(
         self,
         store: &Arc<Store>,
-    ) -> impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<I> {
+    ) -> impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<'_, I> {
         let store = store.clone();
         self.map(move |result| {
             let commit_id = result?;
             let commit = store
                 .clone()
                 .get_commit(&commit_id)
+                .map_err(RevsetEvaluationError::Backend)?;
+            Ok(commit)
+        })
+    }
+}
+
+pub trait RevsetCommitStreamExt {
+    fn commits(
+        self,
+        store: &Arc<Store>,
+    ) -> impl Stream<Item = Result<Commit, RevsetEvaluationError>> + use<'_, Self>;
+}
+
+impl<S: Stream<Item = Result<CommitId, RevsetEvaluationError>>> RevsetCommitStreamExt for S {
+    fn commits(
+        self,
+        store: &Arc<Store>,
+    ) -> impl Stream<Item = Result<Commit, RevsetEvaluationError>> + use<'_, S> {
+        self.then(async move |result| {
+            let commit_id = result?;
+            let commit = store
+                .get_commit_async(&commit_id)
+                .await
                 .map_err(RevsetEvaluationError::Backend)?;
             Ok(commit)
         })

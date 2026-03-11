@@ -21,10 +21,12 @@ use std::convert::Infallible;
 use std::fmt;
 use std::iter;
 use std::ops::Range;
+use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use bstr::BString;
+use futures::Stream;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
@@ -162,6 +164,15 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
         Box::new(iter::from_fn(move || walk.next(index.as_composite())))
     }
 
+    fn stream<'a>(
+        &self,
+    ) -> Pin<Box<dyn Stream<Item = Result<CommitId, RevsetEvaluationError>> + 'a>>
+    where
+        Self: 'a,
+    {
+        Box::pin(futures::stream::iter(self.iter()))
+    }
+
     fn commit_change_ids<'a>(
         &self,
     ) -> Box<dyn Iterator<Item = Result<(CommitId, ChangeId), RevsetEvaluationError>> + 'a>
@@ -184,6 +195,15 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
     {
         let skip_transitive_edges = true;
         Box::new(self.iter_graph_impl(skip_transitive_edges))
+    }
+
+    fn stream_graph<'a>(
+        &self,
+    ) -> Pin<Box<dyn Stream<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> + 'a>>
+    where
+        Self: 'a,
+    {
+        Box::pin(futures::stream::iter(self.iter_graph()))
     }
 
     fn is_empty(&self) -> bool {
