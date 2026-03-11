@@ -29,10 +29,8 @@ fn is_binary(bytes: &[u8]) -> bool {
     while let Some(byte) = bytes.next() {
         match *byte {
             b'\0' => return true,
-            b'\r' => {
-                if bytes.peek() != Some(&&b'\n') {
-                    return true;
-                }
+            b'\r' if bytes.peek() != Some(&&b'\n') => {
+                return true;
             }
             _ => {}
         }

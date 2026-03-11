@@ -442,7 +442,7 @@ impl<T> Merge<T> {
     {
         let mapping = self.get_simplified_mapping();
         assert_eq!(mapping.len(), simplified.values.len());
-        for (index, value) in mapping.into_iter().zip(simplified.values.into_iter()) {
+        for (index, value) in mapping.into_iter().zip(simplified.values) {
             self.values[index] = value;
         }
         self

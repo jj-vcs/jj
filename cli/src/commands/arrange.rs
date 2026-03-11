@@ -224,7 +224,7 @@ impl State {
         let commits: HashMap<CommitId, CommitState> = commits
             .into_iter()
             .chain(external_children)
-            .chain(external_parent_commits.into_iter())
+            .chain(external_parent_commits)
             .map(|commit: Commit| {
                 let id = commit.id().clone();
                 let parents = commit.parent_ids().to_vec();
