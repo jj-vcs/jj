@@ -50,6 +50,7 @@ use crate::files;
 use crate::files::MergeResult;
 use crate::merge::Diff;
 use crate::merge::Merge;
+use crate::merge::MergeBuilder;
 use crate::merge::MergedTreeValue;
 use crate::merge::SameChange;
 use crate::repo_path::RepoPath;
@@ -93,7 +94,7 @@ fn write_diff_hunks(hunks: &[DiffHunk], file: &mut dyn Write) -> io::Result<()> 
     Ok(())
 }
 
-async fn get_file_contents(
+pub async fn get_file_contents(
     store: &Store,
     path: &RepoPath,
     term: Option<&FileId>,
@@ -574,31 +575,15 @@ struct HunkTerm {
 }
 
 fn build_hunk_sides(hunk: Merge<BString>, labels: &ConflictLabels) -> Merge<HunkTerm> {
-    let (removes, adds) = hunk.into_removes_adds();
-    let num_bases = removes.len();
-    let removes = removes.enumerate().map(|(base_index, contents)| {
-        let label = labels
-            .get_remove(base_index)
-            .map(|label| label.to_owned())
-            .unwrap_or_else(|| {
-                // The vast majority of conflicts one actually tries to resolve manually have 1
-                // base.
-                if num_bases == 1 {
-                    "base".to_string()
-                } else {
-                    format!("base #{}", base_index + 1)
-                }
-            });
-        HunkTerm { contents, label }
-    });
-    let adds = adds.enumerate().map(|(add_index, contents)| {
-        let label = labels.get_add(add_index).map_or_else(
-            || format!("side #{}", add_index + 1),
-            |label| label.to_owned(),
-        );
-        HunkTerm { contents, label }
-    });
-    let mut hunk_terms = Merge::from_removes_adds(removes, adds);
+    let mut hunk_terms = hunk
+        .into_iter()
+        .enumerate()
+        .map(|(index, contents)| HunkTerm {
+            contents,
+            label: labels.get_or_default(index).into_owned(),
+        })
+        .collect::<MergeBuilder<_>>()
+        .build();
     for term in &mut hunk_terms {
         // We don't add the no eol comment if the side is empty.
         if term.contents.last().is_some_and(|ch| *ch != b'\n') {
@@ -717,57 +702,43 @@ fn materialize_jj_style_conflict(
         conflict_info,
     )?;
     output.write_all(eol)?;
-    let mut snapshot_written = false;
-    // The only conflict marker style which can start with a diff is "diff".
-    if conflict_marker_style != ConflictMarkerStyle::Diff {
-        write_side(hunk.first(), output)?;
-        snapshot_written = true;
-    }
-    for (base_index, left) in hunk.removes().enumerate() {
-        let add_index = if snapshot_written {
-            base_index + 1
+    let snapshot_index = if conflict_marker_style == ConflictMarkerStyle::Diff {
+        pick_snapshot_index(&hunk, |term| term.contents.as_bstr())
+    } else {
+        // We handle non-diff marker styles by using a snapshot for the first side, and
+        // then materializing the diffs as pairs of removed and added contents.
+        0
+    };
+    for (add_index, right) in hunk.adds().enumerate() {
+        // If we've reached the snapshot index, just write the snapshot.
+        if add_index == snapshot_index {
+            write_side(right, output)?;
+            continue;
+        }
+
+        let base_index = if add_index < snapshot_index {
+            add_index
         } else {
-            base_index
+            add_index - 1
         };
 
-        let right1 = hunk.get_add(add_index).unwrap();
+        let left = hunk.get_remove(base_index).unwrap();
 
         // Write the base and side separately if the conflict marker style doesn't
         // support diffs.
         if !conflict_marker_style.allows_diff() {
             write_base(left, output)?;
-            write_side(right1, output)?;
+            write_side(right, output)?;
             continue;
         }
 
-        let diff1 = ContentDiff::by_line([&left.contents, &right1.contents])
+        let diff = ContentDiff::by_line([&left.contents, &right.contents])
             .hunks()
             .collect_vec();
-        // If we haven't written a snapshot yet, then we need to decide whether to
-        // format the current side as a snapshot or a diff. We write the current side as
-        // a diff unless the next side has a smaller diff compared to the current base.
-        if !snapshot_written {
-            let right2 = hunk.get_add(add_index + 1).unwrap();
-            let diff2 = ContentDiff::by_line([&left.contents, &right2.contents])
-                .hunks()
-                .collect_vec();
-            if diff_size(&diff2) < diff_size(&diff1) {
-                // If the next positive term is a better match, emit the current positive term
-                // as a snapshot and the next positive term as a diff.
-                write_side(right1, output)?;
-                write_diff(left, right2, &diff2, output)?;
-                snapshot_written = true;
-                continue;
-            }
-        }
 
-        write_diff(left, right1, &diff1, output)?;
+        write_diff(left, right, &diff, output)?;
     }
 
-    // If we still didn't emit a snapshot, the last side is the snapshot.
-    if !snapshot_written {
-        write_side(hunk.get_add(hunk.num_sides() - 1).unwrap(), output)?;
-    }
     write_conflict_marker(
         output,
         ConflictMarkerLineChar::ConflictEnd,
@@ -777,14 +748,40 @@ fn materialize_jj_style_conflict(
     Ok(())
 }
 
-fn diff_size(hunks: &[DiffHunk]) -> usize {
-    hunks
-        .iter()
-        .map(|hunk| match hunk.kind {
-            DiffHunkKind::Matching => 0,
-            DiffHunkKind::Different => hunk.contents.iter().map(|content| content.len()).sum(),
-        })
-        .sum()
+pub fn pick_snapshot_index<T>(merge: &Merge<T>, get_content: impl Fn(&T) -> &BStr) -> usize {
+    let diff_size = |remove_index: usize, add_index: usize| {
+        let before = get_content(merge.get_remove(remove_index).unwrap());
+        let after = get_content(merge.get_add(add_index).unwrap());
+        if before == after {
+            return 0;
+        }
+
+        ContentDiff::by_line([before, after])
+            .hunks()
+            .map(|hunk| match hunk.kind {
+                DiffHunkKind::Matching => 0,
+                DiffHunkKind::Different => hunk.contents.iter().map(|content| content.len()).sum(),
+            })
+            .sum()
+    };
+
+    // Track how much the current diff is an improvement compared to using the first
+    // side as the snapshot.
+    let mut current_size_improvement: isize = 0;
+    let mut best_snapshot_index = 0;
+    let mut best_size_improvement: isize = 0;
+    for snapshot_index in 1..merge.num_sides() {
+        // Replace `...[s1 b1] s2 [b2 s3] [b3 b4]...`
+        // with    `...[s1 b1] [s2 b2] s3 [b3 b4]...`
+        current_size_improvement -= diff_size(snapshot_index - 1, snapshot_index) as isize;
+        current_size_improvement += diff_size(snapshot_index - 1, snapshot_index - 1) as isize;
+        // TODO: consider changing this to `<` to prefer earlier snapshots
+        if current_size_improvement <= best_size_improvement {
+            best_snapshot_index = snapshot_index;
+            best_size_improvement = current_size_improvement;
+        }
+    }
+    best_snapshot_index
 }
 
 pub struct MaterializedTreeDiffEntry {

@@ -32,6 +32,7 @@ use crate::diff::ContentDiff;
 use crate::diff::DiffHunk;
 use crate::diff::DiffHunkKind;
 use crate::diff::find_line_ranges;
+use crate::file_util;
 use crate::merge::Diff;
 use crate::repo_path::RepoPath;
 
@@ -59,17 +60,12 @@ pub fn file_content_for_diff<T>(
     file: &mut MaterializedFileValue,
     map_resolved: impl FnOnce(BString) -> T,
 ) -> BackendResult<FileContent<T>> {
-    // If this is a binary file, don't show the full contents.
-    // Determine whether it's binary by whether the first 8k bytes contain a null
-    // character; this is the same heuristic used by git as of writing: https://github.com/git/git/blob/eea0e59ffbed6e33d171ace5be13cde9faa41639/xdiff-interface.c#L192-L198
-    const PEEK_SIZE: usize = 8000;
     // TODO: currently we look at the whole file, even though for binary files we
     // only need to know the file size. To change that we'd have to extend all
     // the data backends to support getting the length.
     let contents = BString::new(file.read_all(path).block_on()?);
-    let start = &contents[..PEEK_SIZE.min(contents.len())];
     Ok(FileContent {
-        is_binary: start.contains(&b'\0'),
+        is_binary: file_util::is_binary(&contents),
         contents: map_resolved(contents),
     })
 }

@@ -14,6 +14,7 @@
 
 //! Labels for conflicted trees.
 
+use std::borrow::Cow;
 use std::fmt;
 
 use crate::merge::Merge;
@@ -94,12 +95,33 @@ impl ConflictLabels {
             .map(String::as_str)
     }
 
+    /// Get the label for a side at an index or a default label.
+    pub fn get_add_or_default(&self, add_index: usize) -> Cow<'_, str> {
+        self.get_add(add_index)
+            .map_or_else(|| format!("side #{}", add_index + 1).into(), Cow::from)
+    }
+
     /// Get the label for a base at an index.
     pub fn get_remove(&self, remove_index: usize) -> Option<&str> {
         self.labels
             .get_remove(remove_index)
             .filter(|label| !label.is_empty())
             .map(String::as_str)
+    }
+
+    /// Get the label for a base at an index or a default label.
+    pub fn get_remove_or_default(&self, remove_index: usize) -> Cow<'_, str> {
+        self.get_remove(remove_index)
+            .map_or_else(|| format!("base #{}", remove_index + 1).into(), Cow::from)
+    }
+
+    /// Get the label at a given index (alternating adds and removes).
+    pub fn get_or_default(&self, index: usize) -> Cow<'_, str> {
+        if index.is_multiple_of(2) {
+            self.get_add_or_default(index / 2)
+        } else {
+            self.get_remove_or_default(index / 2)
+        }
     }
 
     /// Simplify a merge with the same number of sides while preserving the

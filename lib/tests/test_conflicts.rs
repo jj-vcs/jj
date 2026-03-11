@@ -95,7 +95,7 @@ fn test_materialize_conflict_basic() {
     left 3.1
     left 3.2
     left 3.3
-    %%%%%%% diff from: base
+    %%%%%%% diff from: base #1
     \\\\\\\        to: side #2
     -line 3
     +right 3.1
@@ -116,7 +116,7 @@ fn test_materialize_conflict_basic() {
     line 1
     line 2
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: base
+    %%%%%%% diff from: base #1
     \\\\\\\        to: side #1
     -line 3
     +right 3.1
@@ -144,7 +144,7 @@ fn test_materialize_conflict_basic() {
     left 3.1
     left 3.2
     left 3.3
-    ------- base
+    ------- base #1
     line 3
     +++++++ side #2
     right 3.1
@@ -167,7 +167,7 @@ fn test_materialize_conflict_basic() {
     left 3.1
     left 3.2
     left 3.3
-    ||||||| base
+    ||||||| base #1
     line 3
     =======
     right 3.1
@@ -531,7 +531,7 @@ fn test_materialize_parse_roundtrip() {
     +++++++ side #1
     line 1 left
     line 2 left
-    %%%%%%% diff from: base
+    %%%%%%% diff from: base #1
     \\\\\\\        to: side #2
     -line 1
     +line 1 right
@@ -539,7 +539,7 @@ fn test_materialize_parse_roundtrip() {
     >>>>>>> conflict 1 of 2 ends
     line 3
     <<<<<<< conflict 2 of 2
-    %%%%%%% diff from: base
+    %%%%%%% diff from: base #1
     \\\\\\\        to: side #1
      line 4
     -line 5
@@ -659,7 +659,7 @@ fn test_materialize_conflict_no_newlines_at_eof() {
     insta::assert_snapshot!(materialized.to_owned() + "[EOF]",
         @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: base (no terminating newline)
+    %%%%%%% diff from: base #1 (no terminating newline)
     \\\\\\\        to: side #1
     -base
     +
@@ -741,7 +741,7 @@ fn test_materialize_conflict_modify_delete() {
     <<<<<<< conflict 1 of 1
     +++++++ side #1
     modified
-    %%%%%%% diff from: base
+    %%%%%%% diff from: base #1
     \\\\\\\        to: side #2
     -line 3
     >>>>>>> conflict 1 of 1 ends
@@ -759,7 +759,7 @@ fn test_materialize_conflict_modify_delete() {
     line 1
     line 2
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: base
+    %%%%%%% diff from: base #1
     \\\\\\\        to: side #1
     -line 3
     +++++++ side #2
@@ -777,7 +777,7 @@ fn test_materialize_conflict_modify_delete() {
     );
     insta::assert_snapshot!(&materialize_conflict_string(store, path, &conflict, ConflictMarkerStyle::Diff), @r"
     <<<<<<< conflict 1 of 1
-    %%%%%%% diff from: base
+    %%%%%%% diff from: base #1
     \\\\\\\        to: side #1
      line 1
      line 2
@@ -1880,7 +1880,7 @@ fn test_update_conflict_from_content_simplified_conflict() {
         materialized,
         @r"
     <<<<<<< conflict 1 of 2
-    %%%%%%% diff from: base
+    %%%%%%% diff from: base #1
     \\\\\\\        to: side #1
     -line 1
     +left 1
@@ -1889,7 +1889,7 @@ fn test_update_conflict_from_content_simplified_conflict() {
     >>>>>>> conflict 1 of 2 ends
     line 2
     <<<<<<< conflict 2 of 2
-    %%%%%%% diff from: base
+    %%%%%%% diff from: base #1
     \\\\\\\        to: side #1
     -line 3
     +left 3
@@ -1992,7 +1992,7 @@ fn test_update_conflict_from_content_with_long_markers() {
     <<<<<<<<<<<<<<<< conflict 1 of 2
     ++++++++++++++++ side #1
     <<<< left 1
-    ---------------- base
+    ---------------- base #1
     line 1
     ++++++++++++++++ side #2
     >>>>>>> right 1
@@ -2001,7 +2001,7 @@ fn test_update_conflict_from_content_with_long_markers() {
     <<<<<<<<<<<<<<<< conflict 2 of 2
     ++++++++++++++++ side #1
     <<<<<<<<<<<< left 3
-    ---------------- base
+    ---------------- base #1
     line 3
     ++++++++++++++++ side #2
     >>>>>>>>>>>> right 3
@@ -2094,7 +2094,7 @@ fn test_update_conflict_from_content_with_long_markers() {
     <<<<<<<<<<< conflict 1 of 1
     +++++++++++ side #1
     <<<< left 1
-    ----------- base
+    ----------- base #1
     line 1
     +++++++++++ side #2
     >>>>>>> right 1
@@ -2127,7 +2127,7 @@ fn test_update_conflict_from_content_no_eol() {
         @r"
     line 1
     <<<<<<< conflict 1 of 2
-    %%%%%%% diff from: base
+    %%%%%%% diff from: base #1
     \\\\\\\        to: side #1
     -line 2
     +line 2 left
@@ -2136,7 +2136,7 @@ fn test_update_conflict_from_content_no_eol() {
     >>>>>>> conflict 1 of 2 ends
     line 3
     <<<<<<< conflict 2 of 2
-    %%%%%%% diff from: base (no terminating newline)
+    %%%%%%% diff from: base #1 (no terminating newline)
     \\\\\\\        to: side #1
      base
     +left
@@ -2167,7 +2167,7 @@ fn test_update_conflict_from_content_no_eol() {
     <<<<<<< conflict 1 of 2
     +++++++ side #1
     line 2 left
-    ------- base
+    ------- base #1
     line 2
     +++++++ side #2
     line 2 right
@@ -2178,7 +2178,7 @@ fn test_update_conflict_from_content_no_eol() {
     base
     left
 
-    ------- base (no terminating newline)
+    ------- base #1 (no terminating newline)
     base
     +++++++ side #2 (no terminating newline)
     right
@@ -2205,7 +2205,7 @@ fn test_update_conflict_from_content_no_eol() {
     line 1
     <<<<<<< side #1
     line 2 left
-    ||||||| base
+    ||||||| base #1
     line 2
     =======
     line 2 right
@@ -2215,7 +2215,7 @@ fn test_update_conflict_from_content_no_eol() {
     base
     left
 
-    ||||||| base (no terminating newline)
+    ||||||| base #1 (no terminating newline)
     base
     =======
     right
@@ -2338,7 +2338,7 @@ fn test_update_conflict_from_content_only_no_eol_change() {
     <<<<<<< conflict 1 of 1
     +++++++ side #1 (no terminating newline)
     line 2
-    %%%%%%% diff from: base
+    %%%%%%% diff from: base #1
     \\\\\\\        to: side #2
     +line 2
      
@@ -2416,7 +2416,7 @@ fn test_update_from_content_malformed_conflict() {
     insta::assert_snapshot!(materialized, @r"
     line 1
     <<<<<<< conflict 1 of 2
-    %%%%%%% diff from: base
+    %%%%%%% diff from: base #1
     \\\\\\\        to: side #1
     -line 2
     +line 2 left
@@ -2425,7 +2425,7 @@ fn test_update_from_content_malformed_conflict() {
     >>>>>>> conflict 1 of 2 ends
     line 3
     <<<<<<< conflict 2 of 2
-    %%%%%%% diff from: base
+    %%%%%%% diff from: base #1
     \\\\\\\        to: side #1
     -line 4
     +line 4 left
