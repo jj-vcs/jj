@@ -126,7 +126,8 @@ pub(crate) async fn cmd_status(
             if matching_untracked_paths.peek().is_some() {
                 writeln!(formatter, "Untracked paths:")?;
                 visit_collapsed_untracked_files(
-                    matching_untracked_paths,
+                    matching_untracked_paths.map(|p| (p, false)),
+                    status.ignored_paths().map(|(p, _)| p),
                     &status.tree,
                     |path, is_dir| {
                         let ui_path = workspace_command.path_converter().format_file_path(path);
@@ -269,6 +270,13 @@ impl WorkingCopyStatus {
             .keys()
             .filter(|path| matcher.matches(path))
             .map(|path| path.as_ref())
+    }
+
+    fn ignored_paths(&self) -> impl Iterator<Item = (&RepoPath, bool)> {
+        self.snapshot_stats
+            .ignored_paths
+            .iter()
+            .map(|(p, b)| (p.as_ref(), *b))
     }
 }
 
