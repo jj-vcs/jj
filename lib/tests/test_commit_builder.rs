@@ -191,7 +191,7 @@ fn test_rewrite(backend: TestRepoBackend) {
     let mut tx = repo.start_transaction();
     let rewritten_commit = tx
         .repo_mut()
-        .rewrite_commit(&initial_commit)
+        .rewrite_commit(&initial_commit).block_on()
         .set_tree(rewritten_tree)
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
@@ -269,7 +269,7 @@ fn test_rewrite_update_missing_user(backend: TestRepoBackend) {
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     let initial_commit = repo.store().get_commit(initial_commit.id()).unwrap();
     let mut tx = repo.start_transaction();
-    let rewritten_commit = tx.repo_mut().rewrite_commit(&initial_commit).write_unwrap();
+    let rewritten_commit = tx.repo_mut().rewrite_commit(&initial_commit).block_on().write_unwrap();
 
     assert_eq!(rewritten_commit.author().name, "Configured User");
     assert_eq!(
@@ -318,7 +318,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     let mut tx = repo.start_transaction();
     let rewritten_commit_1 = tx
         .repo_mut()
-        .rewrite_commit(&initial_commit)
+        .rewrite_commit(&initial_commit).block_on()
         .set_description("No longer discardable")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
@@ -341,7 +341,7 @@ fn test_rewrite_resets_author_timestamp(backend: TestRepoBackend) {
     let mut tx = repo.start_transaction();
     let rewritten_commit_2 = tx
         .repo_mut()
-        .rewrite_commit(&rewritten_commit_1)
+        .rewrite_commit(&rewritten_commit_1).block_on()
         .set_description("New description")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
@@ -376,7 +376,7 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
 
     // Create commit identical to the original
     let mut tx = repo.start_transaction();
-    let mut builder = tx.repo_mut().rewrite_commit(&commit1).detach();
+    let mut builder = tx.repo_mut().rewrite_commit(&commit1).block_on().detach();
     builder.set_predecessors(vec![]);
     // Writing to the store should work
     let commit2 = builder.write_hidden().block_on().unwrap();
@@ -391,12 +391,12 @@ fn test_rewrite_to_identical_commit(backend: TestRepoBackend) {
     // Create two rewritten commits of the same content and metadata
     let mut tx = repo.start_transaction();
     tx.repo_mut()
-        .rewrite_commit(&commit1)
+        .rewrite_commit(&commit1).block_on()
         .set_description("rewritten")
         .write_unwrap();
     let result = tx
         .repo_mut()
-        .rewrite_commit(&commit1)
+        .rewrite_commit(&commit1).block_on()
         .set_description("rewritten")
         .write()
         .block_on();
@@ -432,7 +432,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
 
     // Test with for_rewrite_from()
     let mut tx = repo.start_transaction();
-    let commit4 = tx.repo_mut().rewrite_commit(&commit2).write_unwrap();
+    let commit4 = tx.repo_mut().rewrite_commit(&commit2).block_on().write_unwrap();
     let rebase_map =
         rebase_descendants_with_options_return_map(tx.repo_mut(), &RebaseOptions::default());
     assert_rebased_onto(tx.repo_mut(), &rebase_map, &commit3, &[commit4.id()]);
@@ -441,7 +441,7 @@ fn test_commit_builder_descendants(backend: TestRepoBackend) {
     // Test with for_rewrite_from() but new change id
     let mut tx = repo.start_transaction();
     tx.repo_mut()
-        .rewrite_commit(&commit2)
+        .rewrite_commit(&commit2).block_on()
         .clear_rewrite_source()
         .generate_new_change_id()
         .write_unwrap();

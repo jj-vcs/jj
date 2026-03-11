@@ -767,7 +767,7 @@ fn test_reparent_descendants() {
     let mut tx = repo.start_transaction();
     let mut_repo = tx.repo_mut();
     mut_repo
-        .rewrite_commit(&commit_a)
+        .rewrite_commit(&commit_a).block_on()
         .set_tree(create_random_tree(&repo))
         .write_unwrap();
     let reparented = mut_repo.reparent_descendants().block_on().unwrap();

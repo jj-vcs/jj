@@ -181,6 +181,7 @@ pub(crate) async fn cmd_restore(
         let mut tx = workspace_command.start_transaction();
         tx.repo_mut()
             .rewrite_commit(&to_commit)
+            .await
             .set_tree(new_tree)
             .write()
             .await?;

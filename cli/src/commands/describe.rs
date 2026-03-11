@@ -200,28 +200,26 @@ pub(crate) async fn cmd_describe(
             .map(join_message_paragraphs)
     };
 
-    let mut commit_builders = commits
-        .iter()
-        .map(|commit| {
-            let mut commit_builder = tx.repo_mut().rewrite_commit(commit).detach();
-            if let Some(description) = &shared_description {
-                commit_builder.set_description(description);
-            }
-            if args.reset_author {
-                let new_author = commit_builder.committer().clone();
-                commit_builder.set_author(new_author);
-            }
-            if let Some((name, email)) = args.author.clone() {
-                let new_author = Signature {
-                    name,
-                    email,
-                    timestamp: commit_builder.author().timestamp,
-                };
-                commit_builder.set_author(new_author);
-            }
-            commit_builder
-        })
-        .collect_vec();
+    let mut commit_builders = Vec::with_capacity(commits.len());
+    for commit in &commits {
+        let mut commit_builder = tx.repo_mut().rewrite_commit(commit).await.detach();
+        if let Some(description) = &shared_description {
+            commit_builder.set_description(description);
+        }
+        if args.reset_author {
+            let new_author = commit_builder.committer().clone();
+            commit_builder.set_author(new_author);
+        }
+        if let Some((name, email)) = args.author.clone() {
+            let new_author = Signature {
+                name,
+                email,
+                timestamp: commit_builder.author().timestamp,
+            };
+            commit_builder.set_author(new_author);
+        }
+        commit_builders.push(commit_builder);
+    }
 
     let use_editor = args.editor || args.edit || (shared_description.is_none() && !args.no_edit);
 
@@ -320,7 +318,7 @@ pub(crate) async fn cmd_describe(
             commit_builders.keys().map(|&id| id.clone()).collect(),
             async |rewriter| {
                 let old_commit_id = rewriter.old_commit().id().clone();
-                let commit_builder = rewriter.reparent();
+                let commit_builder = rewriter.reparent().await;
                 if let Some(temp_builder) = commit_builders.get(&old_commit_id) {
                     commit_builder
                         .set_description(temp_builder.description())

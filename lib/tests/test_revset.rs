@@ -464,7 +464,7 @@ fn test_resolve_symbol_hidden_change_id() {
     // Rewrite the commit, causing the old version to be abandoned.
     let commit2 = tx
         .repo_mut()
-        .rewrite_commit(&commit1)
+        .rewrite_commit(&commit1).block_on()
         .set_description("updated commit")
         .write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
@@ -535,7 +535,7 @@ fn test_resolve_symbol_in_different_disambiguation_context() {
     let repo1 = tx.commit("test").block_on().unwrap();
 
     let mut tx = repo1.start_transaction();
-    let commit2 = tx.repo_mut().rewrite_commit(&commit1).write_unwrap();
+    let commit2 = tx.repo_mut().rewrite_commit(&commit1).block_on().write_unwrap();
     tx.repo_mut().rebase_descendants().block_on().unwrap();
     let repo2 = tx.commit("test").block_on().unwrap();
 
@@ -4118,7 +4118,7 @@ fn test_evaluate_expression_at_operation() {
     let mut tx = repo1.start_transaction();
     let commit1_op2 = tx
         .repo_mut()
-        .rewrite_commit(&commit1_op1)
+        .rewrite_commit(&commit1_op1).block_on()
         .set_description("commit1@op2")
         .write_unwrap();
     let commit3_op2 = create_random_commit(tx.repo_mut())

@@ -308,7 +308,7 @@ pub async fn absorb_hunks(
     repo.transform_descendants(selected_trees.keys().cloned().collect(), async |rewriter| {
         // Remove selected hunks from the source commit by reparent()
         if rewriter.old_commit().id() == source.commit.id() {
-            let commit_builder = rewriter.reparent();
+            let commit_builder = rewriter.reparent().await;
             if commit_builder.is_discardable().await? {
                 commit_builder.abandon();
             } else {

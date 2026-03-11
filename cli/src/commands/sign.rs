@@ -106,7 +106,7 @@ pub async fn cmd_sign(
                 to_sign.iter().ids().cloned().collect_vec(),
                 async |rewriter| {
                     let old_commit = rewriter.old_commit().clone();
-                    let mut commit_builder = rewriter.reparent();
+                    let mut commit_builder = rewriter.reparent().await;
 
                     if let Some(writer) = &mut progress_writer {
                         writer

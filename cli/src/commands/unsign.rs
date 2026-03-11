@@ -76,7 +76,7 @@ pub async fn cmd_unsign(
             to_unsign.iter().ids().cloned().collect_vec(),
             async |rewriter| {
                 let old_commit = rewriter.old_commit().clone();
-                let commit_builder = rewriter.reparent();
+                let commit_builder = rewriter.reparent().await;
 
                 if to_unsign.contains(&old_commit) {
                     let new_commit = commit_builder
