@@ -122,6 +122,8 @@ The following functions are defined.
 * `git_web_url([remote: String]) -> String`: Best-effort conversion of a git
   remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
   empty string on failure. SSH host alias resolution is currently unsupported.
+* `env(name: StringLiteral) -> String`:
+  Look up the value of a given environment variable by `name`.
 
 ## Types
 

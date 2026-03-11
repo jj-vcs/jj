@@ -2139,6 +2139,15 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         // .decorated("", "") to trim leading/trailing whitespace
         Ok(Literal(value.map(|v| v.decorated("", ""))).into_dyn_wrapped())
     });
+    map.insert("env", |_language, diagnostics, _build_ctx, function| {
+        let [var_name_node] = function.expect_exact_arguments()?;
+        let var_name =
+            template_parser::catch_aliases(diagnostics, var_name_node, |_diagnostics, node| {
+                template_parser::expect_string_literal(node)
+            })?;
+        let out_property = std::env::var(var_name).unwrap_or_default();
+        Ok(Literal(out_property).into_dyn_wrapped())
+    });
     map
 }
 

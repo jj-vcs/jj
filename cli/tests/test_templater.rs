@@ -542,6 +542,28 @@ fn test_templater_config_function() {
     insta::assert_snapshot!(render("config('unknown')"), @"");
 }
 
+#[test]
+fn test_templater_env_function() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "repo"]).success();
+    let work_dir = test_env.work_dir("repo");
+    let render = |template| get_template_output(&work_dir, "@-", template);
+    insta::assert_snapshot!(render("env('JJ_TEMPLATE_ENV')"), @"");
+
+    let output = work_dir.run_jj_with(|cmd| {
+        cmd.args([
+            "log",
+            "--no-graph",
+            "-r",
+            "@-",
+            "-T",
+            "env('JJ_TEMPLATE_ENV')",
+        ])
+        .env("JJ_TEMPLATE_ENV", "template-env-value")
+    });
+    insta::assert_snapshot!(output, @"template-env-value[EOF]");
+}
+
 #[must_use]
 fn get_template_output(work_dir: &TestWorkDir, rev: &str, template: &str) -> CommandOutput {
     work_dir.run_jj(["log", "--no-graph", "-r", rev, "-T", template])
