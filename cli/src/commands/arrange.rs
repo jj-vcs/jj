@@ -25,6 +25,8 @@ use crossterm::terminal::EnterAlternateScreen;
 use crossterm::terminal::LeaveAlternateScreen;
 use crossterm::terminal::disable_raw_mode;
 use crossterm::terminal::enable_raw_mode;
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
@@ -34,7 +36,7 @@ use jj_lib::commit::Commit;
 use jj_lib::dag_walk;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
-use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::revset::RevsetCommitStreamExt as _;
 use jj_lib::rewrite::CommitRewriter;
 use ratatui::Terminal;
 use ratatui::layout::Constraint;
@@ -102,7 +104,7 @@ pub(crate) async fn cmd_arrange(
         .connected()
         .minus(&target_expression)
         .evaluate(repo.as_ref())?;
-    if let Some(commit_id) = gaps_revset.iter().next() {
+    if let Some(commit_id) = gaps_revset.stream().next().await {
         return Err(
             user_error("Cannot arrange revset with gaps in.").hinted(format!(
                 "Revision {} would need to be in the set.",
@@ -115,10 +117,14 @@ pub(crate) async fn cmd_arrange(
         .children()
         .minus(&target_expression)
         .evaluate(repo.as_ref())?;
-    let external_children: Vec<_> = children_revset.iter().commits(repo.store()).try_collect()?;
+    let external_children: Vec<_> = children_revset
+        .stream()
+        .commits(repo.store())
+        .try_collect()
+        .await?;
 
     let revset = target_expression.evaluate(repo.as_ref())?;
-    let commits: Vec<Commit> = revset.iter().commits(repo.store()).try_collect()?;
+    let commits: Vec<Commit> = revset.stream().commits(repo.store()).try_collect().await?;
     if commits.is_empty() {
         writeln!(ui.status(), "No revisions to arrange.")?;
         return Ok(());

@@ -15,7 +15,7 @@
 use std::collections::HashSet;
 
 use clap_complete::ArgValueCompleter;
-use itertools::Itertools as _;
+use futures::TryStreamExt as _;
 use jj_lib::backend::Timestamp;
 use jj_lib::commit::Commit;
 use jj_lib::object_id::ObjectId as _;
@@ -165,8 +165,9 @@ pub(crate) async fn cmd_metaedit(
     workspace_command.check_rewritable_expr(&target_expr)?;
     let commit_ids: Vec<_> = target_expr
         .evaluate(workspace_command.repo().as_ref())?
-        .iter()
-        .try_collect()?;
+        .stream()
+        .try_collect()
+        .await?;
     if commit_ids.is_empty() {
         writeln!(ui.status(), "No revisions to modify.")?;
         return Ok(());

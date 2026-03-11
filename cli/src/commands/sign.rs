@@ -13,12 +13,13 @@
 // limitations under the License.
 
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::commit::Commit;
 use jj_lib::commit::CommitIteratorExt as _;
 use jj_lib::repo::Repo as _;
-use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::revset::RevsetCommitStreamExt as _;
 use jj_lib::signing::SignBehavior;
 
 use crate::cli_util::CommandHelper;
@@ -87,9 +88,10 @@ pub async fn cmd_sign(
 
     let to_sign: IndexSet<Commit> = revset_expression
         .evaluate(workspace_command.repo().as_ref())?
-        .iter()
+        .stream()
         .commits(workspace_command.repo().store())
-        .try_collect()?;
+        .try_collect()
+        .await?;
 
     let mut tx = workspace_command.start_transaction();
 

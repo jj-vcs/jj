@@ -20,7 +20,7 @@ use std::collections::HashSet;
 use std::sync::mpsc::channel;
 
 use futures::StreamExt as _;
-use itertools::Itertools as _;
+use futures::TryStreamExt as _;
 use jj_lib::backend::BackendError;
 use jj_lib::backend::CommitId;
 use jj_lib::backend::FileId;
@@ -32,11 +32,11 @@ use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::revset::RevsetExpression;
-use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::store::Store;
 use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
 
+use crate::revset::RevsetCommitStreamExt as _;
 use crate::revset::RevsetEvaluationError;
 
 /// Represents a file whose content may be transformed by a FileFixer.
@@ -197,9 +197,10 @@ pub async fn fix_files(
     let commits: Vec<_> = RevsetExpression::commits(root_commits.clone())
         .descendants()
         .evaluate(repo_mut)?
-        .iter()
+        .stream()
         .commits(repo_mut.store())
-        .try_collect()?;
+        .try_collect()
+        .await?;
     tracing::debug!(
         ?root_commits,
         ?commits,

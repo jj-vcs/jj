@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use clap_complete::ArgValueCompleter;
-use itertools::Itertools as _;
+use futures::TryStreamExt as _;
 use jj_lib::backend::BackendError;
 
 use crate::cli_util::CommandHelper;
@@ -64,8 +64,9 @@ pub(crate) async fn cmd_simplify_parents(
     workspace_command.check_rewritable_expr(&revs)?;
     let commit_ids: Vec<_> = revs
         .evaluate(workspace_command.repo().as_ref())?
-        .iter()
-        .try_collect()?;
+        .stream()
+        .try_collect()
+        .await?;
     let commit_ids_set: HashSet<_> = commit_ids.iter().cloned().collect();
     let num_orig_commits = commit_ids.len();
 

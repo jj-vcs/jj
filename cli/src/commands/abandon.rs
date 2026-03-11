@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::io::Write as _;
 
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
 use jj_lib::refs::diff_named_ref_targets;
@@ -82,13 +83,15 @@ pub(crate) async fn cmd_abandon(
         workspace_command.check_rewritable_expr(&visible_expr)?;
         let visible: IndexSet<_> = visible_expr
             .evaluate(workspace_command.repo().as_ref())?
-            .iter()
-            .try_collect()?;
+            .stream()
+            .try_collect()
+            .await?;
 
         let targets: Vec<_> = target_expr
             .evaluate(workspace_command.repo().as_ref())?
-            .iter()
-            .try_collect()?;
+            .stream()
+            .try_collect()
+            .await?;
         if visible.len() < targets.len() {
             writeln!(
                 ui.status(),

@@ -15,6 +15,7 @@
 use std::fmt::Debug;
 use std::io::Write as _;
 
+use futures::TryStreamExt as _;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::revset;
 use jj_lib::revset::RevsetDiagnostics;
@@ -93,8 +94,9 @@ pub async fn cmd_debug_revset(
     writeln!(ui.stdout())?;
 
     writeln!(ui.stdout(), "-- Commit IDs:")?;
-    for commit_id in revset.iter() {
-        writeln!(ui.stdout(), "{}", commit_id?.hex())?;
+    let mut commit_ids = revset.stream();
+    while let Some(commit_id) = commit_ids.try_next().await? {
+        writeln!(ui.stdout(), "{}", commit_id.hex())?;
     }
     Ok(())
 }

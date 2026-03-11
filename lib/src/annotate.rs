@@ -26,6 +26,7 @@ use std::sync::Arc;
 
 use bstr::BStr;
 use bstr::BString;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 
 use crate::backend::BackendError;
@@ -313,8 +314,8 @@ async fn process_commits(
         .evaluate(repo)?;
 
     state.num_unresolved_roots = 0;
-    for node in revset.iter_graph() {
-        let (commit_id, edge_list) = node?;
+    let mut nodes = revset.stream_graph();
+    while let Some((commit_id, edge_list)) = nodes.try_next().await? {
         process_commit(repo, file_name, state, &commit_id, &edge_list).await?;
         if state.commit_source_map.len() == state.num_unresolved_roots {
             // No more lines to propagate to ancestors.

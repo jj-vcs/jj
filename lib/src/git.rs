@@ -29,6 +29,7 @@ use std::sync::Arc;
 use bstr::BStr;
 use bstr::BString;
 use futures::StreamExt as _;
+use futures::TryStreamExt as _;
 use gix::refspec::Instruction;
 use itertools::Itertools as _;
 use thiserror::Error;
@@ -717,8 +718,9 @@ async fn abandon_unreachable_commits(
     let abandoned_commit_ids: Vec<_> = abandoned_expression
         .evaluate(mut_repo)
         .map_err(|err| err.into_backend_error())?
-        .iter()
+        .stream()
         .try_collect()
+        .await
         .map_err(|err| err.into_backend_error())?;
     for id in &abandoned_commit_ids {
         let commit = mut_repo.store().get_commit_async(id).await?;

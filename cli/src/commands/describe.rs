@@ -18,12 +18,13 @@ use std::io::Read as _;
 use std::iter;
 
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use itertools::Itertools as _;
 use jj_lib::backend::Signature;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
-use jj_lib::revset::RevsetIteratorExt as _;
+use jj_lib::revset::RevsetCommitStreamExt as _;
 use tracing::instrument;
 
 use crate::cli_util::CommandHelper;
@@ -166,9 +167,10 @@ pub(crate) async fn cmd_describe(
     workspace_command.check_rewritable_expr(&target_expr)?;
     let commits: Vec<_> = target_expr
         .evaluate(workspace_command.repo().as_ref())?
-        .iter()
+        .stream()
         .commits(workspace_command.repo().store()) // in reverse topological order
-        .try_collect()?;
+        .try_collect()
+        .await?;
     if commits.is_empty() {
         writeln!(ui.status(), "No revisions to describe.")?;
         return Ok(());

@@ -18,6 +18,7 @@ use std::io::Write as _;
 use std::sync::Arc;
 
 use bstr::BStr;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -425,8 +426,9 @@ pub async fn cmd_gerrit_upload(
         workspace_command.check_rewritable_expr(&target_expr)?;
         target_expr
             .evaluate(workspace_command.repo().as_ref())?
-            .iter()
-            .try_collect()?
+            .stream()
+            .try_collect()
+            .await?
     };
     if revisions.is_empty() {
         writeln!(ui.status(), "No revisions to upload.")?;

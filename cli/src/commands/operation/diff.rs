@@ -18,6 +18,7 @@ use std::slice;
 use std::sync::Arc;
 
 use clap_complete::ArgValueCandidates;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
@@ -226,8 +227,8 @@ pub async fn show_op_diff(
                 )?;
             }
         } else {
-            for commit_id in revset.iter() {
-                let commit_id = commit_id?;
+            let mut commit_ids = revset.stream();
+            while let Some(commit_id) = commit_ids.try_next().await? {
                 let modified_change = changes.get(&commit_id).unwrap();
                 with_content_format.write(formatter, |formatter| {
                     write_modified_change_summary(
