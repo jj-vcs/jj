@@ -91,8 +91,8 @@ impl CommitBuilder<'_> {
     }
 
     /// [`Commit::is_empty()`] for the new commit.
-    pub fn is_empty(&self) -> BackendResult<bool> {
-        self.inner.is_empty(self.mut_repo)
+    pub async fn is_empty(&self) -> BackendResult<bool> {
+        self.inner.is_empty(self.mut_repo).await
     }
 
     pub fn change_id(&self) -> &ChangeId {
@@ -137,8 +137,8 @@ impl CommitBuilder<'_> {
     }
 
     /// [`Commit::is_discardable()`] for the new commit.
-    pub fn is_discardable(&self) -> BackendResult<bool> {
-        self.inner.is_discardable(self.mut_repo)
+    pub async fn is_discardable(&self) -> BackendResult<bool> {
+        self.inner.is_discardable(self.mut_repo).await
     }
 
     pub fn sign_settings(&self) -> &SignSettings {
@@ -325,8 +325,8 @@ impl DetachedCommitBuilder {
     }
 
     /// [`Commit::is_empty()`] for the new commit.
-    pub fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool> {
-        is_backend_commit_empty(repo, &self.store, &self.commit).block_on()
+    pub async fn is_empty(&self, repo: &dyn Repo) -> BackendResult<bool> {
+        is_backend_commit_empty(repo, &self.store, &self.commit).await
     }
 
     pub fn change_id(&self) -> &ChangeId {
@@ -371,8 +371,8 @@ impl DetachedCommitBuilder {
     }
 
     /// [`Commit::is_discardable()`] for the new commit.
-    pub fn is_discardable(&self, repo: &dyn Repo) -> BackendResult<bool> {
-        Ok(self.description().is_empty() && self.is_empty(repo)?)
+    pub async fn is_discardable(&self, repo: &dyn Repo) -> BackendResult<bool> {
+        Ok(self.description().is_empty() && self.is_empty(repo).await?)
     }
 
     pub fn sign_settings(&self) -> &SignSettings {
