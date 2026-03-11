@@ -56,7 +56,7 @@ pub enum UnifiedDiffError {
     },
 }
 
-pub fn git_diff_part(
+pub async fn git_diff_part(
     path: &RepoPath,
     value: MaterializedTreeValue,
     materialize_options: &ConflictMaterializeOptions,
@@ -85,7 +85,7 @@ pub fn git_diff_part(
         MaterializedTreeValue::File(mut file) => {
             mode = if file.executable { "100755" } else { "100644" };
             hash = file.id.hex();
-            content = file_content_for_diff(path, &mut file, |content| content)?;
+            content = file_content_for_diff(path, &mut file, |content| content).await?;
         }
         MaterializedTreeValue::Symlink { id, target } => {
             mode = "120000";

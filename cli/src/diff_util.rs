@@ -77,6 +77,7 @@ use jj_lib::repo_path::RepoPathUiConverter;
 use jj_lib::rewrite::rebase_to_dest_parent;
 use jj_lib::settings::UserSettings;
 use jj_lib::store::Store;
+use pollster::FutureExt as _;
 use thiserror::Error;
 use tracing::instrument;
 use unicode_width::UnicodeWidthStr as _;
@@ -1311,7 +1312,7 @@ fn diff_content_with<T>(
             contents: map_resolved(format!("Access denied: {err}").into()),
         }),
         MaterializedTreeValue::File(mut file) => {
-            file_content_for_diff(path, &mut file, map_resolved)
+            file_content_for_diff(path, &mut file, map_resolved).block_on()
         }
         MaterializedTreeValue::Symlink { id: _, target } => Ok(FileContent {
             // Unix file paths can't contain null bytes.
@@ -1719,8 +1720,8 @@ pub async fn show_git_diff(
         let right_path_string = right_path.as_internal_file_string();
         let values = values?;
 
-        let left_part = git_diff_part(left_path, values.before, &materialize_options)?;
-        let right_part = git_diff_part(right_path, values.after, &materialize_options)?;
+        let left_part = git_diff_part(left_path, values.before, &materialize_options).await?;
+        let right_part = git_diff_part(right_path, values.after, &materialize_options).await?;
 
         {
             let mut formatter = formatter.labeled("file_header");

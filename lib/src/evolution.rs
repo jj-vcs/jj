@@ -264,7 +264,7 @@ where
 /// between `old_ops` and `new_ops`. If `old_ops` and `new_ops` have ancestors
 /// and descendants each other, or if criss-crossed merges exist between these
 /// operations, the returned mapping would be lossy.
-pub fn accumulate_predecessors(
+pub async fn accumulate_predecessors(
     new_ops: &[Operation],
     old_ops: &[Operation],
 ) -> Result<BTreeMap<CommitId, Vec<CommitId>>, WalkPredecessorsError> {
@@ -287,13 +287,13 @@ pub fn accumulate_predecessors(
     // BTreeMap to stabilize order of the reversed edges.
     let mut accumulated = BTreeMap::new();
     let reverse_ops = op_walk::walk_ancestors_range(old_ops, new_ops);
-    if !try_collect_predecessors_into(&mut accumulated, reverse_ops)? {
+    if !try_collect_predecessors_into(&mut accumulated, reverse_ops).await? {
         return Ok(BTreeMap::new());
     }
     let mut accumulated = reverse_edges(accumulated);
     // Follow forward edges from new_ops to the common ancestor.
     let forward_ops = op_walk::walk_ancestors_range(new_ops, old_ops);
-    if !try_collect_predecessors_into(&mut accumulated, forward_ops)? {
+    if !try_collect_predecessors_into(&mut accumulated, forward_ops).await? {
         return Ok(BTreeMap::new());
     }
     let new_commit_ids = new_ops
@@ -304,12 +304,12 @@ pub fn accumulate_predecessors(
         .map_err(|id| WalkPredecessorsError::CycleDetected(id.clone()))
 }
 
-fn try_collect_predecessors_into(
+async fn try_collect_predecessors_into(
     collected: &mut BTreeMap<CommitId, Vec<CommitId>>,
     ops: impl Stream<Item = OpStoreResult<Operation>>,
 ) -> OpStoreResult<bool> {
     let mut ops = pin!(ops);
-    while let Some(op) = ops.next().block_on() {
+    while let Some(op) = ops.next().await {
         let op = op?;
         let Some(map) = &op.store_operation().commit_predecessors else {
             return Ok(false);
