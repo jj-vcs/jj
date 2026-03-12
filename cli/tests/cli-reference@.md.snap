@@ -2878,9 +2878,11 @@ Apply the reverse of the given revision(s)
 
 The reverse of each of the given revisions is applied sequentially in reverse topological order at the given location.
 
+By default the reverted revision is inserted before the working-copy (--insert-before @).
+
 The description of the new revisions can be customized with the `templates.revert_description` config variable.
 
-**Usage:** `jj revert --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>`
+**Usage:** `jj revert [OPTIONS] --revisions <REVSETS>`
 
 ###### **Options:**
 
