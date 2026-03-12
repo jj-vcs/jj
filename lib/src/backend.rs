@@ -79,10 +79,10 @@ impl CopyId {
 #[error("Out-of-range date")]
 pub struct TimestampOutOfRange;
 
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
+#[derive(ContentHash, Hash, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub struct MillisSinceEpoch(pub i64);
 
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
+#[derive(ContentHash, Hash, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub struct Timestamp {
     pub timestamp: MillisSinceEpoch,
     // time zone offset in minutes
@@ -136,7 +136,7 @@ impl serde::Serialize for Timestamp {
 }
 
 /// Represents a [`Commit`] signature.
-#[derive(ContentHash, Debug, PartialEq, Eq, Clone, serde::Serialize)]
+#[derive(ContentHash, Hash, Debug, PartialEq, Eq, Clone, serde::Serialize)]
 pub struct Signature {
     pub name: String,
     pub email: String,

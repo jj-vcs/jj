@@ -38,6 +38,7 @@ use crate::merge::Merge;
 use crate::merged_tree::MergedTree;
 use crate::repo::Repo;
 use crate::rewrite::merge_commit_trees;
+use crate::rewrite::merge_commit_trees_no_resolve;
 use crate::signing::SignResult;
 use crate::signing::Verification;
 use crate::store::Store;
@@ -139,6 +140,19 @@ impl Commit {
         }
         let parents = self.parents().await?;
         merge_commit_trees(repo, &parents).await
+    }
+
+    /// Return the parent tree, merging the parent trees if there are multiple
+    /// parents, without resolving conflicts.
+    pub async fn parent_tree_no_resolve(&self, repo: &dyn Repo) -> BackendResult<MergedTree> {
+        // Avoid merging parent trees if known to be empty. The index could be
+        // queried only when parents.len() > 1, but index query would be cheaper
+        // than extracting parent commit from the store.
+        if is_commit_empty_by_index(repo, &self.id)? == Some(true) {
+            return Ok(self.tree());
+        }
+        let parents = self.parents().await?;
+        merge_commit_trees_no_resolve(repo, &parents).await
     }
 
     /// Returns whether commit's content is empty. Commit description is not
