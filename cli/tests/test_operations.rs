@@ -1731,6 +1731,8 @@ fn test_op_diff_patch() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file
     Working copy  (@) now at: rlvkpnrz c1c924b8 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 6b57e33c (no description set)
     [EOF]
@@ -2833,6 +2835,8 @@ fn test_op_show_patch() {
     let output = work_dir.run_jj(["new"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
+    Auto-tracking 1 new file:
+    A file
     Working copy  (@) now at: rlvkpnrz c1c924b8 (empty) (no description set)
     Parent commit (@-)      : qpvuntsm 6b57e33c (no description set)
     [EOF]

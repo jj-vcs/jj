@@ -173,6 +173,10 @@ fn test_chmod_nonfile() {
     Added symlink symlink:
             1: target
     [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A symlink
+    [EOF]
     ");
 
     let output = work_dir.run_jj(["file", "chmod", "n", "symlink"]);

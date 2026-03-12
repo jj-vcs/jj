@@ -298,6 +298,10 @@ fn test_debug_tree() {
     dir/subdir/file1: Ok(Resolved(Some(File { id: FileId("498e9b01d79cb8d31cdf0df1a663cc1fcefd9de3"), executable: false, copy_id: CopyId("") })))
     dir/subdir/file2: Ok(Resolved(Some(File { id: FileId("b2496eaffe394cd50a9db4de5787f45f09fd9722"), executable: false, copy_id: CopyId("") })))
     [EOF]
+    ------- stderr -------
+    Auto-tracking 1 new file:
+    A dir/subdir/file2
+    [EOF]
     "#
     );
 
