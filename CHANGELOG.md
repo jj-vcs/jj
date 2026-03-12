@@ -26,6 +26,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * The `jj arrange` TUI now includes immediate parents and children. They are not
   selectable and are dimmed by default.
 
+* `jj arrange` now supports a "squash" action for squashing into the parent and
+  keeping the parent's description.
+
 ### Fixed bugs
 
 ## [0.39.0] - 2026-03-04

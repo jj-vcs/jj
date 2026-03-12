@@ -19,6 +19,7 @@ use std::io;
 use crossterm::ExecutableCommand as _;
 use crossterm::event::Event;
 use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
 use crossterm::event::KeyModifiers;
 use crossterm::event::{self};
 use crossterm::terminal::EnterAlternateScreen;
@@ -31,11 +32,15 @@ use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
+use jj_lib::commit::conflict_label_for_commits;
 use jj_lib::dag_walk;
+use jj_lib::merge::Merge;
+use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::rewrite::CommitRewriter;
+use jj_lib::rewrite::merge_commit_trees_no_resolve_without_repo;
 use ratatui::Terminal;
 use ratatui::layout::Constraint;
 use ratatui::layout::Direction;
@@ -161,15 +166,18 @@ pub(crate) async fn cmd_arrange(
 enum UiAction {
     Abandon,
     Keep,
+    Squash,
 }
 
 /// The state of a single commit in the UI
+#[derive(Clone, PartialEq, Eq)]
 struct CommitState {
     commit: Commit,
     action: UiAction,
     parents: Vec<CommitId>,
 }
 
+#[derive(Clone, PartialEq, Eq)]
 struct State {
     /// Commits in the target set, as well as any external children and parents.
     commits: HashMap<CommitId, CommitState>,
@@ -246,6 +254,37 @@ impl State {
         };
         state.update_commit_order();
         Ok(state)
+    }
+
+    fn is_valid(&self) -> bool {
+        for (id, commit_state) in &self.commits {
+            if self.external_children.contains(id) || self.external_parents.contains(id) {
+                continue;
+            }
+            if commit_state.action == UiAction::Squash {
+                // Don't allow squashes into an external commit
+                if commit_state
+                    .parents
+                    .iter()
+                    .any(|parent_id| self.external_parents.contains(parent_id))
+                {
+                    return false;
+                }
+                // TODO: Relax these restrictions. It should be allowed as long as there's a
+                // single target to squash the commit into.
+
+                // Squashed commits must have exactly one parent/target
+                if commit_state.parents.len() != 1 {
+                    return false;
+                }
+                let parent_id = &commit_state.parents[0];
+                // Don't allow squashing if the parent is abandoned
+                if self.commits.get(parent_id).unwrap().action == UiAction::Abandon {
+                    return false;
+                }
+            }
+        }
+        true
     }
 
     /// Update the current UI commit order after parents have changed.
@@ -332,6 +371,7 @@ impl State {
                     action: match commit_state.action {
                         UiAction::Abandon => RewriteAction::Abandon,
                         UiAction::Keep => RewriteAction::Keep,
+                        UiAction::Squash => RewriteAction::Squash,
                     },
                 },
             );
@@ -344,14 +384,17 @@ impl State {
 enum RewriteAction {
     Abandon,
     Keep,
+    Squash,
 }
 
+#[derive(Debug, Clone)]
 struct Rewrite {
     old_commit: Commit,
     new_parents: Vec<CommitId>,
     action: RewriteAction,
 }
 
+#[derive(Debug, Clone)]
 struct RewritePlan {
     rewrites: HashMap<CommitId, Rewrite>,
 }
@@ -378,23 +421,134 @@ impl RewritePlan {
             |_| panic!("cycle detected"),
         )
         .unwrap();
+
+        // Figure out which commits should have squashes applied to them.
+        let mut squashes_by_target: HashMap<CommitId, Vec<CommitId>> = HashMap::new();
+        let mut squash_targets: HashMap<CommitId, CommitId> = HashMap::new();
+        for id in &ordered_commit_ids {
+            let rewrite = self.rewrites.get(id).unwrap();
+            if rewrite.action == RewriteAction::Squash {
+                assert_eq!(
+                    rewrite.new_parents.len(),
+                    1,
+                    "squashed commits must have exactly one parent/target"
+                );
+                let mut target = rewrite.new_parents[0].clone();
+                assert_ne!(
+                    self.rewrites.get(&target).unwrap().action,
+                    RewriteAction::Abandon,
+                    "squash target must not be abandoned"
+                );
+                if let Some(indirect_target) = squash_targets.get(&target) {
+                    target = indirect_target.clone();
+                }
+                squash_targets.insert(id.clone(), target.clone());
+                squashes_by_target
+                    .entry(target)
+                    .or_default()
+                    .push(id.clone());
+            }
+        }
+
         // Rewrite the commits in the order determined above
         let mut rewritten_commits: HashMap<CommitId, Commit> = HashMap::new();
         for id in ordered_commit_ids {
             let rewrite = self.rewrites.remove(&id).unwrap();
             let new_parents = mut_repo.new_parents(&rewrite.new_parents);
+            let new_tree = if let Some(squash_ids) = squashes_by_target.get(&id) {
+                Some(
+                    self.create_squashed_tree(mut_repo, squash_ids, &rewrite, &new_parents)
+                        .await?,
+                )
+            } else {
+                None
+            };
             let rewriter = CommitRewriter::new(mut_repo, rewrite.old_commit, new_parents);
             match rewrite.action {
                 RewriteAction::Abandon => rewriter.abandon(),
                 RewriteAction::Keep => {
-                    if rewriter.parents_changed() {
+                    if let Some(new_tree) = new_tree {
+                        let new_commit = rewriter.reparent().set_tree(new_tree).write().await?;
+                        rewritten_commits.insert(id, new_commit);
+                    } else if rewriter.parents_changed() {
                         let new_commit = rewriter.rebase().await?.write().await?;
                         rewritten_commits.insert(id, new_commit);
                     }
                 }
+                RewriteAction::Squash => rewriter.abandon(),
             }
         }
         Ok(rewritten_commits)
+    }
+
+    /// Create a new tree for the squashed commit by applying the changes from
+    /// the squashed commits into the target, possibly also rebasing the
+    /// target if its parents changed.
+    async fn create_squashed_tree(
+        &self,
+        mut_repo: &MutableRepo,
+        squashed_ids: &[CommitId],
+        rewrite: &Rewrite,
+        new_parent_ids: &[CommitId],
+    ) -> BackendResult<MergedTree> {
+        let mut tree_terms = Vec::new();
+        // If the parents changed, apply the changes from the squashed commit onto the
+        // target. Otherwise start with the target's tree (after this `if` block).
+        if new_parent_ids != rewrite.new_parents {
+            let store = mut_repo.store().clone();
+            let new_parents = try_join_all(
+                new_parent_ids
+                    .iter()
+                    .map(async |id| store.get_commit_async(id).await),
+            )
+            .await?;
+            let new_base_tree = merge_commit_trees_no_resolve_without_repo(
+                mut_repo.store(),
+                mut_repo.index(),
+                &new_parents,
+            )
+            .await?;
+            tree_terms.push((
+                new_base_tree,
+                format!(
+                    "{} (new parents of squashed commits)",
+                    conflict_label_for_commits(&new_parents)
+                ),
+            ));
+            tree_terms.push((
+                rewrite.old_commit.parent_tree(mut_repo).await?,
+                format!(
+                    "{} (old parents of squashed commit)",
+                    conflict_label_for_commits(&rewrite.old_commit.parents().await?)
+                ),
+            ));
+        }
+        tree_terms.push((
+            rewrite.old_commit.tree(),
+            format!(
+                "{} (squash target)",
+                conflict_label_for_commits(std::slice::from_ref(&rewrite.old_commit))
+            ),
+        ));
+        for squash_id in squashed_ids {
+            let squashed_commit = &self.rewrites.get(squash_id).unwrap().old_commit;
+            tree_terms.push((
+                squashed_commit.parent_tree(mut_repo).await?,
+                format!(
+                    "{} (parent of squashed commit)",
+                    conflict_label_for_commits(&squashed_commit.parents().await?)
+                ),
+            ));
+            tree_terms.push((
+                squashed_commit.tree(),
+                format!(
+                    "{} (squashed commit)",
+                    conflict_label_for_commits(std::slice::from_ref(squashed_commit))
+                ),
+            ));
+        }
+
+        MergedTree::merge(Merge::from_vec(tree_terms)).await
     }
 }
 
@@ -410,6 +564,7 @@ fn run_tui<B: ratatui::backend::Backend>(
         ("⇧+↓/J", "swap down"),
         ("⇧+↑/K", "swap up"),
         ("a", "abandon"),
+        ("s", "squash"),
         ("p", "keep"),
         ("c", "confirm"),
         ("q", "quit"),
@@ -454,51 +609,58 @@ fn run_tui<B: ratatui::backend::Backend>(
                 (KeyCode::Char('c'), KeyModifiers::NONE) => {
                     return Ok(Some(state));
                 }
-                (KeyCode::Down | KeyCode::Char('j'), KeyModifiers::NONE) => {
-                    if state.current_selection + 1 < state.current_order.len() {
-                        state.current_selection += 1;
-                    }
-                }
-                (KeyCode::Up | KeyCode::Char('k'), KeyModifiers::NONE) => {
-                    if state.current_selection > 0 {
-                        state.current_selection -= 1;
-                    }
-                }
-                (KeyCode::Char('a'), KeyModifiers::NONE) => {
-                    let id = state.current_order[state.current_selection].clone();
-                    state.commits.get_mut(&id).unwrap().action = UiAction::Abandon;
-                }
-                (KeyCode::Char('p'), KeyModifiers::NONE) => {
-                    let id = state.current_order[state.current_selection].clone();
-                    state.commits.get_mut(&id).unwrap().action = UiAction::Keep;
-                }
-                (KeyCode::Down | KeyCode::Char('J'), KeyModifiers::SHIFT) => {
-                    if state.current_selection + 1 < state.current_order.len()
-                        && state.are_graph_neighbors(
-                            state.current_selection,
-                            state.current_selection + 1,
-                        )
-                    {
-                        state.swap_commits(state.current_selection, state.current_selection + 1);
-                    }
-                }
-                (KeyCode::Up | KeyCode::Char('K'), KeyModifiers::SHIFT) => {
-                    if state.current_selection > 0
-                        && state.are_graph_neighbors(
-                            state.current_selection,
-                            state.current_selection - 1,
-                        )
-                    {
-                        state.swap_commits(state.current_selection, state.current_selection - 1);
-                    }
-                }
-                _ => {
-                    continue;
-                }
+                _ => {}
             }
-            state.update_commit_order();
+            let new_state = handle_key_event(event, state.clone());
+            if new_state != state && new_state.is_valid() {
+                state = new_state;
+                state.update_commit_order();
+            }
         }
     }
+}
+
+fn handle_key_event(event: KeyEvent, mut state: State) -> State {
+    match (event.code, event.modifiers) {
+        (KeyCode::Down | KeyCode::Char('j'), KeyModifiers::NONE) => {
+            if state.current_selection + 1 < state.current_order.len() {
+                state.current_selection += 1;
+            }
+        }
+        (KeyCode::Up | KeyCode::Char('k'), KeyModifiers::NONE) => {
+            if state.current_selection > 0 {
+                state.current_selection -= 1;
+            }
+        }
+        (KeyCode::Char('a'), KeyModifiers::NONE) => {
+            let id = state.current_order[state.current_selection].clone();
+            state.commits.get_mut(&id).unwrap().action = UiAction::Abandon;
+        }
+        (KeyCode::Char('p'), KeyModifiers::NONE) => {
+            let id = state.current_order[state.current_selection].clone();
+            state.commits.get_mut(&id).unwrap().action = UiAction::Keep;
+        }
+        (KeyCode::Char('s'), KeyModifiers::NONE) => {
+            let id = state.current_order[state.current_selection].clone();
+            state.commits.get_mut(&id).unwrap().action = UiAction::Squash;
+        }
+        (KeyCode::Down | KeyCode::Char('J'), KeyModifiers::SHIFT) => {
+            if state.current_selection + 1 < state.current_order.len()
+                && state.are_graph_neighbors(state.current_selection, state.current_selection + 1)
+            {
+                state.swap_commits(state.current_selection, state.current_selection + 1);
+            }
+        }
+        (KeyCode::Up | KeyCode::Char('K'), KeyModifiers::SHIFT) => {
+            if state.current_selection > 0
+                && state.are_graph_neighbors(state.current_selection, state.current_selection - 1)
+            {
+                state.swap_commits(state.current_selection, state.current_selection - 1);
+            }
+        }
+        _ => {}
+    }
+    state
 }
 
 fn render(
@@ -558,6 +720,7 @@ fn render(
         let glyph = match action {
             UiAction::Abandon => "×",
             UiAction::Keep => "○",
+            UiAction::Squash => "↓",
         };
         let graph_lines = row_renderer.next_row(id, edges, glyph.to_string(), "".to_string());
         let graph_text = Text::from(graph_lines);
@@ -575,6 +738,7 @@ fn render(
             let action_text = match action {
                 UiAction::Abandon => "abandon",
                 UiAction::Keep => "keep",
+                UiAction::Squash => "squash",
             };
             frame.render_widget(Text::from(action_text), action_area);
         }
@@ -598,10 +762,14 @@ fn render(
 
 #[cfg(test)]
 mod tests {
+    use jj_lib::repo_path::RepoPath;
     use maplit::hashset;
     use pollster::FutureExt as _;
+    use test_case::test_case;
     use testutils::CommitBuilderExt as _;
     use testutils::TestRepo;
+    use testutils::assert_tree_eq;
+    use testutils::create_tree;
 
     use super::*;
 
@@ -885,12 +1053,127 @@ mod tests {
 
         let rewritten = plan.execute(tx.repo_mut()).block_on().unwrap();
         tx.repo_mut().rebase_descendants().block_on().unwrap();
-        assert_eq!(rewritten.keys().sorted().collect_vec(), vec![commit_d.id()]);
+        assert_eq!(
+            rewritten.keys().collect::<HashSet<_>>(),
+            hashset![commit_d.id()]
+        );
         let new_commit_d = rewritten.get(commit_d.id()).unwrap();
         assert_eq!(new_commit_d.parent_ids(), &[commit_a.id().clone()]);
         assert_eq!(
             *tx.repo_mut().view().heads(),
             hashset![commit_b.id().clone(), new_commit_d.id().clone()]
         );
+    }
+
+    #[test_case(false ; "chained squashes")]
+    #[test_case(true; "sibling squashes")]
+    fn test_execute_plan_squash(sibling_squashes: bool) {
+        let test_repo = TestRepo::init();
+        let store = test_repo.repo.store();
+
+        // Squash C and D into A and leave E and F on top of B:
+        //
+        //   F
+        //   |
+        // E D
+        // |/
+        // C    =>   E F
+        // |         |/
+        // B         B
+        // |         |
+        // A         A (plus C's and D's changes)
+        // |         |
+        // root      root
+        let mut tx = test_repo.repo.start_transaction();
+        let mut create_commit = |contents, parents| {
+            let tree = create_tree(
+                tx.base_repo(),
+                &[(RepoPath::from_internal_string("file").unwrap(), contents)],
+            );
+            tx.repo_mut().new_commit(parents, tree).write_unwrap()
+        };
+        let commit_a = create_commit("a", vec![store.root_commit_id().clone()]);
+        let commit_b = create_commit("b", vec![commit_a.id().clone()]);
+        let commit_c = create_commit("c", vec![commit_b.id().clone()]);
+        let commit_d = create_commit("d", vec![commit_c.id().clone()]);
+        let commit_e = create_commit("e", vec![commit_c.id().clone()]);
+        let commit_f = create_commit("f", vec![commit_d.id().clone()]);
+        let mut plan = no_op_plan(&[
+            &commit_a, &commit_b, &commit_c, &commit_d, &commit_e, &commit_f,
+        ]);
+
+        // Squash C and D into A, leaving E and F on top of B
+        *plan.rewrites.get_mut(commit_c.id()).unwrap() = Rewrite {
+            old_commit: commit_c.clone(),
+            new_parents: vec![commit_a.id().clone()],
+            action: RewriteAction::Squash,
+        };
+        if sibling_squashes {
+            // Squash D directly into A
+            *plan.rewrites.get_mut(commit_d.id()).unwrap() = Rewrite {
+                old_commit: commit_d.clone(),
+                new_parents: vec![commit_a.id().clone()],
+                action: RewriteAction::Squash,
+            };
+        } else {
+            // Squash D into C (which is squashed into A)
+            *plan.rewrites.get_mut(commit_d.id()).unwrap() = Rewrite {
+                old_commit: commit_d.clone(),
+                new_parents: vec![commit_c.id().clone()],
+                action: RewriteAction::Squash,
+            };
+        }
+        *plan.rewrites.get_mut(commit_e.id()).unwrap() = Rewrite {
+            old_commit: commit_e.clone(),
+            new_parents: vec![commit_b.id().clone()],
+            action: RewriteAction::Keep,
+        };
+        *plan.rewrites.get_mut(commit_f.id()).unwrap() = Rewrite {
+            old_commit: commit_f.clone(),
+            new_parents: vec![commit_b.id().clone()],
+            action: RewriteAction::Keep,
+        };
+
+        let rewritten = plan.clone().execute(tx.repo_mut()).block_on().unwrap();
+        tx.repo_mut().rebase_descendants().block_on().unwrap();
+        assert_eq!(
+            rewritten.keys().collect::<HashSet<_>>(),
+            hashset![commit_a.id(), commit_b.id(), commit_e.id(), commit_f.id()]
+        );
+        // Check the graph shape
+        let new_commit_a = rewritten.get(commit_a.id()).unwrap();
+        assert_eq!(new_commit_a.parent_ids(), &[store.root_commit_id().clone()]);
+        let new_commit_b = rewritten.get(commit_b.id()).unwrap();
+        assert_eq!(new_commit_b.parent_ids(), &[new_commit_a.id().clone()]);
+        let new_commit_e = rewritten.get(commit_e.id()).unwrap();
+        assert_eq!(new_commit_e.parent_ids(), &[new_commit_b.id().clone()]);
+        let new_commit_f = rewritten.get(commit_f.id()).unwrap();
+        assert_eq!(new_commit_f.parent_ids(), &[new_commit_b.id().clone()]);
+        assert_eq!(
+            *tx.repo_mut().view().heads(),
+            hashset![new_commit_e.id().clone(), new_commit_f.id().clone()]
+        );
+
+        // Check that we have the expected conflict in commit A (but we don't bother
+        // checking the conflict labels)
+        let expected_a_tree = MergedTree::merge(Merge::from_vec(vec![
+            (commit_a.tree(), "".to_string()),
+            (commit_b.tree(), "".to_string()),
+            (commit_d.tree(), "".to_string()),
+        ]))
+        .block_on()
+        .unwrap();
+        assert_eq!(new_commit_a.tree_ids(), expected_a_tree.tree_ids());
+        // Commit E will also have a conflict since we squashed D into its parent
+        let expected_e_tree = MergedTree::merge(Merge::from_vec(vec![
+            (commit_d.tree(), "".to_string()),
+            (commit_c.tree(), "".to_string()),
+            (commit_e.tree(), "".to_string()),
+        ]))
+        .block_on()
+        .unwrap();
+        assert_eq!(new_commit_e.tree_ids(), expected_e_tree.tree_ids());
+        // The rewritten commit F should have unchanged contents
+        assert_tree_eq!(new_commit_f.tree(), commit_f.tree());
     }
 }
