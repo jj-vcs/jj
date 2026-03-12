@@ -135,8 +135,8 @@ pub(crate) async fn cmd_diff(
         from_tree = from.tree();
         to_tree = to.tree();
 
-        let records = get_copy_records(repo.store(), from.id(), to.id(), &matcher)?;
-        copy_records.add_records(records)?;
+        let records = get_copy_records(repo.store(), from.id(), to.id(), &matcher).await?;
+        copy_records.add_records(records);
     } else {
         let revision_args = args
             .revisions
@@ -181,8 +181,8 @@ pub(crate) async fn cmd_diff(
 
         for p in &parents {
             for to in &heads {
-                let records = get_copy_records(repo.store(), p.id(), to.id(), &matcher)?;
-                copy_records.add_records(records)?;
+                let records = get_copy_records(repo.store(), p.id(), to.id(), &matcher).await?;
+                copy_records.add_records(records);
             }
         }
     }

@@ -2293,8 +2293,8 @@ impl TreeDiff {
         let mut copy_records = CopyRecords::default();
         for parent in commit.parent_ids() {
             let records =
-                diff_util::get_copy_records(repo.store(), parent, commit.id(), &*matcher)?;
-            copy_records.add_records(records)?;
+                diff_util::get_copy_records(repo.store(), parent, commit.id(), &*matcher).await?;
+            copy_records.add_records(records);
         }
         Ok(Self {
             from_tree: commit.parent_tree(repo).await?,

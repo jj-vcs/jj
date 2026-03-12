@@ -742,17 +742,13 @@ fn test_diff_resolved() {
 
 fn create_copy_records(paths: &[(&RepoPath, &RepoPath)]) -> CopyRecords {
     let mut copy_records = CopyRecords::default();
-    copy_records
-        .add_records(paths.iter().map(|&(source, target)| {
-            Ok(CopyRecord {
-                source: source.to_owned(),
-                target: target.to_owned(),
-                target_commit: CommitId::new(vec![]),
-                source_commit: CommitId::new(vec![]),
-                source_file: FileId::new(vec![]),
-            })
-        }))
-        .unwrap();
+    copy_records.add_records(paths.iter().map(|&(source, target)| CopyRecord {
+        source: source.to_owned(),
+        target: target.to_owned(),
+        target_commit: CommitId::new(vec![]),
+        source_commit: CommitId::new(vec![]),
+        source_file: FileId::new(vec![]),
+    }));
     copy_records
 }
 
