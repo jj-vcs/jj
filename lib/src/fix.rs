@@ -36,8 +36,8 @@ use jj_lib::store::Store;
 use rayon::iter::IntoParallelIterator as _;
 use rayon::prelude::ParallelIterator as _;
 
-use crate::revset::RevsetCommitStreamExt as _;
 use crate::revset::RevsetEvaluationError;
+use crate::revset::RevsetStreamExt as _;
 
 /// Represents a file whose content may be transformed by a FileFixer.
 // TODO: Add the set of changed line/byte ranges, so those can be passed into code formatters via

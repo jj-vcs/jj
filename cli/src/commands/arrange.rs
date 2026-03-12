@@ -36,7 +36,7 @@ use jj_lib::commit::Commit;
 use jj_lib::dag_walk;
 use jj_lib::repo::MutableRepo;
 use jj_lib::repo::Repo as _;
-use jj_lib::revset::RevsetCommitStreamExt as _;
+use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::rewrite::CommitRewriter;
 use ratatui::Terminal;
 use ratatui::layout::Constraint;

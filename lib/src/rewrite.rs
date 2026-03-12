@@ -50,8 +50,8 @@ use crate::merged_tree_builder::MergedTreeBuilder;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
-use crate::revset::RevsetCommitStreamExt as _;
 use crate::revset::RevsetExpression;
+use crate::revset::RevsetStreamExt as _;
 use crate::store::Store;
 
 /// Merges `commits` and tries to resolve any conflicts recursively.

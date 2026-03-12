@@ -3504,14 +3504,14 @@ impl<I: Iterator<Item = Result<CommitId, RevsetEvaluationError>>> RevsetIterator
     }
 }
 
-pub trait RevsetCommitStreamExt {
+pub trait RevsetStreamExt {
     fn commits(
         self,
         store: &Arc<Store>,
     ) -> impl Stream<Item = Result<Commit, RevsetEvaluationError>> + use<'_, Self>;
 }
 
-impl<S: Stream<Item = Result<CommitId, RevsetEvaluationError>>> RevsetCommitStreamExt for S {
+impl<S: Stream<Item = Result<CommitId, RevsetEvaluationError>>> RevsetStreamExt for S {
     fn commits(
         self,
         store: &Arc<Store>,
