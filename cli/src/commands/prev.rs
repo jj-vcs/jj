@@ -67,6 +67,12 @@ pub(crate) struct PrevArgs {
     #[arg(long, short, conflicts_with = "edit")]
     no_edit: bool,
 
+    /// Instead of creating a new working-copy commit on top of the target
+    /// commit (like `jj new`), keep the working copy and move it on
+    /// top of the target commit (like `jj rebase`)
+    #[arg(long, short, conflicts_with = "edit")]
+    keep: bool,
+
     /// Jump to the previous conflicted ancestor
     #[arg(long, conflicts_with = "offset")]
     conflict: bool,
@@ -79,6 +85,7 @@ impl From<&PrevArgs> for MovementArgs {
             edit: val.edit,
             no_edit: val.no_edit,
             conflict: val.conflict,
+            rebase: val.keep,
         }
     }
 }
@@ -88,5 +95,5 @@ pub(crate) async fn cmd_prev(
     command: &CommandHelper,
     args: &PrevArgs,
 ) -> Result<(), CommandError> {
-    move_to_commit(ui, command, Direction::Prev, &MovementArgs::from(args))
+    move_to_commit(ui, command, Direction::Prev, &MovementArgs::from(args)).await
 }
