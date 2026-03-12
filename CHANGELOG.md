@@ -138,6 +138,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Conditional configuration based on environment variables with `--when.environments`.
   [#8779](https://github.com/jj-vcs/jj/pull/8779)
 
+* `jj fix` now supports line range-limited formatting via the `fix.tools.<name>.line-range-arg`
+  and `run-tool-if-zero-line-ranges` options. This allows running tools only on modified
+  lines and fine-grained control over when the tool is run. Use `--all-lines` to match the previous
+  behavior of formatting the entire file.
+
 ### Fixed bugs
 
 * Windows: use native file locks (`LockFileEx`) instead of polling with file
