@@ -9448,7 +9448,7 @@ configuration.</p>
 <p><code>sh $ jj interdiff --from push-xyz@origin --to push-xyz</code></p>
 <p>This command is different from <code>jj diff --from A --to B</code>, which compares file contents directly. <code>interdiff</code> compares what the changes do in terms of their patches, rather than their file contents. This makes a difference when the two revisions have different parents: <code>jj diff --from A --to B</code> will include the changes between their parents while <code>jj interdiff --from A --to B</code> will not.</p>
 <p>Technically, this works by rebasing <code>--from</code> onto <code>--to</code>'s parents and comparing the result to <code>--to</code>.</p>
-<p>To see the changes throughout the whole evolution of a change instead of between just two revisions, use <code>jj evolog -p instead</code>.</p>
+<p>To see the changes throughout the whole evolution of a change instead of between just two revisions, use <code>jj evolog -p</code> instead.</p>
 <p><strong>Usage:</strong> <code>jj interdiff [OPTIONS] &lt;--from &lt;REVSET&gt;|--to &lt;REVSET&gt;&gt; [FILESETS]...</code></p>
 <h6 id="arguments_39"><strong>Arguments:</strong><a class="headerlink" href="#arguments_39" title="Permanent link">&para;</a></h6>
 <ul>
