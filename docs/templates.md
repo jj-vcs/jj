@@ -139,6 +139,8 @@ The following functions are defined.
 * `git_web_url([remote: String]) -> String`: Best-effort conversion of a git
   remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
   empty string on failure. SSH host alias resolution is currently unsupported.
+* `env(name: Stringify) -> Environment`:
+  Returns the value of a given environment variable by `name`.
 
 ## Types
 
@@ -432,6 +434,16 @@ The following methods are defined.
   username.
 * `.domain() -> String`: the part of the email after the first `@` or the empty
   string.
+
+### `Environment` type
+
+_Conversion: `Boolean`: no, `Serialize`: yes, `Template`: yes_
+
+This type formats as the environment variable's value. The following methods
+are defined.
+
+* `.is_set() -> Boolean`: Whether the environment variable is set. Returns true
+  for an empty value and false if the variable is missing.
 
 ### `FsPath` type
 

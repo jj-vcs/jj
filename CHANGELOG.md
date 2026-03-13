@@ -102,6 +102,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Added commands `jj file edit` and `jj file delete` for editing files in any
   revision without needing to change the working copy.
 
+* Add `env(name)` template function that looks up the value of a given
+  environment variable.
+
 ### Fixed bugs
 
 * On Windows, `jj` no longer hangs when a subprocess needs to prompt the user,
