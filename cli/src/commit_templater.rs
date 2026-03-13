@@ -135,6 +135,7 @@ pub struct CommitTemplateLanguage<'repo> {
     repo: &'repo dyn Repo,
     path_converter: &'repo RepoPathUiConverter,
     workspace_name: WorkspaceNameBuf,
+    environment: &'repo HashMap<String, String>,
     // RevsetParseContext doesn't borrow a repo, but we'll need 'repo lifetime
     // anyway to capture it to evaluate dynamically-constructed user expression
     // such as `revset("ancestors(" ++ commit_id ++ ")")`.
@@ -159,6 +160,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
         repo: &'repo dyn Repo,
         path_converter: &'repo RepoPathUiConverter,
         workspace_name: &WorkspaceName,
+        environment: &'repo HashMap<String, String>,
         revset_parse_context: RevsetParseContext<'repo>,
         id_prefix_context: &'repo IdPrefixContext,
         immutable_expression: Arc<UserRevsetExpression>,
@@ -179,6 +181,7 @@ impl<'repo> CommitTemplateLanguage<'repo> {
             repo,
             path_converter,
             workspace_name: workspace_name.to_owned(),
+            environment,
             revset_parse_context,
             id_prefix_context,
             immutable_expression,
@@ -199,6 +202,10 @@ impl<'repo> CommitTemplateLanguage<'repo> {
 
 impl<'repo> TemplateLanguage<'repo> for CommitTemplateLanguage<'repo> {
     type Property = CommitTemplatePropertyKind<'repo>;
+
+    fn environment(&self) -> &HashMap<String, String> {
+        self.environment
+    }
 
     fn settings(&self) -> &UserSettings {
         self.repo.base_repo().settings()
@@ -3030,6 +3037,7 @@ mod tests {
         revset_aliases_map: RevsetAliasesMap,
         template_aliases_map: TemplateAliasesMap,
         immutable_expression: Arc<UserRevsetExpression>,
+        environment: HashMap<String, String>,
         extra_functions: HashMap<&'static str, BuildFunctionFn>,
     }
 
@@ -3054,6 +3062,7 @@ mod tests {
                 revset_aliases_map: RevsetAliasesMap::new(),
                 template_aliases_map: TemplateAliasesMap::new(),
                 immutable_expression: RevsetExpression::none(),
+                environment: HashMap::new(),
                 extra_functions: HashMap::new(),
             }
         }
@@ -3088,6 +3097,7 @@ mod tests {
                 self.test_workspace.repo.as_ref(),
                 &self.path_converter,
                 self.test_workspace.workspace.workspace_name(),
+                &self.environment,
                 revset_parse_context,
                 &self.id_prefix_context,
                 self.immutable_expression.clone(),

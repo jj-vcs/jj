@@ -399,6 +399,10 @@ impl ConfigEnv {
         self.command = Some(command);
     }
 
+    pub fn environment(&self) -> &HashMap<String, String> {
+        &self.environment
+    }
+
     fn load_secure_config(
         &self,
         ui: &Ui,

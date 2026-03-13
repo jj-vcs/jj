@@ -83,6 +83,8 @@ use crate::time_util;
 pub trait TemplateLanguage<'a> {
     type Property: CoreTemplatePropertyVar<'a> + 'a;
 
+    fn environment(&self) -> &HashMap<String, String>;
+
     fn settings(&self) -> &UserSettings;
 
     /// Translates the given global `function` call to a property.
@@ -2139,13 +2141,16 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         // .decorated("", "") to trim leading/trailing whitespace
         Ok(Literal(value.map(|v| v.decorated("", ""))).into_dyn_wrapped())
     });
-    map.insert("env", |_language, diagnostics, _build_ctx, function| {
-        let [var_name_node] = function.expect_exact_arguments()?;
-        let var_name =
-            template_parser::catch_aliases(diagnostics, var_name_node, |_diagnostics, node| {
-                template_parser::expect_string_literal(node)
-            })?;
-        let out_property = std::env::var(var_name).unwrap_or_default();
+    map.insert("env", |language, diagnostics, _build_ctx, function| {
+        let [name_node] = function.expect_exact_arguments()?;
+        let name = template_parser::catch_aliases(diagnostics, name_node, |_diagnostics, node| {
+            template_parser::expect_string_literal(node)
+        })?;
+        let out_property = language
+            .environment()
+            .get(name)
+            .cloned()
+            .unwrap_or_default();
         Ok(Literal(out_property).into_dyn_wrapped())
     });
     map
@@ -2512,6 +2517,8 @@ mod tests {
     /// Helper to set up template evaluation environment.
     struct TestTemplateEnv {
         language: TestTemplateLanguage,
+        #[allow(unused)]
+        environment: HashMap<String, String>,
         aliases_map: TemplateAliasesMap,
         color_rules: Vec<(Vec<String>, formatter::Style)>,
     }
@@ -2522,9 +2529,17 @@ mod tests {
         }
 
         fn with_config(config: StackedConfig) -> Self {
+            Self::with_config_and_environment(config, HashMap::new())
+        }
+
+        fn with_config_and_environment(
+            config: StackedConfig,
+            environment: HashMap<String, String>,
+        ) -> Self {
             let settings = UserSettings::from_config(config).unwrap();
             Self {
-                language: TestTemplateLanguage::new(&settings),
+                language: TestTemplateLanguage::new(&environment, &settings),
+                environment,
                 aliases_map: TemplateAliasesMap::new(),
                 color_rules: Vec::new(),
             }
@@ -4839,6 +4854,26 @@ mod tests {
           |     ^
         invalid unquoted key, expected letters, numbers, `-`, `_`
         ");
+    }
+
+    #[test]
+    fn test_env_function() {
+        let environment = HashMap::from([
+            ("JJ_TEMPLATE_ENV".to_owned(), "template-value".to_owned()),
+            ("JJ_EMPTY_ENV".to_owned(), "".to_owned()),
+        ]);
+        let env = TestTemplateEnv::with_config_and_environment(
+            StackedConfig::with_defaults(),
+            environment,
+        );
+
+        insta::assert_snapshot!(env.render_ok(r#"env("JJ_TEMPLATE_ENV")"#), @"template-value");
+        insta::assert_snapshot!(env.render_ok(r#"env("JJ_EMPTY_ENV")"#), @"");
+        insta::assert_snapshot!(env.render_ok(r#"env("JJ_MISSING_ENV")"#), @"");
+        insta::assert_snapshot!(
+            env.render_ok(r#"if(env("JJ_EMPTY_ENV"), "yes", "no")"#),
+            @"no"
+        );
     }
 
     #[test]
