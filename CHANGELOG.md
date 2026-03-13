@@ -251,6 +251,11 @@ Thanks to the people who made this release happen!
   locally. Setting it to `"*"` is now the closest replacement for the deprecated
   `git.push-new-bookmarks` option.
 
+* A new optional config option `user.commit-timestamp-granularity` allows the
+ user to specify a maximum granularity for commit timestamps to preserve
+ their privacy. For example, setting `user.commit-timestamp-granularity = "day"`
+ truncates commit timestamps to midnight.
+
 * `jj tag list` can now be filtered by revset.
 
 * Conflict markers will use LF or CRLF as the line ending according to the

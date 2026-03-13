@@ -25,6 +25,7 @@ use thiserror::Error;
 
 use crate::backend::MillisSinceEpoch;
 use crate::backend::Timestamp;
+use crate::backend::TimestampOutOfRange;
 
 /// Context needed to create a DatePattern during revset evaluation.
 #[derive(Copy, Clone, Debug)]
@@ -132,6 +133,49 @@ pub fn parse_datetime(s: &str) -> chrono::ParseResult<Timestamp> {
     ))
 }
 
+/// Specifies the granularity to which timestamps should be rounded.
+#[derive(serde::Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TimestampGranularity {
+    /// Truncate timestamps to midnight of the same day in the local timezone.
+    Day,
+    /// Truncate timestamps to the first day of the same month in the local
+    /// timezone.
+    Month,
+    /// Truncate timestamps to the first day of the same year in the local
+    /// timezone.
+    Year,
+}
+
+impl TimestampGranularity {
+    /// Truncates the timestamp down to the nearest requested granularity.
+    /// For example, with `Day` granularity,
+    /// "2024-03-25T15:42:10Z" becomes "2024-03-25T00:00:00Z".
+    pub fn truncate(&self, timestamp: Timestamp) -> Result<Timestamp, TimestampOutOfRange> {
+        use chrono::Datelike as _;
+
+        let dt = timestamp.to_datetime()?;
+        let date = dt.date_naive();
+
+        // Determine the target date directly based on granularity
+        // Unwrapping is safe because we're using a FixedOffset timezone.
+        let truncated_date = match self {
+            Self::Year => date.with_month(1).unwrap().with_day(1).unwrap(),
+            Self::Month => date.with_day(1).unwrap(),
+            Self::Day => date,
+        };
+
+        // Construct the new datetime at midnight.
+        let midnight = chrono::NaiveTime::default();
+        let truncated_dt = dt
+            .timezone()
+            .from_local_datetime(&truncated_date.and_time(midnight))
+            .unwrap();
+
+        Ok(Timestamp::from_datetime(truncated_dt))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
@@ -220,5 +264,47 @@ mod tests {
         let human_readable_explicit = parse_datetime("Sun, 23 Jan 2000 01:23:45 -0800").unwrap();
         assert_eq!(timestamp, human_readable);
         assert_eq!(timestamp, human_readable_explicit);
+    }
+
+    #[test]
+    fn test_timestamp_granularity_truncate_day() {
+        let now = Timestamp::from_datetime(
+            DateTime::parse_from_rfc3339("2024-08-08T08:08:08-08:00").unwrap(),
+        );
+        let truncated = TimestampGranularity::Day.truncate(now).unwrap();
+        assert_eq!(
+            truncated,
+            Timestamp::from_datetime(
+                DateTime::parse_from_rfc3339("2024-08-08T00:00:00-08:00").unwrap()
+            )
+        );
+    }
+
+    #[test]
+    fn test_timestamp_granularity_truncate_month() {
+        let now = Timestamp::from_datetime(
+            DateTime::parse_from_rfc3339("2024-08-08T08:08:08-08:00").unwrap(),
+        );
+        let truncated = TimestampGranularity::Month.truncate(now).unwrap();
+        assert_eq!(
+            truncated,
+            Timestamp::from_datetime(
+                DateTime::parse_from_rfc3339("2024-08-01T00:00:00-08:00").unwrap()
+            )
+        );
+    }
+
+    #[test]
+    fn test_timestamp_granularity_truncate_year() {
+        let now = Timestamp::from_datetime(
+            DateTime::parse_from_rfc3339("2024-08-08T08:08:08-08:00").unwrap(),
+        );
+        let truncated = TimestampGranularity::Year.truncate(now).unwrap();
+        assert_eq!(
+            truncated,
+            Timestamp::from_datetime(
+                DateTime::parse_from_rfc3339("2024-01-01T00:00:00-08:00").unwrap()
+            )
+        );
     }
 }
