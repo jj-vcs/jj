@@ -18,6 +18,9 @@ use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
 
+use futures::StreamExt as _;
+use futures::TryStreamExt as _;
+use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -36,10 +39,10 @@ use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetEvaluationError;
 use jj_lib::revset::RevsetExpression;
 use jj_lib::revset::RevsetExtensions;
-use jj_lib::revset::RevsetIteratorExt as _;
 use jj_lib::revset::RevsetParseContext;
 use jj_lib::revset::RevsetParseError;
 use jj_lib::revset::RevsetResolutionError;
+use jj_lib::revset::RevsetStreamExt as _;
 use jj_lib::revset::SymbolResolver;
 use jj_lib::revset::SymbolResolverExtension;
 use jj_lib::revset::UserRevsetExpression;
@@ -125,10 +128,10 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     pub fn evaluate_to_commit_ids(
         &self,
     ) -> Result<
-        Box<dyn Iterator<Item = Result<CommitId, RevsetEvaluationError>> + 'repo>,
+        LocalBoxStream<'repo, Result<CommitId, RevsetEvaluationError>>,
         UserRevsetEvaluationError,
     > {
-        Ok(self.evaluate()?.iter())
+        Ok(self.evaluate()?.stream())
     }
 
     /// Evaluates the expression to an iterator over commit objects. Entries are
@@ -136,10 +139,14 @@ impl<'repo> RevsetExpressionEvaluator<'repo> {
     pub fn evaluate_to_commits(
         &self,
     ) -> Result<
-        impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<'repo>,
+        LocalBoxStream<'repo, Result<Commit, RevsetEvaluationError>>,
         UserRevsetEvaluationError,
     > {
-        Ok(self.evaluate()?.iter().commits(self.repo.store()))
+        Ok(self
+            .evaluate()?
+            .stream()
+            .commits(self.repo.store())
+            .boxed_local())
     }
 }
 
@@ -217,24 +224,26 @@ pub(super) fn try_resolve_trunk_alias(
     Ok(Some(resolved))
 }
 
-pub(super) fn evaluate_revset_to_single_commit<'a>(
+pub(super) async fn evaluate_revset_to_single_commit<'a>(
     revision_str: &str,
     expression: &RevsetExpressionEvaluator<'_>,
     commit_summary_template: impl FnOnce() -> TemplateRenderer<'a, Commit>,
 ) -> Result<Commit, CommandError> {
-    let mut iter = expression.evaluate_to_commits()?.fuse();
-    match (iter.next(), iter.next()) {
-        (Some(commit), None) => Ok(commit?),
-        (None, _) => Err(user_error(format!(
+    let commits: Vec<_> = expression
+        .evaluate_to_commits()?
+        .take(6)
+        .try_collect()
+        .await?;
+    match commits.as_slice() {
+        [commit] => Ok(commit.clone()),
+        [] => Err(user_error(format!(
             "Revset `{revision_str}` didn't resolve to any revisions"
         ))),
-        (Some(commit0), Some(commit1)) => {
-            let mut iter = [commit0, commit1].into_iter().chain(iter);
-            let commits: Vec<_> = iter.by_ref().take(5).try_collect()?;
-            let elided = iter.next().is_some();
+        _ => {
+            let elided = commits.len() > 5;
             Err(format_multiple_revisions_error(
                 revision_str,
-                &commits,
+                &commits[..std::cmp::min(5, commits.len())],
                 elided,
                 &commit_summary_template(),
             ))

@@ -206,8 +206,12 @@ impl SplitArgs {
         ui: &Ui,
         workspace_command: &WorkspaceCommandHelper,
     ) -> Result<ResolvedSplitArgs, CommandError> {
-        let target_commit = workspace_command.resolve_single_rev(ui, &self.revision)?;
-        workspace_command.check_rewritable([target_commit.id()])?;
+        let target_commit = workspace_command
+            .resolve_single_rev(ui, &self.revision)
+            .await?;
+        workspace_command
+            .check_rewritable([target_commit.id()])
+            .await?;
         let repo = workspace_command.repo();
         let fileset_expression = workspace_command.parse_file_patterns(ui, &self.paths)?;
         let matcher = fileset_expression.to_matcher();
@@ -226,7 +230,8 @@ impl SplitArgs {
                 self.insert_after.as_deref(),
                 self.insert_before.as_deref(),
                 "split-out commit",
-            )?
+            )
+            .await?
         } else {
             Default::default()
         };
@@ -411,7 +416,8 @@ pub(crate) async fn cmd_split(
         tx.write_commit_summary(formatter.as_mut(), &second_commit)?;
         writeln!(formatter)?;
     }
-    tx.finish(ui, format!("split commit {}", target.commit.id().hex()))?;
+    tx.finish(ui, format!("split commit {}", target.commit.id().hex()))
+        .await?;
     Ok(())
 }
 

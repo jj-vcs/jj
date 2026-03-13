@@ -32,7 +32,7 @@ pub(crate) struct SimplifyParentsArgs {
     /// If both `--source` and `--revisions` are not provided, this defaults to
     /// the `revsets.simplify-parents` setting, or `reachable(@, mutable())`
     /// if it is not set.
-    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revisions: Vec<RevisionArg>,
 }
@@ -61,7 +61,7 @@ pub(crate) async fn cmd_simplify_parents(
                     .resolve()?,
             )
     };
-    workspace_command.check_rewritable_expr(&revs)?;
+    workspace_command.check_rewritable_expr(&revs).await?;
     let commit_ids: Vec<_> = revs
         .evaluate(workspace_command.repo().as_ref())?
         .stream()
@@ -115,7 +115,8 @@ pub(crate) async fn cmd_simplify_parents(
             )?;
         }
     }
-    tx.finish(ui, format!("simplify {num_orig_commits} commits"))?;
+    tx.finish(ui, format!("simplify {num_orig_commits} commits"))
+        .await?;
 
     Ok(())
 }

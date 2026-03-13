@@ -38,7 +38,7 @@ use crate::ui::Ui;
 #[derive(clap::Args, Clone, Debug)]
 pub struct UnsignArgs {
     /// What revision(s) to unsign
-    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revisions: Vec<RevisionArg>,
 }
@@ -53,7 +53,9 @@ pub async fn cmd_unsign(
     let target_expr = workspace_command
         .parse_union_revsets(ui, &args.revisions)?
         .resolve()?;
-    workspace_command.check_rewritable_expr(&target_expr)?;
+    workspace_command
+        .check_rewritable_expr(&target_expr)
+        .await?;
     let commits: IndexSet<Commit> = target_expr
         .evaluate(workspace_command.repo().as_ref())?
         .stream()
@@ -129,7 +131,7 @@ pub async fn cmd_unsign(
             commits.len() - 1
         ),
     };
-    tx.finish(ui, transaction_description)?;
+    tx.finish(ui, transaction_description).await?;
 
     Ok(())
 }

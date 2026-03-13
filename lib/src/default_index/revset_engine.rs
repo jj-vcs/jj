@@ -21,13 +21,12 @@ use std::convert::Infallible;
 use std::fmt;
 use std::iter;
 use std::ops::Range;
-use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use bstr::BString;
-use futures::Stream;
 use futures::StreamExt as _;
+use futures::stream::LocalBoxStream;
 use itertools::Itertools as _;
 use pollster::FutureExt as _;
 
@@ -164,13 +163,11 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
         Box::new(iter::from_fn(move || walk.next(index.as_composite())))
     }
 
-    fn stream<'a>(
-        &self,
-    ) -> Pin<Box<dyn Stream<Item = Result<CommitId, RevsetEvaluationError>> + 'a>>
+    fn stream<'a>(&self) -> LocalBoxStream<'a, Result<CommitId, RevsetEvaluationError>>
     where
         Self: 'a,
     {
-        Box::pin(futures::stream::iter(self.iter()))
+        futures::stream::iter(self.iter()).boxed_local()
     }
 
     fn commit_change_ids<'a>(
@@ -199,11 +196,11 @@ impl<I: AsCompositeIndex + Clone> Revset for RevsetImpl<I> {
 
     fn stream_graph<'a>(
         &self,
-    ) -> Pin<Box<dyn Stream<Item = Result<GraphNode<CommitId>, RevsetEvaluationError>> + 'a>>
+    ) -> LocalBoxStream<'a, Result<GraphNode<CommitId>, RevsetEvaluationError>>
     where
         Self: 'a,
     {
-        Box::pin(futures::stream::iter(self.iter_graph()))
+        futures::stream::iter(self.iter_graph()).boxed_local()
     }
 
     fn is_empty(&self) -> bool {
@@ -1537,6 +1534,7 @@ mod tests {
     use crate::files::FileMergeHunkLevel;
     use crate::merge::SameChange;
     use crate::str_util::StringPattern;
+    use crate::tests::TestResult;
 
     const TEST_FIELD_LENGTHS: FieldLengths = FieldLengths {
         commit_id: 3,
@@ -1554,7 +1552,7 @@ mod tests {
     }
 
     #[test]
-    fn test_revset_combinator() {
+    fn test_revset_combinator() -> TestResult {
         let mut new_change_id = change_id_generator();
         let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         let id_0 = CommitId::from_hex("000000");
@@ -1578,16 +1576,16 @@ mod tests {
 
         let set = make_set(&[&id_4, &id_3, &id_2, &id_0]);
         let mut p = set.to_predicate_fn();
-        assert!(p(index, get_pos(&id_4)).unwrap());
-        assert!(p(index, get_pos(&id_3)).unwrap());
-        assert!(p(index, get_pos(&id_2)).unwrap());
-        assert!(!p(index, get_pos(&id_1)).unwrap());
-        assert!(p(index, get_pos(&id_0)).unwrap());
+        assert!(p(index, get_pos(&id_4))?);
+        assert!(p(index, get_pos(&id_3))?);
+        assert!(p(index, get_pos(&id_2))?);
+        assert!(!p(index, get_pos(&id_1))?);
+        assert!(p(index, get_pos(&id_0))?);
         // Uninteresting entries can be skipped
         let mut p = set.to_predicate_fn();
-        assert!(p(index, get_pos(&id_3)).unwrap());
-        assert!(!p(index, get_pos(&id_1)).unwrap());
-        assert!(p(index, get_pos(&id_0)).unwrap());
+        assert!(p(index, get_pos(&id_3))?);
+        assert!(!p(index, get_pos(&id_1))?);
+        assert!(p(index, get_pos(&id_0))?);
 
         let set = FilterRevset {
             candidates: make_set(&[&id_4, &id_2, &id_0]),
@@ -1596,15 +1594,15 @@ mod tests {
             }),
         };
         assert_eq!(
-            try_collect_vec(set.positions().attach(index)).unwrap(),
+            try_collect_vec(set.positions().attach(index))?,
             make_positions(&[&id_2, &id_0])
         );
         let mut p = set.to_predicate_fn();
-        assert!(!p(index, get_pos(&id_4)).unwrap());
-        assert!(!p(index, get_pos(&id_3)).unwrap());
-        assert!(p(index, get_pos(&id_2)).unwrap());
-        assert!(!p(index, get_pos(&id_1)).unwrap());
-        assert!(p(index, get_pos(&id_0)).unwrap());
+        assert!(!p(index, get_pos(&id_4))?);
+        assert!(!p(index, get_pos(&id_3))?);
+        assert!(p(index, get_pos(&id_2))?);
+        assert!(!p(index, get_pos(&id_1))?);
+        assert!(p(index, get_pos(&id_0))?);
 
         // Intersection by FilterRevset
         let set = FilterRevset {
@@ -1612,64 +1610,65 @@ mod tests {
             predicate: make_set(&[&id_3, &id_2, &id_1]),
         };
         assert_eq!(
-            try_collect_vec(set.positions().attach(index)).unwrap(),
+            try_collect_vec(set.positions().attach(index))?,
             make_positions(&[&id_2])
         );
         let mut p = set.to_predicate_fn();
-        assert!(!p(index, get_pos(&id_4)).unwrap());
-        assert!(!p(index, get_pos(&id_3)).unwrap());
-        assert!(p(index, get_pos(&id_2)).unwrap());
-        assert!(!p(index, get_pos(&id_1)).unwrap());
-        assert!(!p(index, get_pos(&id_0)).unwrap());
+        assert!(!p(index, get_pos(&id_4))?);
+        assert!(!p(index, get_pos(&id_3))?);
+        assert!(p(index, get_pos(&id_2))?);
+        assert!(!p(index, get_pos(&id_1))?);
+        assert!(!p(index, get_pos(&id_0))?);
 
         let set = UnionRevset {
             set1: make_set(&[&id_4, &id_2]),
             set2: make_set(&[&id_3, &id_2, &id_1]),
         };
         assert_eq!(
-            try_collect_vec(set.positions().attach(index)).unwrap(),
+            try_collect_vec(set.positions().attach(index))?,
             make_positions(&[&id_4, &id_3, &id_2, &id_1])
         );
         let mut p = set.to_predicate_fn();
-        assert!(p(index, get_pos(&id_4)).unwrap());
-        assert!(p(index, get_pos(&id_3)).unwrap());
-        assert!(p(index, get_pos(&id_2)).unwrap());
-        assert!(p(index, get_pos(&id_1)).unwrap());
-        assert!(!p(index, get_pos(&id_0)).unwrap());
+        assert!(p(index, get_pos(&id_4))?);
+        assert!(p(index, get_pos(&id_3))?);
+        assert!(p(index, get_pos(&id_2))?);
+        assert!(p(index, get_pos(&id_1))?);
+        assert!(!p(index, get_pos(&id_0))?);
 
         let set = IntersectionRevset {
             set1: make_set(&[&id_4, &id_2, &id_0]),
             set2: make_set(&[&id_3, &id_2, &id_1]),
         };
         assert_eq!(
-            try_collect_vec(set.positions().attach(index)).unwrap(),
+            try_collect_vec(set.positions().attach(index))?,
             make_positions(&[&id_2])
         );
         let mut p = set.to_predicate_fn();
-        assert!(!p(index, get_pos(&id_4)).unwrap());
-        assert!(!p(index, get_pos(&id_3)).unwrap());
-        assert!(p(index, get_pos(&id_2)).unwrap());
-        assert!(!p(index, get_pos(&id_1)).unwrap());
-        assert!(!p(index, get_pos(&id_0)).unwrap());
+        assert!(!p(index, get_pos(&id_4))?);
+        assert!(!p(index, get_pos(&id_3))?);
+        assert!(p(index, get_pos(&id_2))?);
+        assert!(!p(index, get_pos(&id_1))?);
+        assert!(!p(index, get_pos(&id_0))?);
 
         let set = DifferenceRevset {
             set1: make_set(&[&id_4, &id_2, &id_0]),
             set2: make_set(&[&id_3, &id_2, &id_1]),
         };
         assert_eq!(
-            try_collect_vec(set.positions().attach(index)).unwrap(),
+            try_collect_vec(set.positions().attach(index))?,
             make_positions(&[&id_4, &id_0])
         );
         let mut p = set.to_predicate_fn();
-        assert!(p(index, get_pos(&id_4)).unwrap());
-        assert!(!p(index, get_pos(&id_3)).unwrap());
-        assert!(!p(index, get_pos(&id_2)).unwrap());
-        assert!(!p(index, get_pos(&id_1)).unwrap());
-        assert!(p(index, get_pos(&id_0)).unwrap());
+        assert!(p(index, get_pos(&id_4))?);
+        assert!(!p(index, get_pos(&id_3))?);
+        assert!(!p(index, get_pos(&id_2))?);
+        assert!(!p(index, get_pos(&id_1))?);
+        assert!(p(index, get_pos(&id_0))?);
+        Ok(())
     }
 
     #[test]
-    fn test_revset_combinator_error_propagation() {
+    fn test_revset_combinator_error_propagation() -> TestResult {
         let mut new_change_id = change_id_generator();
         let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         let id_0 = CommitId::from_hex("000000");
@@ -1704,12 +1703,12 @@ mod tests {
         // Error from filter predicate
         let set = make_bad_set(&[&id_2, &id_1, &id_0], &id_1);
         assert_eq!(
-            try_collect_vec(set.positions().attach(index).take(1)).unwrap(),
+            try_collect_vec(set.positions().attach(index).take(1))?,
             make_positions(&[&id_2])
         );
         assert!(try_collect_vec(set.positions().attach(index).take(2)).is_err());
         let mut p = set.to_predicate_fn();
-        assert!(p(index, get_pos(&id_2)).unwrap());
+        assert!(p(index, get_pos(&id_2))?);
         assert!(p(index, get_pos(&id_1)).is_err());
 
         // Error from filter candidates
@@ -1718,12 +1717,12 @@ mod tests {
             predicate: as_pure_predicate_fn(|_, _| Ok(true)),
         };
         assert_eq!(
-            try_collect_vec(set.positions().attach(index).take(1)).unwrap(),
+            try_collect_vec(set.positions().attach(index).take(1))?,
             make_positions(&[&id_2])
         );
         assert!(try_collect_vec(set.positions().attach(index).take(2)).is_err());
         let mut p = set.to_predicate_fn();
-        assert!(p(index, get_pos(&id_2)).unwrap());
+        assert!(p(index, get_pos(&id_2))?);
         assert!(p(index, get_pos(&id_1)).is_err());
 
         // Error from left side of union, immediately
@@ -1733,7 +1732,7 @@ mod tests {
         };
         assert!(try_collect_vec(set.positions().attach(index).take(1)).is_err());
         let mut p = set.to_predicate_fn();
-        assert!(p(index, get_pos(&id_2)).unwrap()); // works because bad id isn't visited
+        assert!(p(index, get_pos(&id_2))?); // works because bad id isn't visited
         assert!(p(index, get_pos(&id_1)).is_err());
 
         // Error from right side of union, lazily
@@ -1742,13 +1741,13 @@ mod tests {
             set2: make_bad_set(&[&id_1, &id_0], &id_0),
         };
         assert_eq!(
-            try_collect_vec(set.positions().attach(index).take(2)).unwrap(),
+            try_collect_vec(set.positions().attach(index).take(2))?,
             make_positions(&[&id_2, &id_1])
         );
         assert!(try_collect_vec(set.positions().attach(index).take(3)).is_err());
         let mut p = set.to_predicate_fn();
-        assert!(p(index, get_pos(&id_2)).unwrap());
-        assert!(p(index, get_pos(&id_1)).unwrap());
+        assert!(p(index, get_pos(&id_2))?);
+        assert!(p(index, get_pos(&id_1))?);
         assert!(p(index, get_pos(&id_0)).is_err());
 
         // Error from left side of intersection, immediately
@@ -1758,7 +1757,7 @@ mod tests {
         };
         assert!(try_collect_vec(set.positions().attach(index).take(1)).is_err());
         let mut p = set.to_predicate_fn();
-        assert!(!p(index, get_pos(&id_2)).unwrap());
+        assert!(!p(index, get_pos(&id_2))?);
         assert!(p(index, get_pos(&id_1)).is_err());
 
         // Error from right side of intersection, lazily
@@ -1767,13 +1766,13 @@ mod tests {
             set2: make_bad_set(&[&id_1, &id_0], &id_0),
         };
         assert_eq!(
-            try_collect_vec(set.positions().attach(index).take(1)).unwrap(),
+            try_collect_vec(set.positions().attach(index).take(1))?,
             make_positions(&[&id_1])
         );
         assert!(try_collect_vec(set.positions().attach(index).take(2)).is_err());
         let mut p = set.to_predicate_fn();
-        assert!(!p(index, get_pos(&id_2)).unwrap());
-        assert!(p(index, get_pos(&id_1)).unwrap());
+        assert!(!p(index, get_pos(&id_2))?);
+        assert!(p(index, get_pos(&id_1))?);
         assert!(p(index, get_pos(&id_0)).is_err());
 
         // Error from left side of difference, immediately
@@ -1783,7 +1782,7 @@ mod tests {
         };
         assert!(try_collect_vec(set.positions().attach(index).take(1)).is_err());
         let mut p = set.to_predicate_fn();
-        assert!(!p(index, get_pos(&id_2)).unwrap());
+        assert!(!p(index, get_pos(&id_2))?);
         assert!(p(index, get_pos(&id_1)).is_err());
 
         // Error from right side of difference, lazily
@@ -1792,18 +1791,19 @@ mod tests {
             set2: make_bad_set(&[&id_1, &id_0], &id_0),
         };
         assert_eq!(
-            try_collect_vec(set.positions().attach(index).take(1)).unwrap(),
+            try_collect_vec(set.positions().attach(index).take(1))?,
             make_positions(&[&id_2])
         );
         assert!(try_collect_vec(set.positions().attach(index).take(2)).is_err());
         let mut p = set.to_predicate_fn();
-        assert!(p(index, get_pos(&id_2)).unwrap());
-        assert!(!p(index, get_pos(&id_1)).unwrap());
+        assert!(p(index, get_pos(&id_2))?);
+        assert!(!p(index, get_pos(&id_1))?);
         assert!(p(index, get_pos(&id_0)).is_err());
+        Ok(())
     }
 
     #[test]
-    fn test_positions_accumulator() {
+    fn test_positions_accumulator() -> TestResult {
         let mut new_change_id = change_id_generator();
         let mut index = DefaultMutableIndex::full(TEST_FIELD_LENGTHS);
         let id_0 = CommitId::from_hex("000000");
@@ -1830,39 +1830,36 @@ mod tests {
         // Consumes entries incrementally
         let positions_accum = PositionsAccumulator::new(index, full_set.positions());
 
-        assert!(positions_accum.contains(&id_3).unwrap());
+        assert!(positions_accum.contains(&id_3)?);
         assert_eq!(positions_accum.consumed_len(), 2);
 
-        assert!(positions_accum.contains(&id_0).unwrap());
+        assert!(positions_accum.contains(&id_0)?);
         assert_eq!(positions_accum.consumed_len(), 5);
 
-        assert!(positions_accum.contains(&id_3).unwrap());
+        assert!(positions_accum.contains(&id_3)?);
         assert_eq!(positions_accum.consumed_len(), 5);
 
         // Does not consume positions for unknown commits
         let positions_accum = PositionsAccumulator::new(index, full_set.positions());
 
-        assert!(
-            !positions_accum
-                .contains(&CommitId::from_hex("999999"))
-                .unwrap()
-        );
+        assert!(!positions_accum.contains(&CommitId::from_hex("999999"))?);
         assert_eq!(positions_accum.consumed_len(), 0);
 
         // Does not consume without necessity
         let set = make_set(&[&id_3, &id_2, &id_1]);
         let positions_accum = PositionsAccumulator::new(index, set.positions());
 
-        assert!(!positions_accum.contains(&id_4).unwrap());
+        assert!(!positions_accum.contains(&id_4)?);
         assert_eq!(positions_accum.consumed_len(), 1);
 
-        assert!(positions_accum.contains(&id_3).unwrap());
+        assert!(positions_accum.contains(&id_3)?);
         assert_eq!(positions_accum.consumed_len(), 1);
 
-        assert!(!positions_accum.contains(&id_0).unwrap());
+        assert!(!positions_accum.contains(&id_0)?);
         assert_eq!(positions_accum.consumed_len(), 3);
 
-        assert!(positions_accum.contains(&id_1).unwrap());
+        assert!(positions_accum.contains(&id_1)?);
+        Ok(())
     }
 
     fn diff_match_lines_samples() -> (Merge<BString>, Merge<BString>) {

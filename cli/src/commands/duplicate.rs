@@ -16,6 +16,7 @@ use std::io::Write as _;
 
 use bstr::ByteVec as _;
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::BackendResult;
 use jj_lib::backend::CommitId;
@@ -113,7 +114,8 @@ pub(crate) async fn cmd_duplicate(
             workspace_command.parse_revset(ui, &RevisionArg::AT)?
         }
         .evaluate_to_commit_ids()?
-        .try_collect()?; // in reverse topological order
+        .try_collect()
+        .await?; // in reverse topological order
     if to_duplicate.is_empty() {
         writeln!(ui.status(), "No revisions to duplicate.")?;
         return Ok(());
@@ -126,14 +128,17 @@ pub(crate) async fn cmd_duplicate(
         if args.onto.is_none() && args.insert_after.is_none() && args.insert_before.is_none() {
             None
         } else {
-            Some(compute_commit_location(
-                ui,
-                &workspace_command,
-                args.onto.as_deref(),
-                args.insert_after.as_deref(),
-                args.insert_before.as_deref(),
-                "duplicated commits",
-            )?)
+            Some(
+                compute_commit_location(
+                    ui,
+                    &workspace_command,
+                    args.onto.as_deref(),
+                    args.insert_after.as_deref(),
+                    args.insert_before.as_deref(),
+                    "duplicated commits",
+                )
+                .await?,
+            )
         };
 
     let mut tx = workspace_command.start_transaction();
@@ -215,6 +220,7 @@ pub(crate) async fn cmd_duplicate(
             )?;
         }
     }
-    tx.finish(ui, format!("duplicate {num_to_duplicate} commit(s)"))?;
+    tx.finish(ui, format!("duplicate {num_to_duplicate} commit(s)"))
+        .await?;
     Ok(())
 }

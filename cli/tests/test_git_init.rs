@@ -14,9 +14,12 @@
 
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 
+use assert_cmd::assert::OutputAssertExt as _;
 use indoc::formatdoc;
 use test_case::test_case;
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -54,6 +57,7 @@ fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     separate(" ",
       commit_id.short(),
       bookmarks,
+      if(git_head, "git_head()"),
       description,
     )"#;
     work_dir.run_jj(["log", "-T", template, "-r=all()"])
@@ -196,12 +200,21 @@ fn test_git_init_external(bare: bool) {
 
     // Check that the Git repo's HEAD got checked out
     insta::allow_duplicates! {
-        insta::assert_snapshot!(get_log_output(&work_dir), @"
+        insta::assert_snapshot!(get_log_output(&work_dir), @r#"
         @  ed6b513890ae
-        ○  e80a42cccd06 my-bookmark My commit message
+        ○  e80a42cccd06 my-bookmark git_head() My commit message
         ◆  000000000000
         [EOF]
-        ");
+        ------- stderr -------
+        Warning: In template expression
+         --> 5:10
+          |
+        5 |       if(git_head, "git_head()"),
+          |          ^------^
+          |
+          = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+        [EOF]
+        "#);
         insta::assert_snapshot!(get_colocation_status(&work_dir), @"
         Workspace is currently not colocated with Git.
         Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
@@ -246,7 +259,7 @@ fn test_git_init_external_with_colocate_config() {
 
 #[test_case(false; "full")]
 #[test_case(true; "bare")]
-fn test_git_init_external_import_trunk(bare: bool) {
+fn test_git_init_external_import_trunk(bare: bool) -> TestResult {
     let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = init_git_repo(&git_repo_path, bare);
@@ -255,19 +268,14 @@ fn test_git_init_external_import_trunk(bare: bool) {
     test_env.add_config("git.colocate = true");
 
     // Add remote bookmark "trunk" for remote "origin", and set it as "origin/HEAD"
-    let oid = git_repo
-        .find_reference("refs/heads/my-bookmark")
-        .unwrap()
-        .id();
+    let oid = git_repo.find_reference("refs/heads/my-bookmark")?.id();
 
-    git_repo
-        .reference(
-            "refs/remotes/origin/trunk",
-            oid.detach(),
-            gix::refs::transaction::PreviousValue::MustNotExist,
-            "create remote ref",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/remotes/origin/trunk",
+        oid.detach(),
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "create remote ref",
+    )?;
 
     git::set_symbolic_reference(
         &git_repo,
@@ -308,10 +316,11 @@ fn test_git_init_external_import_trunk(bare: bool) {
         [EOF]
         "#);
     }
+    Ok(())
 }
 
 #[test]
-fn test_git_init_external_import_trunk_upstream_takes_precedence() {
+fn test_git_init_external_import_trunk_upstream_takes_precedence() -> TestResult {
     let test_env = TestEnvironment::default();
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_repo = init_git_repo(&git_repo_path, false);
@@ -319,21 +328,16 @@ fn test_git_init_external_import_trunk_upstream_takes_precedence() {
     // Explicitly enable git.colocate (which is also the default)
     test_env.add_config("git.colocate = true");
 
-    let oid = git_repo
-        .find_reference("refs/heads/my-bookmark")
-        .unwrap()
-        .id();
+    let oid = git_repo.find_reference("refs/heads/my-bookmark")?.id();
 
     // Add both upstream and origin remotes with different default branches
     // upstream has "develop" as default
-    git_repo
-        .reference(
-            "refs/remotes/upstream/develop",
-            oid.detach(),
-            gix::refs::transaction::PreviousValue::MustNotExist,
-            "create upstream remote ref",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/remotes/upstream/develop",
+        oid.detach(),
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "create upstream remote ref",
+    )?;
 
     git::set_symbolic_reference(
         &git_repo,
@@ -342,14 +346,12 @@ fn test_git_init_external_import_trunk_upstream_takes_precedence() {
     );
 
     // origin has "trunk" as default
-    git_repo
-        .reference(
-            "refs/remotes/origin/trunk",
-            oid.detach(),
-            gix::refs::transaction::PreviousValue::MustNotExist,
-            "create origin remote ref",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/remotes/origin/trunk",
+        oid.detach(),
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "create origin remote ref",
+    )?;
 
     git::set_symbolic_reference(
         &git_repo,
@@ -391,6 +393,7 @@ fn test_git_init_external_import_trunk_upstream_takes_precedence() {
         [EOF]
         "#);
     }
+    Ok(())
 }
 
 #[test]
@@ -458,12 +461,21 @@ fn test_git_init_colocated_via_git_repo_path() {
     );
 
     // Check that the Git repo's HEAD got checked out
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  f3fe58bc88cc
-    ○  e80a42cccd06 my-bookmark My commit message
+    ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
@@ -472,13 +484,22 @@ fn test_git_init_colocated_via_git_repo_path() {
 
     // Check that the Git repo's HEAD moves
     work_dir.run_jj(["new"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  bacc067e7740
-    ○  f3fe58bc88cc
+    ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
@@ -508,12 +529,21 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
     insta::assert_snapshot!(read_git_target(&jj_work_dir), @"../../../.git");
 
     // Check that the Git repo's HEAD got checked out
-    insta::assert_snapshot!(get_log_output(&jj_work_dir), @"
+    insta::assert_snapshot!(get_log_output(&jj_work_dir), @r#"
     @  f3fe58bc88cc
-    ○  e80a42cccd06 my-bookmark My commit message
+    ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
@@ -522,13 +552,22 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
 
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
-    insta::assert_snapshot!(get_log_output(&jj_work_dir), @"
+    insta::assert_snapshot!(get_log_output(&jj_work_dir), @r#"
     @  bacc067e7740
-    ○  f3fe58bc88cc
+    ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
@@ -538,15 +577,14 @@ fn test_git_init_colocated_via_git_repo_path_gitlink() {
 
 #[cfg(unix)]
 #[test]
-fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
+fn test_git_init_colocated_via_git_repo_path_symlink_directory() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.colocate = true");
     // <jj_work_dir>/.git -> <git_repo_path>
     let git_repo_path = test_env.env_root().join("git-repo");
     init_git_repo(&git_repo_path, false);
     let jj_work_dir = test_env.work_dir("").create_dir("repo");
-    std::os::unix::fs::symlink(git_repo_path.join(".git"), jj_work_dir.root().join(".git"))
-        .unwrap();
+    std::os::unix::fs::symlink(git_repo_path.join(".git"), jj_work_dir.root().join(".git"))?;
     let output = jj_work_dir.run_jj(["git", "init", "--git-repo", "."]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -558,12 +596,21 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
     insta::assert_snapshot!(read_git_target(&jj_work_dir), @"../../../.git");
 
     // Check that the Git repo's HEAD got checked out
-    insta::assert_snapshot!(get_log_output(&jj_work_dir), @"
+    insta::assert_snapshot!(get_log_output(&jj_work_dir), @r#"
     @  f3fe58bc88cc
-    ○  e80a42cccd06 my-bookmark My commit message
+    ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
@@ -572,23 +619,33 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory() {
 
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
-    insta::assert_snapshot!(get_log_output(&jj_work_dir), @"
+    insta::assert_snapshot!(get_log_output(&jj_work_dir), @r#"
     @  bacc067e7740
-    ○  f3fe58bc88cc
+    ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
     [EOF]
     ");
+    Ok(())
 }
 
 #[cfg(unix)]
 #[test]
-fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_config() {
+fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_config() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.colocate = true");
     // <jj_work_dir>/.git -> <git_repo_path>
@@ -599,8 +656,8 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
     let git_repo = init_git_repo(jj_work_dir.root(), false);
     git::remove_config_value(git_repo, "config", "bare");
 
-    std::fs::rename(jj_work_dir.root().join(".git"), &git_repo_path).unwrap();
-    std::os::unix::fs::symlink(&git_repo_path, jj_work_dir.root().join(".git")).unwrap();
+    std::fs::rename(jj_work_dir.root().join(".git"), &git_repo_path)?;
+    std::os::unix::fs::symlink(&git_repo_path, jj_work_dir.root().join(".git"))?;
     let output = jj_work_dir.run_jj(["git", "init", "--git-repo", "."]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -612,12 +669,21 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
     insta::assert_snapshot!(read_git_target(&jj_work_dir), @"../../../.git");
 
     // Check that the Git repo's HEAD got checked out
-    insta::assert_snapshot!(get_log_output(&jj_work_dir), @"
+    insta::assert_snapshot!(get_log_output(&jj_work_dir), @r#"
     @  f3fe58bc88cc
-    ○  e80a42cccd06 my-bookmark My commit message
+    ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
@@ -626,38 +692,47 @@ fn test_git_init_colocated_via_git_repo_path_symlink_directory_without_bare_conf
 
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
-    insta::assert_snapshot!(get_log_output(&jj_work_dir), @"
+    insta::assert_snapshot!(get_log_output(&jj_work_dir), @r#"
     @  bacc067e7740
-    ○  f3fe58bc88cc
+    ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
     [EOF]
     ");
+    Ok(())
 }
 
 #[cfg(unix)]
 #[test]
-fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
+fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.colocate = true");
     // <jj_work_dir>/.git -> <git_workdir_path>/.git -> <git_repo_path>
     let git_repo_path = test_env.env_root().join("git-repo");
     let git_workdir_path = test_env.env_root().join("git-workdir");
     let git_repo = init_git_repo(&git_repo_path, false);
-    std::fs::create_dir(&git_workdir_path).unwrap();
+    std::fs::create_dir(&git_workdir_path)?;
     git::create_gitlink(&git_workdir_path, git_repo.path());
     assert!(git_workdir_path.join(".git").is_file());
     let jj_work_dir = test_env.work_dir("").create_dir("repo");
     std::os::unix::fs::symlink(
         git_workdir_path.join(".git"),
         jj_work_dir.root().join(".git"),
-    )
-    .unwrap();
+    )?;
     let output = jj_work_dir.run_jj(["git", "init", "--git-repo", "."]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -669,12 +744,21 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
     insta::assert_snapshot!(read_git_target(&jj_work_dir), @"../../../.git");
 
     // Check that the Git repo's HEAD got checked out
-    insta::assert_snapshot!(get_log_output(&jj_work_dir), @"
+    insta::assert_snapshot!(get_log_output(&jj_work_dir), @r#"
     @  f3fe58bc88cc
-    ○  e80a42cccd06 my-bookmark My commit message
+    ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
@@ -683,18 +767,28 @@ fn test_git_init_colocated_via_git_repo_path_symlink_gitlink() {
 
     // Check that the Git repo's HEAD moves
     jj_work_dir.run_jj(["new"]).success();
-    insta::assert_snapshot!(get_log_output(&jj_work_dir), @"
+    insta::assert_snapshot!(get_log_output(&jj_work_dir), @r#"
     @  bacc067e7740
-    ○  f3fe58bc88cc
+    ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&jj_work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -906,25 +1000,339 @@ fn test_git_init_external_but_git_dir_exists() {
     "#);
 
     // The local ".git" repository is unrelated, so no commits should be imported
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  e8849ae12c70
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
 
     // Check that Git HEAD is not set because this isn't a colocated workspace
     work_dir.run_jj(["new"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  1c1c95df80e5
     ○  e8849ae12c70
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently not colocated with Git.
     Last imported/exported Git HEAD: (none)
     [EOF]
     ");
+}
+
+fn create_commit(
+    git_repo: &gix::Repository,
+    ref_name: &str,
+    msg: &str,
+    parents: &[gix::ObjectId],
+) -> gix::ObjectId {
+    let empty_tree_id = git_repo.empty_tree().id().detach();
+    git::write_commit(git_repo, ref_name, empty_tree_id, msg, parents)
+}
+
+fn add_worktree(
+    git_repo: &gix::Repository,
+    worktree_path: &Path,
+    checkout_ref: &gix::ObjectId,
+    branch_name: &str,
+) {
+    // NOTE: Using the `git` command here as it seems `gix` does not support
+    // creating worktrees.
+    Command::new("git")
+        .args(["worktree", "add", worktree_path.to_str().unwrap()])
+        .arg(checkout_ref.to_string())
+        .args(["-b", branch_name])
+        .current_dir(git_repo.path())
+        .env("LANG", "C")
+        .assert()
+        .success()
+        .stderr("Preparing worktree (new branch 'jj-worktree')\n");
+}
+
+#[test]
+fn test_git_init_external_pointing_at_worktree_from_outside() {
+    let test_env = TestEnvironment::default();
+    let git_repo_path = test_env.env_root().join("git-repo");
+    let worktree_path = test_env.env_root().join("worktree");
+    let workspace_root = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
+
+    let git_repo = git::init(&git_repo_path);
+    // Must create a commit so we can create a worktree
+    let initial_commit = create_commit(&git_repo, "refs/heads/main", "initial commit", &[]);
+    add_worktree(&git_repo, &worktree_path, &initial_commit, "jj-worktree");
+
+    // now commit in the worktree, so we know where we are importing from
+    let worktree_repo = git::open(&worktree_path);
+    let _initial_commit = create_commit(
+        &worktree_repo,
+        "refs/heads/jj-worktree",
+        "second commit",
+        &[worktree_repo.find_commit(initial_commit).unwrap().id],
+    )
+    .to_string();
+
+    std::fs::create_dir(&workspace_root).unwrap();
+    let output = work_dir.run_jj(["git", "init", "--git-repo", worktree_path.to_str().unwrap()]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Working copy  (@) now at: sqpuoqvx ec8ff2c1 (empty) (no description set)
+    Parent commit (@-)      : swvxkrzu c8c6f2fd jj-worktree | (empty) second commit
+    Initialized repo in "."
+    [EOF]
+    "#);
+
+    assert_eq!(
+        dunce::canonicalize(PathBuf::from(read_git_target(&work_dir))).unwrap(),
+        dunce::canonicalize(worktree_path.join(".git")).unwrap()
+    );
+
+    // This is similar to a normal `jj git init --git-repo=` -- we import the
+    // commits, but in this case our HEAD@git comes from the worktree.
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
+    @  ec8ff2c11a77
+    ○  c8c6f2fd4467 jj-worktree git_head() second commit
+    ○  9b224cbd2bfd main initial commit
+    ◆  000000000000
+    [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
+
+    // The git HEAD should not advance, because this is not colocated
+    work_dir.run_jj(["new"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
+    @  3946d5a0db9f
+    ○  ec8ff2c11a77
+    ○  c8c6f2fd4467 jj-worktree git_head() second commit
+    ○  9b224cbd2bfd main initial commit
+    ◆  000000000000
+    [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
+}
+
+#[test]
+fn test_git_init_external_in_worktree_pointing_worktree() {
+    let test_env = TestEnvironment::default();
+    let git_repo_path = test_env.env_root().join("git-repo");
+    let workspace_root = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
+
+    let git_repo = git::init(&git_repo_path);
+    // Must create a commit so we can create a worktree
+    let initial_commit = create_commit(&git_repo, "refs/heads/main", "initial commit", &[]);
+    add_worktree(&git_repo, &workspace_root, &initial_commit, "jj-worktree");
+    assert!(workspace_root.join(".git").is_file());
+
+    // now commit in the worktree, so we know where we are importing from
+    let worktree_repo = git::open(&workspace_root);
+    let _initial_commit = create_commit(
+        &worktree_repo,
+        "refs/heads/jj-worktree",
+        "second commit",
+        &[worktree_repo.find_commit(initial_commit).unwrap().id],
+    )
+    .to_string();
+
+    let output = work_dir.run_jj(["git", "init", "--git-repo", "."]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Initialized repo in "."
+    [EOF]
+    "#);
+
+    assert_eq!(read_git_target(&work_dir), "../../../.git");
+
+    // The local ".git" repository is related, so commits should be imported
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
+    @  ec8ff2c11a77
+    ○  c8c6f2fd4467 jj-worktree git_head() second commit
+    ○  9b224cbd2bfd main initial commit
+    ◆  000000000000
+    [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
+
+    // Check that Git HEAD is advanced because this is colocated
+    work_dir.run_jj(["new"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
+    @  3946d5a0db9f
+    ○  ec8ff2c11a77 git_head()
+    ○  c8c6f2fd4467 jj-worktree second commit
+    ○  9b224cbd2bfd main initial commit
+    ◆  000000000000
+    [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
+
+    let output = work_dir.run_jj(OP_LOG_COMPACT);
+    insta::assert_snapshot!(output, @"
+    @  99853b186348 new empty commit
+    │  args: jj new
+    ○  68f81182da84 import git head
+    │  args: jj git init --git-repo .
+    ○  02e613cdb16a import git refs
+    │  args: jj git init --git-repo .
+    ○  e39dc288903d add workspace 'default'
+    ○  000000000000
+    [EOF]
+    ");
+}
+
+const OP_LOG_COMPACT: &[&str] = &[
+    "op",
+    "log",
+    "-Tself.id().short() ++ ' ' ++ separate(\"\\n\", self.description().first_line(), self.tags())",
+];
+
+/// This one is a bit weird, but technically you can do it. Should be roughly
+/// equivalent to the --git-repo=. case, but with a different git_target file.
+#[test]
+fn test_git_init_external_in_worktree_pointing_commondir() {
+    let test_env = TestEnvironment::default();
+    let git_repo_path = test_env.env_root().join("git-repo");
+    let workspace_root = test_env.env_root().join("repo");
+    let work_dir = test_env.work_dir("repo");
+
+    let git_repo = git::init(&git_repo_path);
+    // Must create a commit so we can create a worktree
+    let initial_commit = create_commit(&git_repo, "refs/heads/main", "initial commit", &[]);
+    add_worktree(&git_repo, &workspace_root, &initial_commit, "jj-worktree");
+    assert!(workspace_root.join(".git").is_file());
+
+    // now commit in the worktree, so we know where we are importing from
+    let worktree_repo = git::open(&workspace_root);
+    let _initial_commit = create_commit(
+        &worktree_repo,
+        "refs/heads/jj-worktree",
+        "second commit",
+        &[worktree_repo.find_commit(initial_commit).unwrap().id],
+    )
+    .to_string();
+
+    let output = work_dir.run_jj(["git", "init", "--git-repo", "../git-repo"]);
+    insta::assert_snapshot!(output, @r#"
+    ------- stderr -------
+    Done importing changes from the underlying Git repo.
+    Initialized repo in "."
+    [EOF]
+    "#);
+
+    assert_eq!(
+        dunce::canonicalize(PathBuf::from(read_git_target(&work_dir))).unwrap(),
+        dunce::canonicalize(git_repo_path.join(".git")).unwrap()
+    );
+
+    // The local ".git" repository is related, so commits should be imported,
+    // specifically from the worktree, not the original repo.
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
+    @  826211d788c6
+    ○  c8c6f2fd4467 jj-worktree git_head() second commit
+    ○  9b224cbd2bfd main initial commit
+    ◆  000000000000
+    [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
+
+    // Check that Git HEAD is advanced because this is colocated
+    work_dir.run_jj(["new"]).success();
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
+    @  738777697ba1
+    ○  826211d788c6 git_head()
+    ○  c8c6f2fd4467 jj-worktree second commit
+    ○  9b224cbd2bfd main initial commit
+    ◆  000000000000
+    [EOF]
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
+
+    let output = work_dir.run_jj(OP_LOG_COMPACT);
+    insta::assert_snapshot!(output, @r#"
+    @  28f4b738231b new empty commit
+    │  args: jj new
+    ○  371e8feee4a6 import git head
+    │  args: jj log -T '
+    │      separate(" ",
+    │        commit_id.short(),
+    │        bookmarks,
+    │        if(git_head, "git_head()"),
+    │        description,
+    │      )' '-r=all()'
+    ○  503fc92c41fd import git refs
+    │  args: jj git init --git-repo ../git-repo
+    ○  e39dc288903d add workspace 'default'
+    ○  000000000000
+    [EOF]
+    "#);
 }
 
 #[test]
@@ -944,12 +1352,21 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
     "#);
 
     // Check that the Git repo's HEAD got checked out
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  f3fe58bc88cc
-    ○  e80a42cccd06 my-bookmark My commit message
+    ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
@@ -958,13 +1375,22 @@ fn test_git_init_colocated_via_flag_git_dir_exists() {
 
     // Check that the Git repo's HEAD moves
     work_dir.run_jj(["new"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  bacc067e7740
-    ○  f3fe58bc88cc
+    ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
@@ -990,12 +1416,21 @@ fn test_git_init_colocated_via_config_git_dir_exists() {
     "#);
 
     // Check that the Git repo's HEAD got checked out
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  f3fe58bc88cc
-    ○  e80a42cccd06 my-bookmark My commit message
+    ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
@@ -1004,13 +1439,22 @@ fn test_git_init_colocated_via_config_git_dir_exists() {
 
     // Check that the Git repo's HEAD moves
     work_dir.run_jj(["new"]).success();
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  bacc067e7740
-    ○  f3fe58bc88cc
+    ○  f3fe58bc88cc git_head()
     ○  e80a42cccd06 my-bookmark My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: f3fe58bc88ccfb820b930a21297d8e48bf76ac2a
@@ -1069,12 +1513,21 @@ fn test_git_init_colocated_via_flag_overrides_false_config() {
     [EOF]
     "#);
 
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  f3fe58bc88cc
-    ○  e80a42cccd06 my-bookmark My commit message
+    ○  e80a42cccd06 my-bookmark git_head() My commit message
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: e80a42cccd069007c7a2bb427ac7f1d10b408633
@@ -1095,11 +1548,20 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
     [EOF]
     "#);
     // No HEAD ref is available yet
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  e8849ae12c70
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
@@ -1113,11 +1575,20 @@ fn test_git_init_colocated_via_flag_git_dir_not_exists() {
 
     // If .git/HEAD pointed to the default bookmark, new working-copy commit would
     // be created on top.
-    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    insta::assert_snapshot!(get_log_output(&work_dir), @r#"
     @  e8849ae12c70 main master
     ◆  000000000000
     [EOF]
-    ");
+    ------- stderr -------
+    Warning: In template expression
+     --> 5:10
+      |
+    5 |       if(git_head, "git_head()"),
+      |          ^------^
+      |
+      = commit.git_head() is deprecated; use .contained_in('first_parent(@)') instead
+    [EOF]
+    "#);
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
     Workspace is currently colocated with Git.
     Last imported/exported Git HEAD: (none)
@@ -1199,10 +1670,10 @@ fn test_git_init_conditional_config() {
 }
 
 #[test]
-fn test_git_init_bad_wc_path() {
+fn test_git_init_bad_wc_path() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("git.colocate = true");
-    std::fs::write(test_env.env_root().join("existing-file"), b"").unwrap();
+    std::fs::write(test_env.env_root().join("existing-file"), b"")?;
     let output = test_env.run_jj_in(".", ["git", "init", "existing-file"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @"
     ------- stderr -------
@@ -1210,6 +1681,7 @@ fn test_git_init_bad_wc_path() {
     [EOF]
     [exit status: 1]
     ");
+    Ok(())
 }
 
 #[test]
@@ -1289,7 +1761,7 @@ fn test_git_init_colocate_in_git_worktree() {
 }
 
 #[test]
-fn test_git_init_colocate_gitlink_not_worktree() {
+fn test_git_init_colocate_gitlink_not_worktree() -> TestResult {
     // Test that a gitlink pointing to a path that contains "worktrees" in a
     // user directory (NOT in the .git/worktrees/<name> pattern) is NOT
     // incorrectly detected as a Git worktree
@@ -1298,14 +1770,14 @@ fn test_git_init_colocate_gitlink_not_worktree() {
 
     // Create a bare git repo at a path containing "worktrees" as a directory name
     let git_repo_path = test_env.env_root().join("worktrees").join("my-repo.git");
-    std::fs::create_dir_all(&git_repo_path).unwrap();
+    std::fs::create_dir_all(&git_repo_path)?;
     init_git_repo(&git_repo_path, true);
 
     // Create a working directory with a gitlink pointing to that bare repo
     let work_dir = test_env.env_root().join("work");
-    std::fs::create_dir_all(&work_dir).unwrap();
+    std::fs::create_dir_all(&work_dir)?;
     let gitlink_content = format!("gitdir: {}", git_repo_path.to_str().unwrap());
-    std::fs::write(work_dir.join(".git"), gitlink_content).unwrap();
+    std::fs::write(work_dir.join(".git"), gitlink_content)?;
 
     // Verify .git is a file (gitlink)
     assert!(work_dir.join(".git").is_file());
@@ -1322,4 +1794,5 @@ fn test_git_init_colocate_gitlink_not_worktree() {
 
     // Verify .jj directory was created
     assert!(work_dir.join(".jj").exists());
+    Ok(())
 }

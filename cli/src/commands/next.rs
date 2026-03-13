@@ -92,5 +92,5 @@ pub(crate) async fn cmd_next(
     command: &CommandHelper,
     args: &NextArgs,
 ) -> Result<(), CommandError> {
-    move_to_commit(ui, command, Direction::Next, &MovementArgs::from(args))
+    move_to_commit(ui, command, Direction::Next, &MovementArgs::from(args)).await
 }

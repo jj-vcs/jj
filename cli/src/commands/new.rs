@@ -183,7 +183,8 @@ pub(crate) async fn cmd_new(
         args.insert_after.as_deref(),
         args.insert_before.as_deref(),
         "new commit",
-    )?;
+    )
+    .await?;
     let parent_commits: Vec<_> = parent_commit_ids
         .iter()
         .map(|commit_id| workspace_command.repo().store().get_commit(commit_id))
@@ -276,6 +277,6 @@ pub(crate) async fn cmd_new(
         tx.advance_bookmarks(advanceable_bookmarks, &target)?;
     }
 
-    tx.finish(ui, "new empty commit")?;
+    tx.finish(ui, "new empty commit").await?;
     Ok(())
 }

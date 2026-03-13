@@ -133,7 +133,8 @@ pub async fn cmd_bookmark_track(
     tx.finish(
         ui,
         format!("track remote bookmark {}", symbols.iter().join(", ")),
-    )?;
+    )
+    .await?;
 
     //show conflicted bookmarks if there are some
 

@@ -104,6 +104,8 @@ message View {
   // TODO: Delete support for the old format.
   bytes git_head_legacy = 7 [deprecated = true];
   RefTarget git_head = 9;
+  // Per-workspace Git HEAD for colocated worktrees. Maps workspace name to HEAD target.
+  map<string, RefTarget> workspace_git_heads = 13;
   // Whether "@git" tags have been migrated to remote_views.
   bool has_git_refs_migrated_to_remote_tags = 12;
   reserved 10;
@@ -138,6 +140,7 @@ message OperationMetadata {
   string hostname = 4;
   string username = 5;
   bool is_snapshot = 7;
+  optional string workspace_name = 8;
   map<string, string> tags = 6;
 }
 

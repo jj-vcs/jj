@@ -831,6 +831,7 @@ mod tests {
 
     use super::*;
     use crate::dsl_util::KeywordArgument;
+    use crate::tests::TestResult;
 
     #[derive(Debug)]
     struct WithRevsetAliasesMap<'i> {
@@ -955,7 +956,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_revset() {
+    fn test_parse_revset() -> TestResult {
         // Parse a quoted symbol
         assert_eq!(
             parse_into_kind("\"foo\""),
@@ -1052,12 +1053,13 @@ mod tests {
         );
 
         // Expression span
-        assert_eq!(parse_program(" ~ x ").unwrap().span.as_str(), "~ x");
-        assert_eq!(parse_program(" x+ ").unwrap().span.as_str(), "x+");
-        assert_eq!(parse_program(" x |y ").unwrap().span.as_str(), "x |y");
-        assert_eq!(parse_program(" (x) ").unwrap().span.as_str(), "(x)");
-        assert_eq!(parse_program("~( x|y) ").unwrap().span.as_str(), "~( x|y)");
-        assert_eq!(parse_program(" ( x )- ").unwrap().span.as_str(), "( x )-");
+        assert_eq!(parse_program(" ~ x ")?.span.as_str(), "~ x");
+        assert_eq!(parse_program(" x+ ")?.span.as_str(), "x+");
+        assert_eq!(parse_program(" x |y ")?.span.as_str(), "x |y");
+        assert_eq!(parse_program(" (x) ")?.span.as_str(), "(x)");
+        assert_eq!(parse_program("~( x|y) ")?.span.as_str(), "~( x|y)");
+        assert_eq!(parse_program(" ( x )- ")?.span.as_str(), "( x )-");
+        Ok(())
     }
 
     #[test]
@@ -1193,7 +1195,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_pattern() {
+    fn test_parse_pattern() -> TestResult {
         fn unwrap_pattern(kind: ExpressionKind<'_>) -> (&str, ExpressionKind<'_>) {
             match kind {
                 ExpressionKind::Pattern(pattern) => (pattern.name, pattern.value.kind),
@@ -1202,11 +1204,11 @@ mod tests {
         }
 
         assert_eq!(
-            unwrap_pattern(parse_into_kind(r#"substring:"foo""#).unwrap()),
+            unwrap_pattern(parse_into_kind(r#"substring:"foo""#)?),
             ("substring", ExpressionKind::String("foo".to_owned()))
         );
         assert_eq!(
-            unwrap_pattern(parse_into_kind("exact:foo").unwrap()),
+            unwrap_pattern(parse_into_kind("exact:foo")?),
             ("exact", ExpressionKind::Identifier("foo"))
         );
         assert_eq!(
@@ -1215,11 +1217,11 @@ mod tests {
         );
         // Symbol-like value expressions
         assert_eq!(
-            unwrap_pattern(parse_into_kind("x:@").unwrap()),
+            unwrap_pattern(parse_into_kind("x:@")?),
             ("x", ExpressionKind::AtCurrentWorkspace)
         );
         assert_eq!(
-            unwrap_pattern(parse_into_kind("x:y@z").unwrap()),
+            unwrap_pattern(parse_into_kind("x:y@z")?),
             (
                 "x",
                 ExpressionKind::RemoteSymbol(RemoteRefSymbolBuf {
@@ -1234,7 +1236,7 @@ mod tests {
             parse_normalized(r#"(exact:"foo")"#),
         );
         assert_eq!(
-            unwrap_pattern(parse_into_kind(r#"exact:'\'"#).unwrap()),
+            unwrap_pattern(parse_into_kind(r#"exact:'\'"#)?),
             ("exact", ExpressionKind::String(r"\".to_owned()))
         );
 
@@ -1273,6 +1275,7 @@ mod tests {
 
         // Pattern prefix is like (type)x cast, so is evaluated from right
         assert_eq!(parse_normalized("x:y:z"), parse_normalized("x:(y:z)"));
+        Ok(())
     }
 
     #[test]
@@ -1370,7 +1373,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_function_call() {
+    fn test_parse_function_call() -> TestResult {
         fn unwrap_function_call(node: ExpressionNode<'_>) -> Box<FunctionCallNode<'_>> {
             match node.kind {
                 ExpressionKind::FunctionCall(function) => function,
@@ -1417,8 +1420,7 @@ mod tests {
         assert!(parse_into_kind("remote_bookmarks(a,,remote=b)").is_err());
 
         // Expression span
-        let function =
-            unwrap_function_call(parse_program("foo( a, (b) , ~(c), d = (e) )").unwrap());
+        let function = unwrap_function_call(parse_program("foo( a, (b) , ~(c), d = (e) )")?);
         assert_eq!(function.name_span.as_str(), "foo");
         assert_eq!(function.args_span.as_str(), "a, (b) , ~(c), d = (e)");
         assert_eq!(function.args[0].span.as_str(), "a");
@@ -1426,6 +1428,7 @@ mod tests {
         assert_eq!(function.args[2].span.as_str(), "~(c)");
         assert_eq!(function.keyword_args[0].name_span.as_str(), "d");
         assert_eq!(function.keyword_args[0].value.span.as_str(), "(e)");
+        Ok(())
     }
 
     #[test]
@@ -1441,12 +1444,12 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_revset_alias_pattern_decl() {
+    fn test_parse_revset_alias_pattern_decl() -> TestResult {
         let mut aliases_map = RevsetAliasesMap::new();
         assert!(aliases_map.insert("foo:", "none()").is_err());
         assert_eq!(aliases_map.pattern_names().count(), 0);
 
-        aliases_map.insert("bar:baz", "'bar pattern'").unwrap();
+        aliases_map.insert("bar:baz", "'bar pattern'")?;
         assert_eq!(aliases_map.pattern_names().count(), 1);
         let (id, param, defn) = aliases_map.get_pattern("bar").unwrap();
         assert_eq!(id, AliasId::Pattern("bar", "baz"));
@@ -1457,18 +1460,17 @@ mod tests {
         // needed.
         assert!(aliases_map.insert("柔術:x", "none()").is_err());
         assert!(aliases_map.insert("x:柔術", "none()").is_err());
+        Ok(())
     }
 
     #[test]
-    fn test_parse_revset_alias_func_decl() {
+    fn test_parse_revset_alias_func_decl() -> TestResult {
         let mut aliases_map = RevsetAliasesMap::new();
         assert!(aliases_map.insert("5func()", r#""is function 0""#).is_err());
-        aliases_map.insert("func()", r#""is function 0""#).unwrap();
-        aliases_map
-            .insert("func(a, b)", r#""is function 2""#)
-            .unwrap();
-        aliases_map.insert("func(a)", r#""is function a""#).unwrap();
-        aliases_map.insert("func(b)", r#""is function b""#).unwrap();
+        aliases_map.insert("func()", r#""is function 0""#)?;
+        aliases_map.insert("func(a, b)", r#""is function 2""#)?;
+        aliases_map.insert("func(a)", r#""is function a""#)?;
+        aliases_map.insert("func(b)", r#""is function b""#)?;
 
         let (id, params, defn) = aliases_map.get_function("func", 0).unwrap();
         assert_eq!(id, AliasId::Function("func", &[]));
@@ -1489,6 +1491,7 @@ mod tests {
         assert_eq!(defn, r#""is function 2""#);
 
         assert!(aliases_map.get_function("func", 3).is_none());
+        Ok(())
     }
 
     #[test]

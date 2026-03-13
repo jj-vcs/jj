@@ -83,6 +83,9 @@ pub mod git;
 pub mod proptest;
 pub mod test_backend;
 
+/// Convenient return type for test functions.
+pub type TestResult<T = ()> = eyre::Result<T>;
+
 pub const HERMETIC_GIT_CONFIGS: &[(&str, &str)] = &[
     // gitoxide uses "main" as the default branch name, whereas git uses "master". This also
     // prevents git CLI from issuing the initial branch name advice.
@@ -198,11 +201,13 @@ impl TestEnvironment {
         let mut factories = StoreFactories::default();
         factories.add_backend("test", {
             let factory = self.test_backend_factory.clone();
-            Box::new(move |_settings, store_path| Ok(Box::new(factory.load(store_path))))
+            Box::new(move |_settings, store_path, _workspace_root| {
+                Ok(Box::new(factory.load(store_path)))
+            })
         });
         factories.add_backend(
             SecretBackend::name(),
-            Box::new(|settings, store_path| {
+            Box::new(|settings, store_path, _workspace_root| {
                 Ok(Box::new(SecretBackend::load(settings, store_path)?))
             }),
         );
@@ -214,11 +219,16 @@ impl TestEnvironment {
         settings: &UserSettings,
         repo_path: &Path,
     ) -> Arc<ReadonlyRepo> {
-        RepoLoader::init_from_file_system(settings, repo_path, &self.default_store_factories())
-            .unwrap()
-            .load_at_head()
-            .block_on()
-            .unwrap()
+        RepoLoader::init_from_file_system(
+            settings,
+            repo_path,
+            &self.default_store_factories(),
+            None,
+        )
+        .unwrap()
+        .load_at_head()
+        .block_on()
+        .unwrap()
     }
 }
 

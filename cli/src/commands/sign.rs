@@ -53,7 +53,7 @@ pub struct SignArgs {
     ///
     /// [#5786]:
     ///     https://github.com/jj-vcs/jj/issues/5786
-    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revisions: Vec<RevisionArg>,
 
@@ -84,7 +84,9 @@ pub async fn cmd_sign(
     }
     .resolve()?;
 
-    workspace_command.check_rewritable_expr(&revset_expression)?;
+    workspace_command
+        .check_rewritable_expr(&revset_expression)
+        .await?;
 
     let to_sign: IndexSet<Commit> = revset_expression
         .evaluate(workspace_command.repo().as_ref())?
@@ -171,7 +173,7 @@ pub async fn cmd_sign(
             commits.len() - 1
         ),
     };
-    tx.finish(ui, transaction_description)?;
+    tx.finish(ui, transaction_description).await?;
 
     Ok(())
 }

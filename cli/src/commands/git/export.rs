@@ -34,7 +34,7 @@ pub async fn cmd_git_export(
     let mut workspace_command = command.workspace_helper(ui)?;
     let mut tx = workspace_command.start_transaction();
     let stats = git::export_refs(tx.repo_mut())?;
-    tx.finish(ui, "export git refs")?;
+    tx.finish(ui, "export git refs").await?;
     print_git_export_stats(ui, &stats)?;
     Ok(())
 }

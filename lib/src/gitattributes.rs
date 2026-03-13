@@ -26,6 +26,7 @@
 //! initialize [`GitAttributes`].
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::hash_map::Entry;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -527,6 +528,25 @@ impl GitAttributes {
             entry.insert(State::Unspecified);
         }
         Ok(res)
+    }
+
+    pub(crate) async fn filter_matches(
+        &self,
+        path: &RepoPath,
+        ignore_filters: &HashSet<String>,
+    ) -> bool {
+        if ignore_filters.is_empty() {
+            return false;
+        }
+        let Ok(result) = self.search(path, ["filter"]).await else {
+            return false;
+        };
+        let Some(State::Value(value)) = result.get("filter") else {
+            return false;
+        };
+        ignore_filters
+            .iter()
+            .any(|filter| value == filter.as_bytes())
     }
 
     /// Create a [`GitAttributes`] instance with the given sources of

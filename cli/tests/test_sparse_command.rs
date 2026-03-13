@@ -14,6 +14,8 @@
 
 use std::io::Write as _;
 
+use testutils::TestResult;
+
 use crate::common::TestEnvironment;
 
 #[test]
@@ -194,7 +196,7 @@ fn test_sparse_manage_patterns() {
 }
 
 #[test]
-fn test_sparse_editor_avoids_unc() {
+fn test_sparse_editor_avoids_unc() -> TestResult {
     use std::path::PathBuf;
 
     let mut test_env = TestEnvironment::default();
@@ -202,13 +204,13 @@ fn test_sparse_editor_avoids_unc() {
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(edit_script, "dump-path path").unwrap();
+    std::fs::write(edit_script, "dump-path path")?;
     work_dir.run_jj(["sparse", "edit"]).success();
 
-    let edited_path =
-        PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
+    let edited_path = PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path"))?);
     // While `assert!(!edited_path.starts_with("//?/"))` could work here in most
     // cases, it fails when it is not safe to strip the prefix, such as paths
     // over 260 chars.
     assert_eq!(edited_path, dunce::simplified(&edited_path));
+    Ok(())
 }

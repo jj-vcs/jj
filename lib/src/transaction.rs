@@ -30,6 +30,7 @@ use crate::op_store::OpStoreError;
 use crate::op_store::OperationMetadata;
 use crate::op_store::TimestampRange;
 use crate::operation::Operation;
+use crate::ref_name::WorkspaceName;
 use crate::repo::MutableRepo;
 use crate::repo::ReadonlyRepo;
 use crate::repo::Repo as _;
@@ -115,6 +116,10 @@ impl Transaction {
         self.op_metadata.is_snapshot = is_snapshot;
     }
 
+    pub fn set_workspace_name(&mut self, workspace_name: &WorkspaceName) {
+        self.op_metadata.workspace_name = Some(workspace_name.to_owned());
+    }
+
     /// Writes the transaction to the operation store and publishes it.
     pub async fn commit(
         self,
@@ -182,6 +187,7 @@ pub fn create_op_metadata(
         hostname,
         username,
         is_snapshot,
+        workspace_name: None,
         tags: Default::default(),
     }
 }

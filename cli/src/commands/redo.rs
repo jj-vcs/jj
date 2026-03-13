@@ -168,7 +168,8 @@ pub async fn cmd_redo(
     tx.finish(
         ui,
         format!("{REDO_OP_DESC_PREFIX}{}", op_to_restore.id().hex()),
-    )?;
+    )
+    .await?;
 
     Ok(())
 }

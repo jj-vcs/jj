@@ -77,7 +77,7 @@ pub async fn cmd_bookmark_move(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
     let repo = workspace_command.repo().clone();
-    let target_commit = workspace_command.resolve_single_rev(ui, &args.to)?;
+    let target_commit = workspace_command.resolve_single_rev(ui, &args.to).await?;
     let matched_bookmarks = {
         let is_source_ref: Box<dyn Fn(&RefTarget) -> _> = if !args.from.is_empty() {
             let is_source_commit = workspace_command
@@ -160,6 +160,7 @@ pub async fn cmd_bookmark_move(
                 .join(", "),
             id = target_commit.id().hex()
         ),
-    )?;
+    )
+    .await?;
     Ok(())
 }

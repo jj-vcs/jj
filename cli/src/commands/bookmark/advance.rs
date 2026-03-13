@@ -91,6 +91,7 @@ pub async fn cmd_bookmark_advance(
 
     let target_commit = workspace_command
         .resolve_single_rev(ui, &to)
+        .await
         .map_err(|error| {
             if args.to.is_none() {
                 error.hinted(
@@ -212,6 +213,7 @@ pub async fn cmd_bookmark_advance(
                 .join(", "),
             id = target_commit.id().hex()
         ),
-    )?;
+    )
+    .await?;
     Ok(())
 }

@@ -194,7 +194,9 @@ pub(crate) async fn cmd_fix(
         workspace_command.parse_union_revsets(ui, &args.source)?
     }
     .resolve()?;
-    workspace_command.check_rewritable_expr(&target_expr)?;
+    workspace_command
+        .check_rewritable_expr(&target_expr)
+        .await?;
 
     let repo = workspace_command.repo();
 
@@ -246,6 +248,7 @@ pub(crate) async fn cmd_fix(
         summary.num_checked_commits
     )?;
     tx.finish(ui, format!("fixed {} commits", summary.num_fixed_commits))
+        .await
 }
 
 /// Invokes all matching tools (if any) to file_to_fix. If the content is

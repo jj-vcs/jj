@@ -81,7 +81,7 @@ pub async fn cmd_op_revert(
         template.format(&bad_op, formatter.as_mut())?;
         writeln!(formatter)?;
     }
-    tx.finish(ui, tx_description(&bad_op))?;
+    tx.finish(ui, tx_description(&bad_op)).await?;
 
     Ok(())
 }

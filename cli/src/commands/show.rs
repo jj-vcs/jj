@@ -74,7 +74,9 @@ pub(crate) async fn cmd_show(
         .as_ref()
         .or(args.revision_opt.as_ref())
         .unwrap_or(&RevisionArg::AT);
-    let commit = workspace_command.resolve_single_rev(ui, revision_arg)?;
+    let commit = workspace_command
+        .resolve_single_rev(ui, revision_arg)
+        .await?;
     let template_string = match &args.template {
         Some(value) => value.clone(),
         None => workspace_command.settings().get_string("templates.show")?,

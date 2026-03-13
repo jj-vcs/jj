@@ -44,6 +44,7 @@ use crate::ref_name::RemoteName;
 // * 2.29.0 introduced `git fetch --no-write-fetch-head`
 // * 2.40 still receives security patches (latest one was in Jan/2025)
 // * 2.41.0 introduced `git fetch --porcelain`
+// If bumped, please update ../../docs/install-and-setup.md
 const MINIMUM_GIT_VERSION: &str = "2.41.0";
 
 /// Error originating by a Git subprocess
@@ -66,7 +67,7 @@ pub enum GitSubprocessError {
     #[error("Failed to wait for the git process")]
     Wait(std::io::Error),
     #[error(
-        "Git does not recognize required option: {0} (note: supported version is \
+        "Git does not recognize required option: {0} (note: Jujutsu requires git >= \
          {MINIMUM_GIT_VERSION})"
     )]
     UnsupportedGitOption(String),

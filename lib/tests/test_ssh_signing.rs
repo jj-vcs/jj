@@ -24,6 +24,7 @@ use std::path::PathBuf;
 use jj_lib::signing::SigStatus;
 use jj_lib::signing::SigningBackend as _;
 use jj_lib::ssh_signing::SshBackend;
+use testutils::TestResult;
 
 static PRIVATE_KEY: &str = r#"-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
@@ -47,18 +48,17 @@ struct SshEnvironment {
 }
 
 impl SshEnvironment {
-    fn new() -> Result<Self, std::process::Output> {
+    fn new() -> TestResult<Self> {
         let keys_dir = tempfile::Builder::new()
             .prefix("jj-test-signing-keys-")
-            .tempdir()
-            .unwrap();
+            .tempdir()?;
 
         let private_key_path = Path::new(keys_dir.path()).join("key");
 
-        fs::write(&private_key_path, PRIVATE_KEY).unwrap();
+        fs::write(&private_key_path, PRIVATE_KEY)?;
 
         #[cfg(unix)]
-        std::fs::set_permissions(&private_key_path, Permissions::from_mode(0o600)).unwrap();
+        std::fs::set_permissions(&private_key_path, Permissions::from_mode(0o600))?;
 
         let mut env = Self {
             _keys: keys_dir,
@@ -136,81 +136,77 @@ fn backend(env: &SshEnvironment) -> SshBackend {
 }
 
 #[test]
-fn ssh_signing_roundtrip() {
-    let env = SshEnvironment::new().unwrap();
+fn ssh_signing_roundtrip() -> TestResult {
+    let env = SshEnvironment::new()?;
     let backend = backend(&env);
     let data = b"hello world";
 
-    let signature = backend
-        .sign(data, Some(env.private_key_path.to_str().unwrap()))
-        .unwrap();
+    let signature = backend.sign(data, Some(env.private_key_path.to_str().unwrap()))?;
 
-    let check = backend.verify(data, &signature).unwrap();
+    let check = backend.verify(data, &signature)?;
     assert_eq!(check.status, SigStatus::Good);
     assert_eq!(check.key.unwrap(), FINGERPRINT);
     assert_eq!(check.display.unwrap(), "test@example.com");
 
-    let check = backend.verify(b"invalid-commit-data", &signature).unwrap();
+    let check = backend.verify(b"invalid-commit-data", &signature)?;
     assert_eq!(check.status, SigStatus::Bad);
     assert_eq!(check.display.unwrap(), "test@example.com");
+    Ok(())
 }
 
 #[test]
-fn ssh_signing_bad_allowed_signers() {
-    let mut env = SshEnvironment::new().unwrap();
+fn ssh_signing_bad_allowed_signers() -> TestResult {
+    let mut env = SshEnvironment::new()?;
     env.with_bad_public_key();
 
     let backend = backend(&env);
     let data = b"hello world";
 
-    let signature = backend
-        .sign(data, Some(env.private_key_path.to_str().unwrap()))
-        .unwrap();
+    let signature = backend.sign(data, Some(env.private_key_path.to_str().unwrap()))?;
 
-    let check = backend.verify(data, &signature).unwrap();
+    let check = backend.verify(data, &signature)?;
     assert_eq!(check.status, SigStatus::Unknown);
     assert_eq!(check.key.unwrap(), FINGERPRINT);
     assert_eq!(check.display.unwrap(), "Signature OK. Unknown principal");
+    Ok(())
 }
 
 #[test]
-fn ssh_signing_missing_allowed_signers() {
-    let mut env = SshEnvironment::new().unwrap();
+fn ssh_signing_missing_allowed_signers() -> TestResult {
+    let mut env = SshEnvironment::new()?;
     env.allowed_signers = None;
 
     let backend = backend(&env);
     let data = b"hello world";
 
-    let signature = backend
-        .sign(data, Some(env.private_key_path.to_str().unwrap()))
-        .unwrap();
+    let signature = backend.sign(data, Some(env.private_key_path.to_str().unwrap()))?;
 
-    let check = backend.verify(data, &signature).unwrap();
+    let check = backend.verify(data, &signature)?;
     assert_eq!(check.status, SigStatus::Unknown);
     assert_eq!(check.key.unwrap(), FINGERPRINT);
     assert_eq!(check.display.unwrap(), "Signature OK. Unknown principal");
+    Ok(())
 }
 
 #[test]
-fn ssh_signing_revocation_revoked() {
-    let mut env = SshEnvironment::new().unwrap();
+fn ssh_signing_revocation_revoked() -> TestResult {
+    let mut env = SshEnvironment::new()?;
     env.with_revocation_list(PUBLIC_KEY.as_bytes());
 
     let backend = backend(&env);
     let data = b"hello world";
 
-    let signature = backend
-        .sign(data, Some(env.private_key_path.to_str().unwrap()))
-        .unwrap();
+    let signature = backend.sign(data, Some(env.private_key_path.to_str().unwrap()))?;
 
-    let check = backend.verify(data, &signature).unwrap();
+    let check = backend.verify(data, &signature)?;
     assert_eq!(check.status, SigStatus::Bad);
     assert_eq!(check.display.unwrap(), "test@example.com");
+    Ok(())
 }
 
 #[test]
-fn ssh_signing_revocation_unrevoked() {
-    let mut env = SshEnvironment::new().unwrap();
+fn ssh_signing_revocation_unrevoked() -> TestResult {
+    let mut env = SshEnvironment::new()?;
     const ALT_PUB_KEY: &str =
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICrkiOk+QyRv87ahGdrxSin0DuNKezDDLE6lLkHxJpWU";
     env.with_revocation_list(ALT_PUB_KEY.as_bytes());
@@ -218,11 +214,10 @@ fn ssh_signing_revocation_unrevoked() {
     let backend = backend(&env);
     let data = b"hello world";
 
-    let signature = backend
-        .sign(data, Some(env.private_key_path.to_str().unwrap()))
-        .unwrap();
+    let signature = backend.sign(data, Some(env.private_key_path.to_str().unwrap()))?;
 
-    let check = backend.verify(data, &signature).unwrap();
+    let check = backend.verify(data, &signature)?;
     assert_eq!(check.status, SigStatus::Good);
     assert_eq!(check.key.unwrap(), FINGERPRINT);
+    Ok(())
 }

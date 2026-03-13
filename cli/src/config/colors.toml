@@ -24,6 +24,7 @@
 "committer" = "yellow"
 "timestamp" = "cyan"
 "working_copies" = "green"
+"workspace_name" = "green"
 "bookmark" = "magenta"
 "bookmarks" = "magenta"
 "local_bookmarks" = "magenta"

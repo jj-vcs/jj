@@ -17,15 +17,20 @@
 
 use std::fs::File;
 use std::fs::OpenOptions;
+use std::io;
 use std::os::windows::fs::OpenOptionsExt as _;
+use std::path::Path;
 use std::path::PathBuf;
+use std::thread;
 
 use tracing::instrument;
 
 use super::FileLockError;
+use super::backoff::BackoffIterator;
 
 const FILE_SHARE_READ: u32 = 1;
 const FILE_SHARE_WRITE: u32 = 2;
+const ERROR_SHARING_VIOLATION: u32 = 32;
 
 pub struct FileLock {
     path: PathBuf,
@@ -37,20 +42,11 @@ impl FileLock {
     pub fn lock(path: PathBuf) -> Result<Self, FileLockError> {
         tracing::info!("Attempting to lock {path:?}");
 
-        let file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            // Don't share delete access. This ensures that
-            // std::fs::remove_file (which uses DeleteFileW) will fail if any
-            // other process has the file open — so deletion in Drop only
-            // succeeds when we're the last handle holder.
-            .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
-            .open(&path)
-            .map_err(|err| FileLockError {
-                message: "Failed to open lock file",
-                path: path.clone(),
-                err,
-            })?;
+        let file = try_create_file(&path).map_err(|err| FileLockError {
+            message: "Failed to open lock file",
+            path: path.clone(),
+            err,
+        })?;
 
         // Acquire exclusive lock (blocks until available)
         file.lock().map_err(|err| FileLockError {
@@ -79,5 +75,36 @@ impl Drop for FileLock {
             // deletion (they open without FILE_SHARE_DELETE), avoiding races.
         }
         std::fs::remove_file(&self.path).ok();
+    }
+}
+
+fn try_create_file(path: &Path) -> io::Result<File> {
+    let mut backoff_iterator = BackoffIterator::new();
+    let mut options = OpenOptions::new();
+    options
+        .create(true)
+        .write(true)
+        // Don't share delete access. This ensures that std::fs::remove_file
+        // (which uses DeleteFileW) will fail if any other process has the file
+        // open — so deletion in Drop only succeeds when we're the last handle
+        // holder.
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE);
+    loop {
+        match options.open(path) {
+            Ok(file) => return Ok(file),
+            // The file may be open for deletion in Drop.
+            Err(err)
+                if err.kind() == io::ErrorKind::PermissionDenied
+                    || err.raw_os_error() == Some(ERROR_SHARING_VIOLATION as _) =>
+            {
+                let Some(duration) = backoff_iterator.next() else {
+                    return Err(err);
+                };
+                // Ensure that a file can be created in the target directory.
+                tempfile::tempfile_in(path.parent().expect("file path should have parent"))?;
+                thread::sleep(duration);
+            }
+            Err(err) => return Err(err),
+        }
     }
 }

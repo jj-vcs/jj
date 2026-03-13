@@ -125,20 +125,28 @@ pub(crate) async fn cmd_bisect_run(
 
     let initial_repo = workspace_command.repo().clone();
 
-    let mut bisector = Bisector::new(initial_repo.as_ref(), input_range)?;
+    let mut bisector = Bisector::new(initial_repo.as_ref(), input_range).await?;
     let bisection_result = loop {
-        match bisector.next_step()? {
+        match bisector.next_step().await? {
             jj_lib::bisect::NextStep::Evaluate(commit) => {
                 {
                     let mut formatter = ui.stdout_formatter();
+                    let (lower, upper) = bisector.remaining_revset().await?.count_estimate()?;
+                    let lower_steps = ((lower + 1) as f64).log2().ceil() as usize;
+                    if upper == Some(lower) {
+                        writeln!(
+                            formatter,
+                            "Bisecting: {lower} revisions left to test after this (roughly \
+                             {lower_steps} steps)"
+                        )?;
+                    } else {
+                        writeln!(
+                            formatter,
+                            "Bisecting: at least {lower} revisions left to test after this (at \
+                             least roughly {lower_steps} steps)"
+                        )?;
+                    }
                     // TODO: Show a graph of the current range instead?
-                    let remaining = bisector.remaining_count()?;
-                    let steps = ((remaining + 1) as f64).log2().ceil() as usize;
-                    writeln!(
-                        formatter,
-                        "Bisecting: {remaining} revisions left to test after this (roughly \
-                         {steps} steps)"
-                    )?;
                     let commit_template = workspace_command.commit_summary_template();
                     write!(formatter, "Now evaluating: ")?;
                     commit_template.format(&commit, formatter.as_mut())?;
@@ -146,7 +154,7 @@ pub(crate) async fn cmd_bisect_run(
                 }
 
                 let cmd = get_command(args);
-                let evaluation = evaluate_commit(ui, &mut workspace_command, cmd, &commit)?;
+                let evaluation = evaluate_commit(ui, &mut workspace_command, cmd, &commit).await?;
 
                 {
                     let mut formatter = ui.stdout_formatter();
@@ -232,7 +240,7 @@ fn get_command(args: &BisectRunArgs) -> std::process::Command {
     }
 }
 
-fn evaluate_commit(
+async fn evaluate_commit(
     ui: &mut Ui,
     workspace_command: &mut WorkspaceCommandHelper,
     mut cmd: std::process::Command,
@@ -244,7 +252,8 @@ fn evaluate_commit(
     tx.finish(
         ui,
         format!("Updated to revision {commit_id_hex} for bisection"),
-    )?;
+    )
+    .await?;
 
     let jj_executable_path = std::env::current_exe().map_err(|err| {
         internal_error_with_message("Could not get path for the jj executable", err)

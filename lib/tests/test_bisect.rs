@@ -22,6 +22,7 @@ use jj_lib::bisect::Evaluation;
 use jj_lib::bisect::NextStep;
 use jj_lib::repo::Repo;
 use jj_lib::revset::ResolvedRevsetExpression;
+use pollster::FutureExt as _;
 use testutils::TestRepo;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
@@ -31,10 +32,10 @@ fn test_bisection<'a>(
     input_range: &Arc<ResolvedRevsetExpression>,
     results: impl IntoIterator<Item = (&'a CommitId, Evaluation)>,
 ) -> BisectionResult {
-    let mut bisector = Bisector::new(repo, input_range.clone()).unwrap();
+    let mut bisector = Bisector::new(repo, input_range.clone()).block_on().unwrap();
     let mut iter = results.into_iter().enumerate();
     loop {
-        match bisector.next_step().unwrap() {
+        match bisector.next_step().block_on().unwrap() {
             NextStep::Evaluate(commit) => {
                 let (i, (expected_id, result)) =
                     iter.next().expect("More commits than expected were tested");

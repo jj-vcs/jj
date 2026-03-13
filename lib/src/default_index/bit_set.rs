@@ -207,6 +207,7 @@ mod tests {
     use super::*;
     use crate::backend::ChangeId;
     use crate::backend::CommitId;
+    use crate::tests::TestResult;
 
     /// Generator of unique 16-byte CommitId excluding root id
     fn commit_id_generator() -> impl FnMut() -> CommitId {
@@ -242,7 +243,8 @@ mod tests {
     }
 
     #[test]
-    fn test_positions_bit_set_allocation() {
+    fn test_positions_bit_set_allocation() -> TestResult {
+        let page_size_in_words = usize::try_from(PAGE_SIZE_IN_WORDS)?;
         // Exactly one page
         let mut set = PositionsBitSet::with_capacity(PAGE_SIZE_IN_BITS);
         assert!(set.data.is_empty());
@@ -250,9 +252,9 @@ mod tests {
         assert!(!set.get(GlobalCommitPosition(PAGE_SIZE_IN_BITS - 1)));
         assert!(set.data.is_empty());
         set.set(GlobalCommitPosition(0));
-        assert_eq!(set.data.len(), usize::try_from(PAGE_SIZE_IN_WORDS).unwrap());
+        assert_eq!(set.data.len(), page_size_in_words);
         set.set(GlobalCommitPosition(PAGE_SIZE_IN_BITS - 1));
-        assert_eq!(set.data.len(), usize::try_from(PAGE_SIZE_IN_WORDS).unwrap());
+        assert_eq!(set.data.len(), page_size_in_words);
         assert!(set.get(GlobalCommitPosition(0)));
         assert!(set.get(GlobalCommitPosition(PAGE_SIZE_IN_BITS - 1)));
 
@@ -261,13 +263,10 @@ mod tests {
         assert!(set.data.is_empty());
         set.set(GlobalCommitPosition(u64::BITS));
         set.set(GlobalCommitPosition(PAGE_SIZE_IN_BITS));
-        assert_eq!(set.data.len(), usize::try_from(PAGE_SIZE_IN_WORDS).unwrap());
+        assert_eq!(set.data.len(), page_size_in_words);
         let old = set.get_set(GlobalCommitPosition(u64::BITS - 1));
         assert!(!old);
-        assert_eq!(
-            set.data.len(),
-            usize::try_from(PAGE_SIZE_IN_WORDS + 1).unwrap()
-        );
+        assert_eq!(set.data.len(), usize::try_from(PAGE_SIZE_IN_WORDS + 1)?);
         assert!(set.get(GlobalCommitPosition(u64::BITS - 1)));
         assert!(set.get(GlobalCommitPosition(u64::BITS)));
         assert!(set.get(GlobalCommitPosition(PAGE_SIZE_IN_BITS)));
@@ -276,20 +275,15 @@ mod tests {
         let mut set = PositionsBitSet::with_capacity(PAGE_SIZE_IN_BITS * 3);
         assert!(set.data.is_empty());
         set.set(GlobalCommitPosition(PAGE_SIZE_IN_BITS * 2));
-        assert_eq!(set.data.len(), usize::try_from(PAGE_SIZE_IN_WORDS).unwrap());
+        assert_eq!(set.data.len(), page_size_in_words);
         set.set(GlobalCommitPosition(PAGE_SIZE_IN_BITS));
-        assert_eq!(
-            set.data.len(),
-            usize::try_from(PAGE_SIZE_IN_WORDS * 2).unwrap()
-        );
+        assert_eq!(set.data.len(), usize::try_from(PAGE_SIZE_IN_WORDS * 2)?);
         set.set(GlobalCommitPosition(0));
-        assert_eq!(
-            set.data.len(),
-            usize::try_from(PAGE_SIZE_IN_WORDS * 3).unwrap()
-        );
+        assert_eq!(set.data.len(), usize::try_from(PAGE_SIZE_IN_WORDS * 3)?);
         assert!(set.get(GlobalCommitPosition(0)));
         assert!(set.get(GlobalCommitPosition(PAGE_SIZE_IN_BITS)));
         assert!(set.get(GlobalCommitPosition(PAGE_SIZE_IN_BITS * 2)));
+        Ok(())
     }
 
     #[test]
@@ -435,7 +429,8 @@ mod tests {
     }
 
     #[test]
-    fn test_ancestors_bit_set_allocation() {
+    fn test_ancestors_bit_set_allocation() -> TestResult {
+        let page_size_in_words = usize::try_from(PAGE_SIZE_IN_WORDS)?;
         let mut new_commit_id = commit_id_generator();
         let mut new_change_id = change_id_generator();
         let mut mutable_index = DefaultMutableIndex::full(FieldLengths {
@@ -459,25 +454,16 @@ mod tests {
         // Mark the head commit
         set.add_head(GlobalCommitPosition(PAGE_SIZE_IN_BITS));
         assert_eq!(set.next_bitset_pos_to_visit, 0);
-        assert_eq!(
-            set.bitset.data.len(),
-            usize::try_from(PAGE_SIZE_IN_WORDS).unwrap()
-        );
+        assert_eq!(set.bitset.data.len(), page_size_in_words);
 
         set.visit_until(index, GlobalCommitPosition(PAGE_SIZE_IN_BITS));
         assert_eq!(set.next_bitset_pos_to_visit, 1);
-        assert_eq!(
-            set.bitset.data.len(),
-            usize::try_from(PAGE_SIZE_IN_WORDS).unwrap()
-        );
+        assert_eq!(set.bitset.data.len(), page_size_in_words);
         assert!(set.contains(GlobalCommitPosition(PAGE_SIZE_IN_BITS)));
 
         set.visit_until(index, GlobalCommitPosition(PAGE_SIZE_IN_BITS - 1));
         assert_eq!(set.next_bitset_pos_to_visit, 2);
-        assert_eq!(
-            set.bitset.data.len(),
-            usize::try_from(PAGE_SIZE_IN_WORDS).unwrap()
-        );
+        assert_eq!(set.bitset.data.len(), page_size_in_words);
         assert!(set.contains(GlobalCommitPosition(PAGE_SIZE_IN_BITS - 1)));
 
         // Parent link across page boundary
@@ -485,7 +471,7 @@ mod tests {
         assert_eq!(set.next_bitset_pos_to_visit, PAGE_SIZE_IN_WORDS);
         assert_eq!(
             set.bitset.data.len(),
-            usize::try_from(PAGE_SIZE_IN_WORDS + 1).unwrap()
+            usize::try_from(PAGE_SIZE_IN_WORDS + 1)?
         );
         assert!(set.contains(GlobalCommitPosition(u64::BITS)));
 
@@ -493,8 +479,9 @@ mod tests {
         assert_eq!(set.next_bitset_pos_to_visit, PAGE_SIZE_IN_WORDS + 1);
         assert_eq!(
             set.bitset.data.len(),
-            usize::try_from(PAGE_SIZE_IN_WORDS + 1).unwrap()
+            usize::try_from(PAGE_SIZE_IN_WORDS + 1)?
         );
         assert!(set.contains(GlobalCommitPosition(0)));
+        Ok(())
     }
 }

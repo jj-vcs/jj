@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use testutils::TestResult;
+
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
@@ -34,7 +36,7 @@ fn read_git_target(workspace_root: &std::path::Path) -> String {
 }
 
 #[test]
-fn test_git_colocation_enable_success() {
+fn test_git_colocation_enable_success() -> TestResult {
     let test_env = TestEnvironment::default();
 
     // Initialize a non-colocated Jujutsu/Git workspace
@@ -82,8 +84,7 @@ fn test_git_colocation_enable_success() {
     assert_eq!(read_git_target(workspace_root), "../../../.git");
 
     // Verify .jj/.gitignore was created
-    let gitignore_content =
-        std::fs::read_to_string(workspace_root.join(".jj").join(".gitignore")).unwrap();
+    let gitignore_content = std::fs::read_to_string(workspace_root.join(".jj").join(".gitignore"))?;
     assert_eq!(gitignore_content, "/*\n");
 
     // Verify that Git HEAD was set correctly
@@ -99,6 +100,7 @@ fn test_git_colocation_enable_success() {
     set git head to working copy parent
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -113,7 +115,14 @@ fn test_git_colocation_enable_empty() {
         )
         .success();
     let work_dir = test_env.work_dir("repo");
+    let workspace_root = work_dir.root();
     let setup_op_id = work_dir.current_operation_id();
+
+    // Verify initial state: no .git at workspace root
+    assert!(
+        !workspace_root.join(".git").exists(),
+        ".git should not exist before enable"
+    );
 
     // Run colocate command
     let output = work_dir.run_jj(["git", "colocation", "enable"]);
@@ -122,6 +131,22 @@ fn test_git_colocation_enable_empty() {
     Workspace successfully converted into a colocated Jujutsu/Git workspace.
     [EOF]
     ");
+
+    // Verify filesystem changes: .git now exists at workspace root
+    assert!(
+        workspace_root.join(".git").exists(),
+        ".git should exist after enable"
+    );
+    assert!(
+        !workspace_root
+            .join(".jj")
+            .join("repo")
+            .join("store")
+            .join("git")
+            .exists(),
+        "Internal git store should be moved"
+    );
+    assert_eq!(read_git_target(workspace_root), "../../../.git");
 
     // Verify that Git HEAD was set correctly
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
@@ -132,6 +157,13 @@ fn test_git_colocation_enable_empty() {
 
     // No repo change required
     assert_eq!(setup_op_id, work_dir.current_operation_id());
+
+    // Verify workspace is still functional
+    let output = work_dir.run_jj(["status"]);
+    assert!(
+        output.status.success(),
+        "jj status should work after enable"
+    );
 }
 
 #[test]
@@ -154,7 +186,7 @@ fn test_git_colocation_enable_already_colocated() {
 }
 
 #[test]
-fn test_git_colocation_enable_with_existing_git_dir() {
+fn test_git_colocation_enable_with_existing_git_dir() -> TestResult {
     let test_env = TestEnvironment::default();
 
     // Initialize a non-colocated Jujutsu/Git repo
@@ -168,10 +200,10 @@ fn test_git_colocation_enable_with_existing_git_dir() {
     let workspace_root = work_dir.root();
 
     // Create a .git directory manually
-    std::fs::create_dir(workspace_root.join(".git")).unwrap();
-    std::fs::write(workspace_root.join(".git").join("dummy"), "dummy").unwrap();
+    std::fs::create_dir(workspace_root.join(".git"))?;
+    std::fs::write(workspace_root.join(".git").join("dummy"), "dummy")?;
 
-    // Try to colocate - should fail
+    // Try to colocate - should fail because .git directory exists
     let output = work_dir.run_jj(["git", "colocation", "enable"]);
     insta::assert_snapshot!(output.strip_stderr_last_line(), @"
     ------- stderr -------
@@ -179,6 +211,7 @@ fn test_git_colocation_enable_with_existing_git_dir() {
     [EOF]
     [exit status: 1]
     ");
+    Ok(())
 }
 
 #[test]
@@ -251,7 +284,14 @@ fn test_git_colocation_disable_empty() {
         .run_jj_in(test_env.env_root(), ["git", "init", "--colocate", "repo"])
         .success();
     let work_dir = test_env.work_dir("repo");
+    let workspace_root = work_dir.root();
     let setup_op_id = work_dir.current_operation_id();
+
+    // Verify initial state: .git exists at workspace root
+    assert!(
+        workspace_root.join(".git").exists(),
+        ".git should exist before disable"
+    );
 
     // Verify that Git HEAD is unset
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
@@ -268,8 +308,31 @@ fn test_git_colocation_disable_empty() {
     [EOF]
     ");
 
+    // Verify filesystem changes: .git removed, internal git store exists
+    assert!(
+        !workspace_root.join(".git").exists(),
+        ".git should be removed after disable"
+    );
+    assert!(
+        workspace_root
+            .join(".jj")
+            .join("repo")
+            .join("store")
+            .join("git")
+            .exists(),
+        "Internal git store should be restored"
+    );
+    assert_eq!(read_git_target(workspace_root), "git");
+
     // No repo change required
     assert_eq!(setup_op_id, work_dir.current_operation_id());
+
+    // Verify workspace is still functional
+    let output = work_dir.run_jj(["status"]);
+    assert!(
+        output.status.success(),
+        "jj status should work after disable"
+    );
 }
 
 #[test]
@@ -376,4 +439,105 @@ fn test_git_colocation_in_secondary_workspace() {
     [EOF]
     [exit status: 1]
     ");
+}
+
+#[test]
+fn test_git_colocation_disable_with_secondary_workspaces_fails() {
+    // This test verifies that colocation disable fails with a helpful error
+    // when secondary colocated workspaces exist (since disabling would break them).
+    let test_env = TestEnvironment::default();
+    let primary_dir = test_env.work_dir("primary");
+
+    // 1. Create colocated repo with a commit
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_dir.write_file("file", "contents");
+    primary_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    // 2. Add colocated secondary workspace
+    primary_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    // 3. Try to disable colocation - should fail
+    let output = primary_dir.run_jj(["git", "colocation", "disable"]);
+    assert!(!output.status.success());
+    insta::assert_snapshot!(output.stderr.normalized(), @r"
+    Error: Cannot disable colocation: secondary colocated workspaces exist.
+    These workspaces would become broken Git worktrees.
+    Either:
+      - Run `jj workspace forget <name>` for each secondary workspace first
+      - Use --force to disable anyway (secondary workspaces will be broken)
+    ");
+}
+
+#[test]
+fn test_git_colocation_disable_force_with_secondary_workspaces() {
+    // This test verifies that colocation disable --force succeeds even with
+    // secondary workspaces (though it leaves them broken).
+    let test_env = TestEnvironment::default();
+    let primary_dir = test_env.work_dir("primary");
+    let secondary_dir = test_env.work_dir("secondary");
+
+    // 1. Create colocated repo with a commit
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_dir.write_file("file", "contents");
+    primary_dir.run_jj(["commit", "-m", "initial"]).success();
+
+    // 2. Add colocated secondary workspace
+    primary_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    // Verify secondary workspace has the file
+    assert!(
+        secondary_dir.root().join("file").exists(),
+        "Secondary workspace should have file before disable"
+    );
+
+    // 3. Disable colocation with --force - should succeed
+    let output = primary_dir.run_jj(["git", "colocation", "disable", "--force"]);
+    assert!(output.status.success());
+
+    // 4. Verify primary is now non-colocated
+    let output = primary_dir.run_jj(["git", "colocation", "status"]);
+    assert!(output.stdout.normalized().contains("not colocated"));
+
+    // 5. Verify primary workspace data is preserved (critical: no data loss)
+    assert!(
+        primary_dir.root().join("file").exists(),
+        "Primary workspace file should be preserved after force disable"
+    );
+    let contents = std::fs::read_to_string(primary_dir.root().join("file")).unwrap();
+    assert_eq!(
+        contents, "contents",
+        "Primary workspace file contents should be unchanged"
+    );
+
+    // 6. Verify primary workspace is still functional
+    let output = primary_dir.run_jj(["status"]);
+    assert!(
+        output.status.success(),
+        "jj status should work in primary workspace after force disable"
+    );
+
+    // 7. Verify secondary workspace directory and file still exist (data preserved)
+    assert!(
+        secondary_dir.root().exists(),
+        "Secondary workspace directory should still exist"
+    );
+    assert!(
+        secondary_dir.root().join("file").exists(),
+        "Secondary workspace file should be preserved (even if workspace is broken)"
+    );
+
+    // 8. Verify secondary workspace still works (though not colocated anymore)
+    let output = secondary_dir.run_jj(["status"]);
+    assert!(
+        output.status.success(),
+        "Secondary workspace should still be operational"
+    );
 }

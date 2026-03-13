@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use regex::Regex;
+use testutils::TestResult;
 
 use crate::common::TestEnvironment;
 
@@ -365,7 +366,7 @@ fn test_show_with_no_template() {
 }
 
 #[test]
-fn test_show_relative_timestamps() {
+fn test_show_relative_timestamps() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -378,7 +379,7 @@ fn test_show_relative_timestamps() {
     );
 
     let output = work_dir.run_jj(["show"]);
-    let timestamp_re = Regex::new(r"\([0-9]+ years ago\)").unwrap();
+    let timestamp_re = Regex::new(r"\([0-9]+ years ago\)")?;
     let output = output.normalize_stdout_with(|s| {
         s.split_inclusive('\n')
             .skip(2)
@@ -394,4 +395,5 @@ fn test_show_relative_timestamps() {
 
     [EOF]
     ");
+    Ok(())
 }

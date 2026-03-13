@@ -363,6 +363,7 @@ mod tests {
     use renderdag::Renderer as _;
 
     use super::*;
+    use crate::tests::TestResult;
 
     fn missing(c: char) -> GraphEdge<char> {
         GraphEdge::missing(c)
@@ -446,7 +447,7 @@ mod tests {
     }
 
     #[test]
-    fn test_topo_grouped_multiple_roots() {
+    fn test_topo_grouped_multiple_roots() -> TestResult {
         let graph = [
             ('C', vec![missing('Y')]),
             ('B', vec![missing('X')]),
@@ -478,14 +479,15 @@ mod tests {
 
         // All nodes can be lazily emitted.
         let mut iter = topo_grouped(graph.iter().cloned().peekable());
-        assert_eq!(iter.next().unwrap().unwrap().0, 'C');
+        assert_eq!(iter.next().unwrap()?.0, 'C');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
-        assert_eq!(iter.next().unwrap().unwrap().0, 'B');
+        assert_eq!(iter.next().unwrap()?.0, 'B');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_trivial_fork() {
+    fn test_topo_grouped_trivial_fork() -> TestResult {
         let graph = [
             ('E', vec![direct('B')]),
             ('D', vec![direct('A')]),
@@ -521,16 +523,17 @@ mod tests {
 
         // E can be lazy, then D and C will be queued.
         let mut iter = topo_grouped(graph.iter().cloned().peekable());
-        assert_eq!(iter.next().unwrap().unwrap().0, 'E');
+        assert_eq!(iter.next().unwrap()?.0, 'E');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'D');
-        assert_eq!(iter.next().unwrap().unwrap().0, 'C');
+        assert_eq!(iter.next().unwrap()?.0, 'C');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
-        assert_eq!(iter.next().unwrap().unwrap().0, 'B');
+        assert_eq!(iter.next().unwrap()?.0, 'B');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_fork_interleaved() {
+    fn test_topo_grouped_fork_interleaved() -> TestResult {
         let graph = [
             ('F', vec![direct('D')]),
             ('E', vec![direct('C')]),
@@ -569,16 +572,17 @@ mod tests {
 
         // F can be lazy, then E will be queued, then C.
         let mut iter = topo_grouped(graph.iter().cloned().peekable());
-        assert_eq!(iter.next().unwrap().unwrap().0, 'F');
+        assert_eq!(iter.next().unwrap()?.0, 'F');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'E');
-        assert_eq!(iter.next().unwrap().unwrap().0, 'D');
+        assert_eq!(iter.next().unwrap()?.0, 'D');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'C');
-        assert_eq!(iter.next().unwrap().unwrap().0, 'E');
+        assert_eq!(iter.next().unwrap()?.0, 'E');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_fork_multiple_heads() {
+    fn test_topo_grouped_fork_multiple_heads() -> TestResult {
         let graph = [
             ('I', vec![direct('E')]),
             ('H', vec![direct('C')]),
@@ -632,10 +636,11 @@ mod tests {
 
         // I can be lazy, then H, G, and F will be queued.
         let mut iter = topo_grouped(graph.iter().cloned().peekable());
-        assert_eq!(iter.next().unwrap().unwrap().0, 'I');
+        assert_eq!(iter.next().unwrap()?.0, 'I');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'H');
-        assert_eq!(iter.next().unwrap().unwrap().0, 'F');
+        assert_eq!(iter.next().unwrap()?.0, 'F');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'E');
+        Ok(())
     }
 
     #[test]
@@ -1016,7 +1021,7 @@ mod tests {
     }
 
     #[test]
-    fn test_topo_grouped_merge_interleaved() {
+    fn test_topo_grouped_merge_interleaved() -> TestResult {
         let graph = [
             ('F', vec![direct('E')]),
             ('E', vec![direct('C'), direct('D')]),
@@ -1055,18 +1060,19 @@ mod tests {
 
         // F, E, and D can be lazy, then C will be queued, then B.
         let mut iter = topo_grouped(graph.iter().cloned().peekable());
-        assert_eq!(iter.next().unwrap().unwrap().0, 'F');
+        assert_eq!(iter.next().unwrap()?.0, 'F');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'E');
-        assert_eq!(iter.next().unwrap().unwrap().0, 'E');
+        assert_eq!(iter.next().unwrap()?.0, 'E');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'D');
-        assert_eq!(iter.next().unwrap().unwrap().0, 'D');
+        assert_eq!(iter.next().unwrap()?.0, 'D');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'C');
-        assert_eq!(iter.next().unwrap().unwrap().0, 'B');
+        assert_eq!(iter.next().unwrap()?.0, 'B');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_merge_but_missing() {
+    fn test_topo_grouped_merge_but_missing() -> TestResult {
         let graph = [
             ('E', vec![direct('D')]),
             ('D', vec![missing('Y'), direct('C')]),
@@ -1112,18 +1118,19 @@ mod tests {
 
         // All nodes can be lazily emitted.
         let mut iter = topo_grouped(graph.iter().cloned().peekable());
-        assert_eq!(iter.next().unwrap().unwrap().0, 'E');
+        assert_eq!(iter.next().unwrap()?.0, 'E');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'D');
-        assert_eq!(iter.next().unwrap().unwrap().0, 'D');
+        assert_eq!(iter.next().unwrap()?.0, 'D');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'C');
-        assert_eq!(iter.next().unwrap().unwrap().0, 'C');
+        assert_eq!(iter.next().unwrap()?.0, 'C');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'B');
-        assert_eq!(iter.next().unwrap().unwrap().0, 'B');
+        assert_eq!(iter.next().unwrap()?.0, 'B');
         assert_eq!(iter.input_iter.peek().unwrap().as_ref().unwrap().0, 'A');
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_merge_criss_cross() {
+    fn test_topo_grouped_merge_criss_cross() -> TestResult {
         let graph = [
             ('G', vec![direct('E')]),
             ('F', vec![direct('D')]),
@@ -1164,10 +1171,11 @@ mod tests {
         ├─╯
         A
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_merge_descendants_interleaved() {
+    fn test_topo_grouped_merge_descendants_interleaved() -> TestResult {
         let graph = [
             ('H', vec![direct('F')]),
             ('G', vec![direct('E')]),
@@ -1213,10 +1221,11 @@ mod tests {
         ├─╯
         A
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_merge_multiple_roots() {
+    fn test_topo_grouped_merge_multiple_roots() -> TestResult {
         let graph = [
             ('D', vec![direct('C')]),
             ('C', vec![direct('B'), direct('A')]),
@@ -1247,10 +1256,11 @@ mod tests {
         │
         ~
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_merge_stairs() {
+    fn test_topo_grouped_merge_stairs() -> TestResult {
         let graph = [
             // Merge topic branches one by one:
             ('J', vec![direct('I'), direct('G')]),
@@ -1310,10 +1320,11 @@ mod tests {
         │
         A
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_merge_and_fork() {
+    fn test_topo_grouped_merge_and_fork() -> TestResult {
         let graph = [
             ('J', vec![direct('F')]),
             ('I', vec![direct('E')]),
@@ -1369,10 +1380,11 @@ mod tests {
         ├─╯
         A
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_merge_and_fork_multiple_roots() {
+    fn test_topo_grouped_merge_and_fork_multiple_roots() -> TestResult {
         let graph = [
             ('J', vec![direct('F')]),
             ('I', vec![direct('G')]),
@@ -1432,10 +1444,11 @@ mod tests {
         ├─╯
         A
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_parallel_interleaved() {
+    fn test_topo_grouped_parallel_interleaved() -> TestResult {
         let graph = [
             ('E', vec![direct('C')]),
             ('D', vec![direct('B')]),
@@ -1470,10 +1483,11 @@ mod tests {
         │
         ~
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_multiple_child_dependencies() {
+    fn test_topo_grouped_multiple_child_dependencies() -> TestResult {
         let graph = [
             ('I', vec![direct('H'), direct('G')]),
             ('H', vec![direct('D')]),
@@ -1526,10 +1540,11 @@ mod tests {
         │
         A
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_prioritized_branches_trivial_fork() {
+    fn test_topo_grouped_prioritized_branches_trivial_fork() -> TestResult {
         // The same setup as test_topo_grouped_trivial_fork()
         let graph = [
             ('E', vec![direct('B')]),
@@ -1627,10 +1642,11 @@ mod tests {
         ├─╯
         A
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_prioritized_branches_fork_multiple_heads() {
+    fn test_topo_grouped_prioritized_branches_fork_multiple_heads() -> TestResult {
         // The same setup as test_topo_grouped_fork_multiple_heads()
         let graph = [
             ('I', vec![direct('E')]),
@@ -1716,10 +1732,11 @@ mod tests {
         ├─╯
         A
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_prioritized_branches_fork_parallel() {
+    fn test_topo_grouped_prioritized_branches_fork_parallel() -> TestResult {
         // The same setup as test_topo_grouped_fork_parallel()
         let graph = [
             // Pull all sub graphs in reverse order:
@@ -1816,10 +1833,11 @@ mod tests {
         ├─╯
         A
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_requeue_unpopulated() {
+    fn test_topo_grouped_requeue_unpopulated() -> TestResult {
         let graph = [
             ('C', vec![direct('A'), direct('B')]),
             ('B', vec![direct('A')]),
@@ -1845,17 +1863,18 @@ mod tests {
         // B is the second parent, B-A is processed next and A is queued again. So
         // one of them in the queue has to be ignored.
         let mut iter = topo_grouped(graph.iter().cloned());
-        assert_eq!(iter.next().unwrap().unwrap().0, 'C');
+        assert_eq!(iter.next().unwrap()?.0, 'C');
         assert_eq!(iter.emittable_ids, vec!['A', 'B']);
-        assert_eq!(iter.next().unwrap().unwrap().0, 'B');
+        assert_eq!(iter.next().unwrap()?.0, 'B');
         assert_eq!(iter.emittable_ids, vec!['A', 'A']);
-        assert_eq!(iter.next().unwrap().unwrap().0, 'A');
+        assert_eq!(iter.next().unwrap()?.0, 'A');
         assert!(iter.next().is_none());
         assert!(iter.emittable_ids.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn test_topo_grouped_duplicated_edges() {
+    fn test_topo_grouped_duplicated_edges() -> TestResult {
         // The graph shouldn't have duplicated parent->child edges, but topo-grouped
         // iterator can handle it anyway.
         let graph = [('B', vec![direct('A'), direct('A')]), ('A', vec![])].map(Ok);
@@ -1871,10 +1890,11 @@ mod tests {
         ");
 
         let mut iter = topo_grouped(graph.iter().cloned());
-        assert_eq!(iter.next().unwrap().unwrap().0, 'B');
+        assert_eq!(iter.next().unwrap()?.0, 'B');
         assert_eq!(iter.emittable_ids, vec!['A', 'A']);
-        assert_eq!(iter.next().unwrap().unwrap().0, 'A');
+        assert_eq!(iter.next().unwrap()?.0, 'A');
         assert!(iter.next().is_none());
         assert!(iter.emittable_ids.is_empty());
+        Ok(())
     }
 }

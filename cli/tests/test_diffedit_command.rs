@@ -14,11 +14,12 @@
 
 use bstr::ByteSlice as _;
 use indoc::indoc;
+use testutils::TestResult;
 
 use crate::common::TestEnvironment;
 
 #[test]
-fn test_diffedit() {
+fn test_diffedit() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -43,8 +44,7 @@ fn test_diffedit() {
             "dump JJ-INSTRUCTIONS instrs",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -52,7 +52,7 @@ fn test_diffedit() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @"
+        std::fs::read_to_string(test_env.env_root().join("instrs"))?, @"
     You are editing changes in: kkmpptxz e4245972 (no description set)
 
     The diff initially shows the commit's changes.
@@ -68,7 +68,7 @@ fn test_diffedit() {
     ");
 
     // Try again with ui.diff-instructions=false
-    std::fs::write(&edit_script, "files-before file1 file2\0files-after file2").unwrap();
+    std::fs::write(&edit_script, "files-before file1 file2\0files-after file2")?;
     let output = work_dir.run_jj(["diffedit", "--config=ui.diff-instructions=false"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -86,8 +86,7 @@ fn test_diffedit() {
     std::fs::write(
         &edit_script,
         "files-before file1 file2\0files-after JJ-INSTRUCTIONS file2",
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj([
         "diffedit",
         "--config=ui.diff-editor='false'",
@@ -106,7 +105,7 @@ fn test_diffedit() {
     ");
 
     // Nothing happens if the diff-editor exits with an error
-    std::fs::write(&edit_script, "rm file2\0fail").unwrap();
+    std::fs::write(&edit_script, "rm file2\0fail")?;
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     ------- stderr -------
@@ -123,7 +122,7 @@ fn test_diffedit() {
     ");
 
     // Can edit changes to individual files
-    std::fs::write(&edit_script, "reset file2").unwrap();
+    std::fs::write(&edit_script, "reset file2")?;
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -140,7 +139,7 @@ fn test_diffedit() {
 
     // Changes to a commit are propagated to descendants
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(&edit_script, "write file3\nmodified\n").unwrap();
+    std::fs::write(&edit_script, "write file3\nmodified\n")?;
     let output = work_dir.run_jj(["diffedit", "-r", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -158,8 +157,7 @@ fn test_diffedit() {
     std::fs::write(
         &edit_script,
         "files-before file1\0files-after JJ-INSTRUCTIONS file2 file3\0reset file2",
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["diffedit", "--from", "@--"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -187,8 +185,7 @@ fn test_diffedit() {
     std::fs::write(
         &edit_script,
         "files-before file2\0files-after JJ-INSTRUCTIONS file2\0reset file2",
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["diffedit", "file2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -215,8 +212,7 @@ fn test_diffedit() {
             "dump JJ-INSTRUCTIONS instrs",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["diffedit", "--to", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -226,7 +222,7 @@ fn test_diffedit() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @"
+        std::fs::read_to_string(test_env.env_root().join("instrs"))?, @"
     You are editing changes in: rlvkpnrz 7e268da3 (no description set)
 
     The diff initially shows the commit's changes relative to:
@@ -240,10 +236,11 @@ fn test_diffedit() {
     D file1
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_diffedit_new_file() {
+fn test_diffedit_new_file() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -260,8 +257,7 @@ fn test_diffedit_new_file() {
     std::fs::write(
         &edit_script,
         "files-before file1\0files-after JJ-INSTRUCTIONS file2",
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -276,7 +272,7 @@ fn test_diffedit_new_file() {
     ");
 
     // Creating `file1` on the right side is noticed by `jj diffedit`
-    std::fs::write(&edit_script, "write file1\nmodified\n").unwrap();
+    std::fs::write(&edit_script, "write file1\nmodified\n")?;
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -299,7 +295,7 @@ fn test_diffedit_new_file() {
     // hand, this prevents `jj` from loading any backup files the merge tool
     // generates.
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(&edit_script, "write new_file\nnew file\n").unwrap();
+    std::fs::write(&edit_script, "write new_file\nnew file\n")?;
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -312,10 +308,11 @@ fn test_diffedit_new_file() {
     A file2
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_diffedit_existing_instructions() {
+fn test_diffedit_existing_instructions() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -324,7 +321,7 @@ fn test_diffedit_existing_instructions() {
     // A diff containing an existing JJ-INSTRUCTIONS file themselves.
     work_dir.write_file("JJ-INSTRUCTIONS", "instruct");
 
-    std::fs::write(&edit_script, "write JJ-INSTRUCTIONS\nmodified\n").unwrap();
+    std::fs::write(&edit_script, "write JJ-INSTRUCTIONS\nmodified\n")?;
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -336,10 +333,11 @@ fn test_diffedit_existing_instructions() {
     // Test that we didn't delete or overwrite the "JJ-INSTRUCTIONS" file.
     let content = work_dir.read_file("JJ-INSTRUCTIONS");
     insta::assert_snapshot!(content, @"modified");
+    Ok(())
 }
 
 #[test]
-fn test_diffedit_external_tool_conflict_marker_style() {
+fn test_diffedit_external_tool_conflict_marker_style() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -424,8 +422,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
             "dump file before-file",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["diffedit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -440,7 +437,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     ");
     // Conflicts should render using "snapshot" format in diff editor
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("before-file")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("before-file"))?, @r#"
     line 1
     <<<<<<< conflict 1 of 2
     +++++++ rlvkpnrz 74e448a1 "side-a"
@@ -464,7 +461,7 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     line 5
     "#);
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("after-file")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("after-file"))?, @r#"
     line 1
     line 2.1
     line 2.2
@@ -517,10 +514,11 @@ fn test_diffedit_external_tool_conflict_marker_style() {
     file    2-sided conflict
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_diffedit_3pane() {
+fn test_diffedit_3pane() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -542,14 +540,13 @@ fn test_diffedit_3pane() {
         "merge-tools.fake-diff-editor.edit-args=['$left', '$right', '--ignore=$output']";
     let config_with_output_as_after =
         "merge-tools.fake-diff-editor.edit-args=['$left', '$output', '--ignore=$right']";
-    std::fs::write(&edit_script, "").unwrap();
+    std::fs::write(&edit_script, "")?;
 
     // Nothing happens if we make no changes
     std::fs::write(
         &edit_script,
         "files-before file1 file2\0files-after JJ-INSTRUCTIONS file2",
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["diffedit", "--config", config_with_output_as_after]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -577,7 +574,7 @@ fn test_diffedit_3pane() {
     ");
 
     // Can edit changes to individual files
-    std::fs::write(&edit_script, "reset file2").unwrap();
+    std::fs::write(&edit_script, "reset file2")?;
     let output = work_dir.run_jj(["diffedit", "--config", config_with_output_as_after]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -594,7 +591,7 @@ fn test_diffedit_3pane() {
 
     // Can write something new to `file1`
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(&edit_script, "write file1\nnew content").unwrap();
+    std::fs::write(&edit_script, "write file1\nnew content")?;
     let output = work_dir.run_jj(["diffedit", "--config", config_with_output_as_after]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -612,7 +609,7 @@ fn test_diffedit_3pane() {
 
     // But nothing happens if we modify the right side
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(&edit_script, "write file1\nnew content").unwrap();
+    std::fs::write(&edit_script, "write file1\nnew content")?;
     let output = work_dir.run_jj(["diffedit", "--config", config_with_right_as_after]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -628,10 +625,11 @@ fn test_diffedit_3pane() {
 
     // TODO: test with edit_script of "reset file2". This fails on right side
     // since the file is readonly.
+    Ok(())
 }
 
 #[test]
-fn test_diffedit_merge() {
+fn test_diffedit_merge() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -666,8 +664,7 @@ fn test_diffedit_merge() {
     std::fs::write(
         edit_script,
         "files-before file1\0files-after JJ-INSTRUCTIONS file1 file3\0rm file1",
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["diffedit", "-r", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -698,10 +695,11 @@ fn test_diffedit_merge() {
     >>>>>>> conflict 1 of 1 ends
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_diffedit_old_restore_interactive_tests() {
+fn test_diffedit_old_restore_interactive_tests() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -732,7 +730,7 @@ fn test_diffedit_old_restore_interactive_tests() {
     ");
 
     // Nothing happens if the diff-editor exits with an error
-    std::fs::write(&edit_script, "rm file2\0fail").unwrap();
+    std::fs::write(&edit_script, "rm file2\0fail")?;
     let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
     insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     ------- stderr -------
@@ -750,7 +748,7 @@ fn test_diffedit_old_restore_interactive_tests() {
     ");
 
     // Can restore changes to individual files
-    std::fs::write(&edit_script, "reset file2\0reset file3").unwrap();
+    std::fs::write(&edit_script, "reset file2\0reset file3")?;
     let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -767,7 +765,7 @@ fn test_diffedit_old_restore_interactive_tests() {
 
     // Can make unrelated edits
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(&edit_script, "write file3\nunrelated\n").unwrap();
+    std::fs::write(&edit_script, "write file3\nunrelated\n")?;
     let output = work_dir.run_jj(["diffedit", "--from", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -801,10 +799,11 @@ fn test_diffedit_old_restore_interactive_tests() {
     +unrelated
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_diffedit_restore_descendants() {
+fn test_diffedit_restore_descendants() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -817,7 +816,7 @@ fn test_diffedit_restore_descendants() {
     work_dir.write_file("file", "println!(\"baz\");\n");
 
     // Add a ";" after the line with "bar". There should be no conflict.
-    std::fs::write(edit_script, "write file\nprintln!(\"bar\");\n").unwrap();
+    std::fs::write(edit_script, "write file\nprintln!(\"bar\");\n")?;
     let output = work_dir.run_jj(["diffedit", "-r", "@-", "--restore-descendants"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -837,10 +836,11 @@ fn test_diffedit_restore_descendants() {
     +println!("baz");
     [EOF]
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_diffedit_external_tool_eol_conversion() {
+fn test_diffedit_external_tool_eol_conversion() -> TestResult {
     // Create 2 changes: one creates a file with a single LF, another changes the
     // file to contain 2 LFs. The diff editor should see the same EOL in both the
     // before file and the after file. And when the diff editor adds another EOL to
@@ -871,8 +871,7 @@ fn test_diffedit_external_tool_eol_conversion() {
             "dump file before-file",
         ]
         .join("\0"),
-    )
-    .unwrap();
+    )?;
     let test_eol_conversion_config = "working-copy.eol-conversion='input-output'";
     work_dir
         .run_jj([
@@ -883,11 +882,11 @@ fn test_diffedit_external_tool_eol_conversion() {
             test_eol_conversion_config,
         ])
         .success();
-    let before_file_contents = std::fs::read(test_env.env_root().join("before-file")).unwrap();
+    let before_file_contents = std::fs::read(test_env.env_root().join("before-file"))?;
     let before_file_lines = before_file_contents
         .lines_with_terminator()
         .collect::<Vec<_>>();
-    let after_file_contents = std::fs::read(test_env.env_root().join("after-file")).unwrap();
+    let after_file_contents = std::fs::read(test_env.env_root().join("after-file"))?;
     let after_file_lines = after_file_contents
         .lines_with_terminator()
         .collect::<Vec<_>>();
@@ -919,7 +918,7 @@ fn test_diffedit_external_tool_eol_conversion() {
         .run_jj(["squash", "--config", eol_conversion_none_config, "-m", "2"])
         .success();
 
-    std::fs::write(&edit_script, format!("write file\n{eol}{eol}{eol}")).unwrap();
+    std::fs::write(&edit_script, format!("write file\n{eol}{eol}{eol}"))?;
     work_dir
         .run_jj([
             "diffedit",
@@ -938,4 +937,5 @@ fn test_diffedit_external_tool_eol_conversion() {
         .success();
     let file_content = work_dir.read_file(file_path);
     assert_eq!(file_content, b"\n\n\n");
+    Ok(())
 }

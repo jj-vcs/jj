@@ -14,6 +14,8 @@
 
 use std::path::PathBuf;
 
+use testutils::TestResult;
+
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
@@ -35,7 +37,7 @@ fn test_commit_with_description_from_cli() {
 }
 
 #[test]
-fn test_commit_with_editor() {
+fn test_commit_with_editor() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -44,7 +46,7 @@ fn test_commit_with_editor() {
     // Check that the text file gets initialized with the current description and
     // set a new one
     work_dir.run_jj(["describe", "-m=initial"]).success();
-    std::fs::write(&edit_script, ["dump editor0", "write\nmodified"].join("\0")).unwrap();
+    std::fs::write(&edit_script, ["dump editor0", "write\nmodified"].join("\0"))?;
     work_dir.run_jj(["commit"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  2094c8f2e360
@@ -53,7 +55,7 @@ fn test_commit_with_editor() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor0"))?, @r#"
     initial
 
     JJ: Change ID: qpvuntsm
@@ -65,10 +67,10 @@ fn test_commit_with_editor() {
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "foo\n");
     work_dir.run_jj(["describe", "-m=add files"]).success();
-    std::fs::write(&edit_script, "dump editor1").unwrap();
+    std::fs::write(&edit_script, "dump editor1")?;
     work_dir.run_jj(["commit"]).success();
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor1"))?, @r#"
     add files
 
     JJ: Change ID: kkmpptxz
@@ -78,24 +80,25 @@ fn test_commit_with_editor() {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_commit_with_editor_avoids_unc() {
+fn test_commit_with_editor_avoids_unc() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(edit_script, "dump-path path").unwrap();
+    std::fs::write(edit_script, "dump-path path")?;
     work_dir.run_jj(["commit"]).success();
 
-    let edited_path =
-        PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
+    let edited_path = PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path"))?);
     // While `assert!(!edited_path.starts_with("//?/"))` could work here in most
     // cases, it fails when it is not safe to strip the prefix, such as paths
     // over 260 chars.
     assert_eq!(edited_path, dunce::simplified(&edited_path));
+    Ok(())
 }
 
 #[test]
@@ -120,14 +123,14 @@ fn test_commit_with_empty_description_from_cli() {
 }
 
 #[test]
-fn test_commit_with_empty_description_from_editor() {
+fn test_commit_with_empty_description_from_editor() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
     // Check that the text file gets initialized and leave it untouched.
-    std::fs::write(&edit_script, ["dump editor0"].join("\0")).unwrap();
+    std::fs::write(&edit_script, ["dump editor0"].join("\0"))?;
     let output = work_dir.run_jj(["commit"]).success();
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  51b556e22ca0
@@ -136,7 +139,7 @@ fn test_commit_with_empty_description_from_editor() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(),
+        std::fs::read_to_string(test_env.env_root().join("editor0"))?,
         @r#"
 
 
@@ -153,10 +156,11 @@ fn test_commit_with_empty_description_from_editor() {
     Parent commit (@-)      : qpvuntsm cc8ff228 (empty) (no description set)
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_commit_interactive() {
+fn test_commit_interactive() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     let diff_editor = test_env.set_up_fake_diff_editor();
@@ -166,17 +170,17 @@ fn test_commit_interactive() {
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
     work_dir.run_jj(["describe", "-m=add files"]).success();
-    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    std::fs::write(edit_script, ["dump editor"].join("\0"))?;
 
     let diff_script = ["rm file2", "dump JJ-INSTRUCTIONS instrs"].join("\0");
-    std::fs::write(diff_editor, diff_script).unwrap();
+    std::fs::write(diff_editor, diff_script)?;
     let setup_opid = work_dir.current_operation_id();
 
     // Create a commit interactively and select only file1
     work_dir.run_jj(["commit", "-i"]).success();
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @"
+        std::fs::read_to_string(test_env.env_root().join("instrs"))?, @"
     You are splitting the working-copy commit: qpvuntsm d849dc34 add files
 
     The diff initially shows all changes. Adjust the right side until it shows the
@@ -185,7 +189,7 @@ fn test_commit_interactive() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
     add files
 
     JJ: Change ID: qpvuntsm
@@ -206,7 +210,7 @@ fn test_commit_interactive() {
         .success();
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
     add files
 
     JJ: Change ID: qpvuntsm
@@ -227,10 +231,11 @@ fn test_commit_interactive() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_commit_interactive_with_paths() {
+fn test_commit_interactive_with_paths() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     let diff_editor = test_env.set_up_fake_diff_editor();
@@ -244,14 +249,14 @@ fn test_commit_interactive_with_paths() {
     work_dir.write_file("file2", "bar\n");
     work_dir.write_file("file3", "baz\n");
 
-    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    std::fs::write(edit_script, ["dump editor"].join("\0"))?;
     let diff_script = [
         "files-before file2",
         "files-after JJ-INSTRUCTIONS file1 file2",
         "reset file2",
     ]
     .join("\0");
-    std::fs::write(diff_editor, diff_script).unwrap();
+    std::fs::write(diff_editor, diff_script)?;
 
     // Select file1 and file2 by args, then select file1 interactively
     let output = work_dir.run_jj(["commit", "-i", "file1", "file2"]);
@@ -263,7 +268,7 @@ fn test_commit_interactive_with_paths() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
     edit
 
     JJ: Change ID: rlvkpnrz
@@ -289,10 +294,11 @@ fn test_commit_interactive_with_paths() {
     ◆  zzzzzzzz root() 00000000
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_commit_with_default_description() {
+fn test_commit_with_default_description() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -301,7 +307,7 @@ fn test_commit_with_default_description() {
 
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
-    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    std::fs::write(edit_script, ["dump editor"].join("\0"))?;
     work_dir.run_jj(["commit"]).success();
 
     insta::assert_snapshot!(get_log_output(&work_dir), @"
@@ -311,7 +317,7 @@ fn test_commit_with_default_description() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
 
 
     TESTED=TODO
@@ -323,10 +329,11 @@ fn test_commit_with_default_description() {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_commit_with_description_template() {
+fn test_commit_with_description_template() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -352,7 +359,7 @@ fn test_commit_with_description_template() {
     );
     let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    std::fs::write(edit_script, ["dump editor"].join("\0"))?;
 
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
@@ -361,7 +368,7 @@ fn test_commit_with_description_template() {
     // Only file1 should be included in the diff
     work_dir.run_jj(["commit", "file1"]).success();
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
 
     JJ: Author: Test User <test.user@example.com> (2001-02-03 08:05:08)
     JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:08)
@@ -382,7 +389,7 @@ fn test_commit_with_description_template() {
         ])
         .success();
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
 
     JJ: Author: Another User <another.user@example.com> (2001-02-03 08:05:08)
     JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:09)
@@ -396,7 +403,7 @@ fn test_commit_with_description_template() {
     // Timestamp after the reset should be available to the template
     work_dir.run_jj(["commit", "--reset-author"]).success();
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
 
     JJ: Author: Test User <test.user@example.com> (2001-02-03 08:05:10)
     JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:10)
@@ -406,6 +413,7 @@ fn test_commit_with_description_template() {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
+    Ok(())
 }
 
 #[test]
@@ -517,7 +525,7 @@ fn test_commit_reset_author() {
 }
 
 #[test]
-fn test_commit_trailers() {
+fn test_commit_trailers() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -562,7 +570,7 @@ fn test_commit_trailers() {
     ");
 
     // the trailer is added in the editor
-    std::fs::write(&edit_script, "dump editor0").unwrap();
+    std::fs::write(&edit_script, "dump editor0")?;
     let output = work_dir.run_jj(["commit", "--config=user.email=foo@bar.org"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -571,7 +579,7 @@ fn test_commit_trailers() {
     [EOF]
     ");
 
-    let editor0 = std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap();
+    let editor0 = std::fs::read_to_string(test_env.env_root().join("editor0"))?;
     insta::assert_snapshot!(
         format!("-----\n{editor0}-----\n"), @r#"
     -----
@@ -590,24 +598,25 @@ fn test_commit_trailers() {
     Reviewed-by: foo@bar.org
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_commit_with_editor_and_message_args() {
+fn test_commit_with_editor_and_message_args() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
     work_dir.write_file("file1", "foo\n");
-    std::fs::write(&edit_script, "dump editor").unwrap();
+    std::fs::write(&edit_script, "dump editor")?;
     work_dir
         .run_jj(["commit", "-m", "message from command line", "--editor"])
         .success();
 
     // Verify editor was opened with the message from command line
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
     message from command line
 
     JJ: Change ID: qpvuntsm
@@ -622,10 +631,11 @@ fn test_commit_with_editor_and_message_args() {
     ◆  000000000000
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_commit_with_editor_and_empty_message() {
+fn test_commit_with_editor_and_empty_message() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -635,7 +645,7 @@ fn test_commit_with_editor_and_empty_message() {
 
     // Use --editor with an empty message. The trailers should be added because
     // the editor will be opened.
-    std::fs::write(&edit_script, "dump editor").unwrap();
+    std::fs::write(&edit_script, "dump editor")?;
     work_dir
         .run_jj([
             "commit",
@@ -649,7 +659,7 @@ fn test_commit_with_editor_and_empty_message() {
 
     // Verify editor was opened with trailers added to the empty message
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
 
 
     Trailer: value
@@ -660,10 +670,11 @@ fn test_commit_with_editor_and_empty_message() {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_commit_with_editor_without_message() {
+fn test_commit_with_editor_without_message() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -672,12 +683,12 @@ fn test_commit_with_editor_without_message() {
     work_dir.write_file("file1", "foo\n");
 
     // --editor without -m should behave the same as without --editor (normal flow)
-    std::fs::write(&edit_script, "dump editor").unwrap();
+    std::fs::write(&edit_script, "dump editor")?;
     let output = work_dir.run_jj(["commit", "--editor"]).success();
 
     // Verify editor was opened
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
 
 
     JJ: Change ID: qpvuntsm
@@ -701,6 +712,7 @@ fn test_commit_with_editor_without_message() {
     Parent commit (@-)      : qpvuntsm 38f3e84b (no description set)
     [EOF]
     ");
+    Ok(())
 }
 
 #[must_use]

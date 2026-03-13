@@ -239,6 +239,7 @@ new working-copy commit.
             tx.repo_mut().edit(name, &new_wc_commit).await.unwrap();
         }
     }
-    tx.finish(ui, format!("commit {}", commit.id().hex()))?;
+    tx.finish(ui, format!("commit {}", commit.id().hex()))
+        .await?;
     Ok(())
 }

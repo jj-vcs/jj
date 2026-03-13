@@ -460,6 +460,7 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
+    use crate::tests::TestResult;
 
     #[test]
     fn test_expand_home() {
@@ -796,7 +797,7 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_transparent() {
+    fn test_resolve_transparent() -> TestResult {
         let mut source_config = StackedConfig::empty();
         source_config.add_layer(ConfigLayer::empty(ConfigSource::Default));
         source_config.add_layer(ConfigLayer::empty(ConfigSource::User));
@@ -809,7 +810,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 2);
         assert!(Arc::ptr_eq(
             &source_config.layers()[0],
@@ -819,10 +820,11 @@ mod tests {
             &source_config.layers()[1],
             &resolved_config.layers()[1]
         ));
+        Ok(())
     }
 
     #[test]
-    fn test_resolve_table_order() {
+    fn test_resolve_table_order() -> TestResult {
         let mut source_config = StackedConfig::empty();
         source_config.add_layer(new_user_layer(indoc! {"
             a = 'a #0'
@@ -849,7 +851,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 7);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.0'");
@@ -858,10 +860,11 @@ mod tests {
         insta::assert_snapshot!(resolved_config.layers()[4].data, @"a = 'a #0.2'");
         insta::assert_snapshot!(resolved_config.layers()[5].data, @"a = 'a #1'");
         insta::assert_snapshot!(resolved_config.layers()[6].data, @"a = 'a #1.0'");
+        Ok(())
     }
 
     #[test]
-    fn test_resolve_repo_path() {
+    fn test_resolve_repo_path() -> TestResult {
         let mut source_config = StackedConfig::empty();
         source_config.add_layer(new_user_layer(indoc! {"
             a = 'a #0'
@@ -891,7 +894,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 1);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
@@ -903,7 +906,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 3);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1 foo'");
@@ -917,7 +920,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 2);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.2 foo|bar'");
@@ -930,14 +933,15 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 2);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #1 baz'");
+        Ok(())
     }
 
     #[test]
-    fn test_resolve_hostname() {
+    fn test_resolve_hostname() -> TestResult {
         let mut source_config = StackedConfig::empty();
         source_config.add_layer(new_user_layer(indoc! {"
             a = 'a #0'
@@ -967,7 +971,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 1);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
@@ -979,7 +983,7 @@ mod tests {
             hostname: "host-a",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 3);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1 host-a'");
@@ -993,7 +997,7 @@ mod tests {
             hostname: "host-b",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 2);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.2 host-a|host-b'");
@@ -1006,14 +1010,15 @@ mod tests {
             hostname: "host-c",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 2);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #1 host-c'");
+        Ok(())
     }
 
     #[test]
-    fn test_resolve_workspace_path() {
+    fn test_resolve_workspace_path() -> TestResult {
         let mut source_config = StackedConfig::empty();
         source_config.add_layer(new_user_layer(indoc! {"
             a = 'a #0'
@@ -1043,7 +1048,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 1);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
@@ -1055,7 +1060,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 3);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1 foo'");
@@ -1069,7 +1074,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 2);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.2 foo|bar'");
@@ -1082,14 +1087,15 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 2);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #1 baz'");
+        Ok(())
     }
 
     #[test]
-    fn test_resolve_command() {
+    fn test_resolve_command() -> TestResult {
         let mut source_config = StackedConfig::empty();
         source_config.add_layer(new_user_layer(indoc! {"
             a = 'a #0'
@@ -1115,7 +1121,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 1);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
@@ -1127,7 +1133,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 3);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1 foo'");
@@ -1141,7 +1147,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 2);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.2 foo|bar'");
@@ -1154,7 +1160,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 4);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1 foo'");
@@ -1170,13 +1176,14 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 1);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
+        Ok(())
     }
 
     #[test]
-    fn test_resolve_os() {
+    fn test_resolve_os() -> TestResult {
         let mut source_config = StackedConfig::empty();
         source_config.add_layer(new_user_layer(indoc! {"
             a = 'a none'
@@ -1203,7 +1210,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"
         a = 'a none'
         b = 'b none'
@@ -1225,10 +1232,11 @@ mod tests {
         } else {
             assert_eq!(resolved_config.layers().len(), 1);
         }
+        Ok(())
     }
 
     #[test]
-    fn test_resolve_repo_path_and_command() {
+    fn test_resolve_repo_path_and_command() -> TestResult {
         let mut source_config = StackedConfig::empty();
         source_config.add_layer(new_user_layer(indoc! {"
             a = 'a #0'
@@ -1246,7 +1254,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 1);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
@@ -1259,7 +1267,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 1);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
@@ -1272,7 +1280,7 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 1);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
@@ -1285,14 +1293,15 @@ mod tests {
             hostname: "",
             environment: &HashMap::new(),
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 2);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1'");
+        Ok(())
     }
 
     #[test]
-    fn test_resolve_environments() {
+    fn test_resolve_environments() -> TestResult {
         let mut source_config = StackedConfig::empty();
         source_config.add_layer(new_user_layer(indoc! {"
             a = 'a #0'
@@ -1330,7 +1339,7 @@ mod tests {
             hostname: "",
             environment: &environment,
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 1);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
 
@@ -1345,7 +1354,7 @@ mod tests {
             hostname: "",
             environment: &environment,
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 5);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.1 env-yes'");
@@ -1363,11 +1372,12 @@ mod tests {
             hostname: "",
             environment: &environment,
         };
-        let resolved_config = resolve(&source_config, &context).unwrap();
+        let resolved_config = resolve(&source_config, &context)?;
         assert_eq!(resolved_config.layers().len(), 3);
         insta::assert_snapshot!(resolved_config.layers()[0].data, @"a = 'a #0'");
         insta::assert_snapshot!(resolved_config.layers()[1].data, @"a = 'a #0.2 env-yes|env-no'");
         insta::assert_snapshot!(resolved_config.layers()[2].data, @"a = 'a #0.4 env-exists'");
+        Ok(())
     }
 
     #[test]
@@ -1413,7 +1423,7 @@ mod tests {
     }
 
     #[test]
-    fn test_migrate_noop() {
+    fn test_migrate_noop() -> TestResult {
         let mut config = StackedConfig::empty();
         config.add_layer(new_user_layer(indoc! {"
             foo = 'foo'
@@ -1424,10 +1434,11 @@ mod tests {
 
         let old_layers = config.layers().to_vec();
         let rules = [ConfigMigrationRule::rename_value("baz", "foo")];
-        let descriptions = migrate(&mut config, &rules).unwrap();
+        let descriptions = migrate(&mut config, &rules)?;
         assert!(descriptions.is_empty());
         assert!(Arc::ptr_eq(&config.layers()[0], &old_layers[0]));
         assert!(Arc::ptr_eq(&config.layers()[1], &old_layers[1]));
+        Ok(())
     }
 
     #[test]
@@ -1455,7 +1466,7 @@ mod tests {
     }
 
     #[test]
-    fn test_migrate_rename_value() {
+    fn test_migrate_rename_value() -> TestResult {
         let mut config = StackedConfig::empty();
         config.add_layer(new_user_layer(indoc! {"
             [foo]
@@ -1474,7 +1485,7 @@ mod tests {
             ConfigMigrationRule::rename_value("foo.old", "foo.new"),
             ConfigMigrationRule::rename_value("bar.old", "baz.new"),
         ];
-        let descriptions = migrate(&mut config, &rules).unwrap();
+        let descriptions = migrate(&mut config, &rules)?;
         insta::assert_debug_snapshot!(descriptions, @r#"
         [
             (
@@ -1504,10 +1515,11 @@ mod tests {
         [baz]
         new = 'bar.old #1'
         ");
+        Ok(())
     }
 
     #[test]
-    fn test_migrate_rename_update_value() {
+    fn test_migrate_rename_update_value() -> TestResult {
         let mut config = StackedConfig::empty();
         config.add_layer(new_user_layer(indoc! {"
             [foo]
@@ -1534,7 +1546,7 @@ mod tests {
                 Ok(format!("{s} updated").into())
             }),
         ];
-        let descriptions = migrate(&mut config, &rules).unwrap();
+        let descriptions = migrate(&mut config, &rules)?;
         insta::assert_debug_snapshot!(descriptions, @r#"
         [
             (
@@ -1578,5 +1590,6 @@ mod tests {
             source_path: None,
         }
         "#);
+        Ok(())
     }
 }

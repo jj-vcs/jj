@@ -34,6 +34,7 @@ use std::sync::MutexGuard;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use futures::StreamExt as _;
 use futures::stream::BoxStream;
 use gix::bstr::BString;
 use gix::objs::CommitRefIter;
@@ -186,10 +187,11 @@ impl GitBackend {
     }
 
     fn new(
-        base_repo: gix::ThreadSafeRepository,
+        maybe_colocated: MaybeColocatedGitRepo,
         extra_metadata_store: TableStore,
         git_settings: GitSettings,
     ) -> Self {
+        let base_repo = maybe_colocated.git_repo;
         let repo = Mutex::new(base_repo.to_thread_local());
         let root_commit_id = CommitId::from_bytes(&[0; HASH_LENGTH]);
         let root_change_id = ChangeId::from_bytes(&[0; CHANGE_ID_LENGTH]);
@@ -301,12 +303,30 @@ impl GitBackend {
             .context(&target_path)
             .map_err(GitBackendInitError::Path)?;
         let extra_metadata_store = TableStore::init(extra_path, HASH_LENGTH);
-        Ok(Self::new(repo, extra_metadata_store, git_settings))
+        Ok(Self::new(
+            MaybeColocatedGitRepo { git_repo: repo },
+            extra_metadata_store,
+            git_settings,
+        ))
     }
 
     pub fn load(
         settings: &UserSettings,
         store_path: &Path,
+    ) -> Result<Self, Box<GitBackendLoadError>> {
+        Self::load_at_workspace(settings, store_path, None)
+    }
+
+    /// Loads the GitBackend, optionally detecting colocation with a workspace.
+    ///
+    /// If `workspace_root` is provided and the workspace is colocated (has a
+    /// `.git` that points to the same underlying repo), the backend will use
+    /// the workspace's git worktree. This enables proper HEAD management for
+    /// secondary colocated workspaces.
+    pub fn load_at_workspace(
+        settings: &UserSettings,
+        store_path: &Path,
+        workspace_root: Option<&Path>,
     ) -> Result<Self, Box<GitBackendLoadError>> {
         let git_repo_path = {
             let target_path = store_path.join("git_target");
@@ -320,15 +340,18 @@ impl GitBackend {
                 .context(&git_repo_path)
                 .map_err(GitBackendLoadError::Path)?
         };
-        let repo = gix::ThreadSafeRepository::open_opts(
-            git_repo_path,
-            gix_open_opts_from_settings(settings),
-        )
-        .map_err(GitBackendLoadError::OpenRepository)?;
+        let open_opts = gix_open_opts_from_settings(settings);
+        let maybe_colocated =
+            MaybeColocatedGitRepo::open_automatic(&git_repo_path, workspace_root, open_opts)
+                .map_err(|e| GitBackendLoadError::OpenRepository(*e))?;
         let extra_metadata_store = TableStore::load(store_path.join("extra"), HASH_LENGTH);
         let git_settings =
             GitSettings::from_settings(settings).map_err(GitBackendLoadError::Config)?;
-        Ok(Self::new(repo, extra_metadata_store, git_settings))
+        Ok(Self::new(
+            maybe_colocated,
+            extra_metadata_store,
+            git_settings,
+        ))
     }
 
     fn lock_git_repo(&self) -> MutexGuard<'_, gix::Repository> {
@@ -1459,7 +1482,7 @@ impl Backend for GitBackend {
                 },
             )
             .map_err(|err| BackendError::Other(err.into()))?;
-        Ok(Box::pin(futures::stream::iter(records)))
+        Ok(futures::stream::iter(records).boxed())
     }
 
     #[tracing::instrument(skip(self, index))]
@@ -1565,6 +1588,131 @@ recover.
     Ok(id.detach())
 }
 
+/// Helper for the GitBackend to open a git repo and detect colocation.
+///
+/// A workspace is considered "colocated" when Git regards the workspace root
+/// as a working directory for the same repo that jj uses internally. This
+/// enables automatic import/export of Git refs on every jj command.
+///
+/// ## Detection Algorithm
+///
+/// Colocation is detected by comparing `common_dir()` paths (canonicalized):
+/// 1. Open the Git repository that jj's store points to
+/// 2. Attempt to open `<workspace_root>/.git` as a Git repository
+/// 3. If both succeed and their `common_dir()` paths match, we're colocated
+///
+/// The `common_dir()` comparison handles Git worktrees correctly, as all
+/// worktrees of a repository share the same common directory.
+///
+/// ## Supported Scenarios
+///
+/// - **Bare repo**: In `.jj/repo/store/git` directory (not colocated)
+/// - **Colocated non-bare**: `.git` directory at workspace root
+/// - **Git worktree**: `.git` file pointing to same repo as jj store
+/// - **Symlink**: `.git` symlink pointing to same repo as jj store
+///
+/// ## Corner Cases
+///
+/// When detection fails or finds a mismatch, jj is not colocated but may warn
+/// the user (see `warn_about_unexpected_git_in_workspace` in
+/// `cli/src/git_util.rs`):
+///
+/// - **gix::open fails**: Not colocated (e.g., broken worktree, invalid `.git`
+///   file)
+/// - **Canonicalization fails**: Assume not colocated (logged at debug level)
+/// - **common_dir mismatch**: Not colocated (`.git` exists but points
+///   elsewhere)
+pub(crate) struct MaybeColocatedGitRepo {
+    pub git_repo: gix::ThreadSafeRepository,
+}
+
+impl MaybeColocatedGitRepo {
+    /// Opens the Git repository and detects colocation with the workspace.
+    ///
+    /// First opens the repository at `store_repo_path` (which may be bare).
+    /// If `workspace_root` is provided, attempts to detect if the workspace
+    /// is colocated by checking for a `.git` directory/file/symlink that
+    /// points to the same underlying Git repository.
+    ///
+    /// Returns a `MaybeColocatedGitRepo` with the workspace's git repo if:
+    /// - A `.git` exists at the workspace root
+    /// - It can be opened as a Git repository
+    /// - Its `common_dir()` matches the store repo's `common_dir()`
+    ///
+    /// Otherwise returns the store repo.
+    pub(crate) fn open_automatic(
+        store_repo_path: &Path,
+        workspace_root: Option<&Path>,
+        open_opts: gix::open::Options,
+    ) -> Result<Self, Box<gix::open::Error>> {
+        let maybe = Self::open_store_repo(store_repo_path, open_opts.clone())?;
+        if let Some(workspace_root) = workspace_root {
+            return Ok(maybe.try_detect_colocated_workspace(workspace_root, open_opts));
+        }
+        Ok(maybe)
+    }
+
+    fn open_store_repo(
+        store_repo_path: &Path,
+        open_opts: gix::open::Options,
+    ) -> Result<Self, Box<gix::open::Error>> {
+        let git_repo = gix::ThreadSafeRepository::open_opts(store_repo_path, open_opts)?;
+
+        Ok(Self { git_repo })
+    }
+
+    /// Try to open `<workspace_root>/.git` as a git repository.
+    ///
+    /// If it succeeds, and the commondir matches jj's backing repo, then the
+    /// workspace is colocated, and we return the newly opened repository.
+    ///
+    /// Easy to sanity check with git -- if `git` works and addresses the same
+    /// underlying repo (commondir), then the workspace will be colocated. So
+    /// things like worktrees, symlinks, etc just work.
+    fn try_detect_colocated_workspace(
+        self,
+        workspace_root: &Path,
+        open_opts: gix::open::Options,
+    ) -> Self {
+        let store_repo = &self.git_repo;
+
+        let Ok(workspace_repo) =
+            gix::ThreadSafeRepository::open_opts(workspace_root.join(".git"), open_opts)
+        else {
+            // If gix can't open it, we are not colocated.
+            return self;
+        };
+
+        // Especially for worktrees, common_dir() returns paths with ../.. in them,
+        // usually. Must canonicalize.
+        let workspace_common_dir_raw = workspace_repo.to_thread_local().common_dir().to_owned();
+        let Ok(workspace_common_dir) = workspace_common_dir_raw.canonicalize() else {
+            tracing::debug!(
+                ?workspace_root,
+                ?workspace_common_dir_raw,
+                "Failed to canonicalize workspace common_dir, assuming not colocated"
+            );
+            return self;
+        };
+        let store_common_dir_raw = store_repo.to_thread_local().common_dir().to_owned();
+        let Ok(store_common_dir) = store_common_dir_raw.canonicalize() else {
+            tracing::debug!(
+                ?store_common_dir_raw,
+                "Failed to canonicalize store common_dir, assuming not colocated"
+            );
+            return self;
+        };
+
+        if workspace_common_dir != store_common_dir {
+            return self;
+        }
+
+        Self {
+            git_repo: workspace_repo,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
@@ -1577,6 +1725,7 @@ mod tests {
     use crate::config::StackedConfig;
     use crate::content_hash::blake2b_hash;
     use crate::hex_util;
+    use crate::tests::TestResult;
     use crate::tests::new_temp_dir;
 
     const GIT_USER: &str = "Someone";
@@ -1608,7 +1757,7 @@ mod tests {
     }
 
     #[test]
-    fn read_plain_git_commit() {
+    fn read_plain_git_commit() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
@@ -1616,21 +1765,15 @@ mod tests {
         let git_repo = git_init(git_repo_path);
 
         // Add a commit with some files in
-        let blob1 = git_repo.write_blob(b"content1").unwrap().detach();
-        let blob2 = git_repo.write_blob(b"normal").unwrap().detach();
-        let mut dir_tree_editor = git_repo.empty_tree().edit().unwrap();
-        dir_tree_editor
-            .upsert("normal", gix::object::tree::EntryKind::Blob, blob1)
-            .unwrap();
-        dir_tree_editor
-            .upsert("symlink", gix::object::tree::EntryKind::Link, blob2)
-            .unwrap();
-        let dir_tree_id = dir_tree_editor.write().unwrap().detach();
-        let mut root_tree_builder = git_repo.empty_tree().edit().unwrap();
-        root_tree_builder
-            .upsert("dir", gix::object::tree::EntryKind::Tree, dir_tree_id)
-            .unwrap();
-        let root_tree_id = root_tree_builder.write().unwrap().detach();
+        let blob1 = git_repo.write_blob(b"content1")?.detach();
+        let blob2 = git_repo.write_blob(b"normal")?.detach();
+        let mut dir_tree_editor = git_repo.empty_tree().edit()?;
+        dir_tree_editor.upsert("normal", gix::object::tree::EntryKind::Blob, blob1)?;
+        dir_tree_editor.upsert("symlink", gix::object::tree::EntryKind::Link, blob2)?;
+        let dir_tree_id = dir_tree_editor.write()?.detach();
+        let mut root_tree_builder = git_repo.empty_tree().edit()?;
+        root_tree_builder.upsert("dir", gix::object::tree::EntryKind::Tree, dir_tree_id)?;
+        let root_tree_id = root_tree_builder.write()?.detach();
         let git_author = gix::actor::Signature {
             name: "git author".into(),
             email: "git.author@example.com".into(),
@@ -1649,14 +1792,9 @@ mod tests {
                 "git commit message",
                 root_tree_id,
                 [] as [gix::ObjectId; 0],
-            )
-            .unwrap()
+            )?
             .detach();
-        git_repo
-            .find_reference("refs/heads/dummy")
-            .unwrap()
-            .delete()
-            .unwrap();
+        git_repo.find_reference("refs/heads/dummy")?.delete()?;
         let commit_id = CommitId::from_hex("efdcea5ca4b3658149f899ca7feee6876d077263");
         // The change id is the leading reverse bits of the commit id
         let change_id = ChangeId::from_hex("c64ee0b6e16777fe53991f9281a6cd25");
@@ -1676,32 +1814,25 @@ mod tests {
                 "git commit message 2",
                 root_tree_id,
                 [git_commit_id],
-            )
-            .unwrap()
+            )?
             .detach();
-        git_repo
-            .find_reference("refs/heads/dummy2")
-            .unwrap()
-            .delete()
-            .unwrap();
+        git_repo.find_reference("refs/heads/dummy2")?.delete()?;
         let commit_id2 = CommitId::from_bytes(git_commit_id2.as_bytes());
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
 
         // Import the head commit and its ancestors
-        backend.import_head_commits([&commit_id2]).unwrap();
+        backend.import_head_commits([&commit_id2])?;
         // Ref should be created only for the head commit
         let git_refs = backend
             .git_repo()
-            .references()
-            .unwrap()
-            .prefixed("refs/jj/keep/")
-            .unwrap()
+            .references()?
+            .prefixed("refs/jj/keep/")?
             .map(|git_ref| git_ref.unwrap().id().detach())
             .collect_vec();
         assert_eq!(git_refs, vec![git_commit_id2]);
 
-        let commit = backend.read_commit(&commit_id).block_on().unwrap();
+        let commit = backend.read_commit(&commit_id).block_on()?;
         assert_eq!(&commit.change_id, &change_id);
         assert_eq!(commit.parents, vec![CommitId::from_bytes(&[0; 20])]);
         assert_eq!(commit.predecessors, vec![]);
@@ -1730,8 +1861,7 @@ mod tests {
                 RepoPath::root(),
                 &TreeId::from_bytes(root_tree_id.as_bytes()),
             )
-            .block_on()
-            .unwrap();
+            .block_on()?;
         let mut root_entries = root_tree.entries();
         let dir = root_entries.next().unwrap();
         assert_eq!(root_entries.next(), None);
@@ -1743,11 +1873,10 @@ mod tests {
 
         let dir_tree = backend
             .read_tree(
-                RepoPath::from_internal_string("dir").unwrap(),
+                RepoPath::from_internal_string("dir")?,
                 &TreeId::from_bytes(dir_tree_id.as_bytes()),
             )
-            .block_on()
-            .unwrap();
+            .block_on()?;
         let mut entries = dir_tree.entries();
         let file = entries.next().unwrap();
         let symlink = entries.next().unwrap();
@@ -1767,17 +1896,18 @@ mod tests {
             &TreeValue::Symlink(SymlinkId::from_bytes(blob2.as_bytes()))
         );
 
-        let commit2 = backend.read_commit(&commit_id2).block_on().unwrap();
+        let commit2 = backend.read_commit(&commit_id2).block_on()?;
         assert_eq!(commit2.parents, vec![commit_id.clone()]);
         assert_eq!(commit.predecessors, vec![]);
         assert_eq!(
             commit.root_tree,
             Merge::resolved(TreeId::from_bytes(root_tree_id.as_bytes()))
         );
+        Ok(())
     }
 
     #[test]
-    fn read_git_commit_without_importing() {
+    fn read_git_commit_without_importing() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
@@ -1789,20 +1919,17 @@ mod tests {
             email: GIT_EMAIL.into(),
             time: gix::date::Time::now_utc(),
         };
-        let empty_tree_id =
-            gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904").unwrap();
-        let git_commit_id = git_repo
-            .commit_as(
-                signature.to_ref(&mut TimeBuf::default()),
-                signature.to_ref(&mut TimeBuf::default()),
-                "refs/heads/main",
-                "git commit message",
-                empty_tree_id,
-                [] as [gix::ObjectId; 0],
-            )
-            .unwrap();
+        let empty_tree_id = gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904")?;
+        let git_commit_id = git_repo.commit_as(
+            signature.to_ref(&mut TimeBuf::default()),
+            signature.to_ref(&mut TimeBuf::default()),
+            "refs/heads/main",
+            "git commit message",
+            empty_tree_id,
+            [] as [gix::ObjectId; 0],
+        )?;
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
 
         // read_commit() without import_head_commits() works as of now. This might be
         // changed later.
@@ -1814,16 +1941,16 @@ mod tests {
         );
         assert!(
             backend
-                .cached_extra_metadata_table()
-                .unwrap()
+                .cached_extra_metadata_table()?
                 .get_value(git_commit_id.as_bytes())
                 .is_some(),
             "extra metadata should have been be created"
         );
+        Ok(())
     }
 
     #[test]
-    fn read_signed_git_commit() {
+    fn read_signed_git_commit() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
@@ -1835,8 +1962,7 @@ mod tests {
             email: GIT_EMAIL.into(),
             time: gix::date::Time::now_utc(),
         };
-        let empty_tree_id =
-            gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904").unwrap();
+        let empty_tree_id = gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904")?;
 
         let secure_sig =
             "here are some ASCII bytes to be used as a test signature\n\ndefinitely not PGP\n";
@@ -1852,27 +1978,27 @@ mod tests {
         };
 
         let mut commit_buf = Vec::new();
-        commit.write_to(&mut commit_buf).unwrap();
-        let commit_str = str::from_utf8(&commit_buf).unwrap();
+        commit.write_to(&mut commit_buf)?;
+        let commit_str = str::from_utf8(&commit_buf)?;
 
         commit
             .extra_headers
             .push(("gpgsig".into(), secure_sig.into()));
 
-        let git_commit_id = git_repo.write_object(&commit).unwrap();
+        let git_commit_id = git_repo.write_object(&commit)?;
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
 
         let commit = backend
             .read_commit(&CommitId::from_bytes(git_commit_id.as_bytes()))
-            .block_on()
-            .unwrap();
+            .block_on()?;
 
         let sig = commit.secure_sig.expect("failed to read the signature");
 
         // converting to string for nicer assert diff
-        assert_eq!(str::from_utf8(&sig.sig).unwrap(), secure_sig);
-        assert_eq!(str::from_utf8(&sig.data).unwrap(), commit_str);
+        assert_eq!(str::from_utf8(&sig.sig)?, secure_sig);
+        assert_eq!(str::from_utf8(&sig.data)?, commit_str);
+        Ok(())
     }
 
     #[test]
@@ -1946,18 +2072,18 @@ mod tests {
     }
 
     #[test]
-    fn round_trip_change_id_via_git_header() {
+    fn round_trip_change_id_via_git_header() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
 
         let store_path = temp_dir.path().join("store");
-        fs::create_dir(&store_path).unwrap();
+        fs::create_dir(&store_path)?;
         let empty_store_path = temp_dir.path().join("empty_store");
-        fs::create_dir(&empty_store_path).unwrap();
+        fs::create_dir(&empty_store_path)?;
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(git_repo_path);
 
-        let backend = GitBackend::init_external(&settings, &store_path, git_repo.path()).unwrap();
+        let backend = GitBackend::init_external(&settings, &store_path, git_repo.path())?;
         let original_change_id = ChangeId::from_hex("1111eeee1111eeee1111eeee1111eeee");
         let commit = Commit {
             parents: vec![backend.root_commit_id().clone()],
@@ -1971,9 +2097,8 @@ mod tests {
             secure_sig: None,
         };
 
-        let (initial_commit_id, _init_commit) =
-            backend.write_commit(commit, None).block_on().unwrap();
-        let commit = backend.read_commit(&initial_commit_id).block_on().unwrap();
+        let (initial_commit_id, _init_commit) = backend.write_commit(commit, None).block_on()?;
+        let commit = backend.read_commit(&initial_commit_id).block_on()?;
         assert_eq!(
             commit.change_id, original_change_id,
             "The change-id header did not roundtrip"
@@ -1983,16 +2108,16 @@ mod tests {
         // initialize a new store without those files, but reuse the same git
         // storage. This change-id must be derived from the git commit header.
         let no_extra_backend =
-            GitBackend::init_external(&settings, &empty_store_path, git_repo.path()).unwrap();
+            GitBackend::init_external(&settings, &empty_store_path, git_repo.path())?;
         let no_extra_commit = no_extra_backend
             .read_commit(&initial_commit_id)
-            .block_on()
-            .unwrap();
+            .block_on()?;
 
         assert_eq!(
             no_extra_commit.change_id, original_change_id,
             "The change-id header did not roundtrip"
         );
+        Ok(())
     }
 
     #[test]
@@ -2043,14 +2168,14 @@ mod tests {
 
     /// Test that parents get written correctly
     #[test]
-    fn git_commit_parents() {
+    fn git_commit_parents() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(&git_repo_path);
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
         let mut commit = Commit {
             parents: vec![],
             predecessors: vec![],
@@ -2076,18 +2201,18 @@ mod tests {
 
         // Only root commit as parent
         commit.parents = vec![backend.root_commit_id().clone()];
-        let first_id = write_commit(commit.clone()).unwrap().0;
-        let first_commit = backend.read_commit(&first_id).block_on().unwrap();
+        let first_id = write_commit(commit.clone())?.0;
+        let first_commit = backend.read_commit(&first_id).block_on()?;
         assert_eq!(first_commit, commit);
-        let first_git_commit = git_repo.find_commit(git_id(&first_id)).unwrap();
+        let first_git_commit = git_repo.find_commit(git_id(&first_id))?;
         assert!(first_git_commit.parent_ids().collect_vec().is_empty());
 
         // Only non-root commit as parent
         commit.parents = vec![first_id.clone()];
-        let second_id = write_commit(commit.clone()).unwrap().0;
-        let second_commit = backend.read_commit(&second_id).block_on().unwrap();
+        let second_id = write_commit(commit.clone())?.0;
+        let second_commit = backend.read_commit(&second_id).block_on()?;
         assert_eq!(second_commit, commit);
-        let second_git_commit = git_repo.find_commit(git_id(&second_id)).unwrap();
+        let second_git_commit = git_repo.find_commit(git_id(&second_id))?;
         assert_eq!(
             second_git_commit.parent_ids().collect_vec(),
             vec![git_id(&first_id)]
@@ -2095,10 +2220,10 @@ mod tests {
 
         // Merge commit
         commit.parents = vec![first_id.clone(), second_id.clone()];
-        let merge_id = write_commit(commit.clone()).unwrap().0;
-        let merge_commit = backend.read_commit(&merge_id).block_on().unwrap();
+        let merge_id = write_commit(commit.clone())?.0;
+        let merge_commit = backend.read_commit(&merge_id).block_on()?;
         assert_eq!(merge_commit, commit);
-        let merge_git_commit = git_repo.find_commit(git_id(&merge_id)).unwrap();
+        let merge_git_commit = git_repo.find_commit(git_id(&merge_id))?;
         assert_eq!(
             merge_git_commit.parent_ids().collect_vec(),
             vec![git_id(&first_id), git_id(&second_id)]
@@ -2110,17 +2235,18 @@ mod tests {
             write_commit(commit),
             Err(BackendError::Unsupported(message)) if message.contains("root commit")
         );
+        Ok(())
     }
 
     #[test]
-    fn write_tree_conflicts() {
+    fn write_tree_conflicts() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
         let git_repo_path = temp_dir.path().join("git");
         let git_repo = git_init(&git_repo_path);
 
-        let backend = GitBackend::init_external(&settings, store_path, git_repo.path()).unwrap();
+        let backend = GitBackend::init_external(&settings, store_path, git_repo.path())?;
         let create_tree = |i| {
             let blob_id = git_repo.write_blob(format!("content {i}")).unwrap();
             let mut tree_builder = git_repo.empty_tree().edit().unwrap();
@@ -2156,15 +2282,13 @@ mod tests {
 
         // When writing a tree-level conflict, the root tree on the git side has the
         // individual trees as subtrees.
-        let read_commit_id = write_commit(commit.clone()).unwrap().0;
-        let read_commit = backend.read_commit(&read_commit_id).block_on().unwrap();
+        let read_commit_id = write_commit(commit.clone())?.0;
+        let read_commit = backend.read_commit(&read_commit_id).block_on()?;
         assert_eq!(read_commit, commit);
-        let git_commit = git_repo
-            .find_commit(gix::ObjectId::from_bytes_or_panic(
-                read_commit_id.as_bytes(),
-            ))
-            .unwrap();
-        let git_tree = git_repo.find_tree(git_commit.tree_id().unwrap()).unwrap();
+        let git_commit = git_repo.find_commit(gix::ObjectId::from_bytes_or_panic(
+            read_commit_id.as_bytes(),
+        ))?;
+        let git_tree = git_repo.find_tree(git_commit.tree_id()?)?;
         let jj_conflict_entries = git_tree
             .iter()
             .map(Result::unwrap)
@@ -2218,25 +2342,24 @@ mod tests {
         // When writing a single tree using the new format, it's represented by a
         // regular git tree.
         commit.root_tree = Merge::resolved(create_tree(5));
-        let read_commit_id = write_commit(commit.clone()).unwrap().0;
-        let read_commit = backend.read_commit(&read_commit_id).block_on().unwrap();
+        let read_commit_id = write_commit(commit.clone())?.0;
+        let read_commit = backend.read_commit(&read_commit_id).block_on()?;
         assert_eq!(read_commit, commit);
-        let git_commit = git_repo
-            .find_commit(gix::ObjectId::from_bytes_or_panic(
-                read_commit_id.as_bytes(),
-            ))
-            .unwrap();
+        let git_commit = git_repo.find_commit(gix::ObjectId::from_bytes_or_panic(
+            read_commit_id.as_bytes(),
+        ))?;
         assert_eq!(
-            Merge::resolved(TreeId::from_bytes(git_commit.tree_id().unwrap().as_bytes())),
+            Merge::resolved(TreeId::from_bytes(git_commit.tree_id()?.as_bytes())),
             commit.root_tree
         );
+        Ok(())
     }
 
     #[test]
-    fn commit_has_ref() {
+    fn commit_has_ref() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
-        let backend = GitBackend::init_internal(&settings, temp_dir.path()).unwrap();
+        let backend = GitBackend::init_internal(&settings, temp_dir.path())?;
         let git_repo = backend.git_repo();
         let signature = Signature {
             name: "Someone".to_string(),
@@ -2257,35 +2380,34 @@ mod tests {
             committer: signature,
             secure_sig: None,
         };
-        let commit_id = backend.write_commit(commit, None).block_on().unwrap().0;
-        let git_refs = git_repo.references().unwrap();
+        let commit_id = backend.write_commit(commit, None).block_on()?.0;
+        let git_refs = git_repo.references()?;
         let git_ref_ids: Vec<_> = git_refs
-            .prefixed("refs/jj/keep/")
-            .unwrap()
+            .prefixed("refs/jj/keep/")?
             .map(|x| x.unwrap().id().detach())
             .collect();
         assert!(git_ref_ids.iter().any(|id| *id == git_id(&commit_id)));
 
         // Concurrently-running GC deletes the ref, leaving the extra metadata.
-        for git_ref in git_refs.prefixed("refs/jj/keep/").unwrap() {
+        for git_ref in git_refs.prefixed("refs/jj/keep/")? {
             git_ref.unwrap().delete().unwrap();
         }
         // Re-imported commit should have new ref.
-        backend.import_head_commits([&commit_id]).unwrap();
-        let git_refs = git_repo.references().unwrap();
+        backend.import_head_commits([&commit_id])?;
+        let git_refs = git_repo.references()?;
         let git_ref_ids: Vec<_> = git_refs
-            .prefixed("refs/jj/keep/")
-            .unwrap()
+            .prefixed("refs/jj/keep/")?
             .map(|x| x.unwrap().id().detach())
             .collect();
         assert!(git_ref_ids.iter().any(|id| *id == git_id(&commit_id)));
+        Ok(())
     }
 
     #[test]
-    fn import_head_commits_duplicates() {
+    fn import_head_commits_duplicates() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
-        let backend = GitBackend::init_internal(&settings, temp_dir.path()).unwrap();
+        let backend = GitBackend::init_internal(&settings, temp_dir.path())?;
         let git_repo = backend.git_repo();
 
         let signature = gix::actor::Signature {
@@ -2293,8 +2415,7 @@ mod tests {
             email: GIT_EMAIL.into(),
             time: gix::date::Time::now_utc(),
         };
-        let empty_tree_id =
-            gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904").unwrap();
+        let empty_tree_id = gix::ObjectId::from_hex(b"4b825dc642cb6eb9a060e54bf8d69288fbee4904")?;
         let git_commit_id = git_repo
             .commit_as(
                 signature.to_ref(&mut TimeBuf::default()),
@@ -2303,30 +2424,26 @@ mod tests {
                 "git commit message",
                 empty_tree_id,
                 [] as [gix::ObjectId; 0],
-            )
-            .unwrap()
+            )?
             .detach();
         let commit_id = CommitId::from_bytes(git_commit_id.as_bytes());
 
         // Ref creation shouldn't fail because of duplicated head ids.
-        backend
-            .import_head_commits([&commit_id, &commit_id])
-            .unwrap();
+        backend.import_head_commits([&commit_id, &commit_id])?;
         assert!(
             git_repo
-                .references()
-                .unwrap()
-                .prefixed("refs/jj/keep/")
-                .unwrap()
+                .references()?
+                .prefixed("refs/jj/keep/")?
                 .any(|git_ref| git_ref.unwrap().id().detach() == git_commit_id)
         );
+        Ok(())
     }
 
     #[test]
-    fn overlapping_git_commit_id() {
+    fn overlapping_git_commit_id() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
-        let backend = GitBackend::init_internal(&settings, temp_dir.path()).unwrap();
+        let backend = GitBackend::init_internal(&settings, temp_dir.path())?;
         let commit1 = Commit {
             parents: vec![backend.root_commit_id().clone()],
             predecessors: vec![],
@@ -2343,16 +2460,13 @@ mod tests {
             backend.write_commit(commit, None).block_on()
         };
 
-        let (commit_id1, mut commit2) = write_commit(commit1).unwrap();
+        let (commit_id1, mut commit2) = write_commit(commit1)?;
         commit2.predecessors.push(commit_id1.clone());
         // `write_commit` should prevent the ids from being the same by changing the
         // committer timestamp of the commit it actually writes.
-        let (commit_id2, mut actual_commit2) = write_commit(commit2.clone()).unwrap();
+        let (commit_id2, mut actual_commit2) = write_commit(commit2.clone())?;
         // The returned matches the ID
-        assert_eq!(
-            backend.read_commit(&commit_id2).block_on().unwrap(),
-            actual_commit2
-        );
+        assert_eq!(backend.read_commit(&commit_id2).block_on()?, actual_commit2);
         assert_ne!(commit_id2, commit_id1);
         // The committer timestamp should differ
         assert_ne!(
@@ -2362,13 +2476,14 @@ mod tests {
         // The rest of the commit should be the same
         actual_commit2.committer.timestamp.timestamp = commit2.committer.timestamp.timestamp;
         assert_eq!(actual_commit2, commit2);
+        Ok(())
     }
 
     #[test]
-    fn write_signed_commit() {
+    fn write_signed_commit() -> TestResult {
         let settings = user_settings();
         let temp_dir = new_temp_dir();
-        let backend = GitBackend::init_internal(&settings, temp_dir.path()).unwrap();
+        let backend = GitBackend::init_internal(&settings, temp_dir.path())?;
 
         let commit = Commit {
             parents: vec![backend.root_commit_id().clone()],
@@ -2389,14 +2504,11 @@ mod tests {
 
         let (id, commit) = backend
             .write_commit(commit, Some(&mut signer as &mut SigningFn))
-            .block_on()
-            .unwrap();
+            .block_on()?;
 
         let git_repo = backend.git_repo();
-        let obj = git_repo
-            .find_object(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))
-            .unwrap();
-        insta::assert_snapshot!(str::from_utf8(&obj.data).unwrap(), @"
+        let obj = git_repo.find_object(gix::ObjectId::from_bytes_or_panic(id.as_bytes()))?;
+        insta::assert_snapshot!(str::from_utf8(&obj.data)?, @"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
@@ -2409,16 +2521,16 @@ mod tests {
 
         let returned_sig = commit.secure_sig.expect("failed to return the signature");
 
-        let commit = backend.read_commit(&id).block_on().unwrap();
+        let commit = backend.read_commit(&id).block_on()?;
 
         let sig = commit.secure_sig.expect("failed to read the signature");
         assert_eq!(&sig, &returned_sig);
 
-        insta::assert_snapshot!(str::from_utf8(&sig.sig).unwrap(), @"
+        insta::assert_snapshot!(str::from_utf8(&sig.sig)?, @"
         test sig
         hash=03feb0caccbacce2e7b7bca67f4c82292dd487e669ed8a813120c9f82d3fd0801420a1f5d05e1393abfe4e9fc662399ec4a9a1898c5f1e547e0044a52bd4bd29
         ");
-        insta::assert_snapshot!(str::from_utf8(&sig.data).unwrap(), @"
+        insta::assert_snapshot!(str::from_utf8(&sig.data)?, @"
         tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
         author Someone <someone@example.com> 0 +0000
         committer Someone <someone@example.com> 0 +0000
@@ -2426,6 +2538,7 @@ mod tests {
 
         initial
         ");
+        Ok(())
     }
 
     fn git_id(commit_id: &CommitId) -> gix::ObjectId {

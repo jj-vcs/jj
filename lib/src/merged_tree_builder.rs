@@ -92,7 +92,7 @@ impl MergedTreeBuilder {
         base_tree_ids.pad_to(num_sides, store.empty_tree_id());
         // Create a single-tree builder for each base tree
         let mut tree_builders =
-            base_tree_ids.map(|base_tree_id| TreeBuilder::new(store.clone(), base_tree_id.clone()));
+            base_tree_ids.into_map(|base_tree_id| TreeBuilder::new(store.clone(), base_tree_id));
         for (path, values) in self.overrides {
             match values.into_resolved() {
                 Ok(value) => {

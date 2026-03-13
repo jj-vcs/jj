@@ -45,9 +45,9 @@ fn test_rebase_invalid() {
     let output = work_dir.run_jj(["rebase", "-r", "a", "-s", "a", "-o", "b"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    error: the argument '--revisions <REVSETS>' cannot be used with '--source <REVSETS>'
+    error: the argument '--revision <REVSETS>' cannot be used with '--source <REVSETS>'
 
-    Usage: jj rebase --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+    Usage: jj rebase --revision <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
     For more information, try '--help'.
     [EOF]
@@ -73,7 +73,7 @@ fn test_rebase_invalid() {
     ------- stderr -------
     error: the argument '--onto <REVSETS>' cannot be used with '--insert-after <REVSETS>'
 
-    Usage: jj rebase --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+    Usage: jj rebase --revision <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
     For more information, try '--help'.
     [EOF]
@@ -86,7 +86,7 @@ fn test_rebase_invalid() {
     ------- stderr -------
     error: the argument '--onto <REVSETS>' cannot be used with '--insert-before <REVSETS>'
 
-    Usage: jj rebase --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
+    Usage: jj rebase --revision <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>
 
     For more information, try '--help'.
     [EOF]
@@ -704,7 +704,7 @@ fn test_rebase_revision_onto_descendant() {
     let output = work_dir.run_jj(["op", "restore", &setup_opid]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: cb005d7a588c (2001-02-03 08:05:15) create bookmark merge pointing to commit 08c0951bf69d0362708a5223a78446d664823b50
+    Restored to operation: 945eff3eb457 (2001-02-03 08:05:15) create bookmark merge pointing to commit 08c0951bf69d0362708a5223a78446d664823b50
     Working copy  (@) now at: vruxwmqv 08c0951b merge | merge
     Parent commit (@-)      : royxmykx 6a7081ef b | b
     Parent commit (@-)      : zsuskuln 68fbc443 a | a

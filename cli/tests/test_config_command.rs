@@ -18,6 +18,7 @@ use std::path::PathBuf;
 use indoc::indoc;
 use itertools::Itertools as _;
 use regex::Regex;
+use testutils::TestResult;
 
 use crate::common::TestEnvironment;
 use crate::common::default_config_from_schema;
@@ -657,14 +658,14 @@ fn test_config_set_for_user() {
 }
 
 #[test]
-fn test_config_set_for_user_directory() {
+fn test_config_set_for_user_directory() -> TestResult {
     let test_env = TestEnvironment::default();
 
     test_env
         .run_jj_in(".", ["config", "set", "--user", "test-key", "test-val"])
         .success();
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.last_config_file_path()).unwrap(),
+        std::fs::read_to_string(test_env.last_config_file_path())?,
         @r#"
     test-key = "test-val"
 
@@ -690,7 +691,7 @@ fn test_config_set_for_user_directory() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.first_config_file_path()).unwrap(),
+        std::fs::read_to_string(test_env.first_config_file_path())?,
         @r#"
     test-key = "test-other-val"
 
@@ -702,12 +703,13 @@ fn test_config_set_for_user_directory() {
     "#);
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.last_config_file_path()).unwrap(),
+        std::fs::read_to_string(test_env.last_config_file_path())?,
         @"");
+    Ok(())
 }
 
 #[test]
-fn test_config_set_for_repo() {
+fn test_config_set_for_repo() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -729,7 +731,7 @@ fn test_config_set_for_repo() {
     foo = true
     "#);
 
-    std::fs::remove_dir_all(config_dir.root()).unwrap();
+    std::fs::remove_dir_all(config_dir.root())?;
     let output = work_dir.run_jj(["config", "path", "--repo"]);
     insta::assert_snapshot!(output, @"
     $TEST_ENV/home/.config/jj/repos/8e4fac809cbb3b162c95/config.toml
@@ -745,6 +747,7 @@ fn test_config_set_for_repo() {
     assert!(config_dir.root().join("metadata.binpb").is_file());
     // But not the config file itself.
     assert!(!config_dir.root().join("config.toml").is_file());
+    Ok(())
 }
 
 #[test]
@@ -775,7 +778,7 @@ fn test_config_set_for_workspace() {
 }
 
 #[test]
-fn test_config_set_toml_types() {
+fn test_config_set_toml_types() -> TestResult {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     // Test with fresh new config file
@@ -794,7 +797,7 @@ fn test_config_set_toml_types() {
     set_value("test-table.boolean", "true");
     set_value("test-table.string", r#""foo""#);
     set_value("test-table.invalid", r"a + b");
-    insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r#"
+    insta::assert_snapshot!(std::fs::read_to_string(&user_config_path)?, @r#"
     #:schema https://docs.jj-vcs.dev/latest/config-schema.json
 
     [test-table]
@@ -805,6 +808,7 @@ fn test_config_set_toml_types() {
     string = "foo"
     invalid = "a + b"
     "#);
+    Ok(())
 }
 
 #[test]
@@ -875,7 +879,7 @@ fn test_config_unset_non_existent_key() {
 }
 
 #[test]
-fn test_config_unset_inline_table_key() {
+fn test_config_unset_inline_table_key() -> TestResult {
     let mut test_env = TestEnvironment::default();
     // Test with fresh new config file
     let user_config_path = test_env.config_path().join("config.toml");
@@ -889,16 +893,17 @@ fn test_config_unset_inline_table_key() {
     work_dir
         .run_jj(["config", "unset", "--user", "inline-table.foo"])
         .success();
-    let user_config_toml = std::fs::read_to_string(&user_config_path).unwrap();
+    let user_config_toml = std::fs::read_to_string(&user_config_path)?;
     insta::assert_snapshot!(user_config_toml, @"
     #:schema https://docs.jj-vcs.dev/latest/config-schema.json
 
     inline-table = {}
     ");
+    Ok(())
 }
 
 #[test]
-fn test_config_unset_table_like() {
+fn test_config_unset_table_like() -> TestResult {
     let mut test_env = TestEnvironment::default();
     // Test with fresh new config file
     let user_config_path = test_env.config_path().join("config.toml");
@@ -911,8 +916,7 @@ fn test_config_unset_table_like() {
             [non-inline-table]
             foo = true
         "},
-    )
-    .unwrap();
+    )?;
 
     // Inline table is syntactically a "value", so it can be deleted.
     test_env
@@ -928,15 +932,16 @@ fn test_config_unset_table_like() {
     [exit status: 1]
     ");
 
-    let user_config_toml = std::fs::read_to_string(&user_config_path).unwrap();
+    let user_config_toml = std::fs::read_to_string(&user_config_path)?;
     insta::assert_snapshot!(user_config_toml, @"
     [non-inline-table]
     foo = true
     ");
+    Ok(())
 }
 
 #[test]
-fn test_config_unset_for_user() {
+fn test_config_unset_for_user() -> TestResult {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     // Test with fresh new config file
@@ -965,8 +970,9 @@ fn test_config_unset_for_user() {
         .run_jj(["config", "unset", "--user", "table.inline"])
         .success();
 
-    let user_config_toml = std::fs::read_to_string(&user_config_path).unwrap();
+    let user_config_toml = std::fs::read_to_string(&user_config_path)?;
     insta::assert_snapshot!(user_config_toml, @"[table]");
+    Ok(())
 }
 
 #[test]
@@ -1031,23 +1037,23 @@ fn test_config_edit_missing_opt() {
 }
 
 #[test]
-fn test_config_edit_user() {
+fn test_config_edit_user() -> TestResult {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     // Remove one of the config file to disambiguate
-    std::fs::remove_file(test_env.last_config_file_path()).unwrap();
+    std::fs::remove_file(test_env.last_config_file_path())?;
     let edit_script = test_env.set_up_fake_editor();
     let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(edit_script, "dump-path path").unwrap();
+    std::fs::write(edit_script, "dump-path path")?;
     work_dir.run_jj(["config", "edit", "--user"]).success();
 
-    let edited_path =
-        PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
+    let edited_path = PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path"))?);
     assert_eq!(
         edited_path,
         dunce::simplified(&test_env.last_config_file_path())
     );
+    Ok(())
 }
 
 #[test]
@@ -1069,14 +1075,14 @@ fn test_config_edit_user_new_file() {
 }
 
 #[test]
-fn test_config_edit_repo() {
+fn test_config_edit_repo() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let repo_config_dir = test_env.home_dir().join(".config/jj/repos");
     assert!(!repo_config_dir.is_dir());
 
-    std::fs::write(edit_script, "dump-path path").unwrap();
+    std::fs::write(edit_script, "dump-path path")?;
     let work_dir = test_env.work_dir("repo");
     work_dir.run_jj(["config", "edit", "--repo"]).success();
 
@@ -1085,15 +1091,15 @@ fn test_config_edit_repo() {
         .root()
         .join("config.toml");
 
-    let edited_path =
-        PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
+    let edited_path = PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path"))?);
     assert!(repo_config_dir.is_dir());
     assert_eq!(edited_path, dunce::simplified(&repo_config_path));
     assert!(repo_config_path.exists(), "new file should be created");
+    Ok(())
 }
 
 #[test]
-fn test_config_edit_invalid_config() {
+fn test_config_edit_invalid_config() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
 
@@ -1101,8 +1107,7 @@ fn test_config_edit_invalid_config() {
     std::fs::write(
         &edit_script,
         "write\ninvalid config here\0next invocation\n\0write\ntest=\"success\"",
-    )
-    .unwrap();
+    )?;
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj_with(|cmd| {
@@ -1133,7 +1138,7 @@ fn test_config_edit_invalid_config() {
     );
 
     // Test the restore previous config
-    std::fs::write(&edit_script, "write\ninvalid config here").unwrap();
+    std::fs::write(&edit_script, "write\ninvalid config here")?;
     let work_dir = test_env.work_dir("repo");
     let output = work_dir.run_jj_with(|cmd| {
         force_interactive(cmd)
@@ -1161,6 +1166,7 @@ fn test_config_edit_invalid_config() {
     [EOF]
     "
     );
+    Ok(())
 }
 
 #[test]
@@ -1222,12 +1228,12 @@ fn test_config_path() {
 }
 
 #[test]
-fn test_config_path_multiple() {
+fn test_config_path_multiple() -> TestResult {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let config_path = test_env.config_path().join("config.toml");
     let work_config_path = test_env.config_path().join("conf.d");
-    let user_config_path = join_paths([config_path, work_config_path]).unwrap();
+    let user_config_path = join_paths([config_path, work_config_path])?;
     test_env.set_config_path(&user_config_path);
     let work_dir = test_env.work_dir("repo");
     insta::assert_snapshot!(work_dir.run_jj(["config", "path", "--user"]), @"
@@ -1235,13 +1241,14 @@ fn test_config_path_multiple() {
     $TEST_ENV/config/conf.d
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_config_only_loads_toml_files() {
+fn test_config_only_loads_toml_files() -> TestResult {
     let mut test_env = TestEnvironment::default();
     test_env.set_up_fake_editor();
-    std::fs::File::create(test_env.config_path().join("is-not.loaded")).unwrap();
+    std::fs::File::create(test_env.config_path().join("is-not.loaded"))?;
     insta::assert_snapshot!(test_env.run_jj_in(".", ["config", "edit", "--user"]), @"
     ------- stderr -------
     1: $TEST_ENV/config/config0001.toml
@@ -1250,6 +1257,7 @@ fn test_config_only_loads_toml_files() {
     Editing file: $TEST_ENV/config/config0001.toml
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -1324,7 +1332,7 @@ fn test_config_get() {
 }
 
 #[test]
-fn test_config_get_yields_values_consistent_with_schema_defaults() {
+fn test_config_get_yields_values_consistent_with_schema_defaults() -> TestResult {
     let mut test_env = TestEnvironment::default();
 
     // The default test environment may already contain configuration that's
@@ -1332,7 +1340,7 @@ fn test_config_get_yields_values_consistent_with_schema_defaults() {
     // explicitly set the config to an empty one in order to test the true
     // default config values.
     let config_dir = test_env.env_root().join("empty-config");
-    std::fs::create_dir(&config_dir).unwrap();
+    std::fs::create_dir(&config_dir)?;
     test_env.set_config_path(&config_dir);
 
     let get_true_default = move |key: &str| {
@@ -1349,7 +1357,7 @@ fn test_config_get_yields_values_consistent_with_schema_defaults() {
         output_doc.get("test").unwrap().as_value().unwrap().clone()
     };
 
-    let mut schema_defaults = toml_edit::ser::to_document(&default_config_from_schema()).unwrap();
+    let mut schema_defaults = toml_edit::ser::to_document(&default_config_from_schema())?;
 
     // Ensure that `get_values()` flattens the entire configuration.
     struct SetDotted;
@@ -1408,6 +1416,7 @@ fn test_config_get_yields_values_consistent_with_schema_defaults() {
             }
         }
     }
+    Ok(())
 }
 
 #[test]
@@ -1538,7 +1547,7 @@ fn test_config_path_syntax() {
 
 #[test]
 #[cfg_attr(windows, ignore = "dirs::home_dir() can't be overridden by $HOME")] // TODO
-fn test_config_conditional() {
+fn test_config_conditional() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let home_dir = test_env.work_dir(test_env.home_dir());
     home_dir.run_jj(["git", "init", "repo1"]).success();
@@ -1576,8 +1585,7 @@ fn test_config_conditional() {
             --when.commands = ['config list']
             qux = 'list'
         "},
-    )
-    .unwrap();
+    )?;
     let home_dir = test_env.work_dir(test_env.home_dir());
     let work_dir1 = home_dir.dir("repo1");
     let work_dir2 = home_dir.dir("repo2");
@@ -1653,7 +1661,8 @@ fn test_config_conditional() {
     // (there's no option to update scoped table right now.)
     let output = test_env.run_jj_in(".", ["config", "set", "--user", "bar", "new value"]);
     insta::assert_snapshot!(output, @"");
-    insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r#"
+    let config_contents = std::fs::read_to_string(&user_config_path)?;
+    insta::assert_snapshot!(config_contents, @r#"
     foo = 'global'
     baz = 'global'
     qux = 'global'
@@ -1684,7 +1693,8 @@ fn test_config_conditional() {
     "#);
     let output = work_dir1.run_jj(["config", "unset", "--user", "foo"]);
     insta::assert_snapshot!(output, @"");
-    insta::assert_snapshot!(std::fs::read_to_string(&user_config_path).unwrap(), @r#"
+    let config_contents = std::fs::read_to_string(&user_config_path)?;
+    insta::assert_snapshot!(config_contents, @r#"
     baz = 'global'
     qux = 'global'
     bar = "new value"
@@ -1712,12 +1722,13 @@ fn test_config_conditional() {
     --when.commands = ['config list']
     qux = 'list'
     "#);
+    Ok(())
 }
 
 // Minimal test for Windows where the home directory can't be switched.
 // (Can be removed if test_config_conditional() is enabled on Windows.)
 #[test]
-fn test_config_conditional_without_home_dir() {
+fn test_config_conditional_without_home_dir() -> TestResult {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     // Test with fresh new config file
@@ -1736,8 +1747,7 @@ fn test_config_conditional_without_home_dir() {
             // "\\?\" paths shouldn't be required on Windows
             repo_path = to_toml_value(dunce::simplified(work_dir.root()).to_str().unwrap())
         ),
-    )
-    .unwrap();
+    )?;
 
     let output = test_env.run_jj_in(".", ["config", "get", "foo"]);
     insta::assert_snapshot!(output, @"
@@ -1749,6 +1759,7 @@ fn test_config_conditional_without_home_dir() {
     repo
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]

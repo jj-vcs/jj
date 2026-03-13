@@ -894,6 +894,7 @@ mod tests {
     use indoc::indoc;
     use maplit::hashmap;
     use test_case::test_case;
+    use testutils::TestResult;
 
     use super::*;
 
@@ -905,30 +906,30 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_value_or_bare_string() {
+    fn test_parse_value_or_bare_string() -> TestResult {
         let parse = |s: &str| parse_value_or_bare_string(s);
 
         // Value in TOML syntax
-        assert_eq!(parse("true").unwrap().as_bool(), Some(true));
-        assert_eq!(parse("42").unwrap().as_integer(), Some(42));
-        assert_eq!(parse("-1").unwrap().as_integer(), Some(-1));
-        assert_eq!(parse("'a'").unwrap().as_str(), Some("a"));
-        assert!(parse("[]").unwrap().is_array());
-        assert!(parse("{ a = 'b' }").unwrap().is_inline_table());
+        assert_eq!(parse("true")?.as_bool(), Some(true));
+        assert_eq!(parse("42")?.as_integer(), Some(42));
+        assert_eq!(parse("-1")?.as_integer(), Some(-1));
+        assert_eq!(parse("'a'")?.as_str(), Some("a"));
+        assert!(parse("[]")?.is_array());
+        assert!(parse("{ a = 'b' }")?.is_inline_table());
 
         // Bare string
-        assert_eq!(parse("").unwrap().as_str(), Some(""));
-        assert_eq!(parse("John Doe").unwrap().as_str(), Some("John Doe"));
-        assert_eq!(parse("Doe, John").unwrap().as_str(), Some("Doe, John"));
-        assert_eq!(parse("It's okay").unwrap().as_str(), Some("It's okay"));
+        assert_eq!(parse("")?.as_str(), Some(""));
+        assert_eq!(parse("John Doe")?.as_str(), Some("John Doe"));
+        assert_eq!(parse("Doe, John")?.as_str(), Some("Doe, John"));
+        assert_eq!(parse("It's okay")?.as_str(), Some("It's okay"));
         assert_eq!(
-            parse("<foo+bar@example.org>").unwrap().as_str(),
+            parse("<foo+bar@example.org>")?.as_str(),
             Some("<foo+bar@example.org>")
         );
-        assert_eq!(parse("#ff00aa").unwrap().as_str(), Some("#ff00aa"));
-        assert_eq!(parse("all()").unwrap().as_str(), Some("all()"));
-        assert_eq!(parse("glob:*.*").unwrap().as_str(), Some("glob:*.*"));
-        assert_eq!(parse("柔術").unwrap().as_str(), Some("柔術"));
+        assert_eq!(parse("#ff00aa")?.as_str(), Some("#ff00aa"));
+        assert_eq!(parse("all()")?.as_str(), Some("all()"));
+        assert_eq!(parse("glob:*.*")?.as_str(), Some("glob:*.*"));
+        assert_eq!(parse("柔術")?.as_str(), Some("柔術"));
 
         // Error in TOML value
         assert!(parse("'foo").is_err());
@@ -938,6 +939,7 @@ mod tests {
         assert!(parse("\n { x").is_err());
         assert!(parse(" x ] ").is_err());
         assert!(parse("[table]\nkey = 'value'").is_err());
+        Ok(())
     }
 
     #[test]
@@ -985,12 +987,11 @@ mod tests {
     }
 
     #[test]
-    fn test_command_args() {
+    fn test_command_args() -> TestResult {
         let mut config = StackedConfig::empty();
-        config.add_layer(
-            ConfigLayer::parse(
-                ConfigSource::User,
-                indoc! {"
+        config.add_layer(ConfigLayer::parse(
+            ConfigSource::User,
+            indoc! {"
                     empty_array = []
                     empty_string = ''
                     array = ['emacs', '-nw']
@@ -999,19 +1000,17 @@ mod tests {
                     structured.env = { KEY1 = 'value1', KEY2 = 'value2' }
                     structured.command = ['emacs', '-nw']
                 "},
-            )
-            .unwrap(),
-        );
+        )?);
 
         assert!(config.get::<CommandNameAndArgs>("empty_array").is_err());
 
-        let command_args: CommandNameAndArgs = config.get("empty_string").unwrap();
+        let command_args: CommandNameAndArgs = config.get("empty_string")?;
         assert_eq!(command_args, CommandNameAndArgs::String("".to_owned()));
         let (name, args) = command_args.split_name_and_args();
         assert_eq!(name, "");
         assert!(args.is_empty());
 
-        let command_args: CommandNameAndArgs = config.get("array").unwrap();
+        let command_args: CommandNameAndArgs = config.get("array")?;
         assert_eq!(
             command_args,
             CommandNameAndArgs::Vec(
@@ -1023,7 +1022,7 @@ mod tests {
         assert_eq!(name, "emacs");
         assert_eq!(args, ["-nw"].as_ref());
 
-        let command_args: CommandNameAndArgs = config.get("string").unwrap();
+        let command_args: CommandNameAndArgs = config.get("string")?;
         assert_eq!(
             command_args,
             CommandNameAndArgs::String("emacs -nw".to_owned())
@@ -1032,7 +1031,7 @@ mod tests {
         assert_eq!(name, "emacs");
         assert_eq!(args, ["-nw"].as_ref());
 
-        let command_args: CommandNameAndArgs = config.get("string_quoted").unwrap();
+        let command_args: CommandNameAndArgs = config.get("string_quoted")?;
         assert_eq!(
             command_args,
             CommandNameAndArgs::String("\"spaced path/to/emacs\" -nw".to_owned())
@@ -1041,7 +1040,7 @@ mod tests {
         assert_eq!(name, "spaced path/to/emacs");
         assert_eq!(args, ["-nw"].as_ref());
 
-        let command_args: CommandNameAndArgs = config.get("structured").unwrap();
+        let command_args: CommandNameAndArgs = config.get("structured")?;
         assert_eq!(
             command_args,
             CommandNameAndArgs::Structured {
@@ -1058,6 +1057,7 @@ mod tests {
         let (name, args) = command_args.split_name_and_args();
         assert_eq!(name, "emacs");
         assert_eq!(args, ["-nw"].as_ref());
+        Ok(())
     }
 
     #[test]
@@ -1067,20 +1067,14 @@ mod tests {
     }
 
     #[test]
-    fn test_resolved_config_values_single_key() {
+    fn test_resolved_config_values_single_key() -> TestResult {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let mut env_base_layer = ConfigLayer::empty(ConfigSource::EnvBase);
-        env_base_layer
-            .set_value("user.name", "base-user-name")
-            .unwrap();
-        env_base_layer
-            .set_value("user.email", "base@user.email")
-            .unwrap();
+        env_base_layer.set_value("user.name", "base-user-name")?;
+        env_base_layer.set_value("user.email", "base@user.email")?;
         let mut repo_layer = ConfigLayer::empty(ConfigSource::Repo);
-        repo_layer
-            .set_value("user.email", "repo@user.email")
-            .unwrap();
+        repo_layer.set_value("user.email", "repo@user.email")?;
         let mut config = StackedConfig::empty();
         config.add_layer(env_base_layer);
         config.add_layer(repo_layer);
@@ -1176,17 +1170,18 @@ mod tests {
         ]
         "#
         );
+        Ok(())
     }
 
     #[test]
-    fn test_resolved_config_values_filter_path() {
+    fn test_resolved_config_values_filter_path() -> TestResult {
         let settings = insta_settings();
         let _guard = settings.bind_to_scope();
         let mut user_layer = ConfigLayer::empty(ConfigSource::User);
-        user_layer.set_value("test-table1.foo", "user-FOO").unwrap();
-        user_layer.set_value("test-table2.bar", "user-BAR").unwrap();
+        user_layer.set_value("test-table1.foo", "user-FOO")?;
+        user_layer.set_value("test-table2.bar", "user-BAR")?;
         let mut repo_layer = ConfigLayer::empty(ConfigSource::Repo);
-        repo_layer.set_value("test-table1.bar", "repo-BAR").unwrap();
+        repo_layer.set_value("test-table1.bar", "repo-BAR")?;
         let mut config = StackedConfig::empty();
         config.add_layer(user_layer);
         config.add_layer(repo_layer);
@@ -1253,10 +1248,11 @@ mod tests {
         ]
         "#
         );
+        Ok(())
     }
 
     #[test]
-    fn test_resolved_config_values_overridden() {
+    fn test_resolved_config_values_overridden() -> TestResult {
         let list = |layers: &[&ConfigLayer], prefix: &str| -> String {
             let mut config = StackedConfig::empty();
             config.extend_layers(layers.iter().copied().cloned());
@@ -1275,15 +1271,15 @@ mod tests {
         };
 
         let mut layer0 = ConfigLayer::empty(ConfigSource::User);
-        layer0.set_value("a.b.e", "0.0").unwrap();
-        layer0.set_value("a.b.c.f", "0.1").unwrap();
-        layer0.set_value("a.b.d", "0.2").unwrap();
+        layer0.set_value("a.b.e", "0.0")?;
+        layer0.set_value("a.b.c.f", "0.1")?;
+        layer0.set_value("a.b.d", "0.2")?;
         let mut layer1 = ConfigLayer::empty(ConfigSource::User);
-        layer1.set_value("a.b", "1.0").unwrap();
-        layer1.set_value("a.c", "1.1").unwrap();
+        layer1.set_value("a.b", "1.0")?;
+        layer1.set_value("a.c", "1.1")?;
         let mut layer2 = ConfigLayer::empty(ConfigSource::User);
-        layer2.set_value("a.b.g", "2.0").unwrap();
-        layer2.set_value("a.b.d", "2.1").unwrap();
+        layer2.set_value("a.b.g", "2.0")?;
+        layer2.set_value("a.b.d", "2.1")?;
 
         // a.b.* is shadowed by a.b
         let layers = [&layer0, &layer1];
@@ -1359,6 +1355,7 @@ mod tests {
          a.b.d = "2.1"
         "#);
         insta::assert_snapshot!(list(&layers, "a.b.c"), @r#"!a.b.c.f = "0.1""#);
+        Ok(())
     }
 
     struct TestCase {

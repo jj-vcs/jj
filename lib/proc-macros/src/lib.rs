@@ -29,7 +29,7 @@ pub fn derive_content_hash(input: proc_macro::TokenStream) -> proc_macro::TokenS
         #[automatically_derived]
         impl #impl_generics ::jj_lib::content_hash::ContentHash for #name #ty_generics
         #where_clause {
-            fn hash(&self, state: &mut impl digest::Update) {
+            fn hash(&self, state: &mut impl ::jj_lib::content_hash::DigestUpdate) {
                 #hash_impl
             }
         }

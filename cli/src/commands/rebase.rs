@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 use clap::ArgGroup;
 use clap_complete::ArgValueCompleter;
-use itertools::Itertools as _;
+use futures::TryStreamExt as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::object_id::ObjectId as _;
@@ -296,7 +296,7 @@ pub(crate) struct RebaseArgs {
     /// descendant of `A`.
     ///
     /// If none of `-b`, `-s`, or `-r` is provided, then the default is `-b @`.
-    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_mutable))]
     revisions: Vec<RevisionArg>,
 
@@ -384,11 +384,11 @@ pub(crate) async fn cmd_rebase(
     let mut workspace_command = command.workspace_helper(ui)?;
 
     let loc = if !args.revisions.is_empty() {
-        plan_rebase_revisions(ui, &workspace_command, &args.revisions, &args.destination)?
+        plan_rebase_revisions(ui, &workspace_command, &args.revisions, &args.destination).await?
     } else if !args.source.is_empty() {
-        plan_rebase_source(ui, &workspace_command, &args.source, &args.destination)?
+        plan_rebase_source(ui, &workspace_command, &args.source, &args.destination).await?
     } else {
-        plan_rebase_branch(ui, &workspace_command, &args.branch, &args.destination)?
+        plan_rebase_branch(ui, &workspace_command, &args.branch, &args.destination).await?
     };
 
     let target_ids = match &loc.target {
@@ -423,12 +423,12 @@ pub(crate) async fn cmd_rebase(
     }
     let stats = computed_move.apply(tx.repo_mut(), &rebase_options).await?;
     print_move_commits_stats(ui, &stats)?;
-    tx.finish(ui, tx_description(&loc.target))?;
+    tx.finish(ui, tx_description(&loc.target)).await?;
 
     Ok(())
 }
 
-fn plan_rebase_revisions(
+async fn plan_rebase_revisions(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
     revisions: &[RevisionArg],
@@ -437,11 +437,14 @@ fn plan_rebase_revisions(
     let target_expr = workspace_command
         .parse_union_revsets(ui, revisions)?
         .resolve()?;
-    workspace_command.check_rewritable_expr(&target_expr)?;
+    workspace_command
+        .check_rewritable_expr(&target_expr)
+        .await?;
     let target_commit_ids: Vec<_> = target_expr
         .evaluate(workspace_command.repo().as_ref())?
-        .iter()
-        .try_collect()?; // in reverse topological order
+        .stream()
+        .try_collect()
+        .await?; // in reverse topological order
 
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
@@ -450,7 +453,8 @@ fn plan_rebase_revisions(
         rebase_destination.insert_after.as_deref(),
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
-    )?;
+    )
+    .await?;
     if rebase_destination.onto.is_some() {
         for id in &target_commit_ids {
             if new_parent_ids.contains(id) {
@@ -468,14 +472,20 @@ fn plan_rebase_revisions(
     })
 }
 
-fn plan_rebase_source(
+async fn plan_rebase_source(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
     source: &[RevisionArg],
     rebase_destination: &RebaseDestinationArgs,
 ) -> Result<MoveCommitsLocation, CommandError> {
-    let source_commit_ids = Vec::from_iter(workspace_command.resolve_revsets_ordered(ui, source)?);
-    workspace_command.check_rewritable(&source_commit_ids)?;
+    let source_commit_ids = Vec::from_iter(
+        workspace_command
+            .resolve_revsets_ordered(ui, source)
+            .await?,
+    );
+    workspace_command
+        .check_rewritable(&source_commit_ids)
+        .await?;
 
     let (new_parent_ids, new_child_ids) = compute_commit_location(
         ui,
@@ -484,7 +494,8 @@ fn plan_rebase_source(
         rebase_destination.insert_after.as_deref(),
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
-    )?;
+    )
+    .await?;
     if rebase_destination.onto.is_some() {
         for id in &source_commit_ids {
             let commit = workspace_command.repo().store().get_commit(id)?;
@@ -499,7 +510,7 @@ fn plan_rebase_source(
     })
 }
 
-fn plan_rebase_branch(
+async fn plan_rebase_branch(
     ui: &Ui,
     workspace_command: &WorkspaceCommandHelper,
     branch: &[RevisionArg],
@@ -508,13 +519,15 @@ fn plan_rebase_branch(
     let branch_commit_ids: Vec<_> = if branch.is_empty() {
         vec![
             workspace_command
-                .resolve_single_rev(ui, &RevisionArg::AT)?
+                .resolve_single_rev(ui, &RevisionArg::AT)
+                .await?
                 .id()
                 .clone(),
         ]
     } else {
         workspace_command
-            .resolve_revsets_ordered(ui, branch)?
+            .resolve_revsets_ordered(ui, branch)
+            .await?
             .into_iter()
             .collect()
     };
@@ -526,16 +539,20 @@ fn plan_rebase_branch(
         rebase_destination.insert_after.as_deref(),
         rebase_destination.insert_before.as_deref(),
         "rebased commits",
-    )?;
+    )
+    .await?;
     let roots_expression = RevsetExpression::commits(new_parent_ids.clone())
         .range(&RevsetExpression::commits(branch_commit_ids))
         .roots();
-    workspace_command.check_rewritable_expr(&roots_expression)?;
+    workspace_command
+        .check_rewritable_expr(&roots_expression)
+        .await?;
     let root_commit_ids: Vec<_> = roots_expression
         .evaluate(workspace_command.repo().as_ref())
         .unwrap()
-        .iter()
-        .try_collect()?;
+        .stream()
+        .try_collect()
+        .await?;
     if rebase_destination.onto.is_some() {
         for id in &root_commit_ids {
             let commit = workspace_command.repo().store().get_commit(id)?;

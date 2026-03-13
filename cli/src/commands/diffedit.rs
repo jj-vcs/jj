@@ -101,10 +101,12 @@ pub(crate) async fn cmd_diffedit(
     let (target_commit, base_commits, diff_description);
     if args.from.is_some() || args.to.is_some() {
         target_commit = workspace_command
-            .resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))?;
+            .resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))
+            .await?;
         base_commits = vec![
             workspace_command
-                .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?,
+                .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))
+                .await?,
         ];
         diff_description = format!(
             "The diff initially shows the commit's changes relative to:\n{}",
@@ -112,11 +114,14 @@ pub(crate) async fn cmd_diffedit(
         );
     } else {
         target_commit = workspace_command
-            .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))?;
+            .resolve_single_rev(ui, args.revision.as_ref().unwrap_or(&RevisionArg::AT))
+            .await?;
         base_commits = target_commit.parents().await?;
         diff_description = "The diff initially shows the commit's changes.".to_string();
     }
-    workspace_command.check_rewritable([target_commit.id()])?;
+    workspace_command
+        .check_rewritable([target_commit.id()])
+        .await?;
 
     let diff_editor = workspace_command.diff_editor(ui, args.tool.as_deref())?;
     let mut tx = workspace_command.start_transaction();
@@ -163,7 +168,8 @@ don't make any changes, then the operation will be aborted.",
                 "Rebased {num_rebased} descendant commits{extra_msg}"
             )?;
         }
-        tx.finish(ui, format!("edit commit {}", target_commit.id().hex()))?;
+        tx.finish(ui, format!("edit commit {}", target_commit.id().hex()))
+            .await?;
     }
     print_unmatched_explicit_paths(
         ui,

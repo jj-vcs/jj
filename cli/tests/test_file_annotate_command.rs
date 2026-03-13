@@ -18,6 +18,7 @@ use std::path::Path;
 
 use jj_lib::file_util::check_symlink_support;
 use jj_lib::file_util::symlink_file;
+use testutils::TestResult;
 
 use crate::common::TestEnvironment;
 
@@ -54,7 +55,7 @@ fn test_annotate_linear() {
 }
 
 #[test]
-fn test_annotate_non_file() {
+fn test_annotate_non_file() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -76,8 +77,8 @@ fn test_annotate_non_file() {
     [exit status: 1]
     ");
 
-    if check_symlink_support().unwrap() {
-        symlink_file("target", work_dir.root().join("symlink")).unwrap();
+    if check_symlink_support()? {
+        symlink_file("target", work_dir.root().join("symlink"))?;
         let output = work_dir.run_jj(["file", "annotate", "symlink"]);
         insta::assert_snapshot!(output, @"
         ------- stderr -------
@@ -86,6 +87,7 @@ fn test_annotate_non_file() {
         [exit status: 1]
         ");
     }
+    Ok(())
 }
 
 #[test]

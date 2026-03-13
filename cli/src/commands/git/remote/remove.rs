@@ -39,6 +39,7 @@ pub async fn cmd_git_remote_remove(
     git::remove_remote(tx.repo_mut(), &args.remote)?;
     if tx.repo().has_changes() {
         tx.finish(ui, format!("remove git remote {}", args.remote.as_symbol()))
+            .await
     } else {
         // Do not print "Nothing changed." for the remote named "git".
         Ok(())

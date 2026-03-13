@@ -14,6 +14,8 @@
 
 use std::path::PathBuf;
 
+use testutils::TestResult;
+
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
@@ -159,7 +161,7 @@ fn test_squash() {
 }
 
 #[test]
-fn test_squash_partial() {
+fn test_squash_partial() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -195,7 +197,7 @@ fn test_squash_partial() {
 
     // If we don't make any changes in the diff-editor, the whole change is moved
     // into the parent
-    std::fs::write(&edit_script, "dump JJ-INSTRUCTIONS instrs").unwrap();
+    std::fs::write(&edit_script, "dump JJ-INSTRUCTIONS instrs")?;
     let output = work_dir.run_jj(["squash", "-r", "b", "-i"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -205,8 +207,9 @@ fn test_squash_partial() {
     [EOF]
     ");
 
+    let instrs = std::fs::read_to_string(test_env.env_root().join("instrs"))?;
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("instrs")).unwrap(), @"
+        instrs, @"
     You are moving changes from: kkmpptxz f2c9709f b | (no description set)
     into commit: qpvuntsm 64ea60be a | (no description set)
 
@@ -233,7 +236,7 @@ fn test_squash_partial() {
 
     // Can squash only some changes in interactive mode
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
-    std::fs::write(&edit_script, "reset file1").unwrap();
+    std::fs::write(&edit_script, "reset file1")?;
     let output = work_dir.run_jj(["squash", "-r", "b", "-i"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -273,7 +276,7 @@ fn test_squash_partial() {
     // Can squash only some changes in non-interactive mode
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
     // Clear the script so we know it won't be used even without -i
-    std::fs::write(&edit_script, "").unwrap();
+    std::fs::write(&edit_script, "")?;
     let output = work_dir.run_jj(["squash", "-r", "b", "file2"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -344,7 +347,7 @@ fn test_squash_partial() {
     // we can use --interactive and fileset together
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
     work_dir.write_file("file3", "foo\n");
-    std::fs::write(&edit_script, "reset file1").unwrap();
+    std::fs::write(&edit_script, "reset file1")?;
     let output = work_dir.run_jj(["squash", "-i", "file1", "file3"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -374,7 +377,7 @@ fn test_squash_partial() {
 
     // Error if no changes selected in interactive mode
     work_dir.run_jj(["op", "restore", &start_op_id]).success();
-    std::fs::write(&edit_script, "reset file1\0reset file2").unwrap();
+    std::fs::write(&edit_script, "reset file1\0reset file2")?;
     let output = work_dir.run_jj(["squash", "-r", "b", "-i"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -389,6 +392,7 @@ fn test_squash_partial() {
     ◆  000000000000 (empty)
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -635,7 +639,7 @@ fn test_squash_from_to() {
 }
 
 #[test]
-fn test_squash_from_to_partial() {
+fn test_squash_from_to_partial() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -719,7 +723,7 @@ fn test_squash_from_to_partial() {
 
     // Can squash only part of the change in interactive mode
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(&edit_script, "reset file2").unwrap();
+    std::fs::write(&edit_script, "reset file2")?;
     let output = work_dir.run_jj(["squash", "-i", "--from", "c"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -759,7 +763,7 @@ fn test_squash_from_to_partial() {
     // Can squash only part of the change from a sibling in non-interactive mode
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     // Clear the script so we know it won't be used
-    std::fs::write(&edit_script, "").unwrap();
+    std::fs::write(&edit_script, "")?;
     let output = work_dir.run_jj(["squash", "--from", "c", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -799,7 +803,7 @@ fn test_squash_from_to_partial() {
     // Can squash only part of the change from a descendant in non-interactive mode
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
     // Clear the script so we know it won't be used
-    std::fs::write(&edit_script, "").unwrap();
+    std::fs::write(&edit_script, "")?;
     let output = work_dir.run_jj(["squash", "--from", "c", "--into", "b", "file1"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -837,6 +841,7 @@ fn test_squash_from_to_partial() {
     Nothing changed.
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -1259,13 +1264,13 @@ fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
 }
 
 #[test]
-fn test_squash_description() {
+fn test_squash_description() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(&edit_script, r#"fail"#).unwrap();
+    std::fs::write(&edit_script, r#"fail"#)?;
 
     // If both descriptions are empty, the resulting description is empty
     work_dir.write_file("file1", "a\n");
@@ -1313,7 +1318,7 @@ fn test_squash_description() {
     work_dir.run_jj(["op", "restore", &setup_opid2]).success();
     work_dir.run_jj(["describe", "-m", "source"]).success();
     let setup_opid3 = work_dir.current_operation_id();
-    std::fs::write(&edit_script, "dump editor0").unwrap();
+    std::fs::write(&edit_script, "dump editor0")?;
     work_dir.run_jj(["squash"]).success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @"
     destination
@@ -1321,8 +1326,9 @@ fn test_squash_description() {
     source
     [EOF]
     ");
+    let editor0 = std::fs::read_to_string(test_env.env_root().join("editor0"))?;
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+        editor0, @r#"
     JJ: Enter a description for the combined commit.
     JJ: Description from the destination commit:
     destination
@@ -1385,7 +1391,7 @@ fn test_squash_description() {
     work_dir
         .run_jj(["describe", "-m", "source\n\nfoo: bar"])
         .success();
-    std::fs::write(&edit_script, "dump editor0").unwrap();
+    std::fs::write(&edit_script, "dump editor0")?;
     work_dir
         .run_jj([
             "squash",
@@ -1393,8 +1399,9 @@ fn test_squash_description() {
             r#"templates.commit_trailers='"CC: alice@example.com\nfoo: bar"'"#,
         ])
         .success();
+    let editor0 = std::fs::read_to_string(test_env.env_root().join("editor0"))?;
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+        editor0, @r#"
     JJ: Enter a description for the combined commit.
     JJ: Description from the destination commit:
     destination
@@ -1528,10 +1535,11 @@ fn test_squash_description() {
         ])
         .success();
     insta::assert_snapshot!(get_description(&work_dir, "@-"), @"");
+    Ok(())
 }
 
 #[test]
-fn test_squash_description_editor_avoids_unc() {
+fn test_squash_description_editor_avoids_unc() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -1547,15 +1555,15 @@ fn test_squash_description_editor_avoids_unc() {
         .success();
     work_dir.run_jj(["describe", "-m", "source"]).success();
 
-    std::fs::write(edit_script, "dump-path path").unwrap();
+    std::fs::write(edit_script, "dump-path path")?;
     work_dir.run_jj(["squash"]).success();
 
-    let edited_path =
-        PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
+    let edited_path = PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path"))?);
     // While `assert!(!edited_path.starts_with("//?/"))` could work here in most
     // cases, it fails when it is not safe to strip the prefix, such as paths
     // over 260 chars.
     assert_eq!(edited_path, dunce::simplified(&edited_path));
+    Ok(())
 }
 
 #[test]
@@ -1766,7 +1774,7 @@ fn test_squash_option_exclusion() {
 }
 
 #[test]
-fn test_squash_to_new_commit() {
+fn test_squash_to_new_commit() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -2009,7 +2017,7 @@ fn test_squash_to_new_commit() {
 
     // creating a new commit should open the editor to write the commit message
     work_dir.run_jj(["op", "restore", &setup_opid]).success();
-    std::fs::write(edit_script, ["dump editor1", "write\nfile 3&4"].join("\0")).unwrap();
+    std::fs::write(edit_script, ["dump editor1", "write\nfile 3&4"].join("\0"))?;
     let output = work_dir.run_jj([
         "squash",
         "-f",
@@ -2026,8 +2034,9 @@ fn test_squash_to_new_commit() {
     [EOF]
     ");
 
+    let editor1 = std::fs::read_to_string(test_env.env_root().join("editor1"))?;
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor1")).unwrap(), @r#"
+        editor1, @r#"
     JJ: Enter a description for the combined commit.
 
     JJ: Description from source commit:
@@ -2061,31 +2070,31 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @"
     ○    pkstwlsy test.user@example.com 2001-02-03 08:05:35 41510a56
     ├─╮  file 3&4
-    │ │  -- operation ad1aa66374f6 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ │  -- operation 026f4f6709a5 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     │ ○  zsuskuln/0 test.user@example.com 2001-02-03 08:05:35 a5bc761f (hidden)
     │ │  file4
-    │ │  -- operation ad1aa66374f6 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │ │  -- operation 026f4f6709a5 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     │ ○  zsuskuln/4 test.user@example.com 2001-02-03 08:05:11 38778966 (hidden)
     │ │  file4
-    │ │  -- operation 83489d186f66 commit 89a30a7539466ed176c1ef122a020fd9cb15848e
+    │ │  -- operation 3c3c237dae08 commit 89a30a7539466ed176c1ef122a020fd9cb15848e
     │ ○  zsuskuln/5 test.user@example.com 2001-02-03 08:05:11 89a30a75 (hidden)
     │ │  (no description set)
-    │ │  -- operation e23fd04aab50 snapshot working copy
+    │ │  -- operation 8d98ff7c076c snapshot working copy
     │ ○  zsuskuln/6 test.user@example.com 2001-02-03 08:05:10 bbf04d26 (hidden)
     │    (empty) (no description set)
-    │    -- operation 19d57874b952 commit c23c424826221bc4fdee9487926595324e50ee95
+    │    -- operation 500bbee268a2 commit c23c424826221bc4fdee9487926595324e50ee95
     ○  kkmpptxz/0 test.user@example.com 2001-02-03 08:05:35 ce3b0a58 (hidden)
     │  file3
-    │  -- operation ad1aa66374f6 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+    │  -- operation 026f4f6709a5 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     ○  kkmpptxz/3 test.user@example.com 2001-02-03 08:05:10 0d254956 (hidden)
     │  file3
-    │  -- operation 19d57874b952 commit c23c424826221bc4fdee9487926595324e50ee95
+    │  -- operation 500bbee268a2 commit c23c424826221bc4fdee9487926595324e50ee95
     ○  kkmpptxz/4 test.user@example.com 2001-02-03 08:05:10 c23c4248 (hidden)
     │  (no description set)
-    │  -- operation d19ad3734aa6 snapshot working copy
+    │  -- operation 385c607f1340 snapshot working copy
     ○  kkmpptxz/5 test.user@example.com 2001-02-03 08:05:09 c1272e87 (hidden)
        (empty) (no description set)
-       -- operation fdee458ae5f2 commit cb58ff1c6f1af92f827661e7275941ceb4d910c5
+       -- operation 1fe18b105580 commit cb58ff1c6f1af92f827661e7275941ceb4d910c5
     [EOF]
     ");
 
@@ -2159,7 +2168,7 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @"
     ○  nsrwusvy test.user@example.com 2001-02-03 08:05:42 c2183685
        (empty) (no description set)
-       -- operation a656ab530912 squash 0 commits
+       -- operation 3094a76484ad squash 0 commits
     [EOF]
     ");
 
@@ -2203,7 +2212,7 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @"
     ○  wtlqussy test.user@example.com 2001-02-03 08:05:46 7eff41c8
        (empty) (no description set)
-       -- operation 1661e2cea988 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
+       -- operation 2dfbda8259b2 squash commit 0d254956d33ed5bb11d93eb795c5e514aadc81b5 and 1 more
     [EOF]
     ");
 
@@ -2250,10 +2259,10 @@ fn test_squash_to_new_commit() {
     insta::assert_snapshot!(output, @"
     ○  pyoswmwk test.user@example.com 2001-02-03 08:05:50 991d0644
     │  (empty) (no description set)
-    │  -- operation 60d056329b43 squash commit f5e47d019271a392eb7f92a6b2e9f8cf41d97049
+    │  -- operation c4d2417e58a7 squash commit f5e47d019271a392eb7f92a6b2e9f8cf41d97049
     ○  szrrkvty/0 test.user@example.com 2001-02-03 08:05:50 f5e47d01 (hidden)
        (empty) (no description set)
-       -- operation 31e408225067 new empty commit
+       -- operation dcf228dfaf3f new empty commit
     [EOF]
     ");
 
@@ -2328,10 +2337,11 @@ fn test_squash_to_new_commit() {
     ◆  zzzzzzzzzzzz
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_squash_with_editor_combine_messages() {
+fn test_squash_with_editor_combine_messages() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -2347,13 +2357,13 @@ fn test_squash_with_editor_combine_messages() {
     std::fs::write(
         &edit_script,
         ["dump editor", "write\nfinal description from editor"].join("\0"),
-    )
-    .unwrap();
+    )?;
     work_dir.run_jj(["squash", "--editor"]).success();
 
     // Verify editor was opened once with combined messages
+    let editor = std::fs::read_to_string(test_env.env_root().join("editor"))?;
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        editor, @r#"
     JJ: Enter a description for the combined commit.
     JJ: Description from the destination commit:
     destination
@@ -2372,10 +2382,11 @@ fn test_squash_with_editor_combine_messages() {
     final description from editor
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_squash_with_editor_and_message_args() {
+fn test_squash_with_editor_and_message_args() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -2386,14 +2397,15 @@ fn test_squash_with_editor_and_message_args() {
     work_dir.run_jj(["new"]).success();
     work_dir.write_file("file1", "b\n");
 
-    std::fs::write(&edit_script, "dump editor").unwrap();
+    std::fs::write(&edit_script, "dump editor")?;
     work_dir
         .run_jj(["squash", "-m", "message from command line", "--editor"])
         .success();
 
     // Verify editor was opened with the message from command line
+    let editor = std::fs::read_to_string(test_env.env_root().join("editor"))?;
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        editor, @r#"
     message from command line
 
     JJ: Change ID: qpvuntsm
@@ -2406,10 +2418,11 @@ fn test_squash_with_editor_and_message_args() {
     message from command line
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_squash_with_editor_and_empty_message() {
+fn test_squash_with_editor_and_empty_message() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -2422,7 +2435,7 @@ fn test_squash_with_editor_and_empty_message() {
 
     // Use --editor with an empty message. The trailers should be added because
     // the editor will be opened.
-    std::fs::write(&edit_script, "dump editor").unwrap();
+    std::fs::write(&edit_script, "dump editor")?;
     work_dir
         .run_jj([
             "squash",
@@ -2435,8 +2448,9 @@ fn test_squash_with_editor_and_empty_message() {
         .success();
 
     // Verify editor was opened with trailers added to the empty message
+    let editor = std::fs::read_to_string(test_env.env_root().join("editor"))?;
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        editor, @r#"
 
 
     Trailer: value
@@ -2451,6 +2465,7 @@ fn test_squash_with_editor_and_empty_message() {
     Trailer: value
     [EOF]
     ");
+    Ok(())
 }
 
 #[must_use]

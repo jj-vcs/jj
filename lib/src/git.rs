@@ -23,6 +23,7 @@ use std::ffi::OsString;
 use std::fs::File;
 use std::iter;
 use std::num::NonZeroU32;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -40,6 +41,7 @@ use crate::backend::CommitId;
 use crate::backend::TreeValue;
 use crate::commit::Commit;
 use crate::config::ConfigGetError;
+use crate::config::ConfigGetResultExt as _;
 use crate::file_util::IoResultExt as _;
 use crate::file_util::PathError;
 use crate::git_backend::GitBackend;
@@ -51,6 +53,7 @@ use crate::git_subprocess::GitSubprocessContext;
 use crate::git_subprocess::GitSubprocessError;
 use crate::index::IndexError;
 use crate::matchers::EverythingMatcher;
+use crate::merge::Diff;
 use crate::merged_tree::MergedTree;
 use crate::merged_tree::TreeDiffEntry;
 use crate::object_id::ObjectId as _;
@@ -66,7 +69,6 @@ use crate::ref_name::RemoteName;
 use crate::ref_name::RemoteNameBuf;
 use crate::ref_name::RemoteRefSymbol;
 use crate::ref_name::RemoteRefSymbolBuf;
-use crate::refs::BookmarkPushUpdate;
 use crate::repo::MutableRepo;
 use crate::repo::Repo;
 use crate::repo_path::RepoPath;
@@ -99,6 +101,7 @@ pub struct GitSettings {
     pub abandon_unreachable_commits: bool,
     pub executable_path: PathBuf,
     pub write_change_id_header: bool,
+    pub ignore_filters: Vec<String>,
 }
 
 impl GitSettings {
@@ -108,6 +111,10 @@ impl GitSettings {
             abandon_unreachable_commits: settings.get_bool("git.abandon-unreachable-commits")?,
             executable_path: settings.get("git.executable-path")?,
             write_change_id_header: settings.get("git.write-change-id-header")?,
+            ignore_filters: settings
+                .get("git.ignore-filters")
+                .optional()?
+                .unwrap_or_else(|| vec!["lfs".to_string()]),
         })
     }
 
@@ -990,26 +997,35 @@ fn remotely_pinned_commit_ids(view: &View) -> Vec<CommitId> {
         .collect()
 }
 
-/// Imports HEAD from the underlying Git repo.
+/// Imports HEAD from the underlying Git repo for a specific workspace.
 ///
 /// Unlike `import_refs()`, the old HEAD branch is not abandoned because HEAD
 /// move doesn't always mean the old HEAD branch has been rewritten.
 ///
 /// Unlike `reset_head()`, this function doesn't move the working-copy commit to
 /// the child of the new HEAD revision.
-pub async fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportError> {
-    let store = mut_repo.store();
-    let git_backend = get_git_backend(store)?;
+///
+/// Returns `true` if the HEAD changed for this workspace, `false` otherwise.
+pub async fn import_head(
+    mut_repo: &mut MutableRepo,
+    workspace_name: &crate::ref_name::WorkspaceName,
+) -> Result<bool, GitImportError> {
+    let store = mut_repo.store().clone();
+    let git_backend = get_git_backend(&store)?;
     let git_repo = git_backend.git_repo();
 
-    let old_git_head = mut_repo.view().git_head();
     let new_git_head_id = if let Ok(oid) = git_repo.head_id() {
         Some(CommitId::from_bytes(oid.as_bytes()))
     } else {
         None
     };
-    if old_git_head.as_resolved() == Some(&new_git_head_id) {
-        return Ok(());
+
+    // Compare against this workspace's stored git_head, not the global one
+    let old_workspace_git_head = mut_repo.get_workspace_git_head(workspace_name);
+    if old_workspace_git_head.as_resolved() == Some(&new_git_head_id) {
+        // HEAD hasn't changed for this workspace; still check other worktrees
+        import_worktree_heads(mut_repo, git_backend, &git_repo).await?;
+        return Ok(false);
     }
 
     // Import new head
@@ -1035,7 +1051,107 @@ pub async fn import_head(mut_repo: &mut MutableRepo) -> Result<(), GitImportErro
             .map_err(GitImportError::Backend)?;
     }
 
+    // Update this workspace's git_head
+    let new_target = RefTarget::resolved(new_git_head_id.clone());
+    mut_repo.set_workspace_git_head(workspace_name, new_target.clone());
+
+    // Also update global git_head for backwards compatibility
     mut_repo.set_git_head_target(RefTarget::resolved(new_git_head_id));
+
+    // Also import commits from other worktrees' HEADs
+    import_worktree_heads(mut_repo, git_backend, &git_repo).await?;
+
+    Ok(true)
+}
+
+/// Imports commits from all Git worktrees' HEADs.
+///
+/// This ensures that commits made via git in secondary worktrees are
+/// imported into the jj repo, even when running jj in a different workspace.
+async fn import_worktree_heads(
+    mut_repo: &mut MutableRepo,
+    git_backend: &crate::git_backend::GitBackend,
+    git_repo: &gix::Repository,
+) -> Result<(), GitImportError> {
+    let worktrees = match git_repo.worktrees() {
+        Ok(wts) => wts,
+        Err(err) => {
+            tracing::debug!(?err, "Failed to enumerate git worktrees");
+            return Ok(());
+        }
+    };
+
+    for worktree in worktrees {
+        // Save git_dir for logging before consuming the worktree
+        let worktree_git_dir = worktree.git_dir().to_path_buf();
+
+        // Open the worktree as a repository to access its HEAD.
+        // Use the variant that works even if the worktree directory is inaccessible.
+        let wt_repo = match worktree.into_repo_with_possibly_inaccessible_worktree() {
+            Ok(repo) => repo,
+            Err(err) => {
+                tracing::debug!(
+                    ?err,
+                    ?worktree_git_dir,
+                    "Failed to open worktree as repository"
+                );
+                continue;
+            }
+        };
+
+        let commit_id = match wt_repo.head_id() {
+            Ok(id) => CommitId::from_bytes(id.as_bytes()),
+            Err(err) => {
+                tracing::debug!(?err, ?worktree_git_dir, "Failed to get worktree HEAD");
+                continue;
+            }
+        };
+
+        // Check if already in index
+        match mut_repo.index().has_id(&commit_id) {
+            Ok(true) => continue,
+            Ok(false) => {}
+            Err(err) => {
+                tracing::debug!(
+                    ?err,
+                    ?worktree_git_dir,
+                    "Failed to check index for worktree HEAD"
+                );
+                continue;
+            }
+        }
+
+        // Import the commit
+        if let Err(err) = git_backend.import_head_commits([&commit_id]) {
+            tracing::debug!(
+                ?err,
+                ?worktree_git_dir,
+                "Failed to import worktree HEAD commit"
+            );
+            continue;
+        }
+
+        // Add to heads
+        match mut_repo.store().get_commit(&commit_id) {
+            Ok(commit) => {
+                if let Err(err) = mut_repo.add_head(&commit).await {
+                    tracing::debug!(
+                        ?err,
+                        ?worktree_git_dir,
+                        "Failed to add worktree HEAD as head"
+                    );
+                }
+            }
+            Err(err) => {
+                tracing::debug!(
+                    ?err,
+                    ?worktree_git_dir,
+                    "Failed to get worktree HEAD commit"
+                );
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -1627,23 +1743,64 @@ impl GitResetHeadError {
 
 /// Sets Git HEAD to the parent of the given working-copy commit and resets
 /// the Git index.
+///
+/// If `workspace_path` is provided and is a colocated workspace (has a `.git`
+/// pointing to the same repo), the git repo will be opened at that path to
+/// support secondary colocated workspaces with their own git worktrees.
 pub async fn reset_head(
     mut_repo: &mut MutableRepo,
     wc_commit: &Commit,
+    workspace_name: &crate::ref_name::WorkspaceName,
 ) -> Result<(), GitResetHeadError> {
-    let git_repo = get_git_repo(mut_repo.store())?;
+    reset_head_at_workspace(mut_repo, wc_commit, workspace_name, None).await
+}
+
+/// Sets Git HEAD to the parent of the given working-copy commit and resets
+/// the Git index at the specified workspace path.
+///
+/// If `workspace_path` is provided and is a colocated workspace (has a `.git`
+/// pointing to the same repo), the git repo will be opened at that path to
+/// support secondary colocated workspaces with their own git worktrees.
+pub async fn reset_head_at_workspace(
+    mut_repo: &mut MutableRepo,
+    wc_commit: &Commit,
+    workspace_name: &crate::ref_name::WorkspaceName,
+    workspace_path: Option<&Path>,
+) -> Result<(), GitResetHeadError> {
+    let store = mut_repo.store();
+    let git_backend = get_git_backend(store)?;
+
+    // If a workspace path is provided and has a .git, try to open it as a worktree
+    let git_repo = if let Some(ws_path) = workspace_path {
+        let git_dir_path = ws_path.join(".git");
+        if git_dir_path.exists() {
+            // Try to open the git repo at the workspace path as a worktree.
+            // Configure committer for reflog updates (required by gix).
+            let open_opts = gix::open::Options::default()
+                .open_path_as_is(true)
+                .config_overrides(["committer.name=jj", "committer.email=jj@example.com"]);
+            match gix::ThreadSafeRepository::open_opts(&git_dir_path, open_opts) {
+                Ok(repo) => repo.to_thread_local(),
+                Err(_) => git_backend.git_repo(),
+            }
+        } else {
+            git_backend.git_repo()
+        }
+    } else {
+        git_backend.git_repo()
+    };
 
     let first_parent_id = &wc_commit.parent_ids()[0];
-    let new_head_target = if first_parent_id != mut_repo.store().root_commit_id() {
+    let new_head_target = if first_parent_id != store.root_commit_id() {
         RefTarget::normal(first_parent_id.clone())
     } else {
         RefTarget::absent()
     };
 
-    // If the first parent of the working copy has changed, reset the Git HEAD.
-    let old_head_target = mut_repo.git_head();
-    if old_head_target != new_head_target {
-        let expected_ref = if let Some(id) = old_head_target.as_normal() {
+    // Compare against this workspace's stored git_head
+    let old_workspace_head = mut_repo.get_workspace_git_head(workspace_name);
+    if old_workspace_head != new_head_target {
+        let expected_ref = if let Some(id) = old_workspace_head.as_normal() {
             // We have to check the actual HEAD state because we don't record a
             // symbolic ref as such.
             let actual_head = git_repo.head().map_err(GitResetHeadError::from_git)?;
@@ -1656,14 +1813,17 @@ pub async fn reset_head(
                 gix::refs::transaction::PreviousValue::MustExist
             }
         } else {
-            // Just overwrite if unborn (or conflict), which is also unusual.
-            gix::refs::transaction::PreviousValue::MustExist
+            // For new workspaces that haven't been tracked yet, allow any current state
+            gix::refs::transaction::PreviousValue::Any
         };
         let new_oid = new_head_target
             .as_normal()
             .map(|id| gix::ObjectId::from_bytes_or_panic(id.as_bytes()));
         update_git_head(&git_repo, expected_ref, new_oid)
             .map_err(|err| GitResetHeadError::UpdateHeadRef(err.into()))?;
+        // Update this workspace's git_head
+        mut_repo.set_workspace_git_head(workspace_name, new_head_target.clone());
+        // Also update global git_head for backwards compatibility
         mut_repo.set_git_head_target(new_head_target);
     }
 
@@ -3048,18 +3208,18 @@ pub enum GitPushError {
 }
 
 #[derive(Clone, Debug)]
-pub struct GitBranchPushTargets {
-    pub branch_updates: Vec<(RefNameBuf, BookmarkPushUpdate)>,
+pub struct GitPushRefTargets {
+    /// Bookmark or branch `(name, [expected_target, new_target])`s to push.
+    pub bookmarks: Vec<(RefNameBuf, Diff<Option<CommitId>>)>,
 }
 
 pub struct GitRefUpdate {
     pub qualified_name: GitRefNameBuf,
-    /// Expected position on the remote or None if we expect the ref to not
-    /// exist on the remote
+    /// Expected position on the remote and new position to push.
     ///
-    /// This is sourced from the local remote-tracking branch.
-    pub expected_current_target: Option<CommitId>,
-    pub new_target: Option<CommitId>,
+    /// The expected position is sourced from the local remote-tracking branch.
+    /// This should be `None` if we expect the ref to not exist on the remote.
+    pub targets: Diff<Option<CommitId>>,
 }
 
 /// Miscellaneous options for Git push command.
@@ -3071,24 +3231,23 @@ pub struct GitPushOptions {
     pub remote_push_options: Vec<String>,
 }
 
-/// Pushes the specified branches and updates the repo view accordingly.
-pub fn push_branches(
+/// Pushes the specified refs and updates the repo view accordingly.
+pub fn push_refs(
     mut_repo: &mut MutableRepo,
     subprocess_options: GitSubprocessOptions,
     remote: &RemoteName,
-    targets: &GitBranchPushTargets,
+    targets: &GitPushRefTargets,
     callback: &mut dyn GitSubprocessCallback,
     options: &GitPushOptions,
 ) -> Result<GitPushStats, GitPushError> {
     validate_remote_name(remote)?;
 
     let ref_updates = targets
-        .branch_updates
+        .bookmarks
         .iter()
         .map(|(name, update)| GitRefUpdate {
             qualified_name: format!("refs/heads/{name}", name = name.as_str()).into(),
-            expected_current_target: update.old_target.clone(),
-            new_target: update.new_target.clone(),
+            targets: update.clone(),
         })
         .collect_vec();
 
@@ -3103,8 +3262,8 @@ pub fn push_branches(
     tracing::debug!(?push_stats);
 
     let pushed: HashSet<&GitRefName> = push_stats.pushed.iter().map(AsRef::as_ref).collect();
-    let pushed_branch_updates = || {
-        iter::zip(&targets.branch_updates, &ref_updates)
+    let pushed_bookmark_updates = || {
+        iter::zip(&targets.bookmarks, &ref_updates)
             .filter(|(_, ref_update)| pushed.contains(&*ref_update.qualified_name))
             .map(|((name, update), _)| (name.as_ref(), update))
     };
@@ -3114,7 +3273,7 @@ pub fn push_branches(
     let unexported_bookmarks = {
         let git_repo =
             get_git_repo(mut_repo.store()).expect("backend type should have been tested");
-        let refs = build_pushed_bookmarks_to_export(remote, pushed_branch_updates());
+        let refs = build_pushed_bookmarks_to_export(remote, pushed_bookmark_updates());
         export_refs_to_git(mut_repo, &git_repo, GitRefKind::Bookmark, refs)
     };
 
@@ -3124,9 +3283,9 @@ pub fn push_branches(
             .binary_search_by_key(&name, |(symbol, _)| &symbol.name)
             .is_err()
     };
-    for (name, update) in pushed_branch_updates().filter(|(name, _)| is_exported_bookmark(name)) {
+    for (name, update) in pushed_bookmark_updates().filter(|(name, _)| is_exported_bookmark(name)) {
         let new_remote_ref = RemoteRef {
-            target: RefTarget::resolved(update.new_target.clone()),
+            target: RefTarget::resolved(update.after.clone()),
             state: RemoteRefState::Tracked,
         };
         mut_repo.set_remote_bookmark(name.to_remote_symbol(remote), new_remote_ref);
@@ -3159,9 +3318,9 @@ pub fn push_updates(
     for update in updates {
         qualified_remote_refs_expected_locations.insert(
             update.qualified_name.as_ref(),
-            update.expected_current_target.as_ref(),
+            update.targets.before.as_ref(),
         );
-        if let Some(new_target) = &update.new_target {
+        if let Some(new_target) = &update.targets.after {
             // We always force-push. We use the push_negotiation callback in
             // `push_refs` to check that the refs did not unexpectedly move on
             // the remote.
@@ -3198,13 +3357,13 @@ pub fn push_updates(
 /// Builds diff of remote bookmarks corresponding to the given `pushed_updates`.
 fn build_pushed_bookmarks_to_export<'a>(
     remote: &RemoteName,
-    pushed_updates: impl IntoIterator<Item = (&'a RefName, &'a BookmarkPushUpdate)>,
+    pushed_updates: impl IntoIterator<Item = (&'a RefName, &'a Diff<Option<CommitId>>)>,
 ) -> RefsToExport {
     let mut to_update = Vec::new();
     let mut to_delete = Vec::new();
     for (name, update) in pushed_updates {
         let symbol = name.to_remote_symbol(remote);
-        match (update.old_target.as_ref(), update.new_target.as_ref()) {
+        match (update.before.as_ref(), update.after.as_ref()) {
             (old, Some(new)) => {
                 let old_oid = old.map(|id| gix::ObjectId::from_bytes_or_panic(id.as_bytes()));
                 let new_oid = gix::ObjectId::from_bytes_or_panic(new.as_bytes());

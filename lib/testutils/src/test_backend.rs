@@ -26,6 +26,7 @@ use std::sync::MutexGuard;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use futures::StreamExt as _;
 use futures::stream;
 use futures::stream::BoxStream;
 use jj_lib::backend::Backend;
@@ -423,7 +424,7 @@ impl Backend for TestBackend {
         _root: &CommitId,
         _head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
-        Ok(Box::pin(stream::empty()))
+        Ok(stream::empty().boxed())
     }
 
     fn gc(&self, _index: &dyn Index, _keep_newer: SystemTime) -> BackendResult<()> {
@@ -437,6 +438,7 @@ mod tests {
     use pollster::FutureExt as _;
 
     use super::*;
+    use crate::TestResult;
     use crate::repo_path_buf;
 
     fn copy_history(path: &str, parents: &[CopyId]) -> CopyHistory {
@@ -448,16 +450,16 @@ mod tests {
     }
 
     #[test]
-    fn get_related_copies() {
+    fn get_related_copies() -> TestResult {
         let backend = TestBackend::with_data(Arc::new(Mutex::new(TestBackendData::default())));
 
         // Test with a single chain so the resulting order is deterministic
         let copy1 = copy_history("foo1", &[]);
-        let copy1_id = backend.write_copy(&copy1).block_on().unwrap();
+        let copy1_id = backend.write_copy(&copy1).block_on()?;
         let copy2 = copy_history("foo2", std::slice::from_ref(&copy1_id));
-        let copy2_id = backend.write_copy(&copy2).block_on().unwrap();
+        let copy2_id = backend.write_copy(&copy2).block_on()?;
         let copy3 = copy_history("foo3", std::slice::from_ref(&copy2_id));
-        let copy3_id = backend.write_copy(&copy3).block_on().unwrap();
+        let copy3_id = backend.write_copy(&copy3).block_on()?;
 
         // Error when looking up by non-existent id
         assert!(
@@ -469,7 +471,7 @@ mod tests {
 
         // Looking up by any id returns the related copies in the same order (children
         // before parents)
-        let related = backend.get_related_copies(&copy1_id).block_on().unwrap();
+        let related = backend.get_related_copies(&copy1_id).block_on()?;
         assert_eq!(
             related,
             vec![
@@ -487,7 +489,7 @@ mod tests {
                 },
             ]
         );
-        let related = backend.get_related_copies(&copy3_id).block_on().unwrap();
+        let related = backend.get_related_copies(&copy3_id).block_on()?;
         assert_eq!(
             related,
             vec![
@@ -505,5 +507,6 @@ mod tests {
                 },
             ]
         );
+        Ok(())
     }
 }

@@ -14,6 +14,7 @@
 
 use indoc::indoc;
 use itertools::Itertools as _;
+use testutils::TestResult;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
@@ -562,7 +563,7 @@ fn test_diff_file_mode() {
 }
 
 #[test]
-fn test_diff_types() {
+fn test_diff_types() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -598,12 +599,11 @@ fn test_diff_types() {
         std::fs::set_permissions(
             work_dir.root().join(file_path),
             std::fs::Permissions::from_mode(0o755),
-        )
-        .unwrap();
+        )?;
 
         // Symlink
         work_dir.run_jj(["new", "root()", "-m=symlink"]).success();
-        std::os::unix::fs::symlink(PathBuf::from("."), work_dir.root().join(file_path)).unwrap();
+        std::os::unix::fs::symlink(PathBuf::from("."), work_dir.root().join(file_path))?;
     }
 
     let diff = |from: &str, to: &str| {
@@ -638,6 +638,7 @@ fn test_diff_types() {
         [EOF]
         ");
     }
+    Ok(())
 }
 
 #[test]
@@ -3063,7 +3064,7 @@ fn test_diff_conflict_three_sides() {
 }
 
 #[test]
-fn test_diff_external_tool() {
+fn test_diff_external_tool() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -3077,7 +3078,7 @@ fn test_diff_external_tool() {
     work_dir.write_file("file3", "foo\n");
 
     // nonzero exit codes should print a warning
-    std::fs::write(&edit_script, "fail").unwrap();
+    std::fs::write(&edit_script, "fail")?;
     let output = work_dir.run_jj(["diff", "--config=ui.diff-formatter=fake-diff-editor"]);
     let insta_portable_exit_status = {
         let mut settings = insta::Settings::clone_current();
@@ -3093,7 +3094,7 @@ fn test_diff_external_tool() {
     });
 
     // nonzero exit codes should not print a warning if it's an expected exit code
-    std::fs::write(&edit_script, "fail").unwrap();
+    std::fs::write(&edit_script, "fail")?;
     let output = work_dir.run_jj([
         "diff",
         "--tool",
@@ -3105,8 +3106,7 @@ fn test_diff_external_tool() {
     std::fs::write(
         &edit_script,
         "print-files-before\0print --\0print-files-after",
-    )
-    .unwrap();
+    )?;
 
     // diff without file patterns
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor"]), @"
@@ -3208,7 +3208,7 @@ fn test_diff_external_tool() {
     ");
 
     // Output of external diff tool shouldn't be escaped
-    std::fs::write(&edit_script, "print \x1b[1;31mred").unwrap();
+    std::fs::write(&edit_script, "print \x1b[1;31mred")?;
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--color=always", "--tool=fake-diff-editor"]),
         @"
     [1;31mred
@@ -3216,7 +3216,7 @@ fn test_diff_external_tool() {
     ");
 
     // Non-zero exit code isn't an error
-    std::fs::write(&edit_script, "print diff\0fail").unwrap();
+    std::fs::write(&edit_script, "print diff\0fail")?;
     let output = work_dir.run_jj(["show", "--tool=fake-diff-editor"]);
     insta::assert_snapshot!(output.normalize_stderr_exit_status(), @"
     Commit ID: b1e84e171e795eeb9cea971f052a30a21255a0a5
@@ -3241,10 +3241,11 @@ fn test_diff_external_tool() {
     [EOF]
     [exit status: 2]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_diff_do_chdir() {
+fn test_diff_do_chdir() -> TestResult {
     let mut test_env = TestEnvironment::default();
     test_env.set_up_fake_echo_merge_tool();
     let edit_script = test_env.set_up_fake_diff_editor();
@@ -3252,7 +3253,7 @@ fn test_diff_do_chdir() {
     let work_dir = test_env.work_dir("repo");
     work_dir.write_file("file1", "file1\n");
 
-    std::fs::write(&edit_script, "print-current-dir").unwrap();
+    std::fs::write(&edit_script, "print-current-dir")?;
     assert_eq!(
         work_dir
             .run_jj([
@@ -3285,6 +3286,7 @@ fn test_diff_do_chdir() {
     left/file1 right/file1
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -3332,7 +3334,7 @@ fn test_diff_external_available_width() {
 }
 
 #[test]
-fn test_diff_external_file_by_file_tool() {
+fn test_diff_external_file_by_file_tool() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -3349,8 +3351,7 @@ fn test_diff_external_file_by_file_tool() {
     std::fs::write(
         edit_script,
         "print ==\0print-files-before\0print --\0print-files-after",
-    )
-    .unwrap();
+    )?;
 
     // Enabled by default, looks up the merge-tools table
     let configs: &[_] = &[
@@ -3436,33 +3437,33 @@ fn test_diff_external_file_by_file_tool() {
     file4
     [EOF]
     ");
+    Ok(())
 }
 
 #[cfg(unix)]
 #[test]
-fn test_diff_external_tool_symlink() {
+fn test_diff_external_tool_symlink() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
     let external_file_path = test_env.env_root().join("external-file");
-    std::fs::write(&external_file_path, "").unwrap();
-    let external_file_permissions = external_file_path.symlink_metadata().unwrap().permissions();
+    std::fs::write(&external_file_path, "")?;
+    let external_file_permissions = external_file_path.symlink_metadata()?.permissions();
 
-    std::os::unix::fs::symlink("non-existent1", work_dir.root().join("dead")).unwrap();
-    std::os::unix::fs::symlink(&external_file_path, work_dir.root().join("file")).unwrap();
+    std::os::unix::fs::symlink("non-existent1", work_dir.root().join("dead"))?;
+    std::os::unix::fs::symlink(&external_file_path, work_dir.root().join("file"))?;
     work_dir.run_jj(["new"]).success();
     work_dir.remove_file("dead");
-    std::os::unix::fs::symlink("non-existent2", work_dir.root().join("dead")).unwrap();
+    std::os::unix::fs::symlink("non-existent2", work_dir.root().join("dead"))?;
     work_dir.remove_file("file");
     work_dir.write_file("file", "");
 
     std::fs::write(
         edit_script,
         "print-files-before\0print --\0print-files-after",
-    )
-    .unwrap();
+    )?;
 
     // Shouldn't try to change permission of symlinks
     insta::assert_snapshot!(work_dir.run_jj(["diff", "--tool=fake-diff-editor"]), @"
@@ -3476,13 +3477,14 @@ fn test_diff_external_tool_symlink() {
 
     // External file should be intact
     assert_eq!(
-        external_file_path.symlink_metadata().unwrap().permissions(),
+        external_file_path.symlink_metadata()?.permissions(),
         external_file_permissions
     );
+    Ok(())
 }
 
 #[test]
-fn test_diff_external_tool_conflict_marker_style() {
+fn test_diff_external_tool_conflict_marker_style() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_diff_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -3559,13 +3561,12 @@ fn test_diff_external_tool_conflict_marker_style() {
     std::fs::write(
         &edit_script,
         ["files-before file", "files-after file", "dump file file"].join("\0"),
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["diff", "--tool", "fake-diff-editor"]);
     insta::assert_snapshot!(output, @"");
     // Conflicts should render using "snapshot" format
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("file")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("file"))?, @r#"
     line 1
     line 2.1
     line 2.2
@@ -3582,6 +3583,7 @@ fn test_diff_external_tool_conflict_marker_style() {
     >>>>>>> conflict 1 of 1 ends
     line 5
     "#);
+    Ok(())
 }
 
 #[test]

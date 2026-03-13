@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use testutils::TestResult;
+
 use crate::common::TestEnvironment;
 
 #[test]
@@ -132,7 +134,7 @@ fn test_show() {
 
 #[cfg(unix)]
 #[test]
-fn test_show_symlink() {
+fn test_show_symlink() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -140,7 +142,7 @@ fn test_show_symlink() {
     work_dir.write_file("file1", "a\n");
     work_dir.create_dir("dir");
     work_dir.write_file("dir/file2", "c\n");
-    std::os::unix::fs::symlink("symlink1_target", work_dir.root().join("symlink1")).unwrap();
+    std::os::unix::fs::symlink("symlink1_target", work_dir.root().join("symlink1"))?;
 
     // Can print multiple files with template
     let template = r#""--- " ++ path ++ " [" ++ file_type ++ "]\n""#;
@@ -156,4 +158,5 @@ fn test_show_symlink() {
     Warning: Path 'symlink1' exists but is not a file
     [EOF]
     ");
+    Ok(())
 }

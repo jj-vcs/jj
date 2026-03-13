@@ -44,6 +44,7 @@ use pollster::FutureExt as _;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
 use testutils::TestRepoBackend;
+use testutils::TestResult;
 use testutils::assert_tree_eq;
 use testutils::commit_with_tree;
 use testutils::create_random_commit;
@@ -106,11 +107,11 @@ fn list_dir(dir: &Path) -> Vec<String> {
 }
 
 #[test]
-fn test_gc() {
+fn test_gc() -> TestResult {
     // TODO: Better way to disable the test if git command couldn't be executed
     if !is_external_tool_installed("git") {
         eprintln!("Skipping because git command might fail to run");
-        return;
+        return Ok(());
     }
 
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
@@ -142,7 +143,7 @@ fn test_gc() {
         .set_parents(vec![commit_f.id().clone()])
         .set_predecessors(vec![commit_d.id().clone()])
         .write_unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
     assert_eq!(
         *repo.view().heads(),
         hashset! {
@@ -170,8 +171,7 @@ fn test_gc() {
     // Empty index, but all kept by file modification time
     // (Beware that this invokes "git gc" and refs will be packed.)
     repo.store()
-        .gc(base_index.as_index(), SystemTime::UNIX_EPOCH)
-        .unwrap();
+        .gc(base_index.as_index(), SystemTime::UNIX_EPOCH)?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -191,7 +191,7 @@ fn test_gc() {
     let now = || SystemTime::now() + Duration::from_secs(1);
 
     // All reachable: redundant no-gc refs will be removed
-    repo.store().gc(repo.index(), now()).unwrap();
+    repo.store().gc(repo.index(), now())?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -203,14 +203,14 @@ fn test_gc() {
 
     // G is no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a).block_on().unwrap();
-    mut_index.add_commit(&commit_b).block_on().unwrap();
-    mut_index.add_commit(&commit_c).block_on().unwrap();
-    mut_index.add_commit(&commit_d).block_on().unwrap();
-    mut_index.add_commit(&commit_e).block_on().unwrap();
-    mut_index.add_commit(&commit_f).block_on().unwrap();
-    mut_index.add_commit(&commit_h).block_on().unwrap();
-    repo.store().gc(mut_index.as_index(), now()).unwrap();
+    mut_index.add_commit(&commit_a).block_on()?;
+    mut_index.add_commit(&commit_b).block_on()?;
+    mut_index.add_commit(&commit_c).block_on()?;
+    mut_index.add_commit(&commit_d).block_on()?;
+    mut_index.add_commit(&commit_e).block_on()?;
+    mut_index.add_commit(&commit_f).block_on()?;
+    mut_index.add_commit(&commit_h).block_on()?;
+    repo.store().gc(mut_index.as_index(), now())?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -222,11 +222,11 @@ fn test_gc() {
 
     // D|E|H are no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a).block_on().unwrap();
-    mut_index.add_commit(&commit_b).block_on().unwrap();
-    mut_index.add_commit(&commit_c).block_on().unwrap();
-    mut_index.add_commit(&commit_f).block_on().unwrap();
-    repo.store().gc(mut_index.as_index(), now()).unwrap();
+    mut_index.add_commit(&commit_a).block_on()?;
+    mut_index.add_commit(&commit_b).block_on()?;
+    mut_index.add_commit(&commit_c).block_on()?;
+    mut_index.add_commit(&commit_f).block_on()?;
+    repo.store().gc(mut_index.as_index(), now())?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -237,8 +237,8 @@ fn test_gc() {
 
     // B|C|F are no longer reachable
     let mut mut_index = base_index.start_modification();
-    mut_index.add_commit(&commit_a).block_on().unwrap();
-    repo.store().gc(mut_index.as_index(), now()).unwrap();
+    mut_index.add_commit(&commit_a).block_on()?;
+    repo.store().gc(mut_index.as_index(), now())?;
     assert_eq!(
         collect_no_gc_refs(git_repo_path),
         hashset! {
@@ -247,15 +247,16 @@ fn test_gc() {
     );
 
     // All unreachable
-    repo.store().gc(base_index.as_index(), now()).unwrap();
+    repo.store().gc(base_index.as_index(), now())?;
     assert_eq!(collect_no_gc_refs(git_repo_path), hashset! {});
+    Ok(())
 }
 
 #[test]
-fn test_gc_extra_table() {
+fn test_gc_extra_table() -> TestResult {
     if !is_external_tool_installed("git") {
         eprintln!("Skipping because git command might fail to run");
-        return;
+        return Ok(());
     }
 
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
@@ -289,7 +290,7 @@ fn test_gc_extra_table() {
     for _ in 0..4 {
         write_random_commit(tx.repo_mut());
     }
-    tx.commit("test").block_on().unwrap();
+    tx.commit("test").block_on()?;
     // The first 3 will be squashed into one table segment
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 5 + 1);
@@ -299,22 +300,23 @@ fn test_gc_extra_table() {
     let index = repo.readonly_index().as_index();
 
     // All segments should be kept by modification time
-    repo.store().gc(index, SystemTime::UNIX_EPOCH).unwrap();
+    repo.store().gc(index, SystemTime::UNIX_EPOCH)?;
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 5 + 1);
 
     // All unreachable segments should be removed
     let now = SystemTime::now() + Duration::from_secs(1);
-    repo.store().gc(index, now).unwrap();
+    repo.store().gc(index, now)?;
     assert_eq!(collect_extra_segment_num_entries(), [3, 1]);
     assert_eq!(list_dir(&extra_path).len(), 2 + 1);
 
     // Ensure that repo is still loadable
     load_repo();
+    Ok(())
 }
 
 #[test]
-fn test_copy_detection() {
+fn test_copy_detection() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
 
@@ -366,10 +368,11 @@ fn test_copy_detection() {
         get_copy_records(store, Some(paths), &commit_c, &commit_c),
         HashMap::default(),
     );
+    Ok(())
 }
 
 #[test]
-fn test_copy_detection_file_and_dir() {
+fn test_copy_detection_file_and_dir() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = &test_repo.repo;
 
@@ -404,10 +407,11 @@ fn test_copy_detection_file_and_dir() {
             "c/file".to_owned() => "c".to_owned(),
         }
     );
+    Ok(())
 }
 
 #[test]
-fn test_jj_trees_header_with_one_tree() {
+fn test_jj_trees_header_with_one_tree() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = test_repo.repo;
     let git_backend = get_git_backend(&repo);
@@ -422,15 +426,15 @@ fn test_jj_trees_header_with_one_tree() {
         MergedTree::resolved(repo.store().clone(), tree_1.id().clone()),
     );
     let git_commit_id = gix::ObjectId::from_bytes_or_panic(commit.id().as_bytes());
-    let git_commit = git_repo.find_commit(git_commit_id).unwrap();
+    let git_commit = git_repo.find_commit(git_commit_id)?;
 
     // Add `jj:trees` with a single tree which is different from the Git commit tree
-    let mut new_commit: gix::objs::Commit = git_commit.decode().unwrap().try_into().unwrap();
+    let mut new_commit: gix::objs::Commit = git_commit.decode()?.try_into()?;
     new_commit.extra_headers = vec![(
         JJ_TREES_COMMIT_HEADER.into(),
         tree_2.id().to_string().into(),
     )];
-    let new_commit_id = git_repo.write_object(&new_commit).unwrap();
+    let new_commit_id = git_repo.write_object(&new_commit)?;
     let new_commit_id = CommitId::from_bytes(new_commit_id.as_bytes());
 
     // Import new commit into `jj` repo. This should fail, because allowing a
@@ -445,10 +449,11 @@ fn test_jj_trees_header_with_one_tree() {
         },
     )
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_conflict_headers_roundtrip() {
+fn test_conflict_headers_roundtrip() -> TestResult {
     let test_repo = TestRepo::init_with_backend(TestRepoBackend::Git);
     let repo = test_repo.repo;
 
@@ -493,8 +498,6 @@ fn test_conflict_headers_roundtrip() {
     // Clear cached commit to ensure it is re-read.
     repo.store().clear_caches();
     // Conflict trees and labels should be preserved on read.
-    assert_tree_eq!(
-        repo.store().get_commit(commit.id()).unwrap().tree(),
-        merged_tree
-    );
+    assert_tree_eq!(repo.store().get_commit(commit.id())?.tree(), merged_tree);
+    Ok(())
 }

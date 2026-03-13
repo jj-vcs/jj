@@ -64,7 +64,8 @@ pub async fn cmd_op_restore(
         template.format(&target_op, formatter.as_mut())?;
         writeln!(formatter)?;
     }
-    tx.finish(ui, format!("restore to operation {}", target_op.id().hex()))?;
+    tx.finish(ui, format!("restore to operation {}", target_op.id().hex()))
+        .await?;
 
     Ok(())
 }

@@ -22,3 +22,14 @@ updates:
     github-dependencies:
       patterns:
       - "*"
+- package-ecosystem: "npm"
+  directory: "/"
+  schedule:
+    interval: "weekly"
+  open-pull-requests-limit: 10
+  commit-message:
+    prefix: "npm:"
+  groups:
+    npm-dependencies:
+      patterns:
+      - "*"

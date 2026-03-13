@@ -555,6 +555,7 @@ mod tests {
     use jj_lib::config::ConfigLayer;
     use jj_lib::config::ConfigSource;
     use jj_lib::config::StackedConfig;
+    use testutils::TestResult;
 
     use super::*;
     use crate::formatter::ColorFormatter;
@@ -769,12 +770,12 @@ mod tests {
     }
 
     #[test]
-    fn test_write_truncated_labeled() {
+    fn test_write_truncated_labeled() -> TestResult {
         let ellipsis_recorder = FormatRecorder::new(false);
         let mut recorder = FormatRecorder::new(false);
         for (label, word) in [("red", "foo"), ("cyan", "bar")] {
             recorder.push_label(label);
-            write!(recorder, "{word}").unwrap();
+            write!(recorder, "{word}")?;
             recorder.pop_label();
         }
 
@@ -841,13 +842,14 @@ mod tests {
             }),
             @""
         );
+        Ok(())
     }
 
     #[test]
-    fn test_write_truncated_non_ascii_chars() {
+    fn test_write_truncated_non_ascii_chars() -> TestResult {
         let ellipsis_recorder = FormatRecorder::new(false);
         let mut recorder = FormatRecorder::new(false);
-        write!(recorder, "a\u{300}bc\u{300}一二三").unwrap();
+        write!(recorder, "a\u{300}bc\u{300}一二三")?;
 
         // Truncate start
         insta::assert_snapshot!(
@@ -924,6 +926,7 @@ mod tests {
             }),
             @"àbc̀一二三"
         );
+        Ok(())
     }
 
     #[test]
@@ -961,12 +964,12 @@ mod tests {
     }
 
     #[test]
-    fn test_write_truncated_ellipsis_labeled() {
+    fn test_write_truncated_ellipsis_labeled() -> TestResult {
         let ellipsis_recorder = FormatRecorder::with_data("..");
         let mut recorder = FormatRecorder::new(false);
         for (label, word) in [("red", "foo"), ("cyan", "bar")] {
             recorder.push_label(label);
-            write!(recorder, "{word}").unwrap();
+            write!(recorder, "{word}")?;
             recorder.pop_label();
         }
 
@@ -1045,13 +1048,14 @@ mod tests {
             }),
             @""
         );
+        Ok(())
     }
 
     #[test]
-    fn test_write_truncated_ellipsis_non_ascii_chars() {
+    fn test_write_truncated_ellipsis_non_ascii_chars() -> TestResult {
         let ellipsis_recorder = FormatRecorder::with_data("..");
         let mut recorder = FormatRecorder::new(false);
-        write!(recorder, "a\u{300}bc\u{300}一二三").unwrap();
+        write!(recorder, "a\u{300}bc\u{300}一二三")?;
 
         // Truncate start
         insta::assert_snapshot!(
@@ -1110,6 +1114,7 @@ mod tests {
             }),
             @"àbc̀一二三"
         );
+        Ok(())
     }
 
     #[test]
@@ -1147,11 +1152,11 @@ mod tests {
     }
 
     #[test]
-    fn test_write_padded_labeled_content() {
+    fn test_write_padded_labeled_content() -> TestResult {
         let mut recorder = FormatRecorder::new(false);
         for (label, word) in [("red", "foo"), ("cyan", "bar")] {
             recorder.push_label(label);
-            write!(recorder, "{word}").unwrap();
+            write!(recorder, "{word}")?;
             recorder.pop_label();
         }
         let fill = FormatRecorder::with_data("=");
@@ -1201,14 +1206,15 @@ mod tests {
             format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 13)),
             @"===[38;5;1mfoo[38;5;6mbar[39m===="
         );
+        Ok(())
     }
 
     #[test]
-    fn test_write_padded_labeled_fill_char() {
+    fn test_write_padded_labeled_fill_char() -> TestResult {
         let recorder = FormatRecorder::with_data("foo");
         let mut fill = FormatRecorder::new(false);
         fill.push_label("red");
-        write!(fill, "=").unwrap();
+        write!(fill, "=")?;
         fill.pop_label();
 
         // Pad start
@@ -1228,6 +1234,7 @@ mod tests {
             format_colored(|formatter| write_padded_centered(formatter, &recorder, &fill, 6)),
             @"[38;5;1m=[39mfoo[38;5;1m==[39m"
         );
+        Ok(())
     }
 
     #[test]
@@ -1368,9 +1375,9 @@ mod tests {
     }
 
     #[test]
-    fn test_write_indented() {
+    fn test_write_indented() -> TestResult {
         let write_prefix = |formatter: &mut dyn Formatter| {
-            formatter.write_all(b">>").unwrap();
+            formatter.write_all(b">>")?;
             Ok(())
         };
 
@@ -1417,9 +1424,9 @@ mod tests {
         let mut recorder = FormatRecorder::new(true);
         for (label, word) in [("red", "foo"), ("cyan", "bar\nbaz\n\nquux")] {
             recorder.push_label(label);
-            write!(recorder, "{word}").unwrap();
+            write!(recorder, "{word}")?;
             recorder.pop_label();
-            writeln!(recorder).unwrap();
+            writeln!(recorder)?;
         }
         insta::assert_snapshot!(
             format_colored(
@@ -1433,6 +1440,7 @@ mod tests {
         [38;5;6m>>quux[39m
         "
         );
+        Ok(())
     }
 
     #[test]
@@ -1506,11 +1514,11 @@ mod tests {
     }
 
     #[test]
-    fn test_write_wrapped() {
+    fn test_write_wrapped() -> TestResult {
         // Split single label chunk
         let mut recorder = FormatRecorder::new(false);
         recorder.push_label("red");
-        write!(recorder, "foo bar baz\nqux quux\n").unwrap();
+        write!(recorder, "foo bar baz\nqux quux\n")?;
         recorder.pop_label();
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 7)),
@@ -1526,7 +1534,7 @@ mod tests {
         let mut recorder = FormatRecorder::new(false);
         for (i, word) in ["foo ", "bar ", "baz\n", "qux ", "quux"].iter().enumerate() {
             recorder.push_label(["red", "cyan"][i & 1]);
-            write!(recorder, "{word}").unwrap();
+            write!(recorder, "{word}")?;
             recorder.pop_label();
         }
         insta::assert_snapshot!(
@@ -1543,7 +1551,7 @@ mod tests {
         let mut recorder = FormatRecorder::new(false);
         for (i, word) in ["", "foo", "", "bar baz", ""].iter().enumerate() {
             recorder.push_label(["red", "cyan"][i & 1]);
-            writeln!(recorder, "{word}").unwrap();
+            writeln!(recorder, "{word}")?;
             recorder.pop_label();
         }
         insta::assert_snapshot!(
@@ -1560,11 +1568,11 @@ mod tests {
         // Split at label boundary
         let mut recorder = FormatRecorder::new(false);
         recorder.push_label("red");
-        write!(recorder, "foo bar").unwrap();
+        write!(recorder, "foo bar")?;
         recorder.pop_label();
-        write!(recorder, " ").unwrap();
+        write!(recorder, " ")?;
         recorder.push_label("cyan");
-        writeln!(recorder, "baz").unwrap();
+        writeln!(recorder, "baz")?;
         recorder.pop_label();
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
@@ -1577,10 +1585,10 @@ mod tests {
         // Do not split at label boundary "ba|z" (since it's a single word)
         let mut recorder = FormatRecorder::new(false);
         recorder.push_label("red");
-        write!(recorder, "foo bar ba").unwrap();
+        write!(recorder, "foo bar ba")?;
         recorder.pop_label();
         recorder.push_label("cyan");
-        writeln!(recorder, "z").unwrap();
+        writeln!(recorder, "z")?;
         recorder.pop_label();
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
@@ -1589,29 +1597,31 @@ mod tests {
         [38;5;1mba[38;5;6mz[39m
         "
         );
+        Ok(())
     }
 
     #[test]
-    fn test_write_wrapped_leading_labeled_whitespace() {
+    fn test_write_wrapped_leading_labeled_whitespace() -> TestResult {
         let mut recorder = FormatRecorder::new(false);
         recorder.push_label("red");
-        write!(recorder, " ").unwrap();
+        write!(recorder, " ")?;
         recorder.pop_label();
-        write!(recorder, "foo").unwrap();
+        write!(recorder, "foo")?;
         insta::assert_snapshot!(
             format_colored(|formatter| write_wrapped(formatter, &recorder, 10)),
             @"[38;5;1m [39mfoo"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_write_wrapped_trailing_labeled_whitespace() {
+    fn test_write_wrapped_trailing_labeled_whitespace() -> TestResult {
         // data: "foo" " "
         // line:  ---
         let mut recorder = FormatRecorder::new(false);
-        write!(recorder, "foo").unwrap();
+        write!(recorder, "foo")?;
         recorder.push_label("red");
-        write!(recorder, " ").unwrap();
+        write!(recorder, " ")?;
         recorder.pop_label();
         assert_eq!(
             format_plain_text(|formatter| write_wrapped(formatter, &recorder, 10)),
@@ -1621,9 +1631,9 @@ mod tests {
         // data: "foo" "\n"
         // line:  ---     -
         let mut recorder = FormatRecorder::new(false);
-        write!(recorder, "foo").unwrap();
+        write!(recorder, "foo")?;
         recorder.push_label("red");
-        writeln!(recorder).unwrap();
+        writeln!(recorder)?;
         recorder.pop_label();
         assert_eq!(
             format_plain_text(|formatter| write_wrapped(formatter, &recorder, 10)),
@@ -1633,14 +1643,15 @@ mod tests {
         // data: "foo\n" " "
         // line:  ---    -
         let mut recorder = FormatRecorder::new(false);
-        writeln!(recorder, "foo").unwrap();
+        writeln!(recorder, "foo")?;
         recorder.push_label("red");
-        write!(recorder, " ").unwrap();
+        write!(recorder, " ")?;
         recorder.pop_label();
         assert_eq!(
             format_plain_text(|formatter| write_wrapped(formatter, &recorder, 10)),
             "foo\n",
         );
+        Ok(())
     }
 
     #[test]

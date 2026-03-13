@@ -2116,28 +2116,34 @@ fn builtin_functions<'a, L: TemplateLanguage<'a> + ?Sized>() -> TemplateBuildFun
         });
         Ok(L::Property::wrap_template(Box::new(template)))
     });
-    map.insert("config", |language, diagnostics, _build_ctx, function| {
-        // Dynamic lookup can be implemented if needed. The name is literal
-        // string for now so the error can be reported early.
+    map.insert("config", |language, diagnostics, build_ctx, function| {
         let [name_node] = function.expect_exact_arguments()?;
-        let name: ConfigNamePathBuf =
-            template_parser::catch_aliases(diagnostics, name_node, |_diagnostics, node| {
-                let name = template_parser::expect_string_literal(node)?;
-                name.parse().map_err(|err| {
-                    TemplateParseError::expression("Failed to parse config name", node.span)
-                        .with_source(err)
-                })
-            })?;
-        let value = language
-            .settings()
-            .get_value(&name)
-            .optional()
-            .map_err(|err| {
-                TemplateParseError::expression("Failed to get config value", function.name_span)
+        let name_expression =
+            expect_stringify_expression(language, diagnostics, build_ctx, name_node)?;
+        if let Ok(name) = name_expression.extract() {
+            let config_path: ConfigNamePathBuf = name.parse().map_err(|err| {
+                TemplateParseError::expression("Failed to parse config name", name_node.span)
                     .with_source(err)
             })?;
-        // .decorated("", "") to trim leading/trailing whitespace
-        Ok(Literal(value.map(|v| v.decorated("", ""))).into_dyn_wrapped())
+            let value = language
+                .settings()
+                .get_value(config_path)
+                .optional()
+                .map_err(|err| {
+                    TemplateParseError::expression("Failed to get config value", function.name_span)
+                        .with_source(err)
+                })?;
+            // .decorated("", "") to trim leading/trailing whitespace
+            Ok(Literal(value.map(|v| v.decorated("", ""))).into_dyn_wrapped())
+        } else {
+            let settings = language.settings().clone();
+            let out_property = name_expression.and_then(move |name| {
+                let config_path: ConfigNamePathBuf = name.parse()?;
+                let value = settings.get_value(config_path).optional()?;
+                Ok(value.map(|v| v.decorated("", "")))
+            });
+            Ok(out_property.into_dyn_wrapped())
+        }
     });
     map
 }
@@ -2528,6 +2534,20 @@ mod tests {
             F: Fn() -> TestTemplatePropertyKind + 'static,
         {
             self.language.add_keyword(name, move |_| Ok(build()));
+        }
+
+        /// Like `add_keyword`, but the value depends on the `self` context
+        /// property, making it not statically extractable.
+        fn add_dynamic_keyword<O, F>(&mut self, name: &'static str, build: F)
+        where
+            O: 'static,
+            F: Fn() -> O + Clone + 'static,
+            TestTemplatePropertyKind: WrapTemplateProperty<'static, O>,
+        {
+            self.language.add_keyword(name, move |self_property| {
+                let build = build.clone();
+                Ok(self_property.map(move |_| build()).into_dyn_wrapped())
+            });
         }
 
         fn add_alias(&mut self, decl: impl AsRef<str>, defn: impl Into<String>) {
@@ -3024,6 +3044,14 @@ mod tests {
             env.parse_err_kind("if(timestamp_range, true, false)"),
             TemplateParseErrorKind::Expression(_)
         );
+        assert_matches!(
+            env.parse_err_kind("if(if(true, true), true, false)"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("if(sl0.map(|s| s), true, false)"),
+            TemplateParseErrorKind::Expression(_)
+        );
     }
 
     #[test]
@@ -3177,6 +3205,10 @@ mod tests {
             TemplateParseErrorKind::Expression(_)
         );
         assert_matches!(
+            env.parse_err_kind("if(true, true) >= if(true, true)"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
             env.parse_err_kind("str_list.map(|s| s) >= str_list.map(|s| s)"),
             TemplateParseErrorKind::Expression(_)
         );
@@ -3289,6 +3321,10 @@ mod tests {
         );
         assert_matches!(
             env.parse_err_kind("label('', '') == label('', '')"),
+            TemplateParseErrorKind::Expression(_)
+        );
+        assert_matches!(
+            env.parse_err_kind("if(true, true) == if(true, true)"),
             TemplateParseErrorKind::Expression(_)
         );
         assert_matches!(
@@ -4675,8 +4711,8 @@ mod tests {
             env.render_ok("join('|', str_list, 42, none_int, some_int)"),
             @"foo bar|42||67");
         insta::assert_snapshot!(
-            env.render_ok("join('|', cfg_val, email, signature)"),
-            @r#"{ foo = "bar" }|me@example.com|User <user@example.com>"#);
+            env.render_ok("join('|', cfg_val, email, signature, if(true, 42), if(false, 42))"),
+            @r#"{ foo = "bar" }|me@example.com|User <user@example.com>|42|"#);
         insta::assert_snapshot!(
             env.render_ok("join('|', timestamp, timestamp_range, str_list.map(|x| x))"),
             @"1970-01-01 00:00:00.000 +00:00|1970-01-01 00:00:00.000 +00:00 - 1970-01-01 00:00:00.000 +00:00|foo bar");
@@ -4802,7 +4838,7 @@ mod tests {
             ConfigLayer::parse(ConfigSource::User, "user.email = 'test@example.com'").unwrap(),
         );
 
-        let env = TestTemplateEnv::with_config(config);
+        let mut env = TestTemplateEnv::with_config(config);
 
         // valid config path
         insta::assert_snapshot!(env.render_ok(r#"config("user.name")"#), @"'Test User'");
@@ -4830,6 +4866,68 @@ mod tests {
           |     ^
         invalid unquoted key, expected letters, numbers, `-`, `_`
         ");
+
+        // lookup at parse time
+        env.add_alias("config_key", r#""name""#);
+        insta::assert_snapshot!(env.render_ok(r#"config("user." ++ "name")"#), @"'Test User'");
+        insta::assert_snapshot!(env.render_ok(r#"config("us" ++ "er")"#), @"{ email = 'test@example.com', name = 'Test User' }");
+        insta::assert_snapshot!(env.render_ok(r#"config("user." ++ config_key)"#), @"'Test User'");
+
+        // invalid expression
+        insta::assert_snapshot!(env.parse_err(r#"config("user." ++)"#), @r#"
+         --> 1:18
+          |
+        1 | config("user." ++)
+          |                  ^---
+          |
+          = expected <expression>
+        "#);
+        insta::assert_snapshot!(env.parse_err(r#"config("user|" ++ "name")"#), @r#"
+         --> 1:8
+          |
+        1 | config("user|" ++ "name")
+          |        ^---------------^
+          |
+          = Failed to parse config name
+        TOML parse error at line 1, column 5
+          |
+        1 | user|name
+          |     ^
+        invalid unquoted key, expected letters, numbers, `-`, `_`
+        "#);
+        insta::assert_snapshot!(env.parse_err(r#"config(invalid)"#), @"
+         --> 1:8
+          |
+        1 | config(invalid)
+          |        ^-----^
+          |
+          = Keyword `invalid` doesn't exist
+        ");
+
+        // dynamic lookup using a keyword that depends on runtime context
+        env.add_dynamic_keyword("dyn_config_name", || "user.name".to_owned());
+        insta::assert_snapshot!(
+            env.render_ok(r#"config(dyn_config_name)"#), @"'Test User'"
+        );
+
+        // dynamic lookup with nonexistent path
+        env.add_dynamic_keyword("dyn_missing", || "non.existent".to_owned());
+        insta::assert_snapshot!(env.render_ok(r#"config(dyn_missing)"#), @"");
+
+        // dynamic lookup with invalid config path at runtime
+        env.add_dynamic_keyword("dyn_bad_path", || "user|name".to_owned());
+        insta::assert_snapshot!(env.render_ok(r#"config(dyn_bad_path)"#), @r"
+        <Error: TOML parse error at line 1, column 5
+          |
+        1 | user|name
+          |     ^
+        invalid unquoted key, expected letters, numbers, `-`, `_`
+        >
+        ");
+
+        // dynamic lookup where name expression itself fails at runtime
+        env.add_keyword("bad_string", || new_error_property::<String>("Bad"));
+        insta::assert_snapshot!(env.render_ok(r#"config(bad_string)"#), @"<Error: Bad>");
     }
 
     #[test]

@@ -34,7 +34,7 @@ pub async fn cmd_workspace_update_stale(
     command: &CommandHelper,
     _args: &WorkspaceUpdateStaleArgs,
 ) -> Result<(), CommandError> {
-    let (workspace_command, stats) = command.recover_stale_working_copy(ui)?;
+    let (workspace_command, stats) = command.recover_stale_working_copy(ui).await?;
     print_snapshot_stats(ui, &stats, workspace_command.env().path_converter())?;
 
     Ok(())

@@ -21,6 +21,7 @@ use maplit::hashmap;
 use maplit::hashset;
 use pollster::FutureExt as _;
 use testutils::TestRepo;
+use testutils::TestResult;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
 
@@ -36,7 +37,7 @@ use testutils::write_random_commit_with_parents;
 // |/
 // A
 #[test]
-fn test_transform_descendants_sync() {
+fn test_transform_descendants_sync() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -62,8 +63,7 @@ fn test_transform_descendants_sync() {
             }
             Ok(())
         })
-        .block_on()
-        .unwrap();
+        .block_on()?;
     assert_eq!(rebased.len(), 4);
     let new_commit_b = rebased.get(commit_b.id()).unwrap();
     let new_commit_d = rebased.get(commit_d.id()).unwrap();
@@ -82,6 +82,7 @@ fn test_transform_descendants_sync() {
     assert_eq!(new_commit_d.parent_ids(), vec![new_commit_b.id().clone()]);
     assert_eq!(new_commit_e.parent_ids(), vec![new_commit_d.id().clone()]);
     assert_eq!(new_commit_f.parent_ids(), vec![new_commit_b.id().clone()]);
+    Ok(())
 }
 
 // Transform just commit C replacing parent A by parent B. The parents should be
@@ -93,7 +94,7 @@ fn test_transform_descendants_sync() {
 // |/
 // A
 #[test]
-fn test_transform_descendants_sync_linearize_merge() {
+fn test_transform_descendants_sync_linearize_merge() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -111,8 +112,7 @@ fn test_transform_descendants_sync_linearize_merge() {
             rebased.insert(old_commit_id, new_commit);
             Ok(())
         })
-        .block_on()
-        .unwrap();
+        .block_on()?;
     assert_eq!(rebased.len(), 1);
     let new_commit_c = rebased.get(commit_c.id()).unwrap();
 
@@ -124,6 +124,7 @@ fn test_transform_descendants_sync_linearize_merge() {
     );
 
     assert_eq!(new_commit_c.parent_ids(), vec![commit_b.id().clone()]);
+    Ok(())
 }
 
 // Reorder commits B and C by using the `new_parents_map`. Reordering has to be
@@ -139,7 +140,7 @@ fn test_transform_descendants_sync_linearize_merge() {
 // |/
 // A
 #[test]
-fn test_transform_descendants_new_parents_map() {
+fn test_transform_descendants_new_parents_map() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
@@ -175,8 +176,7 @@ fn test_transform_descendants_new_parents_map() {
                 Ok(())
             },
         )
-        .block_on()
-        .unwrap();
+        .block_on()?;
     assert_eq!(rebased.len(), 5);
     let new_commit_b = rebased.get(commit_b.id()).unwrap();
     let new_commit_c = rebased.get(commit_c.id()).unwrap();
@@ -198,4 +198,5 @@ fn test_transform_descendants_new_parents_map() {
     assert_eq!(new_commit_d.parent_ids(), vec![new_commit_b.id().clone()]);
     assert_eq!(new_commit_e.parent_ids(), vec![new_commit_d.id().clone()]);
     assert_eq!(new_commit_f.parent_ids(), vec![new_commit_b.id().clone()]);
+    Ok(())
 }

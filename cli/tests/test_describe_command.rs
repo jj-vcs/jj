@@ -15,6 +15,7 @@
 use std::path::PathBuf;
 
 use indoc::indoc;
+use testutils::TestResult;
 
 use crate::common::CommandOutput;
 use crate::common::TestEnvironment;
@@ -22,7 +23,7 @@ use crate::common::TestWorkDir;
 use crate::common::force_interactive;
 
 #[test]
-fn test_describe() {
+fn test_describe() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -47,7 +48,7 @@ fn test_describe() {
 
     // Check that the text file gets initialized with the current description and
     // make no changes
-    std::fs::write(&edit_script, "dump editor0").unwrap();
+    std::fs::write(&edit_script, "dump editor0")?;
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -55,7 +56,7 @@ fn test_describe() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor0"))?, @r#"
     description from CLI
 
     JJ: Change ID: qpvuntsm
@@ -64,7 +65,7 @@ fn test_describe() {
     "#);
 
     // Set a description in editor
-    std::fs::write(&edit_script, "write\ndescription from editor").unwrap();
+    std::fs::write(&edit_script, "write\ndescription from editor")?;
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -77,8 +78,7 @@ fn test_describe() {
     std::fs::write(
         &edit_script,
         "write\nJJ: ignored\ndescription among comment\nJJ: ignored",
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -88,7 +88,7 @@ fn test_describe() {
     ");
 
     // Multi-line description
-    std::fs::write(&edit_script, "write\nline1\nline2\n\nline4\n\n").unwrap();
+    std::fs::write(&edit_script, "write\nline1\nline2\n\nline4\n\n")?;
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -106,7 +106,7 @@ fn test_describe() {
     ");
 
     // Multi-line description again with CRLF, which should make no changes
-    std::fs::write(&edit_script, "write\nline1\r\nline2\r\n\r\nline4\r\n\r\n").unwrap();
+    std::fs::write(&edit_script, "write\nline1\r\nline2\r\n\r\nline4\r\n\r\n")?;
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -115,7 +115,7 @@ fn test_describe() {
     ");
 
     // Multi-line description starting with newlines
-    std::fs::write(&edit_script, "write\n\n\nline1\nline2").unwrap();
+    std::fs::write(&edit_script, "write\n\n\nline1\nline2")?;
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -138,7 +138,7 @@ fn test_describe() {
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
-    std::fs::write(&edit_script, "write\n").unwrap();
+    std::fs::write(&edit_script, "write\n")?;
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -147,7 +147,7 @@ fn test_describe() {
     ");
 
     // Fails if the editor fails
-    std::fs::write(&edit_script, "fail").unwrap();
+    std::fs::write(&edit_script, "fail")?;
     let output = work_dir.run_jj(["describe"]);
     insta::with_settings!({
         filters => [
@@ -179,8 +179,7 @@ fn test_describe() {
             JJ: ignore-rest
             ignore everything until EOF or next description
         "},
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -195,6 +194,7 @@ fn test_describe() {
     content of message from editor
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -280,7 +280,7 @@ fn test_describe_no_matching_revisions() {
 }
 
 #[test]
-fn test_describe_multiple_commits() {
+fn test_describe_multiple_commits() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -318,7 +318,7 @@ fn test_describe_multiple_commits() {
     // Check that the text file gets initialized with the current description of
     // each commit and doesn't update commits if no changes are made.
     // Commit descriptions are edited in topological order
-    std::fs::write(&edit_script, "dump editor0").unwrap();
+    std::fs::write(&edit_script, "dump editor0")?;
     let output = work_dir.run_jj(["describe", "-r@", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -326,7 +326,7 @@ fn test_describe_multiple_commits() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor0"))?, @r#"
     JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
     JJ: Warning:
     JJ: - The text you enter will be lost on a syntax error.
@@ -366,8 +366,7 @@ fn test_describe_multiple_commits() {
 
             JJ: Lines starting with \"JJ: \" (like this one) will be removed.
         "},
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["describe", "@", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -410,8 +409,7 @@ fn test_describe_multiple_commits() {
 
             JJ: Lines starting with \"JJ: \" (like this one) will be removed.
         "},
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["describe", "@", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -440,8 +438,7 @@ fn test_describe_multiple_commits() {
 
             JJ: Lines starting with \"JJ: \" (like this one) will be removed.
         "},
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["describe", "@", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -462,8 +459,7 @@ fn test_describe_multiple_commits() {
 
             JJ: Lines starting with \"JJ: \" (like this one) will be removed.
         "},
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["describe", "@", "@-"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -485,8 +481,7 @@ fn test_describe_multiple_commits() {
 
             JJ: Lines starting with \"JJ: \" (like this one) will be removed.
         "},
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["describe", "@", "@-"]);
     insta::assert_snapshot!(output, @r#"
     ------- stderr -------
@@ -496,7 +491,7 @@ fn test_describe_multiple_commits() {
     "#);
 
     // Fails if the editor fails
-    std::fs::write(&edit_script, "fail").unwrap();
+    std::fs::write(&edit_script, "fail")?;
     let output = work_dir.run_jj(["describe", "@", "@-"]);
     insta::with_settings!({
         filters => [
@@ -532,8 +527,7 @@ fn test_describe_multiple_commits() {
             JJ: ignore-rest
             each commit should skip their own ignore-rest
         "},
-    )
-    .unwrap();
+    )?;
     let output = work_dir.run_jj(["describe", "@-", "@--"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -552,6 +546,7 @@ fn test_describe_multiple_commits() {
     ◆  000000000000
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -649,7 +644,7 @@ fn test_describe_stdin_description() {
 }
 
 #[test]
-fn test_describe_default_description() {
+fn test_describe_default_description() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -658,7 +653,7 @@ fn test_describe_default_description() {
 
     work_dir.write_file("file1", "foo\n");
     work_dir.write_file("file2", "bar\n");
-    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    std::fs::write(edit_script, ["dump editor"].join("\0"))?;
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -667,7 +662,7 @@ fn test_describe_default_description() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
 
 
     TESTED=TODO
@@ -691,16 +686,17 @@ fn test_describe_default_description() {
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_describe_author() {
+fn test_describe_author() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    std::fs::write(edit_script, ["dump editor"].join("\0"))?;
 
     test_env.add_config(indoc! {r#"
         [template-aliases]
@@ -766,7 +762,7 @@ fn test_describe_author() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
 
     JJ: Author: Super Seeder <super.seeder@example.com> (2001-02-03 08:05:12)
     JJ: Committer: Test User <test.user@example.com> (2001-02-03 08:05:12)
@@ -847,7 +843,7 @@ fn test_describe_author() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
     JJ: Enter or edit commit descriptions after the `JJ: describe` lines.
     JJ: Warning:
     JJ: - The text you enter will be lost on a syntax error.
@@ -869,34 +865,35 @@ fn test_describe_author() {
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_describe_avoids_unc() {
+fn test_describe_avoids_unc() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(edit_script, "dump-path path").unwrap();
+    std::fs::write(edit_script, "dump-path path")?;
     work_dir.run_jj(["describe"]).success();
 
-    let edited_path =
-        PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
+    let edited_path = PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path"))?);
     // While `assert!(!edited_path.starts_with("//?/"))` could work here in most
     // cases, it fails when it is not safe to strip the prefix, such as paths
     // over 260 chars.
     assert_eq!(edited_path, dunce::simplified(&edited_path));
+    Ok(())
 }
 
 #[test]
-fn test_describe_with_editor_and_message_args_opens_editor() {
+fn test_describe_with_editor_and_message_args_opens_editor() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    std::fs::write(edit_script, ["dump editor"].join("\0"))?;
     let output = work_dir.run_jj(["describe", "-m", "message from command line", "--editor"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -905,17 +902,19 @@ fn test_describe_with_editor_and_message_args_opens_editor() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
     message from command line
 
     JJ: Change ID: qpvuntsm
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
+    Ok(())
 }
 
 #[test]
-fn test_describe_change_with_existing_message_with_editor_and_message_args_opens_editor() {
+fn test_describe_change_with_existing_message_with_editor_and_message_args_opens_editor()
+-> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
@@ -925,7 +924,7 @@ fn test_describe_change_with_existing_message_with_editor_and_message_args_opens
         .run_jj(["describe", "-m", "original message"])
         .success();
 
-    std::fs::write(edit_script, ["dump editor"].join("\0")).unwrap();
+    std::fs::write(edit_script, ["dump editor"].join("\0"))?;
     let output = work_dir.run_jj(["describe", "-m", "new message", "--editor"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -934,13 +933,14 @@ fn test_describe_change_with_existing_message_with_editor_and_message_args_opens
     [EOF]
     ");
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor"))?, @r#"
     new message
 
     JJ: Change ID: qpvuntsm
     JJ:
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     "#);
+    Ok(())
 }
 
 #[test]
@@ -963,13 +963,13 @@ fn test_editor_cannot_be_used_with_no_edit() {
 }
 
 #[test]
-fn test_describe_deprecated_edit_flag() {
+fn test_describe_deprecated_edit_flag() -> TestResult {
     let mut test_env = TestEnvironment::default();
     let edit_script = test_env.set_up_fake_editor();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
 
-    std::fs::write(edit_script, ["write\nfinal message"].join("\0")).unwrap();
+    std::fs::write(edit_script, ["write\nfinal message"].join("\0"))?;
     let output = work_dir.run_jj(["describe", "-m", "initial message", "--edit"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -978,6 +978,7 @@ fn test_describe_deprecated_edit_flag() {
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
@@ -1096,7 +1097,7 @@ fn test_add_trailer() {
 }
 
 #[test]
-fn test_add_trailer_committer() {
+fn test_add_trailer_committer() -> TestResult {
     let mut test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let edit_script = test_env.set_up_fake_editor();
@@ -1147,7 +1148,7 @@ fn test_add_trailer_committer() {
     ");
 
     // trailer is added with the expected committer in the editor
-    std::fs::write(&edit_script, "dump editor0").unwrap();
+    std::fs::write(&edit_script, "dump editor0")?;
     let output = work_dir.run_jj(["describe", "--config", "user.email=foo@bar.net"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1157,7 +1158,7 @@ fn test_add_trailer_committer() {
     ");
 
     insta::assert_snapshot!(
-        std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap(), @r#"
+        std::fs::read_to_string(test_env.env_root().join("editor0"))?, @r#"
     Message from CLI
 
     Signed-off-by: test.user@example.com
@@ -1181,7 +1182,7 @@ fn test_add_trailer_committer() {
 
     // trailer is added added when editing an empty description
     work_dir.run_jj(["new"]).success();
-    std::fs::write(&edit_script, "dump editor0").unwrap();
+    std::fs::write(&edit_script, "dump editor0")?;
     let output = work_dir.run_jj(["describe"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
@@ -1190,7 +1191,7 @@ fn test_add_trailer_committer() {
     [EOF]
     ");
 
-    let editor0 = std::fs::read_to_string(test_env.env_root().join("editor0")).unwrap();
+    let editor0 = std::fs::read_to_string(test_env.env_root().join("editor0"))?;
     insta::assert_snapshot!(
         format!("-----\n{editor0}-----\n"), @r#"
     -----
@@ -1203,6 +1204,7 @@ fn test_add_trailer_committer() {
     JJ: Lines starting with "JJ:" (like this one) will be removed.
     -----
     "#);
+    Ok(())
 }
 
 #[must_use]

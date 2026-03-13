@@ -16,6 +16,7 @@ use std::cmp::min;
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
@@ -72,7 +73,7 @@ pub(crate) struct LogArgs {
     ///
     /// If no paths nor revisions are specified, this defaults to the
     /// `revsets.log` setting.
-    #[arg(long, short, value_name = "REVSETS")]
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
     #[arg(add = ArgValueCompleter::new(complete::revset_expression_all))]
     revisions: Vec<RevisionArg>,
 
@@ -220,8 +221,8 @@ pub(crate) async fn cmd_log(
 
                 let has_commit = revset.containing_fn();
 
-                for prio in prio_revset.evaluate_to_commit_ids()? {
-                    let prio = prio?;
+                let mut prio_stream = prio_revset.evaluate_to_commit_ids()?;
+                while let Some(prio) = prio_stream.try_next().await? {
                     if has_commit(&prio)? {
                         forward_iter.prioritize_branch(prio);
                     }

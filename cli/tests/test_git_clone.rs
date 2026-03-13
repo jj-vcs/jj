@@ -16,6 +16,7 @@ use std::path;
 
 use indoc::formatdoc;
 use indoc::indoc;
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -240,7 +241,7 @@ fn test_git_clone_choose_dest_path() {
 }
 
 #[test]
-fn test_git_clone_colocate() {
+fn test_git_clone_colocate() -> TestResult {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
@@ -260,7 +261,7 @@ fn test_git_clone_colocate() {
     // git_target path should be relative to the store
     let empty_dir = test_env.work_dir("empty");
     let git_target_file_contents =
-        String::from_utf8(empty_dir.read_file(".jj/repo/store/git_target").into()).unwrap();
+        String::from_utf8(empty_dir.read_file(".jj/repo/store/git_target").into())?;
     insta::assert_snapshot!(
         git_target_file_contents.replace(path::MAIN_SEPARATOR, "/"),
         @"../../../.git");
@@ -426,6 +427,7 @@ fn test_git_clone_colocate() {
     Hint: Running `git clean -xdf` will remove `.jj/`!
     [EOF]
     "#);
+    Ok(())
 }
 
 #[test]
@@ -598,7 +600,7 @@ fn test_git_clone_tags() {
 }
 
 #[test]
-fn test_git_clone_remote_default_bookmark() {
+fn test_git_clone_remote_default_bookmark() -> TestResult {
     let test_env = TestEnvironment::default();
     let root_dir = test_env.work_dir("");
     let git_repo_path = test_env.env_root().join("source");
@@ -607,15 +609,13 @@ fn test_git_clone_remote_default_bookmark() {
     set_up_non_empty_git_repo(&git_repo);
 
     // Create non-default bookmark in remote
-    let head_id = git_repo.head_id().unwrap().detach();
-    git_repo
-        .reference(
-            "refs/heads/feature1",
-            head_id,
-            gix::refs::transaction::PreviousValue::MustNotExist,
-            "",
-        )
-        .unwrap();
+    let head_id = git_repo.head_id()?.detach();
+    git_repo.reference(
+        "refs/heads/feature1",
+        head_id,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "",
+    )?;
 
     // All fetched bookmarks will be imported if auto-track-bookmarks = '*'
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
@@ -757,6 +757,7 @@ fn test_git_clone_remote_default_bookmark() {
       @origin: qomsplrm ebeb70d8 message
     [EOF]
     ");
+    Ok(())
 }
 
 // A branch with a strange name should get quoted in the config. Windows doesn't
@@ -832,7 +833,7 @@ fn test_git_clone_ignore_working_copy() {
     let output = clone_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 8f47435a3990).
+    Error: The working copy is stale (not updated since operation e39dc288903d).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]
@@ -1146,7 +1147,7 @@ fn test_git_clone_malformed() {
     let output = clone_dir.run_jj(["status"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Error: The working copy is stale (not updated since operation 353078ed182b).
+    Error: The working copy is stale (not updated since operation a8f8555a9eb7).
     Hint: Run `jj workspace update-stale` to update it.
     See https://docs.jj-vcs.dev/latest/working-copy/#stale-working-copy for more information.
     [EOF]

@@ -54,7 +54,7 @@ use crate::ui::Ui;
 /// comparing the result to `--to`.
 ///
 /// To see the changes throughout the whole evolution of a change instead of
-/// between just two revisions, use `jj evolog -p instead`.
+/// between just two revisions, use `jj evolog -p` instead.
 #[derive(clap::Args, Clone, Debug)]
 #[command(group(ArgGroup::new("to_diff").args(&["from", "to"]).multiple(true).required(true)))]
 #[command(mut_arg("ignore_all_space", |a| a.short('w')))]
@@ -86,10 +86,12 @@ pub(crate) async fn cmd_interdiff(
     args: &InterdiffArgs,
 ) -> Result<(), CommandError> {
     let workspace_command = command.workspace_helper(ui)?;
-    let from =
-        workspace_command.resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?;
-    let to =
-        workspace_command.resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))?;
+    let from = workspace_command
+        .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))
+        .await?;
+    let to = workspace_command
+        .resolve_single_rev(ui, args.to.as_ref().unwrap_or(&RevisionArg::AT))
+        .await?;
     let repo = workspace_command.repo();
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();

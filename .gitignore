@@ -28,3 +28,4 @@ jj-trace-*.json
 
 # To make working on buck2 easier (#1997, #4413)
 /buck-out/
+.sisyphus/evidence/task-1-ci-gates.txt

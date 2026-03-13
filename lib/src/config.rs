@@ -909,9 +909,10 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
+    use crate::tests::TestResult;
 
     #[test]
-    fn test_config_layer_set_value() {
+    fn test_config_layer_set_value() -> TestResult {
         let mut layer = ConfigLayer::empty(ConfigSource::User);
         // Cannot overwrite the root table
         assert_matches!(
@@ -920,14 +921,10 @@ mod tests {
         );
 
         // Insert some values
-        layer.set_value("foo", 1).unwrap();
-        layer.set_value("bar.baz.blah", "2").unwrap();
-        layer
-            .set_value("bar.qux", ConfigValue::from_iter([("inline", "table")]))
-            .unwrap();
-        layer
-            .set_value("bar.to-update", ConfigValue::from_iter([("some", true)]))
-            .unwrap();
+        layer.set_value("foo", 1)?;
+        layer.set_value("bar.baz.blah", "2")?;
+        layer.set_value("bar.qux", ConfigValue::from_iter([("inline", "table")]))?;
+        layer.set_value("bar.to-update", ConfigValue::from_iter([("some", true)]))?;
         insta::assert_snapshot!(layer.data, @r#"
         foo = 1
 
@@ -940,18 +937,14 @@ mod tests {
         "#);
 
         // Can overwrite value
-        layer
-            .set_value("foo", ConfigValue::from_iter(["new", "foo"]))
-            .unwrap();
+        layer.set_value("foo", ConfigValue::from_iter(["new", "foo"]))?;
         // Can overwrite inline table
-        layer.set_value("bar.qux", "new bar.qux").unwrap();
+        layer.set_value("bar.qux", "new bar.qux")?;
         // Can add value to inline table
-        layer
-            .set_value(
-                "bar.to-update.new",
-                ConfigValue::from_iter([("table", "value")]),
-            )
-            .unwrap();
+        layer.set_value(
+            "bar.to-update.new",
+            ConfigValue::from_iter([("table", "value")]),
+        )?;
         // Cannot overwrite table
         assert_matches!(
             layer.set_value("bar", 0),
@@ -972,48 +965,44 @@ mod tests {
         [bar.baz]
         blah = "2"
         "#);
+        Ok(())
     }
 
     #[test]
-    fn test_config_layer_set_value_formatting() {
+    fn test_config_layer_set_value_formatting() -> TestResult {
         let mut layer = ConfigLayer::empty(ConfigSource::User);
         // Quoting style should be preserved on insertion
-        layer
-            .set_value(
-                "'foo' . bar . 'baz'",
-                ConfigValue::from_str("'value'").unwrap(),
-            )
-            .unwrap();
+        layer.set_value("'foo' . bar . 'baz'", ConfigValue::from_str("'value'")?)?;
         insta::assert_snapshot!(layer.data, @"
         ['foo' . bar]
         'baz' = 'value'
         ");
 
         // Style of existing keys isn't updated
-        layer.set_value("foo.bar.baz", "new value").unwrap();
-        layer.set_value("foo.'bar'.blah", 0).unwrap();
+        layer.set_value("foo.bar.baz", "new value")?;
+        layer.set_value("foo.'bar'.blah", 0)?;
         insta::assert_snapshot!(layer.data, @r#"
         ['foo' . bar]
         'baz' = "new value"
         blah = 0
         "#);
+        Ok(())
     }
 
     #[test]
-    fn test_config_layer_set_value_inline_table() {
+    fn test_config_layer_set_value_inline_table() -> TestResult {
         let mut layer = ConfigLayer::empty(ConfigSource::User);
-        layer
-            .set_value("a", ConfigValue::from_iter([("b", "a.b")]))
-            .unwrap();
+        layer.set_value("a", ConfigValue::from_iter([("b", "a.b")]))?;
         insta::assert_snapshot!(layer.data, @r#"a = { b = "a.b" }"#);
 
         // Should create nested inline tables
-        layer.set_value("a.c.d", "a.c.d").unwrap();
+        layer.set_value("a.c.d", "a.c.d")?;
         insta::assert_snapshot!(layer.data, @r#"a = { b = "a.b", c.d = "a.c.d" }"#);
+        Ok(())
     }
 
     #[test]
-    fn test_config_layer_delete_value() {
+    fn test_config_layer_delete_value() -> TestResult {
         let mut layer = ConfigLayer::empty(ConfigSource::User);
         // Cannot delete the root table
         assert_matches!(
@@ -1022,14 +1011,10 @@ mod tests {
         );
 
         // Insert some values
-        layer.set_value("foo", 1).unwrap();
-        layer.set_value("bar.baz.blah", "2").unwrap();
-        layer
-            .set_value("bar.qux", ConfigValue::from_iter([("inline", "table")]))
-            .unwrap();
-        layer
-            .set_value("bar.to-update", ConfigValue::from_iter([("some", true)]))
-            .unwrap();
+        layer.set_value("foo", 1)?;
+        layer.set_value("bar.baz.blah", "2")?;
+        layer.set_value("bar.qux", ConfigValue::from_iter([("inline", "table")]))?;
+        layer.set_value("bar.to-update", ConfigValue::from_iter([("some", true)]))?;
         insta::assert_snapshot!(layer.data, @r#"
         foo = 1
 
@@ -1042,13 +1027,13 @@ mod tests {
         "#);
 
         // Can delete value
-        let old_value = layer.delete_value("foo").unwrap();
+        let old_value = layer.delete_value("foo")?;
         assert_eq!(old_value.and_then(|v| v.as_integer()), Some(1));
         // Can delete inline table
-        let old_value = layer.delete_value("bar.qux").unwrap();
+        let old_value = layer.delete_value("bar.qux")?;
         assert!(old_value.is_some_and(|v| v.is_inline_table()));
         // Can delete inner value from inline table
-        let old_value = layer.delete_value("bar.to-update.some").unwrap();
+        let old_value = layer.delete_value("bar.to-update.some")?;
         assert_eq!(old_value.and_then(|v| v.as_bool()), Some(true));
         // Cannot delete table
         assert_matches!(
@@ -1065,6 +1050,7 @@ mod tests {
         [bar.baz]
         blah = "2"
         "#);
+        Ok(())
     }
 
     #[test]
@@ -1157,7 +1143,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stacked_config_get_simple_value() {
+    fn test_stacked_config_get_simple_value() -> TestResult {
         let mut config = StackedConfig::empty();
         config.add_layer(new_user_layer(indoc! {"
             a.b.c = 'a.b.c #0'
@@ -1166,12 +1152,9 @@ mod tests {
             a.d = ['a.d #1']
         "}));
 
-        assert_eq!(config.get::<String>("a.b.c").unwrap(), "a.b.c #0");
+        assert_eq!(config.get::<String>("a.b.c")?, "a.b.c #0");
 
-        assert_eq!(
-            config.get::<Vec<String>>("a.d").unwrap(),
-            vec!["a.d #1".to_owned()]
-        );
+        assert_eq!(config.get::<Vec<String>>("a.d")?, vec!["a.d #1".to_owned()]);
 
         // Table "a.b" exists, but key doesn't
         assert_matches!(
@@ -1190,10 +1173,11 @@ mod tests {
             config.get::<String>("a.b"),
             Err(ConfigGetError::Type { name, .. }) if name == "a.b"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_stacked_config_get_table_as_value() {
+    fn test_stacked_config_get_table_as_value() -> TestResult {
         let mut config = StackedConfig::empty();
         config.add_layer(new_user_layer(indoc! {"
             a.b = { c = 'a.b.c #0' }
@@ -1205,12 +1189,13 @@ mod tests {
         // Table can be converted to a value (so it can be deserialized to a
         // structured value.)
         insta::assert_snapshot!(
-            config.get_value("a").unwrap(),
+            config.get_value("a")?,
             @"{ b = { c = 'a.b.c #0' }, d = ['a.d #1'] }");
+        Ok(())
     }
 
     #[test]
-    fn test_stacked_config_get_inline_table() {
+    fn test_stacked_config_get_inline_table() -> TestResult {
         let mut config = StackedConfig::empty();
         config.add_layer(new_user_layer(indoc! {"
             a.b = { c = 'a.b.c #0' }
@@ -1221,12 +1206,13 @@ mod tests {
 
         // Inline tables are merged
         insta::assert_snapshot!(
-            config.get_value("a.b").unwrap(),
+            config.get_value("a.b")?,
             @" { c = 'a.b.c #0' , d = 'a.b.d #1' }");
+        Ok(())
     }
 
     #[test]
-    fn test_stacked_config_get_inline_non_inline_table() {
+    fn test_stacked_config_get_inline_non_inline_table() -> TestResult {
         let mut config = StackedConfig::empty();
         config.add_layer(new_user_layer(indoc! {"
             a.b = { c = 'a.b.c #0' }
@@ -1236,15 +1222,16 @@ mod tests {
         "}));
 
         insta::assert_snapshot!(
-            config.get_value("a.b").unwrap(),
+            config.get_value("a.b")?,
             @" { c = 'a.b.c #0' , d = 'a.b.d #1'}");
         insta::assert_snapshot!(
-            config.get_table("a").unwrap(),
+            config.get_table("a")?,
             @"b = { c = 'a.b.c #0' , d = 'a.b.d #1'}");
+        Ok(())
     }
 
     #[test]
-    fn test_stacked_config_get_value_shadowing_table() {
+    fn test_stacked_config_get_value_shadowing_table() -> TestResult {
         let mut config = StackedConfig::empty();
         config.add_layer(new_user_layer(indoc! {"
             a.b.c = 'a.b.c #0'
@@ -1254,16 +1241,17 @@ mod tests {
             a.b = 'a.b #1'
         "}));
 
-        assert_eq!(config.get::<String>("a.b").unwrap(), "a.b #1");
+        assert_eq!(config.get::<String>("a.b")?, "a.b #1");
 
         assert_matches!(
             config.get::<String>("a.b.c"),
             Err(ConfigGetError::NotFound { name }) if name == "a.b.c"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_stacked_config_get_table_shadowing_table() {
+    fn test_stacked_config_get_table_shadowing_table() -> TestResult {
         let mut config = StackedConfig::empty();
         config.add_layer(new_user_layer(indoc! {"
             a.b = 'a.b #0'
@@ -1272,11 +1260,12 @@ mod tests {
         config.add_layer(new_user_layer(indoc! {"
             a.b.c = 'a.b.c #1'
         "}));
-        insta::assert_snapshot!(config.get_table("a.b").unwrap(), @"c = 'a.b.c #1'");
+        insta::assert_snapshot!(config.get_table("a.b")?, @"c = 'a.b.c #1'");
+        Ok(())
     }
 
     #[test]
-    fn test_stacked_config_get_merged_table() {
+    fn test_stacked_config_get_merged_table() -> TestResult {
         let mut config = StackedConfig::empty();
         config.add_layer(new_user_layer(indoc! {"
             a.a.a = 'a.a.a #0'
@@ -1288,7 +1277,7 @@ mod tests {
             a.a.c = 'a.a.c #1'
             a.c = 'a.c #1'
         "}));
-        insta::assert_snapshot!(config.get_table("a").unwrap(), @"
+        insta::assert_snapshot!(config.get_table("a")?, @"
         a.a = 'a.a.a #0'
         a.b = 'a.a.b #1'
         a.c = 'a.a.c #1'
@@ -1299,10 +1288,11 @@ mod tests {
         assert_eq!(config.table_keys("a.a").collect_vec(), vec!["a", "b", "c"]);
         assert_eq!(config.table_keys("a.b").collect_vec(), vec![""; 0]);
         assert_eq!(config.table_keys("a.missing").collect_vec(), vec![""; 0]);
+        Ok(())
     }
 
     #[test]
-    fn test_stacked_config_get_merged_table_shadowed_top() {
+    fn test_stacked_config_get_merged_table_shadowed_top() -> TestResult {
         let mut config = StackedConfig::empty();
         config.add_layer(new_user_layer(indoc! {"
             a.a.a = 'a.a.a #0'
@@ -1316,13 +1306,14 @@ mod tests {
         config.add_layer(new_user_layer(indoc! {"
             a.a.b = 'a.a.b #2'
         "}));
-        insta::assert_snapshot!(config.get_table("a").unwrap(), @"a.b = 'a.a.b #2'");
+        insta::assert_snapshot!(config.get_table("a")?, @"a.b = 'a.a.b #2'");
         assert_eq!(config.table_keys("a").collect_vec(), vec!["a"]);
         assert_eq!(config.table_keys("a.a").collect_vec(), vec!["b"]);
+        Ok(())
     }
 
     #[test]
-    fn test_stacked_config_get_merged_table_shadowed_child() {
+    fn test_stacked_config_get_merged_table_shadowed_child() -> TestResult {
         let mut config = StackedConfig::empty();
         config.add_layer(new_user_layer(indoc! {"
             a.a.a = 'a.a.a #0'
@@ -1336,16 +1327,17 @@ mod tests {
         config.add_layer(new_user_layer(indoc! {"
             a.a.b = 'a.a.b #2'
         "}));
-        insta::assert_snapshot!(config.get_table("a").unwrap(), @"
+        insta::assert_snapshot!(config.get_table("a")?, @"
         a.b = 'a.a.b #2'
         b = 'a.b #0'
         ");
         assert_eq!(config.table_keys("a").collect_vec(), vec!["a", "b"]);
         assert_eq!(config.table_keys("a.a").collect_vec(), vec!["b"]);
+        Ok(())
     }
 
     #[test]
-    fn test_stacked_config_get_merged_table_shadowed_parent() {
+    fn test_stacked_config_get_merged_table_shadowed_parent() -> TestResult {
         let mut config = StackedConfig::empty();
         config.add_layer(new_user_layer(indoc! {"
             a.a.a = 'a.a.a #0'
@@ -1359,7 +1351,8 @@ mod tests {
             a.a.b = 'a.a.b #2'
         "}));
         // a is not under a.a, but it should still shadow lower layers
-        insta::assert_snapshot!(config.get_table("a.a").unwrap(), @"b = 'a.a.b #2'");
+        insta::assert_snapshot!(config.get_table("a.a")?, @"b = 'a.a.b #2'");
         assert_eq!(config.table_keys("a.a").collect_vec(), vec!["b"]);
+        Ok(())
     }
 }

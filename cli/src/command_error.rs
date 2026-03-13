@@ -34,6 +34,7 @@ use jj_lib::fileset::FilePatternParseError;
 use jj_lib::fileset::FilesetParseError;
 use jj_lib::fileset::FilesetParseErrorKind;
 use jj_lib::fix::FixError;
+use jj_lib::gitattributes::GitAttributesError;
 use jj_lib::gitignore::GitIgnoreError;
 use jj_lib::index::IndexError;
 use jj_lib::object_id::ObjectId as _;
@@ -768,6 +769,12 @@ impl From<GitIgnoreError> for CommandError {
     }
 }
 
+impl From<GitAttributesError> for CommandError {
+    fn from(err: GitAttributesError) -> Self {
+        user_error_with_message("Failed to process .gitattributes.", err)
+    }
+}
+
 impl From<ParseBulkEditMessageError> for CommandError {
     fn from(err: ParseBulkEditMessageError) -> Self {
         user_error(err)
@@ -800,6 +807,7 @@ impl From<FixError> for CommandError {
 impl From<BisectionError> for CommandError {
     fn from(err: BisectionError) -> Self {
         match err {
+            BisectionError::BackendError(_) => user_error(err),
             BisectionError::RevsetEvaluationError(_) => user_error(err),
         }
     }

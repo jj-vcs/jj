@@ -80,7 +80,9 @@ pub(crate) async fn cmd_abandon(
         }
         .resolve()?;
         let visible_expr = target_expr.intersection(&RevsetExpression::visible_heads().ancestors());
-        workspace_command.check_rewritable_expr(&visible_expr)?;
+        workspace_command
+            .check_rewritable_expr(&visible_expr)
+            .await?;
         let visible: IndexSet<_> = visible_expr
             .evaluate(workspace_command.repo().as_ref())?
             .stream()
@@ -182,7 +184,7 @@ pub(crate) async fn cmd_abandon(
             to_abandon.len() - 1
         )
     };
-    tx.finish(ui, transaction_description)?;
+    tx.finish(ui, transaction_description).await?;
 
     #[cfg(feature = "git")]
     if jj_lib::git::get_git_backend(workspace_command.repo().store()).is_ok() {

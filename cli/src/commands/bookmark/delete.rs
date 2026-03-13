@@ -85,6 +85,7 @@ pub async fn cmd_bookmark_delete(
                 .map(|(name, _)| name.as_symbol())
                 .join(", ")
         ),
-    )?;
+    )
+    .await?;
     Ok(())
 }

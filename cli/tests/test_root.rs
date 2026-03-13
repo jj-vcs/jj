@@ -16,23 +16,25 @@ use std::path::Path;
 
 use test_case::test_case;
 use testutils::TestRepoBackend;
+use testutils::TestResult;
 use testutils::TestWorkspace;
 
 use crate::common::TestEnvironment;
 
 #[test_case(TestRepoBackend::Simple ; "simple backend")]
 #[test_case(TestRepoBackend::Git ; "git backend")]
-fn test_root(backend: TestRepoBackend) {
+fn test_root(backend: TestRepoBackend) -> TestResult {
     let test_env = TestEnvironment::default();
     let test_workspace = TestWorkspace::init_with_backend(backend);
     let root = test_workspace.workspace.workspace_root();
     let subdir = root.join("subdir");
-    std::fs::create_dir(&subdir).unwrap();
+    std::fs::create_dir(&subdir)?;
     let output = test_env.run_jj_in(&subdir, ["root"]).success();
     assert_eq!(
         output.stdout.raw(),
         &[root.to_str().unwrap(), "\n"].concat()
     );
+    Ok(())
 }
 
 #[test]

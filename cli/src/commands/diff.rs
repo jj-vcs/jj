@@ -14,6 +14,7 @@
 
 use clap_complete::ArgValueCandidates;
 use clap_complete::ArgValueCompleter;
+use futures::TryStreamExt as _;
 use futures::future::try_join_all;
 use indexmap::IndexSet;
 use itertools::Itertools as _;
@@ -127,16 +128,18 @@ pub(crate) async fn cmd_diff(
     let to_tree;
     let mut copy_records = CopyRecords::default();
     if args.from.is_some() || args.to.is_some() {
-        let resolve_revision = |r: &Option<RevisionArg>| {
-            workspace_command.resolve_single_rev(ui, r.as_ref().unwrap_or(&RevisionArg::AT))
+        let resolve_revision = async |r: &Option<RevisionArg>| {
+            workspace_command
+                .resolve_single_rev(ui, r.as_ref().unwrap_or(&RevisionArg::AT))
+                .await
         };
-        let from = resolve_revision(&args.from)?;
-        let to = resolve_revision(&args.to)?;
+        let from = resolve_revision(&args.from).await?;
+        let to = resolve_revision(&args.to).await?;
         from_tree = from.tree();
         to_tree = to.tree();
 
-        let records = get_copy_records(repo.store(), from.id(), to.id(), &matcher)?;
-        copy_records.add_records(records)?;
+        let records = get_copy_records(repo.store(), from.id(), to.id(), &matcher).await?;
+        copy_records.add_records(records);
     } else {
         let revision_args = args
             .revisions
@@ -152,22 +155,24 @@ pub(crate) async fn cmd_diff(
                     .minus(target_expression),
             )
             .evaluate_to_commit_ids()?;
-        if let Some(commit_id) = gaps_revset.next() {
+        if let Some(commit_id) = gaps_revset.try_next().await? {
             return Err(
                 user_error("Cannot diff revsets with gaps in.").hinted(format!(
                     "Revision {} would need to be in the set.",
-                    short_commit_hash(&commit_id?)
+                    short_commit_hash(&commit_id)
                 )),
             );
         }
         let heads: Vec<_> = workspace_command
             .attach_revset_evaluator(target_expression.heads())
             .evaluate_to_commits()?
-            .try_collect()?;
+            .try_collect()
+            .await?;
         let roots: Vec<_> = workspace_command
             .attach_revset_evaluator(target_expression.roots())
             .evaluate_to_commits()?
-            .try_collect()?;
+            .try_collect()
+            .await?;
 
         // Collect parents outside of revset to preserve parent order
         let parents: IndexSet<_> = try_join_all(roots.iter().map(|c| c.parents()))
@@ -181,8 +186,8 @@ pub(crate) async fn cmd_diff(
 
         for p in &parents {
             for to in &heads {
-                let records = get_copy_records(repo.store(), p.id(), to.id(), &matcher)?;
-                copy_records.add_records(records)?;
+                let records = get_copy_records(repo.store(), p.id(), to.id(), &matcher).await?;
+                copy_records.add_records(records);
             }
         }
     }

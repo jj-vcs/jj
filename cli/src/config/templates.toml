@@ -434,6 +434,7 @@ concat(
   separate(" ",
     format_short_operation_id(op.id()),
     op.user(),
+    op.workspace_name(),
     format_time_range(op.time()),
   ), "\n",
   op.description().first_line(), "\n",
@@ -445,11 +446,15 @@ concat(
   separate(" ",
     format_short_operation_id(op.id()),
     format_user_redacted(op.user()),
+    format_workspace_redacted(op.workspace_name()),
     format_time_range(op.time()),
   ), "\n",
   op.description().first_line(), "\n",
   if(op.tags(), "(redacted)\n"),
 )
+'''
+'format_workspace_redacted(workspace)' = '''
+label("workspace", concat("workspace-", hash(workspace).substr(0, 4), "@"))
 '''
 'format_snapshot_operation(op)' = 'format_operation(op)'
 'format_snapshot_operation_redacted(op)' = 'format_operation_redacted(op)'
@@ -459,7 +464,7 @@ join(" ", root.id().short(), label("root", "root()")) ++ "\n"
 
 'format_operation_oneline(op)' = '''
 separate(" ",
-  format_short_operation_id(op.id()), op.user(), format_time_range(op.time()),
+  format_short_operation_id(op.id()), op.user(), op.workspace_name(), format_time_range(op.time()),
   op.description().first_line(),
   op.tags(),
 ) ++ "\n"

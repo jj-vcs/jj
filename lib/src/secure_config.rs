@@ -399,6 +399,7 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
+    use crate::tests::TestResult;
 
     struct TestEnv {
         _td: TempDir,
@@ -430,14 +431,13 @@ mod tests {
     }
 
     #[test]
-    fn test_no_initial_config() {
+    fn test_no_initial_config() -> TestResult {
         let mut env = TestEnv::new();
 
         // We shouldn't generate the config.
         let loaded = env
             .config
-            .maybe_load_config(&mut env.rng, &env.config_dir)
-            .unwrap();
+            .maybe_load_config(&mut env.rng, &env.config_dir)?;
         assert_eq!(loaded.config_file, None);
         assert_eq!(loaded.metadata, Default::default());
         assert!(loaded.warnings.is_empty());
@@ -445,10 +445,7 @@ mod tests {
         assert!(env.config.cache.borrow().is_some());
 
         // load_config should generate the config if it previously didn't exist.
-        let loaded = env
-            .config
-            .load_config(&mut env.rng, &env.config_dir)
-            .unwrap();
+        let loaded = env.config.load_config(&mut env.rng, &env.config_dir)?;
         let path = loaded.config_file.unwrap();
         let components: Vec<_> = path.components().rev().collect();
         assert_eq!(
@@ -466,122 +463,109 @@ mod tests {
         // Empty the cache to ensure the function is actually being tested
         assert!(env.config.cache.borrow().is_some());
         *env.config.cache.borrow_mut() = None;
-        let loaded2 = env
-            .config
-            .load_config(&mut env.rng, &env.config_dir)
-            .unwrap();
+        let loaded2 = env.config.load_config(&mut env.rng, &env.config_dir)?;
         assert_eq!(loaded2.config_file.unwrap(), path);
         assert_eq!(loaded2.metadata, loaded.metadata);
         assert!(loaded2.warnings.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn test_migrate_legacy_config() {
+    fn test_migrate_legacy_config() -> TestResult {
         let mut env = TestEnv::new();
 
         let legacy_config = env.repo_dir.join("legacy-config.toml");
-        fs::write(&legacy_config, "config").unwrap();
+        fs::write(&legacy_config, "config")?;
         let loaded = env
             .config
-            .maybe_load_config(&mut env.rng, &env.config_dir)
-            .unwrap();
+            .maybe_load_config(&mut env.rng, &env.config_dir)?;
         assert!(loaded.config_file.is_some());
         assert!(!loaded.metadata.path.unwrap().is_empty());
-        assert_eq!(
-            fs::read_to_string(loaded.config_file.as_deref().unwrap()).unwrap(),
-            "config"
-        );
+        let config_contents = fs::read_to_string(loaded.config_file.as_deref().unwrap())?;
+        assert_eq!(config_contents, "config");
         assert!(!loaded.warnings.is_empty());
 
         // On unix, it should be a symlink.
         if cfg!(unix) {
-            fs::write(loaded.config_file.as_deref().unwrap(), "new").unwrap();
-            assert_eq!(fs::read_to_string(&legacy_config).unwrap(), "new");
+            fs::write(loaded.config_file.as_deref().unwrap(), "new")?;
+            let legacy_contents = fs::read_to_string(&legacy_config)?;
+            assert_eq!(legacy_contents, "new");
         }
+        Ok(())
     }
 
     #[test]
-    fn test_repo_moved() {
+    fn test_repo_moved() -> TestResult {
         let mut env = TestEnv::new();
-        let loaded = env
-            .config
-            .load_config(&mut env.rng, &env.config_dir)
-            .unwrap();
+        let loaded = env.config.load_config(&mut env.rng, &env.config_dir)?;
         let path = loaded.config_file.unwrap();
 
         let dest = env.repo_dir.parent().unwrap().join("moved");
-        fs::rename(&env.repo_dir, &dest).unwrap();
+        fs::rename(&env.repo_dir, &dest)?;
         let config = env.secure_config_for_dir(dest);
-        let loaded2 = config.load_config(&mut env.rng, &env.config_dir).unwrap();
+        let loaded2 = config.load_config(&mut env.rng, &env.config_dir)?;
         assert_eq!(loaded2.config_file.unwrap(), path);
         assert_ne!(loaded.metadata.path, loaded2.metadata.path);
         assert!(loaded2.warnings.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn test_repo_copied() {
+    fn test_repo_copied() -> TestResult {
         let mut env = TestEnv::new();
-        let loaded = env
-            .config
-            .load_config(&mut env.rng, &env.config_dir)
-            .unwrap();
+        let loaded = env.config.load_config(&mut env.rng, &env.config_dir)?;
         let path = loaded.config_file.unwrap();
-        fs::write(&path, "config").unwrap();
+        fs::write(&path, "config")?;
 
         let dest = env.repo_dir.parent().unwrap().join("copied");
-        fs::create_dir(&dest).unwrap();
-        fs::copy(env.repo_dir.join("config-id"), dest.join("config-id")).unwrap();
+        fs::create_dir(&dest)?;
+        fs::copy(env.repo_dir.join("config-id"), dest.join("config-id"))?;
         let config = env.secure_config_for_dir(dest);
-        let loaded2 = config.load_config(&mut env.rng, &env.config_dir).unwrap();
+        let loaded2 = config.load_config(&mut env.rng, &env.config_dir)?;
         let path2 = loaded2.config_file.unwrap();
         assert_ne!(path, path2);
-        assert_eq!(fs::read_to_string(path2).unwrap(), "config");
+        let path2_contents = fs::read_to_string(path2)?;
+        assert_eq!(path2_contents, "config");
         assert_ne!(loaded.metadata.path, loaded2.metadata.path);
         // We should get a warning about the repo having been copied.
         assert!(!loaded2.warnings.is_empty());
+        Ok(())
     }
 
     // This feature works on windows as well, it just isn't easy to replicate with a
     // test.
     #[cfg(unix)]
     #[test]
-    fn test_repo_aliased() {
+    fn test_repo_aliased() -> TestResult {
         let mut env = TestEnv::new();
-        let loaded = env
-            .config
-            .load_config(&mut env.rng, &env.config_dir)
-            .unwrap();
+        let loaded = env.config.load_config(&mut env.rng, &env.config_dir)?;
         let path = loaded.config_file.unwrap();
 
         let dest = env.repo_dir.parent().unwrap().join("copied");
-        std::os::unix::fs::symlink(&env.repo_dir, &dest).unwrap();
+        std::os::unix::fs::symlink(&env.repo_dir, &dest)?;
         let config = env.secure_config_for_dir(dest);
-        let loaded2 = config.load_config(&mut env.rng, &env.config_dir).unwrap();
+        let loaded2 = config.load_config(&mut env.rng, &env.config_dir)?;
         assert_eq!(loaded2.config_file.unwrap(), path);
         assert_eq!(loaded.metadata.path, loaded2.metadata.path);
         assert!(loaded2.warnings.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn test_missing_config() {
+    fn test_missing_config() -> TestResult {
         let mut env = TestEnv::new();
-        let loaded = env
-            .config
-            .load_config(&mut env.rng, &env.config_dir)
-            .unwrap();
+        let loaded = env.config.load_config(&mut env.rng, &env.config_dir)?;
         let path = loaded.config_file.unwrap();
 
-        fs::remove_dir_all(path.parent().unwrap()).unwrap();
+        fs::remove_dir_all(path.parent().unwrap())?;
         *env.config.cache.borrow_mut() = None;
 
-        let loaded2 = env
-            .config
-            .load_config(&mut env.rng, &env.config_dir)
-            .unwrap();
+        let loaded2 = env.config.load_config(&mut env.rng, &env.config_dir)?;
         assert_eq!(loaded2.config_file.unwrap(), path);
         assert_eq!(loaded.metadata.path, loaded2.metadata.path);
         // It should have recreated the directory.
         assert!(path.parent().unwrap().is_dir());
         assert!(!loaded2.warnings.is_empty());
+        Ok(())
     }
 }

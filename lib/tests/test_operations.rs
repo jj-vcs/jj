@@ -38,6 +38,7 @@ use pollster::FutureExt as _;
 use test_case::test_case;
 use testutils::CommitBuilderExt as _;
 use testutils::TestRepo;
+use testutils::TestResult;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
 
@@ -64,7 +65,7 @@ fn index_has_id(index: &dyn Index, commit_id: &CommitId) -> bool {
 }
 
 #[test]
-fn test_unpublished_operation() {
+fn test_unpublished_operation() -> TestResult {
     // Test that the operation doesn't get published until that's requested.
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
@@ -75,16 +76,17 @@ fn test_unpublished_operation() {
 
     let mut tx1 = repo.start_transaction();
     write_random_commit(tx1.repo_mut());
-    let unpublished_op = tx1.write("transaction 1").block_on().unwrap();
+    let unpublished_op = tx1.write("transaction 1").block_on()?;
     let op_id1 = unpublished_op.operation().id().clone();
     assert_ne!(op_id1, op_id0);
     assert_eq!(list_dir(&op_heads_dir), vec![op_id0.hex()]);
-    unpublished_op.publish().block_on().unwrap();
+    unpublished_op.publish().block_on()?;
     assert_eq!(list_dir(&op_heads_dir), vec![op_id1.hex()]);
+    Ok(())
 }
 
 #[test]
-fn test_consecutive_operations() {
+fn test_consecutive_operations() -> TestResult {
     // Test that consecutive operations result in a single op-head on disk after
     // each operation
     let test_repo = TestRepo::init();
@@ -98,21 +100,19 @@ fn test_consecutive_operations() {
     write_random_commit(tx1.repo_mut());
     let op_id1 = tx1
         .commit("transaction 1")
-        .block_on()
-        .unwrap()
+        .block_on()?
         .operation()
         .id()
         .clone();
     assert_ne!(op_id1, op_id0);
     assert_eq!(list_dir(&op_heads_dir), vec![op_id1.hex()]);
 
-    let repo = repo.reload_at_head().block_on().unwrap();
+    let repo = repo.reload_at_head().block_on()?;
     let mut tx2 = repo.start_transaction();
     write_random_commit(tx2.repo_mut());
     let op_id2 = tx2
         .commit("transaction 2")
-        .block_on()
-        .unwrap()
+        .block_on()?
         .operation()
         .id()
         .clone();
@@ -122,12 +122,13 @@ fn test_consecutive_operations() {
 
     // Reloading the repo makes no difference (there are no conflicting operations
     // to resolve).
-    let _repo = repo.reload_at_head().block_on().unwrap();
+    let _repo = repo.reload_at_head().block_on()?;
     assert_eq!(list_dir(&op_heads_dir), vec![op_id2.hex()]);
+    Ok(())
 }
 
 #[test]
-fn test_concurrent_operations() {
+fn test_concurrent_operations() -> TestResult {
     // Test that consecutive operations result in multiple op-heads on disk until
     // the repo has been reloaded (which currently happens right away).
     let test_repo = TestRepo::init();
@@ -141,8 +142,7 @@ fn test_concurrent_operations() {
     write_random_commit(tx1.repo_mut());
     let op_id1 = tx1
         .commit("transaction 1")
-        .block_on()
-        .unwrap()
+        .block_on()?
         .operation()
         .id()
         .clone();
@@ -155,8 +155,7 @@ fn test_concurrent_operations() {
     write_random_commit(tx2.repo_mut());
     let op_id2 = tx2
         .commit("transaction 2")
-        .block_on()
-        .unwrap()
+        .block_on()?
         .operation()
         .id()
         .clone();
@@ -169,12 +168,13 @@ fn test_concurrent_operations() {
     assert_eq!(actual_heads_on_disk, expected_heads_on_disk);
 
     // Reloading the repo causes the operations to be merged
-    let repo = repo.reload_at_head().block_on().unwrap();
+    let repo = repo.reload_at_head().block_on()?;
     let merged_op_id = repo.op_id().clone();
     assert_ne!(merged_op_id, op_id0);
     assert_ne!(merged_op_id, op_id1);
     assert_ne!(merged_op_id, op_id2);
     assert_eq!(list_dir(&op_heads_dir), vec![merged_op_id.hex()]);
+    Ok(())
 }
 
 fn assert_heads(repo: &dyn Repo, expected: Vec<&CommitId>) {
@@ -183,14 +183,14 @@ fn assert_heads(repo: &dyn Repo, expected: Vec<&CommitId>) {
 }
 
 #[test]
-fn test_isolation() {
+fn test_isolation() -> TestResult {
     // Test that two concurrent transactions don't see each other's changes.
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
 
     let mut tx = repo.start_transaction();
     let initial = write_random_commit_with_parents(tx.repo_mut(), &[]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     let mut tx1 = repo.start_transaction();
     let mut_repo1 = tx1.repo_mut();
@@ -205,12 +205,12 @@ fn test_isolation() {
         .rewrite_commit(&initial)
         .set_description("rewrite1")
         .write_unwrap();
-    mut_repo1.rebase_descendants().block_on().unwrap();
+    mut_repo1.rebase_descendants().block_on()?;
     let rewrite2 = mut_repo2
         .rewrite_commit(&initial)
         .set_description("rewrite2")
         .write_unwrap();
-    mut_repo2.rebase_descendants().block_on().unwrap();
+    mut_repo2.rebase_descendants().block_on()?;
 
     // Neither transaction has committed yet, so each transaction sees its own
     // commit.
@@ -219,20 +219,21 @@ fn test_isolation() {
     assert_heads(mut_repo2, vec![rewrite2.id()]);
 
     // The base repo and tx2 don't see the commits from tx1.
-    tx1.commit("transaction 1").block_on().unwrap();
+    tx1.commit("transaction 1").block_on()?;
     assert_heads(repo.as_ref(), vec![initial.id()]);
     assert_heads(mut_repo2, vec![rewrite2.id()]);
 
     // The base repo still doesn't see the commits after both transactions commit.
-    tx2.commit("transaction 2").block_on().unwrap();
+    tx2.commit("transaction 2").block_on()?;
     assert_heads(repo.as_ref(), vec![initial.id()]);
     // After reload, the base repo sees both rewrites.
-    let repo = repo.reload_at_head().block_on().unwrap();
+    let repo = repo.reload_at_head().block_on()?;
     assert_heads(repo.as_ref(), vec![rewrite1.id(), rewrite2.id()]);
+    Ok(())
 }
 
 #[test]
-fn test_stored_commit_predecessors() {
+fn test_stored_commit_predecessors() -> TestResult {
     let test_repo = TestRepo::init();
     let repo = &test_repo.repo;
     let loader = repo.loader();
@@ -244,11 +245,11 @@ fn test_stored_commit_predecessors() {
         .rewrite_commit(&commit1)
         .set_description("rewritten")
         .write_unwrap();
-    tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo = tx.commit("test").block_on().unwrap();
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo = tx.commit("test").block_on()?;
 
     // Reload operation from disk.
-    let op = loader.load_operation(repo.op_id()).block_on().unwrap();
+    let op = loader.load_operation(repo.op_id()).block_on()?;
     assert!(op.stores_commit_predecessors());
     assert_matches!(op.predecessors_for_commit(commit1.id()), Some([]));
     assert_matches!(op.predecessors_for_commit(commit2.id()), Some([id]) if id == commit1.id());
@@ -256,14 +257,15 @@ fn test_stored_commit_predecessors() {
     // Save operation without the predecessors as old jj would do.
     let mut data = op.store_operation().clone();
     data.commit_predecessors = None;
-    let op_id = loader.op_store().write_operation(&data).block_on().unwrap();
+    let op_id = loader.op_store().write_operation(&data).block_on()?;
     assert_ne!(&op_id, op.id());
-    let op = loader.load_operation(&op_id).block_on().unwrap();
+    let op = loader.load_operation(&op_id).block_on()?;
     assert!(!op.stores_commit_predecessors());
+    Ok(())
 }
 
 #[test]
-fn test_reparent_range_linear() {
+fn test_reparent_range_linear() -> TestResult {
     let test_repo = TestRepo::init();
     let repo_0 = test_repo.repo;
     let loader = repo_0.loader();
@@ -287,10 +289,10 @@ fn test_reparent_range_linear() {
         write_random_commit(tx.repo_mut());
         tx
     };
-    let repo_a = random_tx(&repo_0).commit("op A").block_on().unwrap();
-    let repo_b = random_tx(&repo_a).commit("op B").block_on().unwrap();
-    let repo_c = random_tx(&repo_b).commit("op C").block_on().unwrap();
-    let repo_d = random_tx(&repo_c).commit("op D").block_on().unwrap();
+    let repo_a = random_tx(&repo_0).commit("op A").block_on()?;
+    let repo_b = random_tx(&repo_a).commit("op B").block_on()?;
+    let repo_c = random_tx(&repo_b).commit("op C").block_on()?;
+    let repo_d = random_tx(&repo_c).commit("op D").block_on()?;
 
     // Reparent B..D (=C|D) onto A:
     // D'
@@ -303,8 +305,7 @@ fn test_reparent_range_linear() {
         slice::from_ref(repo_d.operation()),
         repo_a.operation(),
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 2);
     assert_eq!(stats.unreachable_count, 1);
@@ -323,15 +324,15 @@ fn test_reparent_range_linear() {
         slice::from_ref(repo_d.operation()),
         repo_a.operation(),
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_eq!(stats.new_head_ids, vec![repo_a.op_id().clone()]);
     assert_eq!(stats.rewritten_count, 0);
     assert_eq!(stats.unreachable_count, 3);
+    Ok(())
 }
 
 #[test]
-fn test_reparent_range_branchy() {
+fn test_reparent_range_branchy() -> TestResult {
     let test_repo = TestRepo::init();
     let repo_0 = test_repo.repo;
     let loader = repo_0.loader();
@@ -360,10 +361,10 @@ fn test_reparent_range_branchy() {
         write_random_commit(tx.repo_mut());
         tx
     };
-    let repo_a = random_tx(&repo_0).commit("op A").block_on().unwrap();
-    let repo_b = random_tx(&repo_a).commit("op B").block_on().unwrap();
-    let repo_c = random_tx(&repo_b).commit("op C").block_on().unwrap();
-    let repo_d = random_tx(&repo_c).commit("op D").block_on().unwrap();
+    let repo_a = random_tx(&repo_0).commit("op A").block_on()?;
+    let repo_b = random_tx(&repo_a).commit("op B").block_on()?;
+    let repo_c = random_tx(&repo_b).commit("op C").block_on()?;
+    let repo_d = random_tx(&repo_c).commit("op D").block_on()?;
     let tx_e = random_tx(&repo_d);
     let tx_f = random_tx(&repo_c);
     let repo_g = testutils::commit_transactions(vec![tx_e, tx_f]);
@@ -384,8 +385,7 @@ fn test_reparent_range_branchy() {
         slice::from_ref(repo_g.operation()),
         repo_b.operation(),
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 3);
     assert_eq!(stats.unreachable_count, 2);
@@ -412,8 +412,7 @@ fn test_reparent_range_branchy() {
         slice::from_ref(repo_g.operation()),
         repo_a.operation(),
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 5);
     assert_eq!(stats.unreachable_count, 1);
@@ -439,8 +438,7 @@ fn test_reparent_range_branchy() {
         slice::from_ref(repo_g.operation()),
         repo_d.operation(),
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 1);
     assert_eq!(stats.unreachable_count, 2);
@@ -462,8 +460,7 @@ fn test_reparent_range_branchy() {
         slice::from_ref(&op_f),
         repo_d.operation(),
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 1);
     assert_eq!(stats.unreachable_count, 0);
@@ -471,11 +468,12 @@ fn test_reparent_range_branchy() {
     assert_eq!(new_op_f.metadata(), op_f.metadata());
     assert_eq!(new_op_f.view_id(), op_f.view_id());
     assert_eq!(new_op_f.parent_ids(), slice::from_ref(repo_d.op_id()));
+    Ok(())
 }
 
 #[test_case(false; "legacy commit.predecessors")]
 #[test_case(true; "op.commit_predecessors")]
-fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
+fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) -> TestResult {
     let test_repo = TestRepo::init();
     let repo_0 = test_repo.repo;
     let loader = repo_0.loader();
@@ -502,7 +500,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
     let mut tx = repo_0.start_transaction();
     let commit_a0 = write_random_commit(tx.repo_mut());
     let commit_b0 = write_random_commit_with_parents(tx.repo_mut(), &[&commit_a0]);
-    let repo_1 = tx.commit("op1").block_on().unwrap();
+    let repo_1 = tx.commit("op1").block_on()?;
 
     let mut tx = repo_1.start_transaction();
     let commit_a1 = tx
@@ -510,15 +508,15 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         .rewrite_commit(&commit_a0)
         .set_description("a1")
         .write_unwrap();
-    tx.repo_mut().rebase_descendants().block_on().unwrap();
+    tx.repo_mut().rebase_descendants().block_on()?;
     let [commit_b1] = head_commits(tx.repo()).try_into().unwrap();
-    tx.repo_mut().add_head(&commit_b0).block_on().unwrap(); // resurrect rewritten commits
-    let repo_2 = tx.commit("op2").block_on().unwrap();
+    tx.repo_mut().add_head(&commit_b0).block_on()?; // resurrect rewritten commits
+    let repo_2 = tx.commit("op2").block_on()?;
 
     let mut tx = repo_2.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_b0);
-    tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo_3 = tx.commit("op3").block_on().unwrap();
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo_3 = tx.commit("op3").block_on()?;
 
     let mut tx = repo_3.start_transaction();
     tx.repo_mut().record_abandoned_commit(&commit_a0);
@@ -528,8 +526,8 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         .rewrite_commit(&commit_a1)
         .set_description("a2")
         .write_unwrap();
-    tx.repo_mut().rebase_descendants().block_on().unwrap();
-    let repo_4 = tx.commit("op4").block_on().unwrap();
+    tx.repo_mut().rebase_descendants().block_on()?;
+    let repo_4 = tx.commit("op4").block_on()?;
 
     let repo_4 = if op_stores_commit_predecessors {
         repo_4
@@ -539,7 +537,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         // fall back to the legacy code path immediately.
         let mut data = repo_4.operation().store_operation().clone();
         data.commit_predecessors = None;
-        let op_id = op_store.write_operation(&data).block_on().unwrap();
+        let op_id = op_store.write_operation(&data).block_on()?;
         repo_at(&op_id)
     };
 
@@ -548,7 +546,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
     assert_eq!(repo_2.view().heads().len(), 2);
     assert_eq!(repo_3.view().heads().len(), 2);
     assert_eq!(repo_4.view().heads().len(), 1);
-    assert_eq!(repo_4.index().all_heads_for_gc().unwrap().count(), 3);
+    assert_eq!(repo_4.index().all_heads_for_gc()?.count(), 3);
     assert_eq!(
         repo_4.operation().stores_commit_predecessors(),
         op_stores_commit_predecessors
@@ -573,8 +571,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         slice::from_ref(repo_4.operation()),
         repo_0.operation(),
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 3);
     assert_eq!(stats.unreachable_count, 1);
@@ -600,8 +597,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         slice::from_ref(repo_4.operation()),
         repo_0.operation(),
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 2);
     assert_eq!(stats.unreachable_count, 2);
@@ -635,8 +631,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         slice::from_ref(repo_4.operation()),
         repo_0.operation(),
     )
-    .block_on()
-    .unwrap();
+    .block_on()?;
     assert_eq!(stats.new_head_ids.len(), 1);
     assert_eq!(stats.rewritten_count, 1);
     assert_eq!(stats.unreachable_count, 3);
@@ -650,6 +645,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) {
         [commit_a1.id().clone()]
     );
     assert_eq!(get_predecessors(&repo, commit_a1.id()), []);
+    Ok(())
 }
 
 fn stable_op_id_settings() -> UserSettings {
@@ -665,7 +661,7 @@ fn stable_op_id_settings() -> UserSettings {
 }
 
 #[test]
-fn test_resolve_op_id() {
+fn test_resolve_op_id() -> TestResult {
     let settings = stable_op_id_settings();
     let test_repo = TestRepo::init_with_settings(&settings);
     let repo = test_repo.repo;
@@ -674,20 +670,21 @@ fn test_resolve_op_id() {
     let mut operations = Vec::new();
     // The actual value of `i` doesn't matter, we just need to make sure we end
     // up with hashes with ambiguous prefixes.
-    for i in (1..5).chain([9, 27]) {
+    for i in (1..5).chain([10, 24]) {
         let tx = repo.start_transaction();
-        let repo = tx.commit(format!("transaction {i}")).block_on().unwrap();
+        let repo = tx.commit(format!("transaction {i}")).block_on()?;
         operations.push(repo.operation().clone());
     }
-    // "6" and "0" are ambiguous
+    // Snapshot of operation hex ids (changes on rebase; ambiguous prefix depends on
+    // base)
     insta::assert_debug_snapshot!(operations.iter().map(|op| op.id().hex()).collect_vec(), @r#"
     [
-        "ff7608ec55acf1ccb44bee52a0972f8b36864540ee6547d5e124a30bafd3bfbe00418446d5581cf71debac912a091dd2f93a2dd3bcb34bc53c61604aa9c129d6",
-        "b83ded05e46bef569737b8c1293c59af3fe89f72bc2cecd017b5eb96f5c69e50205069eedf144ca4fa9e55ac0c27842dce874b371a752223c5f85c4b6faadf96",
-        "6412c4e33f791b71f440817d3d16c0ee1b7640845db8f5e4146c58e8c3f4329df4662b0edeab5860c86b4679b150f38318a6e3d4ada5803176f9c5273d97f4dd",
-        "6838be3a934e1b8fc966dcf43796a3cc639a3d26edb1e9af94a285f4ce7edaecfe9e101dd7f0338af22e1632f36d634916015b72b026e1529a7b600566c29067",
-        "0ecccbdd90dd12a592dd0de010feda8bf23e4a5650f1946a82df854fc28791ad046b2d42b38060103db7fb99c00787689df98a7d2166d8180666b745cc32b172",
-        "065be6feb0ab573f0638e952ead8482899307d211f80af5dc90952a6171cc7122d5af9f13fde2ce3e37fc5e7776d5e3bc4236d82ce7d2ecbf1f63373c20772e4",
+        "68ed1e50d1169d6ffdcc66a975a5d4fd44a05dce62a9fbbee0c995878b8680544ee19831fda7a17d414a257410ce6f70375e1746e8d76216866d4df6509166da",
+        "efe8073bf24180446a5f0ddbd2195129c01c112d06fd846c2256d207c9f1264e078107ae8df716a91ed56709aafc198fa0cc5ee8fc508204a16e1808ae2fd60a",
+        "41cd4f03c95558284f5ee478e4289cde576e26ab0304672a0f379ebaff99ac754c5ed228289743f676c61443f99eb590ec835c8b5f9342f4bfbf6816121c8096",
+        "9742cdef1bed927d85f55d602b9ae79ff78082441f2ab7a5fa022c7f09a443b9ff7fb0ac18e8bde6ac6ca447854c489941dfd49609ba250f8b132e2b44dfc6c5",
+        "572e4444063a345ec88a2886dbb2671a3776e939249f5886b79d02a94f44f7cf3e8d5a0d290efc93d7861d7e862bca0bd57c71ec224263ae53c8c4413e081147",
+        "1061688577c51257c8fa58e9c032c1a2f1a332df6ebe8bb3d030d74e193bbdc1022d0de4b9ad442812853dc6159cad5fa5e8fbf5dca312e800699bf176c61c9a",
     ]
     "#);
 
@@ -695,22 +692,16 @@ fn test_resolve_op_id() {
     let resolve = |op_str: &str| op_walk::resolve_op_for_load(repo_loader, op_str).block_on();
 
     // Full id
-    assert_eq!(resolve(&operations[0].id().hex()).unwrap(), operations[0]);
+    assert_eq!(resolve(&operations[0].id().hex())?, operations[0]);
     // Short id, odd length
-    assert_eq!(
-        resolve(&operations[0].id().hex()[..3]).unwrap(),
-        operations[0]
-    );
+    assert_eq!(resolve(&operations[0].id().hex()[..3])?, operations[0]);
     // Short id, even length
-    assert_eq!(
-        resolve(&operations[1].id().hex()[..2]).unwrap(),
-        operations[1]
-    );
-    // Ambiguous id
+    assert_eq!(resolve(&operations[1].id().hex()[..2])?, operations[1]);
+    // Non-existent prefix (no operation starts with '7' with current base)
     assert_matches!(
-        resolve("6"),
+        resolve("7"),
         Err(OpsetEvaluationError::OpsetResolution(
-            OpsetResolutionError::AmbiguousIdPrefix(_)
+            OpsetResolutionError::NoSuchOperation(_)
         ))
     );
     // Empty id
@@ -731,31 +722,28 @@ fn test_resolve_op_id() {
     let root_operation = loader.root_operation().block_on();
     assert_eq!(resolve(&root_operation.id().hex()).unwrap(), root_operation);
     assert_eq!(resolve("00").unwrap(), root_operation);
-    assert_eq!(resolve("0e").unwrap(), operations[4]);
-    assert_matches!(
-        resolve("0"),
-        Err(OpsetEvaluationError::OpsetResolution(
-            OpsetResolutionError::AmbiguousIdPrefix(_)
-        ))
-    );
+    // operations[4] starts with "57"
+    assert_eq!(resolve("57").unwrap(), operations[4]);
+    // "0" now uniquely matches root (no operations start with "0")
+    assert_eq!(resolve("0").unwrap(), root_operation);
+    Ok(())
 }
 
 #[test]
-fn test_resolve_current_op() {
+fn test_resolve_current_op() -> TestResult {
     let settings = stable_op_id_settings();
     let test_repo = TestRepo::init_with_settings(&settings);
     let repo = test_repo.repo;
 
     assert_eq!(
-        op_walk::resolve_op_with_repo(&repo, "@")
-            .block_on()
-            .unwrap(),
+        op_walk::resolve_op_with_repo(&repo, "@").block_on()?,
         *repo.operation()
     );
+    Ok(())
 }
 
 #[test]
-fn test_resolve_op_parents_children() {
+fn test_resolve_op_parents_children() -> TestResult {
     // Use monotonic timestamp to stabilize merge order of transactions
     let settings = testutils::user_settings();
     let test_repo = TestRepo::init_with_settings(&settings);
@@ -764,7 +752,7 @@ fn test_resolve_op_parents_children() {
     let mut repos = Vec::new();
     for _ in 0..3 {
         let tx = repo.start_transaction();
-        repos.push(tx.commit("test").block_on().unwrap());
+        repos.push(tx.commit("test").block_on()?);
         repo = repos.last().unwrap();
     }
     let operations = repos.iter().map(|repo| repo.operation()).collect_vec();
@@ -772,15 +760,11 @@ fn test_resolve_op_parents_children() {
     // Parent
     let op2_id_hex = operations[2].id().hex();
     assert_eq!(
-        op_walk::resolve_op_with_repo(repo, &format!("{op2_id_hex}-"))
-            .block_on()
-            .unwrap(),
+        op_walk::resolve_op_with_repo(repo, &format!("{op2_id_hex}-")).block_on()?,
         *operations[1]
     );
     assert_eq!(
-        op_walk::resolve_op_with_repo(repo, &format!("{op2_id_hex}--"))
-            .block_on()
-            .unwrap(),
+        op_walk::resolve_op_with_repo(repo, &format!("{op2_id_hex}--")).block_on()?,
         *operations[0]
     );
     // "{op2_id_hex}----" is the root operation
@@ -794,15 +778,11 @@ fn test_resolve_op_parents_children() {
     // Child
     let op0_id_hex = operations[0].id().hex();
     assert_eq!(
-        op_walk::resolve_op_with_repo(repo, &format!("{op0_id_hex}+"))
-            .block_on()
-            .unwrap(),
+        op_walk::resolve_op_with_repo(repo, &format!("{op0_id_hex}+")).block_on()?,
         *operations[1]
     );
     assert_eq!(
-        op_walk::resolve_op_with_repo(repo, &format!("{op0_id_hex}++"))
-            .block_on()
-            .unwrap(),
+        op_walk::resolve_op_with_repo(repo, &format!("{op0_id_hex}++")).block_on()?,
         *operations[2]
     );
     assert_matches!(
@@ -814,17 +794,13 @@ fn test_resolve_op_parents_children() {
 
     // Child of parent
     assert_eq!(
-        op_walk::resolve_op_with_repo(repo, &format!("{op2_id_hex}--+"))
-            .block_on()
-            .unwrap(),
+        op_walk::resolve_op_with_repo(repo, &format!("{op2_id_hex}--+")).block_on()?,
         *operations[1]
     );
 
     // Child at old repo: new operations shouldn't be visible
     assert_eq!(
-        op_walk::resolve_op_with_repo(&repos[1], &format!("{op0_id_hex}+"))
-            .block_on()
-            .unwrap(),
+        op_walk::resolve_op_with_repo(&repos[1], &format!("{op0_id_hex}+")).block_on()?,
         *operations[1]
     );
     assert_matches!(
@@ -877,10 +853,11 @@ fn test_resolve_op_parents_children() {
         extract_multiple_operations_error(&error).unwrap(),
         (&op_str, parent_op_ids)
     );
+    Ok(())
 }
 
 #[test]
-fn test_walk_ancestors() {
+fn test_walk_ancestors() -> TestResult {
     let test_repo = TestRepo::init();
     let repo_0 = test_repo.repo;
     let loader = repo_0.loader();
@@ -917,36 +894,19 @@ fn test_walk_ancestors() {
     // A |
     // |/
     // 0 (initial)
-    let repo_a = repo_0
-        .start_transaction()
-        .commit("op A")
-        .block_on()
-        .unwrap();
+    let repo_a = repo_0.start_transaction().commit("op A").block_on()?;
     let repo_b = repo_0
         .start_transaction()
         .write("op B")
-        .block_on()
-        .unwrap()
+        .block_on()?
         .leave_unpublished();
-    let repo_c = repo_a
-        .start_transaction()
-        .commit("op C")
-        .block_on()
-        .unwrap();
-    let repo_d = repo_c
-        .start_transaction()
-        .commit("op D")
-        .block_on()
-        .unwrap();
+    let repo_c = repo_a.start_transaction().commit("op C").block_on()?;
+    let repo_d = repo_c.start_transaction().commit("op D").block_on()?;
     let tx_e = repo_d.start_transaction();
     let tx_f = repo_c.start_transaction();
     let repo_g = testutils::commit_transactions(vec![tx_e, tx_f]);
     let [op_e, op_f] = op_parents(repo_g.operation());
-    let repo_h = repo_g
-        .start_transaction()
-        .commit("op H")
-        .block_on()
-        .unwrap();
+    let repo_h = repo_g.start_transaction().commit("op H").block_on()?;
 
     // At merge, parents are visited in forward order, which isn't important.
     assert_eq!(
@@ -1028,10 +988,11 @@ fn test_walk_ancestors() {
         ),
         [repo_g.operation().clone(), op_e.clone()]
     );
+    Ok(())
 }
 
 #[test]
-fn test_gc() {
+fn test_gc() -> TestResult {
     let settings = stable_op_id_settings();
     let test_repo = TestRepo::init_with_settings(&settings);
     let op_dir = test_repo.repo_path().join("op_store").join("operations");
@@ -1055,12 +1016,12 @@ fn test_gc() {
         write_random_commit(tx.repo_mut());
         tx
     };
-    let repo_a = random_tx(&repo_0).commit("op A").block_on().unwrap();
-    let repo_b = random_tx(&repo_a).commit("op B").block_on().unwrap();
-    let repo_c = random_tx(&repo_b).commit("op C").block_on().unwrap();
-    let repo_d = random_tx(&repo_c).commit("op D").block_on().unwrap();
-    let repo_e = empty_tx(&repo_b).commit("op E").block_on().unwrap();
-    let repo_f = random_tx(&repo_e).commit("op F").block_on().unwrap();
+    let repo_a = random_tx(&repo_0).commit("op A").block_on()?;
+    let repo_b = random_tx(&repo_a).commit("op B").block_on()?;
+    let repo_c = random_tx(&repo_b).commit("op C").block_on()?;
+    let repo_d = random_tx(&repo_c).commit("op D").block_on()?;
+    let repo_e = empty_tx(&repo_b).commit("op E").block_on()?;
+    let repo_f = random_tx(&repo_e).commit("op F").block_on()?;
 
     // Sanity check for the original state
     let mut expected_op_entries = list_dir(&op_dir);
@@ -1069,22 +1030,21 @@ fn test_gc() {
     assert_eq!(expected_view_entries.len(), 5);
 
     // No heads, but all kept by file modification time
-    op_store.gc(&[], SystemTime::UNIX_EPOCH).block_on().unwrap();
+    op_store.gc(&[], SystemTime::UNIX_EPOCH).block_on()?;
     assert_eq!(list_dir(&op_dir), expected_op_entries);
     assert_eq!(list_dir(&view_dir), expected_view_entries);
 
     // All reachable from heads
     let now = SystemTime::now();
     let head_ids = [repo_d.op_id().clone(), repo_f.op_id().clone()];
-    op_store.gc(&head_ids, now).block_on().unwrap();
+    op_store.gc(&head_ids, now).block_on()?;
     assert_eq!(list_dir(&op_dir), expected_op_entries);
     assert_eq!(list_dir(&view_dir), expected_view_entries);
 
     // E|F are no longer reachable, but E's view is still reachable
     op_store
         .gc(slice::from_ref(repo_d.op_id()), now)
-        .block_on()
-        .unwrap();
+        .block_on()?;
     expected_op_entries
         .retain(|name| *name != repo_e.op_id().hex() && *name != repo_f.op_id().hex());
     expected_view_entries.retain(|name| *name != repo_f.operation().view_id().hex());
@@ -1094,8 +1054,7 @@ fn test_gc() {
     // B|C|D are no longer reachable
     op_store
         .gc(slice::from_ref(repo_a.op_id()), now)
-        .block_on()
-        .unwrap();
+        .block_on()?;
     expected_op_entries.retain(|name| {
         *name != repo_b.op_id().hex()
             && *name != repo_c.op_id().hex()
@@ -1112,6 +1071,7 @@ fn test_gc() {
     // Sanity check for the last state
     assert_eq!(expected_op_entries.len(), 1);
     assert_eq!(expected_view_entries.len(), 1);
+    Ok(())
 }
 
 #[track_caller]

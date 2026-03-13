@@ -69,6 +69,7 @@ pub async fn cmd_git_remote_add(
         args.fetch_tags.as_fetch_tags(),
         &bookmark_expr,
     )?;
-    tx.finish(ui, format!("add git remote {}", args.remote.as_symbol()))?;
+    tx.finish(ui, format!("add git remote {}", args.remote.as_symbol()))
+        .await?;
     Ok(())
 }

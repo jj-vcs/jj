@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use futures::TryStreamExt as _;
 use itertools::Itertools as _;
 use jj_lib::copies::CopyRecords;
 use jj_lib::merge::Diff;
@@ -94,8 +95,9 @@ pub(crate) async fn cmd_status(
                 writeln!(formatter, "Working copy changes:")?;
                 let mut copy_records = CopyRecords::default();
                 for parent in wc_commit.parent_ids() {
-                    let records = get_copy_records(repo.store(), parent, wc_commit.id(), &matcher)?;
-                    copy_records.add_records(records)?;
+                    let records =
+                        get_copy_records(repo.store(), parent, wc_commit.id(), &matcher).await?;
+                    copy_records.add_records(records);
                 }
                 let diff_renderer = workspace_command.diff_renderer(vec![DiffFormat::Summary]);
                 let width = ui.term_width();
@@ -165,9 +167,12 @@ pub(crate) async fn cmd_status(
                         .minus(&workspace_command.env().immutable_expression()),
                 )
                 .evaluate_to_commit_ids()?
-                .try_collect()?;
+                .try_collect()
+                .await?;
 
-            workspace_command.report_repo_conflicts(formatter, repo, ancestors_conflicts)?;
+            workspace_command
+                .report_repo_conflicts(formatter, repo, ancestors_conflicts)
+                .await?;
         } else {
             for parent in wc_commit.parents().await? {
                 if parent.has_conflict() {

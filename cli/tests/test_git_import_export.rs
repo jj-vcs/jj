@@ -14,6 +14,7 @@
 
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -21,7 +22,7 @@ use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
 #[test]
-fn test_resolution_of_git_tracking_bookmarks() {
+fn test_resolution_of_git_tracking_bookmarks() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -62,10 +63,11 @@ fn test_resolution_of_git_tracking_bookmarks() {
     a7f9930bb6d54ba39e6c254135b9bfe32041fea4 old_message
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_git_export_conflicting_git_refs() {
+fn test_git_export_conflicting_git_refs() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -88,10 +90,11 @@ fn test_git_export_conflicting_git_refs() {
         [EOF]
         "#);
     });
+    Ok(())
 }
 
 #[test]
-fn test_git_export_undo() {
+fn test_git_export_undo() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -118,8 +121,8 @@ fn test_git_export_undo() {
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: a99955438397 (2001-02-03 08:05:10) export git refs
-    Restored to operation: 503f3c779aff (2001-02-03 08:05:08) create bookmark a pointing to commit e8849ae12c709f2321908879bc724fdb2ab8a781
+    Undid operation: ab278cf23619 (2001-02-03 08:05:10) export git refs
+    Restored to operation: 799c4e3b1b99 (2001-02-03 08:05:08) create bookmark a pointing to commit e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
     insta::assert_debug_snapshot!(get_git_repo_refs(&git_repo), @r#"
@@ -149,10 +152,11 @@ fn test_git_export_undo() {
     ~
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_git_import_undo() {
+fn test_git_import_undo() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -164,15 +168,13 @@ fn test_git_import_undo() {
         .success()
         .stdout
         .into_raw();
-    let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes()).unwrap();
-    git_repo
-        .reference(
-            "refs/heads/a",
-            commit_id,
-            gix::refs::transaction::PreviousValue::Any,
-            "",
-        )
-        .unwrap();
+    let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes())?;
+    git_repo.reference(
+        "refs/heads/a",
+        commit_id,
+        gix::refs::transaction::PreviousValue::Any,
+        "",
+    )?;
 
     // Initial state we will return to after `undo`. There are no bookmarks.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
@@ -194,7 +196,7 @@ fn test_git_import_undo() {
     let output = work_dir.run_jj(["op", "restore", &base_operation_id]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+    Restored to operation: e39dc288903d (2001-02-03 08:05:07) add workspace 'default'
     [EOF]
     ");
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
@@ -210,10 +212,11 @@ fn test_git_import_undo() {
       @git: qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_git_import_move_export_with_default_undo() {
+fn test_git_import_move_export_with_default_undo() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -225,15 +228,13 @@ fn test_git_import_move_export_with_default_undo() {
         .success()
         .stdout
         .into_raw();
-    let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes()).unwrap();
-    git_repo
-        .reference(
-            "refs/heads/a",
-            commit_id,
-            gix::refs::transaction::PreviousValue::Any,
-            "",
-        )
-        .unwrap();
+    let commit_id = gix::ObjectId::from_hex(commit_id.as_bytes())?;
+    git_repo.reference(
+        "refs/heads/a",
+        commit_id,
+        gix::refs::transaction::PreviousValue::Any,
+        "",
+    )?;
 
     // Initial state we will try to return to after `op restore`. There are no
     // bookmarks.
@@ -276,7 +277,7 @@ fn test_git_import_move_export_with_default_undo() {
     let output = work_dir.run_jj(["op", "restore", &base_operation_id]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Restored to operation: 8f47435a3990 (2001-02-03 08:05:07) add workspace 'default'
+    Restored to operation: e39dc288903d (2001-02-03 08:05:07) add workspace 'default'
     Working copy  (@) now at: qpvuntsm e8849ae1 (empty) (no description set)
     Parent commit (@-)      : zzzzzzzz 00000000 (empty) (no description set)
     [EOF]
@@ -306,10 +307,11 @@ fn test_git_import_move_export_with_default_undo() {
       @git: royxmykx e7d0d5fd (empty) (no description set)
     [EOF]
     ");
+    Ok(())
 }
 
 #[test]
-fn test_git_import_export_stats_color() {
+fn test_git_import_export_stats_color() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.run_jj_in(".", ["git", "init", "repo"]).success();
     let work_dir = test_env.work_dir("repo");
@@ -339,16 +341,14 @@ fn test_git_import_export_stats_color() {
     [EOF]
     "#);
 
-    let other_commit_id = gix::ObjectId::from_hex(other_commit_id.as_bytes()).unwrap();
+    let other_commit_id = gix::ObjectId::from_hex(other_commit_id.as_bytes())?;
     for name in ["refs/heads/foo", "refs/heads/bar", "refs/tags/baz"] {
-        git_repo
-            .reference(
-                name,
-                other_commit_id,
-                gix::refs::transaction::PreviousValue::Any,
-                "",
-            )
-            .unwrap();
+        git_repo.reference(
+            name,
+            other_commit_id,
+            gix::refs::transaction::PreviousValue::Any,
+            "",
+        )?;
     }
 
     let output = work_dir
@@ -361,6 +361,7 @@ fn test_git_import_export_stats_color() {
     tag: [38;5;5mbaz@git[39m [new] 
     [EOF]
     ");
+    Ok(())
 }
 
 #[must_use]

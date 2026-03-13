@@ -18,7 +18,7 @@ keywords = ["VCS", "DVCS", "SCM", "Git", "Mercurial"]
 
 [workspace.dependencies]
 ansi-to-tui = "8.0.1"
-assert_cmd = "2.1.2"
+assert_cmd = "2.2.0"
 assert_matches = "1.5.0"
 async-trait = "0.1.89"
 blake2 = "0.10.6"
@@ -28,14 +28,14 @@ chrono = { version = "0.4.44", default-features = false, features = [
     "clock",
     "serde",
 ] }
-clap = { version = "4.5.60", features = [
+clap = { version = "4.6.0", features = [
     "derive",
     "deprecated",
     "wrap_help",
     "string",
 ] }
-clap_complete = { version = "4.5.66", features = ["unstable-dynamic"] }
-clap_complete_nushell = "4.5.10"
+clap_complete = { version = "4.6.0", features = ["unstable-dynamic"] }
+clap_complete_nushell = "4.6.0"
 # Update clap-markdown manually since test_generate_md_cli_help snapshot
 # will need regenerating.
 clap-markdown = "=0.1.5"
@@ -48,13 +48,15 @@ digest = "0.10.7"
 dunce = "1.0.5"
 either = "1.15.0"
 erased-serde = "0.4.10"
+eyre = "0.6"
 etcetera = "0.11.0"
 futures = "0.3.32"
-gix = { version = "0.80.0", default-features = false, features = [
+gix = { version = "0.81.0", default-features = false, features = [
     "attributes",
     "blob-diff",
     "index",
     "max-performance-safe",
+    "sha1",
     "zlib-rs",
 ] }
 gix-attributes = "0.30.0"
@@ -71,15 +73,15 @@ libc = { version = "0.2.183" }
 maplit = "1.0.2"
 nix = "0.31.2"
 num_cpus = "1.17.0"
-once_cell = "1.21.3"
+once_cell = "1.21.4"
 pest = "2.8.6"
 pest_derive = "2.8.6"
 pollster = "0.4.0"
 pretty_assertions = "1.4.1"
 proc-macro2 = "1.0.104"
-proptest = "1.10.0"
+proptest = "1.11.0"
 proptest-derive = "0.8.0"
-proptest-state-machine = "0.7.0"
+proptest-state-machine = "0.8.0"
 prost = "0.14.3"
 prost-build = "0.14.3"
 quote = "1.0.45"
@@ -108,17 +110,17 @@ smallvec = { version = "1.15.1", features = [
 strsim = "0.11.1"
 syn = "2.0.111"
 rustversion = "1.0.22"
-tempfile = "3.26.0"
+tempfile = "3.27.0"
 test-case = "3.3.1"
 textwrap = "0.16.2"
 thiserror = "2.0.17"
 timeago = { version = "0.6.0", default-features = false }
 tokio = { version = "1.50.0", features = ["io-util", "sync"] }
-toml = "1.0.6"
-toml_edit = { version = "0.25.4", features = ["serde"] }
+toml = "1.1.0"
+toml_edit = { version = "0.25.8", features = ["serde"] }
 tracing = "0.1.44"
 tracing-chrome = "0.7.2"
-tracing-subscriber = { version = "0.3.22", default-features = false, features = [
+tracing-subscriber = { version = "0.3.23", default-features = false, features = [
     "std",
     "ansi",
     "env-filter",
@@ -127,7 +129,7 @@ tracing-subscriber = { version = "0.3.22", default-features = false, features = 
 unicode-width = "0.2.2"
 watchman_client = "0.9.0"
 whoami = "2.1.1"
-winreg = "0.55"
+winreg = "0.56"
 
 # put all inter-workspace libraries, i.e. those that use 'path = ...' here in
 # their own (alphabetically sorted) block
@@ -168,10 +170,6 @@ while_let_loop = "warn"
 [workspace.lints.rust]
 let_underscore_drop = "warn"
 redundant_imports = "warn"
-
-[profile.dev]
-# Opt-level 0 tends to run out of stack on Windows when running async code
-opt-level = 1
 
 [profile.dev.package."*"]
 # Compile all dependencies with opt-level=3 to help speed up tests and

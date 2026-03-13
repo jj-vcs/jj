@@ -517,7 +517,7 @@ See [`jj help -k bookmarks`] for more information.
 
    This omits local Git-tracking bookmarks by default.
 * `-c`, `--conflicted` — Show conflicted bookmarks only
-* `-r`, `--revisions <REVSETS>` — Show bookmarks whose local targets are in the given revisions
+* `-r`, `--revision <REVSETS>` — Show bookmarks whose local targets are in the given revisions
 
    Note that `-r deleted_bookmark` will not work since `deleted_bookmark` wouldn't have a local target.
 * `-T`, `--template <TEMPLATE>` — Render each bookmark using the given template
@@ -1426,7 +1426,7 @@ Note: this command takes 1-or-more revsets arguments, each of which can resolve 
 
 ###### **Options:**
 
-* `-r`, `--revisions <REVISIONS>` — The revset, selecting which revisions are sent in to Gerrit
+* `-r`, `--revision <REVSETS>` — The revset, selecting which revisions are sent in to Gerrit
 
    This can be any arbitrary set of commits. Note that when you push a commit at the head of a stack, all ancestors are pushed too. This means that `jj gerrit upload -r foo` is equivalent to `jj gerrit upload -r 'mutable()::foo`.
 
@@ -1591,7 +1591,13 @@ Convert into a non-colocated Jujutsu/Git repository
 
 This moves the Git repository that is at the root of the Jujutsu workspace into the .jj directory. Once this is done you will no longer be able to use Git commands directly in the Jujutsu workspace.
 
-**Usage:** `jj git colocation disable`
+If there are secondary colocated workspaces (created with `jj workspace add`), this command will fail unless --force is specified. Without --force, you should first forget those workspaces with `jj workspace forget`.
+
+**Usage:** `jj git colocation disable [OPTIONS]`
+
+###### **Options:**
+
+* `--force` — Force disabling colocation even if secondary colocated workspaces exist. This will leave those workspaces in a broken state
 
 
 
@@ -1755,7 +1761,7 @@ Before the command actually moves, creates, or deletes a remote bookmark, it mak
 * `--allow-private` — Allow pushing commits that are private
 
    The set of private commits can be configured by the `git.private-commits` setting. The default is `none()`, meaning all commits are eligible to be pushed.
-* `-r`, `--revisions <REVSETS>` — Push bookmarks pointing to these commits (can be repeated)
+* `-r`, `--revision <REVSETS>` — Push bookmarks pointing to these commits (can be repeated)
 * `-c`, `--change <REVSETS>` — Push this commit by creating a bookmark (can be repeated)
 
    The created bookmark will be tracked automatically. Use the `templates.git_push_bookmark` setting to customize the generated bookmark name. The default is `"push-" ++ change_id.short()`.
@@ -1934,7 +1940,7 @@ This command is different from `jj diff --from A --to B`, which compares file co
 
 Technically, this works by rebasing `--from` onto `--to`'s parents and comparing the result to `--to`.
 
-To see the changes throughout the whole evolution of a change instead of between just two revisions, use `jj evolog -p instead`.
+To see the changes throughout the whole evolution of a change instead of between just two revisions, use `jj evolog -p` instead.
 
 **Usage:** `jj interdiff [OPTIONS] <--from <REVSET>|--to <REVSET>> [FILESETS]...`
 
@@ -1989,7 +1995,7 @@ The working-copy commit is indicated by a `@` symbol in the graph. [Immutable re
 
 ###### **Options:**
 
-* `-r`, `--revisions <REVSETS>` — Which revisions to show
+* `-r`, `--revision <REVSETS>` — Which revisions to show
 
    If no paths nor revisions are specified, this defaults to the `revsets.log` setting.
 * `-n`, `--limit <LIMIT>` — Limit number of revisions to show
@@ -2289,6 +2295,9 @@ Compare changes to the repository between two operations
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
+* `--show-changes-in <REVSETS>` — Show only changed revisions matching the given revset expression
+
+   If no revisions are specified, this defaults to the `revsets.op-diff-changes-in` setting.
 
 
 
@@ -2352,6 +2361,9 @@ Like other commands, `jj op log` snapshots the current working-copy changes and 
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
+* `--show-changes-in <REVSETS>` — Show only changed revisions matching the given revset expression
+
+   If no revisions are specified, this defaults to the `revsets.op-diff-changes-in` setting.
 
 
 
@@ -2461,6 +2473,9 @@ Show changes to the repository in an operation
 * `--context <CONTEXT>` — Number of lines of context to show
 * `--ignore-all-space` — Ignore whitespace when comparing lines
 * `--ignore-space-change` — Ignore changes in amount of whitespace when comparing lines
+* `--show-changes-in <REVSETS>` — Show only changed revisions matching the given revset expression
+
+   If no revisions are specified, this defaults to the `revsets.op-diff-changes-in` setting.
 
 
 
@@ -2785,7 +2800,7 @@ J           J
    Each specified revision will become a direct child of the destination revision(s), even if some of the source revisions are descendants of others.
 
    If none of `-b`, `-s`, or `-r` is provided, then the default is `-b @`.
-* `-r`, `--revisions <REVSETS>` — Rebase the given revisions, rebasing descendants onto this revision's parent(s)
+* `-r`, `--revision <REVSETS>` — Rebase the given revisions, rebasing descendants onto this revision's parent(s)
 
    Unlike `-s` or `-b`, you may `jj rebase -r` a revision `A` onto a descendant of `A`.
 
@@ -2880,11 +2895,11 @@ The reverse of each of the given revisions is applied sequentially in reverse to
 
 The description of the new revisions can be customized with the `templates.revert_description` config variable.
 
-**Usage:** `jj revert --revisions <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>`
+**Usage:** `jj revert --revision <REVSETS> <--onto <REVSETS>|--insert-after <REVSETS>|--insert-before <REVSETS>>`
 
 ###### **Options:**
 
-* `-r`, `--revisions <REVSETS>` — The revision(s) to apply the reverse of
+* `-r`, `--revision <REVSETS>` — The revision(s) to apply the reverse of
 * `-o`, `--onto <REVSETS>` [alias: `destination`] — The revision(s) to apply the reverse changes on top of
 * `-A`, `--insert-after <REVSETS>` [alias: `after`] — The revision(s) to insert the reverse changes after (can be repeated to create a merge commit)
 * `-B`, `--insert-before <REVSETS>` [alias: `before`] — The revision(s) to insert the reverse changes before (can be repeated to create a merge commit)
@@ -2950,7 +2965,7 @@ This command requires configuring a [commit signing] backend.
 
 ###### **Options:**
 
-* `-r`, `--revisions <REVSETS>` — What revision(s) to sign
+* `-r`, `--revision <REVSETS>` — What revision(s) to sign
 
    If no revisions are specified, this defaults to the `revsets.sign` setting.
 
@@ -2976,7 +2991,7 @@ In other words, for all (A, B, C) where A has (B, C) as parents and C is an ance
 ###### **Options:**
 
 * `-s`, `--source <REVSETS>` — Simplify specified revision(s) together with their trees of descendants (can be repeated)
-* `-r`, `--revisions <REVSETS>` — Simplify specified revision(s) (can be repeated)
+* `-r`, `--revision <REVSETS>` — Simplify specified revision(s) (can be repeated)
 
    If both `--source` and `--revisions` are not provided, this defaults to the `revsets.simplify-parents` setting, or `reachable(@, mutable())` if it is not set.
 
@@ -3259,7 +3274,7 @@ By default, a tracked remote tag will be included only if its target is differen
 
 * `-a`, `--all-remotes` — Show all tracked and untracked remote tags including the ones whose targets are synchronized with the local tags
 * `-c`, `--conflicted` — Show conflicted tags only
-* `-r`, `--revisions <REVSETS>` — Show tags whose local targets are in the given revisions
+* `-r`, `--revision <REVSETS>` — Show tags whose local targets are in the given revisions
 
    Note that `-r deleted_tag` will not work since `deleted_tag` wouldn't have a local target.
 * `-T`, `--template <TEMPLATE>` — Render each tag using the given template
@@ -3327,7 +3342,7 @@ See also [commit signing] docs.
 
 ###### **Options:**
 
-* `-r`, `--revisions <REVSETS>` — What revision(s) to unsign
+* `-r`, `--revision <REVSETS>` — What revision(s) to unsign
 
 
 
@@ -3566,6 +3581,9 @@ By default, the new workspace inherits the sparse patterns of the current worksp
   - `empty`:
     Clear all files from the workspace (it will be empty)
 
+* `--no-colocate` — Do not create a Git worktree for the new workspace
+
+   By default, the new workspace will be colocated if and only if the parent workspace is colocated. Use this flag to create a non-colocated workspace regardless of the parent's status.
 
 
 
@@ -3573,13 +3591,24 @@ By default, the new workspace inherits the sparse patterns of the current worksp
 
 Stop tracking a workspace's working-copy commit in the repo
 
-The workspace will not be touched on disk. It can be deleted from disk before or after running this command.
+The workspace directory is not touched on disk. It can be deleted from disk before or after running this command.
 
-**Usage:** `jj workspace forget [WORKSPACES]...`
+For colocated workspaces, use --cleanup to also remove the associated Git worktree.
+
+**Usage:** `jj workspace forget [OPTIONS] [WORKSPACES]...`
 
 ###### **Arguments:**
 
 * `<WORKSPACES>` — Names of the workspaces to forget. By default, forgets only the current workspace
+
+###### **Options:**
+
+* `--cleanup` — Also remove the Git worktree for colocated workspaces
+
+   This runs `git worktree remove` to clean up the Git worktree directory. By default, removal will fail if the worktree has uncommitted changes. Use --force together with --cleanup to remove it anyway.
+* `--force` — Force removal of Git worktrees even if they have uncommitted changes
+
+   Only has effect when used with --cleanup.
 
 
 

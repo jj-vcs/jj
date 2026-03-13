@@ -592,6 +592,22 @@ log = "main@origin.."
 The default value for `revsets.log` is
 `'present(@) | ancestors(immutable_heads().., 2) | trunk()'`.
 
+### Default revisions for operation diffs
+
+You can configure the set of revisions that are considered "interesting" when
+showing the difference between two operations (e.g. in `jj op show`,
+`jj op diff`, or `jj op log -p`). Revisions that are not in this set are
+elided into a summary count.
+
+```toml
+[revsets]
+# Only show mutable revisions and the trunk
+op-diff-changes-in = "mutable() | trunk()"
+```
+
+The default value for `revsets.op-diff-changes-in` is
+`'mutable() | immutable_heads()'`.
+
 ### Prioritize Revsets in the Log over @
 
 In some situations the default graph can be hard to read, for example when working with big merges.
@@ -1345,12 +1361,8 @@ path to such a program:
 
 ```toml
 [fix.tools.biome]
-
-# Linux and macOS
-command = ["$root/node_modules/@biomejs/cli-linux-x64/biome"]
-
-# Windows
-command = ["$root\\node_modules\\@biomejs\\cli-win32-x64\\biome.exe"]
+command = ["$root/node_modules/@biomejs/biome/bin/biome", "format", "--stdin-file-path=$path"]
+patterns = ["glob:'**/*.ts'", "glob:'**/*.tsx'"]
 ```
 
 ### Execution order of tools

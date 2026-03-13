@@ -19,13 +19,13 @@ use std::sync::Arc;
 
 use bstr::BStr;
 use futures::TryStreamExt as _;
-use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::git;
 use jj_lib::git::GitPushOptions;
 use jj_lib::git::GitRefUpdate;
 use jj_lib::git::GitSubprocessOptions;
+use jj_lib::merge::Diff;
 use jj_lib::object_id::ObjectId as _;
 use jj_lib::repo::Repo as _;
 use jj_lib::revset::RevsetExpression;
@@ -74,7 +74,7 @@ pub struct UploadArgs {
     /// If this is not provided, it will check whether @ has a description.
     /// * If it does, it will upload @
     /// * Otherwise, it will upload @-
-    #[arg(long, short = 'r')]
+    #[arg(long = "revision", short, value_name = "REVSETS", alias = "revisions")]
     revisions: Vec<RevisionArg>,
 
     /// The location where your changes are intended to land
@@ -423,7 +423,9 @@ pub async fn cmd_gerrit_upload(
         let target_expr = workspace_command
             .parse_union_revsets(ui, &args.revisions)?
             .resolve()?;
-        workspace_command.check_rewritable_expr(&target_expr)?;
+        workspace_command
+            .check_rewritable_expr(&target_expr)
+            .await?;
         target_expr
             .evaluate(workspace_command.repo().as_ref())?
             .stream()
@@ -448,7 +450,8 @@ pub async fn cmd_gerrit_upload(
                 .range(&RevsetExpression::commits(revisions.clone())),
         )
         .evaluate_to_commits()?
-        .try_collect()?;
+        .try_collect()
+        .await?;
 
     // Note: This transaction is intentionally never finished. This way, the
     // Change-Id is never part of the commit description in jj.
@@ -635,8 +638,7 @@ pub async fn cmd_gerrit_upload(
             remote.as_ref(),
             &[GitRefUpdate {
                 qualified_name: remote_ref.clone().into(),
-                expected_current_target: None,
-                new_target: Some(new_commit.id().clone()),
+                targets: Diff::new(None, Some(new_commit.id().clone())),
             }],
             &mut GitSubprocessUi::new(ui),
             &push_options,

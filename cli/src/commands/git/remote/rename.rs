@@ -49,6 +49,7 @@ pub async fn cmd_git_remote_rename(
                 new = args.new.as_symbol()
             ),
         )
+        .await
     } else {
         Ok(()) // Do not print "Nothing changed."
     }

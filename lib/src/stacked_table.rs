@@ -630,17 +630,18 @@ mod tests {
     use test_case::test_case;
 
     use super::*;
+    use crate::tests::TestResult;
     use crate::tests::new_temp_dir;
 
     #[test_case(false; "memory")]
     #[test_case(true; "file")]
-    fn stacked_table_empty(on_disk: bool) {
+    fn stacked_table_empty(on_disk: bool) -> TestResult {
         let temp_dir = new_temp_dir();
         let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
-        let mut_table = store.get_head().unwrap().start_mutation();
+        let mut_table = store.get_head()?.start_mutation();
         let mut _saved_table = None;
         let table: &dyn TableSegment = if on_disk {
-            _saved_table = Some(store.save_table(mut_table).unwrap());
+            _saved_table = Some(store.save_table(mut_table)?);
             _saved_table.as_ref().unwrap().as_ref()
         } else {
             &mut_table
@@ -650,18 +651,19 @@ mod tests {
         assert_eq!(table.get_value(b"\0\0\0"), None);
         assert_eq!(table.get_value(b"aaa"), None);
         assert_eq!(table.get_value(b"\xff\xff\xff"), None);
+        Ok(())
     }
 
     #[test_case(false; "memory")]
     #[test_case(true; "file")]
-    fn stacked_table_single_key(on_disk: bool) {
+    fn stacked_table_single_key(on_disk: bool) -> TestResult {
         let temp_dir = new_temp_dir();
         let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
-        let mut mut_table = store.get_head().unwrap().start_mutation();
+        let mut mut_table = store.get_head()?.start_mutation();
         mut_table.add_entry(b"abc".to_vec(), b"value".to_vec());
         let mut _saved_table = None;
         let table: &dyn TableSegment = if on_disk {
-            _saved_table = Some(store.save_table(mut_table).unwrap());
+            _saved_table = Some(store.save_table(mut_table)?);
             _saved_table.as_ref().unwrap().as_ref()
         } else {
             &mut_table
@@ -671,20 +673,21 @@ mod tests {
         assert_eq!(table.get_value(b"\0\0\0"), None);
         assert_eq!(table.get_value(b"abc"), Some(b"value".as_slice()));
         assert_eq!(table.get_value(b"\xff\xff\xff"), None);
+        Ok(())
     }
 
     #[test_case(false; "memory")]
     #[test_case(true; "file")]
-    fn stacked_table_multiple_keys(on_disk: bool) {
+    fn stacked_table_multiple_keys(on_disk: bool) -> TestResult {
         let temp_dir = new_temp_dir();
         let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
-        let mut mut_table = store.get_head().unwrap().start_mutation();
+        let mut mut_table = store.get_head()?.start_mutation();
         mut_table.add_entry(b"zzz".to_vec(), b"val3".to_vec());
         mut_table.add_entry(b"abc".to_vec(), b"value1".to_vec());
         mut_table.add_entry(b"abd".to_vec(), b"value 2".to_vec());
         let mut _saved_table = None;
         let table: &dyn TableSegment = if on_disk {
-            _saved_table = Some(store.save_table(mut_table).unwrap());
+            _saved_table = Some(store.save_table(mut_table)?);
             _saved_table.as_ref().unwrap().as_ref()
         } else {
             &mut_table
@@ -698,13 +701,14 @@ mod tests {
         assert_eq!(table.get_value(b"abe"), None);
         assert_eq!(table.get_value(b"zzz"), Some(b"val3".as_slice()));
         assert_eq!(table.get_value(b"\xff\xff\xff"), None);
+        Ok(())
     }
 
     #[test]
-    fn stacked_table_multiple_keys_with_parent_file() {
+    fn stacked_table_multiple_keys_with_parent_file() -> TestResult {
         let temp_dir = new_temp_dir();
         let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
-        let mut mut_table = store.get_head().unwrap().start_mutation();
+        let mut mut_table = store.get_head()?.start_mutation();
         mut_table.add_entry(b"abd".to_vec(), b"value 2".to_vec());
         mut_table.add_entry(b"abc".to_vec(), b"value1".to_vec());
         mut_table.add_entry(b"zzz".to_vec(), b"val3".to_vec());
@@ -715,7 +719,7 @@ mod tests {
                     format!("value {i}{round}").into_bytes(),
                 );
             }
-            let saved_table = store.save_table(mut_table).unwrap();
+            let saved_table = store.save_table(mut_table)?;
             mut_table = MutableTable::incremental(saved_table);
         }
 
@@ -728,21 +732,22 @@ mod tests {
         assert_eq!(mut_table.get_value(b"x94"), Some(b"value 94".as_slice()));
         assert_eq!(mut_table.get_value(b"xAA"), None);
         assert_eq!(mut_table.get_value(b"\xff\xff\xff"), None);
+        Ok(())
     }
 
     #[test]
-    fn stacked_table_merge() {
+    fn stacked_table_merge() -> TestResult {
         let temp_dir = new_temp_dir();
         let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
-        let mut mut_base_table = store.get_head().unwrap().start_mutation();
+        let mut mut_base_table = store.get_head()?.start_mutation();
         mut_base_table.add_entry(b"abc".to_vec(), b"value1".to_vec());
-        let base_table = store.save_table(mut_base_table).unwrap();
+        let base_table = store.save_table(mut_base_table)?;
 
         let mut mut_table1 = MutableTable::incremental(base_table.clone());
         mut_table1.add_entry(b"abd".to_vec(), b"value 2".to_vec());
         mut_table1.add_entry(b"zzz".to_vec(), b"val3".to_vec());
         mut_table1.add_entry(b"mmm".to_vec(), b"side 1".to_vec());
-        let table1 = store.save_table(mut_table1).unwrap();
+        let table1 = store.save_table(mut_table1)?;
         let mut mut_table2 = MutableTable::incremental(base_table);
         mut_table2.add_entry(b"yyy".to_vec(), b"val5".to_vec());
         mut_table2.add_entry(b"mmm".to_vec(), b"side 2".to_vec());
@@ -760,33 +765,34 @@ mod tests {
         assert_eq!(mut_table2.get_value(b"yyy"), Some(b"val5".as_slice()));
         assert_eq!(mut_table2.get_value(b"zzz"), Some(b"val3".as_slice()));
         assert_eq!(mut_table2.get_value(b"\xff\xff\xff"), None);
+        Ok(())
     }
 
     #[test]
-    fn stacked_table_automatic_merge() {
+    fn stacked_table_automatic_merge() -> TestResult {
         // Same test as above, but here we let the store do the merging on load
         let temp_dir = new_temp_dir();
         let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
-        let mut mut_base_table = store.get_head().unwrap().start_mutation();
+        let mut mut_base_table = store.get_head()?.start_mutation();
         mut_base_table.add_entry(b"abc".to_vec(), b"value1".to_vec());
-        let base_table = store.save_table(mut_base_table).unwrap();
+        let base_table = store.save_table(mut_base_table)?;
 
         let mut mut_table1 = MutableTable::incremental(base_table.clone());
         mut_table1.add_entry(b"abd".to_vec(), b"value 2".to_vec());
         mut_table1.add_entry(b"zzz".to_vec(), b"val3".to_vec());
         mut_table1.add_entry(b"mmm".to_vec(), b"side 1".to_vec());
-        store.save_table(mut_table1).unwrap();
+        store.save_table(mut_table1)?;
         let mut mut_table2 = MutableTable::incremental(base_table);
         mut_table2.add_entry(b"yyy".to_vec(), b"val5".to_vec());
         mut_table2.add_entry(b"mmm".to_vec(), b"side 2".to_vec());
         mut_table2.add_entry(b"abe".to_vec(), b"value 4".to_vec());
-        let table2 = store.save_table(mut_table2).unwrap();
+        let table2 = store.save_table(mut_table2)?;
 
         // The saved table does not have the keys from table1
         assert_eq!(table2.get_value(b"abd"), None);
 
         // Can find expected keys in the merged table we get from get_head()
-        let merged_table = store.get_head().unwrap();
+        let merged_table = store.get_head()?;
         assert_eq!(merged_table.get_value(b"\0\0\0"), None);
         assert_eq!(merged_table.get_value(b"abc"), Some(b"value1".as_slice()));
         assert_eq!(merged_table.get_value(b"abd"), Some(b"value 2".as_slice()));
@@ -798,22 +804,24 @@ mod tests {
         assert_eq!(merged_table.get_value(b"yyy"), Some(b"val5".as_slice()));
         assert_eq!(merged_table.get_value(b"zzz"), Some(b"val3".as_slice()));
         assert_eq!(merged_table.get_value(b"\xff\xff\xff"), None);
+        Ok(())
     }
 
     #[test]
-    fn stacked_table_store_save_empty() {
+    fn stacked_table_store_save_empty() -> TestResult {
         let temp_dir = new_temp_dir();
         let store = TableStore::init(temp_dir.path().to_path_buf(), 3);
 
-        let mut mut_table = store.get_head().unwrap().start_mutation();
+        let mut mut_table = store.get_head()?.start_mutation();
         mut_table.add_entry(b"abc".to_vec(), b"value".to_vec());
-        store.save_table(mut_table).unwrap();
+        store.save_table(mut_table)?;
 
-        let mut_table = store.get_head().unwrap().start_mutation();
-        store.save_table(mut_table).unwrap();
+        let mut_table = store.get_head()?.start_mutation();
+        store.save_table(mut_table)?;
 
         // Table head shouldn't be removed on empty save
-        let table = store.get_head().unwrap();
+        let table = store.get_head()?;
         assert_eq!(table.get_value(b"abc"), Some(b"value".as_slice()));
+        Ok(())
     }
 }

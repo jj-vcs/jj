@@ -73,7 +73,7 @@ pub(crate) async fn cmd_absorb(
 ) -> Result<(), CommandError> {
     let mut workspace_command = command.workspace_helper(ui)?;
 
-    let source_commit = workspace_command.resolve_single_rev(ui, &args.from)?;
+    let source_commit = workspace_command.resolve_single_rev(ui, &args.from).await?;
     let destinations = workspace_command
         .parse_union_revsets(ui, &args.into)?
         .resolve()?;
@@ -98,7 +98,9 @@ pub(crate) async fn cmd_absorb(
         writeln!(ui.warning_default(), "Skipping {ui_path}: {reason}")?;
     }
 
-    workspace_command.check_rewritable(selected_trees.target_commits.keys())?;
+    workspace_command
+        .check_rewritable(selected_trees.target_commits.keys())
+        .await?;
 
     let mut tx = workspace_command.start_transaction();
     let stats = absorb_hunks(tx.repo_mut(), &source, selected_trees.target_commits).await?;
@@ -131,7 +133,8 @@ pub(crate) async fn cmd_absorb(
             "absorb changes into {} commits",
             stats.rewritten_destinations.len()
         ),
-    )?;
+    )
+    .await?;
 
     if let Some(mut formatter) = ui.status_formatter()
         && let Some(commit) = &stats.rewritten_source

@@ -62,12 +62,8 @@ pub struct CopyRecords {
 impl CopyRecords {
     /// Adds information about `CopyRecord`s to `self`. A target with multiple
     /// conflicts is discarded and treated as not having an origin.
-    pub fn add_records(
-        &mut self,
-        copy_records: impl IntoIterator<Item = BackendResult<CopyRecord>>,
-    ) -> BackendResult<()> {
-        for record in copy_records {
-            let r = record?;
+    pub fn add_records(&mut self, copy_records: impl IntoIterator<Item = CopyRecord>) {
+        for r in copy_records {
             self.sources
                 .entry(r.source.clone())
                 // TODO: handle conflicts instead of ignoring both sides.
@@ -80,7 +76,6 @@ impl CopyRecords {
                 .or_insert(self.records.len());
             self.records.push(r);
         }
-        Ok(())
     }
 
     /// Returns true if there are copy records associated with a source path.

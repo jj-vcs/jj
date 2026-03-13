@@ -23,6 +23,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   now optional. If not given, `substr()` returns from `start` to the end of the
   string.
 
+* `WorkspaceRef` templates now provide a `.root()` method to show the absolute
+  path to each workspace root.
+
 * The `jj arrange` TUI now includes immediate parents and children. They are not
   selectable and are dimmed by default.
 
@@ -36,7 +39,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   interpolates `$path` with the repo-relative file path. This enables Git LFS
   and other gitattributes filter integrations in colocated repositories.
   ([Issue #80](https://github.com/jj-vcs/jj/issues/80))
+
+* Added `git.ignore-filters` setting to specify what filtered files in
+  `.gitattributes` are ignored by `jj`. Defaults to `["lfs"]`.
+
+* `jj op log` now includes the name of the workspace the operation was created
+  from.
+
+* The `config()` template function now accepts a `Stringify` expression instead 
+  of `LiteralString`. This allows looking up configuration values dynamically.
+
+* `jj op show`, `jj op diff`, `jj op log -p` now only show "interesting"
+  revisions by default (defined by `revsets.op-diff-changes-in`). A new flag,
+  `--show-changes-in`, can be used to override this. [#6083](https://github.com/jj-vcs/jj/issues/6083)
+
 ### Fixed bugs
+
+* `.gitignore` with UTF-8 BOM can now be parsed correctly.
 
 ## [0.39.0] - 2026-03-04
 

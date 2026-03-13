@@ -14,7 +14,10 @@
 
 use std::fmt::Write as _;
 use std::path::Path;
+use std::process::Command;
 
+use assert_cmd::assert::OutputAssertExt as _;
+use testutils::TestResult;
 use testutils::git;
 
 use crate::common::CommandOutput;
@@ -22,7 +25,7 @@ use crate::common::TestEnvironment;
 use crate::common::TestWorkDir;
 
 #[test]
-fn test_git_colocated() {
+fn test_git_colocated() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -40,7 +43,7 @@ fn test_git_colocated() {
     git::checkout_tree_index(&git_repo, tree_id);
     assert_eq!(work_dir.read_file("file"), b"contents");
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
 
@@ -55,7 +58,7 @@ fn test_git_colocated() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
@@ -74,7 +77,7 @@ fn test_git_colocated() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
@@ -92,9 +95,9 @@ fn test_git_colocated() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
-    assert!(git_repo.head().unwrap().is_detached());
+    assert!(git_repo.head()?.is_detached());
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"9dfe8c7005c8dff6078ecdfd953c6bfddc633c90"
     );
     insta::assert_snapshot!(get_colocation_status(&work_dir), @"
@@ -102,10 +105,12 @@ fn test_git_colocated() {
     Last imported/exported Git HEAD: 9dfe8c7005c8dff6078ecdfd953c6bfddc633c90
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_intent_to_add() {
+fn test_git_colocated_intent_to_add() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -165,10 +170,12 @@ fn test_git_colocated_intent_to_add() {
     Unconflicted Mode(FILE) e69de29bb2d1 ctime=0:0 mtime=0:0 size=0 flags=20004000 .gitignore
     Unconflicted Mode(FILE) 0839b2e9412b ctime=0:0 mtime=0:0 size=0 flags=0 file1.txt
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_unborn_bookmark() {
+fn test_git_colocated_unborn_bookmark() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -200,9 +207,9 @@ fn test_git_colocated_unborn_bookmark() {
     work_dir
         .run_jj(["git", "init", "--git-repo", "."])
         .success();
-    assert!(git_repo.head().unwrap().is_unborn());
+    assert!(git_repo.head()?.is_unborn());
     assert_eq!(
-        git_repo.head_name().unwrap().unwrap().as_bstr(),
+        git_repo.head_name()?.unwrap().as_bstr(),
         b"refs/heads/master"
     );
     insta::assert_snapshot!(get_log_output(&work_dir), @"
@@ -226,9 +233,9 @@ fn test_git_colocated_unborn_bookmark() {
     Added 0 files, modified 0 files, removed 1 files
     [EOF]
     ");
-    assert!(git_repo.head().unwrap().is_unborn());
+    assert!(git_repo.head()?.is_unborn());
     assert_eq!(
-        git_repo.head_name().unwrap().unwrap().as_bstr(),
+        git_repo.head_name()?.unwrap().as_bstr(),
         b"refs/heads/master"
     );
     insta::assert_snapshot!(get_log_output(&work_dir), @"
@@ -262,9 +269,9 @@ fn test_git_colocated_unborn_bookmark() {
     Parent commit (@-)      : zsuskuln ff536684 (no description set)
     [EOF]
     ");
-    assert!(git_repo.head().unwrap().is_detached());
+    assert!(git_repo.head()?.is_detached());
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"ff5366846b039b25c6c4998fa74dca821c246243"
     );
     insta::assert_snapshot!(get_log_output(&work_dir), @"
@@ -305,7 +312,7 @@ fn test_git_colocated_unborn_bookmark() {
     Added 0 files, modified 0 files, removed 2 files
     [EOF]
     ");
-    assert!(git_repo.head().unwrap().is_unborn());
+    assert!(git_repo.head()?.is_unborn());
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  88e8407a4f0a5e6f40a7c6c494106764adc00fed
     │ ○  2dd7385602e703388fd266b939bba6f57a1439d3
@@ -355,13 +362,12 @@ fn test_git_colocated_unborn_bookmark() {
     Last imported/exported Git HEAD: bb21bc2dce2af92973fdd6d42686d77bd16bc466
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_export_bookmarks_on_snapshot() {
-    // Checks that we export bookmarks that were changed only because the working
-    // copy was snapshotted
-
+fn test_git_colocated_export_bookmarks_on_snapshot() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -389,14 +395,15 @@ fn test_git_colocated_export_bookmarks_on_snapshot() {
     [EOF]
     ");
     insta::assert_snapshot!(git_repo
-        .find_reference("refs/heads/foo")
-        .unwrap()
+        .find_reference("refs/heads/foo")?
         .id()
         .to_string(), @"00fc09f48ccf5c8b025a0f93b0ec3b0e4294a598");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_rebase_on_import() {
+fn test_git_colocated_rebase_on_import() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -419,22 +426,18 @@ fn test_git_colocated_rebase_on_import() {
     // Move `master` backwards, which should result in commit2 getting hidden,
     // and the working-copy commit rebased.
     let parent_commit = git_repo
-        .find_reference("refs/heads/master")
-        .unwrap()
-        .peel_to_commit()
-        .unwrap()
+        .find_reference("refs/heads/master")?
+        .peel_to_commit()?
         .parent_ids()
         .next()
         .unwrap()
         .detach();
-    git_repo
-        .reference(
-            "refs/heads/master",
-            parent_commit,
-            gix::refs::transaction::PreviousValue::Any,
-            "update ref",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/heads/master",
+        parent_commit,
+        gix::refs::transaction::PreviousValue::Any,
+        "update ref",
+    )?;
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  d46583362b91d0e172aec469ea1689995540de81
     ○  cbd6c887108743a4abb0919305646a6a914a665e master add a file
@@ -449,10 +452,12 @@ fn test_git_colocated_rebase_on_import() {
     Done importing changes from the underlying Git repo.
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_bookmarks() {
+fn test_git_colocated_bookmarks() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -476,12 +481,12 @@ fn test_git_colocated_bookmarks() {
         .run_jj(["bookmark", "create", "-r@", "master"])
         .success();
     insta::assert_snapshot!(
-        git_repo.find_reference("refs/heads/master").unwrap().target().id().to_string(),
+        git_repo.find_reference("refs/heads/master")?.target().id().to_string(),
         @"95e79774f8e7c785fc36da2b798ecfe0dc864e02"
     );
-    assert!(git_repo.head().unwrap().is_detached());
+    assert!(git_repo.head()?.is_detached());
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"e8849ae12c709f2321908879bc724fdb2ab8a781"
     );
 
@@ -491,14 +496,12 @@ fn test_git_colocated_bookmarks() {
         .success()
         .stdout
         .into_raw();
-    git_repo
-        .reference(
-            "refs/heads/master",
-            gix::ObjectId::from_hex(target_id.as_bytes()).unwrap(),
-            gix::refs::transaction::PreviousValue::Any,
-            "test",
-        )
-        .unwrap();
+    git_repo.reference(
+        "refs/heads/master",
+        gix::ObjectId::from_hex(target_id.as_bytes())?,
+        gix::refs::transaction::PreviousValue::Any,
+        "test",
+    )?;
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  507c0edcfc028f714f3c7a3027cb141f6610e867
     │ ○  b51ab2e2c88fe2d38bd7ca6946c4d87f281ce7e2 master foo
@@ -513,10 +516,12 @@ fn test_git_colocated_bookmarks() {
     Done importing changes from the underlying Git repo.
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_bookmark_forget() {
+fn test_git_colocated_bookmark_forget() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     git::init(work_dir.root());
@@ -550,10 +555,12 @@ fn test_git_colocated_bookmark_forget() {
     // explaining this, see `test_bookmark_forget_export` in
     // `test_bookmark_command.rs`.
     insta::assert_snapshot!(get_bookmark_output(&work_dir), @"");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_bookmark_at_root() {
+fn test_git_colocated_bookmark_at_root() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -593,10 +600,12 @@ fn test_git_colocated_bookmark_at_root() {
       foo@git: Ref cannot point to the root commit in Git
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_conflicting_git_refs() {
+fn test_git_colocated_conflicting_git_refs() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     git::init(work_dir.root());
@@ -620,10 +629,12 @@ fn test_git_colocated_conflicting_git_refs() {
         [EOF]
         "#);
     });
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_checkout_non_empty_working_copy() {
+fn test_git_colocated_checkout_non_empty_working_copy() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -645,7 +656,7 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     git::checkout_tree_index(&git_repo, tree_id);
     assert_eq!(work_dir.read_file("file"), b"contents");
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"97358f54806c7cd005ed5ade68a779595efbae7e"
     );
 
@@ -662,7 +673,7 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     ");
 
     assert_eq!(
-        git_repo.head_name().unwrap().unwrap().as_bstr(),
+        git_repo.head_name()?.unwrap().as_bstr(),
         b"refs/heads/master"
     );
 
@@ -679,10 +690,12 @@ fn test_git_colocated_checkout_non_empty_working_copy() {
     Last imported/exported Git HEAD: 97358f54806c7cd005ed5ade68a779595efbae7e
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
+fn test_git_colocated_fetch_deleted_or_moved_bookmark() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env.add_config("remotes.origin.auto-track-bookmarks = '*'");
     let origin_dir = test_env.work_dir("origin");
@@ -743,10 +756,12 @@ fn test_git_colocated_fetch_deleted_or_moved_bookmark() {
     ◆  0000000000000000000000000000000000000000
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_rebase_dirty_working_copy() {
+fn test_git_colocated_rebase_dirty_working_copy() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -761,11 +776,7 @@ fn test_git_colocated_rebase_dirty_working_copy() {
 
     // Make the working-copy dirty, delete the checked out bookmark.
     work_dir.write_file("file", "new");
-    git_repo
-        .find_reference("refs/heads/feature")
-        .unwrap()
-        .delete()
-        .unwrap();
+    git_repo.find_reference("refs/heads/feature")?.delete()?;
 
     // Because the working copy is dirty, the new working-copy commit will be
     // diverged. Therefore, the feature bookmark has change-delete conflict.
@@ -794,21 +805,22 @@ fn test_git_colocated_rebase_dirty_working_copy() {
 
     // The working-copy content shouldn't be lost.
     insta::assert_snapshot!(work_dir.read_file("file"), @"new");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_external_checkout() {
+fn test_git_colocated_external_checkout() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
-    let git_check_out_ref = |name| {
+    let git_check_out_ref = |name| -> TestResult {
         let target = git_repo
-            .find_reference(name)
-            .unwrap()
-            .into_fully_peeled_id()
-            .unwrap()
+            .find_reference(name)?
+            .into_fully_peeled_id()?
             .detach();
         git::set_head_to_id(&git_repo, target);
+        Ok(())
     };
 
     work_dir.run_jj(["git", "init", "--git-repo=."]).success();
@@ -830,7 +842,7 @@ fn test_git_colocated_external_checkout() {
     ");
 
     // Check out another bookmark by external command
-    git_check_out_ref("refs/heads/master");
+    git_check_out_ref("refs/heads/master")?;
 
     // The old working-copy commit gets abandoned, but the whole bookmark should not
     // be abandoned. (#1042)
@@ -860,7 +872,7 @@ fn test_git_colocated_external_checkout() {
     ");
 
     // Check out another bookmark by external command
-    git_check_out_ref("refs/heads/master");
+    git_check_out_ref("refs/heads/master")?;
 
     // The old working-copy commit shouldn't be abandoned. (#3747)
     insta::assert_snapshot!(get_log_output(&work_dir), @"
@@ -876,11 +888,13 @@ fn test_git_colocated_external_checkout() {
     Reset the working copy parent to the new Git HEAD.
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
 #[cfg_attr(windows, ignore = "uses POSIX sh")]
-fn test_git_colocated_concurrent_checkout() {
+fn test_git_colocated_concurrent_checkout() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -945,10 +959,12 @@ fn test_git_colocated_concurrent_checkout() {
     Reset the working copy parent to the new Git HEAD.
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_squash_undo() {
+fn test_git_colocated_squash_undo() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     git::init(work_dir.root());
@@ -977,10 +993,12 @@ fn test_git_colocated_squash_undo() {
     ◆  zzzzzzzzzzzz 000000000000
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_undo_head_move() {
+fn test_git_colocated_undo_head_move() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -988,9 +1006,9 @@ fn test_git_colocated_undo_head_move() {
 
     // Create new HEAD
     work_dir.run_jj(["new"]).success();
-    assert!(git_repo.head().unwrap().is_detached());
+    assert!(git_repo.head()?.is_detached());
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"e8849ae12c709f2321908879bc724fdb2ab8a781");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  43444d88b0096888ebfd664c0cf792c9d15e3f14
@@ -1006,7 +1024,7 @@ fn test_git_colocated_undo_head_move() {
 
     // HEAD should be unset
     work_dir.run_jj(["undo"]).success();
-    assert!(git_repo.head().unwrap().is_unborn());
+    assert!(git_repo.head()?.is_unborn());
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  e8849ae12c709f2321908879bc724fdb2ab8a781
     ◆  0000000000000000000000000000000000000000
@@ -1033,24 +1051,24 @@ fn test_git_colocated_undo_head_move() {
     Last imported/exported Git HEAD: 23e6e06a7471634da3567ef975fadf883082658f
     [EOF]
     ");
-    assert!(git_repo.head().unwrap().is_detached());
+    assert!(git_repo.head()?.is_detached());
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"23e6e06a7471634da3567ef975fadf883082658f");
 
     // HEAD should be moved back
     let output = work_dir.run_jj(["undo"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Undid operation: 65d1097d37a5 (2001-02-03 08:05:15) new empty commit
-    Restored to operation: b528a8c9176f (2001-02-03 08:05:14) new empty commit
+    Undid operation: 42e127e9ce05 (2001-02-03 08:05:15) new empty commit
+    Restored to operation: cd02f597b71d (2001-02-03 08:05:14) new empty commit
     Working copy  (@) now at: vruxwmqv 23e6e06a (empty) (no description set)
     Parent commit (@-)      : qpvuntsm e8849ae1 (empty) (no description set)
     [EOF]
     ");
-    assert!(git_repo.head().unwrap().is_detached());
+    assert!(git_repo.head()?.is_detached());
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"e8849ae12c709f2321908879bc724fdb2ab8a781");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  23e6e06a7471634da3567ef975fadf883082658f
@@ -1063,10 +1081,12 @@ fn test_git_colocated_undo_head_move() {
     Last imported/exported Git HEAD: e8849ae12c709f2321908879bc724fdb2ab8a781
     [EOF]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_update_index_preserves_timestamps() {
+fn test_git_colocated_update_index_preserves_timestamps() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -1153,10 +1173,12 @@ fn test_git_colocated_update_index_preserves_timestamps() {
     Unconflicted Mode(FILE) 28d2718c947b ctime=0:0 mtime=0:0 size=0 flags=0 file2.txt
     Unconflicted Mode(FILE) 528557ab3a42 ctime=0:0 mtime=0:0 size=0 flags=0 file3.txt
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_update_index_merge_conflict() {
+fn test_git_colocated_update_index_merge_conflict() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -1247,10 +1269,12 @@ fn test_git_colocated_update_index_merge_conflict() {
     Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 flags=0 left.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 flags=0 right.txt
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_update_index_rebase_conflict() {
+fn test_git_colocated_update_index_rebase_conflict() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -1347,10 +1371,12 @@ fn test_git_colocated_update_index_rebase_conflict() {
     Unconflicted Mode(FILE) 45cf141ba67d ctime=0:0 mtime=0:0 size=0 flags=0 left.txt
     Unconflicted Mode(FILE) c376d892e8b1 ctime=0:0 mtime=0:0 size=0 flags=0 right.txt
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_update_index_3_sided_conflict() {
+fn test_git_colocated_update_index_3_sided_conflict() -> TestResult {
     let test_env = TestEnvironment::default();
     test_env
         .run_jj_in(".", ["git", "init", "--colocate", "repo"])
@@ -1467,6 +1493,8 @@ fn test_git_colocated_update_index_3_sided_conflict() {
     Unconflicted Mode(FILE) 7b44e11df720 ctime=0:0 mtime=0:0 size=0 flags=0 side-2.txt
     Unconflicted Mode(FILE) 42f37a71bf20 ctime=0:0 mtime=0:0 size=0 flags=0 side-3.txt
     ");
+
+    Ok(())
 }
 
 #[must_use]
@@ -1493,6 +1521,16 @@ fn get_log_output(work_dir: &TestWorkDir) -> CommandOutput {
     )
     "#;
     work_dir.run_jj(["log", "-T", template, "-r=all()"])
+}
+
+/// Skips the test if git command is not available.
+/// Returns true if the test should be skipped.
+fn skip_if_git_unavailable() -> bool {
+    if Command::new("git").arg("--version").status().is_err() {
+        eprintln!("Skipping because git command might fail to run");
+        return true;
+    }
+    false
 }
 
 fn update_git_index(repo_path: &Path) {
@@ -1547,7 +1585,7 @@ fn get_index_state(repo_path: &Path) -> String {
 }
 
 #[test]
-fn test_git_colocated_unreachable_commits() {
+fn test_git_colocated_unreachable_commits() -> TestResult {
     let test_env = TestEnvironment::default();
     let work_dir = test_env.work_dir("repo");
     let git_repo = git::init(work_dir.root());
@@ -1563,7 +1601,7 @@ fn test_git_colocated_unreachable_commits() {
     )
     .commit_id;
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"cd740e230992f334de13a0bd0b35709b3f7a89af"
     );
 
@@ -1577,13 +1615,9 @@ fn test_git_colocated_unreachable_commits() {
         &[commit1],
     )
     .commit_id;
-    git_repo
-        .find_reference("refs/heads/dummy")
-        .unwrap()
-        .delete()
-        .unwrap();
+    git_repo.find_reference("refs/heads/dummy")?.delete()?;
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"cd740e230992f334de13a0bd0b35709b3f7a89af"
     );
 
@@ -1598,7 +1632,7 @@ fn test_git_colocated_unreachable_commits() {
     [EOF]
     ");
     insta::assert_snapshot!(
-        git_repo.head_id().unwrap().to_string(),
+        git_repo.head_id()?.to_string(),
         @"cd740e230992f334de13a0bd0b35709b3f7a89af"
     );
 
@@ -1610,10 +1644,12 @@ fn test_git_colocated_unreachable_commits() {
     [EOF]
     [exit status: 1]
     ");
+
+    Ok(())
 }
 
 #[test]
-fn test_git_colocated_operation_cleanup() {
+fn test_git_colocated_operation_cleanup() -> TestResult {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["git", "init", "--colocate", "repo"]);
     insta::assert_snapshot!(output, @r#"
@@ -1657,19 +1693,19 @@ fn test_git_colocated_operation_cleanup() {
     let output = std::process::Command::new("git")
         .current_dir(work_dir.root())
         .args(["rebase", "main"])
-        .output()
-        .unwrap();
+        .output()?;
     assert!(!output.status.success());
 
     // Check that we’re in the middle of a conflicted rebase.
-    assert!(std::fs::exists(work_dir.root().join(".git").join("rebase-merge")).unwrap());
+    assert!(std::fs::exists(
+        work_dir.root().join(".git").join("rebase-merge")
+    )?);
     let output = std::process::Command::new("git")
         .current_dir(work_dir.root())
         .args(["status", "--porcelain=v1"])
-        .output()
-        .unwrap();
+        .output()?;
     assert!(output.status.success());
-    insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @"UU file");
+    insta::assert_snapshot!(String::from_utf8(output.stdout)?, @"UU file");
     insta::assert_snapshot!(get_log_output(&work_dir), @"
     @  588c505e689d116180684778b29c540fe7180268
     ○  cf3bb116ded416d9b202e71303f260e504c2eeb9 main 2
@@ -1710,14 +1746,17 @@ fn test_git_colocated_operation_cleanup() {
     ");
 
     // Check that the operation was correctly aborted.
-    assert!(!std::fs::exists(work_dir.root().join(".git").join("rebase-merge")).unwrap());
+    assert!(!std::fs::exists(
+        work_dir.root().join(".git").join("rebase-merge")
+    )?);
     let output = std::process::Command::new("git")
         .current_dir(work_dir.root())
         .args(["status", "--porcelain=v1"])
-        .output()
-        .unwrap();
+        .output()?;
     assert!(output.status.success());
-    insta::assert_snapshot!(String::from_utf8(output.stdout).unwrap(), @"");
+    insta::assert_snapshot!(String::from_utf8(output.stdout)?, @"");
+
+    Ok(())
 }
 
 #[must_use]
@@ -1735,4 +1774,1291 @@ fn get_colocation_status(work_dir: &TestWorkDir) -> CommandOutput {
         "--ignore-working-copy",
         "--quiet", // suppress hint
     ])
+}
+
+/// Tests that creating a non-colocated workspace from a colocated repo
+/// works correctly - the secondary workspace should not try to update git HEAD.
+///
+/// Verifies that:
+/// 1. Creating a non-colocated workspace doesn't move the primary's git HEAD
+/// 2. Operations in the non-colocated workspace succeed
+/// 3. Operations in the non-colocated workspace don't affect the primary's git
+///    HEAD
+#[test]
+fn test_git_colocated_create_workspace_not_moving_head() {
+    let test_env = TestEnvironment::default();
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let _second_work_dir = test_env.work_dir("second");
+
+    work_dir
+        .run_jj(["commit", "-m", "second_wc_parent"])
+        .success();
+    let output = work_dir
+        .run_jj(["log", "-Tcommit_id", "-r@-", "--no-graph"])
+        .success();
+    let second_wc_parent = output.stdout.normalized();
+
+    work_dir
+        .run_jj(["commit", "-m", "should be git head"])
+        .success();
+    work_dir
+        .run_jj(["workspace", "add", "../second", "-r", second_wc_parent])
+        .success();
+
+    // Verify git_head wasn't moved during workspace creation.
+    // The second workspace is non-colocated (no .git), so creating it
+    // should not affect git HEAD.
+    insta::assert_snapshot!(get_log_output(&work_dir), @"
+    @  dff72cf4427ad90c331d81a97d68dbdd6b1b9894
+    ○  b24869b3336626eca0f69ba14929c1be0a38e0e7 should be git head
+    │ ○  fa5c7df5654c7f8f4dd49ea881a4bb70a06c389e
+    ├─╯
+    ○  410296fbafc1655b3335548eff3b26753c6888c2 second_wc_parent
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_colocated_workspace_git_symlink_to_wrong_repo() {
+    let test_env = TestEnvironment::default();
+
+    // Create a non-colocated jj repo
+    test_env
+        .run_jj_in(
+            test_env.env_root(),
+            ["git", "init", "--no-colocate", "repo"],
+        )
+        .success();
+    let work_dir = test_env.work_dir("repo");
+    let workspace_root = work_dir.root();
+
+    // Create another git repo that we'll symlink to
+    let other_git_repo = test_env.env_root().join("other-git-repo");
+    git::init(&other_git_repo);
+
+    // Create a .git symlink pointing to the other repo
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&other_git_repo, workspace_root.join(".git")).unwrap();
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_dir(&other_git_repo, workspace_root.join(".git")).unwrap();
+
+    // Run a jj command - no warning expected (warnings removed)
+    let output = work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output.stderr, @"");
+}
+
+/// Substitute for `jj workspace add` with colocated parent using git CLI,
+/// please replace with the real thing when it lands.
+fn stopgap_workspace_colocate(
+    test_env: &TestEnvironment,
+    repo_path: &Path,
+    original_colocated: bool,
+    dst: &str,
+    initial_head: &str,
+) {
+    // Can't use gix/git2, as neither can repair the broken worktree we're about to
+    // create.
+    let repo_relative_path = if original_colocated {
+        dst.to_owned()
+    } else {
+        format!("../../../../{dst}")
+    };
+    Command::new("git")
+        .args(["worktree", "add", &repo_relative_path])
+        .arg(initial_head)
+        .current_dir(if original_colocated {
+            repo_path.to_path_buf()
+        } else {
+            repo_path.join(".jj/repo/store/git")
+        })
+        // NOTE: Ensure the output is in English.
+        .env("LANG", "C")
+        .assert()
+        .success()
+        .stderr(format!(
+            "Preparing worktree (detached HEAD {})
+",
+            &initial_head[..7]
+        ));
+    let dst_path = repo_path.join(dst);
+    let tmp_path = test_env.env_root().join("__tmp_worktree__");
+    if tmp_path.exists() {
+        std::fs::remove_dir_all(&tmp_path).unwrap();
+    }
+    std::fs::rename(&dst_path, &tmp_path).unwrap();
+    // Use --no-colocate since this helper manually manages the git worktree
+    test_env
+        .work_dir("repo")
+        .run_jj(["workspace", "add", "--no-colocate", dst])
+        .success();
+    std::fs::rename(tmp_path.join(".git"), dst_path.join(".git")).unwrap();
+    std::fs::write(
+        dst_path.join(".jj/.gitignore"),
+        "*
+",
+    )
+    .unwrap();
+    Command::new("git")
+        .args(["worktree", "repair"])
+        .current_dir(&dst_path)
+        .assert()
+        .success();
+    Command::new("git")
+        .arg("checkout")
+        .arg(initial_head)
+        .current_dir(&dst_path)
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_colocated_workspace_in_bare_repo() {
+    // TODO: Remove when this stops requiring git (stopgap_workspace_colocate)
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let default_work_dir = test_env.work_dir("repo");
+    let second_work_dir = test_env.work_dir("second");
+    //
+    // git init without --colocate creates a bare repo
+    default_work_dir.create_dir_all("");
+    default_work_dir.run_jj(["git", "init"]).success();
+    default_work_dir.write_file("file", b"contents");
+    default_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    let initial_commit = default_work_dir
+        .run_jj(["log", "--no-graph", "-T", "commit_id", "-r", "@-"])
+        .success()
+        .stdout
+        .into_raw();
+    // TODO: replace with workspace add, when it can create worktrees
+    stopgap_workspace_colocate(
+        &test_env,
+        default_work_dir.root(),
+        false,
+        "../second",
+        &initial_commit,
+    );
+
+    insta::assert_snapshot!(get_log_output(&second_work_dir), @"
+    @  514e1b3adab7336794cf569e7b9c60c1dbcad1b4
+    │ ○  64393b1a826a63bba44c4c5cec90d7a9040063b9
+    ├─╯
+    ○  dda9521046c4649797052c184beab33a9cf9754b initial commit
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+
+    second_work_dir
+        .run_jj(["commit", "-m", "commit in second workspace"])
+        .success();
+    insta::assert_snapshot!(get_log_output(&second_work_dir), @"
+    @  104cab0c0a2b384e247b0efe73b0dc5cc2d2df45
+    ○  a45eccddae45d27fdc5008294fa2ff5461d2c25b commit in second workspace
+    │ ○  64393b1a826a63bba44c4c5cec90d7a9040063b9
+    ├─╯
+    ○  dda9521046c4649797052c184beab33a9cf9754b initial commit
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+
+    // FIXME: There should still be no git HEAD in the default workspace, which
+    // is not colocated. However, git_head() is a property of the view. And
+    // currently, all colocated workspaces read and write from the same
+    // entry of the common view.
+    //
+    // let stdout = test_env.jj_cmd_success(&repo_path, &["log", "--no-graph",
+    // "-r", "git_head()"]); insta::assert_snapshot!(stdout, @r#""#);
+
+    let output = second_work_dir
+        .run_jj(["op", "log", "-Tself.description().first_line()"])
+        .success();
+    insta::assert_snapshot!(output, @"
+    @  commit 514e1b3adab7336794cf569e7b9c60c1dbcad1b4
+    ○  import git head
+    ○  create initial working-copy commit in workspace second
+    ○  add workspace 'second'
+    ○  commit 006bd1130b84e90ab082adeabd7409270d5a86da
+    ○  snapshot working copy
+    ○  add workspace 'default'
+    ○
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_colocated_workspace_moved_original_on_disk() {
+    if Command::new("git").arg("--version").status().is_err() {
+        eprintln!("Skipping because git command might fail to run");
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let default_work_dir = test_env.work_dir("repo");
+    let second_work_dir = test_env.work_dir("second");
+    let new_repo_path = test_env.env_root().join("repo-moved");
+
+    default_work_dir.create_dir_all("");
+    default_work_dir
+        .run_jj(["git", "init", "--colocate"])
+        .success();
+    default_work_dir.write_file("file", b"contents");
+    default_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    let initial_commit = default_work_dir
+        .run_jj(["log", "--no-graph", "-T", "commit_id", "-r", "@-"])
+        .success()
+        .stdout
+        .into_raw();
+    // TODO: replace with workspace add, when it can create worktrees
+    stopgap_workspace_colocate(
+        &test_env,
+        default_work_dir.root(),
+        true,
+        "../second",
+        &initial_commit,
+    );
+
+    // Break our worktree by moving the original repo on disk
+    std::fs::rename(default_work_dir.root(), &new_repo_path).unwrap();
+    // imagine JJ were able to do this
+    std::fs::write(
+        second_work_dir.root().join(".jj/repo"),
+        new_repo_path
+            .join(".jj/repo")
+            .as_os_str()
+            .as_encoded_bytes(),
+    )
+    .unwrap();
+
+    // REVIEW: Is this the best way to do that?
+    let output = second_work_dir.run_jj(["status"]);
+    // hack for windows paths
+    let gitfile_contents = std::fs::read_to_string(second_work_dir.root().join(".git"))
+        .unwrap()
+        .strip_prefix("gitdir: ")
+        .unwrap()
+        .trim()
+        .to_owned();
+    let stderr = output
+        .stderr
+        .normalized()
+        .replace(&gitfile_contents, "$TEST_ENV/repo/.git/worktrees/second");
+    insta::assert_snapshot!(stderr, @"");
+
+    Command::new("git")
+        .args(["worktree", "repair"])
+        .current_dir(&new_repo_path)
+        .assert()
+        .success();
+    insta::assert_snapshot!(get_log_output(&second_work_dir), @"
+    @  514e1b3adab7336794cf569e7b9c60c1dbcad1b4
+    │ ○  64393b1a826a63bba44c4c5cec90d7a9040063b9
+    ├─╯
+    ○  dda9521046c4649797052c184beab33a9cf9754b initial commit
+    ◆  0000000000000000000000000000000000000000
+    [EOF]
+    ");
+}
+
+#[test]
+fn test_colocated_workspace_wrong_gitdir() {
+    // TODO: Remove when this stops requiring git (stopgap_workspace_colocate)
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let default_work_dir = test_env.work_dir("repo");
+    let second_work_dir = test_env.work_dir("second");
+    let other_work_dir = test_env.work_dir("other");
+    let other_second_work_dir = test_env.work_dir("other_second");
+
+    default_work_dir.create_dir_all("");
+    default_work_dir
+        .run_jj(["git", "init", "--colocate"])
+        .success();
+    default_work_dir.write_file("file", b"contents");
+    default_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    let initial_commit = default_work_dir
+        .run_jj(["log", "--no-graph", "-T", "commit_id", "-r", "@-"])
+        .success()
+        .stdout
+        .into_raw();
+    // TODO: replace with workspace add, when it can create worktrees
+    stopgap_workspace_colocate(
+        &test_env,
+        default_work_dir.root(),
+        true,
+        "../second",
+        &initial_commit,
+    );
+
+    other_work_dir.create_dir_all("");
+    other_work_dir
+        .run_jj(["git", "init", "--colocate"])
+        .success();
+    other_work_dir.write_file("file", b"contents2");
+    other_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    // REVIEW: Is this the best way to do that?
+    let other_initial_commit = other_work_dir
+        .run_jj(["log", "--no-graph", "-T", "commit_id", "-r", "@-"])
+        .success()
+        .stdout
+        .into_raw();
+    // TODO: replace with workspace add, when it can create worktrees
+    stopgap_workspace_colocate(
+        &test_env,
+        other_work_dir.root(),
+        true,
+        "../other_second",
+        &other_initial_commit,
+    );
+
+    // Break one of our worktrees
+    std::fs::copy(
+        other_second_work_dir.root().join(".git"),
+        second_work_dir.root().join(".git"),
+    )
+    .unwrap();
+
+    let output = second_work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output.stderr, @"");
+}
+
+#[test]
+fn test_colocated_workspace_invalid_gitdir() {
+    // TODO: Remove when this stops requiring git (stopgap_workspace_colocate)
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let default_work_dir = test_env.work_dir("repo");
+    let second_work_dir = test_env.work_dir("second");
+
+    default_work_dir.create_dir_all("");
+    default_work_dir
+        .run_jj(["git", "init", "--colocate"])
+        .success();
+    default_work_dir.write_file("file", b"contents");
+    default_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    // REVIEW: Is this the best way to do that?
+    let initial_commit = default_work_dir
+        .run_jj(["log", "--no-graph", "-T", "commit_id", "-r", "@-"])
+        .success()
+        .stdout
+        .into_raw();
+    // TODO: replace with workspace add, when it can create worktrees
+    stopgap_workspace_colocate(
+        &test_env,
+        default_work_dir.root(),
+        true,
+        "../second",
+        &initial_commit,
+    );
+
+    // Break one of our worktrees
+    std::fs::write(second_work_dir.root().join(".git"), "invalid").unwrap();
+
+    let output = second_work_dir.run_jj(["status"]);
+    insta::assert_snapshot!(output.stderr, @"");
+}
+
+#[test]
+fn test_colocated_workspace_independent_heads() {
+    // TODO: Remove when this stops requiring git (stopgap_workspace_colocate)
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let default_work_dir = test_env.work_dir("repo");
+    let second_work_dir = test_env.work_dir("second");
+
+    default_work_dir.create_dir_all("");
+    default_work_dir
+        .run_jj(["git", "init", "--colocate"])
+        .success();
+    // create a commit so that git can have a HEAD
+    default_work_dir.write_file("file", b"contents");
+    default_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    let initial_commit = default_work_dir
+        .run_jj(["log", "--no-graph", "-T", "commit_id", "-r", "@-"])
+        .success()
+        .stdout
+        .into_raw();
+    // TODO: replace with workspace add, when it can create worktrees
+    stopgap_workspace_colocate(
+        &test_env,
+        default_work_dir.root(),
+        true,
+        "../second",
+        &initial_commit,
+    );
+
+    {
+        let first_git = git::open(default_work_dir.root());
+        let mut first_head = first_git.head().unwrap();
+        assert!(first_head.is_detached());
+
+        let commit = first_head.peel_to_commit().unwrap().id();
+        assert_eq!(commit.to_string(), initial_commit);
+
+        let second_git = git::open(second_work_dir.root());
+        let mut second_head = second_git.head().unwrap();
+        assert!(second_head.is_detached());
+
+        let commit = second_head.peel_to_commit().unwrap().id();
+        assert_eq!(commit.to_string(), initial_commit);
+    }
+
+    // now commit again in the second worktree, and make sure the original
+    // repo's head does not move.
+    //
+    // This tests that we are writing HEAD to the corresponding worktree,
+    // rather than unconditionally to the default workspace.
+    default_work_dir.write_file("file", b"contents");
+    second_work_dir
+        .run_jj(["commit", "-m", "followup commit"])
+        .success();
+    let followup_commit = second_work_dir
+        .run_jj(["log", "--no-graph", "-T", "commit_id", "-r", "@-"])
+        .success()
+        .stdout
+        .into_raw();
+
+    {
+        // git HEAD should not move in the default workspace
+        let first_git = git::open(default_work_dir.root());
+        let mut first_head = first_git.head().unwrap();
+        assert!(first_head.is_detached());
+        // still initial
+        assert_eq!(
+            first_head.peel_to_commit().unwrap().id().to_string(),
+            initial_commit,
+            "default workspace's git HEAD should not have moved from {initial_commit}"
+        );
+
+        let second_git = git::open(second_work_dir.root());
+        let mut second_head = second_git.head().unwrap();
+        assert!(second_head.is_detached());
+        assert_eq!(
+            second_head.peel_to_commit().unwrap().id().to_string(),
+            followup_commit,
+            "second workspace's git HEAD should have advanced to {followup_commit}"
+        );
+    }
+
+    // Finally, test imports. Test that a commit written to HEAD in one workspace
+    // does not get imported by the other workspace.
+
+    // Write in default, expect second not to import it
+    let new_commit = test_independent_import(&default_work_dir, &second_work_dir, &followup_commit);
+    // Write in second, expect default not to import it
+    test_independent_import(&second_work_dir, &default_work_dir, &new_commit);
+
+    fn test_independent_import(
+        commit_in: &TestWorkDir,
+        no_import_in_workspace: &TestWorkDir,
+        workspace_at: &str,
+    ) -> String {
+        // Commit in one workspace
+        let mut repo = gix::open(commit_in.root()).unwrap();
+        {
+            use gix::config::tree::*;
+            let mut config = repo.config_snapshot_mut();
+            let (name, email) = ("JJ test", "jj@example.com");
+            config.set_value(&Author::NAME, name).unwrap();
+            config.set_value(&Author::EMAIL, email).unwrap();
+            config.set_value(&Committer::NAME, name).unwrap();
+            config.set_value(&Committer::EMAIL, email).unwrap();
+        }
+        let tree = repo.head_tree_id().unwrap();
+        let current = repo.head_commit().unwrap().id;
+        let new_commit = repo
+            .commit(
+                "HEAD",
+                format!("empty commit in {}", commit_in.root().display()),
+                tree,
+                [current],
+            )
+            .unwrap()
+            .to_string();
+
+        let output = no_import_in_workspace.run_jj([
+            "log",
+            "--no-graph",
+            "-r",
+            "git_head()",
+            "-T",
+            "commit_id",
+        ]);
+        // Asserting no import message in stderr => no import occurred
+        // (note: git_head() revset is deprecated and produces a warning)
+        assert!(
+            !output.stderr.normalized().contains("imported"),
+            "Should not have imported HEAD in workspace {}",
+            no_import_in_workspace.root().display()
+        );
+        // And the commit_id should be pointing to what it was before
+        assert_eq!(
+            output.stdout.normalized(),
+            workspace_at,
+            "should still be at {workspace_at} in workspace {}",
+            no_import_in_workspace.root().display()
+        );
+
+        // Now we import the new HEAD in the commit_in workspace, so it's up to date.
+        let output = commit_in.run_jj(["log", "--no-graph", "-r", "git_head()", "-T", "commit_id"]);
+        // (note: git_head() revset is deprecated and produces a warning, so check
+        // contains)
+        assert!(
+            output
+                .stderr
+                .normalized()
+                .contains("Reset the working copy parent to the new Git HEAD."),
+            "should have imported HEAD in workspace {}",
+            commit_in.root().display()
+        );
+        assert_eq!(
+            output.stdout.normalized(),
+            new_commit,
+            "should have advanced to {new_commit} in workspace {}",
+            commit_in.root().display()
+        );
+        new_commit
+    }
+}
+
+// =============================================================================
+// Tests for `jj workspace add` with colocated parent (auto-detect)
+// =============================================================================
+
+#[test]
+fn test_workspace_add_colocate_basic() {
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    let second_dir = test_env.env_root().join("second");
+
+    // Create a colocated repo
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    work_dir.write_file("file", "contents");
+    work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+
+    // Add a colocated workspace (auto-detected from parent)
+    let output = work_dir.run_jj(["workspace", "add", "../second"]);
+    output.success();
+
+    // Verify the workspace is listed
+    let output = work_dir.run_jj(["workspace", "list"]).success();
+    let stdout = output.stdout.normalized();
+    assert!(stdout.contains("default:"), "Should list default workspace");
+    assert!(stdout.contains("second:"), "Should list second workspace");
+
+    // Verify: Secondary workspace directory exists and has .git file (not
+    // directory)
+    assert!(
+        second_dir.exists(),
+        "Secondary workspace directory should exist"
+    );
+    let git_path = second_dir.join(".git");
+    assert!(git_path.exists(), "Secondary workspace should have .git");
+    assert!(
+        git_path.is_file(),
+        ".git should be a file (worktree), not directory"
+    );
+
+    // Verify: Files from the repo are accessible in secondary workspace
+    assert!(
+        second_dir.join("file").exists(),
+        "Files should be accessible in secondary workspace"
+    );
+}
+
+#[test]
+fn test_workspace_add_colocate_creates_git_worktree() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    let second_work_dir = test_env.work_dir("second");
+
+    // Create a colocated repo with two commits
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    work_dir.write_file("file", "contents");
+    work_dir.run_jj(["commit", "-m", "first commit"]).success();
+    // Get the first commit ID for later
+    let first_commit = work_dir
+        .run_jj(["log", "--no-graph", "-T", "commit_id", "-r", "@-"])
+        .success()
+        .stdout
+        .into_raw();
+    work_dir.write_file("file2", "more contents");
+    work_dir.run_jj(["commit", "-m", "second commit"]).success();
+
+    // Add a colocated workspace at the FIRST commit (not HEAD)
+    // This tests the reload: git worktree add creates HEAD at primary's HEAD,
+    // but jj needs to update it to the first commit.
+    // Auto-detect colocate from parent workspace.
+    work_dir
+        .run_jj(["workspace", "add", "../second", "-r", &first_commit])
+        .success();
+
+    // Verify: ../second/.git file exists (not directory)
+    let git_path = second_work_dir.root().join(".git");
+    assert!(
+        git_path.exists(),
+        ".git should exist in secondary workspace"
+    );
+    assert!(
+        git_path.is_file(),
+        ".git should be a file (Git worktree), not a directory"
+    );
+
+    // Verify: File starts with "gitdir:" (Git worktree marker)
+    let git_contents = second_work_dir.read_file(".git");
+    assert!(
+        git_contents.starts_with(b"gitdir:"),
+        ".git file should start with 'gitdir:' but was: {git_contents:?}"
+    );
+
+    // Verify: jj commands work in secondary workspace (is colocated)
+    let output = second_work_dir.run_jj(["status"]);
+    assert!(output.status.success(), "jj status should succeed");
+    // The workspace should be colocated - no warning about non-colocated
+    assert!(
+        !output.stderr.normalized().contains("not colocated"),
+        "Secondary workspace should be colocated"
+    );
+
+    // Verify the reload behavior: check that the secondary workspace's git HEAD
+    // is set correctly DURING workspace creation. Without the reload that passes
+    // workspace_root to RepoLoader, the secondary workspace would have
+    // colocated=false and its initial working copy commit wouldn't update git HEAD.
+    //
+    // The git worktree was created at primary's HEAD (second commit), but jj
+    // should have updated it to the first commit (our -r argument).
+    let secondary_head = std::process::Command::new("git")
+        .arg("-C")
+        .arg(second_work_dir.root())
+        .arg("rev-parse")
+        .arg("HEAD")
+        .output()
+        .expect("git command failed");
+    let secondary_head = String::from_utf8_lossy(&secondary_head.stdout)
+        .trim()
+        .to_string();
+
+    assert_eq!(
+        secondary_head, first_commit,
+        "Secondary workspace's git HEAD should be updated to first commit during creation"
+    );
+}
+
+#[test]
+fn test_workspace_add_colocate_git_failure() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+
+    // Create a colocated repo
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+    work_dir.write_file("file", "contents");
+    work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+
+    // Pre-create a conflicting file at the destination
+    let second_dir = test_env.env_root().join("second");
+    std::fs::create_dir_all(&second_dir).unwrap();
+    std::fs::write(second_dir.join(".git"), "conflicting content").unwrap();
+
+    // Try to add a colocated workspace - should fail gracefully
+    let output = work_dir.run_jj(["workspace", "add", "../second"]);
+    assert!(!output.status.success(), "Command should fail");
+    // The error should mention git worktree creation failure
+    assert!(
+        output.stderr.normalized().contains("git worktree")
+            || output.stderr.normalized().contains("Git worktree")
+            || output.stderr.normalized().contains("fatal:"),
+        "Error should mention git worktree failure, got: {}",
+        output.stderr.normalized()
+    );
+}
+
+#[test]
+fn test_workspace_add_colocate_empty_repo() {
+    // This test verifies that workspace add works on an empty repo with
+    // colocated parent. With --orphan, git worktree add works even without any
+    // commits.
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let work_dir = test_env.work_dir("repo");
+    let second_dir = test_env.env_root().join("second");
+
+    // 1. Create colocated repo WITHOUT any commits
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "repo"])
+        .success();
+
+    // 2. Add colocated workspace - should succeed even in empty repo
+    work_dir.run_jj(["workspace", "add", "../second"]).success();
+
+    // 3. Verify the workspace was created
+    assert!(second_dir.exists(), "Secondary workspace should exist");
+    let git_path = second_dir.join(".git");
+    assert!(git_path.exists(), "Secondary workspace should have .git");
+    assert!(
+        git_path.is_file(),
+        ".git should be a file (worktree), not directory"
+    );
+}
+
+// =============================================================================
+// Tests for import checking all worktrees' HEAD
+// =============================================================================
+
+#[test]
+fn test_import_detects_secondary_worktree_head_change() {
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+    let secondary_work_dir = test_env.work_dir("secondary");
+
+    // 1. Create colocated repo in primary/
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+
+    // 2. Create secondary workspace with --colocate
+    primary_work_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+
+    // 3. In secondary, make a git commit bypassing jj
+    // Use testutils::git with proper config for isolated git operations
+    let secondary_git_repo = git::open(secondary_work_dir.root());
+    let head_id = secondary_git_repo.head_id().unwrap().detach();
+    let head_tree = secondary_git_repo
+        .find_commit(head_id)
+        .unwrap()
+        .tree_id()
+        .unwrap()
+        .detach();
+    git::write_commit(
+        &secondary_git_repo,
+        "HEAD",
+        head_tree,
+        "git commit in secondary worktree",
+        &[head_id],
+    );
+
+    // 4. In primary, run any jj command (triggers import)
+    let output = primary_work_dir
+        .run_jj(["log", "--no-graph", "-T", "description"])
+        .success();
+
+    // 5. Verify: The git commit appears in jj log
+    assert!(
+        output
+            .stdout
+            .normalized()
+            .contains("git commit in secondary worktree"),
+        "Git commit from secondary worktree should be imported, got: {}",
+        output.stdout.normalized()
+    );
+
+    // 6. Verify: The imported commit is usable (can be rebased)
+    // This is a critical test - if the commit structure is broken, rebase will fail
+    let output = primary_work_dir.run_jj([
+        "rebase",
+        "-r",
+        "description('git commit in secondary worktree')",
+        "-d",
+        "root()",
+        "--skip-emptied",
+    ]);
+    assert!(
+        output.status.success(),
+        "Should be able to rebase imported commit: {}",
+        output.stderr.normalized()
+    );
+
+    // 7. Verify: Primary workspace data is preserved and functional
+    assert!(
+        primary_work_dir.root().join("file").exists(),
+        "Primary workspace file should be preserved"
+    );
+    let output = primary_work_dir.run_jj(["status"]);
+    assert!(
+        output.status.success(),
+        "jj status should work after import"
+    );
+}
+
+#[test]
+fn test_import_all_worktrees_heads() {
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+    let secondary_work_dir = test_env.work_dir("secondary");
+    let tertiary_work_dir = test_env.work_dir("tertiary");
+
+    // 1. Create colocated repo + 2 secondary workspaces
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    primary_work_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    primary_work_dir
+        .run_jj(["workspace", "add", "../tertiary"])
+        .success();
+
+    // 2. Make git commits in both secondary workspaces
+    // Use testutils::git with proper config for isolated git operations
+    for (work_dir, msg) in [
+        (&secondary_work_dir, "commit from secondary"),
+        (&tertiary_work_dir, "commit from tertiary"),
+    ] {
+        let worktree_repo = git::open(work_dir.root());
+        let head_id = worktree_repo.head_id().unwrap().detach();
+        let head_tree = worktree_repo
+            .find_commit(head_id)
+            .unwrap()
+            .tree_id()
+            .unwrap()
+            .detach();
+        git::write_commit(&worktree_repo, "HEAD", head_tree, msg, &[head_id]);
+    }
+
+    // 3. Run jj in primary
+    let output = primary_work_dir
+        .run_jj(["log", "--no-graph", "-T", "description"])
+        .success();
+
+    // 4. Verify: Both commits imported
+    let stdout = output.stdout.normalized();
+    assert!(
+        stdout.contains("commit from secondary"),
+        "Commit from secondary should be imported, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("commit from tertiary"),
+        "Commit from tertiary should be imported, got: {stdout}"
+    );
+
+    // 5. Verify: Both commits are usable (can be rebased)
+    // This is a critical test - if the commit structure is broken, rebase will fail
+    for commit_desc in ["commit from secondary", "commit from tertiary"] {
+        let output = primary_work_dir.run_jj([
+            "rebase",
+            "-r",
+            &format!("description('{commit_desc}')"),
+            "-d",
+            "root()",
+            "--skip-emptied",
+        ]);
+        assert!(
+            output.status.success(),
+            "Should be able to rebase '{}': {}",
+            commit_desc,
+            output.stderr.normalized()
+        );
+    }
+
+    // 6. Verify: Primary workspace data is preserved and functional
+    assert!(
+        primary_work_dir.root().join("file").exists(),
+        "Primary workspace file should be preserved"
+    );
+    let output = primary_work_dir.run_jj(["status"]);
+    assert!(
+        output.status.success(),
+        "jj status should work after import"
+    );
+}
+
+// =============================================================================
+// Tests for `jj workspace forget` with git worktree cleanup
+// =============================================================================
+
+#[test]
+fn test_workspace_forget_removes_git_worktree() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+
+    // 1. Create colocated repo
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+
+    // 2. Add colocated workspace
+    primary_work_dir
+        .run_jj(["workspace", "add", "../second"])
+        .success();
+
+    // 3. Verify: git worktree list shows two worktrees
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(primary_work_dir.root())
+        .arg("worktree")
+        .arg("list")
+        .output()
+        .expect("git command failed");
+    let worktree_list = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        worktree_list.contains("primary") && worktree_list.contains("second"),
+        "Should have two worktrees listed: {worktree_list}"
+    );
+
+    // 4. Forget the workspace with --cleanup --force (--force needed since
+    // jj-checked-out files are untracked from git's perspective)
+    primary_work_dir
+        .run_jj(["workspace", "forget", "--cleanup", "--force", "second"])
+        .success();
+
+    // 5. Verify: git worktree list shows only one worktree
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(primary_work_dir.root())
+        .arg("worktree")
+        .arg("list")
+        .output()
+        .expect("git command failed");
+    let worktree_list = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !worktree_list.contains("second"),
+        "Second worktree should be removed: {worktree_list}"
+    );
+}
+
+#[test]
+fn test_workspace_forget_with_custom_name_removes_git_worktree() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+
+    // 1. Create colocated repo
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+
+    // 2. Add colocated workspace with a CUSTOM NAME that differs from directory
+    // The directory will be "seconddir" but workspace name will be "myworkspace"
+    primary_work_dir
+        .run_jj(["workspace", "add", "--name", "myworkspace", "../seconddir"])
+        .success();
+
+    // Verify workspace is created with the custom name
+    let output = primary_work_dir.run_jj(["workspace", "list"]).success();
+    assert!(
+        output.stdout.normalized().contains("myworkspace"),
+        "Workspace should be named myworkspace"
+    );
+
+    // 3. Verify: git worktree list shows the worktree (named after directory)
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(primary_work_dir.root())
+        .arg("worktree")
+        .arg("list")
+        .output()
+        .expect("git command failed");
+    let worktree_list = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        worktree_list.contains("seconddir"),
+        "Should have seconddir worktree: {worktree_list}"
+    );
+
+    // 4. Forget the workspace by its jj name (myworkspace, not seconddir)
+    // Use --cleanup --force since jj-checked-out files are untracked from git's
+    // perspective
+    primary_work_dir
+        .run_jj(["workspace", "forget", "--cleanup", "--force", "myworkspace"])
+        .success();
+
+    // 5. Verify: git worktree should be removed even though name differs
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(primary_work_dir.root())
+        .arg("worktree")
+        .arg("list")
+        .output()
+        .expect("git command failed");
+    let worktree_list = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !worktree_list.contains("seconddir"),
+        "seconddir worktree should be removed: {worktree_list}"
+    );
+}
+
+#[test]
+fn test_workspace_forget_handles_missing_worktree() {
+    // This test requires git command
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+    let secondary_dir = test_env.env_root().join("second");
+
+    // 1. Create colocated repo + secondary workspace
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    primary_work_dir
+        .run_jj(["workspace", "add", "../second"])
+        .success();
+
+    // 2. Manually delete the secondary workspace directory
+    std::fs::remove_dir_all(&secondary_dir).unwrap();
+
+    // 3. Forget the workspace - should succeed without error
+    let output = primary_work_dir.run_jj(["workspace", "forget", "second"]);
+    // Should not fail (though may warn)
+    assert!(
+        output.status.success(),
+        "Forgetting workspace with missing directory should succeed: {}",
+        output.stderr.normalized()
+    );
+}
+
+#[test]
+fn test_workspace_forget_non_colocated_no_git_cleanup() {
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+    let secondary_dir = test_env.env_root().join("second");
+
+    // 1. Create non-colocated repo
+    primary_work_dir.create_dir_all("");
+    primary_work_dir.run_jj(["git", "init"]).success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+
+    // 2. Add regular workspace (no --colocate)
+    primary_work_dir
+        .run_jj(["workspace", "add", "../second"])
+        .success();
+
+    // Verify the secondary workspace exists
+    assert!(secondary_dir.exists(), "Secondary workspace should exist");
+
+    // 3. Forget the workspace
+    primary_work_dir
+        .run_jj(["workspace", "forget", "second"])
+        .success();
+
+    // 4. Verify: Directory still exists (current behavior - not touched on disk)
+    assert!(
+        secondary_dir.exists(),
+        "Secondary workspace directory should still exist (not a git worktree)"
+    );
+}
+
+#[test]
+fn test_workspace_forget_dirty_worktree_warns() {
+    // This test verifies that forgetting a colocated workspace with uncommitted
+    // changes shows a warning and preserves the data (unless --force is used).
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+    let secondary_dir = test_env.env_root().join("second");
+
+    // 1. Create colocated repo + secondary workspace
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    primary_work_dir
+        .run_jj(["workspace", "add", "../second"])
+        .success();
+
+    // 2. Create uncommitted file in secondary workspace
+    std::fs::write(secondary_dir.join("important.txt"), "user data").unwrap();
+
+    // 3. Forget with --cleanup but without --force - should warn about dirty
+    //    worktree
+    let output = primary_work_dir.run_jj(["workspace", "forget", "--cleanup", "second"]);
+    // The command succeeds (workspace is forgotten from jj) but warns about git
+    // worktree
+    assert!(output.status.success());
+    insta::assert_snapshot!(output.stderr.normalized(), @r"
+    Warning: Git worktree for workspace second has uncommitted changes and was not removed.
+    Hint: Use --cleanup --force to remove it anyway, or manually clean up with `git worktree remove --force $TEST_ENV/second`
+    ");
+
+    // 4. Verify: The uncommitted file should still exist
+    assert!(
+        secondary_dir.join("important.txt").exists(),
+        "Uncommitted file should be preserved when not using --force"
+    );
+
+    // 5. Verify: The workspace directory still exists (git worktree not removed)
+    assert!(
+        secondary_dir.exists(),
+        "Workspace directory should still exist"
+    );
+}
+
+#[test]
+fn test_workspace_forget_force_removes_dirty_worktree() {
+    // This test verifies that --force removes the git worktree even with
+    // uncommitted changes.
+    if skip_if_git_unavailable() {
+        return;
+    }
+
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+    let secondary_dir = test_env.env_root().join("second");
+
+    // 1. Create colocated repo + secondary workspace
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+    primary_work_dir
+        .run_jj(["workspace", "add", "../second"])
+        .success();
+
+    // 2. Create uncommitted file in secondary workspace
+    std::fs::write(secondary_dir.join("important.txt"), "user data").unwrap();
+
+    // 3. Forget WITH --cleanup --force - should remove worktree despite dirty state
+    let output = primary_work_dir.run_jj(["workspace", "forget", "--cleanup", "--force", "second"]);
+    assert!(output.status.success());
+    // No warning when --force is used
+    let stderr = output.stderr.normalized();
+    assert!(
+        !stderr.contains("uncommitted changes"),
+        "Should not warn about uncommitted changes with --force, got: {stderr}"
+    );
+
+    // 4. Verify: The workspace directory should be removed
+    assert!(
+        !secondary_dir.exists(),
+        "Workspace directory should be removed with --force"
+    );
+}
+
+#[test]
+fn test_workspace_switch_no_spurious_commits() {
+    // Regression test: Switching between colocated workspaces should not create
+    // spurious commits. Previously, jj stored a single global git_head, but Git
+    // maintains separate HEAD files per worktree. When switching workspaces, jj
+    // would misinterpret the workspace switch as an "external Git change" and
+    // create a new checkout.
+    let test_env = TestEnvironment::default();
+    let primary_work_dir = test_env.work_dir("primary");
+
+    // Create colocated repo
+    test_env
+        .run_jj_in(".", ["git", "init", "--colocate", "primary"])
+        .success();
+    primary_work_dir.write_file("file", "contents");
+    primary_work_dir
+        .run_jj(["commit", "-m", "initial commit"])
+        .success();
+
+    // Create second colocated workspace
+    primary_work_dir
+        .run_jj(["workspace", "add", "../secondary"])
+        .success();
+    let secondary_work_dir = test_env.work_dir("secondary");
+
+    // Record secondary workspace's initial state (change_id of @)
+    let initial_output = secondary_work_dir
+        .run_jj(["log", "-r", "@", "-T", "change_id"])
+        .success();
+    let initial_change_id = initial_output.stdout.raw().trim().to_string();
+
+    // Switch to primary workspace (run some jj command)
+    primary_work_dir.run_jj(["log"]).success();
+
+    // Switch back to secondary workspace - should NOT create new commit
+    let final_output = secondary_work_dir
+        .run_jj(["log", "-r", "@", "-T", "change_id"])
+        .success();
+    let final_change_id = final_output.stdout.raw().trim().to_string();
+
+    assert_eq!(
+        initial_change_id, final_change_id,
+        "Workspace switching created spurious commit! Initial change_id: {initial_change_id}, \
+         Final change_id: {final_change_id}"
+    );
 }

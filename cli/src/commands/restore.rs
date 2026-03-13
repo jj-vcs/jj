@@ -119,20 +119,23 @@ pub(crate) async fn cmd_restore(
     }
     if args.from.is_some() || args.into.is_some() {
         to_commit = workspace_command
-            .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))?;
+            .resolve_single_rev(ui, args.into.as_ref().unwrap_or(&RevisionArg::AT))
+            .await?;
         let from_commit = workspace_command
-            .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))?;
+            .resolve_single_rev(ui, args.from.as_ref().unwrap_or(&RevisionArg::AT))
+            .await?;
         from_tree = from_commit.tree();
         from_commits = vec![from_commit];
     } else {
         to_commit = workspace_command
-            .resolve_single_rev(ui, args.changes_in.as_ref().unwrap_or(&RevisionArg::AT))?;
+            .resolve_single_rev(ui, args.changes_in.as_ref().unwrap_or(&RevisionArg::AT))
+            .await?;
         from_tree = to_commit
             .parent_tree(workspace_command.repo().as_ref())
             .await?;
         from_commits = to_commit.parents().await?;
     }
-    workspace_command.check_rewritable([to_commit.id()])?;
+    workspace_command.check_rewritable([to_commit.id()]).await?;
 
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
@@ -202,7 +205,8 @@ pub(crate) async fn cmd_restore(
                 "Rebased {num_rebased} descendant commits{extra_msg}"
             )?;
         }
-        tx.finish(ui, format!("restore into commit {}", to_commit.id().hex()))?;
+        tx.finish(ui, format!("restore into commit {}", to_commit.id().hex()))
+            .await?;
     }
     Ok(())
 }

@@ -17,12 +17,13 @@ use jj_lib::op_store::RefTarget;
 use jj_lib::refs::merge_ref_targets;
 use jj_lib::repo::Repo as _;
 use pollster::FutureExt as _;
+use testutils::TestResult;
 use testutils::TestWorkspace;
 use testutils::write_random_commit;
 use testutils::write_random_commit_with_parents;
 
 #[test]
-fn test_merge_ref_targets() {
+fn test_merge_ref_targets() -> TestResult {
     let test_workspace = TestWorkspace::init();
     let repo = &test_workspace.repo;
 
@@ -42,7 +43,7 @@ fn test_merge_ref_targets() {
     let commit5 = write_random_commit_with_parents(tx.repo_mut(), &[&commit1]);
     let commit6 = write_random_commit_with_parents(tx.repo_mut(), &[&commit5]);
     let commit7 = write_random_commit_with_parents(tx.repo_mut(), &[&commit5]);
-    let repo = tx.commit("test").block_on().unwrap();
+    let repo = tx.commit("test").block_on()?;
 
     let target1 = RefTarget::normal(commit1.id().clone());
     let target2 = RefTarget::normal(commit2.id().clone());
@@ -381,4 +382,5 @@ fn test_merge_ref_targets() {
             ]
         )
     );
+    Ok(())
 }

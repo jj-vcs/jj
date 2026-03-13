@@ -28,6 +28,7 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use blake2::Blake2b512;
 use blake2::Digest as _;
+use futures::StreamExt as _;
 use futures::stream;
 use futures::stream::BoxStream;
 use pollster::FutureExt as _;
@@ -343,7 +344,7 @@ impl Backend for SimpleBackend {
         _root: &CommitId,
         _head: &CommitId,
     ) -> BackendResult<BoxStream<'_, BackendResult<CopyRecord>>> {
-        Ok(Box::pin(stream::empty()))
+        Ok(stream::empty().boxed())
     }
 
     fn gc(&self, _index: &dyn Index, _keep_newer: SystemTime) -> BackendResult<()> {
@@ -509,11 +510,12 @@ mod tests {
 
     use super::*;
     use crate::merge::Merge;
+    use crate::tests::TestResult;
     use crate::tests::new_temp_dir;
 
     /// Test that parents get written correctly
     #[test]
-    fn write_commit_parents() {
+    fn write_commit_parents() -> TestResult {
         let temp_dir = new_temp_dir();
         let store_path = temp_dir.path();
 
@@ -543,27 +545,28 @@ mod tests {
 
         // Only root commit as parent
         commit.parents = vec![backend.root_commit_id().clone()];
-        let first_id = write_commit(commit.clone()).unwrap().0;
-        let first_commit = backend.read_commit(&first_id).block_on().unwrap();
+        let first_id = write_commit(commit.clone())?.0;
+        let first_commit = backend.read_commit(&first_id).block_on()?;
         assert_eq!(first_commit, commit);
 
         // Only non-root commit as parent
         commit.parents = vec![first_id.clone()];
-        let second_id = write_commit(commit.clone()).unwrap().0;
-        let second_commit = backend.read_commit(&second_id).block_on().unwrap();
+        let second_id = write_commit(commit.clone())?.0;
+        let second_commit = backend.read_commit(&second_id).block_on()?;
         assert_eq!(second_commit, commit);
 
         // Merge commit
         commit.parents = vec![first_id.clone(), second_id.clone()];
-        let merge_id = write_commit(commit.clone()).unwrap().0;
-        let merge_commit = backend.read_commit(&merge_id).block_on().unwrap();
+        let merge_id = write_commit(commit.clone())?.0;
+        let merge_commit = backend.read_commit(&merge_id).block_on()?;
         assert_eq!(merge_commit, commit);
 
         // Merge commit with root as one parent
         commit.parents = vec![first_id, backend.root_commit_id().clone()];
-        let root_merge_id = write_commit(commit.clone()).unwrap().0;
-        let root_merge_commit = backend.read_commit(&root_merge_id).block_on().unwrap();
+        let root_merge_id = write_commit(commit.clone())?.0;
+        let root_merge_commit = backend.read_commit(&root_merge_id).block_on()?;
         assert_eq!(root_merge_commit, commit);
+        Ok(())
     }
 
     fn create_signature() -> Signature {

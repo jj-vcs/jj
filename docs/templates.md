@@ -117,7 +117,7 @@ The following functions are defined.
   `separator` between **non-empty** `content`s.
 * `surround(prefix: Template, suffix: Template, content: Template) -> Template`:
   Surround **non-empty** content with texts such as parentheses.
-* `config(name: StringLiteral) -> Option<ConfigValue>`: Look up configuration
+* `config(name: Stringify) -> Option<ConfigValue>`: Look up configuration
    value by `name`.
 * `git_web_url([remote: String]) -> String`: Best-effort conversion of a git
   remote URL to an HTTPS web URL. Defaults to the "origin" remote. Returns an
@@ -413,6 +413,9 @@ This type cannot be printed. The following methods are defined.
 * `.time() -> TimestampRange`
 * `.user() -> String`
 * `.snapshot() -> Boolean`: True if the operation is a snapshot operation.
+* `.workspace_name() -> String`: The name of the workspace the operation was
+  created from. An empty string if the operation wasn't created from a
+  workspace.
 * `.root() -> Boolean`: True if the operation is the root operation.
 * `.parents() -> List<Operation>`
 
@@ -699,6 +702,7 @@ The following methods are defined.
 
 * `.name() -> RefSymbol`: Returns the workspace name as a symbol.
 * `.target() -> Commit`: Returns the working-copy commit of this workspace.
+* `.root() -> Template`: Returns the absolute path to the workspace root.
 
 ## Color labels
 

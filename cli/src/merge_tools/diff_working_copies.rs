@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io;
 use std::io::Write as _;
@@ -161,6 +162,7 @@ pub(crate) async fn check_out_trees(
                 enabled: false,
                 drivers: HashMap::new(),
             },
+            ignore_filters: HashSet::new(),
         };
         let mut state = TreeState::init(store.clone(), wc_path, state_dir, &tree_state_settings)?;
         state.set_sparse_patterns(changed_files.clone())?;

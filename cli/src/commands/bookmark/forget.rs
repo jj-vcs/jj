@@ -106,7 +106,8 @@ pub async fn cmd_bookmark_forget(
         .iter()
         .map(|(name, _)| name.as_symbol())
         .join(", ");
-    tx.finish(ui, format!("forget bookmark {forgotten_bookmarks}"))?;
+    tx.finish(ui, format!("forget bookmark {forgotten_bookmarks}"))
+        .await?;
     Ok(())
 }
 

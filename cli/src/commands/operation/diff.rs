@@ -34,12 +34,23 @@ use jj_lib::refs::diff_named_ref_targets;
 use jj_lib::refs::diff_named_remote_refs;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
+use jj_lib::revset;
+use jj_lib::revset::ResolvedRevsetExpression;
+use jj_lib::revset::RevsetDiagnostics;
 use jj_lib::revset::RevsetExpression;
+use jj_lib::revset::RevsetResolutionError;
+use jj_lib::revset::SymbolResolver;
+use jj_lib::revset::UserRevsetExpression;
+use jj_lib::settings::UserSettings;
 
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
+use crate::cli_util::WorkspaceCommandEnvironment;
 use crate::cli_util::default_ignored_remote_name;
 use crate::command_error::CommandError;
+use crate::command_error::config_error_with_message;
+use crate::command_error::print_parse_diagnostics;
+use crate::command_error::user_error_with_message;
 use crate::complete;
 use crate::diff_util::DiffFormatArgs;
 use crate::diff_util::DiffRenderer;
@@ -83,6 +94,13 @@ pub struct OperationDiffArgs {
 
     #[command(flatten)]
     diff_format: DiffFormatArgs,
+
+    /// Show only changed revisions matching the given revset expression
+    ///
+    /// If no revisions are specified, this defaults to the
+    /// `revsets.op-diff-changes-in` setting.
+    #[arg(long, value_name = "REVSETS")]
+    show_changes_in: Option<String>,
 }
 
 pub async fn cmd_op_diff(
@@ -133,6 +151,9 @@ pub async fn cmd_op_diff(
             .labeled(["op_diff", "commit"])
     };
 
+    let op_diff_changes_expr =
+        parse_op_diff_changes_in(ui, settings, workspace_env, args.show_changes_in.as_deref())?;
+
     let op_summary_template = workspace_command
         .operation_summary_template()
         .labeled(["op_diff"]);
@@ -150,6 +171,7 @@ pub async fn cmd_op_diff(
 
     show_op_diff(
         ui,
+        workspace_env,
         formatter.as_mut(),
         merged_repo,
         &from_repo,
@@ -158,8 +180,67 @@ pub async fn cmd_op_diff(
         (!args.no_graph).then_some(graph_style),
         &with_content_format,
         diff_renderer.as_ref(),
+        op_diff_changes_expr,
     )
     .await
+}
+
+/// Parses the revset expression used to filter revisions in operation diffs.
+pub fn parse_op_diff_changes_in(
+    ui: &Ui,
+    settings: &UserSettings,
+    workspace_env: &WorkspaceCommandEnvironment,
+    show_changes_in: Option<&str>,
+) -> Result<Arc<UserRevsetExpression>, CommandError> {
+    let (expression_str, is_config) = if let Some(show_changes_in_expr) = show_changes_in {
+        (show_changes_in_expr.to_string(), false)
+    } else {
+        (settings.get("revsets.op-diff-changes-in")?, true)
+    };
+    let mut diagnostics = RevsetDiagnostics::new();
+    let op_diff_changes_expr = revset::parse(
+        &mut diagnostics,
+        &expression_str,
+        &workspace_env.revset_parse_context(),
+    )
+    .map_err(|err| {
+        if is_config {
+            config_error_with_message("Invalid `revsets.op-diff-changes-in`", err)
+        } else {
+            user_error_with_message(
+                format!("Invalid `--show-changes-in` expression: {expression_str}"),
+                err,
+            )
+        }
+    })?;
+    let context_message = if is_config {
+        "In `revsets.op-diff-changes-in`"
+    } else {
+        "In `--show-changes-in`"
+    };
+    print_parse_diagnostics(ui, context_message, &diagnostics)?;
+    Ok(op_diff_changes_expr)
+}
+
+/// Resolves the `op-diff-changes-in` expression for both the "from" and "to"
+/// repositories.
+fn resolve_op_diff_changes_exprs(
+    workspace_env: &WorkspaceCommandEnvironment,
+    op_diff_changes_expr: &UserRevsetExpression,
+    from_repo: &ReadonlyRepo,
+    to_repo: &ReadonlyRepo,
+) -> Result<(Arc<ResolvedRevsetExpression>, Arc<ResolvedRevsetExpression>), RevsetResolutionError> {
+    let extensions = workspace_env
+        .revset_parse_context()
+        .extensions
+        .symbol_resolvers();
+    let from_repo_symbol_resolver = SymbolResolver::new(from_repo, extensions);
+    let to_repo_symbol_resolver = SymbolResolver::new(to_repo, extensions);
+    let from_op_diff_changes_expr =
+        op_diff_changes_expr.resolve_user_expression(from_repo, &from_repo_symbol_resolver)?;
+    let to_op_diff_changes_expr =
+        op_diff_changes_expr.resolve_user_expression(to_repo, &to_repo_symbol_resolver)?;
+    Ok((from_op_diff_changes_expr, to_op_diff_changes_expr))
 }
 
 /// Computes and shows the differences between two operations, using the given
@@ -169,6 +250,7 @@ pub async fn cmd_op_diff(
 #[expect(clippy::too_many_arguments)]
 pub async fn show_op_diff(
     ui: &Ui,
+    workspace_env: &WorkspaceCommandEnvironment,
     formatter: &mut dyn Formatter,
     current_repo: &dyn Repo,
     from_repo: &Arc<ReadonlyRepo>,
@@ -177,11 +259,46 @@ pub async fn show_op_diff(
     graph_style: Option<GraphStyle>,
     with_content_format: &LogContentFormat,
     diff_renderer: Option<&DiffRenderer<'_>>,
+    op_diff_changes_expr: Arc<UserRevsetExpression>,
 ) -> Result<(), CommandError> {
-    let changes = compute_operation_commits_diff(current_repo, from_repo, to_repo).await?;
-    if !changes.is_empty() {
-        let revset =
-            RevsetExpression::commits(changes.keys().cloned().collect()).evaluate(current_repo)?;
+    let op_commits_diff_result = match resolve_op_diff_changes_exprs(
+        workspace_env,
+        &op_diff_changes_expr,
+        from_repo.as_ref(),
+        to_repo.as_ref(),
+    ) {
+        Ok((from_op_diff_changes_expr, to_op_diff_changes_expr)) => {
+            let op_commits_diff = compute_operation_commits_diff(
+                current_repo,
+                from_repo,
+                to_repo,
+                from_op_diff_changes_expr,
+                to_op_diff_changes_expr,
+            )
+            .await?;
+            Some(op_commits_diff)
+        }
+        Err(err) => {
+            writeln!(formatter)?;
+            with_content_format.write(formatter, |formatter| {
+                writeln!(
+                    formatter.labeled("warning"),
+                    "Warning: Could not resolve revset expression for elision: {err}"
+                )?;
+                writeln!(
+                    formatter,
+                    "   (Use --show-changes-in=all() to see all changes)"
+                )
+            })?;
+            None
+        }
+    };
+
+    if let Some(op_commits_diff) = op_commits_diff_result
+        && op_commits_diff.has_changes()
+    {
+        let revset = RevsetExpression::commits(op_commits_diff.changes.keys().cloned().collect())
+            .evaluate(current_repo)?;
         writeln!(formatter)?;
         with_content_format.write(formatter, |formatter| {
             writeln!(formatter, "Changed commits:")
@@ -192,7 +309,7 @@ pub async fn show_op_diff(
             let graph_iter = TopoGroupedGraphIterator::new(revset.iter_graph(), |id| id);
             for node in graph_iter {
                 let (commit_id, mut edges) = node?;
-                let modified_change = changes.get(&commit_id).unwrap();
+                let modified_change = op_commits_diff.changes.get(&commit_id).unwrap();
                 // Omit "missing" edge to keep the graph concise.
                 edges.retain(|edge| !edge.is_missing());
 
@@ -229,7 +346,7 @@ pub async fn show_op_diff(
         } else {
             let mut commit_ids = revset.stream();
             while let Some(commit_id) = commit_ids.try_next().await? {
-                let modified_change = changes.get(&commit_id).unwrap();
+                let modified_change = op_commits_diff.changes.get(&commit_id).unwrap();
                 with_content_format.write(formatter, |formatter| {
                     write_modified_change_summary(
                         formatter,
@@ -243,6 +360,7 @@ pub async fn show_op_diff(
                 }
             }
         }
+        write_elided_commit_counts(formatter, with_content_format, &op_commits_diff)?;
     }
 
     let changed_working_copies = diff_named_commit_ids(
@@ -424,6 +542,39 @@ pub async fn show_op_diff(
     Ok(())
 }
 
+fn write_elided_commit_counts(
+    formatter: &mut dyn Formatter,
+    with_content_format: &LogContentFormat,
+    op_commits_diff: &OperationCommitsDiff,
+) -> Result<(), std::io::Error> {
+    let newly_visible = op_commits_diff.elided_newly_visible_estimate;
+    let newly_hidden = op_commits_diff.elided_newly_hidden_estimate;
+
+    let format_count = |(lower, maybe_upper): (usize, Option<usize>)| match (lower, maybe_upper) {
+        (0, Some(0)) => None,
+        (0, _) => Some("some".to_string()),
+        (lower, Some(upper)) if upper == lower => Some(format!("{lower}")),
+        _ => Some(format!("{lower}+")),
+    };
+
+    let parts: Vec<String> = [
+        (format_count(newly_visible), "added"),
+        (format_count(newly_hidden), "removed"),
+    ]
+    .into_iter()
+    .filter_map(|(count, label)| count.map(|c| format!("{c} newly {label}")))
+    .collect();
+
+    if parts.is_empty() {
+        return Ok(());
+    }
+
+    with_content_format.write(formatter, |formatter| {
+        writeln!(formatter, "   (Elided {} revisions)", parts.join(" and "))
+    })?;
+    Ok(())
+}
+
 /// Writes a summary for the given `ModifiedChange`.
 fn write_modified_change_summary(
     formatter: &mut dyn Formatter,
@@ -524,6 +675,21 @@ impl ModifiedChange {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct OperationCommitsDiff {
+    changes: HashMap<CommitId, ModifiedChange>,
+    elided_newly_visible_estimate: (usize, Option<usize>),
+    elided_newly_hidden_estimate: (usize, Option<usize>),
+}
+
+impl OperationCommitsDiff {
+    fn has_changes(&self) -> bool {
+        !self.changes.is_empty()
+            || self.elided_newly_visible_estimate != (0, Some(0))
+            || self.elided_newly_hidden_estimate != (0, Some(0))
+    }
+}
+
 /// Computes created/rewritten/abandoned commits between two operations.
 ///
 /// Returns a map of [`ModifiedChange`]s containing the new and old commits. For
@@ -533,12 +699,16 @@ async fn compute_operation_commits_diff(
     repo: &dyn Repo,
     from_repo: &ReadonlyRepo,
     to_repo: &ReadonlyRepo,
-) -> Result<HashMap<CommitId, ModifiedChange>, CommandError> {
+    from_op_diff_changes_expr: Arc<ResolvedRevsetExpression>,
+    to_op_diff_changes_expr: Arc<ResolvedRevsetExpression>,
+) -> Result<OperationCommitsDiff, CommandError> {
     let store = repo.store();
     let from_heads = from_repo.view().heads().iter().cloned().collect_vec();
     let to_heads = to_repo.view().heads().iter().cloned().collect_vec();
     let from_expr = RevsetExpression::commits(from_heads);
     let to_expr = RevsetExpression::commits(to_heads);
+    let newly_hidden_expr = to_expr.range(&from_expr);
+    let newly_visible_expr = from_expr.range(&to_expr);
 
     let predecessor_commits = accumulate_predecessors(
         slice::from_ref(to_repo.operation()),
@@ -546,10 +716,21 @@ async fn compute_operation_commits_diff(
     )
     .await?;
 
+    let elided_newly_visible_estimate = newly_visible_expr
+        .minus(&to_op_diff_changes_expr)
+        .evaluate(repo)?
+        .count_estimate()?;
+    let elided_newly_hidden_estimate = newly_hidden_expr
+        .minus(&from_op_diff_changes_expr)
+        .evaluate(repo)?
+        .count_estimate()?;
+
     // Collect hidden commits to find abandoned/rewritten changes.
     let mut hidden_commits_by_change: HashMap<ChangeId, CommitId> = HashMap::new();
     let mut abandoned_commits: HashSet<CommitId> = HashSet::new();
-    let newly_hidden = to_expr.range(&from_expr).evaluate(repo)?;
+    let newly_hidden = newly_hidden_expr
+        .intersection(&from_op_diff_changes_expr)
+        .evaluate(repo)?;
     for item in newly_hidden.commit_change_ids() {
         let (commit_id, change_id) = item?;
         // Just pick one if diverged. Divergent commits shouldn't be considered
@@ -562,7 +743,9 @@ async fn compute_operation_commits_diff(
 
     // For each new commit, copy/deduce predecessors based on change id.
     let mut changes: HashMap<CommitId, ModifiedChange> = HashMap::new();
-    let newly_visible = from_expr.range(&to_expr).evaluate(repo)?;
+    let newly_visible = newly_visible_expr
+        .intersection(&to_op_diff_changes_expr)
+        .evaluate(repo)?;
     for item in newly_visible.commit_change_ids() {
         let (commit_id, change_id) = item?;
         let predecessor_ids = if let Some(ids) = predecessor_commits.get(&commit_id) {
@@ -593,7 +776,11 @@ async fn compute_operation_commits_diff(
         changes.insert(commit_id, change);
     }
 
-    Ok(changes)
+    Ok(OperationCommitsDiff {
+        changes,
+        elided_newly_visible_estimate,
+        elided_newly_hidden_estimate,
+    })
 }
 
 /// Displays the diffs of a modified change.

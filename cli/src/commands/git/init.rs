@@ -211,24 +211,26 @@ async fn do_init(
             // Import refs first so all the reachable commits are indexed in
             // chronological order.
             let colocated = is_colocated_git_workspace(&workspace, &repo);
-            let repo = init_git_refs(ui, repo, command.string_args(), colocated).await?;
+            let repo =
+                init_git_refs(ui, repo, command.string_args(), &workspace, colocated).await?;
             let mut workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
-            workspace_command.maybe_snapshot(ui)?;
+            workspace_command.maybe_snapshot(ui).await?;
             maybe_set_repository_level_trunk_alias(
                 ui,
                 &git::get_git_repo(workspace_command.repo().store())?,
                 &config_env,
             )?;
             if !workspace_command.working_copy_shared_with_git() {
+                let workspace_name = workspace_command.workspace_name().to_owned();
                 let mut tx = workspace_command.start_transaction();
-                jj_lib::git::import_head(tx.repo_mut()).await?;
+                jj_lib::git::import_head(tx.repo_mut(), &workspace_name).await?;
                 if let Some(git_head_id) = tx.repo().view().git_head().as_normal().cloned() {
                     let git_head_commit = tx.repo().store().get_commit(&git_head_id)?;
                     tx.check_out(&git_head_commit)?;
                 }
                 if tx.repo().has_changes() {
-                    tx.finish(ui, "import git head")?;
+                    tx.finish(ui, "import git head").await?;
                 }
             }
             print_trackable_remote_bookmarks(ui, workspace_command.repo().view())?;
@@ -249,12 +251,13 @@ async fn init_git_refs(
     ui: &mut Ui,
     repo: Arc<ReadonlyRepo>,
     string_args: &[String],
+    workspace: &Workspace,
     colocated: bool,
 ) -> Result<Arc<ReadonlyRepo>, CommandError> {
     let git_settings = GitSettings::from_settings(repo.settings())?;
     let remote_settings = repo.settings().remote_settings()?;
     let mut import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
-    let mut tx = start_repo_transaction(&repo, string_args);
+    let mut tx = start_repo_transaction(&repo, workspace.workspace_name(), string_args);
     // There should be no old refs to abandon, but enforce it.
     import_options.abandon_unreachable_commits = false;
     let stats = git::import_refs(tx.repo_mut(), &import_options).await?;

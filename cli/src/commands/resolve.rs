@@ -82,7 +82,9 @@ pub(crate) async fn cmd_resolve(
     let mut workspace_command = command.workspace_helper(ui)?;
     let fileset_expression = workspace_command.parse_file_patterns(ui, &args.paths)?;
     let matcher = fileset_expression.to_matcher();
-    let commit = workspace_command.resolve_single_rev(ui, &args.revision)?;
+    let commit = workspace_command
+        .resolve_single_rev(ui, &args.revision)
+        .await?;
     let tree = commit.tree();
     let conflicts = tree.conflicts_matching(&matcher).collect_vec();
 
@@ -107,7 +109,7 @@ pub(crate) async fn cmd_resolve(
         .iter()
         .map(|(path, _)| path.as_ref())
         .collect_vec();
-    workspace_command.check_rewritable([commit.id()])?;
+    workspace_command.check_rewritable([commit.id()]).await?;
     let merge_editor = workspace_command.merge_editor(ui, args.tool.as_deref())?;
     let mut tx = workspace_command.start_transaction();
     let (new_tree, partial_resolution_error) =
@@ -121,7 +123,8 @@ pub(crate) async fn cmd_resolve(
     tx.finish(
         ui,
         format!("Resolve conflicts in commit {}", commit.id().hex()),
-    )?;
+    )
+    .await?;
 
     // Print conflicts that are still present after resolution if the workspace
     // working copy is not at the commit. Otherwise, the conflicting paths will
