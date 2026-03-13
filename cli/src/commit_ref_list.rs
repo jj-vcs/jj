@@ -190,9 +190,8 @@ pub fn sort(
     items: &mut [RefListItem],
     sort_keys: &[SortKey],
 ) -> BackendResult<()> {
-    let mut commits: HashMap<CommitId, Arc<backend::Commit>> = HashMap::new();
-    if sort_keys.iter().any(|key| key.is_commit_dependant()) {
-        commits = items
+    let commits = if sort_keys.iter().any(|key| key.is_commit_dependant()) {
+        items
             .iter()
             .filter_map(|item| item.primary.target().added_ids().next())
             .map(|commit_id| {
@@ -200,8 +199,10 @@ pub fn sort(
                     .get_commit(commit_id)
                     .map(|commit| (commit_id.clone(), commit.store_commit().clone()))
             })
-            .try_collect()?;
-    }
+            .try_collect()?
+    } else {
+        HashMap::new()
+    };
     sort_inner(items, sort_keys, &commits);
     Ok(())
 }
