@@ -39,6 +39,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   changes/conflicts are propagated accordingly, e.g., `jj run -- cargo check
   --all-features` or `jj run -- cargo fix` behaves as one might expect.
 
+* Add `env(name)` template function that looks up the value of a given
+  environment variable.
+
 ### Fixed bugs
 
 * `jj` now creates a new working-copy revision during snapshotting if the
