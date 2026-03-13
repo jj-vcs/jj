@@ -517,6 +517,48 @@
                     "type": "boolean",
                     "description": "Whether to colocate the working copy with the git repository",
                     "default": true
+                },
+                "filter": {
+                    "type": "object",
+                    "description": "Settings for gitattributes filter drivers (clean/smudge)",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Whether gitattributes filter support is enabled",
+                            "default": false
+                        },
+                        "drivers": {
+                            "type": "object",
+                            "description": "Filter driver definitions keyed by driver name",
+                            "additionalProperties": {
+                                "type": "object",
+                                "description": "A filter driver definition",
+                                "properties": {
+                                    "clean": {
+                                        "description": "Command to run on snapshot (working copy → store). Supports string, array, or {env, command} form. $path is substituted with the repo-relative file path.",
+                                        "oneOf": [
+                                            {"type": "string"},
+                                            {"type": "array", "items": {"type": "string"}},
+                                            {"type": "object", "properties": {"env": {"type": "object", "additionalProperties": {"type": "string"}}, "command": {"type": "array", "items": {"type": "string"}}}, "required": ["command"]}
+                                        ]
+                                    },
+                                    "smudge": {
+                                        "description": "Command to run on update (store → working copy). Supports string, array, or {env, command} form. $path is substituted with the repo-relative file path.",
+                                        "oneOf": [
+                                            {"type": "string"},
+                                            {"type": "array", "items": {"type": "string"}},
+                                            {"type": "object", "properties": {"env": {"type": "object", "additionalProperties": {"type": "string"}}, "command": {"type": "array", "items": {"type": "string"}}}, "required": ["command"]}
+                                        ]
+                                    },
+                                    "required": {
+                                        "type": "boolean",
+                                        "description": "If true, jj fails when the filter command fails. If false, filter failure is a no-op.",
+                                        "default": false
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
