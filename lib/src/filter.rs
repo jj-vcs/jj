@@ -35,6 +35,7 @@ use itertools::Itertools as _;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt as _;
 
+use crate::command_config::CommandNameAndArgs;
 use crate::config::ConfigGetError;
 use crate::gitattributes::GitAttributes;
 use crate::gitattributes::State;
@@ -51,20 +52,20 @@ pub struct FilterDriver {
     /// The command executes on snapshot, i.e., write the file from the disk to
     /// the store.
     ///
-    /// The `$path` substring will be replaced with the path of the file the
-    /// filter is working on. An empty [`Vec`] means this field is left
-    /// unspecified.
+    /// The `$path` variable will be substituted with the repo-relative path of
+    /// the file being filtered. Supports string, array, and structured
+    /// `{ env, command }` forms. `None` means this field is left unspecified.
     #[serde(default)]
-    clean: Vec<String>,
+    clean: Option<CommandNameAndArgs>,
 
     /// The command executes on update, i.e., write the file from the store to
     /// the disk.
     ///
-    /// The `$path` substring will be replaced with the path of the file the
-    /// filter is working on. An empty [`Vec`] means this field is left
-    /// unspecified.
+    /// The `$path` variable will be substituted with the repo-relative path of
+    /// the file being filtered. Supports string, array, and structured
+    /// `{ env, command }` forms. `None` means this field is left unspecified.
     #[serde(default)]
-    smudge: Vec<String>,
+    smudge: Option<CommandNameAndArgs>,
 
     /// Whether the `jj` command fails if the filter command fails.
     ///
@@ -303,11 +304,11 @@ impl FilterStrategy {
                 }),
             ));
         };
-        let command_template = match filter_type {
-            FilterType::Clean => &filter_driver.clean,
-            FilterType::Smudge => &filter_driver.smudge,
+        let command_spec = match filter_type {
+            FilterType::Clean => filter_driver.clean.as_ref(),
+            FilterType::Smudge => filter_driver.smudge.as_ref(),
         };
-        let Some(mut command) = self.create_filter_command(command_template, path) else {
+        let Some(mut command) = self.create_filter_command(command_spec, path) else {
             tracing::trace!(
                 "The {} filter driver doesn't have a {filter_type} filter. No filter conversion \
                  will be applied for {}.",
@@ -392,14 +393,17 @@ impl FilterStrategy {
             .await
     }
 
-    fn create_filter_command(&self, command: &[String], path: &RepoPath) -> Option<Command> {
-        let executable = command.first()?;
-        let args = command
-            .get(1..)?
-            .iter()
-            .map(|arg| arg.replace("$path", path.as_internal_file_string()));
-        let mut command = Command::new(executable);
-        command.args(args);
+    fn create_filter_command(
+        &self,
+        command_spec: Option<&CommandNameAndArgs>,
+        path: &RepoPath,
+    ) -> Option<Command> {
+        let spec = command_spec?;
+        let variables: std::collections::HashMap<&str, &str> =
+            [("path", path.as_internal_file_string())]
+                .into_iter()
+                .collect();
+        let mut command = spec.to_command_with_variables(&variables);
         command
             .current_dir(&self.working_copy_path)
             .stdin(Stdio::piped())

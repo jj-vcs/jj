@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::env;
@@ -20,9 +19,7 @@ use std::env::split_paths;
 use std::fmt;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::Command;
 use std::sync::Arc;
-use std::sync::LazyLock;
 use std::sync::Mutex;
 
 use etcetera::BaseStrategy as _;
@@ -43,8 +40,6 @@ use jj_lib::secure_config::LoadedSecureConfig;
 use jj_lib::secure_config::SecureConfig;
 use rand::SeedableRng as _;
 use rand_chacha::ChaCha20Rng;
-use regex::Captures;
-use regex::Regex;
 use serde::Serialize as _;
 use tracing::instrument;
 
@@ -845,107 +840,12 @@ For details, see: https://docs.jj-vcs.dev/latest/config/#automatic-tracking-of-b
     ]
 }
 
-/// Command name and arguments specified by config.
-#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize)]
-#[serde(untagged)]
-pub enum CommandNameAndArgs {
-    String(String),
-    Vec(NonEmptyCommandArgsVec),
-    Structured {
-        env: HashMap<String, String>,
-        command: NonEmptyCommandArgsVec,
-    },
-}
-
-impl CommandNameAndArgs {
-    /// Returns command name without arguments.
-    pub fn split_name(&self) -> Cow<'_, str> {
-        let (name, _) = self.split_name_and_args();
-        name
-    }
-
-    /// Returns command name and arguments.
-    ///
-    /// The command name may be an empty string (as well as each argument.)
-    pub fn split_name_and_args(&self) -> (Cow<'_, str>, Cow<'_, [String]>) {
-        match self {
-            Self::String(s) => {
-                if s.contains('"') || s.contains('\'') {
-                    let mut parts = shlex::Shlex::new(s);
-                    let res = (
-                        parts.next().unwrap_or_default().into(),
-                        parts.by_ref().collect(),
-                    );
-                    if !parts.had_error {
-                        return res;
-                    }
-                }
-                let mut args = s.split(' ').map(|s| s.to_owned());
-                (args.next().unwrap().into(), args.collect())
-            }
-            Self::Vec(NonEmptyCommandArgsVec(a)) => (Cow::Borrowed(&a[0]), Cow::Borrowed(&a[1..])),
-            Self::Structured {
-                env: _,
-                command: cmd,
-            } => (Cow::Borrowed(&cmd.0[0]), Cow::Borrowed(&cmd.0[1..])),
-        }
-    }
-
-    /// Returns command string only if the underlying type is a string.
-    ///
-    /// Use this to parse enum strings such as `":builtin"`, which can be
-    /// escaped as `[":builtin"]`.
-    pub fn as_str(&self) -> Option<&str> {
-        match self {
-            Self::String(s) => Some(s),
-            Self::Vec(_) | Self::Structured { .. } => None,
-        }
-    }
-
-    /// Returns process builder configured with this.
-    pub fn to_command(&self) -> Command {
-        let empty: HashMap<&str, &str> = HashMap::new();
-        self.to_command_with_variables(&empty)
-    }
-
-    /// Returns process builder configured with this after interpolating
-    /// variables into the arguments.
-    pub fn to_command_with_variables<V: AsRef<str>>(
-        &self,
-        variables: &HashMap<&str, V>,
-    ) -> Command {
-        let (name, args) = self.split_name_and_args();
-        let mut cmd = Command::new(interpolate_variables_single(name.as_ref(), variables));
-        if let Self::Structured { env, .. } = self {
-            cmd.envs(env);
-        }
-        cmd.args(interpolate_variables(&args, variables));
-        cmd
-    }
-}
-
-impl<T: AsRef<str> + ?Sized> From<&T> for CommandNameAndArgs {
-    fn from(s: &T) -> Self {
-        Self::String(s.as_ref().to_owned())
-    }
-}
-
-impl fmt::Display for CommandNameAndArgs {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::String(s) => write!(f, "{s}"),
-            // TODO: format with shell escapes
-            Self::Vec(a) => write!(f, "{}", a.0.join(" ")),
-            Self::Structured { env, command } => {
-                for (k, v) in env {
-                    write!(f, "{k}={v} ")?;
-                }
-                write!(f, "{}", command.0.join(" "))
-            }
-        }
-    }
-}
-
+// Re-export from jj-lib so existing cli code keeps working unchanged.
+// The canonical location is now `jj_lib::command_config`.
+pub use jj_lib::command_config::CommandNameAndArgs;
+pub use jj_lib::command_config::NonEmptyCommandArgsVec;
+pub use jj_lib::command_config::find_all_variables;
+pub use jj_lib::command_config::interpolate_variables;
 pub fn load_aliases_map<P>(
     ui: &Ui,
     config: &StackedConfig,
@@ -986,61 +886,6 @@ where
     }
     Ok(aliases_map)
 }
-
-// Not interested in $UPPER_CASE_VARIABLES
-static VARIABLE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$([a-z0-9_]+)\b").unwrap());
-
-pub fn interpolate_variables<V: AsRef<str>>(
-    args: &[String],
-    variables: &HashMap<&str, V>,
-) -> Vec<String> {
-    args.iter()
-        .map(|arg| interpolate_variables_single(arg, variables))
-        .collect()
-}
-
-fn interpolate_variables_single<V: AsRef<str>>(arg: &str, variables: &HashMap<&str, V>) -> String {
-    VARIABLE_REGEX
-        .replace_all(arg, |caps: &Captures| {
-            let name = &caps[1];
-            if let Some(subst) = variables.get(name) {
-                subst.as_ref().to_owned()
-            } else {
-                caps[0].to_owned()
-            }
-        })
-        .into_owned()
-}
-
-/// Return all variable names found in the args, without the dollar sign
-pub fn find_all_variables(args: &[String]) -> impl Iterator<Item = &str> {
-    let regex = &*VARIABLE_REGEX;
-    args.iter()
-        .flat_map(|arg| regex.find_iter(arg))
-        .map(|single_match| {
-            let s = single_match.as_str();
-            &s[1..]
-        })
-}
-
-/// Wrapper to reject an array without command name.
-// Based on https://github.com/serde-rs/serde/issues/939
-#[derive(Clone, Debug, Eq, Hash, PartialEq, serde::Deserialize)]
-#[serde(try_from = "Vec<String>")]
-pub struct NonEmptyCommandArgsVec(Vec<String>);
-
-impl TryFrom<Vec<String>> for NonEmptyCommandArgsVec {
-    type Error = &'static str;
-
-    fn try_from(args: Vec<String>) -> Result<Self, Self::Error> {
-        if args.is_empty() {
-            Err("command arguments should not be empty")
-        } else {
-            Ok(Self(args))
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::env::join_paths;
@@ -1169,9 +1014,10 @@ mod tests {
         let command_args: CommandNameAndArgs = config.get("array").unwrap();
         assert_eq!(
             command_args,
-            CommandNameAndArgs::Vec(NonEmptyCommandArgsVec(
-                ["emacs", "-nw",].map(|s| s.to_owned()).to_vec()
-            ))
+            CommandNameAndArgs::Vec(
+                NonEmptyCommandArgsVec::try_from(["emacs", "-nw",].map(|s| s.to_owned()).to_vec())
+                    .unwrap(),
+            )
         );
         let (name, args) = command_args.split_name_and_args();
         assert_eq!(name, "emacs");
@@ -1203,7 +1049,10 @@ mod tests {
                     "KEY1".to_string() => "value1".to_string(),
                     "KEY2".to_string() => "value2".to_string(),
                 },
-                command: NonEmptyCommandArgsVec(["emacs", "-nw",].map(|s| s.to_owned()).to_vec())
+                command: NonEmptyCommandArgsVec::try_from(
+                    ["emacs", "-nw",].map(|s| s.to_owned()).to_vec(),
+                )
+                .unwrap()
             }
         );
         let (name, args) = command_args.split_name_and_args();

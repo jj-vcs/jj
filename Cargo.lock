@@ -2556,6 +2556,7 @@ dependencies = [
  "same-file",
  "sapling-renderdag",
  "serde",
+ "shlex",
  "smallvec",
  "strsim",
  "tempfile",
