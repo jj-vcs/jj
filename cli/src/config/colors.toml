@@ -16,7 +16,7 @@
 
 # Unique prefixes and the rest for change & commit ids
 "prefix" = { bold = true }
-"rest" = "bright black"
+"rest" = { dim = true }
 "change_offset" = { bold = true }
 "hidden prefix" = "default"
 
@@ -42,8 +42,8 @@
 "placeholder" = "red"
 "description placeholder" = "yellow"
 "empty description placeholder" = "green"
-"separator" = "bright black"
-"elided" = "bright black"
+"separator" = { dim = true }
+"elided" = { dim = true }
 "root" = "green"
 
 "working_copy" = { bold = true }
@@ -76,11 +76,11 @@
 "config_list value" = "yellow"
 "config_list source" = "blue"
 "config_list path" = "magenta"
-"config_list overridden" = "bright black"
-"config_list overridden name" = "bright black"
-"config_list overridden value" = "bright black"
-"config_list overridden source" = "bright black"
-"config_list overridden path" = "bright black"
+"config_list overridden" = { dim = true }
+"config_list overridden name" = { dim = true }
+"config_list overridden value" = { dim = true }
+"config_list overridden source" = { dim = true }
+"config_list overridden path" = { dim = true }
 
 "diff header" = "yellow"
 "diff empty" = "cyan"
@@ -107,7 +107,7 @@
 "operation current_operation time" = "bright cyan"
 "operation current_operation tags" = "bright magenta"
 
-"node elided" = { fg = "bright black" }
+"node elided" = { dim = true }
 "node working_copy" = { fg = "green", bold = true }
 "node current_operation" = { fg = "green", bold = true }
 "node immutable" = { fg = "bright cyan", bold = true }
