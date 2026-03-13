@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::Path;
-
 use clap_complete::ArgValueCandidates;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
-use jj_lib::settings::UserSettings;
 use tracing::instrument;
 
 use super::ConfigLevelArgs;
@@ -82,7 +79,7 @@ pub async fn cmd_config_list(
     args: &ConfigListArgs,
 ) -> Result<(), CommandError> {
     let template: TemplateRenderer<AnnotatedValue> = {
-        let language = config_template_language(command.settings(), command.cwd());
+        let language = config_template_language(command);
         let text = match &args.template {
             Some(value) => value.to_owned(),
             None => command.settings().get_string("templates.config_list")?,
@@ -129,8 +126,12 @@ generic_templater::impl_self_property_wrapper!(AnnotatedValue);
 
 // AnnotatedValue will be cloned internally in the templater. If the cloning
 // cost matters, wrap it with Rc.
-fn config_template_language(settings: &UserSettings, current_dir: &Path) -> ConfigTemplateLanguage {
-    let mut language = ConfigTemplateLanguage::new(settings, current_dir);
+fn config_template_language(command: &CommandHelper) -> ConfigTemplateLanguage {
+    let mut language = ConfigTemplateLanguage::new(
+        command.config_env().env_vars(),
+        command.settings(),
+        command.cwd(),
+    );
     language.add_keyword("name", |self_property| {
         let out_property = self_property.map(|annotated| annotated.name.to_string());
         Ok(out_property.into_dyn_wrapped())

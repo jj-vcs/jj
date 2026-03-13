@@ -73,6 +73,7 @@ pub struct OperationTemplateLanguage {
     repo_loader: RepoLoader,
     current_op_id: Option<OperationId>,
     current_dir: PathBuf,
+    env_vars: HashMap<String, String>,
     build_fn_table: OperationTemplateLanguageBuildFnTable,
     cache_extensions: ExtensionsMap,
 }
@@ -84,6 +85,7 @@ impl OperationTemplateLanguage {
         repo_loader: &RepoLoader,
         current_op_id: Option<&OperationId>,
         current_dir: &Path,
+        env_vars: &HashMap<String, String>,
         extensions: &[impl AsRef<dyn OperationTemplateLanguageExtension>],
     ) -> Self {
         let mut build_fn_table = OperationTemplateLanguageBuildFnTable::builtin();
@@ -101,6 +103,7 @@ impl OperationTemplateLanguage {
             repo_loader: repo_loader.clone(),
             current_op_id: current_op_id.cloned(),
             current_dir: current_dir.to_owned(),
+            env_vars: env_vars.clone(),
             build_fn_table,
             cache_extensions,
         }
@@ -109,6 +112,10 @@ impl OperationTemplateLanguage {
 
 impl TemplateLanguage<'static> for OperationTemplateLanguage {
     type Property = OperationTemplateLanguagePropertyKind;
+
+    fn env_vars(&self) -> &HashMap<String, String> {
+        &self.env_vars
+    }
 
     fn settings(&self) -> &UserSettings {
         self.repo_loader.settings()

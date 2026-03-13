@@ -98,6 +98,8 @@ use crate::time_util;
 pub trait TemplateLanguage<'a> {
     type Property: CoreTemplatePropertyVar<'a> + 'a;
 
+    fn env_vars(&self) -> &HashMap<String, String>;
+
     fn settings(&self) -> &UserSettings;
 
     /// Returns the working directory for filesystem path template methods.
@@ -3138,6 +3140,8 @@ mod tests {
     /// Helper to set up template evaluation environment.
     struct TestTemplateEnv {
         language: TestTemplateLanguage,
+        #[allow(unused)]
+        env_vars: HashMap<String, String>,
         aliases_map: TemplateAliasesMap,
         color_rules: Vec<(Vec<String>, formatter::Style)>,
     }
@@ -3153,8 +3157,10 @@ mod tests {
 
         fn with_config_and_current_dir(config: StackedConfig, current_dir: PathBuf) -> Self {
             let settings = testutils::user_settings_from_config(config);
+            let env_vars = HashMap::new();
             Self {
-                language: TestTemplateLanguage::new(&settings, &current_dir),
+                language: TestTemplateLanguage::new(&env_vars, &settings, &current_dir),
+                env_vars,
                 aliases_map: TemplateAliasesMap::new(),
                 color_rules: Vec::new(),
             }
