@@ -26,6 +26,7 @@ use jj_lib::matchers::EverythingMatcher;
 use jj_lib::merged_tree::MergedTree;
 use jj_lib::repo::Repo as _;
 use jj_lib::repo_path::RepoPath;
+use jj_lib::repo_path::RepoPathBuf;
 use jj_lib::store::Store;
 use jj_lib::transaction::Transaction;
 use pollster::FutureExt as _;
@@ -38,18 +39,30 @@ use testutils::read_file;
 use testutils::repo_path;
 use thiserror::Error;
 
-type ReplacementKey<'a> = (&'a RepoPath, &'a [u8]);
+type ReplacementKey = (RepoPathBuf, Vec<u8>);
 
 #[derive(Clone, Debug)]
-struct TestFileFixer<'a> {
-    replacements: HashMap<ReplacementKey<'a>, &'a [u8]>,
+struct TestFileFixer {
+    replacements: HashMap<ReplacementKey, Vec<u8>>,
 }
 
-impl TestFileFixer<'_> {
+impl TestFileFixer {
     fn new() -> Self {
         Self {
             replacements: HashMap::new(),
         }
+    }
+
+    fn add_replacement(
+        &mut self,
+        repo_path: &RepoPath,
+        old_content: impl AsRef<[u8]>,
+        new_content: impl AsRef<[u8]>,
+    ) {
+        self.replacements.insert(
+            (repo_path.to_owned(), old_content.as_ref().to_vec()),
+            new_content.as_ref().to_vec(),
+        );
     }
 
     fn fix_file(
@@ -61,12 +74,8 @@ impl TestFileFixer<'_> {
 
         // We look up the key by iterating to avoid lifetime errors from
         // `HashMap::remove`. `old_content` is local and doesn't live long enough.
-        let matching_key = self
-            .replacements
-            .keys()
-            .find(|k| *k.0 == *file_to_fix.repo_path && *k.1 == old_content)
-            .copied();
-        let Some(key) = matching_key else {
+        let key = (file_to_fix.repo_path.clone(), old_content.clone());
+        let Some(new_content) = self.replacements.remove(&key) else {
             return Err(make_fix_content_error(&format!(
                 "Unexpected fix request:\npath: {}\\nold_content: {:?}\\n",
                 file_to_fix.repo_path.as_internal_file_string(),
@@ -74,7 +83,6 @@ impl TestFileFixer<'_> {
             )));
         };
 
-        let new_content = self.replacements.remove(&key).unwrap().to_vec();
         let new_file_id = store
             .write_file(&file_to_fix.repo_path, &mut new_content.as_slice())
             .block_on()
@@ -83,7 +91,7 @@ impl TestFileFixer<'_> {
     }
 }
 
-impl FileFixer for TestFileFixer<'_> {
+impl FileFixer for TestFileFixer {
     fn fix_files<'a>(
         &mut self,
         store: &Store,
@@ -147,9 +155,7 @@ fn test_fix_one_file() {
 
     let root_commits = vec![commit_a.clone()];
     let mut file_fixer = TestFileFixer::new();
-    file_fixer
-        .replacements
-        .insert((path1, b"fixme:content"), b"CONTENT");
+    file_fixer.add_replacement(path1, b"fixme:content", b"CONTENT");
 
     let include_unchanged_files = false;
     let summary = fix_files(
@@ -187,9 +193,7 @@ fn test_fixer_does_not_change_content() {
 
     let root_commits = vec![commit_a.clone()];
     let mut file_fixer = TestFileFixer::new();
-    file_fixer
-        .replacements
-        .insert((path1, b"content"), b"content");
+    file_fixer.add_replacement(path1, b"content", b"content");
 
     let include_unchanged_files = false;
     let summary = fix_files(
@@ -312,9 +316,7 @@ fn test_unchanged_file_is_fixed() {
 
     let root_commits = vec![commit_b.clone()];
     let mut file_fixer = TestFileFixer::new();
-    file_fixer
-        .replacements
-        .insert((path1, b"fixme:content"), b"CONTENT");
+    file_fixer.add_replacement(path1, b"fixme:content", b"CONTENT");
 
     let include_unchanged_files = true;
     let summary = fix_files(
@@ -357,12 +359,8 @@ fn test_already_fixed_descendant() {
 
     let root_commits = vec![commit_a.clone()];
     let mut file_fixer = TestFileFixer::new();
-    file_fixer
-        .replacements
-        .insert((path1, b"fixme:content"), b"CONTENT");
-    file_fixer
-        .replacements
-        .insert((path1, b"CONTENT"), b"CONTENT");
+    file_fixer.add_replacement(path1, b"fixme:content", b"CONTENT");
+    file_fixer.add_replacement(path1, b"CONTENT", b"CONTENT");
 
     let summary = fix_files(
         root_commits,
@@ -575,18 +573,10 @@ fn test_fix_multiple_revisions() {
 
     let root_commits = vec![commit_a.clone()];
     let mut file_fixer = TestFileFixer::new();
-    file_fixer
-        .replacements
-        .insert((path1, b"fixme:xyz"), b"XYZ");
-    file_fixer
-        .replacements
-        .insert((path2, b"content"), b"content");
-    file_fixer
-        .replacements
-        .insert((path3, b"content"), b"content");
-    file_fixer
-        .replacements
-        .insert((path4, b"content"), b"content");
+    file_fixer.add_replacement(path1, b"fixme:xyz", b"XYZ");
+    file_fixer.add_replacement(path2, b"content", b"content");
+    file_fixer.add_replacement(path3, b"content", b"content");
+    file_fixer.add_replacement(path4, b"content", b"content");
 
     let include_unchanged_files = false;
 
