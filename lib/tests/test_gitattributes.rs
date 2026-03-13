@@ -292,10 +292,225 @@ fn test_gitattr_filter_update() {
     test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &commit)
+        .block_on()
         .unwrap();
     let actual_contents = std::fs::read(file_disk_path).unwrap();
     let actual_contents = actual_contents.as_bstr();
     assert_eq!(actual_contents, "ABCDEFG\n");
+}
+
+#[test]
+/// Tests the behavior when `.gitattributes` is removed in a new commit.
+/// When checking out a commit that removes `.gitattributes`, jj uses the
+/// `TreeFileLoader` which checks *both* the old working-copy tree AND the new
+/// target tree. Because the old tree still has the filter rule, the smudge
+/// filter continues to run for files that changed in the transition.
+///
+/// This test documents the current behavior and directly addresses the
+/// maintainer review question about the tree-vs-disk fallback in
+/// gitattributes.rs.
+fn test_gitattr_filter_update_gitattributes_removed() {
+    init_tracing();
+    let mut config = base_user_config();
+    let filter_name = "fakefilter";
+    config.add_layer(
+        ConfigLayer::parse(
+            ConfigSource::User,
+            &indoc::formatdoc!(
+                r#"
+                git.filter.enabled = true
+
+                [git.filter.drivers.{filter_name}]
+                smudge = [{}, "--uppercase"]
+                "#,
+                toml::Value::String(env!("CARGO_BIN_EXE_fake-filter").to_string())
+            ),
+        )
+        .expect("Failed to parse the settings"),
+    );
+    let user_settings = UserSettings::from_config(config)
+        .expect("Failed to create the UserSettings from the config");
+    let mut test_workspace =
+        TestWorkspace::init_with_backend_and_settings(TestRepoBackend::Git, &user_settings);
+    let file_repo_path = repo_path("hello.txt");
+    let file_disk_path = file_repo_path
+        .to_fs_path(test_workspace.workspace.workspace_root())
+        .unwrap();
+
+    // Commit A: hello.txt with filter rule in .gitattributes
+    let mut tree_builder = TestTreeBuilder::new(Arc::clone(test_workspace.repo.store()));
+    tree_builder.file(file_repo_path, "hello\n");
+    tree_builder.file(
+        repo_path(".gitattributes"),
+        format!(
+            "{} filter={filter_name}\n",
+            file_repo_path.as_internal_file_string()
+        ),
+    );
+    let tree_a = tree_builder.write_merged_tree();
+    let commit_a = commit_with_tree(test_workspace.repo.store(), tree_a);
+    test_workspace
+        .workspace
+        .check_out(test_workspace.repo.op_id().clone(), None, &commit_a)
+        .block_on()
+        .unwrap();
+    // Verify smudge ran: disk has uppercase content
+    let actual_contents = std::fs::read(&file_disk_path).unwrap();
+    assert_eq!(actual_contents.as_bstr(), "HELLO\n");
+
+    // Commit B: different file content, .gitattributes removed
+    // Using different content forces jj to actually write the file during checkout.
+    let mut tree_builder = TestTreeBuilder::new(Arc::clone(test_workspace.repo.store()));
+    tree_builder.file(file_repo_path, "goodbye\n");
+    // No .gitattributes in this tree
+    let tree_b = tree_builder.write_merged_tree();
+    let commit_b = commit_with_tree(test_workspace.repo.store(), tree_b);
+
+    test_workspace
+        .workspace
+        .check_out(test_workspace.repo.op_id().clone(), None, &commit_b)
+        .block_on()
+        .unwrap();
+    let actual_contents = std::fs::read(&file_disk_path).unwrap();
+    // The smudge filter still runs because jj considers .gitattributes from the
+    // *old* working-copy tree (tree_a) when determining filter rules during
+    // checkout. Since tree_a had the filter rule, the filter is applied to the
+    // new content "goodbye\n" → "GOODBYE\n".
+    // This is the TreeFileLoader fallback behavior: both trees are consulted.
+    assert_eq!(actual_contents.as_bstr(), "GOODBYE\n");
+    // .gitattributes is removed from disk (jj deleted it per commit_b)
+    assert!(
+        !file_repo_path
+            .to_fs_path(test_workspace.workspace.workspace_root())
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join(".gitattributes")
+            .exists()
+    );
+}
+
+#[test]
+// Tests the behavior when `.gitattributes` is added in a new commit.
+// On checkout, `TreeFileLoader` consults both the old working-copy tree and the
+// new target tree. The filter rule is introduced by the target tree, so smudge
+// should run for files written during this transition.
+fn test_gitattr_filter_update_gitattributes_added() {
+    init_tracing();
+    let mut config = base_user_config();
+    let filter_name = "fakefilter";
+    config.add_layer(
+        ConfigLayer::parse(
+            ConfigSource::User,
+            &indoc::formatdoc!(
+                r#"
+                git.filter.enabled = true
+
+                [git.filter.drivers.{filter_name}]
+                smudge = [{}, "--uppercase"]
+                "#,
+                toml::Value::String(env!("CARGO_BIN_EXE_fake-filter").to_string())
+            ),
+        )
+        .expect("Failed to parse the settings"),
+    );
+    let user_settings = UserSettings::from_config(config)
+        .expect("Failed to create the UserSettings from the config");
+    let mut test_workspace =
+        TestWorkspace::init_with_backend_and_settings(TestRepoBackend::Git, &user_settings);
+    let file_repo_path = repo_path("hello.txt");
+    let file_disk_path = file_repo_path
+        .to_fs_path(test_workspace.workspace.workspace_root())
+        .unwrap();
+
+    // Commit A: hello.txt without .gitattributes
+    let mut tree_builder = TestTreeBuilder::new(Arc::clone(test_workspace.repo.store()));
+    tree_builder.file(file_repo_path, "hello\n");
+    let tree_a = tree_builder.write_merged_tree();
+    let commit_a = commit_with_tree(test_workspace.repo.store(), tree_a);
+    test_workspace
+        .workspace
+        .check_out(test_workspace.repo.op_id().clone(), None, &commit_a)
+        .block_on()
+        .unwrap();
+    let actual_contents = std::fs::read(&file_disk_path).unwrap();
+    assert_eq!(actual_contents.as_bstr(), "hello\n");
+
+    // Commit B: update file content and add filter rule in .gitattributes
+    let mut tree_builder = TestTreeBuilder::new(Arc::clone(test_workspace.repo.store()));
+    tree_builder.file(file_repo_path, "goodbye\n");
+    tree_builder.file(
+        repo_path(".gitattributes"),
+        format!(
+            "{} filter={filter_name}\n",
+            file_repo_path.as_internal_file_string()
+        ),
+    );
+    let tree_b = tree_builder.write_merged_tree();
+    let commit_b = commit_with_tree(test_workspace.repo.store(), tree_b);
+
+    test_workspace
+        .workspace
+        .check_out(test_workspace.repo.op_id().clone(), None, &commit_b)
+        .block_on()
+        .unwrap();
+    let actual_contents = std::fs::read(&file_disk_path).unwrap();
+    assert_eq!(actual_contents.as_bstr(), "GOODBYE\n");
+}
+
+#[test]
+/// Tests that when `git.filter.enabled = false`, the smudge filter does NOT run
+/// even when a filter rule is configured in `.gitattributes`.
+/// The file is written to disk with its raw stored content.
+fn test_gitattr_filter_disabled_by_settings() {
+    init_tracing();
+    let mut config = base_user_config();
+    let filter_name = "fakefilter";
+    config.add_layer(
+        ConfigLayer::parse(
+            ConfigSource::User,
+            &indoc::formatdoc!(
+                r#"
+                git.filter.enabled = false
+
+                [git.filter.drivers.{filter_name}]
+                smudge = [{}, "--uppercase"]
+                "#,
+                toml::Value::String(env!("CARGO_BIN_EXE_fake-filter").to_string())
+            ),
+        )
+        .expect("Failed to parse the settings"),
+    );
+    let user_settings = UserSettings::from_config(config)
+        .expect("Failed to create the UserSettings from the config");
+    let mut test_workspace =
+        TestWorkspace::init_with_backend_and_settings(TestRepoBackend::Git, &user_settings);
+    let file_repo_path = repo_path("test-gitattr-filter-file");
+    let file_disk_path = file_repo_path
+        .to_fs_path(test_workspace.workspace.workspace_root())
+        .unwrap();
+
+    let mut tree_builder = TestTreeBuilder::new(Arc::clone(test_workspace.repo.store()));
+    tree_builder.file(file_repo_path, "abcdefg\n");
+    tree_builder.file(
+        repo_path(".gitattributes"),
+        format!(
+            "{} filter={filter_name}\n",
+            file_repo_path.as_internal_file_string()
+        ),
+    );
+    let tree = tree_builder.write_merged_tree();
+    let commit = commit_with_tree(test_workspace.repo.store(), tree);
+    test_workspace
+        .workspace
+        .check_out(test_workspace.repo.op_id().clone(), None, &commit)
+        .block_on()
+        .unwrap();
+    let actual_contents = std::fs::read(file_disk_path).unwrap();
+    let actual_contents = actual_contents.as_bstr();
+    // Filter is disabled globally — raw stored content written to disk, no
+    // uppercase transform
+    assert_eq!(actual_contents, "abcdefg\n");
 }
 
 #[test]
@@ -343,6 +558,7 @@ fn test_gitattr_filter_update_optional_filter_failed() {
     let stats = test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &commit)
+        .block_on()
         .unwrap();
     stats.unconverted_paths.get(file_repo_path).unwrap();
     let actual_contents = std::fs::read(file_disk_path).unwrap();
@@ -395,9 +611,10 @@ fn test_gitattr_filter_update_required_filter_failed() {
             test_workspace.workspace.workspace_name().to_owned(),
             &commit,
         )
+        .block_on()
         .unwrap();
-    tx.repo_mut().rebase_descendants().unwrap();
-    test_workspace.repo = tx.commit("check out").unwrap();
+    tx.repo_mut().rebase_descendants().block_on().unwrap();
+    test_workspace.repo = tx.commit("check out").block_on().unwrap();
     let freshness = WorkingCopyFreshness::check_stale(
         test_workspace
             .workspace
@@ -407,11 +624,13 @@ fn test_gitattr_filter_update_required_filter_failed() {
         &commit,
         &test_workspace.repo,
     )
+    .block_on()
     .unwrap();
     assert_eq!(freshness, WorkingCopyFreshness::WorkingCopyStale);
     test_workspace
         .workspace
         .check_out(test_workspace.repo.op_id().clone(), None, &commit)
+        .block_on()
         .unwrap_err();
     let freshness = WorkingCopyFreshness::check_stale(
         test_workspace
@@ -422,6 +641,7 @@ fn test_gitattr_filter_update_required_filter_failed() {
         &commit,
         &test_workspace.repo,
     )
+    .block_on()
     .unwrap();
     assert_eq!(freshness, WorkingCopyFreshness::WorkingCopyStale);
 }
@@ -468,6 +688,7 @@ fn test_gitattr_filter_snapshot() {
     let tree = test_workspace.snapshot().unwrap();
     let file_id = tree
         .path_value(file_repo_path)
+        .block_on()
         .unwrap()
         .to_file_merge()
         .unwrap()
@@ -533,6 +754,7 @@ fn test_gitattr_filter_snapshot_optional_filter_failed() {
         .unwrap();
     let file_id = tree
         .path_value(file_repo_path)
+        .block_on()
         .unwrap()
         .to_file_merge()
         .unwrap()

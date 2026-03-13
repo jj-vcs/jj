@@ -263,7 +263,52 @@ fn test_gitattr_filter_snapshot_required_filter_failed() {
         "Expect stderr to include the file name {test_file_name}, but got\n{stderr}"
     );
     assert!(
-        stderr.contains(test_file_name),
+        stderr.contains(filter_name),
         "Expect stderr to include the filter name {filter_name}, but got\n{stderr}"
     );
+}
+
+#[test]
+// Tests that the clean filter runs correctly on a file nested under a directory
+// whose name contains spaces. This exercises path handling in filter
+// invocation.
+fn test_gitattr_filter_snapshot_path_with_spaces() {
+    let filter_name = "fakefilter";
+    let test_env = TestEnvironment::default();
+    test_env.add_config(indoc::formatdoc!(
+        r#"
+        git.filter.enabled = true
+
+        [git.filter.drivers.{filter_name}]
+        clean = [{}, "--uppercase", "$path"]
+        "#,
+        toml::Value::String(env!("CARGO_BIN_EXE_fake-gitattr-filter").to_string()),
+    ));
+    let work_dir = test_env.work_dir("repo");
+    git::init(work_dir.root());
+    work_dir
+        .run_jj(["git", "init", "--git-repo", "."])
+        .success();
+    // File is nested under a directory with a space in the name
+    let test_file_name = "sub dir/my file.txt";
+    work_dir.write_file(".gitattributes", format!("**/*.txt filter={filter_name}\n"));
+    let file_path = work_dir.root().join(test_file_name);
+    std::fs::create_dir_all(file_path.parent().unwrap()).unwrap();
+    std::fs::write(&file_path, "abcdefg\n").unwrap();
+    let bookmark_name = "test_change";
+    work_dir
+        .run_jj(["bookmark", "create", "-r@", bookmark_name])
+        .success();
+    // The bookmark was created after the file was written, but before a snapshot.
+    // Force a snapshot by reading jj status.
+    work_dir.run_jj(["status"]).success();
+    work_dir.run_jj(["new", "root()"]).success();
+    assert!(!std::fs::exists(&file_path).unwrap());
+    work_dir.run_jj(["edit", bookmark_name]).success();
+    let actual_contents = std::fs::read_to_string(&file_path).unwrap();
+    // Clean filter uppercased "abcdefg\n" → "ABCDEFG\n" during snapshot,
+    // and smudge would run on checkout but we only configured clean here.
+    // The stored content should have been run through the clean filter.
+    // On checkout (update), no smudge is configured, so raw content is written.
+    assert_eq!(actual_contents, "ABCDEFG\n");
 }

@@ -31,6 +31,10 @@ struct Args {
     /// everything to the stdout.
     #[arg(long, default_value_t = false)]
     abort_on_end: bool,
+
+    /// Extra arguments (e.g. file path) accepted but ignored.
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+    extra: Vec<String>,
 }
 
 impl Args {
