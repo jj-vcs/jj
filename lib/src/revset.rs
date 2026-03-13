@@ -3484,14 +3484,14 @@ pub trait RevsetIteratorExt {
     fn commits(
         self,
         store: &Arc<Store>,
-    ) -> impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<'_, Self>;
+    ) -> impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<Self>;
 }
 
 impl<I: Iterator<Item = Result<CommitId, RevsetEvaluationError>>> RevsetIteratorExt for I {
     fn commits(
         self,
         store: &Arc<Store>,
-    ) -> impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<'_, I> {
+    ) -> impl Iterator<Item = Result<Commit, RevsetEvaluationError>> + use<I> {
         let store = store.clone();
         self.map(move |result| {
             let commit_id = result?;
