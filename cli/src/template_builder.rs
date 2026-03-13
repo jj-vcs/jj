@@ -89,6 +89,8 @@ use crate::time_util;
 pub trait TemplateLanguage<'a> {
     type Property: CoreTemplatePropertyVar<'a> + 'a;
 
+    fn env_vars(&self) -> &HashMap<String, String>;
+
     fn settings(&self) -> &UserSettings;
 
     /// Translates the given global `function` call to a property.
@@ -3036,6 +3038,8 @@ mod tests {
     /// Helper to set up template evaluation environment.
     struct TestTemplateEnv {
         language: TestTemplateLanguage,
+        #[allow(unused)]
+        env_vars: HashMap<String, String>,
         aliases_map: TemplateAliasesMap,
         color_rules: Vec<(Vec<String>, formatter::Style)>,
     }
@@ -3046,9 +3050,17 @@ mod tests {
         }
 
         fn with_config(config: StackedConfig) -> Self {
+            Self::with_config_and_env_vars(config, HashMap::new())
+        }
+
+        fn with_config_and_env_vars(
+            config: StackedConfig,
+            env_vars: HashMap<String, String>,
+        ) -> Self {
             let settings = UserSettings::from_config(config).unwrap();
             Self {
-                language: TestTemplateLanguage::new(&settings),
+                language: TestTemplateLanguage::new(&env_vars, &settings),
+                env_vars,
                 aliases_map: TemplateAliasesMap::new(),
                 color_rules: Vec::new(),
             }
