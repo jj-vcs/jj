@@ -4106,6 +4106,14 @@ contents.</p>
 <span class="c1"># Dim context line numbers and contents (applies to color-words and git diffs)</span>
 <span class="s2">&quot;diff context&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">dim</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
+<p>Colors and styles can be configured differently for each diff format:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[colors]</span>
+<span class="c1"># Dim unchanged parts of changed lines in color-words diffs</span>
+<span class="s2">&quot;diff color_words removed&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">dim</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="s2">&quot;diff color_words added&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">dim</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="s2">&quot;diff color_words removed token&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">dim</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
+<span class="s2">&quot;diff color_words added token&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">dim</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
 <h3 id="diff-format">Diff format<a class="headerlink" href="#diff-format" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="k">[ui]</span>
 <span class="c1"># Builtin formats: &quot;:color-words&quot; (default), &quot;:git&quot;,</span>
