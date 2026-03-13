@@ -38,6 +38,7 @@ use jj_lib::converge::converge_change;
 use jj_lib::converge::find_divergent_changes;
 use jj_lib::files::FileMergeHunkLevel;
 use jj_lib::files::MergeOptions;
+use jj_frontend::formatter::Formatter;
 use jj_lib::merge::MergeBuilder;
 use jj_lib::merge::SameChange;
 use jj_lib::repo::ReadonlyRepo;
@@ -56,7 +57,6 @@ use crate::command_error::user_error;
 use crate::complete;
 use crate::description_util::LineNumber;
 use crate::description_util::TextEditor;
-use crate::formatter::Formatter;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 

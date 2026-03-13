@@ -2912,6 +2912,9 @@ name = "jj-frontend"
 version = "0.47.1"
 dependencies = [
  "async-trait",
+ "bstr",
+ "eyre",
+ "insta",
  "jiff 1.0.3",
  "jj-lib",
  "thiserror 2.0.21",

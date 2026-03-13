@@ -16,6 +16,8 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::io;
 
+use jj_frontend::formatter::Formatter;
+use jj_frontend::formatter::FormatterExt as _;
 use jj_lib::config::ConfigGetError;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::GraphEdgeType;
@@ -31,8 +33,6 @@ use renderdag::pipeline::coloring::build_line_id_allocator_from_rules;
 use renderdag::pipeline::row_shape_to_prefix_lines::box_drawing::Curved;
 use renderdag::pipeline::row_shape_to_prefix_lines::box_drawing::Square;
 
-use crate::formatter::Formatter;
-use crate::formatter::FormatterExt as _;
 use crate::ui::Ui;
 
 /// Color labels for graph lines, under the `graph` label. A line has the label

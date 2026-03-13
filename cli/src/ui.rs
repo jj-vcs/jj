@@ -34,16 +34,16 @@ use std::thread::JoinHandle;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::StackedConfig;
+use jj_frontend::formatter::Formatter;
+use jj_frontend::formatter::FormatterExt as _;
+use jj_frontend::formatter::HeadingLabeledWriter;
+use jj_frontend::formatter::LabeledScope;
+use jj_frontend::formatter::PlainTextFormatter;
 use tracing::instrument;
 
+use crate::color_formatter::FormatterFactory;
 use crate::command_error::CommandError;
 use crate::config::CommandNameAndArgs;
-use crate::formatter::Formatter;
-use crate::formatter::FormatterExt as _;
-use crate::formatter::FormatterFactory;
-use crate::formatter::HeadingLabeledWriter;
-use crate::formatter::LabeledScope;
-use crate::formatter::PlainTextFormatter;
 
 const BUILTIN_PAGER_NAME: &str = ":builtin";
 
