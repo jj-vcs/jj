@@ -30,13 +30,13 @@ use bstr::BString;
 use jj_lib::backend::Signature;
 use jj_lib::backend::Timestamp;
 use jj_lib::config::ConfigValue;
+use jj_lib::formatter::FormatRecorder;
+use jj_lib::formatter::Formatter;
+use jj_lib::formatter::FormatterExt as _;
+use jj_lib::formatter::LabeledScope;
+use jj_lib::formatter::PlainTextFormatter;
 use jj_lib::op_store::TimestampRange;
 
-use crate::formatter::FormatRecorder;
-use crate::formatter::Formatter;
-use crate::formatter::FormatterExt as _;
-use crate::formatter::LabeledScope;
-use crate::formatter::PlainTextFormatter;
 use crate::text_util;
 use crate::time_util;
 

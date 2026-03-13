@@ -13,14 +13,10 @@
 // limitations under the License.
 
 use std::collections::HashMap;
-use std::fmt;
 use std::io;
 use std::io::Error;
 use std::io::Write;
 use std::mem;
-use std::ops::Deref;
-use std::ops::DerefMut;
-use std::ops::Range;
 use std::sync::Arc;
 
 use crossterm::queue;
@@ -32,143 +28,11 @@ use crossterm::style::SetForegroundColor;
 use itertools::Itertools as _;
 use jj_lib::config::ConfigGetError;
 use jj_lib::config::StackedConfig;
+use jj_lib::formatter::Formatter;
+use jj_lib::formatter::PlainTextFormatter;
 use serde::de::Deserialize as _;
 use serde::de::Error as _;
 use serde::de::IntoDeserializer as _;
-
-// Lets the caller label strings and translates the labels to colors
-pub trait Formatter: Write {
-    /// Returns the backing `Write`. This is useful for writing data that is
-    /// already formatted, such as in the graphical log.
-    fn raw(&mut self) -> io::Result<Box<dyn Write + '_>>;
-
-    fn push_label(&mut self, label: &str);
-
-    fn pop_label(&mut self);
-
-    fn maybe_color(&self) -> bool;
-}
-
-impl<T: Formatter + ?Sized> Formatter for &mut T {
-    fn raw(&mut self) -> io::Result<Box<dyn Write + '_>> {
-        <T as Formatter>::raw(self)
-    }
-
-    fn push_label(&mut self, label: &str) {
-        <T as Formatter>::push_label(self, label);
-    }
-
-    fn pop_label(&mut self) {
-        <T as Formatter>::pop_label(self);
-    }
-
-    fn maybe_color(&self) -> bool {
-        <T as Formatter>::maybe_color(self)
-    }
-}
-
-impl<T: Formatter + ?Sized> Formatter for Box<T> {
-    fn raw(&mut self) -> io::Result<Box<dyn Write + '_>> {
-        <T as Formatter>::raw(self)
-    }
-
-    fn push_label(&mut self, label: &str) {
-        <T as Formatter>::push_label(self, label);
-    }
-
-    fn pop_label(&mut self) {
-        <T as Formatter>::pop_label(self);
-    }
-
-    fn maybe_color(&self) -> bool {
-        <T as Formatter>::maybe_color(self)
-    }
-}
-
-/// [`Formatter`] adapters.
-pub trait FormatterExt: Formatter {
-    fn labeled(&mut self, label: &str) -> LabeledScope<&mut Self> {
-        LabeledScope::new(self, label)
-    }
-
-    fn into_labeled(self, label: &str) -> LabeledScope<Self>
-    where
-        Self: Sized,
-    {
-        LabeledScope::new(self, label)
-    }
-}
-
-impl<T: Formatter + ?Sized> FormatterExt for T {}
-
-/// [`Formatter`] wrapper to apply a label within a lexical scope.
-#[must_use]
-pub struct LabeledScope<T: Formatter> {
-    formatter: T,
-}
-
-impl<T: Formatter> LabeledScope<T> {
-    pub fn new(mut formatter: T, label: &str) -> Self {
-        formatter.push_label(label);
-        Self { formatter }
-    }
-
-    // TODO: move to FormatterExt?
-    /// Turns into writer that prints labeled message with the `heading`.
-    pub fn with_heading<H>(self, heading: H) -> HeadingLabeledWriter<T, H> {
-        HeadingLabeledWriter::new(self, heading)
-    }
-}
-
-impl<T: Formatter> Drop for LabeledScope<T> {
-    fn drop(&mut self) {
-        self.formatter.pop_label();
-    }
-}
-
-impl<T: Formatter> Deref for LabeledScope<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.formatter
-    }
-}
-
-impl<T: Formatter> DerefMut for LabeledScope<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.formatter
-    }
-}
-
-// There's no `impl Formatter for LabeledScope<T>` so nested .labeled() calls
-// wouldn't construct `LabeledScope<LabeledScope<T>>`.
-
-/// [`Formatter`] wrapper that prints the `heading` once.
-///
-/// The `heading` will be printed within the first `write!()` or `writeln!()`
-/// invocation, which is handy because `io::Error` can be handled there.
-pub struct HeadingLabeledWriter<T: Formatter, H> {
-    formatter: LabeledScope<T>,
-    heading: Option<H>,
-}
-
-impl<T: Formatter, H> HeadingLabeledWriter<T, H> {
-    pub fn new(formatter: LabeledScope<T>, heading: H) -> Self {
-        Self {
-            formatter,
-            heading: Some(heading),
-        }
-    }
-}
-
-impl<T: Formatter, H: fmt::Display> HeadingLabeledWriter<T, H> {
-    pub fn write_fmt(&mut self, args: fmt::Arguments<'_>) -> io::Result<()> {
-        if let Some(heading) = self.heading.take() {
-            write!(self.formatter.labeled("heading"), "{heading}")?;
-        }
-        self.formatter.write_fmt(args)
-    }
-}
 
 type Rules = Vec<(Vec<String>, Style)>;
 
@@ -217,40 +81,6 @@ impl FormatterFactory {
 
     pub fn maybe_color(&self) -> bool {
         matches!(self.kind, FormatterFactoryKind::Color { .. })
-    }
-}
-
-pub struct PlainTextFormatter<W> {
-    output: W,
-}
-
-impl<W> PlainTextFormatter<W> {
-    pub fn new(output: W) -> Self {
-        Self { output }
-    }
-}
-
-impl<W: Write> Write for PlainTextFormatter<W> {
-    fn write(&mut self, data: &[u8]) -> Result<usize, Error> {
-        self.output.write(data)
-    }
-
-    fn flush(&mut self) -> Result<(), Error> {
-        self.output.flush()
-    }
-}
-
-impl<W: Write> Formatter for PlainTextFormatter<W> {
-    fn raw(&mut self) -> io::Result<Box<dyn Write + '_>> {
-        Ok(Box::new(self.output.by_ref()))
-    }
-
-    fn push_label(&mut self, _label: &str) {}
-
-    fn pop_label(&mut self) {}
-
-    fn maybe_color(&self) -> bool {
-        false
     }
 }
 
@@ -649,128 +479,6 @@ impl<W: Write> Drop for ColorFormatter<W> {
     }
 }
 
-/// Like buffered formatter, but records `push`/`pop_label()` calls.
-///
-/// This allows you to manipulate the recorded data without losing labels.
-/// The recorded data and labels can be written to another formatter. If
-/// the destination formatter has already been labeled, the recorded labels
-/// will be stacked on top of the existing labels, and the subsequent data
-/// may be colorized differently.
-#[derive(Clone, Debug)]
-pub struct FormatRecorder {
-    data: Vec<u8>,
-    ops: Vec<(usize, FormatOp)>,
-    maybe_color: bool,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-enum FormatOp {
-    PushLabel(String),
-    PopLabel,
-    RawEscapeSequence(Vec<u8>),
-}
-
-impl FormatRecorder {
-    pub fn new(maybe_color: bool) -> Self {
-        Self {
-            data: vec![],
-            ops: vec![],
-            maybe_color,
-        }
-    }
-
-    /// Creates new buffer containing the given `data`.
-    pub fn with_data(data: impl Into<Vec<u8>>) -> Self {
-        Self {
-            data: data.into(),
-            ops: vec![],
-            maybe_color: false,
-        }
-    }
-
-    pub fn data(&self) -> &[u8] {
-        &self.data
-    }
-
-    fn push_op(&mut self, op: FormatOp) {
-        self.ops.push((self.data.len(), op));
-    }
-
-    pub fn replay(&self, formatter: &mut dyn Formatter) -> io::Result<()> {
-        self.replay_with(formatter, |formatter, range| {
-            formatter.write_all(&self.data[range])
-        })
-    }
-
-    pub fn replay_with(
-        &self,
-        formatter: &mut dyn Formatter,
-        mut write_data: impl FnMut(&mut dyn Formatter, Range<usize>) -> io::Result<()>,
-    ) -> io::Result<()> {
-        let mut last_pos = 0;
-        let mut flush_data = |formatter: &mut dyn Formatter, pos| -> io::Result<()> {
-            if last_pos != pos {
-                write_data(formatter, last_pos..pos)?;
-                last_pos = pos;
-            }
-            Ok(())
-        };
-        for (pos, op) in &self.ops {
-            flush_data(formatter, *pos)?;
-            match op {
-                FormatOp::PushLabel(label) => formatter.push_label(label),
-                FormatOp::PopLabel => formatter.pop_label(),
-                FormatOp::RawEscapeSequence(raw_escape_sequence) => {
-                    formatter.raw()?.write_all(raw_escape_sequence)?;
-                }
-            }
-        }
-        flush_data(formatter, self.data.len())
-    }
-}
-
-impl Write for FormatRecorder {
-    fn write(&mut self, data: &[u8]) -> io::Result<usize> {
-        self.data.extend_from_slice(data);
-        Ok(data.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
-
-struct RawEscapeSequenceRecorder<'a>(&'a mut FormatRecorder);
-
-impl Write for RawEscapeSequenceRecorder<'_> {
-    fn write(&mut self, data: &[u8]) -> io::Result<usize> {
-        self.0.push_op(FormatOp::RawEscapeSequence(data.to_vec()));
-        Ok(data.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.0.flush()
-    }
-}
-
-impl Formatter for FormatRecorder {
-    fn raw(&mut self) -> io::Result<Box<dyn Write + '_>> {
-        Ok(Box::new(RawEscapeSequenceRecorder(self)))
-    }
-
-    fn push_label(&mut self, label: &str) {
-        self.push_op(FormatOp::PushLabel(label.to_owned()));
-    }
-
-    fn pop_label(&mut self) {
-        self.push_op(FormatOp::PopLabel);
-    }
-
-    fn maybe_color(&self) -> bool {
-        self.maybe_color
-    }
-}
-
 fn write_sanitized(output: &mut impl Write, buf: &[u8]) -> Result<(), Error> {
     if buf.contains(&b'\x1b') {
         let mut sanitized = Vec::with_capacity(buf.len());
@@ -813,28 +521,6 @@ mod tests {
         let mut output = output.into();
         output.extend_from_slice(b"[EOF]\n");
         BString::new(output)
-    }
-
-    #[test]
-    fn test_plaintext_formatter() -> TestResult {
-        // Test that PlainTextFormatter ignores labels.
-        let mut output: Vec<u8> = vec![];
-        let mut formatter = PlainTextFormatter::new(&mut output);
-        formatter.push_label("warning");
-        write!(formatter, "hello")?;
-        formatter.pop_label();
-        insta::assert_snapshot!(to_snapshot_string(output), @"hello[EOF]");
-        Ok(())
-    }
-
-    #[test]
-    fn test_plaintext_formatter_ansi_codes_in_text() -> TestResult {
-        // Test that ANSI codes in the input text are NOT escaped.
-        let mut output: Vec<u8> = vec![];
-        let mut formatter = PlainTextFormatter::new(&mut output);
-        write!(formatter, "\x1b[1mactually bold\x1b[0m")?;
-        insta::assert_snapshot!(to_snapshot_string(output), @"[1mactually bold[0m[EOF]");
-        Ok(())
     }
 
     #[test]
@@ -903,7 +589,7 @@ mod tests {
     }
 
     #[test]
-    fn test_color_for_ansi256_index() {
+    fn test_color_for_ansi256_index() -> TestResult {
         assert_eq!(
             color_for_ansi256_index("ansi-color-0"),
             Some(Color::AnsiValue(0))
@@ -921,10 +607,11 @@ mod tests {
         assert_eq!(color_for_ansi256_index("ansi-color-00"), None);
         assert_eq!(color_for_ansi256_index("ansi-color-010"), None);
         assert_eq!(color_for_ansi256_index("ansi-color-0255"), None);
+        Ok(())
     }
 
     #[test]
-    fn test_color_for_hex() {
+    fn test_color_for_hex() -> TestResult {
         assert_eq!(
             color_for_hex("#000000"),
             Some(Color::Rgb { r: 0, g: 0, b: 0 })
@@ -958,6 +645,7 @@ mod tests {
         assert_eq!(color_for_hex("0000000"), None);
         assert_eq!(color_for_hex("#00000g"), None);
         assert_eq!(color_for_hex("#á00000"), None);
+        Ok(())
     }
 
     #[test]
@@ -1227,7 +915,8 @@ mod tests {
         write!(formatter, "foo")?;
         formatter.pop_label();
         formatter.flush()?;
-        insta::assert_snapshot!(to_snapshot_string(formatter.output.clone()), @"foo[EOF]");
+        drop(formatter);
+        insta::assert_snapshot!(to_snapshot_string(output), @"foo[EOF]");
 
         let mut output: Vec<u8> = vec![];
         let mut formatter = SanitizingFormatter::new(&mut output);
@@ -1235,7 +924,8 @@ mod tests {
         write!(formatter, "foo")?;
         formatter.pop_label();
         formatter.flush()?;
-        insta::assert_snapshot!(to_snapshot_string(formatter.output.clone()), @"foo[EOF]");
+        drop(formatter);
+        insta::assert_snapshot!(to_snapshot_string(output), @"foo[EOF]");
         Ok(())
     }
 
@@ -1338,7 +1028,7 @@ mod tests {
     }
 
     #[test]
-    fn test_color_formatter_unrecognized_color() {
+    fn test_color_formatter_unrecognized_color() -> TestResult {
         // An unrecognized color causes an error.
         let config = config_from_string(
             r#"
@@ -1350,10 +1040,11 @@ mod tests {
         let err = ColorFormatter::for_config(&mut output, &config, false).unwrap_err();
         insta::assert_snapshot!(err, @r#"Invalid type or value for colors."outer inner""#);
         insta::assert_snapshot!(err.source().unwrap(), @"Invalid color: bloo");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_unrecognized_ansi256_color() {
+    fn test_color_formatter_unrecognized_ansi256_color() -> TestResult {
         // An unrecognized ANSI color causes an error.
         let config = config_from_string(
             r##"
@@ -1365,10 +1056,11 @@ mod tests {
         let err = ColorFormatter::for_config(&mut output, &config, false).unwrap_err();
         insta::assert_snapshot!(err, @r#"Invalid type or value for colors."outer inner""#);
         insta::assert_snapshot!(err.source().unwrap(), @"Invalid color: ansi-color-256");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_unrecognized_hex_color() {
+    fn test_color_formatter_unrecognized_hex_color() -> TestResult {
         // An unrecognized hex color causes an error.
         let config = config_from_string(
             r##"
@@ -1380,20 +1072,22 @@ mod tests {
         let err = ColorFormatter::for_config(&mut output, &config, false).unwrap_err();
         insta::assert_snapshot!(err, @r#"Invalid type or value for colors."outer inner""#);
         insta::assert_snapshot!(err.source().unwrap(), @"Invalid color: #ffgggg");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_invalid_type_of_color() {
+    fn test_color_formatter_invalid_type_of_color() -> TestResult {
         let config = config_from_string("colors.foo = []");
         let err = ColorFormatter::for_config(&mut Vec::new(), &config, false).unwrap_err();
         insta::assert_snapshot!(err, @"Invalid type or value for colors.foo");
         insta::assert_snapshot!(
             err.source().unwrap(),
             @"invalid type: array, expected a color name or a table of styles");
+        Ok(())
     }
 
     #[test]
-    fn test_color_formatter_invalid_type_of_style() {
+    fn test_color_formatter_invalid_type_of_style() -> TestResult {
         let config = config_from_string("colors.foo = { bold = 1 }");
         let err = ColorFormatter::for_config(&mut Vec::new(), &config, false).unwrap_err();
         insta::assert_snapshot!(err, @"Invalid type or value for colors.foo");
@@ -1401,6 +1095,7 @@ mod tests {
         invalid type: integer `1`, expected a boolean
         in `bold`
         ");
+        Ok(())
     }
 
     #[test]
@@ -1552,138 +1247,6 @@ mod tests {
             to_snapshot_string(output),
             @"[38;5;2m<<outer inner:: inside  inside two >>[39m[EOF]",
         );
-        Ok(())
-    }
-
-    #[test]
-    fn test_labeled_scope() -> TestResult {
-        let config = config_from_string(indoc! {"
-            [colors]
-            outer = 'blue'
-            inner = 'red'
-            'outer inner' = 'green'
-        "});
-        let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
-        writeln!(formatter.labeled("outer"), "outer")?;
-        writeln!(formatter.labeled("outer").labeled("inner"), "outer-inner")?;
-        writeln!(formatter.labeled("inner"), "inner")?;
-        drop(formatter);
-        insta::assert_snapshot!(to_snapshot_string(output), @"
-        [38;5;4mouter[39m
-        [38;5;2mouter-inner[39m
-        [38;5;1minner[39m
-        [EOF]
-        ");
-        Ok(())
-    }
-
-    #[test]
-    fn test_heading_labeled_writer() -> TestResult {
-        let config = config_from_string(
-            r#"
-        colors.inner = "green"
-        colors."inner heading" = "red"
-        "#,
-        );
-        let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
-        formatter.labeled("inner").with_heading("Should be noop: ");
-        let mut writer = formatter.labeled("inner").with_heading("Heading: ");
-        write!(writer, "Message")?;
-        writeln!(writer, " continues")?;
-        drop(writer);
-        drop(formatter);
-        insta::assert_snapshot!(to_snapshot_string(output), @"
-        [38;5;1mHeading: [38;5;2mMessage continues[39m
-        [EOF]
-        ");
-        Ok(())
-    }
-
-    #[test]
-    fn test_heading_labeled_writer_empty_string() -> TestResult {
-        let mut output: Vec<u8> = vec![];
-        let mut formatter = PlainTextFormatter::new(&mut output);
-        let mut writer = formatter.labeled("inner").with_heading("Heading: ");
-        // write_fmt() is called even if the format string is empty. I don't
-        // know if that's guaranteed, but let's record the current behavior.
-        write!(writer, "")?;
-        write!(writer, "")?;
-        drop(writer);
-        insta::assert_snapshot!(to_snapshot_string(output), @"Heading: [EOF]");
-        Ok(())
-    }
-
-    #[test]
-    fn test_format_recorder() -> TestResult {
-        let mut recorder = FormatRecorder::new(false);
-        write!(recorder, " outer1 ")?;
-        recorder.push_label("inner");
-        write!(recorder, " inner1 ")?;
-        write!(recorder, " inner2 ")?;
-        recorder.pop_label();
-        write!(recorder, " outer2 ")?;
-
-        insta::assert_snapshot!(
-            to_snapshot_string(recorder.data()),
-            @" outer1  inner1  inner2  outer2 [EOF]");
-
-        // Replayed output should be labeled.
-        let config = config_from_string(r#" colors.inner = "red" "#);
-        let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
-        recorder.replay(&mut formatter)?;
-        drop(formatter);
-        insta::assert_snapshot!(
-            to_snapshot_string(output),
-            @" outer1 [38;5;1m inner1  inner2 [39m outer2 [EOF]");
-
-        // Replayed output should be split at push/pop_label() call.
-        let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
-        recorder.replay_with(&mut formatter, |formatter, range| {
-            let data = &recorder.data()[range];
-            write!(formatter, "<<{}>>", str::from_utf8(data).unwrap())
-        })?;
-        drop(formatter);
-        insta::assert_snapshot!(
-            to_snapshot_string(output),
-            @"<< outer1 >>[38;5;1m<< inner1  inner2 >>[39m<< outer2 >>[EOF]");
-        Ok(())
-    }
-
-    #[test]
-    fn test_raw_format_recorder() -> TestResult {
-        // Note: similar to test_format_recorder above
-        let mut recorder = FormatRecorder::new(false);
-        write!(recorder.raw()?, " outer1 ")?;
-        recorder.push_label("inner");
-        write!(recorder.raw()?, " inner1 ")?;
-        write!(recorder.raw()?, " inner2 ")?;
-        recorder.pop_label();
-        write!(recorder.raw()?, " outer2 ")?;
-
-        // Replayed raw escape sequences are labeled.
-        let config = config_from_string(r#" colors.inner = "red" "#);
-        let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
-        recorder.replay(&mut formatter)?;
-        drop(formatter);
-        insta::assert_snapshot!(
-            to_snapshot_string(output), @" outer1 [38;5;1m inner1  inner2 [39m outer2 [EOF]");
-
-        let mut output: Vec<u8> = vec![];
-        let mut formatter = ColorFormatter::for_config(&mut output, &config, false)?;
-        recorder.replay_with(&mut formatter, |_formatter, range| {
-            panic!(
-                "Called with {:?} when all output should be raw",
-                str::from_utf8(&recorder.data()[range]).unwrap()
-            );
-        })?;
-        drop(formatter);
-        insta::assert_snapshot!(
-            to_snapshot_string(output), @" outer1 [38;5;1m inner1  inner2 [39m outer2 [EOF]");
         Ok(())
     }
 }

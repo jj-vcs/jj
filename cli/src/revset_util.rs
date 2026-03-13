@@ -27,6 +27,7 @@ use jj_lib::commit::Commit;
 use jj_lib::config::ConfigNamePathBuf;
 use jj_lib::config::ConfigSource;
 use jj_lib::config::StackedConfig;
+use jj_lib::formatter::Formatter;
 use jj_lib::id_prefix::IdPrefixContext;
 use jj_lib::ref_name::RefNameBuf;
 use jj_lib::ref_name::RemoteName;
@@ -57,7 +58,6 @@ use crate::command_error::print_parse_diagnostics;
 use crate::command_error::revset_parse_error_hint;
 use crate::command_error::user_error;
 use crate::command_error::user_error_with_message;
-use crate::formatter::Formatter;
 use crate::templater::TemplateRenderer;
 use crate::ui::Ui;
 
