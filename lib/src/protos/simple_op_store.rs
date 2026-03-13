@@ -186,6 +186,8 @@ pub struct OperationMetadata {
     pub username: ::prost::alloc::string::String,
     #[prost(bool, tag = "7")]
     pub is_snapshot: bool,
+    #[prost(string, optional, tag = "8")]
+    pub workspace_name: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(map = "string, string", tag = "6")]
     pub tags: ::std::collections::HashMap<
         ::prost::alloc::string::String,

@@ -447,6 +447,7 @@ fn operation_metadata_to_proto(
         hostname: metadata.hostname.clone(),
         username: metadata.username.clone(),
         is_snapshot: metadata.is_snapshot,
+        workspace_name: metadata.workspace_name.clone().map(Into::into),
         tags: metadata.tags.clone(),
     }
 }
@@ -458,12 +459,14 @@ fn operation_metadata_from_proto(
         start: timestamp_from_proto(proto.start_time.unwrap_or_default()),
         end: timestamp_from_proto(proto.end_time.unwrap_or_default()),
     };
+    let workspace_name = proto.workspace_name.map(Into::into);
     OperationMetadata {
         time,
         description: proto.description,
         hostname: proto.hostname,
         username: proto.username,
         is_snapshot: proto.is_snapshot,
+        workspace_name,
         tags: proto.tags,
     }
 }
@@ -1031,6 +1034,7 @@ mod tests {
                 hostname: "some.host.example.com".to_string(),
                 username: "someone".to_string(),
                 is_snapshot: false,
+                workspace_name: Some(WorkspaceNameBuf::from("test")),
                 tags: hashmap! {
                     "key1".to_string() => "value1".to_string(),
                     "key2".to_string() => "value2".to_string(),
@@ -1060,7 +1064,7 @@ mod tests {
         // Test exact output so we detect regressions in compatibility
         assert_snapshot!(
             OperationId::new(blake2b_hash(&create_operation()).to_vec()).hex(),
-            @"b544c80b5ededdd64d0f10468fa636a06b83c45d94dd9bdac95319f7fe11fee536506c5c110681dee6233e69db7647683e732939a3ec88e867250efd765fea18"
+            @"f5963c593a63bb852061a86ad919c12c6ba1940eeef30a832524c39ccea6a9f768aa2aa53becec34d379eb291ec6726837c4113857849cb9dcc62dbe0a517176"
         );
     }
 

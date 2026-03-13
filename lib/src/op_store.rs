@@ -398,6 +398,7 @@ impl Operation {
             hostname: "".to_string(),
             username: "".to_string(),
             is_snapshot: false,
+            workspace_name: None,
             tags: HashMap::new(),
         };
         Self {
@@ -423,6 +424,8 @@ pub struct OperationMetadata {
     /// Whether this operation represents a pure snapshotting of the working
     /// copy.
     pub is_snapshot: bool,
+    /// The workspace this operation was performed in, if any
+    pub workspace_name: Option<WorkspaceNameBuf>,
     pub tags: HashMap<String, String>,
 }
 

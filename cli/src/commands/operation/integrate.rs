@@ -59,7 +59,11 @@ pub async fn cmd_op_integrate(
         async |op_heads| -> Result<Operation, CommandError> {
             let base_repo = repo_loader.load_at(&op_heads[0]).await?;
             // TODO: It may be helpful to print each operation we're merging here
-            let mut tx = start_repo_transaction(&base_repo, command.string_args());
+            let mut tx = start_repo_transaction(
+                &base_repo,
+                workspace_command.workspace_name(),
+                command.string_args(),
+            );
             for other_op_head in op_heads.into_iter().skip(1) {
                 tx.merge_operation(other_op_head).await?;
                 let num_rebased = tx.repo_mut().rebase_descendants().await?;

@@ -29,7 +29,7 @@ fn test_integrate_integrated_operation() {
     insta::assert_snapshot!(output, @"");
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
-    @  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    @  90267f31f904 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]
@@ -64,8 +64,8 @@ fn test_integrate_sibling_operation() -> TestResult {
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Internal error: The repo was loaded at operation 5959e60d9534, which seems to be a sibling of the working copy's operation 98a299ea1b9b
-    Hint: Run `jj op integrate 98a299ea1b9b` to add the working copy's operation to the operation log.
+    Internal error: The repo was loaded at operation f0f64355037e, which seems to be a sibling of the working copy's operation 4f1ea5911f2f
+    Hint: Run `jj op integrate 4f1ea5911f2f` to add the working copy's operation to the operation log.
     [EOF]
     [exit status: 255]
     ");
@@ -79,16 +79,16 @@ fn test_integrate_sibling_operation() -> TestResult {
     ");
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
-    @    5fff7495e1c0 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    @    c07a58eed726 test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     ├─╮  reconcile divergent operations
-    │ │  args: jj op integrate 98a299ea1b9bd7555bec90a7abf34b877f1ad2ec45e5c0a4962115b5ac1124124524b2935fdf149cdc6634524ce54683479cc978624f84d84270f42264fe0ef9
-    ○ │  98a299ea1b9b test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │ │  args: jj op integrate 4f1ea5911f2f5d4e94a1620c9f762f33ab985d1635eb345027ed85c54bce3c085d0e0fa14c104743e26df5e565b47b2ca8c90dd7b548dbefed192b775ee2e3bc
+    ○ │  4f1ea5911f2f test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │ │  new empty commit
     │ │  args: jj new '-m=first'
-    │ ○  5959e60d9534 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │ ○  f0f64355037e test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     ├─╯  new empty commit
     │    args: jj new '-m=second' --ignore-working-copy
-    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    ○  90267f31f904 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]
@@ -132,8 +132,8 @@ fn test_integrate_rebase_descendants() -> TestResult {
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Internal error: The repo was loaded at operation 257b4e206712, which seems to be a sibling of the working copy's operation d3f34f652525
-    Hint: Run `jj op integrate d3f34f652525` to add the working copy's operation to the operation log.
+    Internal error: The repo was loaded at operation dfab2903608d, which seems to be a sibling of the working copy's operation 17c93f71a912
+    Hint: Run `jj op integrate 17c93f71a912` to add the working copy's operation to the operation log.
     [EOF]
     [exit status: 255]
     ");
@@ -148,19 +148,19 @@ fn test_integrate_rebase_descendants() -> TestResult {
     ");
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
-    @    3fe3cb32dee2 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
+    @    e9ad6c38ebf5 test-username@host.example.com 2001-02-03 04:05:12.000 +07:00 - 2001-02-03 04:05:12.000 +07:00
     ├─╮  reconcile divergent operations
-    │ │  args: jj op integrate d3f34f65252510f8e5c0cde929355401acd24be8498869ec70296063a464fd16a1adb9474e4c208a82adaa4316455645808c7ad980239720dfd16a2860e761d8
-    ○ │  d3f34f652525 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │ │  args: jj op integrate 17c93f71a9128fbc6c2a7ea7a310efc2f6e476638b58caed13735a7b2e20a6c6dae9dcc84795dd7cca1eecf38ae2812e0216f46430250b1ce3aef4330522012c
+    ○ │  17c93f71a912 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     │ │  new empty commit
     │ │  args: jj new '-m=child 2'
-    │ ○  257b4e206712 test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
+    │ ○  dfab2903608d test-username@host.example.com 2001-02-03 04:05:10.000 +07:00 - 2001-02-03 04:05:10.000 +07:00
     ├─╯  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     │    args: jj describe '-m=parent' --ignore-working-copy
-    ○  e4002698050b test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    ○  78dcb3cf0b64 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │  new empty commit
     │  args: jj new --no-edit '-m=child 1'
-    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    ○  90267f31f904 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]
@@ -210,8 +210,8 @@ fn test_integrate_concurrent_operations() -> TestResult {
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
     ------- stderr -------
-    Internal error: The repo was loaded at operation 8975ceb25594, which seems to be a sibling of the working copy's operation c22efcff0067
-    Hint: Run `jj op integrate c22efcff0067` to add the working copy's operation to the operation log.
+    Internal error: The repo was loaded at operation e18a1a944247, which seems to be a sibling of the working copy's operation 1bc121d24e06
+    Hint: Run `jj op integrate 1bc121d24e06` to add the working copy's operation to the operation log.
     [EOF]
     [exit status: 255]
     ");
@@ -225,16 +225,16 @@ fn test_integrate_concurrent_operations() -> TestResult {
     ");
     let output = work_dir.run_jj(["op", "log"]);
     insta::assert_snapshot!(output, @"
-    @    12fbf26d0f0b test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
+    @    da91ff6e5aec test-username@host.example.com 2001-02-03 04:05:11.000 +07:00 - 2001-02-03 04:05:11.000 +07:00
     ├─╮  reconcile divergent operations
-    │ │  args: jj op integrate c22efcff00672e0f82ca4a19b9b37c4910dcfc5a5ab017312720438121a4ef1d4de1dd5608bbd3044c309f6edf388cf08377fcfdab23e765e8a14eb896e85209
-    ○ │  c22efcff0067 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
+    │ │  args: jj op integrate 1bc121d24e06835c4c22e5f02b623c1deffec8b1bbf68a41e1f0b720d116c6b931e5588fcd262ea41962a4d5e746de19d23323ca08baa13cd0b5bc25402242ff
+    ○ │  1bc121d24e06 test-username@host.example.com 2001-02-03 04:05:08.000 +07:00 - 2001-02-03 04:05:08.000 +07:00
     │ │  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     │ │  args: jj describe '-m=left'
-    │ ○  8975ceb25594 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
+    │ ○  e18a1a944247 test-username@host.example.com 2001-02-03 04:05:09.000 +07:00 - 2001-02-03 04:05:09.000 +07:00
     ├─╯  describe commit e8849ae12c709f2321908879bc724fdb2ab8a781
     │    args: jj describe '-m=right' --ignore-working-copy
-    ○  8f47435a3990 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
+    ○  90267f31f904 test-username@host.example.com 2001-02-03 04:05:07.000 +07:00 - 2001-02-03 04:05:07.000 +07:00
     │  add workspace 'default'
     ○  000000000000 root()
     [EOF]

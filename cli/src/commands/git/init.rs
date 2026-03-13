@@ -211,7 +211,8 @@ async fn do_init(
             // Import refs first so all the reachable commits are indexed in
             // chronological order.
             let colocated = is_colocated_git_workspace(&workspace, &repo);
-            let repo = init_git_refs(ui, repo, command.string_args(), colocated).await?;
+            let repo =
+                init_git_refs(ui, repo, command.string_args(), &workspace, colocated).await?;
             let mut workspace_command = command.for_workable_repo(ui, workspace, repo)?;
             maybe_add_gitignore(&workspace_command)?;
             workspace_command.maybe_snapshot(ui).await?;
@@ -249,12 +250,13 @@ async fn init_git_refs(
     ui: &mut Ui,
     repo: Arc<ReadonlyRepo>,
     string_args: &[String],
+    workspace: &Workspace,
     colocated: bool,
 ) -> Result<Arc<ReadonlyRepo>, CommandError> {
     let git_settings = GitSettings::from_settings(repo.settings())?;
     let remote_settings = repo.settings().remote_settings()?;
     let mut import_options = load_git_import_options(ui, &git_settings, &remote_settings)?;
-    let mut tx = start_repo_transaction(&repo, string_args);
+    let mut tx = start_repo_transaction(&repo, workspace.workspace_name(), string_args);
     // There should be no old refs to abandon, but enforce it.
     import_options.abandon_unreachable_commits = false;
     let stats = git::import_refs(tx.repo_mut(), &import_options).await?;

@@ -45,7 +45,7 @@ fn test_bisect_run_empty_revset() -> TestResult {
     std::fs::write(&bisection_script, ["fail"].join("\0"))?;
     insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=none()", &bisector_path]), @"
     Search complete. To discard any revisions created during search, run:
-      jj op restore 8f47435a3990
+      jj op restore 90267f31f904
     [EOF]
     ------- stderr -------
     Error: Could not find the first bad revision. Was the input range empty?
@@ -71,7 +71,7 @@ fn test_bisect_run() -> TestResult {
     create_commit(&work_dir, "f", &["e"]);
 
     std::fs::write(&bisection_script, ["fail"].join("\0"))?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
     fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
@@ -83,7 +83,7 @@ fn test_bisect_run() -> TestResult {
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 9152b6b19cce
+      jj op restore 6f4b9c7057b1
     The first bad revision is: rlvkpnrz 7d980be7 a | a
     [EOF]
     ------- stderr -------
@@ -151,7 +151,7 @@ fn test_bisect_run_find_first_good() {
     create_commit(&work_dir, "e", &["d"]);
     create_commit(&work_dir, "f", &["e"]);
 
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--find-good", &bisector_path]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--find-good", &bisector_path]), @"
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
     fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
@@ -163,7 +163,7 @@ fn test_bisect_run_find_first_good() {
     The revision is good.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 9152b6b19cce
+      jj op restore 6f4b9c7057b1
     The first good revision is: rlvkpnrz 7d980be7 a | a
     [EOF]
     ------- stderr -------
@@ -249,7 +249,7 @@ fn test_bisect_run_with_args() {
     create_commit(&work_dir, "e", &["d"]);
     create_commit(&work_dir, "f", &["e"]);
 
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--find-good", "--", &bisector_path, "--require-file=c"]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", "--find-good", "--", &bisector_path, "--require-file=c"]), @"
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
     fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
@@ -266,7 +266,7 @@ fn test_bisect_run_with_args() {
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 9152b6b19cce
+      jj op restore 6f4b9c7057b1
     The first good revision is: royxmykx dffaa0d4 c | c
     [EOF]
     ------- stderr -------
@@ -312,7 +312,7 @@ fn test_bisect_run_crash() -> TestResult {
 
     // bisector crash is equivalent to a failure
     std::fs::write(&bisection_script, ["crash"].join("\0"))?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
     Bisecting: 5 revisions left to test after this (roughly 3 steps)
     Now evaluating: royxmykx dffaa0d4 c | c
     fake-bisector testing commit dffaa0d4daccf6cee70bac3498fae3b3fd5d6b5b
@@ -324,7 +324,7 @@ fn test_bisect_run_crash() -> TestResult {
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 9152b6b19cce
+      jj op restore 6f4b9c7057b1
     The first bad revision is: rlvkpnrz 7d980be7 a | a
     [EOF]
     ------- stderr -------
@@ -353,14 +353,14 @@ fn test_bisect_run_abort() -> TestResult {
 
     // stop immediately on failure
     std::fs::write(&bisection_script, ["abort"].join("\0"))?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
     Bisecting: 2 revisions left to test after this (roughly 2 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     Evaluation command returned 127 (command not found) - aborting bisection.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 3b48f5aca4df
+      jj op restore e229f77ca8de
     [EOF]
     ------- stderr -------
     Working copy  (@) now at: vruxwmqv 538d9e7f (empty) (no description set)
@@ -386,14 +386,14 @@ fn test_bisect_run_skip() -> TestResult {
     create_commit(&work_dir, "b", &["a"]);
 
     std::fs::write(&bisection_script, ["skip"].join("\0"))?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
     Bisecting: 1 revisions left to test after this (roughly 1 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
     It could not be determined if the revision is good or bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 9cc40e5398a9
+      jj op restore 07d6c9360663
     The first bad revision is: zsuskuln 123b4d91 b | b
     [EOF]
     ------- stderr -------
@@ -419,7 +419,7 @@ fn test_bisect_run_multiple_results() {
     create_commit(&work_dir, "c", &["a"]);
     create_commit(&work_dir, "d", &["c"]);
 
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=a|b|c|d", &bisector_path]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=a|b|c|d", &bisector_path]), @"
     Bisecting: 2 revisions left to test after this (roughly 2 steps)
     Now evaluating: rlvkpnrz 7d980be7 a | a
     fake-bisector testing commit 7d980be7a1d499e4d316ab4c01242885032f7eaf
@@ -431,7 +431,7 @@ fn test_bisect_run_multiple_results() {
     The revision is good.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore d750de12e02a
+      jj op restore 854a7d496ee7
     The first bad revisions are:
     vruxwmqv a2dbb1aa d | d
     zsuskuln 123b4d91 b | b
@@ -465,7 +465,7 @@ fn test_bisect_run_write_file() -> TestResult {
         &bisection_script,
         ["write new-file\nsome contents", "fail"].join("\0"),
     )?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
     Bisecting: 4 revisions left to test after this (roughly 3 steps)
     Now evaluating: zsuskuln 123b4d91 b | b
     fake-bisector testing commit 123b4d91f6e5e39bfed39bae3bacf9380dc79078
@@ -477,7 +477,7 @@ fn test_bisect_run_write_file() -> TestResult {
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 156d8a1abcb8
+      jj op restore 621116e08872
     The first bad revision is: rlvkpnrz 7d980be7 a | a
     [EOF]
     ------- stderr -------
@@ -531,7 +531,7 @@ fn test_bisect_run_jj_command() -> TestResult {
     create_commit(&work_dir, "e", &["d"]);
 
     std::fs::write(&bisection_script, ["jj new -mtesting", "fail"].join("\0"))?;
-    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @r"
+    insta::assert_snapshot!(work_dir.run_jj(["bisect", "run", "--range=..", &bisector_path]), @"
     Bisecting: 4 revisions left to test after this (roughly 3 steps)
     Now evaluating: zsuskuln 123b4d91 b | b
     fake-bisector testing commit 123b4d91f6e5e39bfed39bae3bacf9380dc79078
@@ -543,7 +543,7 @@ fn test_bisect_run_jj_command() -> TestResult {
     The revision is bad.
 
     Search complete. To discard any revisions created during search, run:
-      jj op restore 156d8a1abcb8
+      jj op restore 621116e08872
     The first bad revision is: rlvkpnrz 7d980be7 a | a
     [EOF]
     ------- stderr -------

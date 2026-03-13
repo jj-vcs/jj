@@ -484,7 +484,8 @@ impl CommandHelper {
         ui: &Ui,
     ) -> Result<WorkspaceCommandHelper, CommandError> {
         let workspace = self.load_workspace()?;
-        let op_head = self.resolve_operation(ui, workspace.repo_loader())?;
+        let op_head =
+            self.resolve_operation(ui, workspace.repo_loader(), workspace.workspace_name())?;
         let repo = workspace.repo_loader().load_at(&op_head).block_on()?;
         let mut env = self.workspace_environment(ui, &workspace)?;
         if let Err(err) =
@@ -697,6 +698,7 @@ impl CommandHelper {
         &self,
         ui: &Ui,
         repo_loader: &RepoLoader,
+        workspace_name: &WorkspaceName,
     ) -> Result<Operation, CommandError> {
         if let Some(op_str) = &self.data.global_args.at_operation {
             Ok(op_walk::resolve_op_for_load(repo_loader, op_str).block_on()?)
@@ -711,7 +713,8 @@ impl CommandHelper {
                     )?;
                     let base_repo = repo_loader.load_at(&op_heads[0]).block_on()?;
                     // TODO: It may be helpful to print each operation we're merging here
-                    let mut tx = start_repo_transaction(&base_repo, &self.data.string_args);
+                    let mut tx =
+                        start_repo_transaction(&base_repo, workspace_name, &self.data.string_args);
                     for other_op_head in op_heads.into_iter().skip(1) {
                         tx.merge_operation(other_op_head).await?;
                         let num_rebased = tx.repo_mut().rebase_descendants().await?;
@@ -1211,7 +1214,7 @@ impl WorkspaceCommandHelper {
                 let op = self
                     .env
                     .command
-                    .resolve_operation(ui, repo.loader())
+                    .resolve_operation(ui, repo.loader(), self.workspace_name())
                     .map_err(snapshot_command_error)?;
                 let current_repo = repo
                     .loader()
@@ -1999,8 +2002,11 @@ to the current parents may contain changes from multiple commits.
                 .map_err(snapshot_command_error)?
         };
         if new_tree.tree_ids_and_labels() != wc_commit.tree().tree_ids_and_labels() {
-            let mut tx =
-                start_repo_transaction(&self.user_repo.repo, self.env.command.string_args());
+            let mut tx = start_repo_transaction(
+                &self.user_repo.repo,
+                &workspace_name,
+                self.env.command.string_args(),
+            );
             tx.set_is_snapshot(true);
             let mut_repo = tx.repo_mut();
             let commit = mut_repo
@@ -2132,7 +2138,11 @@ to the current parents may contain changes from multiple commits.
     }
 
     pub fn start_transaction(&mut self) -> WorkspaceCommandTransaction<'_> {
-        let tx = start_repo_transaction(self.repo(), self.env.command.string_args());
+        let tx = start_repo_transaction(
+            self.repo(),
+            self.workspace_name(),
+            self.env.command.string_args(),
+        );
         let id_prefix_context = mem::take(&mut self.user_repo.id_prefix_context);
         WorkspaceCommandTransaction {
             helper: self,
@@ -2697,8 +2707,13 @@ jj git init",
     }
 }
 
-pub fn start_repo_transaction(repo: &Arc<ReadonlyRepo>, string_args: &[String]) -> Transaction {
+pub fn start_repo_transaction(
+    repo: &Arc<ReadonlyRepo>,
+    workspace_name: &WorkspaceName,
+    string_args: &[String],
+) -> Transaction {
     let mut tx = repo.start_transaction();
+    tx.set_workspace_name(workspace_name);
     // TODO: Either do better shell-escaping here or store the values in some list
     // type (which we currently don't have).
     let shell_escape = |arg: &String| {
