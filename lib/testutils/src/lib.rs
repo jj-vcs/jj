@@ -83,6 +83,11 @@ pub mod git;
 pub mod proptest;
 pub mod test_backend;
 
+#[ctor::ctor]
+fn init_color_eyre() {
+    drop(color_eyre::install());
+}
+
 /// Convenient return type for test functions.
 pub type TestResult = eyre::Result<()>;
 
