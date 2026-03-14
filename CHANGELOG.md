@@ -31,6 +31,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed bugs
 
+* `.gitignore` with UTF-8 BOM can now be parsed correctly.
+
 ## [0.39.0] - 2026-03-04
 
 ### Release highlights

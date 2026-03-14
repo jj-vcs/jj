@@ -68,7 +68,7 @@ impl GitIgnoreFile {
         input: &[u8],
     ) -> Result<Arc<Self>, GitIgnoreError> {
         let mut builder = gitignore::GitignoreBuilder::new(prefix);
-        for (i, input_line) in input.split(|b| *b == b'\n').enumerate() {
+        for (i, input_line) in strip_bom(input).split(|b| *b == b'\n').enumerate() {
             if input_line.starts_with(b"#") {
                 continue;
             }
@@ -151,6 +151,10 @@ impl GitIgnoreFile {
         };
         self.matches_helper(path, is_dir)
     }
+}
+
+fn strip_bom(text: &[u8]) -> &[u8] {
+    text.strip_prefix("\u{feff}".as_bytes()).unwrap_or(text)
 }
 
 #[cfg(test)]
@@ -406,6 +410,12 @@ mod tests {
         assert!(!matches(b"a/x**y/b\n", "a/b"));
         assert!(matches(b"a/x**y/b\n", "a/xy/b"));
         assert!(matches(b"a/x**y/b\n", "a/xzzzy/b"));
+    }
+
+    #[test]
+    fn test_gitignore_with_utf8_bom() {
+        assert!(matches(b"\xef\xbb\xbffoo\n", "foo"));
+        assert!(!matches(b"\n\xef\xbb\xbffoo\n", "foo"));
     }
 
     #[test]
