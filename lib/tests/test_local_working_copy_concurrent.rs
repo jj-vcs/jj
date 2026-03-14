@@ -61,11 +61,10 @@ fn test_concurrent_checkout() -> TestResult {
             &workspace1_root,
             &test_workspace1.env.default_store_factories(),
             &default_working_copy_factories(),
-        )
-        .unwrap();
+        )?;
         // Reload commit from the store associated with the workspace
         let repo = ws2.repo_loader().load_at(repo.operation()).block_on()?;
-        let commit2 = repo.store().get_commit(commit2.id()).unwrap();
+        let commit2 = repo.store().get_commit(commit2.id())?;
         ws2.check_out(repo.op_id().clone(), Some(&tree1), &commit2)
             .block_on()?;
     }
@@ -83,9 +82,8 @@ fn test_concurrent_checkout() -> TestResult {
         &workspace1_root,
         &test_workspace1.env.default_store_factories(),
         &default_working_copy_factories(),
-    )
-    .unwrap();
-    assert_tree_eq!(*ws3.working_copy().tree().unwrap(), tree2);
+    )?;
+    assert_tree_eq!(*ws3.working_copy().tree()?, tree2);
     Ok(())
 }
 
@@ -183,13 +181,13 @@ fn test_racy_checkout() -> TestResult {
         let ws = &mut test_workspace.workspace;
         ws.check_out(op_id.clone(), None, &commit).block_on()?;
         assert_eq!(
-            std::fs::read(path.to_fs_path_unchecked(&workspace_root)).unwrap(),
+            std::fs::read(path.to_fs_path_unchecked(&workspace_root))?,
             b"1".to_vec()
         );
         // A file written right after checkout (hopefully, from the test's perspective,
         // within the file system timestamp granularity) is detected as changed.
         write_working_copy_file(&workspace_root, path, "x");
-        let modified_tree = test_workspace.snapshot().unwrap();
+        let modified_tree = test_workspace.snapshot()?;
         if modified_tree.tree_ids() == tree.tree_ids() {
             num_matches += 1;
         }

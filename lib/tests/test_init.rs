@@ -67,7 +67,7 @@ fn test_init_internal_git() -> TestResult {
     );
     assert!(git_backend.git_workdir().is_none());
     assert_eq!(
-        std::fs::read_to_string(repo_path.join("store").join("git_target")).unwrap(),
+        std::fs::read_to_string(repo_path.join("store").join("git_target"))?,
         "git"
     );
 
@@ -89,7 +89,7 @@ fn test_init_colocated_git() -> TestResult {
     assert_eq!(git_backend.git_repo_path(), canonical.join(".git"));
     assert_eq!(git_backend.git_workdir(), Some(canonical.as_ref()));
     assert_eq!(
-        std::fs::read_to_string(repo_path.join("store").join("git_target")).unwrap(),
+        std::fs::read_to_string(repo_path.join("store").join("git_target"))?,
         "../../../.git"
     );
 
@@ -106,7 +106,7 @@ fn test_init_external_git() -> TestResult {
     let (canonical, uncanonical) = canonicalize(temp_dir.path());
     let git_repo_path = uncanonical.join("git");
     git::init(&git_repo_path);
-    std::fs::create_dir(uncanonical.join("jj")).unwrap();
+    std::fs::create_dir(uncanonical.join("jj"))?;
     let (workspace, repo) = Workspace::init_external_git(
         &settings,
         &uncanonical.join("jj"),
@@ -205,7 +205,7 @@ fn test_init_load_non_utf8_path() -> TestResult {
 
     // Workspace can be created
     let workspace_root = test_env.root().join(OsStr::from_bytes(b"jj\xe0"));
-    std::fs::create_dir(&workspace_root).unwrap();
+    std::fs::create_dir(&workspace_root)?;
     Workspace::init_external_git(&settings, &workspace_root, &git_repo_path.join(".git"))
         .block_on()?;
 
@@ -215,8 +215,7 @@ fn test_init_load_non_utf8_path() -> TestResult {
         &workspace_root,
         &test_env.default_store_factories(),
         &default_working_copy_factories(),
-    )
-    .unwrap();
+    )?;
 
     // Just test that we can write a commit to the store
     let repo = workspace.repo_loader().load_at_head().block_on()?;

@@ -391,7 +391,7 @@ fn test_index_commits_previous_operations() -> TestResult {
 
     // Delete index from disk
     let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
-    default_index_store.reinit().unwrap();
+    default_index_store.reinit()?;
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     let index = as_readonly_index(&repo);
@@ -447,7 +447,7 @@ fn test_index_commits_hidden_but_referenced() -> TestResult {
 
     // Delete index from disk
     let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
-    default_index_store.reinit().unwrap();
+    default_index_store.reinit()?;
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     // All commits should be reindexed
@@ -675,7 +675,7 @@ fn test_reindex_no_segments_dir() -> TestResult {
     // jj <= 0.14 doesn't have "segments" directory
     let segments_dir = test_repo.repo_path().join("index").join("segments");
     assert!(segments_dir.is_dir());
-    fs::remove_dir_all(&segments_dir).unwrap();
+    fs::remove_dir_all(&segments_dir)?;
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
     assert!(index_has_id(repo.index(), commit_a.id()));
@@ -696,15 +696,15 @@ fn test_reindex_corrupt_segment_files() -> TestResult {
 
     // Corrupt the index files
     let segments_dir = test_repo.repo_path().join("index").join("segments");
-    for entry in segments_dir.read_dir().unwrap() {
-        let entry = entry.unwrap();
+    for entry in segments_dir.read_dir()? {
+        let entry = entry?;
         // u32: file format version
         // u32: parent segment file name length (0 means root)
         // u32: number of local commit entries
         // u32: number of local change ids
         // u32: number of overflow parent entries
         // u32: number of overflow change id positions
-        fs::write(entry.path(), b"\0".repeat(24)).unwrap();
+        fs::write(entry.path(), b"\0".repeat(24))?;
     }
 
     let repo = test_env.load_repo_at_head(&settings, test_repo.repo_path());
@@ -749,7 +749,7 @@ fn test_reindex_from_merged_operation() -> TestResult {
 
     let op_links_dir = test_repo.repo_path().join("index").join("op_links");
     for &op_id in &op_ids_to_delete {
-        fs::remove_file(op_links_dir.join(op_id.hex())).unwrap();
+        fs::remove_file(op_links_dir.join(op_id.hex()))?;
     }
 
     // When re-indexing, one of the merge parent operations will be selected as
@@ -786,7 +786,7 @@ fn test_reindex_missing_commit() -> TestResult {
     // Reindexing error should include the operation id where the commit
     // couldn't be found.
     let default_index_store: &DefaultIndexStore = repo.index_store().downcast_ref().unwrap();
-    default_index_store.reinit().unwrap();
+    default_index_store.reinit()?;
     let err = default_index_store
         .build_index_at_operation(repo.operation(), repo.store())
         .block_on()

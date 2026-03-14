@@ -546,7 +546,7 @@ fn test_reparent_discarding_predecessors(op_stores_commit_predecessors: bool) ->
     assert_eq!(repo_2.view().heads().len(), 2);
     assert_eq!(repo_3.view().heads().len(), 2);
     assert_eq!(repo_4.view().heads().len(), 1);
-    assert_eq!(repo_4.index().all_heads_for_gc().unwrap().count(), 3);
+    assert_eq!(repo_4.index().all_heads_for_gc()?.count(), 3);
     assert_eq!(
         repo_4.operation().stores_commit_predecessors(),
         op_stores_commit_predecessors
@@ -691,17 +691,11 @@ fn test_resolve_op_id() -> TestResult {
     let resolve = |op_str: &str| op_walk::resolve_op_for_load(repo_loader, op_str).block_on();
 
     // Full id
-    assert_eq!(resolve(&operations[0].id().hex()).unwrap(), operations[0]);
+    assert_eq!(resolve(&operations[0].id().hex())?, operations[0]);
     // Short id, odd length
-    assert_eq!(
-        resolve(&operations[0].id().hex()[..3]).unwrap(),
-        operations[0]
-    );
+    assert_eq!(resolve(&operations[0].id().hex()[..3])?, operations[0]);
     // Short id, even length
-    assert_eq!(
-        resolve(&operations[1].id().hex()[..2]).unwrap(),
-        operations[1]
-    );
+    assert_eq!(resolve(&operations[1].id().hex()[..2])?, operations[1]);
     // Ambiguous id
     assert_matches!(
         resolve("6"),
@@ -725,9 +719,9 @@ fn test_resolve_op_id() -> TestResult {
     );
     // Virtual root id
     let root_operation = loader.root_operation().block_on();
-    assert_eq!(resolve(&root_operation.id().hex()).unwrap(), root_operation);
-    assert_eq!(resolve("00").unwrap(), root_operation);
-    assert_eq!(resolve("0e").unwrap(), operations[4]);
+    assert_eq!(resolve(&root_operation.id().hex())?, root_operation);
+    assert_eq!(resolve("00")?, root_operation);
+    assert_eq!(resolve("0e")?, operations[4]);
     assert_matches!(
         resolve("0"),
         Err(OpsetEvaluationError::OpsetResolution(

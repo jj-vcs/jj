@@ -52,7 +52,7 @@ fn test_init_additional_workspace() -> TestResult {
 
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws2_root = test_workspace.root_dir().join("ws2_root");
-    std::fs::create_dir(&ws2_root).unwrap();
+    std::fs::create_dir(&ws2_root)?;
     let (ws2, repo) = Workspace::init_workspace_with_existing_repo(
         &ws2_root,
         test_workspace.repo_path(),
@@ -64,7 +64,7 @@ fn test_init_additional_workspace() -> TestResult {
     let wc_commit_id = repo.view().get_wc_commit_id(&ws2_name);
     assert_ne!(wc_commit_id, None);
     let wc_commit_id = wc_commit_id.unwrap();
-    let wc_commit = repo.store().get_commit(wc_commit_id).unwrap();
+    let wc_commit = repo.store().get_commit(wc_commit_id)?;
     assert_eq!(
         wc_commit.parent_ids(),
         vec![repo.store().root_commit_id().clone()]
@@ -72,16 +72,13 @@ fn test_init_additional_workspace() -> TestResult {
     assert_eq!(ws2.workspace_name(), &ws2_name);
     assert_eq!(
         *ws2.repo_path(),
-        dunce::canonicalize(workspace.repo_path()).unwrap()
+        dunce::canonicalize(workspace.repo_path())?
     );
-    assert_eq!(
-        *ws2.workspace_root(),
-        dunce::canonicalize(&ws2_root).unwrap()
-    );
+    assert_eq!(*ws2.workspace_root(), dunce::canonicalize(&ws2_root)?);
 
     let repo_file_path = ws2_root.join(".jj").join("repo");
-    let repo_file_contents = std::fs::read(&repo_file_path).unwrap();
-    let stored_path = String::from_utf8(repo_file_contents).unwrap();
+    let repo_file_contents = std::fs::read(&repo_file_path)?;
+    let stored_path = String::from_utf8(repo_file_contents)?;
     assert_eq!(stored_path, "../../repo/.jj/repo");
 
     let same_workspace = Workspace::load(
@@ -91,11 +88,11 @@ fn test_init_additional_workspace() -> TestResult {
         &default_working_copy_factories(),
     );
     assert!(same_workspace.is_ok());
-    let same_workspace = same_workspace.unwrap();
+    let same_workspace = same_workspace?;
     assert_eq!(same_workspace.workspace_name(), &ws2_name);
     assert_eq!(
         *same_workspace.repo_path(),
-        dunce::canonicalize(workspace.repo_path()).unwrap()
+        dunce::canonicalize(workspace.repo_path())?
     );
     assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
     Ok(())
@@ -109,7 +106,7 @@ fn test_init_additional_workspace_absolute_path_compat() -> TestResult {
 
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws2_root = test_workspace.root_dir().join("ws2_root");
-    std::fs::create_dir(&ws2_root).unwrap();
+    std::fs::create_dir(&ws2_root)?;
     let (ws2, _repo) = Workspace::init_workspace_with_existing_repo(
         &ws2_root,
         test_workspace.repo_path(),
@@ -120,12 +117,11 @@ fn test_init_additional_workspace_absolute_path_compat() -> TestResult {
     .block_on()?;
 
     let repo_file_path = ws2_root.join(".jj").join("repo");
-    let abs_repo_path = dunce::canonicalize(workspace.repo_path()).unwrap();
+    let abs_repo_path = dunce::canonicalize(workspace.repo_path())?;
     std::fs::write(
         &repo_file_path,
         abs_repo_path.as_os_str().as_encoded_bytes(),
-    )
-    .unwrap();
+    )?;
 
     let same_workspace = Workspace::load(
         &settings,
@@ -134,7 +130,7 @@ fn test_init_additional_workspace_absolute_path_compat() -> TestResult {
         &default_working_copy_factories(),
     );
     assert!(same_workspace.is_ok());
-    let same_workspace = same_workspace.unwrap();
+    let same_workspace = same_workspace?;
     assert_eq!(same_workspace.workspace_name(), &ws2_name);
     assert_eq!(*same_workspace.repo_path(), abs_repo_path);
     assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
@@ -160,12 +156,12 @@ fn test_init_additional_workspace_non_utf8_path() -> TestResult {
     }
 
     let ws1_root = test_env.root().join(OsStr::from_bytes(b"ws1_root\xe0"));
-    std::fs::create_dir(&ws1_root).unwrap();
+    std::fs::create_dir(&ws1_root)?;
     let (ws1, repo) = Workspace::init_simple(&settings, &ws1_root).block_on()?;
 
     let ws2_name = WorkspaceNameBuf::from("ws2");
     let ws2_root = test_env.root().join(OsStr::from_bytes(b"ws2_root\xe0"));
-    std::fs::create_dir(&ws2_root).unwrap();
+    std::fs::create_dir(&ws2_root)?;
     let (ws2, _repo) = Workspace::init_workspace_with_existing_repo(
         &ws2_root,
         ws1.repo_path(),
@@ -175,25 +171,19 @@ fn test_init_additional_workspace_non_utf8_path() -> TestResult {
     )
     .block_on()?;
     assert_eq!(ws2.workspace_name(), &ws2_name);
-    assert_eq!(
-        *ws2.repo_path(),
-        dunce::canonicalize(ws1.repo_path()).unwrap()
-    );
-    assert_eq!(
-        *ws2.workspace_root(),
-        dunce::canonicalize(&ws2_root).unwrap()
-    );
+    assert_eq!(*ws2.repo_path(), dunce::canonicalize(ws1.repo_path())?);
+    assert_eq!(*ws2.workspace_root(), dunce::canonicalize(&ws2_root)?);
     let same_workspace = Workspace::load(
         &settings,
         &ws2_root,
         &test_env.default_store_factories(),
         &default_working_copy_factories(),
     );
-    let same_workspace = same_workspace.unwrap();
+    let same_workspace = same_workspace?;
     assert_eq!(same_workspace.workspace_name(), &ws2_name);
     assert_eq!(
         *same_workspace.repo_path(),
-        dunce::canonicalize(ws1.repo_path()).unwrap()
+        dunce::canonicalize(ws1.repo_path())?
     );
     assert_eq!(same_workspace.workspace_root(), ws2.workspace_root());
     Ok(())

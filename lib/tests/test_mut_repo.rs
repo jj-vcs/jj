@@ -515,9 +515,7 @@ fn test_has_changed() -> TestResult {
     let commit2 = write_random_commit(mut_repo);
     mut_repo.remove_head(commit2.id());
     let ws_name = WorkspaceName::DEFAULT.to_owned();
-    mut_repo
-        .set_wc_commit(ws_name.clone(), commit1.id().clone())
-        .unwrap();
+    mut_repo.set_wc_commit(ws_name.clone(), commit1.id().clone())?;
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit1.id().clone()));
     mut_repo.set_remote_bookmark(
         remote_symbol("main", "origin"),
@@ -531,9 +529,7 @@ fn test_has_changed() -> TestResult {
     let mut_repo = tx.repo_mut();
 
     mut_repo.add_head(&commit1).block_on()?;
-    mut_repo
-        .set_wc_commit(ws_name.clone(), commit1.id().clone())
-        .unwrap();
+    mut_repo.set_wc_commit(ws_name.clone(), commit1.id().clone())?;
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit1.id().clone()));
     mut_repo.set_remote_bookmark(
         remote_symbol("main", "origin"),
@@ -551,13 +547,9 @@ fn test_has_changed() -> TestResult {
     mut_repo.remove_head(commit2.id());
     assert!(!mut_repo.has_changes());
 
-    mut_repo
-        .set_wc_commit(ws_name.clone(), commit2.id().clone())
-        .unwrap();
+    mut_repo.set_wc_commit(ws_name.clone(), commit2.id().clone())?;
     assert!(mut_repo.has_changes());
-    mut_repo
-        .set_wc_commit(ws_name, commit1.id().clone())
-        .unwrap();
+    mut_repo.set_wc_commit(ws_name, commit1.id().clone())?;
     assert!(!mut_repo.has_changes());
 
     mut_repo.set_local_bookmark_target("main".as_ref(), RefTarget::normal(commit2.id().clone()));
@@ -776,7 +768,7 @@ fn test_reparent_descendants() -> TestResult {
             // All commits except "b", and "child_b" have been reparented while keeping
             // their content.
             assert_ne!(commit.id(), &rewritten_id);
-            let rewritten_commit = repo.store().get_commit(&rewritten_id).unwrap();
+            let rewritten_commit = repo.store().get_commit(&rewritten_id)?;
             assert_eq!(commit.tree_ids(), rewritten_commit.tree_ids());
             let (parent_ids, rewritten_parent_ids) =
                 (commit.parent_ids(), rewritten_commit.parent_ids());
