@@ -68,7 +68,7 @@ fn test_sparse_checkout() -> TestResult {
     let ws = &mut test_workspace.workspace;
 
     // Set sparse patterns to only dir1/
-    let mut locked_ws = ws.start_working_copy_mutation().unwrap();
+    let mut locked_ws = ws.start_working_copy_mutation()?;
     let sparse_patterns = to_owned_path_vec(&[dir1_path]);
     let stats = locked_ws
         .locked_wc()
@@ -83,10 +83,7 @@ fn test_sparse_checkout() -> TestResult {
             skipped_files: 0,
         }
     );
-    assert_eq!(
-        locked_ws.locked_wc().sparse_patterns().unwrap(),
-        sparse_patterns
-    );
+    assert_eq!(locked_ws.locked_wc().sparse_patterns()?, sparse_patterns);
     assert!(
         !root_file1_path
             .to_fs_path_unchecked(&working_copy_path)
@@ -122,10 +119,10 @@ fn test_sparse_checkout() -> TestResult {
     locked_ws.finish(repo.op_id().clone()).block_on()?;
     let wc: &LocalWorkingCopy = ws.working_copy().downcast_ref().unwrap();
     assert_eq!(
-        wc.file_states().unwrap().paths().collect_vec(),
+        wc.file_states()?.paths().collect_vec(),
         vec![dir1_file1_path, dir1_file2_path, dir1_subdir1_file1_path]
     );
-    assert_eq!(wc.sparse_patterns().unwrap(), sparse_patterns);
+    assert_eq!(wc.sparse_patterns()?, sparse_patterns);
 
     // Reload the state to check that it was persisted
     let wc = LocalWorkingCopy::load(
@@ -133,16 +130,15 @@ fn test_sparse_checkout() -> TestResult {
         ws.workspace_root().to_path_buf(),
         wc.state_path().to_path_buf(),
         repo.settings(),
-    )
-    .unwrap();
+    )?;
     assert_eq!(
-        wc.file_states().unwrap().paths().collect_vec(),
+        wc.file_states()?.paths().collect_vec(),
         vec![dir1_file1_path, dir1_file2_path, dir1_subdir1_file1_path]
     );
-    assert_eq!(wc.sparse_patterns().unwrap(), sparse_patterns);
+    assert_eq!(wc.sparse_patterns()?, sparse_patterns);
 
     // Set sparse patterns to file2, dir1/subdir1/ and dir2/
-    let mut locked_wc = wc.start_mutation().unwrap();
+    let mut locked_wc = wc.start_mutation()?;
     let sparse_patterns = to_owned_path_vec(&[root_file1_path, dir1_subdir1_path, dir2_path]);
     let stats = locked_wc
         .set_sparse_patterns(sparse_patterns.clone())
@@ -156,7 +152,7 @@ fn test_sparse_checkout() -> TestResult {
             skipped_files: 0,
         }
     );
-    assert_eq!(locked_wc.sparse_patterns().unwrap(), sparse_patterns);
+    assert_eq!(locked_wc.sparse_patterns()?, sparse_patterns);
     assert!(
         root_file1_path
             .to_fs_path_unchecked(&working_copy_path)
@@ -190,7 +186,7 @@ fn test_sparse_checkout() -> TestResult {
     let wc = locked_wc.finish(repo.op_id().clone()).block_on()?;
     let wc: &LocalWorkingCopy = wc.downcast_ref().unwrap();
     assert_eq!(
-        wc.file_states().unwrap().paths().collect_vec(),
+        wc.file_states()?.paths().collect_vec(),
         vec![dir1_subdir1_file1_path, dir2_file1_path, root_file1_path]
     );
     Ok(())
@@ -226,10 +222,7 @@ fn test_sparse_commit() -> TestResult {
         .block_on()?;
 
     // Set sparse patterns to only dir1/
-    let mut locked_ws = test_workspace
-        .workspace
-        .start_working_copy_mutation()
-        .unwrap();
+    let mut locked_ws = test_workspace.workspace.start_working_copy_mutation()?;
     let sparse_patterns = to_owned_path_vec(&[dir1_path]);
     locked_ws
         .locked_wc()
@@ -242,23 +235,20 @@ fn test_sparse_commit() -> TestResult {
     std::fs::write(
         root_file1_path.to_fs_path_unchecked(&working_copy_path),
         "modified",
-    )
-    .unwrap();
+    )?;
     std::fs::write(
         dir1_file1_path.to_fs_path_unchecked(&working_copy_path),
         "modified",
-    )
-    .unwrap();
-    std::fs::create_dir(dir2_path.to_fs_path_unchecked(&working_copy_path)).unwrap();
+    )?;
+    std::fs::create_dir(dir2_path.to_fs_path_unchecked(&working_copy_path))?;
     std::fs::write(
         dir2_file1_path.to_fs_path_unchecked(&working_copy_path),
         "modified",
-    )
-    .unwrap();
+    )?;
 
     // Create a tree from the working copy. Only dir1/file1 should be updated in the
     // tree.
-    let modified_tree = test_workspace.snapshot().unwrap();
+    let modified_tree = test_workspace.snapshot()?;
     let diff: Vec<_> = tree
         .diff_stream(&modified_tree, &EverythingMatcher)
         .collect()
@@ -267,10 +257,7 @@ fn test_sparse_commit() -> TestResult {
     assert_eq!(diff[0].path.as_ref(), dir1_file1_path);
 
     // Set sparse patterns to also include dir2/
-    let mut locked_ws = test_workspace
-        .workspace
-        .start_working_copy_mutation()
-        .unwrap();
+    let mut locked_ws = test_workspace.workspace.start_working_copy_mutation()?;
     let sparse_patterns = to_owned_path_vec(&[dir1_path, dir2_path]);
     locked_ws
         .locked_wc()
@@ -280,7 +267,7 @@ fn test_sparse_commit() -> TestResult {
 
     // Create a tree from the working copy. Only dir1/file1 and dir2/file1 should be
     // updated in the tree.
-    let modified_tree = test_workspace.snapshot().unwrap();
+    let modified_tree = test_workspace.snapshot()?;
     let diff: Vec<_> = tree
         .diff_stream(&modified_tree, &EverythingMatcher)
         .collect()
@@ -303,10 +290,7 @@ fn test_sparse_commit_gitignore() -> TestResult {
     let dir1_file2_path = repo_path("dir1/file2");
 
     // Set sparse patterns to only dir1/
-    let mut locked_ws = test_workspace
-        .workspace
-        .start_working_copy_mutation()
-        .unwrap();
+    let mut locked_ws = test_workspace.workspace.start_working_copy_mutation()?;
     let sparse_patterns = to_owned_path_vec(&[dir1_path]);
     locked_ws
         .locked_wc()
@@ -315,22 +299,20 @@ fn test_sparse_commit_gitignore() -> TestResult {
     locked_ws.finish(repo.op_id().clone()).block_on()?;
 
     // Write dir1/file1 and dir1/file2 and a .gitignore saying to ignore dir1/file1
-    std::fs::write(working_copy_path.join(".gitignore"), "dir1/file1").unwrap();
-    std::fs::create_dir(dir1_path.to_fs_path_unchecked(&working_copy_path)).unwrap();
+    std::fs::write(working_copy_path.join(".gitignore"), "dir1/file1")?;
+    std::fs::create_dir(dir1_path.to_fs_path_unchecked(&working_copy_path))?;
     std::fs::write(
         dir1_file1_path.to_fs_path_unchecked(&working_copy_path),
         "contents",
-    )
-    .unwrap();
+    )?;
     std::fs::write(
         dir1_file2_path.to_fs_path_unchecked(&working_copy_path),
         "contents",
-    )
-    .unwrap();
+    )?;
 
     // Create a tree from the working copy. Only dir1/file2 should be updated in the
     // tree because dir1/file1 is ignored.
-    let modified_tree = test_workspace.snapshot().unwrap();
+    let modified_tree = test_workspace.snapshot()?;
     let entries = modified_tree.entries().collect_vec();
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].0.as_ref(), dir1_file2_path);

@@ -1202,7 +1202,7 @@ mod tests {
         let tree = tree_builder.write_merged_tree();
 
         let merge_tool_file = MergeToolFile::from_tree_and_path(&tree, file_path).block_on()?;
-        let merge_file = make_merge_file(&merge_tool_file, store.merge_options()).unwrap();
+        let merge_file = make_merge_file(&merge_tool_file, store.merge_options())?;
         let tree = apply_merge_builtin(store, &tree, vec![file_path.to_owned()], &[merge_file])
             .block_on()?;
 
@@ -2095,7 +2095,7 @@ mod tests {
         ]);
         let content = extract_as_single_hunk(&merge, store, path).block_on()?;
         let merge_result = files::merge_hunks(&content, store.merge_options());
-        let sections = make_merge_sections(merge_result).unwrap();
+        let sections = make_merge_sections(merge_result)?;
         insta::assert_debug_snapshot!(sections, @r#"
         [
             Changed {

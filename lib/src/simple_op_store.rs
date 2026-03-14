@@ -1070,7 +1070,7 @@ mod tests {
         let root_data = RootOperationData {
             root_commit_id: CommitId::from_hex("000000"),
         };
-        let store = SimpleOpStore::init(temp_dir.path(), root_data).unwrap();
+        let store = SimpleOpStore::init(temp_dir.path(), root_data)?;
         let view = create_view();
         let view_id = store.write_view(&view).block_on()?;
         let read_view = store.read_view(&view_id).block_on()?;
@@ -1084,7 +1084,7 @@ mod tests {
         let root_data = RootOperationData {
             root_commit_id: CommitId::from_hex("000000"),
         };
-        let store = SimpleOpStore::init(temp_dir.path(), root_data).unwrap();
+        let store = SimpleOpStore::init(temp_dir.path(), root_data)?;
         let operation = create_operation();
         let op_id = store.write_operation(&operation).block_on()?;
         let read_operation = store.read_operation(&op_id).block_on()?;

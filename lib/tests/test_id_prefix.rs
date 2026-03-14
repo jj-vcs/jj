@@ -172,7 +172,7 @@ fn test_id_prefix() -> TestResult {
     // Without a disambiguation revset
     // ---------------------------------------------------------------------------------------------
     let context = IdPrefixContext::default();
-    let index = context.populate(repo.as_ref()).unwrap();
+    let index = context.populate(repo.as_ref())?;
 
     assert_eq!(shortest_commit_prefix_len(&index, commits[7].id()), 2);
     assert_eq!(shortest_commit_prefix_len(&index, commits[16].id()), 1);
@@ -204,7 +204,7 @@ fn test_id_prefix() -> TestResult {
     let expression =
         RevsetExpression::commits(vec![commits[7].id().clone(), commits[2].id().clone()]);
     let context = context.disambiguate_within(expression);
-    let index = context.populate(repo.as_ref()).unwrap();
+    let index = context.populate(repo.as_ref())?;
     // The prefix is now shorter
     assert_eq!(shortest_commit_prefix_len(&index, commits[7].id()), 1);
     // Shorter prefix within the set can be used
@@ -231,7 +231,7 @@ fn test_id_prefix() -> TestResult {
     // ---------------------------------------------------------------------------------------------
     let expression = RevsetExpression::commit(root_commit_id.clone());
     let context = context.disambiguate_within(expression);
-    let index = context.populate(repo.as_ref()).unwrap();
+    let index = context.populate(repo.as_ref())?;
     assert_eq!(shortest_commit_prefix_len(&index, root_commit_id), 1);
     assert_eq!(resolve_commit_prefix(&index, prefix("")), AmbiguousMatch);
     assert_eq!(
@@ -332,7 +332,7 @@ fn test_id_prefix_divergent() -> TestResult {
     // Without a disambiguation revset
     // --------------------------------
     let context = IdPrefixContext::default();
-    let index = context.populate(repo.as_ref()).unwrap();
+    let index = context.populate(repo.as_ref())?;
     assert_eq!(
         shortest_change_prefix_len(&index, commits[0].change_id()),
         3
@@ -362,7 +362,7 @@ fn test_id_prefix_divergent() -> TestResult {
     // ----------------------------------------------------------------------
     let expression = RevsetExpression::commits(vec![second_commit.id().clone()]);
     let context = context.disambiguate_within(expression);
-    let index = context.populate(repo.as_ref()).unwrap();
+    let index = context.populate(repo.as_ref())?;
     // The prefix is now shorter
     assert_eq!(
         shortest_change_prefix_len(&index, second_commit.change_id()),
@@ -491,7 +491,7 @@ fn test_id_prefix_hidden() -> TestResult {
     // Without a disambiguation revset
     // --------------------------------
     let context = IdPrefixContext::default();
-    let index = context.populate(repo.as_ref()).unwrap();
+    let index = context.populate(repo.as_ref())?;
     assert_eq!(shortest_commit_prefix_len(&index, hidden_commit.id()), 2);
     assert_eq!(
         shortest_change_prefix_len(&index, hidden_commit.change_id()),
@@ -518,7 +518,7 @@ fn test_id_prefix_hidden() -> TestResult {
     // --------------------------
     let expression = RevsetExpression::commit(hidden_commit.id().clone());
     let context = context.disambiguate_within(expression);
-    let index = context.populate(repo.as_ref()).unwrap();
+    let index = context.populate(repo.as_ref())?;
     assert_eq!(shortest_commit_prefix_len(&index, hidden_commit.id()), 1);
     assert_eq!(
         shortest_change_prefix_len(&index, hidden_commit.change_id()),

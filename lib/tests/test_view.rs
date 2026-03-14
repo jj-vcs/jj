@@ -153,55 +153,42 @@ fn test_merge_views_checkout() -> TestResult {
     let ws7_name = WorkspaceNameBuf::from("ws7");
     initial_tx
         .repo_mut()
-        .set_wc_commit(ws1_name.clone(), commit1.id().clone())
-        .unwrap();
+        .set_wc_commit(ws1_name.clone(), commit1.id().clone())?;
     initial_tx
         .repo_mut()
-        .set_wc_commit(ws2_name.clone(), commit1.id().clone())
-        .unwrap();
+        .set_wc_commit(ws2_name.clone(), commit1.id().clone())?;
     initial_tx
         .repo_mut()
-        .set_wc_commit(ws3_name.clone(), commit1.id().clone())
-        .unwrap();
+        .set_wc_commit(ws3_name.clone(), commit1.id().clone())?;
     initial_tx
         .repo_mut()
-        .set_wc_commit(ws4_name.clone(), commit1.id().clone())
-        .unwrap();
+        .set_wc_commit(ws4_name.clone(), commit1.id().clone())?;
     initial_tx
         .repo_mut()
-        .set_wc_commit(ws5_name.clone(), commit1.id().clone())
-        .unwrap();
+        .set_wc_commit(ws5_name.clone(), commit1.id().clone())?;
     let repo = initial_tx.commit("test").block_on()?;
 
     let mut tx1 = repo.start_transaction();
     tx1.repo_mut()
-        .set_wc_commit(ws1_name.clone(), commit2.id().clone())
-        .unwrap();
+        .set_wc_commit(ws1_name.clone(), commit2.id().clone())?;
     tx1.repo_mut()
-        .set_wc_commit(ws2_name.clone(), commit2.id().clone())
-        .unwrap();
+        .set_wc_commit(ws2_name.clone(), commit2.id().clone())?;
     tx1.repo_mut().remove_wc_commit(&ws4_name).block_on()?;
     tx1.repo_mut()
-        .set_wc_commit(ws5_name.clone(), commit2.id().clone())
-        .unwrap();
+        .set_wc_commit(ws5_name.clone(), commit2.id().clone())?;
     tx1.repo_mut()
-        .set_wc_commit(ws6_name.clone(), commit2.id().clone())
-        .unwrap();
+        .set_wc_commit(ws6_name.clone(), commit2.id().clone())?;
 
     let mut tx2 = repo.start_transaction();
     tx2.repo_mut()
-        .set_wc_commit(ws1_name.clone(), commit3.id().clone())
-        .unwrap();
+        .set_wc_commit(ws1_name.clone(), commit3.id().clone())?;
     tx2.repo_mut()
-        .set_wc_commit(ws3_name.clone(), commit3.id().clone())
-        .unwrap();
+        .set_wc_commit(ws3_name.clone(), commit3.id().clone())?;
     tx2.repo_mut()
-        .set_wc_commit(ws4_name.clone(), commit3.id().clone())
-        .unwrap();
+        .set_wc_commit(ws4_name.clone(), commit3.id().clone())?;
     tx2.repo_mut().remove_wc_commit(&ws5_name).block_on()?;
     tx2.repo_mut()
-        .set_wc_commit(ws7_name.clone(), commit3.id().clone())
-        .unwrap();
+        .set_wc_commit(ws7_name.clone(), commit3.id().clone())?;
 
     let repo = commit_transactions(vec![tx1, tx2]);
 
@@ -621,7 +608,7 @@ fn test_merge_views_child_on_rewritten(child_first: bool) -> TestResult {
     let heads = repo.view().heads();
     assert_eq!(heads.len(), 1);
     let b2_id = heads.iter().next().unwrap();
-    let commit_b2 = repo.store().get_commit(b2_id).unwrap();
+    let commit_b2 = repo.store().get_commit(b2_id)?;
     assert_eq!(commit_b2.change_id(), commit_b.change_id());
     assert_eq!(commit_b2.parent_ids(), vec![commit_a2.id().clone()]);
     Ok(())
@@ -672,7 +659,7 @@ fn test_merge_views_child_on_rewritten_divergent(
         assert_eq!(heads.len(), 2);
         assert!(heads.remove(commit_a3.id()));
         let b2_id = heads.iter().next().unwrap();
-        let commit_b2 = repo.store().get_commit(b2_id).unwrap();
+        let commit_b2 = repo.store().get_commit(b2_id)?;
         assert_eq!(commit_b2.change_id(), commit_b.change_id());
         assert_eq!(commit_b2.parent_ids(), vec![commit_a4.id().clone()]);
     } else {
@@ -714,7 +701,7 @@ fn test_merge_views_child_on_abandoned(child_first: bool) -> TestResult {
     let heads = repo.view().heads();
     assert_eq!(heads.len(), 1);
     let id_c2 = heads.iter().next().unwrap();
-    let commit_c2 = repo.store().get_commit(id_c2).unwrap();
+    let commit_c2 = repo.store().get_commit(id_c2)?;
     assert_eq!(commit_c2.change_id(), commit_c.change_id());
     assert_eq!(commit_c2.parent_ids(), vec![commit_a.id().clone()]);
     Ok(())
